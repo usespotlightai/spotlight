@@ -72,7 +72,6 @@ export function SearchPage({
         sidePanel={
           <CandidateDetailOf
             at={at}
-            searchId={search.id}
             chosen={chosen}
             live={search.seed}
             currency={search.budget.ceiling.currency}

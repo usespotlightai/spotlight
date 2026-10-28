@@ -18,7 +18,7 @@ interface NoticeState {
   readonly id: NoticeId;
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
-  readonly addressee: UserId;
+  readonly addressee: UserId | null;
   readonly form: NoticeForm;
   readonly subject: string;
   readonly link: NoticeLink;
@@ -35,7 +35,7 @@ export class Notice {
     id: NoticeId;
     workspaceId: WorkspaceId;
     teamId: TeamId;
-    addressee: UserId;
+    addressee: UserId | null;
     form: NoticeForm;
     subject: string;
     link: NoticeLink;
@@ -86,7 +86,7 @@ export class Notice {
     return this.state.teamId;
   }
 
-  get addressee(): UserId {
+  get addressee(): UserId | null {
     return this.state.addressee;
   }
 
@@ -119,7 +119,7 @@ export class Notice {
   }
 
   isFor(person: UserId): boolean {
-    return this.state.addressee.equals(person);
+    return this.state.addressee?.equals(person) ?? true;
   }
 
   resolve(at: Date): Notice {

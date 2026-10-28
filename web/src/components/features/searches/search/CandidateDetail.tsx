@@ -3,7 +3,7 @@ import { CandidateChanges } from '@/components/features/searches/search/Candidat
 import { CandidateHeading } from '@/components/features/searches/search/CandidateHeading';
 import { CandidateReplayLinks } from '@/components/features/searches/search/CandidateReplayLinks';
 import { CandidateResults } from '@/components/features/searches/search/CandidateResults';
-import { PickCandidate } from '@/components/features/searches/search/PickCandidate';
+import { PickedPullRequest } from '@/components/features/searches/search/PickedPullRequest';
 import { PaneSection } from '@/components/shared/PaneSection';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -25,7 +25,6 @@ const CANDIDATE_PANE: PaneConfig = {
 
 type CandidateDetailProps = {
   at: ReplayedStation;
-  searchId: string;
   candidate: SearchCandidate;
   live: SearchCandidate;
   currency: string;
@@ -36,7 +35,6 @@ type CandidateDetailProps = {
 
 export function CandidateDetail({
   at,
-  searchId,
   candidate,
   live,
   currency,
@@ -92,11 +90,7 @@ export function CandidateDetail({
           />
         </PaneSection>
 
-        <PickCandidate
-          teamId={at.teamId}
-          searchId={searchId}
-          candidate={candidate}
-        />
+        <PickedPullRequest candidate={candidate} />
       </ScrollArea>
     </SidePane>
   );

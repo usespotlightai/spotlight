@@ -9,6 +9,7 @@ import {
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
 import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
 import { UNREAD_HEALTH } from '@replays/domain/services/set-health';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -23,6 +24,7 @@ export class ListTeamReplaySetsHandler
     private readonly work: WorkPort,
     private readonly insights: InsightsPort,
     private readonly healths: SetHealths,
+    private readonly schedules: StationSearchScheduleRepository,
   ) {}
 
   async execute(
@@ -54,6 +56,7 @@ export class ListTeamReplaySetsHandler
         sets.map((each) => each.station),
       );
       const healths = await this.healths.ofSets(sets, standards);
+      const schedules = await this.schedules.ofTeam(access.teamId);
 
       return sets.map((each) =>
         setView(
@@ -62,6 +65,7 @@ export class ListTeamReplaySetsHandler
           originalOutcomes,
           healths.get(each.id.value) ?? UNREAD_HEALTH,
           standards.get(each.station.stationId)?.minGain ?? DEFAULT_MIN_GAIN,
+          schedules.find((schedule) => schedule.setId.equals(each.id)) ?? null,
         ),
       );
     } catch (error) {

@@ -1,5 +1,3 @@
-import { PickSearchCandidateHandler } from '@replays/application/commands/handlers/pick-search-candidate.handler';
-import { PickSearchCandidateCommand } from '@replays/application/commands/pick-search-candidate.command';
 import { ConfigRepositoryError } from '@replays/application/errors/config-repository.error';
 import type {
   ConfigCommit,
@@ -12,10 +10,9 @@ import type {
   StationSourceEditorPort,
 } from '@replays/application/ports/station-source-editor.port';
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
+import { PickSearchCandidates } from '@replays/application/services/pick-search-candidates.service';
 import { replayedWorld } from '@replays/application/services/replayed-candidates.fake-spec';
 import {
-  ACTOR,
-  accessFor,
   CLOCK,
   FakeWork,
   IDS,
@@ -33,6 +30,8 @@ import {
 } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
+import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
+import { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import {
   aSearch,
   candidateOf,
@@ -157,23 +156,24 @@ let now: Date;
 
 const clock: ClockPort = { ...CLOCK, now: () => now };
 
-const picking = (mayPlan = true) =>
-  new PickSearchCandidateHandler(
-    accessFor(memory, work, mayPlan),
-    work,
+const picking = () =>
+  new PickSearchCandidates(
+    memory.searchRepository,
+    memory.replayRepository,
     pullRequests,
+    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
+    work,
     IDS,
     clock,
     TRANSACTION,
   );
 
-const pick = (candidateId = TERSE.value, mayPlan = true) =>
-  picking(mayPlan).execute(
-    new PickSearchCandidateCommand(
-      STATION_VIEW.teamId.value,
-      search.id.value,
-      candidateId,
-      ACTOR,
+const pick = (candidateId = TERSE.value) =>
+  picking().candidatePicked(
+    new SearchCandidatePicked(
+      search.id,
+      search.workspaceId,
+      CandidateId.of(candidateId),
     ),
   );
 
@@ -223,20 +223,21 @@ beforeEach(() => {
 });
 
 describe('picking a search candidate', () => {
-  it('opens one pull request however often it is picked', async () => {
-    const first = await pick();
-    const again = await pick();
+  it('opens one pull request as Spotlight however often the pick is heard', async () => {
+    await pick();
+    await pick();
 
-    expect(first).toMatchObject({
-      outcome: 'picked',
-      pullRequest: {
-        state: 'opening',
-        repository: 'acme/platform',
-        path: 'teams/core/delivery.tf',
-        branch: `spotlight/search-${search.id.value.slice(0, 8)}-terse`,
-      },
+    expect(only()).toMatchObject({
+      current: 'opening',
+      repository: 'acme/platform',
+      path: 'teams/core/delivery.tf',
+      branch: `spotlight/search-${search.id.value.slice(0, 8)}-terse`,
     });
-    expect(again).toMatchObject({ outcome: 'already' });
+    expect(
+      pullRequests.events.find(
+        (each) => each instanceof ConfigPullRequestRequested,
+      ),
+    ).toMatchObject({ change: { by: { actor: null } } });
 
     await opening().processDue();
     await opening().processDue();
@@ -279,17 +280,14 @@ describe('picking a search candidate', () => {
     });
   });
 
-  it('rejects the seed and denies a reader who may not plan', async () => {
-    await expect(pick(search.seed.candidateId.value)).rejects.toThrow(
-      'The seed is already the station’s live config.',
-    );
-    expect(await pick(TERSE.value, false)).toMatchObject({
-      outcome: 'forbidden',
-    });
+  it('opens nothing for a candidate the search never proposed', async () => {
+    await pick(search.seed.candidateId.value);
+    await pick('candidate_none');
+
     expect(pullRequests.stored.size).toBe(0);
   });
 
-  it('records why the file could not be edited, and tries again when picked again', async () => {
+  it('records why the file could not be edited', async () => {
     editor.answer = {
       ok: false,
       reason: ConfigPullRequestReason.of({
@@ -303,18 +301,17 @@ describe('picking a search candidate', () => {
     await pick();
     await opening().processDue();
 
-    expect(only()).toMatchObject({ current: 'failed', generation: 1 });
+    expect(only()).toMatchObject({ current: 'failed' });
     expect(only().reason).toMatchObject({
       code: 'computed-attribute',
       wanted: 'Build it.',
     });
     expect(configs.commits).toEqual([]);
+  });
 
+  it('lists in the body what the edit could not check', async () => {
     editor.answer = { ok: true, files: [], unchecked: ['judge.rubric'] };
-    expect(await pick()).toMatchObject({
-      outcome: 'picked',
-      pullRequest: { state: 'opening', generation: 2, reason: null },
-    });
+    await pick();
     await opening().processDue();
 
     expect(only().current).toBe('opened');
@@ -337,16 +334,16 @@ describe('picking a search candidate', () => {
 
     configs.failing = null;
     configs.hasFile = false;
+    pullRequests = new InMemoryConfigPullRequests();
     await pick();
     await opening().processDue();
 
     expect(only().reason?.code).toBe('file-missing');
   });
 
-  it('fails at once on what GitHub rejects for good, and writes over only its own branch on a new attempt', async () => {
+  it('fails at once on what GitHub rejects for good', async () => {
     configs.failing = null;
     await pick();
-    const opened = configs.opened.bind(configs);
 
     configs.opened = async () => {
       throw new ConfigRepositoryError(
@@ -365,13 +362,6 @@ describe('picking a search candidate', () => {
       code: 'github-error',
       message: 'Resource not accessible by integration',
     });
-
-    configs.opened = opened;
-    await pick();
-    await opening().processDue();
-
-    expect(configs.commits[1]?.replacing).toBe('commit_1');
-    expect(only()).toMatchObject({ current: 'opened', lastCommit: 'commit_2' });
   });
 
   it('records the pull request a lost answer already opened when it tries again', async () => {

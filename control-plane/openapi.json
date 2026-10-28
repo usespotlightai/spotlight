@@ -21401,276 +21401,6 @@
         "tags": [
           "replays"
         ]
-      },
-      "post": {
-        "description": "It holds out about 30% of the set’s tasks, replays the live config over the whole set, then runs its agent once per iteration to propose candidates, each replayed on the tasks it did not hold out. The best are replayed on the held-out tasks once it stops searching. Spotlight refreshes the set before the search starts. The set does not change while the search runs. A station has one search at a time.",
-        "operationId": "startSearch",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lineId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "stationId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StartSearchRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SearchStartedResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "A caller who may read the team but not plan",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, station, set or search for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The station is being searched already, or its set’s station is gone",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "A harness no runner starts, a budget out of bounds, a ceiling too low, or a set with too few tasks to hold some out",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Start a search for a better config of the station, over the replay set that Spotlight keeps for it, within a budget",
-        "tags": [
-          "replays"
-        ]
-      }
-    },
-    "/teams/{teamId}/lines/{lineId}/stations/{stationId}/searches/estimate": {
-      "post": {
-        "description": "The runs count every replay and agent run the budget allows; the ceilings are the ones each replay would get; the duration is rough, from how long the set’s runs took, at the search’s concurrency.",
-        "operationId": "estimateSearch",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lineId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "stationId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EstimateSearchRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SearchEstimateResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, station, set or search for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "A budget out of bounds, a ceiling too low to give each replay a cent, or a set with too few tasks to hold some out",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "What a search over a set would start, spend and take, before starting it; nothing is written",
-        "tags": [
-          "replays"
-        ]
       }
     },
     "/teams/{teamId}/searches": {
@@ -21875,142 +21605,6 @@
           }
         ],
         "summary": "One search: its budget and spend, its held-out split, each iteration and candidate with its scores, and the frontier",
-        "tags": [
-          "replays"
-        ]
-      }
-    },
-    "/teams/{teamId}/searches/{searchId}/candidates/{candidateId}/pick": {
-      "post": {
-        "description": "Spotlight never applies the change itself. It edits the station block of the line’s spotlight_line resource (and a prompt file read with file()), commits to its own branch and opens the pull request; until then the pull request is opening. Picking it again answers the same one, unless it failed, which tries again.",
-        "operationId": "pickSearchCandidate",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "searchId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "candidateId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Picked already; the pull request it opens or opened",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConfigPullRequestResponseDto"
-                }
-              }
-            }
-          },
-          "201": {
-            "description": "Picked, or tried again after a failure",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConfigPullRequestResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "A caller who may read the team but not plan",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, station, set or search for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The seed, or a candidate whose replay on the searched tasks has not finished",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Pick a candidate of a search: Spotlight opens a pull request that changes the station in the line’s Terraform, in the repository its source names",
         "tags": [
           "replays"
         ]
@@ -41199,7 +40793,7 @@
             }
           },
           "removed": {
-            "description": "Runs the refresh took out: entries older than 90 days, or the oldest over 30 runs",
+            "description": "Runs the refresh took out: runs that ended more than 90 days ago. The refresh then adds new runs until the set holds 30",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RefreshedRunResponseDto"
@@ -41839,6 +41433,72 @@
           "origin"
         ]
       },
+      "SearchSkipResponseDto": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "disabled",
+              "no-agent",
+              "no-scoring",
+              "set-too-small",
+              "no-fresh-held-out",
+              "ceiling-too-low",
+              "noisy",
+              "judge-unstable",
+              "flaky-checks",
+              "no-headroom",
+              "monthly-ceiling",
+              "pull-request-open",
+              "cooldown"
+            ],
+            "description": "Why Spotlight did not start an automatic search of the station: the policy is off, the set cannot score or is too small, set health warns, no fresh held-out tasks, the ceiling is too low, no agent, the monthly ceiling, an open config pull request, or the cooldown"
+          },
+          "at": {
+            "type": "string",
+            "description": "When Spotlight first skipped for this reason"
+          }
+        },
+        "required": [
+          "reason",
+          "at"
+        ]
+      },
+      "SearchScheduleResponseDto": {
+        "type": "object",
+        "properties": {
+          "lastStartedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "lastSkip": {
+            "nullable": true,
+            "description": "The last skip; null once a search starts",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SearchSkipResponseDto"
+              }
+            ]
+          },
+          "checkAfter": {
+            "type": "string",
+            "description": "When Spotlight next looks at the station"
+          },
+          "minimumTasks": {
+            "type": "number",
+            "example": 5,
+            "description": "The fewest different tasks a set needs before Spotlight can search it"
+          }
+        },
+        "required": [
+          "lastStartedAt",
+          "lastSkip",
+          "checkAfter",
+          "minimumTasks"
+        ]
+      },
       "ReplaySetResponseDto": {
         "type": "object",
         "properties": {
@@ -41902,6 +41562,16 @@
             "items": {
               "$ref": "#/components/schemas/ReplaySetEntryResponseDto"
             }
+          },
+          "searchSchedule": {
+            "nullable": true,
+            "description": "When Spotlight last started an automatic search of the station, why it last skipped one, and when it looks next",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SearchScheduleResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -41915,7 +41585,8 @@
           "health",
           "minGain",
           "composition",
-          "entries"
+          "entries",
+          "searchSchedule"
         ]
       },
       "CandidateResponseDto": {
@@ -43606,7 +43277,7 @@
           },
           "exceedsRegressionLimit": {
             "type": "boolean",
-            "description": "Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier and can still be picked"
+            "description": "Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier, and Spotlight does not pick it"
           }
         },
         "required": [
@@ -43621,6 +43292,47 @@
           "overfit",
           "regressions",
           "exceedsRegressionLimit"
+        ]
+      },
+      "SearchPickResponseDto": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "picked",
+              "declined"
+            ],
+            "description": "picked when a candidate passed every gate and Spotlight opens a config pull request for it; declined when none did"
+          },
+          "candidateId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "nullable": true
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "no-candidate",
+              "no-held-out-gain",
+              "not-cheaper",
+              "over-regression-limit",
+              "likely-overfit",
+              "station-gone",
+              null
+            ],
+            "description": "Why no candidate was picked: none finished on the held-out tasks, none did better than the live config there by the line’s min_gain, the best was over the regression limit, or the best was likely overfit"
+          }
+        },
+        "required": [
+          "outcome",
+          "candidateId",
+          "name",
+          "reason"
         ]
       },
       "SearchResponseDto": {
@@ -43658,11 +43370,10 @@
               "stalled",
               "stopped",
               "station-gone",
-              "set-gone",
               "seed-failed",
               null
             ],
-            "description": "Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose result says why), was stopped by a person, lost its station or set, or could not replay the live config"
+            "description": "Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose result says why), was stopped by a person, lost its station, or could not replay the live config"
           },
           "agent": {
             "$ref": "#/components/schemas/SearchAgentResponseDto"
@@ -43710,6 +43421,24 @@
             "example": 2,
             "description": "The line’s regression limit, max_regressions: the maximum number of regressions it allows a station change; null when the line has no replay_check block"
           },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "schedule",
+              "alert"
+            ],
+            "description": "Why Spotlight started it: schedule when the period of the search policy ran out, alert when a station alert fired"
+          },
+          "pick": {
+            "nullable": true,
+            "description": "What Spotlight did with its candidates once it finished; null until then, and for a stopped search",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SearchPickResponseDto"
+              }
+            ]
+          },
           "startedAt": {
             "type": "string"
           },
@@ -43733,536 +43462,10 @@
           "proposed",
           "best",
           "maxRegressions",
+          "trigger",
+          "pick",
           "startedAt",
           "endedAt"
-        ]
-      },
-      "SearchBudgetRequestDto": {
-        "type": "object",
-        "properties": {
-          "iterations": {
-            "type": "number",
-            "example": 3,
-            "minimum": 1,
-            "maximum": 10,
-            "description": "How many times the search runs its agent"
-          },
-          "perIteration": {
-            "type": "number",
-            "example": 2,
-            "minimum": 1,
-            "maximum": 5,
-            "description": "How many candidates each agent run may propose"
-          },
-          "ceiling": {
-            "description": "The most the whole search may spend: its replays and its agent’s runs",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/StartReplayCeilingRequestDto"
-              }
-            ]
-          },
-          "concurrency": {
-            "type": "number",
-            "example": 4,
-            "minimum": 1,
-            "maximum": 10,
-            "description": "How many of its replay runs it runs at once, beside the team’s own; 4 unless told"
-          },
-          "repeats": {
-            "type": "number",
-            "example": 1,
-            "minimum": 1,
-            "maximum": 5,
-            "description": "How many times each of its replays replays each run: the seed, every candidate and the held-out replays; 1 unless told. Runs and cost grow with it"
-          }
-        },
-        "required": [
-          "iterations",
-          "perIteration",
-          "ceiling"
-        ]
-      },
-      "EstimateSearchRequestDto": {
-        "type": "object",
-        "properties": {
-          "setId": {
-            "type": "string",
-            "description": "The replay set at the station to search on"
-          },
-          "budget": {
-            "$ref": "#/components/schemas/SearchBudgetRequestDto"
-          },
-          "objective": {
-            "type": "string",
-            "enum": [
-              "success",
-              "cost"
-            ],
-            "description": "What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs. Left out, cost on a set the live config saturates, else success"
-          }
-        },
-        "required": [
-          "setId",
-          "budget"
-        ]
-      },
-      "NoiseUnmeasuredWarningResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "noise-unmeasured"
-            ],
-            "description": "No finished replay of the live config ran the set more than once, so nobody knows how much its success moves by chance"
-          }
-        },
-        "required": [
-          "kind"
-        ]
-      },
-      "NoisyWarningResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "noisy"
-            ],
-            "description": "The set’s success moves more between repeats than the line’s min_gain, so a single repeat cannot tell a real gain from noise"
-          },
-          "spread": {
-            "type": "number",
-            "example": 0.12,
-            "description": "How far the set’s success moved between repeats"
-          },
-          "minGain": {
-            "type": "number",
-            "example": 0.05
-          },
-          "neededRepeats": {
-            "type": "number",
-            "example": 6,
-            "description": "The repeats it would take to bring the noise under min_gain, however many; more than 5 means no search of this set can tell such a gain from noise"
-          },
-          "suggestedRepeats": {
-            "type": "number",
-            "example": 5,
-            "description": "The repeats to request: the needed ones, at most 5"
-          }
-        },
-        "required": [
-          "kind",
-          "spread",
-          "minGain",
-          "neededRepeats",
-          "suggestedRepeats"
-        ]
-      },
-      "SaturatedWarningResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "saturated"
-            ],
-            "description": "The live config passes more than 95% of the set already, so a search for more success has little room; a search for the same success at less cost does"
-          },
-          "rate": {
-            "type": "number",
-            "example": 0.97,
-            "description": "The live config’s success on the set"
-          }
-        },
-        "required": [
-          "kind",
-          "rate"
-        ]
-      },
-      "JudgeUnstableWarningResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "judge-unstable"
-            ],
-            "description": "The judge, run twice on the same change, passed or failed it alike less than 80% of the time, so its verdicts are partly chance"
-          },
-          "agreement": {
-            "type": "number",
-            "example": 0.7,
-            "description": "The share of changes it passed or failed alike both times"
-          },
-          "compared": {
-            "type": "number",
-            "example": 12,
-            "description": "How many changes it judged twice"
-          }
-        },
-        "required": [
-          "kind",
-          "agreement",
-          "compared"
-        ]
-      },
-      "FlakyChecksWarningResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "flaky-checks"
-            ],
-            "description": "The station’s check, run twice on the same change, passed one time and failed the other on some tasks"
-          },
-          "flaky": {
-            "type": "number",
-            "example": 2,
-            "description": "How many changes it flipped on"
-          },
-          "rechecked": {
-            "type": "number",
-            "example": 12,
-            "description": "How many changes it checked twice"
-          }
-        },
-        "required": [
-          "kind",
-          "flaky",
-          "rechecked"
-        ]
-      },
-      "NoHeadroomWarningResponseDto": {
-        "type": "object",
-        "properties": {
-          "kind": {
-            "type": "string",
-            "enum": [
-              "no-headroom"
-            ],
-            "description": "Handed each run’s answer, the live config did not do clearly better, so the set leaves little room for a better config to show"
-          },
-          "gain": {
-            "type": "number",
-            "example": 0.02,
-            "description": "The gain in success the answer brought"
-          },
-          "low": {
-            "type": "number",
-            "example": -0.15
-          },
-          "high": {
-            "type": "number",
-            "example": 0.1
-          },
-          "answered": {
-            "type": "number",
-            "example": 6,
-            "description": "How many runs were handed an answer"
-          }
-        },
-        "required": [
-          "kind",
-          "gain",
-          "low",
-          "high",
-          "answered"
-        ]
-      },
-      "SearchRunsEstimateResponseDto": {
-        "type": "object",
-        "properties": {
-          "seed": {
-            "type": "number",
-            "description": "Replay runs of the live config, one per run"
-          },
-          "searchReplays": {
-            "type": "number",
-            "description": "Replay runs of every candidate it may propose, on the searched tasks"
-          },
-          "heldOutReplays": {
-            "type": "number",
-            "description": "Replay runs of the best candidates on the held-out tasks"
-          },
-          "agent": {
-            "type": "number",
-            "description": "Runs of its agent, one per iteration"
-          },
-          "total": {
-            "type": "number"
-          }
-        },
-        "required": [
-          "seed",
-          "searchReplays",
-          "heldOutReplays",
-          "agent",
-          "total"
-        ]
-      },
-      "SearchCeilingSplitsResponseDto": {
-        "type": "object",
-        "properties": {
-          "seed": {
-            "description": "The ceiling of its replay of the live config",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/MoneyResponseDto"
-              }
-            ]
-          },
-          "searchReplay": {
-            "description": "The ceiling of each candidate’s replay on searched tasks",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/MoneyResponseDto"
-              }
-            ]
-          },
-          "heldOutReplay": {
-            "description": "The ceiling of each candidate’s replay on held-out tasks",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/MoneyResponseDto"
-              }
-            ]
-          },
-          "agentRun": {
-            "description": "What each agent run is expected to spend; one may overshoot it",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/MoneyResponseDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "seed",
-          "searchReplay",
-          "heldOutReplay",
-          "agentRun"
-        ]
-      },
-      "SearchEstimateResponseDto": {
-        "type": "object",
-        "properties": {
-          "searchedTasks": {
-            "type": "number",
-            "description": "Tasks its agent sees"
-          },
-          "heldOutTasks": {
-            "type": "number",
-            "description": "Tasks it holds out, which its agent never sees"
-          },
-          "runs": {
-            "description": "The most runs it may start",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/SearchRunsEstimateResponseDto"
-              }
-            ]
-          },
-          "ceiling": {
-            "description": "The most it may spend",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/MoneyResponseDto"
-              }
-            ]
-          },
-          "perReplayLimits": {
-            "$ref": "#/components/schemas/SearchCeilingSplitsResponseDto"
-          },
-          "estimatedDuration": {
-            "type": "number",
-            "nullable": true,
-            "description": "Roughly how long it takes at its concurrency, in milliseconds, from how long the set’s runs took; unknown when none of them was timed"
-          },
-          "minGain": {
-            "type": "number",
-            "example": 0.05,
-            "description": "The smallest gain its line counts as real"
-          },
-          "objective": {
-            "type": "string",
-            "enum": [
-              "success",
-              "cost"
-            ],
-            "description": "What it would look for, as requested or as the set’s health suggests: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs"
-          },
-          "warnings": {
-            "type": "array",
-            "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/NoiseUnmeasuredWarningResponseDto"
-                },
-                {
-                  "$ref": "#/components/schemas/NoisyWarningResponseDto"
-                },
-                {
-                  "$ref": "#/components/schemas/SaturatedWarningResponseDto"
-                },
-                {
-                  "$ref": "#/components/schemas/JudgeUnstableWarningResponseDto"
-                },
-                {
-                  "$ref": "#/components/schemas/FlakyChecksWarningResponseDto"
-                },
-                {
-                  "$ref": "#/components/schemas/NoHeadroomWarningResponseDto"
-                }
-              ],
-              "discriminator": {
-                "propertyName": "kind",
-                "mapping": {
-                  "noise-unmeasured": "#/components/schemas/NoiseUnmeasuredWarningResponseDto",
-                  "noisy": "#/components/schemas/NoisyWarningResponseDto",
-                  "saturated": "#/components/schemas/SaturatedWarningResponseDto",
-                  "judge-unstable": "#/components/schemas/JudgeUnstableWarningResponseDto",
-                  "flaky-checks": "#/components/schemas/FlakyChecksWarningResponseDto",
-                  "no-headroom": "#/components/schemas/NoHeadroomWarningResponseDto"
-                }
-              }
-            },
-            "description": "What would make its results hard to trust; a search may start all the same"
-          }
-        },
-        "required": [
-          "searchedTasks",
-          "heldOutTasks",
-          "runs",
-          "ceiling",
-          "perReplayLimits",
-          "estimatedDuration",
-          "minGain",
-          "objective",
-          "warnings"
-        ]
-      },
-      "SearchAgentRequestDto": {
-        "type": "object",
-        "properties": {
-          "harness": {
-            "type": "string",
-            "example": "claude-code",
-            "description": "The harness the search’s agent runs on"
-          },
-          "model": {
-            "type": "string",
-            "example": "claude-opus-4-5",
-            "nullable": true
-          },
-          "effort": {
-            "type": "string",
-            "example": "high",
-            "nullable": true,
-            "enum": [
-              "low",
-              "medium",
-              "high",
-              "xhigh",
-              "max"
-            ]
-          }
-        },
-        "required": [
-          "harness"
-        ]
-      },
-      "StartSearchRequestDto": {
-        "type": "object",
-        "properties": {
-          "setId": {
-            "type": "string",
-            "description": "The replay set at the station to search on"
-          },
-          "budget": {
-            "$ref": "#/components/schemas/SearchBudgetRequestDto"
-          },
-          "objective": {
-            "type": "string",
-            "enum": [
-              "success",
-              "cost"
-            ],
-            "description": "What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs. Left out, cost on a set the live config saturates, else success"
-          },
-          "agent": {
-            "$ref": "#/components/schemas/SearchAgentRequestDto"
-          }
-        },
-        "required": [
-          "setId",
-          "budget",
-          "agent"
-        ]
-      },
-      "SearchStartedResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "seedReplayId": {
-            "type": "string",
-            "description": "The replay of the live config over the whole set, the search starts from; its agent runs once it ends"
-          },
-          "objective": {
-            "type": "string",
-            "enum": [
-              "success",
-              "cost"
-            ],
-            "description": "What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs"
-          },
-          "warnings": {
-            "type": "array",
-            "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/NoiseUnmeasuredWarningResponseDto"
-                },
-                {
-                  "$ref": "#/components/schemas/NoisyWarningResponseDto"
-                },
-                {
-                  "$ref": "#/components/schemas/SaturatedWarningResponseDto"
-                },
-                {
-                  "$ref": "#/components/schemas/JudgeUnstableWarningResponseDto"
-                },
-                {
-                  "$ref": "#/components/schemas/FlakyChecksWarningResponseDto"
-                },
-                {
-                  "$ref": "#/components/schemas/NoHeadroomWarningResponseDto"
-                }
-              ],
-              "discriminator": {
-                "propertyName": "kind",
-                "mapping": {
-                  "noise-unmeasured": "#/components/schemas/NoiseUnmeasuredWarningResponseDto",
-                  "noisy": "#/components/schemas/NoisyWarningResponseDto",
-                  "saturated": "#/components/schemas/SaturatedWarningResponseDto",
-                  "judge-unstable": "#/components/schemas/JudgeUnstableWarningResponseDto",
-                  "flaky-checks": "#/components/schemas/FlakyChecksWarningResponseDto",
-                  "no-headroom": "#/components/schemas/NoHeadroomWarningResponseDto"
-                }
-              }
-            },
-            "description": "What makes its results hard to trust; the search starts all the same"
-          }
-        },
-        "required": [
-          "id",
-          "seedReplayId",
-          "objective",
-          "warnings"
         ]
       },
       "SearchSplitEntryResponseDto": {
@@ -44778,11 +43981,11 @@
           },
           "exceedsRegressionLimit": {
             "type": "boolean",
-            "description": "Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier and can still be picked"
+            "description": "Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier, and Spotlight does not pick it"
           },
           "pullRequest": {
             "nullable": true,
-            "description": "The pull request Spotlight opens in the line’s config repository once a person picks the candidate; null until then, and always for the seed",
+            "description": "The pull request Spotlight opens in the line’s config repository once Spotlight picks the candidate; null for every other candidate and for the seed",
             "type": "object",
             "allOf": [
               {
@@ -44856,11 +44059,10 @@
               "stalled",
               "stopped",
               "station-gone",
-              "set-gone",
               "seed-failed",
               null
             ],
-            "description": "Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose result says why), was stopped by a person, lost its station or set, or could not replay the live config"
+            "description": "Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose result says why), was stopped by a person, lost its station, or could not replay the live config"
           },
           "agent": {
             "$ref": "#/components/schemas/SearchAgentResponseDto"
@@ -44907,6 +44109,24 @@
             "nullable": true,
             "example": 2,
             "description": "The line’s regression limit, max_regressions: the maximum number of regressions it allows a station change; null when the line has no replay_check block"
+          },
+          "trigger": {
+            "type": "string",
+            "enum": [
+              "schedule",
+              "alert"
+            ],
+            "description": "Why Spotlight started it: schedule when the period of the search policy ran out, alert when a station alert fired"
+          },
+          "pick": {
+            "nullable": true,
+            "description": "What Spotlight did with its candidates once it finished; null until then, and for a stopped search",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SearchPickResponseDto"
+              }
+            ]
           },
           "startedAt": {
             "type": "string"
@@ -44966,6 +44186,8 @@
           "proposed",
           "best",
           "maxRegressions",
+          "trigger",
+          "pick",
           "startedAt",
           "endedAt",
           "split",
@@ -44974,116 +44196,6 @@
           "candidates",
           "frontier",
           "minGain"
-        ]
-      },
-      "ConfigPullRequestResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "0b6f1c2e-7a44-4d35-9e8a-3f5d2c1b7a90"
-          },
-          "state": {
-            "type": "string",
-            "enum": [
-              "opening",
-              "opened",
-              "failed"
-            ],
-            "example": "opened"
-          },
-          "url": {
-            "type": "string",
-            "nullable": true,
-            "example": "https://github.com/acme/platform/pull/42",
-            "description": "The pull request, once it opened"
-          },
-          "reason": {
-            "nullable": true,
-            "description": "Why it failed; null unless it failed",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/ConfigPullRequestReasonResponseDto"
-              }
-            ]
-          },
-          "teamId": {
-            "type": "string",
-            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
-          },
-          "searchId": {
-            "type": "string",
-            "example": "5d1e2f3a-4b5c-4d6e-8f70-1a2b3c4d5e6f"
-          },
-          "candidateId": {
-            "type": "string",
-            "example": "7a8b9c0d-1e2f-4a3b-9c4d-5e6f7a8b9c0d"
-          },
-          "candidateName": {
-            "type": "string",
-            "example": "in-order"
-          },
-          "lineId": {
-            "type": "string",
-            "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43"
-          },
-          "stationId": {
-            "type": "string",
-            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
-          },
-          "stationKey": {
-            "type": "string",
-            "example": "build"
-          },
-          "repository": {
-            "type": "string",
-            "nullable": true,
-            "example": "acme/platform",
-            "description": "The repository that the line’s source named when it was picked; null when the line named none"
-          },
-          "path": {
-            "type": "string",
-            "nullable": true,
-            "example": "teams/core/delivery.tf"
-          },
-          "branch": {
-            "type": "string",
-            "example": "spotlight/search-5d1e2f3a-in-order",
-            "description": "The branch Spotlight commits the change to"
-          },
-          "generation": {
-            "type": "number",
-            "example": 1,
-            "description": "How many times a person picked it. Each pick after a failure starts a new generation"
-          },
-          "createdAt": {
-            "type": "string",
-            "example": "2026-10-02T09:00:00.000Z"
-          },
-          "updatedAt": {
-            "type": "string",
-            "example": "2026-10-02T09:00:05.000Z"
-          }
-        },
-        "required": [
-          "id",
-          "state",
-          "url",
-          "reason",
-          "teamId",
-          "searchId",
-          "candidateId",
-          "candidateName",
-          "lineId",
-          "stationId",
-          "stationKey",
-          "repository",
-          "path",
-          "branch",
-          "generation",
-          "createdAt",
-          "updatedAt"
         ]
       },
       "PlannedReferenceRequestDto": {
@@ -45699,6 +44811,110 @@
           "taskId",
           "cause",
           "replayRunId"
+        ]
+      },
+      "ConfigPullRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0b6f1c2e-7a44-4d35-9e8a-3f5d2c1b7a90"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "opening",
+              "opened",
+              "failed"
+            ],
+            "example": "opened"
+          },
+          "url": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://github.com/acme/platform/pull/42",
+            "description": "The pull request, once it opened"
+          },
+          "reason": {
+            "nullable": true,
+            "description": "Why it failed; null unless it failed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfigPullRequestReasonResponseDto"
+              }
+            ]
+          },
+          "teamId": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+          },
+          "searchId": {
+            "type": "string",
+            "example": "5d1e2f3a-4b5c-4d6e-8f70-1a2b3c4d5e6f"
+          },
+          "candidateId": {
+            "type": "string",
+            "example": "7a8b9c0d-1e2f-4a3b-9c4d-5e6f7a8b9c0d"
+          },
+          "candidateName": {
+            "type": "string",
+            "example": "in-order"
+          },
+          "lineId": {
+            "type": "string",
+            "example": "7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43"
+          },
+          "stationId": {
+            "type": "string",
+            "example": "d41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80"
+          },
+          "stationKey": {
+            "type": "string",
+            "example": "build"
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/platform",
+            "description": "The repository that the line’s source named when it was picked; null when the line named none"
+          },
+          "path": {
+            "type": "string",
+            "nullable": true,
+            "example": "teams/core/delivery.tf"
+          },
+          "branch": {
+            "type": "string",
+            "example": "spotlight/search-5d1e2f3a-in-order",
+            "description": "The branch Spotlight commits the change to"
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-10-02T09:00:00.000Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "example": "2026-10-02T09:00:05.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "url",
+          "reason",
+          "teamId",
+          "searchId",
+          "candidateId",
+          "candidateName",
+          "lineId",
+          "stationId",
+          "stationKey",
+          "repository",
+          "path",
+          "branch",
+          "createdAt",
+          "updatedAt"
         ]
       },
       "ReplayedPeriodResponseDto": {

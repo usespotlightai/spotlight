@@ -10,12 +10,15 @@ import {
   formatIterationState,
   formatNoBest,
   formatObjective,
+  formatPick,
   formatPullRequestReason,
   formatPullRequestState,
   formatReflectionResult,
   formatSearchState,
+  formatSkip,
   formatStopReason,
-  formatWarning,
+  formatTrigger,
+  formatTriggerLabel,
   frontierNote,
   objectiveNote,
   type PullRequestReason,
@@ -98,60 +101,40 @@ describe('search words cover every code the API can answer', () => {
     }
   });
 
-  it('words every warning a search estimate can give', () => {
-    worded(formatWarning({ kind: 'noise-unmeasured' }), 'noise-unmeasured');
-    worded(
-      formatWarning({
-        kind: 'noisy',
-        spread: 0.2,
-        minGain: 0.05,
-        suggestedRepeats: 5,
-        neededRepeats: 5,
-      }),
-      'noisy',
-    );
-    worded(formatWarning({ kind: 'saturated', rate: 0.97 }), 'saturated');
-    worded(
-      formatWarning({ kind: 'judge-unstable', agreement: 0.6, compared: 10 }),
-      'judge-unstable',
-    );
-    worded(
-      formatWarning({ kind: 'flaky-checks', flaky: 2, rechecked: 9 }),
-      'flaky-checks',
-    );
-    worded(
-      formatWarning({
-        kind: 'no-headroom',
-        gain: 0,
-        low: -0.1,
-        high: 0.1,
-        answered: 6,
-      }),
-      'no-headroom',
-    );
-    expect(
-      [
-        'NoiseUnmeasuredWarningResponseDto',
-        'NoisyWarningResponseDto',
-        'SaturatedWarningResponseDto',
-        'JudgeUnstableWarningResponseDto',
-        'FlakyChecksWarningResponseDto',
-        'NoHeadroomWarningResponseDto',
-      ]
-        .flatMap((schema) => codesOf(schema, 'kind'))
-        .sort(),
-    ).toEqual([
-      'flaky-checks',
-      'judge-unstable',
-      'no-headroom',
-      'noise-unmeasured',
-      'noisy',
-      'saturated',
-    ]);
+  it('words why Spotlight started a search, what it picked, and why it skipped one', () => {
+    for (const trigger of codesOf('SearchResponseDto', 'trigger')) {
+      worded(formatTrigger(trigger as never), trigger);
+      worded(formatTriggerLabel(trigger as never), trigger);
+    }
+    for (const reason of codesOf('SearchPickResponseDto', 'reason')) {
+      worded(
+        formatPick(
+          {
+            outcome: 'declined',
+            candidateId: null,
+            name: null,
+            reason: reason as never,
+          },
+          null,
+        ),
+        reason,
+      );
+    }
+    for (const reason of codesOf('SearchSkipResponseDto', 'reason')) {
+      worded(
+        formatSkip({
+          lastStartedAt: null,
+          lastSkip: { reason: reason as never, at: '' },
+          checkAfter: '',
+          minimumTasks: 5,
+        }),
+        reason,
+      );
+    }
   });
 
   it('words every objective a search can aim for', () => {
-    for (const objective of codesOf('SearchEstimateResponseDto', 'objective')) {
+    for (const objective of codesOf('SearchResponseDto', 'objective')) {
       worded(formatObjective(objective as never), objective);
       worded(objectiveNote(objective as never), objective);
       worded(formatBestTerm(objective as never), objective);

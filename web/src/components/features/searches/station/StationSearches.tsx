@@ -1,22 +1,11 @@
-import { StartSearchControl } from '@/components/features/searches/station/StartSearchControl';
 import { StationSearchList } from '@/components/features/searches/station/StationSearchList';
-import { PanelActions } from '@/components/shared/PanelActions';
-import { useSearchStart } from '@/hooks/useSearchStart';
+import { useReplaySet } from '@/hooks/api/useReplaySet';
+import { useSearches } from '@/hooks/api/useSearches';
 import type { ReplayedStation } from '@/lib/replay';
 
 export function StationSearches({ at }: { at: ReplayedStation }) {
-  const { searches, kept } = useSearchStart(at);
-  const start = <StartSearchControl at={at} />;
+  const searches = useSearches(at.teamId, at.lineId, at.stationId);
+  const kept = useReplaySet(at.teamId, at.lineId, at.stationId);
 
-  return (
-    <>
-      <StationSearchList
-        at={at}
-        searches={searches}
-        set={kept.data}
-        start={start}
-      />
-      {(searches.data ?? []).length > 0 && <PanelActions>{start}</PanelActions>}
-    </>
-  );
+  return <StationSearchList at={at} searches={searches} set={kept} />;
 }

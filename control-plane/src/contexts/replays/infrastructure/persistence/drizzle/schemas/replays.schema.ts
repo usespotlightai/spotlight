@@ -17,11 +17,14 @@ import {
   SEARCH_ITERATION_STATES,
 } from '@replays/domain/value-objects/search-iteration.vo';
 import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
+import type { SearchPickDecline } from '@replays/domain/value-objects/search-pick';
+import { SEARCH_SKIP_REASONS } from '@replays/domain/value-objects/search-skip-reason';
 import {
   ACTIVE_SEARCH_STATES,
   SEARCH_STATES,
 } from '@replays/domain/value-objects/search-state';
 import { SEARCH_STOP_REASONS } from '@replays/domain/value-objects/search-stop-reason';
+import { SEARCH_TRIGGERS } from '@replays/domain/value-objects/search-trigger';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -58,6 +61,20 @@ export const replaySearchObjective = pgEnum(
   'replay_search_objective',
   SEARCH_OBJECTIVES,
 );
+
+export const replaySearchTrigger = pgEnum(
+  'replay_search_trigger',
+  SEARCH_TRIGGERS,
+);
+
+export const searchSkipReason = pgEnum(
+  'search_skip_reason',
+  SEARCH_SKIP_REASONS,
+);
+
+export type StoredSearchPick =
+  | { readonly outcome: 'picked'; readonly candidateId: string }
+  | { readonly outcome: 'declined'; readonly reason: SearchPickDecline };
 
 export const replaySearchIterationState = pgEnum(
   'replay_search_iteration_state',
@@ -403,7 +420,8 @@ export const replaySearch = pgTable(
       .default(sql`'[]'::jsonb`),
     state: replaySearchState('state').notNull(),
     stopReason: replaySearchStopReason('stop_reason'),
-    startedBy: text('started_by'),
+    trigger: replaySearchTrigger('trigger').notNull(),
+    pick: jsonb('pick').$type<StoredSearchPick>(),
     startedAt: timestamp('started_at').notNull(),
     endedAt: timestamp('ended_at'),
     version: integer('version').notNull().default(0),
@@ -411,6 +429,7 @@ export const replaySearch = pgTable(
   (table) => [
     index('replay_search_team_idx').on(table.teamId),
     index('replay_search_set_idx').on(table.setId),
+    index('replay_search_line_started_idx').on(table.lineId, table.startedAt),
     uniqueIndex('replay_search_active_idx')
       .on(table.stationId)
       .where(
@@ -539,7 +558,6 @@ export const configPullRequest = pgTable(
     errorAttribute: text('error_attribute'),
     errorExpression: text('error_expression'),
     errorWanted: jsonb('error_wanted').$type<WantedValue>(),
-    generation: integer('generation').notNull(),
     retries: integer('retries').notNull(),
     lastCommit: text('last_commit'),
     dueAt: timestamp('due_at'),
@@ -553,8 +571,33 @@ export const configPullRequest = pgTable(
       table.candidateId,
     ),
     index('config_pull_request_team_idx').on(table.teamId),
+    index('config_pull_request_station_idx').on(table.stationId),
     index('config_pull_request_due_idx')
       .on(table.dueAt)
       .where(sql`${table.state} = 'opening'`),
+  ],
+);
+
+export const stationSearchSchedule = pgTable(
+  'station_search_schedule',
+  {
+    stationId: text('station_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    lineId: text('line_id').notNull(),
+    setId: text('set_id').notNull(),
+    lastStartedAt: timestamp('last_started_at'),
+    lastSkipReason: searchSkipReason('last_skip_reason'),
+    lastSkipAt: timestamp('last_skip_at'),
+    searchedTasks: jsonb('searched_tasks').$type<string[]>().notNull(),
+    alertPendingSince: timestamp('alert_pending_since'),
+    checkAfter: timestamp('check_after').notNull(),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('station_search_schedule_set_idx').on(table.setId),
+    index('station_search_schedule_team_idx').on(table.teamId),
+    index('station_search_schedule_line_idx').on(table.lineId),
+    index('station_search_schedule_check_after_idx').on(table.checkAfter),
   ],
 );

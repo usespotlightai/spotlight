@@ -2,8 +2,6 @@ import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCar
 import { ImproveSection } from '@/components/features/stations/improve/ImproveSection';
 import { WorthImprovingSkeleton } from '@/components/features/stations/improve/WorthImprovingSkeleton';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
-import { PanelActions } from '@/components/shared/PanelActions';
-import { ButtonSkeleton } from '@/components/shared/skeleton/ButtonSkeleton';
 import { REPLAY_SET_HEADINGS, REPLAY_SETS_NOTE } from '@/lib/replay';
 import { SEARCH_HEADINGS, SEARCHES_NOTE } from '@/lib/search';
 
@@ -40,9 +38,6 @@ export function StationImproveSkeleton() {
               headings={SEARCH_HEADINGS}
               compact
             />
-            <PanelActions>
-              <ButtonSkeleton>Start a search</ButtonSkeleton>
-            </PanelActions>
           </InsightsCardSkeleton>
         </div>
       </ImproveSection>

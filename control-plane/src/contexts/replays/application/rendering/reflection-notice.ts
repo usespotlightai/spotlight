@@ -21,18 +21,6 @@ const FIXES: Readonly<Record<Exclude<FailureCauseKind, 'config'>, string>> = {
   infra: 'Fix what the run needed around the work',
 };
 
-const HEADLINES: Readonly<
-  Record<ReflectionResult, (search: string) => string>
-> = {
-  continued: (search) =>
-    `${search} goes on after finding failures outside the config`,
-  'no-config-cause': (search) =>
-    `${search} ended with nothing the config can fix`,
-  'no-failures': (search) => `${search} ended with every searched task passing`,
-  'did-not-run': (search) => `${search} ended after its reflection failed`,
-  'ceiling-reached': (search) => `${search} reached its ceiling`,
-};
-
 const tasksCounted = (count: number): string =>
   `${count} ${count === 1 ? 'task' : 'tasks'}`;
 
@@ -56,9 +44,6 @@ const clipped = (text: string): string =>
 
 const UNTITLED = 'one of the searched tasks';
 
-const searchFor = (stationName: string | null): string =>
-  `The search for ${stationName ? `a better ${stationName} config` : 'a better station config'}`;
-
 const pointOf =
   (titles: ReadonlyMap<string, string | null>) =>
   (cause: FailureCause): string => {
@@ -78,28 +63,19 @@ const cappedAtMax = (points: readonly string[]): readonly string[] =>
     : points;
 
 export const ReflectionNoticeWording = {
-  of(
+  pointsOf(
     notice: ReflectionNotice,
-    stationName: string | null,
     titles: ReadonlyMap<string, string | null>,
-  ): NoticeWords {
-    return {
-      headline: HEADLINES[notice.result](searchFor(stationName)),
-      points: cappedAtMax([
-        HAPPENINGS[notice.result](notice.looked),
-        ...notice.fixes.map(pointOf(titles)),
-      ]),
-    };
+  ): readonly string[] {
+    return cappedAtMax([
+      HAPPENINGS[notice.result](notice.looked),
+      ...notice.fixes.map(pointOf(titles)),
+    ]);
   },
 };
 
 export const UnreflectedStallWording = {
-  of(stationName: string | null): NoticeWords {
-    return {
-      headline: `${searchFor(stationName)} ended with no budget left to reflect`,
-      points: [
-        'Two iterations in a row found nothing better. Please start a new search with more budget to find out why.',
-      ],
-    };
-  },
-};
+  points: [
+    'Two iterations in a row found nothing better. No budget was left to find out why.',
+  ],
+} as const;

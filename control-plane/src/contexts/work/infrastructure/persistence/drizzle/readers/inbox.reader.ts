@@ -380,7 +380,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       .where(
         and(
           eq(notice.workspaceId, workspaceId),
-          eq(notice.addresseeId, userId.value),
+          or(eq(notice.addresseeId, userId.value), isNull(notice.addresseeId)),
           or(isNull(notice.resolvedAt), gte(notice.resolvedAt, resolvedSince)),
         ),
       );

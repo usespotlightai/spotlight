@@ -23,21 +23,9 @@ vi.mock('@/hooks/api/useSearches', () => ({
 vi.mock('@/hooks/api/useReplaySet', () => ({
   useReplaySet: () => ({
     data: sets(),
-    isPending: false,
+    isPending: sets() === undefined,
     errorUpdateCount: 0,
   }),
-}));
-
-vi.mock('@/hooks/api/useSearchEstimate', () => ({
-  useSearchEstimate: () => ({ data: undefined, isFetching: false }),
-}));
-
-vi.mock('@/hooks/api/useStartSearch', () => ({
-  useStartSearch: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
-}));
-
-vi.mock('@/hooks/api/useHarnesses', () => ({
-  useHarnesses: () => ({ data: [] }),
 }));
 
 const AT = {
@@ -55,6 +43,7 @@ const setOf = (tasks: number): ReplaySet => ({
   refreshedAt: null,
   lastRefresh: null,
   stationGone: false,
+  searchSchedule: null,
   health: {
     noise: null,
     saturation: null,
@@ -124,6 +113,8 @@ const SEARCH: Search = {
     exceedsRegressionLimit: false,
   },
   maxRegressions: null,
+  trigger: 'schedule',
+  pick: null,
   startedAt: '2026-10-02T09:00:00.000Z',
   endedAt: null,
 };
@@ -150,6 +141,18 @@ describe('StationSearches', () => {
     ).toBeInTheDocument();
   });
 
+  it('keeps the place of the searches while the set loads, with no empty text', () => {
+    searches.mockReturnValue([]);
+    sets.mockReturnValue(undefined);
+
+    renderSearches();
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the searches' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('No searches yet')).not.toBeInTheDocument();
+  });
+
   it('tells someone off the team that only its members see searches', () => {
     error.mockReturnValue({ status: 404 });
 
@@ -160,7 +163,7 @@ describe('StationSearches', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers a search once a set covers enough tasks', () => {
+  it('says Spotlight starts searches while there are none, with no button to start one', () => {
     searches.mockReturnValue([]);
     sets.mockReturnValue(setOf(6));
 
@@ -168,27 +171,35 @@ describe('StationSearches', () => {
 
     expect(screen.getByText('No searches yet')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Start a search' }),
-    ).toBeEnabled();
+      screen.getByText(
+        'Spotlight searches the station on a schedule and when a station alert fires.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('says why no search can start when the set covers too few tasks', () => {
+  it('says why Spotlight skipped the last search', () => {
     searches.mockReturnValue([]);
-    sets.mockReturnValue(setOf(3));
+    sets.mockReturnValue({
+      ...setOf(3),
+      searchSchedule: {
+        lastStartedAt: null,
+        lastSkip: { reason: 'set-too-small', at: '2026-10-01T09:00:00.000Z' },
+        checkAfter: '2026-10-02T09:00:00.000Z',
+        minimumTasks: 5,
+      },
+    });
 
     renderSearches();
 
     expect(
-      screen.getByRole('button', { name: 'Start a search' }),
-    ).toBeDisabled();
-    expect(
       screen.getByText(
-        'The set covers 3 tasks. A search holds some tasks out. Minimum different tasks: 5',
+        'Spotlight did not start a search: the replay set has too few tasks. Minimum tasks: 5',
       ),
     ).toBeInTheDocument();
   });
 
-  it('lists each search with its progress, spend and best candidate, and does not start a second', () => {
+  it('lists each search with its progress, spend and best candidate', () => {
     searches.mockReturnValue([SEARCH]);
     sets.mockReturnValue(setOf(6));
 
@@ -208,14 +219,9 @@ describe('StationSearches', () => {
     expect(screen.getByText('80%')).toHaveAccessibleDescription(
       /^This score is from the searched tasks\./,
     );
-    const start = screen.getByRole('button', { name: 'Start a search' });
-    expect(start).toBeDisabled();
-    expect(start).toHaveAccessibleDescription(
-      'A search of this station is in progress.',
-    );
     expect(
-      screen.getByText('A search of this station is in progress.'),
-    ).toHaveClass('sr-only');
+      screen.queryByRole('button', { name: 'Start a search' }),
+    ).not.toBeInTheDocument();
   });
 
   it('marks a search whose best candidate gained only on the tasks it could see, or says too few held-out tasks were scored to tell', () => {

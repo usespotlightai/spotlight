@@ -266,7 +266,7 @@ describe('DrizzleSearchRepository', () => {
     const found = (await searches.find(SEARCH_ID)) as Search;
 
     await searches.save(found.stop(NOW, BY));
-    await expect(searches.save(found.recordSetGone(NOW))).rejects.toThrow(
+    await expect(searches.save(found.stationLeft(NOW))).rejects.toThrow(
       SearchVersionConflictError,
     );
 

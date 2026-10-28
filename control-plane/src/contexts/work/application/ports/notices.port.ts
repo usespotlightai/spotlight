@@ -7,7 +7,7 @@ export const NOTICES = Symbol('NOTICES');
 export interface NoticeOf {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
-  readonly addressee: UserId;
+  readonly addressee: UserId | null;
   readonly form: string;
   readonly subject: string;
   readonly link: string;

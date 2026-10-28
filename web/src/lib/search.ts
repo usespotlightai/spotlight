@@ -1,33 +1,24 @@
 import type {
   FailureCauseResponseDto,
-  FieldErrorResponseDto,
   LineReplayCheckResponseDto,
   ReflectedTaskResponseDto,
   ReplayCheckSummaryResponseDto,
-  SearchAgentRequestDto,
   SearchBestResponseDto,
-  SearchBudgetRequestDto,
   SearchCandidateResponseDto,
   SearchDetailResponseDto,
-  SearchEstimateResponseDto,
   SearchIterationResponseDto,
   SearchResponseDto,
   SearchRunResponseDto,
 } from '@/lib/api';
-import { messageOf } from '@/lib/error';
 import { spentIn } from '@/lib/inbox';
-import { formatDuration } from '@/lib/insights';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
-import {
-  type CountBounds,
-  ceilingFrom,
-  countFrom,
-  REPEAT_BOUNDS,
-  type ReplayedStation,
-  type ReplaySet,
-} from '@/lib/replay';
-import { minGainSentence, STATION_GONE_FROM_LINE } from '@/lib/replay-words';
-import type { CauseKind, SearchState } from '@/lib/search-words';
+import type { ReplayedStation, ReplaySet } from '@/lib/replay';
+import { minGainSentence } from '@/lib/replay-words';
+import type {
+  CauseKind,
+  PullRequestState,
+  SearchState,
+} from '@/lib/search-words';
 import { stationPath, stationTabPath } from '@/lib/station';
 import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 
@@ -36,9 +27,6 @@ export type SearchDetail = SearchDetailResponseDto;
 export type SearchCandidate = SearchCandidateResponseDto;
 export type SearchRegressions = SearchCandidate['regressions'];
 type SearchIteration = SearchIterationResponseDto;
-export type SearchEstimate = SearchEstimateResponseDto;
-export type SearchBudget = SearchBudgetRequestDto;
-export type SearchAgent = SearchAgentRequestDto;
 export type SearchRun = SearchRunResponseDto;
 export type ReplayCheckSummary = ReplayCheckSummaryResponseDto;
 export type LineReplayCheck = LineReplayCheckResponseDto;
@@ -48,45 +36,9 @@ export const CHECKS_PAGE = 50;
 export const SEARCHES_ANCHOR = 'searches';
 
 export const SEARCHES_NOTE =
-  'An agent generates candidate configurations and evaluates each against a replay set to find improvements in performance and cost.';
+  'Spotlight starts a search on a schedule and when a station alert fires. A search agent proposes configs and replays each on the replay set of the station.';
 
 export const SEED_NAME = 'seed';
-
-const MIN_TASKS = 5;
-
-export const DEFAULT_CONCURRENCY = 4;
-
-const BOUNDS = {
-  iterations: { min: 1, max: 10 },
-  perIteration: { min: 1, max: 5 },
-  concurrency: { min: 1, max: 10 },
-  repeats: REPEAT_BOUNDS,
-} as const satisfies Record<string, CountBounds>;
-
-type BudgetCount = keyof typeof BOUNDS;
-type BudgetField = BudgetCount | 'ceiling';
-export type SearchField = BudgetField | 'set' | 'agent';
-
-export type BudgetInputs = {
-  readonly iterations: string;
-  readonly perIteration: string;
-  readonly concurrency: string;
-  readonly repeats: string;
-  readonly amount: string;
-  readonly currency: string;
-};
-
-export type FieldProblems = Partial<Record<SearchField, string>>;
-
-export const typedIn = (inputs: BudgetInputs, field: SearchField): boolean => {
-  if (field === 'ceiling') {
-    return inputs.amount.trim() !== '';
-  }
-
-  return Object.hasOwn(BOUNDS, field)
-    ? inputs[field as BudgetCount].trim() !== ''
-    : false;
-};
 
 export const searchPath = (at: ReplayedStation, searchId: string): string =>
   `${stationPath(at.slug, at.teamId, at.lineId, at.stationId)}/searches/${encodeURIComponent(searchId)}`;
@@ -109,6 +61,13 @@ export const ongoing = (state: SearchState): boolean =>
 
 export const ongoingIn = (searches: readonly Search[]): Search | null =>
   searches.find((each) => ongoing(each.state)) ?? null;
+
+export const pickedPullRequestOf = (
+  detail: SearchDetail,
+): PullRequestState | null =>
+  detail.candidates.find(
+    (each) => each.candidateId === detail.pick?.candidateId,
+  )?.pullRequest?.state ?? null;
 
 export const candidatesOf = (detail: SearchDetail): SearchCandidate[] => [
   detail.seed,
@@ -143,133 +102,8 @@ export const iterationTitle = (
   number: number | null,
 ): string => `Iteration ${iteration} of ${searchLabel(number)}`;
 
-export const tasksIn = (set: ReplaySet): number =>
-  new Set(set.entries.map((each) => each.taskId)).size;
-
 export const formatTasks = (count: number): string =>
   count === 1 ? '1 task' : `${count} tasks`;
-
-export const setProblemOf = (set: ReplaySet): string | null => {
-  if (set.stationGone) {
-    return STATION_GONE_FROM_LINE;
-  }
-
-  const tasks = tasksIn(set);
-
-  return tasks < MIN_TASKS
-    ? `The set covers ${formatTasks(tasks)}. A search holds some tasks out. Minimum different tasks: ${MIN_TASKS}`
-    : null;
-};
-
-export const NO_REPLAY_SET_YET =
-  'The station has no replay set yet. Spotlight keeps one after a run of the station ends.';
-
-export const startProblem = (
-  set: ReplaySet | null,
-  inProgress: Search | null,
-): string | null => {
-  if (inProgress) {
-    return 'A search of this station is in progress.';
-  }
-
-  return set ? setProblemOf(set) : NO_REPLAY_SET_YET;
-};
-
-export const budgetFrom = (
-  inputs: BudgetInputs,
-): { budget: SearchBudget | null; problems: FieldProblems } => {
-  const iterations = countFrom(inputs.iterations, BOUNDS.iterations);
-  const perIteration = countFrom(inputs.perIteration, BOUNDS.perIteration);
-  const concurrency = countFrom(inputs.concurrency, BOUNDS.concurrency);
-  const repeats = countFrom(inputs.repeats, BOUNDS.repeats);
-  const ceiling = ceilingFrom(inputs.amount, inputs.currency);
-  const problems: FieldProblems = {
-    ...(typeof iterations === 'string' ? { iterations } : {}),
-    ...(typeof perIteration === 'string' ? { perIteration } : {}),
-    ...(typeof concurrency === 'string' ? { concurrency } : {}),
-    ...(typeof repeats === 'string' ? { repeats } : {}),
-    ...(typeof ceiling === 'string' ? { ceiling } : {}),
-  };
-
-  if (
-    typeof iterations === 'string' ||
-    typeof perIteration === 'string' ||
-    typeof concurrency === 'string' ||
-    typeof repeats === 'string' ||
-    typeof ceiling === 'string'
-  ) {
-    return { budget: null, problems };
-  }
-
-  return {
-    budget: { iterations, perIteration, concurrency, repeats, ceiling },
-    problems,
-  };
-};
-
-const FIELDS: readonly [prefix: string, field: SearchField][] = [
-  ['budget.iterations', 'iterations'],
-  ['budget.perIteration', 'perIteration'],
-  ['budget.concurrency', 'concurrency'],
-  ['budget.repeats', 'repeats'],
-  ['budget.ceiling', 'ceiling'],
-  ['agent', 'agent'],
-  ['setId', 'set'],
-];
-
-export const fieldOf = (path: string): SearchField | null =>
-  FIELDS.find(
-    ([prefix]) =>
-      path === prefix ||
-      path.startsWith(`${prefix}.`) ||
-      path.startsWith(`${prefix}[`),
-  )?.[1] ?? null;
-
-const fieldErrorsOf = (thrown: unknown): FieldErrorResponseDto[] => {
-  const errors = (thrown as { errors?: unknown } | null)?.errors;
-
-  return Array.isArray(errors) ? (errors as FieldErrorResponseDto[]) : [];
-};
-
-export const problemsOf = (
-  thrown: unknown,
-): { fields: FieldProblems; general: string | null } => {
-  if (!thrown) {
-    return { fields: {}, general: null };
-  }
-
-  const fields: FieldProblems = {};
-  const unplaced: string[] = [];
-
-  for (const error of fieldErrorsOf(thrown)) {
-    if (error.severity !== 'error') {
-      continue;
-    }
-
-    const field = fieldOf(error.path);
-
-    if (field && !fields[field]) {
-      fields[field] = error.message;
-    } else if (!field) {
-      unplaced.push(error.message);
-    }
-  }
-
-  const placed = Object.keys(fields).length > 0;
-
-  return {
-    fields,
-    general:
-      unplaced.length > 0
-        ? unplaced.join(' ')
-        : placed
-          ? null
-          : messageOf(
-              thrown,
-              'Sorry, the search couldn’t be started. Please try again later.',
-            ),
-  };
-};
 
 export const formatCostPerRun = (
   cost: number | null,
@@ -290,32 +124,8 @@ export const formatHeldOut = (candidate: SearchCandidate): string => {
   return candidate.heldOutReplayId ? '–' : 'Not held out';
 };
 
-export const formatEstimatedDuration = (ms: number | null): string =>
-  ms === null
-    ? 'Unknown. None of the set’s runs was timed.'
-    : `About ${formatDuration(ms)}`;
-
 export const searchChanges = (candidate: SearchCandidate): ConfigChange[] =>
   configChangesOf(candidate.changes);
-
-export const pickProblem = (candidate: SearchCandidate): string | null => {
-  if (candidate.isSeed) {
-    return 'The station already runs the live config.';
-  }
-
-  switch (candidate.replayState) {
-    case 'finished':
-      return null;
-    case 'stopped':
-      return 'You can’t open a pull request for this candidate. Its replay stopped before it finished.';
-    case 'ceiling-reached':
-      return 'You can’t open a pull request for this candidate. Its replay reached its ceiling before it finished.';
-    case null:
-      return 'You can’t open a pull request for this candidate. Its replay is gone.';
-    default:
-      return 'After its replay on the searched tasks finishes, you can open a pull request.';
-  }
-};
 
 export type IterationGroup = {
   readonly number: number;
@@ -448,16 +258,6 @@ export const setTaskTitle = (
 ): string =>
   set?.entries.find((each) => each.runId === entry.runId)?.title ??
   `Task ${entry.taskId.slice(0, 8)}`;
-
-export const agentOf = (
-  harness: string,
-  model: string,
-  effort: string,
-): SearchAgent => ({
-  harness,
-  model: model || null,
-  ...(effort ? { effort: effort as SearchAgent['effort'] } : {}),
-});
 
 export const formatReference = (
   reference: ReplayCheckSummary['reference'],

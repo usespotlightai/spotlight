@@ -1,10 +1,4 @@
 import { ProblemException } from '@platform/http/resources/problem.exception';
-import type {
-  SearchAgentInput,
-  SearchBudgetInput,
-  SearchObjectiveInput,
-} from '@replays/application/commands/start-search.command';
-import { isSearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { Forbidden } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -85,72 +79,6 @@ const optionalTextAt = (
   }
 
   return typeof text === 'string' ? text : rejectAt(at, reason);
-};
-
-export const searchBudgetIn = (body: unknown): SearchBudgetInput => {
-  const budget = fieldsOf(fieldsOf(body).budget);
-  const concurrency = budget.concurrency;
-  const repeats = budget.repeats;
-
-  return {
-    iterations: countAt(
-      budget,
-      ['budget', 'iterations'],
-      'Iterations must be a number.',
-    ),
-    perIteration: countAt(
-      budget,
-      ['budget', 'perIteration'],
-      'Candidates per iteration must be a number.',
-    ),
-    ceiling: ceilingAt(budget.ceiling, ['budget', 'ceiling'], 'search'),
-    concurrency:
-      concurrency === undefined || concurrency === null
-        ? null
-        : countAt(
-            budget,
-            ['budget', 'concurrency'],
-            'Concurrency must be a number.',
-          ),
-    repeats:
-      repeats === undefined || repeats === null
-        ? null
-        : countAt(budget, ['budget', 'repeats'], 'Repeats must be a number.'),
-  };
-};
-
-export const searchAgentIn = (body: unknown): SearchAgentInput => {
-  const agent = fieldsOf(fieldsOf(body).agent);
-  const harness = agent.harness;
-
-  return {
-    harness:
-      typeof harness === 'string'
-        ? harness
-        : rejectAt(['agent', 'harness'], 'Agent harness is required.'),
-    model: optionalTextAt(
-      agent,
-      ['agent', 'model'],
-      'Agent model must be text or left out.',
-    ),
-    effort: optionalTextAt(
-      agent,
-      ['agent', 'effort'],
-      'Agent effort must be text or left out.',
-    ),
-  };
-};
-
-export const objectiveIn = (body: unknown): SearchObjectiveInput => {
-  const value = fieldsOf(body).objective;
-
-  if (value === undefined || value === null) {
-    return null;
-  }
-
-  return isSearchObjective(value)
-    ? value
-    : rejectAt(['objective'], 'Objective must be success, cost or left out.');
 };
 
 export const repeatsIn = (body: unknown): number => {

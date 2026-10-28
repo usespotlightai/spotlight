@@ -28,6 +28,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { and, eq, isNotNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { type SearchPolicyTerms, searchStarted } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
 import * as schema from './support/schema';
@@ -117,9 +118,6 @@ const bearing = (token: string) => ({
 });
 
 const teamPath = () => `/api/teams/${team.teamId.value}`;
-const stationPath = (stationId = BUILD) =>
-  `${teamPath()}/lines/${DELIVERY}/stations/${stationId}`;
-
 interface Original {
   readonly taskId: string;
   readonly runId: string;
@@ -207,34 +205,11 @@ const createSet = (
     originals.map((each) => each.runId),
   );
 
-interface Budget {
-  readonly iterations: number;
-  readonly perIteration: number;
-  readonly ceiling: number;
-  readonly concurrency?: number;
-}
-
-const budgetOf = (budget: Budget) => ({
-  iterations: budget.iterations,
-  perIteration: budget.perIteration,
-  ceiling: { amount: budget.ceiling, currency: 'USD' },
-  concurrency: budget.concurrency ?? 10,
-});
-
-const startSearch = async (
-  setId: string,
-  budget: Budget,
+const startSearch = (
+  terms: SearchPolicyTerms,
   stationId = BUILD,
 ): Promise<{ id: string; seedReplayId: string }> =>
-  (
-    await owner()
-      .post(`${stationPath(stationId)}/searches`, {
-        setId,
-        agent: { harness: 'claude-code', model: null, effort: 'high' },
-        budget: budgetOf(budget),
-      })
-      .expect(201)
-  ).body as { id: string; seedReplayId: string };
+  searchStarted({ app, db, lineId: DELIVERY, stationId }, terms);
 
 interface SearchRead {
   state: string;
@@ -688,9 +663,8 @@ interface Replayed {
 describe('replayed candidates beside live runs', () => {
   it('shows a searched candidate with the scores its search page shows, beside the baseline its replay page names', async () => {
     const setId = await createSet(fiveTasks);
-    const { id, seedReplayId } = await startSearch(setId, {
+    const { id, seedReplayId } = await startSearch({
       iterations: 1,
-      perIteration: 1,
       ceiling: 20,
     });
 

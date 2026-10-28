@@ -22,34 +22,6 @@ export interface SearchBudgetDto {
   readonly repeats: number;
 }
 
-export type SearchWarningDto =
-  | { readonly kind: 'noise-unmeasured' }
-  | {
-      readonly kind: 'noisy';
-      readonly spread: number;
-      readonly minGain: number;
-      readonly neededRepeats: number;
-      readonly suggestedRepeats: number;
-    }
-  | { readonly kind: 'saturated'; readonly rate: number }
-  | {
-      readonly kind: 'judge-unstable';
-      readonly agreement: number;
-      readonly compared: number;
-    }
-  | {
-      readonly kind: 'flaky-checks';
-      readonly flaky: number;
-      readonly rechecked: number;
-    }
-  | {
-      readonly kind: 'no-headroom';
-      readonly gain: number;
-      readonly low: number;
-      readonly high: number;
-      readonly answered: number;
-    };
-
 export type SearchObjectiveDto = 'success' | 'cost';
 
 export type OverfitDto = 'likely' | 'too-few-held-out';
@@ -74,6 +46,13 @@ export interface SearchBestDto {
   readonly exceedsRegressionLimit: boolean;
 }
 
+export interface SearchPickDto {
+  readonly outcome: 'picked' | 'declined';
+  readonly candidateId: string | null;
+  readonly name: string | null;
+  readonly reason: string | null;
+}
+
 export interface SearchSummaryDto {
   readonly id: string;
   readonly lineId: string;
@@ -89,6 +68,8 @@ export interface SearchSummaryDto {
   readonly proposed: number;
   readonly best: SearchBestDto | null;
   readonly maxRegressions: number | null;
+  readonly trigger: 'schedule' | 'alert';
+  readonly pick: SearchPickDto | null;
   readonly startedAt: string;
   readonly endedAt: string | null;
 }
@@ -174,31 +155,4 @@ export interface SearchDetailDto extends SearchSummaryDto {
   readonly candidates: readonly SearchCandidateDto[];
   readonly frontier: readonly string[];
   readonly minGain: number;
-}
-
-export interface SearchRunsEstimateDto {
-  readonly seed: number;
-  readonly searchReplays: number;
-  readonly heldOutReplays: number;
-  readonly agent: number;
-  readonly total: number;
-}
-
-export interface SearchCeilingSplitsDto {
-  readonly seed: MoneyDto;
-  readonly searchReplay: MoneyDto;
-  readonly heldOutReplay: MoneyDto;
-  readonly agentRun: MoneyDto;
-}
-
-export interface SearchEstimateDto {
-  readonly searchedTasks: number;
-  readonly heldOutTasks: number;
-  readonly runs: SearchRunsEstimateDto;
-  readonly ceiling: MoneyDto;
-  readonly perReplayLimits: SearchCeilingSplitsDto;
-  readonly estimatedDuration: number | null;
-  readonly minGain: number;
-  readonly objective: SearchObjectiveDto;
-  readonly warnings: readonly SearchWarningDto[];
 }

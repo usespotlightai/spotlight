@@ -143,6 +143,13 @@ const DETAIL: SearchDetail = {
   iterationsRun: 2,
   proposed: 1,
   best: null,
+  trigger: 'alert',
+  pick: {
+    outcome: 'declined',
+    candidateId: null,
+    name: null,
+    reason: 'no-held-out-gain',
+  },
   startedAt: '2026-10-01T09:00:00.000Z',
   endedAt: '2026-10-01T12:00:00.000Z',
   split: {
@@ -383,10 +390,18 @@ describe('Search', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Finished')).not.toBeInTheDocument();
     expect(
+      screen.getByText('After a station alert'),
+    ).toHaveAccessibleDescription(
+      'Spotlight started this search. A station alert fired.',
+    );
+    expect(
       screen
         .getByRole('link', { name: 'Replay set' })
-        .parentElement?.querySelector('[aria-describedby]'),
+        .parentElement?.querySelectorAll('[aria-describedby]')[1],
     ).toHaveAccessibleDescription(/^Started .*, ended /);
+    expect(screen.getByText('No pull request')).toHaveAccessibleDescription(
+      'No candidate did better than the live config on the held-out tasks.',
+    );
     expect(tile('Spent')).toHaveTextContent('$12.00of $20.00');
     expect(
       screen.queryByRole('button', { name: 'Stop' }),
@@ -501,9 +516,6 @@ describe('Search', () => {
         .getAllByRole('rowheader')
         .map((each) => each.textContent),
     ).toEqual(['Held out', 'Searched', 'Cost per run', 'Regressions']);
-    expect(
-      within(opened).getByRole('button', { name: 'Open pull request' }),
-    ).toBeEnabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Table' }));
 
@@ -593,9 +605,6 @@ describe('Search', () => {
       within(opened).getByRole('img', { name: 'Over the regression limit' }),
     ).toBeInTheDocument();
     expect(
-      within(opened).getByRole('button', { name: 'Open pull request' }),
-    ).toBeEnabled();
-    expect(
       document.querySelectorAll('[data-slot="regression-limit"]').length,
     ).toBe(3);
 
@@ -678,7 +687,7 @@ describe('Search', () => {
     );
   });
 
-  it('groups candidates by iteration, opening each for its reasoning, replays and a pick', async () => {
+  it('groups candidates by iteration, opening each for its reasoning and replays, with no way to pick one by hand', async () => {
     detail.mockReturnValue({ ...DETAIL, state: 'searching', stopReason: null });
 
     renderSearch();
@@ -716,13 +725,7 @@ describe('Search', () => {
       '/w/acme/team/team_1/lines/line_1/stations/station_1/replays/replay_tests_held_out',
     );
     expect(
-      within(opened).getByRole('button', { name: 'Open pull request' }),
-    ).toBeEnabled();
-
-    expect(
-      within(await openCandidate('Live config')).queryByRole('button', {
-        name: 'Open pull request',
-      }),
+      within(opened).queryByRole('button', { name: 'Open pull request' }),
     ).not.toBeInTheDocument();
   });
 

@@ -7408,7 +7408,7 @@ export type SetRefreshResponseDto = {
    */
   added: Array<RefreshedRunResponseDto>;
   /**
-   * Runs the refresh took out: entries older than 90 days, or the oldest over 30 runs
+   * Runs the refresh took out: runs that ended more than 90 days ago. The refresh then adds new runs until the set holds 30
    */
   removed: Array<RefreshedRunResponseDto>;
 };
@@ -7696,6 +7696,33 @@ export type ReplaySetEntryResponseDto = {
   origin: string | null;
 };
 
+export type SearchSkipResponseDto = {
+  /**
+   * Why Spotlight did not start an automatic search of the station: the policy is off, the set cannot score or is too small, set health warns, no fresh held-out tasks, the ceiling is too low, no agent, the monthly ceiling, an open config pull request, or the cooldown
+   */
+  reason: 'disabled' | 'no-agent' | 'no-scoring' | 'set-too-small' | 'no-fresh-held-out' | 'ceiling-too-low' | 'noisy' | 'judge-unstable' | 'flaky-checks' | 'no-headroom' | 'monthly-ceiling' | 'pull-request-open' | 'cooldown';
+  /**
+   * When Spotlight first skipped for this reason
+   */
+  at: string;
+};
+
+export type SearchScheduleResponseDto = {
+  lastStartedAt: string | null;
+  /**
+   * The last skip; null once a search starts
+   */
+  lastSkip: SearchSkipResponseDto | null;
+  /**
+   * When Spotlight next looks at the station
+   */
+  checkAfter: string;
+  /**
+   * The fewest different tasks a set needs before Spotlight can search it
+   */
+  minimumTasks: number;
+};
+
 export type ReplaySetResponseDto = {
   id: string;
   lineId: string;
@@ -7726,6 +7753,10 @@ export type ReplaySetResponseDto = {
    */
   composition: SetCompositionResponseDto;
   entries: Array<ReplaySetEntryResponseDto>;
+  /**
+   * When Spotlight last started an automatic search of the station, why it last skipped one, and when it looks next
+   */
+  searchSchedule: SearchScheduleResponseDto | null;
 };
 
 export type CandidateResponseDto = {
@@ -8368,9 +8399,22 @@ export type SearchBestResponseDto = {
   overfit: 'likely' | 'too-few-held-out' | null;
   regressions: SearchRegressionsResponseDto;
   /**
-   * Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier and can still be picked
+   * Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier, and Spotlight does not pick it
    */
   exceedsRegressionLimit: boolean;
+};
+
+export type SearchPickResponseDto = {
+  /**
+   * picked when a candidate passed every gate and Spotlight opens a config pull request for it; declined when none did
+   */
+  outcome: 'picked' | 'declined';
+  candidateId: string | null;
+  name: string | null;
+  /**
+   * Why no candidate was picked: none finished on the held-out tasks, none did better than the live config there by the line’s min_gain, the best was over the regression limit, or the best was likely overfit
+   */
+  reason: 'no-candidate' | 'no-held-out-gain' | 'not-cheaper' | 'over-regression-limit' | 'likely-overfit' | 'station-gone' | null;
 };
 
 export type SearchResponseDto = {
@@ -8383,9 +8427,9 @@ export type SearchResponseDto = {
    */
   state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
   /**
-   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose result says why), was stopped by a person, lost its station or set, or could not replay the live config
+   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose result says why), was stopped by a person, lost its station, or could not replay the live config
    */
-  stopReason: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
+  stopReason: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'seed-failed' | null;
   agent: SearchAgentResponseDto;
   budget: SearchBudgetResponseDto;
   /**
@@ -8412,241 +8456,16 @@ export type SearchResponseDto = {
    * The line’s regression limit, max_regressions: the maximum number of regressions it allows a station change; null when the line has no replay_check block
    */
   maxRegressions: number | null;
+  /**
+   * Why Spotlight started it: schedule when the period of the search policy ran out, alert when a station alert fired
+   */
+  trigger: 'schedule' | 'alert';
+  /**
+   * What Spotlight did with its candidates once it finished; null until then, and for a stopped search
+   */
+  pick: SearchPickResponseDto | null;
   startedAt: string;
   endedAt: string | null;
-};
-
-export type SearchBudgetRequestDto = {
-  /**
-   * How many times the search runs its agent
-   */
-  iterations: number;
-  /**
-   * How many candidates each agent run may propose
-   */
-  perIteration: number;
-  /**
-   * The most the whole search may spend: its replays and its agent’s runs
-   */
-  ceiling: StartReplayCeilingRequestDto;
-  /**
-   * How many of its replay runs it runs at once, beside the team’s own; 4 unless told
-   */
-  concurrency?: number;
-  /**
-   * How many times each of its replays replays each run: the seed, every candidate and the held-out replays; 1 unless told. Runs and cost grow with it
-   */
-  repeats?: number;
-};
-
-export type EstimateSearchRequestDto = {
-  /**
-   * The replay set at the station to search on
-   */
-  setId: string;
-  budget: SearchBudgetRequestDto;
-  /**
-   * What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs. Left out, cost on a set the live config saturates, else success
-   */
-  objective?: 'success' | 'cost';
-};
-
-export type NoiseUnmeasuredWarningResponseDto = {
-  /**
-   * No finished replay of the live config ran the set more than once, so nobody knows how much its success moves by chance
-   */
-  kind: 'noise-unmeasured';
-};
-
-export type NoisyWarningResponseDto = {
-  /**
-   * The set’s success moves more between repeats than the line’s min_gain, so a single repeat cannot tell a real gain from noise
-   */
-  kind: 'noisy';
-  /**
-   * How far the set’s success moved between repeats
-   */
-  spread: number;
-  minGain: number;
-  /**
-   * The repeats it would take to bring the noise under min_gain, however many; more than 5 means no search of this set can tell such a gain from noise
-   */
-  neededRepeats: number;
-  /**
-   * The repeats to request: the needed ones, at most 5
-   */
-  suggestedRepeats: number;
-};
-
-export type SaturatedWarningResponseDto = {
-  /**
-   * The live config passes more than 95% of the set already, so a search for more success has little room; a search for the same success at less cost does
-   */
-  kind: 'saturated';
-  /**
-   * The live config’s success on the set
-   */
-  rate: number;
-};
-
-export type JudgeUnstableWarningResponseDto = {
-  /**
-   * The judge, run twice on the same change, passed or failed it alike less than 80% of the time, so its verdicts are partly chance
-   */
-  kind: 'judge-unstable';
-  /**
-   * The share of changes it passed or failed alike both times
-   */
-  agreement: number;
-  /**
-   * How many changes it judged twice
-   */
-  compared: number;
-};
-
-export type FlakyChecksWarningResponseDto = {
-  /**
-   * The station’s check, run twice on the same change, passed one time and failed the other on some tasks
-   */
-  kind: 'flaky-checks';
-  /**
-   * How many changes it flipped on
-   */
-  flaky: number;
-  /**
-   * How many changes it checked twice
-   */
-  rechecked: number;
-};
-
-export type NoHeadroomWarningResponseDto = {
-  /**
-   * Handed each run’s answer, the live config did not do clearly better, so the set leaves little room for a better config to show
-   */
-  kind: 'no-headroom';
-  /**
-   * The gain in success the answer brought
-   */
-  gain: number;
-  low: number;
-  high: number;
-  /**
-   * How many runs were handed an answer
-   */
-  answered: number;
-};
-
-export type SearchRunsEstimateResponseDto = {
-  /**
-   * Replay runs of the live config, one per run
-   */
-  seed: number;
-  /**
-   * Replay runs of every candidate it may propose, on the searched tasks
-   */
-  searchReplays: number;
-  /**
-   * Replay runs of the best candidates on the held-out tasks
-   */
-  heldOutReplays: number;
-  /**
-   * Runs of its agent, one per iteration
-   */
-  agent: number;
-  total: number;
-};
-
-export type SearchCeilingSplitsResponseDto = {
-  /**
-   * The ceiling of its replay of the live config
-   */
-  seed: MoneyResponseDto;
-  /**
-   * The ceiling of each candidate’s replay on searched tasks
-   */
-  searchReplay: MoneyResponseDto;
-  /**
-   * The ceiling of each candidate’s replay on held-out tasks
-   */
-  heldOutReplay: MoneyResponseDto;
-  /**
-   * What each agent run is expected to spend; one may overshoot it
-   */
-  agentRun: MoneyResponseDto;
-};
-
-export type SearchEstimateResponseDto = {
-  /**
-   * Tasks its agent sees
-   */
-  searchedTasks: number;
-  /**
-   * Tasks it holds out, which its agent never sees
-   */
-  heldOutTasks: number;
-  /**
-   * The most runs it may start
-   */
-  runs: SearchRunsEstimateResponseDto;
-  /**
-   * The most it may spend
-   */
-  ceiling: MoneyResponseDto;
-  perReplayLimits: SearchCeilingSplitsResponseDto;
-  /**
-   * Roughly how long it takes at its concurrency, in milliseconds, from how long the set’s runs took; unknown when none of them was timed
-   */
-  estimatedDuration: number | null;
-  /**
-   * The smallest gain its line counts as real
-   */
-  minGain: number;
-  /**
-   * What it would look for, as requested or as the set’s health suggests: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs
-   */
-  objective: 'success' | 'cost';
-  /**
-   * What would make its results hard to trust; a search may start all the same
-   */
-  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | NoHeadroomWarningResponseDto>;
-};
-
-export type SearchAgentRequestDto = {
-  /**
-   * The harness the search’s agent runs on
-   */
-  harness: string;
-  model?: string | null;
-  effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
-};
-
-export type StartSearchRequestDto = {
-  /**
-   * The replay set at the station to search on
-   */
-  setId: string;
-  budget: SearchBudgetRequestDto;
-  /**
-   * What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs. Left out, cost on a set the live config saturates, else success
-   */
-  objective?: 'success' | 'cost';
-  agent: SearchAgentRequestDto;
-};
-
-export type SearchStartedResponseDto = {
-  id: string;
-  /**
-   * The replay of the live config over the whole set, the search starts from; its agent runs once it ends
-   */
-  seedReplayId: string;
-  /**
-   * What the search looks for: success ranks candidates by how often they succeed; cost ranks those that succeed as often as the live config, within noise, by what a run costs
-   */
-  objective: 'success' | 'cost';
-  /**
-   * What makes its results hard to trust; the search starts all the same
-   */
-  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | NoHeadroomWarningResponseDto>;
 };
 
 export type SearchSplitEntryResponseDto = {
@@ -8876,11 +8695,11 @@ export type SearchCandidateResponseDto = {
   overfit: 'likely' | 'too-few-held-out' | null;
   regressions: SearchRegressionsResponseDto;
   /**
-   * Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier and can still be picked
+   * Whether its regressions on the searched and held-out tasks together are more than the line’s max_regressions; false when the line has no replay_check block. It stays on the frontier, and Spotlight does not pick it
    */
   exceedsRegressionLimit: boolean;
   /**
-   * The pull request Spotlight opens in the line’s config repository once a person picks the candidate; null until then, and always for the seed
+   * The pull request Spotlight opens in the line’s config repository once Spotlight picks the candidate; null for every other candidate and for the seed
    */
   pullRequest: CandidatePullRequestResponseDto | null;
 };
@@ -8895,9 +8714,9 @@ export type SearchDetailResponseDto = {
    */
   state: 'seeding' | 'searching' | 'holding-out' | 'finished' | 'stopped';
   /**
-   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose result says why), was stopped by a person, lost its station or set, or could not replay the live config
+   * Why it stopped searching: it ran its iterations, reached its ceiling, stalled after two propose iterations in a row found nothing better (with or without a reflection, whose result says why), was stopped by a person, lost its station, or could not replay the live config
    */
-  stopReason: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'set-gone' | 'seed-failed' | null;
+  stopReason: 'iterations-spent' | 'ceiling-reached' | 'stalled' | 'stopped' | 'station-gone' | 'seed-failed' | null;
   agent: SearchAgentResponseDto;
   budget: SearchBudgetResponseDto;
   /**
@@ -8924,6 +8743,14 @@ export type SearchDetailResponseDto = {
    * The line’s regression limit, max_regressions: the maximum number of regressions it allows a station change; null when the line has no replay_check block
    */
   maxRegressions: number | null;
+  /**
+   * Why Spotlight started it: schedule when the period of the search policy ran out, alert when a station alert fired
+   */
+  trigger: 'schedule' | 'alert';
+  /**
+   * What Spotlight did with its candidates once it finished; null until then, and for a stopped search
+   */
+  pick: SearchPickResponseDto | null;
   startedAt: string;
   endedAt: string | null;
   split: SearchSplitResponseDto;
@@ -8941,41 +8768,6 @@ export type SearchDetailResponseDto = {
    * The smallest gain over the seed its line counts as real: replay_check.min_gain, or 0.05 when the line sets none
    */
   minGain: number;
-};
-
-export type ConfigPullRequestResponseDto = {
-  id: string;
-  state: 'opening' | 'opened' | 'failed';
-  /**
-   * The pull request, once it opened
-   */
-  url: string | null;
-  /**
-   * Why it failed; null unless it failed
-   */
-  reason: ConfigPullRequestReasonResponseDto | null;
-  teamId: string;
-  searchId: string;
-  candidateId: string;
-  candidateName: string;
-  lineId: string;
-  stationId: string;
-  stationKey: string;
-  /**
-   * The repository that the line’s source named when it was picked; null when the line named none
-   */
-  repository: string | null;
-  path: string | null;
-  /**
-   * The branch Spotlight commits the change to
-   */
-  branch: string;
-  /**
-   * How many times a person picked it. Each pick after a failure starts a new generation
-   */
-  generation: number;
-  createdAt: string;
-  updatedAt: string;
 };
 
 export type PlannedReferenceRequestDto = {
@@ -9216,6 +9008,37 @@ export type FailureCauseRecordedResponseDto = {
    * The failing replay run the cause is about
    */
   replayRunId: string;
+};
+
+export type ConfigPullRequestResponseDto = {
+  id: string;
+  state: 'opening' | 'opened' | 'failed';
+  /**
+   * The pull request, once it opened
+   */
+  url: string | null;
+  /**
+   * Why it failed; null unless it failed
+   */
+  reason: ConfigPullRequestReasonResponseDto | null;
+  teamId: string;
+  searchId: string;
+  candidateId: string;
+  candidateName: string;
+  lineId: string;
+  stationId: string;
+  stationKey: string;
+  /**
+   * The repository that the line’s source named when it was picked; null when the line named none
+   */
+  repository: string | null;
+  path: string | null;
+  /**
+   * The branch Spotlight commits the change to
+   */
+  branch: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ReplayedPeriodResponseDto = {
@@ -19935,110 +19758,6 @@ export type ListSearchesResponses = {
 
 export type ListSearchesResponse = ListSearchesResponses[keyof ListSearchesResponses];
 
-export type StartSearchData = {
-  body: StartSearchRequestDto;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    lineId: string;
-    stationId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/searches';
-};
-
-export type StartSearchErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * A caller who may read the team but not plan
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such team, station, set or search for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * The station is being searched already, or its set’s station is gone
-   */
-  409: ProblemResponseDto;
-  /**
-   * A harness no runner starts, a budget out of bounds, a ceiling too low, or a set with too few tasks to hold some out
-   */
-  422: ProblemResponseDto;
-};
-
-export type StartSearchError = StartSearchErrors[keyof StartSearchErrors];
-
-export type StartSearchResponses = {
-  201: SearchStartedResponseDto;
-};
-
-export type StartSearchResponse = StartSearchResponses[keyof StartSearchResponses];
-
-export type EstimateSearchData = {
-  body: EstimateSearchRequestDto;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    lineId: string;
-    stationId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/searches/estimate';
-};
-
-export type EstimateSearchErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * No such team, station, set or search for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * A budget out of bounds, a ceiling too low to give each replay a cent, or a set with too few tasks to hold some out
-   */
-  422: ProblemResponseDto;
-};
-
-export type EstimateSearchError = EstimateSearchErrors[keyof EstimateSearchErrors];
-
-export type EstimateSearchResponses = {
-  200: SearchEstimateResponseDto;
-};
-
-export type EstimateSearchResponse = EstimateSearchResponses[keyof EstimateSearchResponses];
-
 export type ListTeamSearchesData = {
   body?: never;
   headers?: {
@@ -20132,65 +19851,6 @@ export type ReadSearchResponses = {
 };
 
 export type ReadSearchResponse = ReadSearchResponses[keyof ReadSearchResponses];
-
-export type PickSearchCandidateData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    searchId: string;
-    candidateId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/searches/{searchId}/candidates/{candidateId}/pick';
-};
-
-export type PickSearchCandidateErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * A caller who may read the team but not plan
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such team, station, set or search for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * The seed, or a candidate whose replay on the searched tasks has not finished
-   */
-  409: ProblemResponseDto;
-};
-
-export type PickSearchCandidateError = PickSearchCandidateErrors[keyof PickSearchCandidateErrors];
-
-export type PickSearchCandidateResponses = {
-  /**
-   * Picked already; the pull request it opens or opened
-   */
-  200: ConfigPullRequestResponseDto;
-  /**
-   * Picked, or tried again after a failure
-   */
-  201: ConfigPullRequestResponseDto;
-};
-
-export type PickSearchCandidateResponse = PickSearchCandidateResponses[keyof PickSearchCandidateResponses];
 
 export type StopSearchData = {
   body?: never;

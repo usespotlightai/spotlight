@@ -21,7 +21,6 @@ export interface ConfigPullRequestDto {
   readonly state: string;
   readonly url: string | null;
   readonly reason: ConfigPullRequestReasonDto | null;
-  readonly generation: number;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

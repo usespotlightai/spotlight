@@ -237,6 +237,7 @@ beforeEach(() => {
     hashes: LIVE_HASHES,
     threshold: work.threshold,
     search: null,
+    agent: null,
   });
   work.validate = async (_line, _station, block, line) => {
     validated.push({ block, line: line?.value ?? null });

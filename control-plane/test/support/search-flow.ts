@@ -37,9 +37,14 @@ import {
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, expect } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './app';
+import {
+  type SearchedStation,
+  type SearchPolicyTerms,
+  searchStarted,
+} from './auto-searches';
 import { eventually } from './eventually';
 import { keptSet } from './kept-sets';
 import * as schema from './schema';
@@ -316,34 +321,18 @@ export const setRunsOf = async (setId: string): Promise<string[]> =>
       .where(eq(schema.replaySetEntry.setId, setId))
   ).map((each) => each.runId);
 
-interface Budget {
-  readonly iterations: number;
-  readonly perIteration: number;
-  readonly ceiling: number;
-  readonly concurrency?: number;
-}
-
-export const budgetOf = (budget: Budget) => ({
-  iterations: budget.iterations,
-  perIteration: budget.perIteration,
-  ceiling: { amount: budget.ceiling, currency: 'USD' },
-  concurrency: budget.concurrency ?? 10,
+export const searchedAt = (stationId = BUILD): SearchedStation => ({
+  app,
+  db,
+  lineId: DELIVERY,
+  stationId,
 });
 
-export const startSearch = async (
-  setId: string,
-  budget: Budget,
+export const startSearch = (
+  terms: SearchPolicyTerms,
   stationId = BUILD,
 ): Promise<{ id: string; seedReplayId: string }> =>
-  (
-    await owner()
-      .post(`${stationPath(stationId)}/searches`, {
-        setId,
-        agent: { harness: 'claude-code', model: null, effort: 'high' },
-        budget: budgetOf(budget),
-      })
-      .expect(201)
-  ).body as { id: string; seedReplayId: string };
+  searchStarted(searchedAt(stationId), terms);
 
 export interface SearchRead {
   state: string;
@@ -381,6 +370,13 @@ export interface SearchRead {
     overfit: 'likely' | 'too-few-held-out' | null;
   }[];
   frontier: string[];
+  trigger: string;
+  pick: {
+    outcome: string;
+    candidateId: string | null;
+    name: string | null;
+    reason: string | null;
+  } | null;
   best: {
     name: string;
     overfit: 'likely' | 'too-few-held-out' | null;
@@ -401,6 +397,17 @@ export type InboxEntry =
       unread: boolean;
       resolved: boolean;
     };
+
+export const teamNotices = async (): Promise<
+  Extract<InboxEntry, { kind: 'notice' }>[]
+> =>
+  (
+    (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200))
+      .body as InboxEntry[]
+  ).filter(
+    (each): each is Extract<InboxEntry, { kind: 'notice' }> =>
+      each.kind === 'notice',
+  );
 
 export const searchOf = async (id: string): Promise<SearchRead> =>
   (await owner().get(`${teamPath()}/searches/${id}`).expect(200))
@@ -539,13 +546,52 @@ export const entryOf = async (runId: string) => {
 
 type Plan = (replayId: string) => { score: number; cost: number };
 
+const SETTLE_CHECKS = 50;
+
+const SETTLE_PAUSE_MS = 200;
+
+const inFlightReplayRuns = async () =>
+  db
+    .select({ runId: schema.replayEntry.runId })
+    .from(schema.replayEntry)
+    .innerJoin(schema.replay, eq(schema.replay.id, schema.replayEntry.replayId))
+    .where(
+      and(
+        eq(schema.replay.workspaceId, team.workspaceId.value),
+        isNotNull(schema.replayEntry.runId),
+        isNull(schema.replayEntry.succeeded),
+        eq(schema.replayEntry.notRun, false),
+        inArray(schema.replay.state, ['queued', 'running']),
+      ),
+    );
+
+const settled = async (): Promise<boolean> => {
+  for (let check = 0; check < SETTLE_CHECKS; check += 1) {
+    await judged();
+    await app.get(DispatchReplayRuns).processDue();
+
+    if ((await queuedReplayRuns()).length > 0) {
+      return false;
+    }
+    if ((await inFlightReplayRuns()).length === 0) {
+      return true;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, SETTLE_PAUSE_MS));
+  }
+
+  return true;
+};
+
 export const drained = async (plan: Plan): Promise<void> => {
   for (let turn = 0; turn < 200; turn += 1) {
     await app.get(DispatchReplayRuns).processDue();
 
     if ((await queuedReplayRuns()).length === 0) {
-      await judged();
-      return;
+      if (await settled()) {
+        return;
+      }
+      continue;
     }
 
     const assignment = await claimed();

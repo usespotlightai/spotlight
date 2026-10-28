@@ -3,7 +3,7 @@ export class CandidateIsLiveError extends Error {
 
   constructor(candidateId: string) {
     super(
-      `Candidate ${candidateId} is the baseline of the live config. Deleting its replay set removes it.`,
+      `Candidate ${candidateId} is a snapshot of the live config. Spotlight removes it with its replays.`,
     );
     this.name = 'CandidateIsLiveError';
   }

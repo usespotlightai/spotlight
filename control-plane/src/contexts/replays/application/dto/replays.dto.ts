@@ -130,6 +130,18 @@ export interface SetRefreshDto {
   readonly removed: readonly RefreshedRunDto[];
 }
 
+export interface SearchSkipDto {
+  readonly reason: string;
+  readonly at: string;
+}
+
+export interface SearchScheduleDto {
+  readonly lastStartedAt: string | null;
+  readonly lastSkip: SearchSkipDto | null;
+  readonly checkAfter: string;
+  readonly minimumTasks: number;
+}
+
 export interface ReplaySetDto {
   readonly id: string;
   readonly lineId: string;
@@ -142,6 +154,7 @@ export interface ReplaySetDto {
   readonly minGain: number;
   readonly composition: SetCompositionDto;
   readonly entries: readonly ReplaySetEntryDto[];
+  readonly searchSchedule: SearchScheduleDto | null;
 }
 
 export interface MoneyDto {

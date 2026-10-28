@@ -44,6 +44,7 @@ const SET: ReplaySet = {
   refreshedAt: null,
   lastRefresh: null,
   stationGone: false,
+  searchSchedule: null,
   health: NEVER_READ,
   minGain: 0.05,
   composition: {

@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   formatCheckResult,
   formatGainNote,
+  formatPick,
   formatPullRequestReason,
-  formatRepeatsSuggestion,
   formatSearchState,
+  formatSkip,
   formatStopReason,
-  formatWarning,
+  formatTrigger,
+  formatTriggerLabel,
   overfitNote,
   regressionLimitNote,
   regressionsNote,
@@ -74,32 +76,40 @@ describe('search words', () => {
     expect(formatCheckResult('passed')).toBe('Passed');
   });
 
-  it('warns plainly when a set’s noise is unmeasured or too loud, naming the repeats that would help', () => {
-    expect(formatWarning({ kind: 'noise-unmeasured' })).toMatch(
-      /^The set’s noise isn’t measured/,
+  it('says how Spotlight started a search, and what it did with the candidates', () => {
+    expect(formatTriggerLabel('alert')).toBe('After a station alert');
+    expect(formatTrigger('schedule')).toBe(
+      'Spotlight started this search. The period of the search policy ran out.',
     );
+
+    const picked = {
+      outcome: 'picked' as const,
+      candidateId: 'c',
+      name: 'tests-first',
+      reason: null,
+    };
+
+    expect(formatPick(picked, 'opened')).toBe(
+      'Spotlight opened a config pull request for tests-first.',
+    );
+    expect(formatPick(picked, 'failed')).toBe(
+      'Spotlight picked tests-first. Its config pull request could not be opened.',
+    );
+    expect(formatPick(picked, null)).toBe(
+      'Spotlight picked tests-first. Its config pull request is opening.',
+    );
+  });
+
+  it('says why Spotlight did not start a search, with the minimum the server sends', () => {
     expect(
-      formatWarning({
-        kind: 'noisy',
-        spread: 0.12,
-        minGain: 0.05,
-        suggestedRepeats: 5,
-        neededRepeats: 5,
+      formatSkip({
+        lastStartedAt: null,
+        lastSkip: { reason: 'set-too-small', at: '2026-10-01T09:00:00.000Z' },
+        checkAfter: '2026-10-02T09:00:00.000Z',
+        minimumTasks: 6,
       }),
     ).toBe(
-      'Success moved 12 pts between repeats of the same runs. This is more than the line’s minimum real gain. If you replay each run 5 times, the noise falls below it. Minimum real gain: +5 pts',
+      'Spotlight did not start a search: the replay set has too few tasks. Minimum tasks: 6',
     );
-    expect(
-      formatWarning({
-        kind: 'noisy',
-        spread: 0.3,
-        minGain: 0.05,
-        suggestedRepeats: 5,
-        neededRepeats: 36,
-      }),
-    ).toBe(
-      'Success moved 30 pts between repeats of the same runs. This is more than the line’s minimum real gain. Even the maximum of 5 repeats won’t bring the noise below it. Read small gains with care, or raise the line’s min_gain. Minimum real gain: +5 pts',
-    );
-    expect(formatRepeatsSuggestion(3)).toBe('Replay each run 3 times');
   });
 });

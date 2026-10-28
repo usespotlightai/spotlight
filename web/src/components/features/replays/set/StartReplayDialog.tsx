@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { CandidateChoices } from '@/components/features/replays/set/CandidateChoices';
-import { CountField } from '@/components/features/searches/station/CountField';
+import { CountField } from '@/components/features/replays/set/CountField';
 import { CeilingField } from '@/components/shared/form/CeilingField';
 import { Button } from '@/components/ui/button';
 import {

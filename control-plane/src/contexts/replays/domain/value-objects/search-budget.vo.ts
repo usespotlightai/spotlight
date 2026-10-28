@@ -11,6 +11,10 @@ export const MAX_CONCURRENCY = 10;
 
 export const SEARCH_CONCURRENCY = 4;
 
+export const AUTOMATIC_ITERATIONS = 3;
+
+export const AUTOMATIC_PER_ITERATION = 2;
+
 const AGENT_SLACK = { parts: 1, of: 10 } as const;
 
 const MIN_RUN = 0.01;
@@ -65,6 +69,31 @@ export class SearchBudget {
       ),
       counted(input.repeats ?? 1, MAX_REPEATS, 'repeats'),
     );
+  }
+
+  static automatic(input: {
+    ceiling: Money;
+    iterations: number | null;
+    repeats: number | null;
+  }): SearchBudget {
+    return SearchBudget.of({
+      iterations: input.iterations ?? AUTOMATIC_ITERATIONS,
+      perIteration: AUTOMATIC_PER_ITERATION,
+      ceiling: input.ceiling,
+      ...(input.repeats === null ? {} : { repeats: input.repeats }),
+    });
+  }
+
+  affords(split: HeldOutSplit): boolean {
+    try {
+      this.splitCeiling(split);
+      return true;
+    } catch (error) {
+      if (error instanceof InvalidSearchError) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   splitCeiling(split: HeldOutSplit): SearchCeilingSplit {

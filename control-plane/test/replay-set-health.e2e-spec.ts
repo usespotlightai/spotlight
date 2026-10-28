@@ -37,7 +37,7 @@ import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledg
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { autoSearched, openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
 import * as schema from './support/schema';
@@ -530,6 +530,7 @@ const scoredAll = (entries: Awaited<ReturnType<typeof entriesOf>>) =>
 
 interface SetRead {
   id: string;
+  searchSchedule: { lastSkip: { reason: string } | null } | null;
   health: {
     noise: { repeats: number; spread: number } | null;
     saturation: { rate: number; saturated: boolean } | null;
@@ -702,6 +703,28 @@ afterAll(async () => {
   await app?.close();
 });
 
+const searchSkipped = async (): Promise<string | null> => {
+  const replays = await db.select({ id: schema.replay.id }).from(schema.replay);
+
+  await db
+    .update(schema.stationSearchSchedule)
+    .set({ checkAfter: new Date(0) })
+    .where(eq(schema.stationSearchSchedule.stationId, BUILD));
+  await autoSearched(app);
+
+  const [schedule] = await db
+    .select()
+    .from(schema.stationSearchSchedule)
+    .where(eq(schema.stationSearchSchedule.stationId, BUILD));
+
+  expect(await db.select().from(schema.replaySearch)).toEqual([]);
+  expect(
+    await db.select({ id: schema.replay.id }).from(schema.replay),
+  ).toHaveLength(replays.length);
+
+  return schedule?.lastSkipReason ?? null;
+};
+
 describe('checking a replay set’s health', () => {
   it('checks a set with its first baseline: replays the live config three times, judges and checks every change a second time, and says how often each agreed with itself', async () => {
     const started = (
@@ -805,25 +828,7 @@ describe('checking a replay set’s health', () => {
       ).filter((each) => each.recheck),
     ).toHaveLength(15);
 
-    const estimate = (
-      await owner()
-        .post(`${stationPath()}/searches/estimate`, {
-          setId,
-          budget: {
-            iterations: 1,
-            perIteration: 1,
-            ceiling: { amount: 10, currency: 'USD' },
-          },
-        })
-        .expect(200)
-    ).body as { objective: string; warnings: { kind: string }[] };
-
-    expect(estimate.objective).toBe('cost');
-    expect(estimate.warnings.map((each) => each.kind)).toEqual([
-      'saturated',
-      'judge-unstable',
-      'flaky-checks',
-    ]);
+    expect(await searchSkipped()).toBe('judge-unstable');
   }, 180_000);
 
   it('replays the live config handed each run’s answer once a replay of the whole set finishes, and says how much room the set leaves', async () => {
@@ -866,19 +871,9 @@ describe('checking a replay set’s health', () => {
     expect(candidate?.kind).toBe('oracle');
     expect(candidate?.station.model).toBe('sonnet');
 
-    const estimate = (
-      await owner()
-        .post(`${stationPath()}/searches/estimate`, {
-          setId,
-          budget: {
-            iterations: 1,
-            perIteration: 1,
-            ceiling: { amount: 10, currency: 'USD' },
-          },
-        })
-        .expect(200)
-    ).body as { warnings: { kind: string }[] };
-
-    expect(estimate.warnings.map((each) => each.kind)).toContain('no-headroom');
+    expect(await searchSkipped()).toBe('judge-unstable');
+    expect((await setOf(setId)).searchSchedule?.lastSkip?.reason).toBe(
+      'judge-unstable',
+    );
   }, 180_000);
 });

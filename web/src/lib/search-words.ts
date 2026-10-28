@@ -2,20 +2,17 @@ import type {
   ConfigPullRequestReasonResponseDto,
   FailureCauseResponseDto,
   ReplayCheckResponseDto,
+  ReplaySetResponseDto,
   SearchCandidateResponseDto,
-  SearchEstimateResponseDto,
   SearchIterationResponseDto,
   SearchReflectionResponseDto,
   SearchResponseDto,
 } from '@/lib/api';
-import { formatPercent } from '@/lib/judge';
 import type { GainEstimate } from '@/lib/replay';
 import {
   formatGain,
   formatGainRange,
   formatInterval,
-  formatMinGain,
-  formatPoints,
 } from '@/lib/replay-words';
 import type { SearchRegressions } from '@/lib/search';
 import type { TooltipNote, TooltipRow } from '@/lib/tooltip-note';
@@ -30,8 +27,14 @@ export type PullRequestReason = ConfigPullRequestReasonResponseDto;
 type ReasonCode = PullRequestReason['code'];
 type CheckResult = ReplayCheckResponseDto['result'];
 type Undecided = NonNullable<ReplayCheckResponseDto['undecidedBecause']>;
-export type SearchWarning = SearchEstimateResponseDto['warnings'][number];
-export type SearchObjective = SearchEstimateResponseDto['objective'];
+export type SearchObjective = SearchResponseDto['objective'];
+export type SearchTrigger = SearchResponseDto['trigger'];
+export type SearchPick = NonNullable<SearchResponseDto['pick']>;
+type PickDecline = NonNullable<SearchPick['reason']>;
+export type SearchSchedule = NonNullable<
+  ReplaySetResponseDto['searchSchedule']
+>;
+type SkipReason = NonNullable<SearchSchedule['lastSkip']>['reason'];
 export type CauseKind = FailureCauseResponseDto['cause'];
 export type ReflectionResult = NonNullable<
   SearchReflectionResponseDto['result']
@@ -52,7 +55,6 @@ const STOP_REASONS: Record<SearchStopReason, string> = {
   stalled: 'Found nothing better twice in a row',
   stopped: 'Stopped by a person',
   'station-gone': 'Station is gone from the line',
-  'set-gone': 'Replay set was deleted',
   'seed-failed': 'Live config couldn’t be replayed',
 };
 
@@ -125,32 +127,6 @@ export const formatCheckResult = (
     ? `${CHECK_RESULTS[result]}: ${UNDECIDED[undecidedBecause]}`
     : CHECK_RESULTS[result];
 
-export const formatWarning = (warning: SearchWarning): string => {
-  switch (warning.kind) {
-    case 'noise-unmeasured':
-      return 'The set’s noise isn’t measured. A small gain can be chance. Please replay each run more than once, or replay a set of 5 or more runs to measure it.';
-    case 'noisy': {
-      const fix =
-        warning.neededRepeats > warning.suggestedRepeats
-          ? `Even the maximum of ${warning.suggestedRepeats} repeats won’t bring the noise below it. Read small gains with care, or raise the line’s min_gain.`
-          : `If you replay each run ${warning.suggestedRepeats} times, the noise falls below it.`;
-
-      return `Success moved ${formatPoints(warning.spread)} between repeats of the same runs. This is more than the line’s minimum real gain. ${fix} Minimum real gain: ${formatMinGain(warning.minGain)}`;
-    }
-    case 'saturated':
-      return `The live config already succeeds on ${formatPercent(warning.rate)} of this set. Aim for the same success for less, or add tasks that the live config fails.`;
-    case 'judge-unstable':
-      return `The judge gave the same verdict twice on only ${formatPercent(warning.agreement)} of ${warning.compared} ${warning.compared === 1 ? 'change' : 'changes'}. Make the rubric more specific before you search.`;
-    case 'flaky-checks':
-      return `The check flipped on ${warning.flaky} of ${warning.rechecked} changes that it ran twice. It can flip a candidate’s result by chance. The set page lists these changes.`;
-    case 'no-headroom':
-      return `With each run’s answer, the live config gained only ${formatGain(warning)} on ${warning.answered} ${warning.answered === 1 ? 'run' : 'runs'}. The likely range is ${formatGainRange(warning)}. A better config has little room to show a gain here. Please add tasks that the live config fails.`;
-  }
-};
-
-export const formatRepeatsSuggestion = (repeats: number): string =>
-  `Replay each run ${repeats} times`;
-
 const GAIN_ON_SEARCHED = 'Gain over the live config, searched';
 
 const GAIN_ON_HELD_OUT = 'Gain over the live config, held out';
@@ -181,16 +157,11 @@ const FRONTIER_NOTES: Record<SearchObjective, string> = {
   cost: 'Success on the searched tasks and cost per run of each candidate. Frontier: candidates that match the live config’s success, within noise, and that no other candidate matches for less. The live config is always on the frontier.',
 };
 
-export const OBJECTIVE_LABEL = 'Aim for';
-
 export const formatObjective = (objective: SearchObjective): string =>
   OBJECTIVES[objective];
 
 export const objectiveNote = (objective: SearchObjective): string =>
   OBJECTIVE_NOTES[objective];
-
-export const formatObjectiveSuggested = (rate: number): string =>
-  `Suggested: the live config already succeeds on ${formatPercent(rate)} of this set. The set has little room for more success.`;
 
 export const formatBestTerm = (objective: SearchObjective): string =>
   BEST_TERMS[objective];
@@ -261,9 +232,6 @@ export const regressionsNote = (
 ): TooltipNote => ({
   rows: regressionRows(regressions),
 });
-
-export const SEARCH_CEILING_NOTE =
-  'The most that the whole search can spend. Its replays and its agent’s runs count.';
 
 export const formatWhyItStalled = (iteration: number): string =>
   `Why it stalled (iteration ${iteration})`;
@@ -426,7 +394,6 @@ const STOP_REASON_MARKS: Record<SearchStopReason, string | null> = {
   stalled: 'Stalled',
   stopped: 'Stopped',
   'station-gone': 'Station gone',
-  'set-gone': 'Set deleted',
   'seed-failed': 'Couldn’t start',
 };
 
@@ -475,10 +442,84 @@ export const formatGainNote = (gain: GainEstimate): TooltipNote => ({
   rows: [['Likely range', `${formatGainRange(gain)} pts`]],
 });
 
-export const OPEN_PULL_REQUEST = 'Open pull request';
-
-export const OPENING_PULL_REQUEST = 'Opening…';
-
 export const VIEW_PULL_REQUEST = 'View pull request';
 
-export const RETRY_PULL_REQUEST = 'Retry';
+export const NO_SEARCHES_YET =
+  'Spotlight searches the station on a schedule and when a station alert fires.';
+
+const TRIGGER_LABELS: Record<SearchTrigger, string> = {
+  schedule: 'On schedule',
+  alert: 'After a station alert',
+};
+
+const TRIGGERS: Record<SearchTrigger, string> = {
+  schedule:
+    'Spotlight started this search. The period of the search policy ran out.',
+  alert: 'Spotlight started this search. A station alert fired.',
+};
+
+export const formatTriggerLabel = (trigger: SearchTrigger): string =>
+  TRIGGER_LABELS[trigger];
+
+export const formatTrigger = (trigger: SearchTrigger): string =>
+  TRIGGERS[trigger];
+
+export const PICKED_TITLE = 'Picked by Spotlight';
+
+export const NOT_PICKED_TITLE = 'No pull request';
+
+const PICK_DECLINES: Record<PickDecline, string> = {
+  'no-candidate': 'No candidate finished its replay on the held-out tasks.',
+  'no-held-out-gain':
+    'No candidate did better than the live config on the held-out tasks.',
+  'not-cheaper':
+    'No candidate cost less per run than the live config and did as well on the held-out tasks.',
+  'over-regression-limit':
+    'The best candidate is over the regression limit of the line.',
+  'likely-overfit':
+    'The best candidate is likely overfit. It did better only on the searched tasks.',
+  'station-gone':
+    'The station is gone from its line. Spotlight cannot change its config.',
+};
+
+const PICKED: Record<PullRequestState, (name: string) => string> = {
+  opening: (name) =>
+    `Spotlight picked ${name}. Its config pull request is opening.`,
+  opened: (name) => `Spotlight opened a config pull request for ${name}.`,
+  failed: (name) =>
+    `Spotlight picked ${name}. Its config pull request could not be opened.`,
+};
+
+export const formatPick = (
+  pick: SearchPick,
+  pullRequest: PullRequestState | null,
+): string =>
+  pick.outcome === 'picked'
+    ? PICKED[pullRequest ?? 'opening'](pick.name ?? 'a candidate')
+    : PICK_DECLINES[pick.reason ?? 'no-candidate'];
+
+const SKIP_REASONS: Record<SkipReason, (minimumTasks: number) => string> = {
+  disabled: () => 'the search policy of the station is off.',
+  'no-agent': () => 'no runner can start the harness of the search agent.',
+  'no-scoring': () => 'the station has no judge and no check.',
+  'set-too-small': (minimumTasks) =>
+    `the replay set has too few tasks. Minimum tasks: ${minimumTasks}`,
+  'no-fresh-held-out': () =>
+    'earlier searches searched on too many tasks of the set. A search needs new tasks to hold out.',
+  'ceiling-too-low': () =>
+    'the search ceiling is too low to replay each task once per candidate.',
+  noisy: () => 'success moves too much between repeats of the same runs.',
+  'judge-unstable': () => 'the judge does not give the same verdict twice.',
+  'flaky-checks': () => 'the check flips on changes that it ran twice.',
+  'no-headroom': () =>
+    'the live config does not do better on the set when it gets the answer.',
+  'monthly-ceiling': () =>
+    'the searches of the line spent the monthly ceiling of its search policy.',
+  'pull-request-open': () => 'a config pull request of the station is open.',
+  cooldown: () => 'the last search of the station started too recently.',
+};
+
+export const formatSkip = (schedule: SearchSchedule): string =>
+  schedule.lastSkip
+    ? `Spotlight did not start a search: ${SKIP_REASONS[schedule.lastSkip.reason](schedule.minimumTasks)}`
+    : NO_SEARCHES_YET;

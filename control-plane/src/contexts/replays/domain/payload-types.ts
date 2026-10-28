@@ -2,6 +2,7 @@ import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event
 import { CandidateDeletionRequested } from '@replays/domain/events/candidate-deletion-requested.event';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
 import { ConfigPullRequestDeletionRequested } from '@replays/domain/events/config-pull-request-deletion-requested.event';
+import { ConfigPullRequestFailed } from '@replays/domain/events/config-pull-request-failed.event';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
 import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
 import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
@@ -28,14 +29,16 @@ import { ReplayStackRecheckRequested } from '@replays/domain/events/replay-stack
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
 import { ReplayStopRequested } from '@replays/domain/events/replay-stop-requested.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
+import { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import { SearchDeletionRequested } from '@replays/domain/events/search-deletion-requested.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
 import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
-import { SearchReflected } from '@replays/domain/events/search-reflected.event';
-import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
+import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
 import { SearchStopRequested } from '@replays/domain/events/search-stop-requested.event';
+import { StationSearchScheduleDeletionRequested } from '@replays/domain/events/station-search-schedule-deletion-requested.event';
+import { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidatePath } from '@replays/domain/value-objects/candidate-path.vo';
@@ -147,9 +150,11 @@ export const REPLAYS_PAYLOAD_TYPES = [
   SearchEnded,
   SearchHoldingOutRequested,
   SearchIterationRequested,
-  SearchReflected,
-  SearchStalledUnreflected,
   SearchStarted,
+  SearchCandidatePicked,
+  SearchPickDeclined,
+  StationSearchSkipped,
+  StationSearchScheduleDeletionRequested,
   SearchStopRequested,
   ReplayCheckId,
   ReplayThreshold,
@@ -164,5 +169,6 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ConfigPullRequestReason,
   ConfigPullRequestRequested,
   ConfigPullRequestOpened,
+  ConfigPullRequestFailed,
   ConfigPullRequestDeletionRequested,
 ] as const;

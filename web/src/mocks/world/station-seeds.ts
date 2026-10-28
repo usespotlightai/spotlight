@@ -991,6 +991,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
       repeats: 1,
     },
     objective: 'success',
+    trigger: 'alert',
     startedHoursAgo: 3,
     endedHoursAgo: null,
     iterations: [
@@ -1035,6 +1036,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
       repeats: 1,
     },
     objective: 'cost',
+    trigger: 'schedule',
     startedHoursAgo: 80,
     endedHoursAgo: 74.7,
     iterations: [
@@ -1095,6 +1097,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
       repeats: 1,
     },
     objective: 'success',
+    trigger: 'schedule',
     startedHoursAgo: 60,
     endedHoursAgo: 52.6,
     iterations: [
@@ -1158,6 +1161,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
       repeats: 1,
     },
     objective: 'success',
+    trigger: 'schedule',
     startedHoursAgo: 50,
     endedHoursAgo: 46.5,
     iterations: [
@@ -1205,6 +1209,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
       repeats: 1,
     },
     objective: 'cost',
+    trigger: 'schedule',
     startedHoursAgo: 20,
     endedHoursAgo: 19.2,
     iterations: [
@@ -1238,6 +1243,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
       repeats: 1,
     },
     objective: 'success',
+    trigger: 'schedule',
     startedHoursAgo: 40,
     endedHoursAgo: 33.7,
     iterations: [
@@ -1306,6 +1312,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
       repeats: 1,
     },
     objective: 'cost',
+    trigger: 'schedule',
     startedHoursAgo: 30,
     endedHoursAgo: 24.7,
     iterations: [

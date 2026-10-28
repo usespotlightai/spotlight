@@ -216,14 +216,6 @@ vi.mock('@/hooks/api/useSearches', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useSearchEstimate', () => ({
-  useSearchEstimate: () => ({ data: undefined, isFetching: false }),
-}));
-
-vi.mock('@/hooks/api/useStartSearch', () => ({
-  useStartSearch: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
-}));
-
 vi.mock('@/hooks/api/useStationCandidates', () => ({
   useStationCandidates: () => ({
     path: 'core/default/spec',
@@ -959,15 +951,18 @@ describe('Station', () => {
       expect(refetchSets).toHaveBeenCalled();
     });
 
-    it('says a search needs the station’s replay set', () => {
+    it('says Spotlight starts the station’s searches, with no button to start one', () => {
       renderAt('station_2', 'improve');
 
       expect(screen.getByText('No searches yet')).toBeInTheDocument();
       expect(
         screen.getByText(
-          'The station has no replay set yet. Spotlight keeps one after a run of the station ends.',
+          'Spotlight searches the station on a schedule and when a station alert fires.',
         ),
       ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Start a search' }),
+      ).not.toBeInTheDocument();
     });
   });
 

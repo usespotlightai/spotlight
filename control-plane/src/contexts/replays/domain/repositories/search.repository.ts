@@ -21,6 +21,13 @@ export interface SearchRepository {
     since: Date,
   ): Promise<readonly Search[]>;
 
+  ofLineStartedSince(lineId: string, since: Date): Promise<readonly Search[]>;
+
+  lockedOfLineStartedSince(
+    lineId: string,
+    since: Date,
+  ): Promise<readonly Search[]>;
+
   ranAs(run: RunId): Promise<Search | null>;
 
   activeAtStation(stationId: string): Promise<Search | null>;

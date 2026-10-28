@@ -5,7 +5,6 @@ import {
   listReplays,
   listSearches,
   listTeamReplaySets,
-  pickSearchCandidate,
   readReplay,
   readReplayedCandidates,
   readReplayOfRun,
@@ -211,6 +210,8 @@ describe('the mock station', () => {
       ]),
     ).toContainEqual(['review-skill', 1, true]);
     expect(search.split.searchedTasks + search.split.heldOutTasks).toBe(7);
+    expect(search.trigger).toBe('schedule');
+    expect(search.pick).toMatchObject({ outcome: 'picked' });
     expect(run.searchId).toBe('search_tests_first');
   });
 
@@ -253,12 +254,8 @@ describe('the mock station', () => {
     ]);
   });
 
-  it('picks a candidate and stops a search', async () => {
+  it('stops a search', async () => {
     const searchId = 'search_tests_first';
-    const { data: picked } = await pickSearchCandidate({
-      path: { teamId: PLATFORM_ID, searchId, candidateId: 'candidate_opus' },
-      throwOnError: true,
-    });
     await stopSearch({
       path: { teamId: PLATFORM_ID, searchId },
       throwOnError: true,
@@ -268,7 +265,6 @@ describe('the mock station', () => {
       throwOnError: true,
     });
 
-    expect(picked.state).toBe('opened');
     expect(search.state).toBe('stopped');
   });
 });

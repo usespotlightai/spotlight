@@ -17,7 +17,7 @@ export function StopSearchButton({
   return (
     <ConfirmStopButton
       title="Stop this search?"
-      description="The search agent stops and no more candidates replay. Finished replays keep their scores, and you can still open a pull request for them."
+      description="The search agent stops and no more candidates replay. Finished replays keep their scores. Spotlight opens no pull request for a stopped search."
       keep="Keep it searching"
       stop="Stop search"
       pending={stop.isPending}

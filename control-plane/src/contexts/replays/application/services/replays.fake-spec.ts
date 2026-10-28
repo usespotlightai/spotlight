@@ -36,8 +36,10 @@ import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
+import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
+import { StationSearchScheduleVersionConflictError } from '@replays/domain/exceptions/station-search-schedule-version-conflict.error';
 import {
   FINGERPRINT,
   HASHES,
@@ -53,6 +55,7 @@ import type { ReplayRepository } from '@replays/domain/repositories/replay.repos
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
+import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
 import { baselineOf } from '@replays/domain/services/baseline';
 import type { OriginalOutcome } from '@replays/domain/services/composition';
 import { isDueForRefresh } from '@replays/domain/services/kept-set-refresh';
@@ -100,7 +103,59 @@ export class InMemoryReplays {
   readonly candidates = new Map<string, Candidate>();
   readonly replays = new Map<string, Replay>();
   readonly searches = new Map<string, Search>();
+  readonly schedules = new Map<string, StationSearchSchedule>();
   readonly events: DomainEvent[] = [];
+
+  readonly scheduleRepository: StationSearchScheduleRepository = {
+    ofStation: async (stationId) => this.schedules.get(stationId) ?? null,
+    locked: async (stationId) => this.schedules.get(stationId) ?? null,
+    ofSet: async (setId) =>
+      [...this.schedules.values()].find((each) => each.setId.equals(setId)) ??
+      null,
+    dueStations: async (now, limit) =>
+      [...this.schedules.values()]
+        .filter((each) => each.isDue(now))
+        .slice(0, limit)
+        .map((each) => each.stationId),
+    ofLine: async (lineId) =>
+      [...this.schedules.values()].filter(
+        (each) => each.station.lineId === lineId,
+      ),
+    ofTeam: async (teamId) =>
+      [...this.schedules.values()].filter((each) => each.teamId.equals(teamId)),
+    add: async (schedule) => {
+      this.events.push(...schedule.pullEvents());
+      if (!this.schedules.has(schedule.stationId)) {
+        this.schedules.set(schedule.stationId, schedule);
+      }
+    },
+    save: async (schedule) => {
+      if (
+        this.schedules.get(schedule.stationId)?.version !== schedule.version
+      ) {
+        throw new StationSearchScheduleVersionConflictError(schedule.stationId);
+      }
+
+      this.events.push(...schedule.pullEvents());
+      if (schedule.isDeleted) {
+        this.schedules.delete(schedule.stationId);
+      } else {
+        this.schedules.set(
+          schedule.stationId,
+          StationSearchSchedule.rehydrate({
+            station: schedule.station,
+            setId: schedule.setId,
+            lastStartedAt: schedule.lastStartedAt,
+            lastSkip: schedule.lastSkip,
+            searchedTasks: schedule.searchedTasks,
+            alertPendingSince: schedule.alertPendingSince,
+            checkAfter: schedule.checkAfter,
+            version: schedule.version + 1,
+          }),
+        );
+      }
+    },
+  };
 
   readonly setRepository: ReplaySetRepository = {
     find: async (id: ReplaySetId) => this.sets.get(id.value) ?? null,
@@ -275,6 +330,18 @@ export class InMemoryReplays {
           setIds.some((id) => each.setId.equals(id)) &&
           each.startedAt.getTime() >= since.getTime(),
       ),
+    ofLineStartedSince: async (lineId, since) =>
+      [...this.searches.values()].filter(
+        (each) =>
+          each.station.lineId === lineId &&
+          each.startedAt.getTime() >= since.getTime(),
+      ),
+    lockedOfLineStartedSince: async (lineId, since) =>
+      [...this.searches.values()].filter(
+        (each) =>
+          each.station.lineId === lineId &&
+          each.startedAt.getTime() >= since.getTime(),
+      ),
     ranAs: async (run) =>
       [...this.searches.values()].find(
         (each) => each.iterationOf(run) !== null,
@@ -412,6 +479,7 @@ export class FakeWork implements WorkPort {
     hashes: LIVE_HASHES,
     threshold: this.threshold,
     search: null,
+    agent: null,
   });
 
   unanswerable = new Set<string>();
@@ -431,16 +499,6 @@ export class FakeWork implements WorkPort {
   cancelQueued = async (runs: readonly RunId[]) => {
     this.cancelledQueued.push(...runs.map((each) => each.value));
   };
-
-  readonly durationsOf = new Map<string, number>();
-
-  durations = async (runs: readonly RunId[]) =>
-    new Map(
-      runs.flatMap((run) => {
-        const ms = this.durationsOf.get(run.value);
-        return ms === undefined ? [] : [[run.value, ms] as const];
-      }),
-    );
 
   invalidAgent: AgentProblem | null = null;
 
@@ -701,6 +759,13 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
     );
   }
 
+  async openAtStation(stationId: string) {
+    return [...this.stored.values()].some(
+      (each) =>
+        each.station.stationId === stationId && each.current !== 'failed',
+    );
+  }
+
   async due(now: Date) {
     return [...this.stored.values()].filter((each) => each.isDue(now));
   }
@@ -747,7 +812,6 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
         state: saved.current,
         url: saved.url,
         reason: saved.reason,
-        generation: saved.generation,
         retries: saved.retries,
         lastCommit: saved.lastCommit,
         dueAt: saved.dueAt,

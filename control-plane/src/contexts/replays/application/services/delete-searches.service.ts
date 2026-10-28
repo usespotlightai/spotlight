@@ -45,10 +45,6 @@ export class DeleteSearches {
     }
   }
 
-  setGone(setId: ReplaySetId): Promise<void> {
-    return this.endingOf(setId, (search, at) => search.recordSetGone(at));
-  }
-
   stationGone(setId: ReplaySetId): Promise<void> {
     return this.endingOf(setId, (search, at) => search.stationLeft(at));
   }

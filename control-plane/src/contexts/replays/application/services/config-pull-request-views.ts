@@ -34,7 +34,6 @@ export const configPullRequestView = (
   state: pullRequest.current,
   url: pullRequest.url,
   reason: reasonView(pullRequest.reason),
-  generation: pullRequest.generation,
   createdAt: pullRequest.createdAt.toISOString(),
   updatedAt: pullRequest.updatedAt.toISOString(),
 });

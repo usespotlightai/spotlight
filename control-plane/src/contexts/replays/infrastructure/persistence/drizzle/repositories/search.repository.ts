@@ -28,6 +28,7 @@ import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
+import type { SearchPick } from '@replays/domain/value-objects/search-pick';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
 import { ACTIVE_SEARCH_STATES } from '@replays/domain/value-objects/search-state';
@@ -39,6 +40,7 @@ import {
   type StoredFailureCause,
   type StoredModelSpent,
   type StoredReflectedTask,
+  type StoredSearchPick,
   type StoredSearchReplay,
   type StoredSplitEntry,
 } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
@@ -50,7 +52,6 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   and,
@@ -64,6 +65,7 @@ import {
   lt,
   or,
   type SQL,
+  sql,
 } from 'drizzle-orm';
 
 type SearchRow = typeof replaySearch.$inferSelect;
@@ -189,6 +191,18 @@ const toIteration = (row: IterationRow, currency: string): SearchIteration =>
     causes: row.causes.map(causeOf),
   });
 
+const pickOf = (stored: StoredSearchPick | null): SearchPick | null =>
+  stored &&
+  (stored.outcome === 'picked'
+    ? { outcome: 'picked', candidateId: CandidateId.of(stored.candidateId) }
+    : { outcome: 'declined', reason: stored.reason });
+
+const storedPick = (pick: SearchPick | null): StoredSearchPick | null =>
+  pick &&
+  (pick.outcome === 'picked'
+    ? { outcome: 'picked', candidateId: pick.candidateId.value }
+    : { outcome: 'declined', reason: pick.reason });
+
 const toSearch = (
   row: SearchRow,
   iterations: readonly IterationRow[],
@@ -234,7 +248,8 @@ const toSearch = (
     })),
     state: row.state,
     stopReason: row.stopReason,
-    startedBy: row.startedBy ? UserId.of(row.startedBy) : null,
+    trigger: row.trigger,
+    pick: pickOf(row.pick),
     startedAt: row.startedAt,
     endedAt: row.endedAt,
     version: row.version,
@@ -289,6 +304,26 @@ export class DrizzleSearchRepository implements SearchRepository {
         gte(replaySearch.startedAt, since),
       ) as SQL,
     );
+  }
+
+  ofLineStartedSince(lineId: string, since: Date): Promise<readonly Search[]> {
+    return this.withIterations(
+      and(
+        eq(replaySearch.lineId, lineId),
+        gte(replaySearch.startedAt, since),
+      ) as SQL,
+    );
+  }
+
+  async lockedOfLineStartedSince(
+    lineId: string,
+    since: Date,
+  ): Promise<readonly Search[]> {
+    await this.context.db.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`replay-search-line:${lineId}`}, 0))`,
+    );
+
+    return this.ofLineStartedSince(lineId, since);
   }
 
   async ranAs(run: RunId): Promise<Search | null> {
@@ -481,7 +516,8 @@ export class DrizzleSearchRepository implements SearchRepository {
       })),
       state: aggregate.current,
       stopReason: aggregate.stopReason,
-      startedBy: aggregate.startedBy?.value ?? null,
+      trigger: aggregate.trigger,
+      pick: storedPick(aggregate.pick),
       startedAt: aggregate.startedAt,
       endedAt: aggregate.endedAt,
     };

@@ -1,20 +1,13 @@
 import type { RequestHandler } from 'msw';
 import type {
   CandidateResponseDto,
-  ConfigPullRequestResponseDto,
-  EstimateSearchRequestDto,
   ReplayStartedResponseDto,
-  SearchEstimateResponseDto,
-  SearchStartedResponseDto,
   StartReplayRequestDto,
-  StartSearchRequestDto,
 } from '@/lib/api';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { replayedCandidates } from '@/mocks/world/station-candidates';
-import { CONFIG_REPOSITORY } from '@/mocks/world/station-history';
 import { stationOf, stationRunOutcomes } from '@/mocks/world/station-insights';
 import { stationJudge } from '@/mocks/world/station-judge';
-import { rounded } from '@/mocks/world/station-measures';
 import { replayOfRun, replayRun } from '@/mocks/world/station-replay-runs';
 import {
   baselineOfSet,
@@ -37,7 +30,6 @@ import {
 } from '@/mocks/world/station-searches';
 import {
   checksFor,
-  placeOfSet,
   replaySetOf,
   resourceCandidates,
   runOfStation,
@@ -224,137 +216,6 @@ export const stationHandlers: RequestHandler[] = [
     );
   }),
 
-  api.post(`${STATION}/searches/estimate`, async ({ request }) => {
-    const { setId, budget, objective } =
-      (await request.json()) as EstimateSearchRequestDto;
-    const set = setSpec(setId);
-
-    if (!set) {
-      return notFound();
-    }
-
-    const entries = set.entries.length;
-    const searchedTasks = Math.ceil(entries * 0.7);
-    const heldOutTasks = entries - searchedTasks;
-    const repeats = budget.repeats ?? 1;
-    const proposals = budget.iterations * budget.perIteration;
-    const runs = {
-      seed: searchedTasks * repeats,
-      searchReplays: proposals * searchedTasks * repeats,
-      heldOutReplays: heldOutTasks * (1 + Math.min(2, proposals)) * repeats,
-      agent: budget.iterations,
-      total: 0,
-    };
-    runs.total =
-      runs.seed + runs.searchReplays + runs.heldOutReplays + runs.agent;
-    const share = (part: number) => ({
-      amount: rounded(budget.ceiling.amount * part),
-      currency: budget.ceiling.currency,
-    });
-
-    return json<SearchEstimateResponseDto>({
-      searchedTasks,
-      heldOutTasks,
-      runs,
-      ceiling: budget.ceiling,
-      perReplayLimits: {
-        seed: share(0.1),
-        searchReplay: share(0.6 / Math.max(1, proposals)),
-        heldOutReplay: share(0.05),
-        agentRun: share(0.15 / Math.max(1, budget.iterations)),
-      },
-      estimatedDuration:
-        entries === 0 ? null : (budget.iterations + 1) * 1_500_000,
-      minGain: 0.05,
-      objective: objective ?? 'success',
-      warnings: set.health.noise ? [] : [{ kind: 'noise-unmeasured' }],
-    });
-  }),
-
-  api.post(`${STATION}/searches`, async ({ params, request }) => {
-    const { teamId, lineId, stationId } = placeOf(params);
-    const { setId, budget, agent, objective } =
-      (await request.json()) as StartSearchRequestDto;
-    const set = setSpec(setId);
-
-    if (
-      !set ||
-      set.stationId !== stationId ||
-      set.lineId !== lineId ||
-      teamOfLine(lineId) !== teamId
-    ) {
-      return notFound();
-    }
-
-    const runs = set.entries.map((each) => each.runId);
-    const cut = Math.ceil(runs.length * 0.7);
-    const searched = runs.slice(0, cut);
-    const id = uniqueId('search_started', (taken) =>
-      Boolean(searchSpec(taken)),
-    );
-    const live = liveCandidateOf(set.stationId);
-    const seedReplay = startOn(setId, live, {
-      id: `replay_${id}_seed`,
-      runs: searched,
-      marks: startingMarks(searched.length),
-      referenceReplayId: null,
-      paired: false,
-      listed: false,
-      search: { searchId: id, candidateName: 'seed' },
-    });
-    const search: SearchSpec = {
-      id,
-      setId,
-      state: 'seeding',
-      stopReason: null,
-      agent: {
-        harness: agent.harness,
-        model: agent.model ?? null,
-        effort: agent.effort ?? null,
-      },
-      budget: {
-        iterations: budget.iterations,
-        perIteration: budget.perIteration,
-        ceiling: budget.ceiling,
-        concurrency: budget.concurrency ?? 4,
-        repeats: budget.repeats ?? 1,
-      },
-      objective: objective ?? 'success',
-      startedHoursAgo: 0,
-      endedHoursAgo: null,
-      iterations: [],
-      seed: {
-        candidate: live,
-        isSeed: true,
-        iteration: null,
-        hypothesis: null,
-        changes: [],
-        replayId: seedReplay.id,
-        heldOutReplayId: null,
-        onFrontier: true,
-        overfit: null,
-        pullRequest: null,
-      },
-      candidates: [],
-      bestId: null,
-      frontier: [live.id],
-      searched,
-      heldOut: runs.slice(cut),
-    };
-
-    searchStore().push(search);
-
-    return json<SearchStartedResponseDto>(
-      {
-        id,
-        seedReplayId: seedReplay.id,
-        objective: search.objective,
-        warnings: set.health.noise ? [] : [{ kind: 'noise-unmeasured' }],
-      },
-      201,
-    );
-  }),
-
   api.get(
     '/resources/workspaces/:workspaceId/replay-candidates',
     ({ request }) => {
@@ -505,63 +366,4 @@ export const stationHandlers: RequestHandler[] = [
     search.endedHoursAgo = 0;
     return noContent();
   }),
-
-  api.post(
-    '/teams/:teamId/searches/:searchId/candidates/:candidateId/pick',
-    ({ params }) => {
-      const teamId = param(params, 'teamId');
-      const search = searchOn(params);
-      const candidateId = param(params, 'candidateId');
-      const picked = search?.candidates.find(
-        (each) => each.candidate.id === candidateId,
-      );
-
-      if (!search || !picked) {
-        return notFound();
-      }
-
-      const already =
-        picked.pullRequest !== null && picked.pullRequest.state !== 'failed';
-      const number =
-        60 +
-        searchStore().indexOf(search) * 10 +
-        search.candidates.indexOf(picked);
-
-      if (!already) {
-        picked.pullRequest = {
-          id: `config_pull_request_${slugOf(picked.candidate.name)}`,
-          state: 'opened',
-          url: `https://github.com/${CONFIG_REPOSITORY}/pull/${number}`,
-          reason: null,
-        };
-      }
-
-      const pullRequest = picked.pullRequest;
-      const now = new Date().toISOString();
-      const place = placeOfSet(search.setId);
-
-      return json<ConfigPullRequestResponseDto>(
-        {
-          id: pullRequest?.id ?? '',
-          state: pullRequest?.state ?? 'opening',
-          url: pullRequest?.url ?? null,
-          reason: pullRequest?.reason ?? null,
-          teamId,
-          searchId: search.id,
-          candidateId,
-          candidateName: picked.candidate.name,
-          lineId: place?.lineId ?? '',
-          stationId: place?.stationId ?? '',
-          stationKey: place?.stationKey ?? '',
-          repository: CONFIG_REPOSITORY,
-          path: `lines/${place?.lineKey ?? ''}.tf`,
-          branch: `spotlight/${search.id.replaceAll('_', '-')}/${slugOf(picked.candidate.name).replaceAll('_', '-')}`,
-          generation: 1,
-          createdAt: now,
-          updatedAt: now,
-        },
-        already ? 200 : 201,
-      );
-    },
-  ),
 ];

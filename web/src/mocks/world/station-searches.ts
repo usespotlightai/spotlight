@@ -52,6 +52,7 @@ export type SearchSpec = {
   readonly agent: SearchResponseDto['agent'];
   readonly budget: SearchBudgetResponseDto;
   readonly objective: SearchResponseDto['objective'];
+  readonly trigger: SearchResponseDto['trigger'];
   readonly startedHoursAgo: number;
   endedHoursAgo: number | null;
   readonly iterations: readonly SearchIterationResponseDto[];
@@ -98,6 +99,7 @@ const SEEDED: readonly SearchSpec[] = [
       repeats: 1,
     },
     objective: 'success',
+    trigger: 'schedule',
     startedHoursAgo: 100,
     endedHoursAgo: 92.5,
     iterations: [
@@ -214,6 +216,7 @@ const SEEDED: readonly SearchSpec[] = [
       repeats: 1,
     },
     objective: 'cost',
+    trigger: 'alert',
     startedHoursAgo: 104,
     endedHoursAgo: 102.6,
     iterations: [
@@ -366,6 +369,38 @@ const candidatesOf = (search: SearchSpec) =>
     searchCandidateOf(each, maxRegressionsOf(search)),
   );
 
+const pickOf = (
+  search: SearchSpec,
+  best: SearchCandidateResponseDto | undefined,
+): SearchResponseDto['pick'] => {
+  if (search.state !== 'finished') {
+    return null;
+  }
+
+  const picked = search.candidates.find((each) => each.pullRequest !== null);
+
+  if (picked) {
+    return {
+      outcome: 'picked',
+      candidateId: picked.candidate.id,
+      name: picked.candidate.name,
+      reason: null,
+    };
+  }
+
+  return {
+    outcome: 'declined',
+    candidateId: null,
+    name: null,
+    reason:
+      best && !best.isSeed && best.overfit !== null
+        ? 'likely-overfit'
+        : best?.exceedsRegressionLimit
+          ? 'over-regression-limit'
+          : 'no-held-out-gain',
+  };
+};
+
 export const searchSummaryOf = (search: SearchSpec): SearchResponseDto => {
   const all = candidatesOf(search);
   const best = all.find((each) => each.candidateId === search.bestId);
@@ -411,6 +446,8 @@ export const searchSummaryOf = (search: SearchSpec): SearchResponseDto => {
         }
       : null,
     maxRegressions: maxRegressionsOf(search),
+    trigger: search.trigger,
+    pick: pickOf(search, best),
     startedAt: hoursAgo(search.startedHoursAgo),
     endedAt:
       search.endedHoursAgo === null ? null : hoursAgo(search.endedHoursAgo),

@@ -1,6 +1,10 @@
+import { NoFreshHeldOutError } from '@replays/domain/exceptions/no-fresh-held-out.error';
 import { SearchSetTooSmallError } from '@replays/domain/exceptions/search-set-too-small.error';
 import { NOW, SEARCH_ID, sha256 } from '@replays/domain/replays.fake-spec';
-import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import {
+  FEWEST_SEARCH_TASKS,
+  HeldOutSplit,
+} from '@replays/domain/value-objects/held-out-split.vo';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -110,6 +114,31 @@ describe('HeldOutSplit', () => {
     },
   );
 
+  it('holds out only tasks no earlier search searched on, and searches the rest', () => {
+    const set = entries(tasksOf(10));
+    const excluding = tasksOf(7).map((each) => TaskId.of(each));
+    const split = HeldOutSplit.drawn({
+      searchId: SEARCH_ID,
+      entries: set,
+      hash: sha256,
+      excluding,
+    });
+
+    expect(heldOutTasks(split)).toEqual(['task_7', 'task_8', 'task_9']);
+    expect(split.searchedTasks).toBe(7);
+  });
+
+  it('rejects a draw with too few fresh tasks to hold out', () => {
+    expect(() =>
+      HeldOutSplit.drawn({
+        searchId: SEARCH_ID,
+        entries: entries(tasksOf(10)),
+        hash: sha256,
+        excluding: tasksOf(8).map((each) => TaskId.of(each)),
+      }),
+    ).toThrow(NoFreshHeldOutError);
+  });
+
   it('rejects many runs of too few tasks', () => {
     expect(() =>
       drawn(entries(['a', 'a', 'b', 'b', 'c', 'c', 'd', 'd'])),
@@ -136,5 +165,9 @@ describe('HeldOutSplit', () => {
     expect(() =>
       HeldOutSplit.rehydrate({ searched: [one], heldOut: [two] }),
     ).toThrow(InconsistentStateError);
+  });
+
+  it('needs at least five tasks to search', () => {
+    expect(FEWEST_SEARCH_TASKS).toBe(5);
   });
 });

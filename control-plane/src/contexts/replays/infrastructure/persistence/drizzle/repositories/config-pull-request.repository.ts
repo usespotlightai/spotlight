@@ -6,6 +6,7 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
+import type { ConfigPullRequestState } from '@replays/domain/value-objects/config-pull-request-state';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { configPullRequest } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
@@ -18,6 +19,8 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { and, asc, eq, inArray, lte, type SQL } from 'drizzle-orm';
 
 type PullRequestRow = typeof configPullRequest.$inferSelect;
+
+const OPEN_STATES: ConfigPullRequestState[] = ['opening', 'opened'];
 
 const reasonOf = (row: PullRequestRow): ConfigPullRequestReason | null => {
   if (row.errorCode === null) {
@@ -58,7 +61,6 @@ const toPullRequest = (row: PullRequestRow): ConfigPullRequest =>
     state: row.state,
     url: row.url,
     reason: reasonOf(row),
-    generation: row.generation,
     retries: row.retries,
     lastCommit: row.lastCommit,
     dueAt: row.dueAt,
@@ -86,7 +88,6 @@ const columnsOf = (aggregate: ConfigPullRequest) => ({
   errorAttribute: aggregate.reason?.attribute ?? null,
   errorExpression: aggregate.reason?.expression ?? null,
   errorWanted: aggregate.reason?.wanted ?? null,
-  generation: aggregate.generation,
   retries: aggregate.retries,
   lastCommit: aggregate.lastCommit,
   dueAt: aggregate.dueAt,
@@ -144,6 +145,21 @@ export class DrizzleConfigPullRequestRepository
 
   ofTeam(teamId: TeamId): Promise<readonly ConfigPullRequest[]> {
     return this.where(eq(configPullRequest.teamId, teamId.value));
+  }
+
+  async openAtStation(stationId: string): Promise<boolean> {
+    const [found] = await this.context.db
+      .select({ id: configPullRequest.id })
+      .from(configPullRequest)
+      .where(
+        and(
+          eq(configPullRequest.stationId, stationId),
+          inArray(configPullRequest.state, OPEN_STATES),
+        ),
+      )
+      .limit(1);
+
+    return found !== undefined;
   }
 
   due(now: Date): Promise<readonly ConfigPullRequest[]> {

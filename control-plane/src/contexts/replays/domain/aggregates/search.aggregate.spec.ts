@@ -1,9 +1,9 @@
 import { Search } from '@replays/domain/aggregates/search.aggregate';
+import { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
 import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
-import { SearchReflected } from '@replays/domain/events/search-reflected.event';
-import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
+import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
 import { SearchStopRequested } from '@replays/domain/events/search-stop-requested.event';
 import { InvalidFailureCauseError } from '@replays/domain/exceptions/invalid-failure-cause.error';
@@ -170,6 +170,7 @@ describe('Search', () => {
         objective: 'success',
         split,
         seed: { candidate: candidateOf('live'), replayId: SEED },
+        trigger: 'schedule',
         at: NOW,
         by: BY,
       });
@@ -209,6 +210,7 @@ describe('Search', () => {
           hash: sha256,
         }),
         seed: { candidate: candidateOf('live'), replayId: SEED },
+        trigger: 'schedule',
         at: NOW,
         by: BY,
       });
@@ -246,6 +248,7 @@ describe('Search', () => {
             hash: sha256,
           }),
           seed: { candidate: candidateOf('live'), replayId: SEED },
+          trigger: 'schedule',
           at: NOW,
           by: BY,
         }),
@@ -268,6 +271,7 @@ describe('Search', () => {
             hash: sha256,
           }),
           seed: { candidate: candidateOf('proposed'), replayId: SEED },
+          trigger: 'schedule',
           at: NOW,
           by: BY,
         }),
@@ -640,12 +644,6 @@ describe('Search', () => {
         'propose',
         'propose',
       ]);
-      const events = search.pullEvents();
-
-      expect(events).not.toContainEqual(expect.any(SearchReflected));
-      expect(events).toContainEqual(
-        new SearchStalledUnreflected(SEARCH_ID, search.workspaceId),
-      );
     });
 
     it('counts an iteration whose candidates finished but beat nothing before them as coming to nothing', () => {
@@ -922,9 +920,7 @@ describe('Search', () => {
       expect(ended.activeRun).toBeNull();
       expect(ended.iterations[2]?.result).toBe('no-failures');
       expect(ended.iterations[2]?.endedSearch).toBe(true);
-      expect(ended.pullEvents()).toContainEqual(
-        new SearchReflected(SEARCH_ID, ended.workspaceId, 3, true),
-      );
+      expect(ended.pullEvents()).toContainEqual(expect.any(SearchEnded));
     });
 
     it('records one cause per task it looks into, the later replacing the earlier', () => {
@@ -1024,7 +1020,6 @@ describe('Search', () => {
       expect(goneOn.iterations[2]?.endedSearch).toBe(false);
       expect(goneOn.pullEvents()).toEqual([
         new SearchIterationRequested(SEARCH_ID, goneOn.workspaceId, 4, run(4)),
-        new SearchReflected(SEARCH_ID, goneOn.workspaceId, 3, false),
       ]);
 
       const once = goneOn
@@ -1058,10 +1053,7 @@ describe('Search', () => {
         expect(ended.iterations).toHaveLength(3);
         expect(ended.iterations[2]?.result).toBe('no-config-cause');
         expect(ended.iterations[2]?.endedSearch).toBe(true);
-        expect(ended.pullEvents()).toEqual([
-          expect.any(SearchEnded),
-          new SearchReflected(SEARCH_ID, ended.workspaceId, 3, true),
-        ]);
+        expect(ended.pullEvents()).toEqual([expect.any(SearchEnded)]);
       }
     });
 
@@ -1171,6 +1163,53 @@ describe('Search', () => {
       ).toThrow(InconsistentStateError);
     });
   });
+
+  const holdingOutFinished = (): Search => {
+    const SET = aSet(10);
+    const runIds = searchRunIds();
+    const search = iterated(
+      searching(
+        aSearch({ budget: aBudget({ iterations: 1, perIteration: 2 }) }),
+        runIds,
+      ),
+      1,
+      ['one'],
+      runIds,
+    );
+    let count = 0;
+
+    return search
+      .heldOutFrom(
+        [
+          replayedAs(
+            replayFor(SET, 'replay_seed', 'candidate_live', null, true),
+            () => 'completed',
+            3,
+          ),
+          replayedAs(
+            replayFor(
+              SET,
+              'replay_one',
+              'candidate_one',
+              search.split.searchedRuns,
+            ),
+            () => 'completed',
+            1,
+          ),
+        ],
+        0.05,
+        () => ReplayId.of(`held_out_${++count}`),
+        NOW,
+      )
+      .recordReplayStopReason(
+        ReplayId.of('held_out_1'),
+        'finished',
+        charged(1),
+        NOW,
+        searchRunIds(),
+        true,
+      );
+  };
 
   describe('holding out', () => {
     const SET = aSet(10);
@@ -1354,6 +1393,10 @@ describe('Search', () => {
       ).toThrow(InvalidSearchError);
     });
 
+    it('finishes once its held-out replays end', () => {
+      expect(holdingOutFinished().current).toBe('finished');
+    });
+
     it('takes what a held-out replay spent after it ended', () => {
       const search = holdingOut()
         .heldOutFrom(
@@ -1376,6 +1419,51 @@ describe('Search', () => {
       expect(grown.replaySpent(ReplayId.of('held_out_1'), charged(1.2))).toBe(
         grown,
       );
+    });
+  });
+
+  describe('picking', () => {
+    it('records one pick once it finished: a candidate it proposed, or why it declined', () => {
+      const finished = holdingOutFinished();
+
+      expect(finished.current).toBe('finished');
+      finished.pullEvents();
+
+      const picked = finished.picked({
+        outcome: 'picked',
+        candidateId: CandidateId.of('candidate_one'),
+      });
+
+      expect(picked.pick).toEqual({
+        outcome: 'picked',
+        candidateId: CandidateId.of('candidate_one'),
+      });
+      expect(picked.pullEvents()).toEqual([
+        new SearchCandidatePicked(
+          SEARCH_ID,
+          picked.workspaceId,
+          CandidateId.of('candidate_one'),
+        ),
+      ]);
+      expect(
+        finished
+          .picked({ outcome: 'declined', reason: 'likely-overfit' })
+          .pullEvents(),
+      ).toEqual([
+        new SearchPickDeclined(SEARCH_ID, picked.workspaceId, 'likely-overfit'),
+      ]);
+      expect(() =>
+        picked.picked({ outcome: 'declined', reason: 'no-candidate' }),
+      ).toThrow(InvalidSearchError);
+      expect(() =>
+        finished.picked({
+          outcome: 'picked',
+          candidateId: CandidateId.of('candidate_none'),
+        }),
+      ).toThrow(InvalidSearchError);
+      expect(() =>
+        searching().picked({ outcome: 'declined', reason: 'no-candidate' }),
+      ).toThrow(InvalidSearchError);
     });
   });
 
@@ -1424,14 +1512,11 @@ describe('Search', () => {
       expect(() => stopped.stop(NOW, BY)).toThrow(SearchEndedError);
     });
 
-    it('ends when its station or its set is gone, once', () => {
+    it('ends when its station is gone, once', () => {
       const gone = searching().stationLeft(NOW);
-      const setGone = searching().recordSetGone(NOW);
 
       expect(gone.stopReason).toBe('station-gone');
-      expect(setGone.stopReason).toBe('set-gone');
       expect(gone.stationLeft(later(1))).toBe(gone);
-      expect(gone.recordSetGone(later(1))).toBe(gone);
     });
 
     it('takes no more candidates once ended, though word of its replays still arrives', () => {
@@ -1478,7 +1563,8 @@ describe('Search', () => {
       seed: search.seed,
       state: 'searching' as const,
       stopReason: null,
-      startedBy: null,
+      trigger: 'schedule' as const,
+      pick: null,
       startedAt: NOW,
       endedAt: null,
       version: 1,
@@ -1526,7 +1612,8 @@ describe('Search', () => {
         heldOut: [],
         state: 'finished',
         stopReason: 'stalled',
-        startedBy: null,
+        trigger: 'schedule' as const,
+        pick: null,
         startedAt: NOW,
         endedAt: null,
         version: 1,
@@ -1546,7 +1633,8 @@ describe('Search', () => {
         heldOut: [],
         state: 'searching',
         stopReason: 'stalled',
-        startedBy: null,
+        trigger: 'schedule' as const,
+        pick: null,
         startedAt: NOW,
         endedAt: null,
         version: 1,

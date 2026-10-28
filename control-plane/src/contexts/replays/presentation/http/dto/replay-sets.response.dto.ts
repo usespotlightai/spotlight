@@ -6,6 +6,8 @@ import type {
   RefreshedRunDto,
   ReplaySetDto,
   ReplaySetEntryDto,
+  SearchScheduleDto,
+  SearchSkipDto,
   SetCompositionDto,
   SetRefreshDto,
 } from '@replays/application/dto/replays.dto';
@@ -13,6 +15,7 @@ import {
   ORIGINAL_OUTCOMES,
   type OriginalOutcome,
 } from '@replays/domain/services/composition';
+import { SEARCH_SKIP_REASONS } from '@replays/domain/value-objects/search-skip-reason';
 import { UNREPLAYABLE_REASONS } from '@replays/domain/value-objects/unreplayable-reason';
 import { SetHealthResponseDto } from '@replays/presentation/http/dto/replays.response.dto';
 
@@ -226,7 +229,7 @@ export class SetRefreshResponseDto {
     type: RefreshedRunResponseDto,
     isArray: true,
     description:
-      'Runs the refresh took out: entries older than 90 days, or the oldest over 30 runs',
+      'Runs the refresh took out: runs that ended more than 90 days ago. The refresh then adds new runs until the set holds 30',
   })
   readonly removed: RefreshedRunResponseDto[];
 
@@ -236,6 +239,55 @@ export class SetRefreshResponseDto {
     this.removed = refresh.removed.map(
       (each) => new RefreshedRunResponseDto(each),
     );
+  }
+}
+
+export class SearchSkipResponseDto {
+  @ApiProperty({
+    enum: SEARCH_SKIP_REASONS,
+    description:
+      'Why Spotlight did not start an automatic search of the station: the policy is off, the set cannot score or is too small, set health warns, no fresh held-out tasks, the ceiling is too low, no agent, the monthly ceiling, an open config pull request, or the cooldown',
+  })
+  readonly reason: string;
+
+  @ApiProperty({ description: 'When Spotlight first skipped for this reason' })
+  readonly at: string;
+
+  constructor(skip: SearchSkipDto) {
+    this.reason = skip.reason;
+    this.at = skip.at;
+  }
+}
+
+export class SearchScheduleResponseDto {
+  @ApiProperty({ nullable: true, type: String })
+  readonly lastStartedAt: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: SearchSkipResponseDto,
+    description: 'The last skip; null once a search starts',
+  })
+  readonly lastSkip: SearchSkipResponseDto | null;
+
+  @ApiProperty({
+    description: 'When Spotlight next looks at the station',
+  })
+  readonly checkAfter: string;
+
+  @ApiProperty({
+    example: 5,
+    description:
+      'The fewest different tasks a set needs before Spotlight can search it',
+  })
+  readonly minimumTasks: number;
+
+  constructor(schedule: SearchScheduleDto) {
+    this.lastStartedAt = schedule.lastStartedAt;
+    this.lastSkip =
+      schedule.lastSkip && new SearchSkipResponseDto(schedule.lastSkip);
+    this.checkAfter = schedule.checkAfter;
+    this.minimumTasks = schedule.minimumTasks;
   }
 }
 
@@ -299,6 +351,14 @@ export class ReplaySetResponseDto {
   @ApiProperty({ type: ReplaySetEntryResponseDto, isArray: true })
   readonly entries: ReplaySetEntryResponseDto[];
 
+  @ApiProperty({
+    nullable: true,
+    type: SearchScheduleResponseDto,
+    description:
+      'When Spotlight last started an automatic search of the station, why it last skipped one, and when it looks next',
+  })
+  readonly searchSchedule: SearchScheduleResponseDto | null;
+
   constructor(set: ReplaySetDto) {
     this.id = set.id;
     this.lineId = set.lineId;
@@ -315,5 +375,7 @@ export class ReplaySetResponseDto {
     this.entries = set.entries.map(
       (each) => new ReplaySetEntryResponseDto(each),
     );
+    this.searchSchedule =
+      set.searchSchedule && new SearchScheduleResponseDto(set.searchSchedule);
   }
 }

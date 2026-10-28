@@ -1571,12 +1571,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: REPLAYABLE_RUNS,
-    inject: [REPLAY_FACTS, STATION_RUN_READER, RUN_USAGES],
-    useFactory: (
-      facts: ReplayFactsPort,
-      stationRuns: StationRunReaderPort,
-      usages: RunUsageReaderPort,
-    ) => new ReplayableRuns(facts, stationRuns, usages),
+    inject: [REPLAY_FACTS, STATION_RUN_READER],
+    useFactory: (facts: ReplayFactsPort, stationRuns: StationRunReaderPort) =>
+      new ReplayableRuns(facts, stationRuns),
   },
 
   { provide: REPLAY_FACTS, useClass: DrizzleReplayFacts },

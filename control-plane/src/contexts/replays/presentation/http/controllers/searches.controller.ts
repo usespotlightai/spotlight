@@ -1,5 +1,4 @@
 import {
-  Body,
   Get,
   HttpCode,
   HttpStatus,
@@ -7,12 +6,9 @@ import {
   ParseIntPipe,
   Post,
   Query,
-  Res,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
-  ApiBody,
-  ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
@@ -25,40 +21,19 @@ import {
   ApiProblemResponse,
   ConventionalApiController,
 } from '@platform/http/resources/conventional-api';
-import { ProblemException } from '@platform/http/resources/problem.exception';
-import { PickSearchCandidateCommand } from '@replays/application/commands/pick-search-candidate.command';
-import { StartSearchCommand } from '@replays/application/commands/start-search.command';
 import { StopSearchCommand } from '@replays/application/commands/stop-search.command';
-import type {
-  CandidatePicked,
-  SearchRejected,
-  SearchStartedOutcome,
-  SearchStoppedOutcome,
-} from '@replays/application/dto/replay-outcomes.dto';
+import type { SearchStoppedOutcome } from '@replays/application/dto/replay-outcomes.dto';
 import type {
   SearchDetailDto,
-  SearchEstimateDto,
   SearchSummaryDto,
 } from '@replays/application/dto/searches.dto';
-import { EstimateSearchQuery } from '@replays/application/queries/estimate-search.query';
 import { ListSearchesQuery } from '@replays/application/queries/list-searches.query';
 import { ListTeamSearchesQuery } from '@replays/application/queries/list-team-searches.query';
 import { ReadSearchQuery } from '@replays/application/queries/read-search.query';
+import { allowed } from '@replays/presentation/http/controllers/requests';
 import {
-  allowed,
-  objectiveIn,
-  searchAgentIn,
-  searchBudgetIn,
-  textAt,
-} from '@replays/presentation/http/controllers/requests';
-import { ConfigPullRequestResponseDto } from '@replays/presentation/http/dto/config-pull-requests.response.dto';
-import {
-  EstimateSearchRequestDto,
   SearchDetailResponseDto,
-  SearchEstimateResponseDto,
   SearchResponseDto,
-  SearchStartedResponseDto,
-  StartSearchRequestDto,
 } from '@replays/presentation/http/dto/searches.response.dto';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -67,23 +42,9 @@ const SEARCH = 'replay search';
 
 const STATION = 'lines/:lineId/stations/:stationId';
 
-const accepted = <T extends object>(answer: T | SearchRejected): T => {
-  if ('problems' in answer) {
-    throw ProblemException.invalid(SEARCH, answer.problems);
-  }
-
-  return answer;
-};
-
 const PAGE = 50;
 
 const LONGEST_PAGE = 200;
-
-const SET_PROBLEM = 'Replay set must be the replay set of the station.';
-
-interface Answerable {
-  status(code: number): unknown;
-}
 
 @ConventionalApiController('teams/:teamId', 'replays')
 @ApiParam({ name: 'teamId', type: String })
@@ -118,105 +79,6 @@ export class SearchesController {
     >(new ListSearchesQuery(teamId, lineId, stationId, principal));
 
     return searches.map((each) => new SearchResponseDto(each));
-  }
-
-  @Post(`${STATION}/searches/estimate`)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    operationId: 'estimateSearch',
-    summary:
-      'What a search over a set would start, spend and take, before starting it; nothing is written',
-    description:
-      'The runs count every replay and agent run the budget allows; the ceilings are the ones each replay would get; the duration is rough, from how long the set’s runs took, at the search’s concurrency.',
-  })
-  @ApiParam({ name: 'lineId', type: String })
-  @ApiParam({ name: 'stationId', type: String })
-  @ApiBody({ type: EstimateSearchRequestDto })
-  @ApiOkResponse({ type: SearchEstimateResponseDto })
-  @ApiProblemResponse(
-    HttpStatus.UNPROCESSABLE_ENTITY,
-    'A budget out of bounds, a ceiling too low to give each replay a cent, or a set with too few tasks to hold some out',
-  )
-  async estimate(
-    @Param('teamId') teamId: string,
-    @Param('lineId') lineId: string,
-    @Param('stationId') stationId: string,
-    @Body() body: unknown,
-    @CurrentPrincipal() principal: Principal,
-  ): Promise<SearchEstimateResponseDto> {
-    return new SearchEstimateResponseDto(
-      accepted(
-        await this.queryBus.execute<
-          EstimateSearchQuery,
-          SearchEstimateDto | SearchRejected
-        >(
-          new EstimateSearchQuery(
-            teamId,
-            lineId,
-            stationId,
-            textAt(body, 'setId', SET_PROBLEM),
-            searchBudgetIn(body),
-            objectiveIn(body),
-            principal,
-          ),
-        ),
-      ),
-    );
-  }
-
-  @Post(`${STATION}/searches`)
-  @ApiOperation({
-    operationId: 'startSearch',
-    summary:
-      'Start a search for a better config of the station, over the replay set that Spotlight keeps for it, within a budget',
-    description:
-      'It holds out about 30% of the set’s tasks, replays the live config over the whole set, then runs its agent once per iteration to propose candidates, each replayed on the tasks it did not hold out. The best are replayed on the held-out tasks once it stops searching. Spotlight refreshes the set before the search starts. The set does not change while the search runs. A station has one search at a time.',
-  })
-  @ApiParam({ name: 'lineId', type: String })
-  @ApiParam({ name: 'stationId', type: String })
-  @ApiBody({ type: StartSearchRequestDto })
-  @ApiCreatedResponse({ type: SearchStartedResponseDto })
-  @ApiProblemResponse(
-    HttpStatus.UNPROCESSABLE_ENTITY,
-    'A harness no runner starts, a budget out of bounds, a ceiling too low, or a set with too few tasks to hold some out',
-  )
-  @ApiProblemResponse(
-    HttpStatus.CONFLICT,
-    'The station is being searched already, or its set’s station is gone',
-  )
-  @ApiProblemResponse(
-    HttpStatus.FORBIDDEN,
-    'A caller who may read the team but not plan',
-  )
-  async start(
-    @Param('teamId') teamId: string,
-    @Param('lineId') lineId: string,
-    @Param('stationId') stationId: string,
-    @Body() body: unknown,
-    @CurrentActor() actor: Actor,
-  ): Promise<SearchStartedResponseDto> {
-    return new SearchStartedResponseDto(
-      accepted(
-        allowed(
-          SEARCH,
-          await this.commandBus.execute<
-            StartSearchCommand,
-            SearchStartedOutcome
-          >(
-            new StartSearchCommand(
-              teamId,
-              lineId,
-              stationId,
-              textAt(body, 'setId', SET_PROBLEM),
-              searchAgentIn(body),
-              searchBudgetIn(body),
-              objectiveIn(body),
-              actor,
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   @Get('searches')
@@ -278,54 +140,6 @@ export class SearchesController {
         new ReadSearchQuery(teamId, searchId, principal),
       ),
     );
-  }
-
-  @Post('searches/:searchId/candidates/:candidateId/pick')
-  @ApiOperation({
-    operationId: 'pickSearchCandidate',
-    summary:
-      'Pick a candidate of a search: Spotlight opens a pull request that changes the station in the line’s Terraform, in the repository its source names',
-    description:
-      'Spotlight never applies the change itself. It edits the station block of the line’s spotlight_line resource (and a prompt file read with file()), commits to its own branch and opens the pull request; until then the pull request is opening. Picking it again answers the same one, unless it failed, which tries again.',
-  })
-  @ApiParam({ name: 'searchId', type: String })
-  @ApiParam({ name: 'candidateId', type: String })
-  @ApiCreatedResponse({
-    type: ConfigPullRequestResponseDto,
-    description: 'Picked, or tried again after a failure',
-  })
-  @ApiOkResponse({
-    type: ConfigPullRequestResponseDto,
-    description: 'Picked already; the pull request it opens or opened',
-  })
-  @ApiProblemResponse(
-    HttpStatus.CONFLICT,
-    'The seed, or a candidate whose replay on the searched tasks has not finished',
-  )
-  @ApiProblemResponse(
-    HttpStatus.FORBIDDEN,
-    'A caller who may read the team but not plan',
-  )
-  async pick(
-    @Param('teamId') teamId: string,
-    @Param('searchId') searchId: string,
-    @Param('candidateId') candidateId: string,
-    @CurrentActor() actor: Actor,
-    @Res({ passthrough: true }) response: Answerable,
-  ): Promise<ConfigPullRequestResponseDto> {
-    const picked = allowed(
-      SEARCH,
-      await this.commandBus.execute<
-        PickSearchCandidateCommand,
-        CandidatePicked
-      >(new PickSearchCandidateCommand(teamId, searchId, candidateId, actor)),
-    );
-
-    if (picked.outcome === 'already') {
-      response.status(HttpStatus.OK);
-    }
-
-    return new ConfigPullRequestResponseDto(picked.pullRequest);
   }
 
   @Post('searches/:searchId/stop')

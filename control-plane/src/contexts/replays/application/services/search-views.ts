@@ -2,6 +2,7 @@ import type {
   SearchBestDto,
   SearchCandidateDto,
   SearchDetailDto,
+  SearchPickDto,
   SearchSummaryDto,
 } from '@replays/application/dto/searches.dto';
 import { candidatePullRequestView } from '@replays/application/services/config-pull-request-views';
@@ -87,6 +88,28 @@ const scored = (
   };
 };
 
+const pickOf = (search: Search): SearchPickDto | null => {
+  const { pick } = search;
+
+  if (!pick) {
+    return null;
+  }
+
+  return pick.outcome === 'picked'
+    ? {
+        outcome: 'picked',
+        candidateId: pick.candidateId.value,
+        name: nameOf(search, pick.candidateId),
+        reason: null,
+      }
+    : {
+        outcome: 'declined',
+        candidateId: null,
+        name: null,
+        reason: pick.reason,
+      };
+};
+
 const summaryOf = (
   search: Search,
   scores: Scores,
@@ -116,6 +139,8 @@ const summaryOf = (
   proposed: search.proposals.length,
   best: bestOf(search, scores, threshold),
   maxRegressions: threshold?.maxRegressions ?? null,
+  trigger: search.trigger,
+  pick: pickOf(search),
   startedAt: search.startedAt.toISOString(),
   endedAt: search.endedAt?.toISOString() ?? null,
 });

@@ -3,11 +3,11 @@ import type {
   ReplayedStation,
   ReplaySet,
 } from '@replays/domain/aggregates/replay-set.aggregate';
+import { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
 import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
-import { SearchReflected } from '@replays/domain/events/search-reflected.event';
-import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
+import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
 import { SearchStopRequested } from '@replays/domain/events/search-stop-requested.event';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
@@ -44,6 +44,7 @@ import {
   type SearchIterationKind,
 } from '@replays/domain/value-objects/search-iteration.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
+import type { SearchPick } from '@replays/domain/value-objects/search-pick';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
 import { SearchStartDetail } from '@replays/domain/value-objects/search-start-detail.vo';
@@ -56,6 +57,7 @@ import type {
   SearchCutShort,
   SearchStopReason,
 } from '@replays/domain/value-objects/search-stop-reason';
+import type { SearchTrigger } from '@replays/domain/value-objects/search-trigger';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -64,7 +66,6 @@ import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configu
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const STALLED_AFTER = 2;
@@ -123,7 +124,8 @@ interface State {
   readonly heldOut: readonly HeldOutReplay[];
   readonly state: SearchState;
   readonly stopReason: SearchStopReason | null;
-  readonly startedBy: UserId | null;
+  readonly trigger: SearchTrigger;
+  readonly pick: SearchPick | null;
   readonly startedAt: Date;
   readonly endedAt: Date | null;
   readonly version: number;
@@ -148,6 +150,7 @@ export class Search extends EventRecorder {
     objective: SearchObjective;
     split: HeldOutSplit;
     seed: { candidate: SeedCandidate; replayId: ReplayId };
+    trigger: SearchTrigger;
     at: Date;
     by: ChangeActor;
   }): Search {
@@ -188,7 +191,8 @@ export class Search extends EventRecorder {
       heldOut: [],
       state: 'seeding',
       stopReason: null,
-      startedBy: input.by.actor?.principal.userId ?? null,
+      trigger: input.trigger,
+      pick: null,
       startedAt: input.at,
       endedAt: null,
       version: 0,
@@ -248,6 +252,13 @@ export class Search extends EventRecorder {
       throw new InconsistentStateError(
         'search',
         'held out candidates before it stopped searching',
+      );
+    }
+
+    if (state.pick !== null && state.state !== 'finished') {
+      throw new InconsistentStateError(
+        'search',
+        'picks a candidate only once it has finished',
       );
     }
 
@@ -326,8 +337,22 @@ export class Search extends EventRecorder {
     return this.state.stopReason;
   }
 
-  get startedBy(): UserId | null {
-    return this.state.startedBy;
+  get trigger(): SearchTrigger {
+    return this.state.trigger;
+  }
+
+  get pick(): SearchPick | null {
+    return this.state.pick;
+  }
+
+  get awaitsPick(): boolean {
+    return this.state.state === 'finished' && this.state.pick === null;
+  }
+
+  get pickedCandidate(): CandidateId | null {
+    return this.state.pick?.outcome === 'picked'
+      ? this.state.pick.candidateId
+      : null;
   }
 
   get startedAt(): Date {
@@ -667,12 +692,32 @@ export class Search extends EventRecorder {
     return stopped;
   }
 
-  stationLeft(at: Date): Search {
-    return this.isActive ? this.cutShort('station-gone', at) : this;
+  picked(pick: SearchPick): Search {
+    if (this.state.state !== 'finished' || this.state.pick !== null) {
+      throw new InvalidSearchError(
+        'picks a candidate once, after it has finished',
+      );
+    }
+    if (
+      pick.outcome === 'picked' &&
+      !this.proposals.some((each) => each.candidateId.equals(pick.candidateId))
+    ) {
+      throw new InvalidSearchError('picks only a candidate it proposed');
+    }
+
+    const recorded = this.with({ pick });
+
+    recorded.record(
+      pick.outcome === 'picked'
+        ? new SearchCandidatePicked(this.id, this.workspaceId, pick.candidateId)
+        : new SearchPickDeclined(this.id, this.workspaceId, pick.reason),
+    );
+
+    return recorded;
   }
 
-  recordSetGone(at: Date): Search {
-    return this.isActive ? this.cutShort('set-gone', at) : this;
+  stationLeft(at: Date): Search {
+    return this.isActive ? this.cutShort('station-gone', at) : this;
   }
 
   delete(): Search {
@@ -760,7 +805,7 @@ export class Search extends EventRecorder {
     if (this.stalls) {
       return this.roomToReflect
         ? this.wantingIteration(runIds, 'reflect')
-        : this.stalledUnreflected(at);
+        : this.ranItsCourse('stalled', at);
     }
     if (!this.affordsIteration) {
       return this.ranItsCourse('ceiling-reached', at);
@@ -787,14 +832,6 @@ export class Search extends EventRecorder {
     );
   }
 
-  private stalledUnreflected(at: Date): Search {
-    const stalled = this.ranItsCourse('stalled', at);
-
-    stalled.record(new SearchStalledUnreflected(this.id, this.workspaceId));
-
-    return stalled;
-  }
-
   private reflectedAt(
     reflection: SearchIteration,
     at: Date,
@@ -817,20 +854,9 @@ export class Search extends EventRecorder {
     const outcome =
       stalledAs ??
       (next.state.state === 'searching' ? 'continued' : 'ceiling-reached');
-    const concluded = next.changingIteration(reflection.runId, (each) =>
+    return next.changingIteration(reflection.runId, (each) =>
       each.concluded(outcome),
     );
-
-    concluded.record(
-      new SearchReflected(
-        this.id,
-        this.workspaceId,
-        reflection.number,
-        outcome !== 'continued',
-      ),
-    );
-
-    return concluded;
   }
 
   private wantingIteration(

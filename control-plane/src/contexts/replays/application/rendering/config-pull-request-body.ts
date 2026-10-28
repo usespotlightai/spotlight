@@ -174,7 +174,7 @@ export const ConfigPullRequestBody = {
     const { candidate, seed, currency } = facts;
 
     return [
-      `Spotlight searched for a better config of the \`${facts.stationKey}\` station on the \`${facts.lineKey}\` line and found \`${defused(facts.candidateName)}\`, which a person picked. This changes the station as the candidate has it: ${facts.changes.map((each) => `\`${each}\``).join(', ')}.`,
+      `Spotlight searched for a better config of the \`${facts.stationKey}\` station on the \`${facts.lineKey}\` line and found \`${defused(facts.candidateName)}\`. Spotlight picked it because it did better than the live config on the held-out tasks. This changes the station as the candidate has it: ${facts.changes.map((each) => `\`${each}\``).join(', ')}.`,
       ...[describeOverfit(facts), describeRegressionLimit(facts)].flatMap(
         (each) => (each ? [each] : []),
       ),

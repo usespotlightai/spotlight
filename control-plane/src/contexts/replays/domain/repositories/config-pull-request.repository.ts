@@ -20,6 +20,8 @@ export interface ConfigPullRequestRepository {
 
   ofTeam(teamId: TeamId): Promise<readonly ConfigPullRequest[]>;
 
+  openAtStation(stationId: string): Promise<boolean>;
+
   due(now: Date): Promise<readonly ConfigPullRequest[]>;
 
   add(pullRequest: ConfigPullRequest): Promise<ConfigPullRequest>;

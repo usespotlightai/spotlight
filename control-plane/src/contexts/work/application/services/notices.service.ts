@@ -40,13 +40,21 @@ export class Notices implements NoticesPort {
       at: this.clock.now(),
     });
 
-    if (!(await this.access.onTeam(input.teamId.value, input.addressee))) {
+    if (
+      input.addressee !== null &&
+      !(await this.access.onTeam(input.teamId.value, input.addressee))
+    ) {
       return;
     }
 
     return this.transaction.inTransaction(async () => {
       if (
-        !(await this.notices.about(created.addressee, form, created.subject))
+        !(await this.notices.about(
+          created.teamId,
+          created.addressee,
+          form,
+          created.subject,
+        ))
       ) {
         await this.notices.add(created);
       }

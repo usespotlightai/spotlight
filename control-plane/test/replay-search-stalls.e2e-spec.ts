@@ -42,11 +42,10 @@ import {
 openSearchFlow();
 
 describe('a search for a better station config, when it stalls or loses its station', () => {
-  it('looks into why once two iterations in a row came to nothing, takes a cause for each failing searched task and none for a held-out one, ends stalled and tells who started it', async () => {
-    const setId = await createSet(fiveTasks);
-    const { id, seedReplayId } = await startSearch(setId, {
+  it('looks into why once two iterations in a row came to nothing, takes a cause for each failing searched task and none for a held-out one, ends stalled and tells the team once', async () => {
+    await createSet(fiveTasks);
+    const { id, seedReplayId } = await startSearch({
       iterations: 4,
-      perIteration: 1,
       ceiling: 20,
     });
 
@@ -163,14 +162,14 @@ describe('a search for a better station config, when it stalls or loses its stat
       kind: 'notice',
       teamId: team.teamId.value,
       form: 'ended',
-      headline:
-        'The search for a better Build config ended with nothing the config can fix',
+      headline: 'The search of the Build station ended with no pull request',
       link: `lines/${DELIVERY}/stations/${BUILD}/searches/${id}`,
       linkLabel: 'Open the search',
       unread: true,
       resolved: false,
     });
     expect(notice?.points).toEqual([
+      'No candidate finished its replay on the held-out tasks.',
       expect.stringMatching(
         /^No config change can fix the \d+ tasks? still failing\. The rest of the budget stays unspent\.$/,
       ),
@@ -185,6 +184,14 @@ describe('a search for a better station config, when it stalls or loses its stat
       ),
     ]);
     expect(notice?.points.join('\n')).not.toContain(first?.taskId);
+    expect(
+      (
+        (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200))
+          .body as InboxEntry[]
+      ).filter(
+        (each) => each.kind === 'notice' && each.link.endsWith(`/${id}`),
+      ),
+    ).toHaveLength(1);
 
     await http()
       .post(`/api/workspaces/${team.slug}/inbox/notices/${notice?.id}/resolve`)
@@ -219,11 +226,10 @@ describe('a search for a better station config, when it stalls or loses its stat
     ).toBe(false);
   }, 120_000);
 
-  it('searches on once looking into why it stalled finds a cause the config can fix, telling no one', async () => {
-    const setId = await createSet(fiveTasks);
-    const { id, seedReplayId } = await startSearch(setId, {
+  it('searches on once looking into why it stalled finds a cause the config can fix, and tells the team only how it ended', async () => {
+    await createSet(fiveTasks);
+    const { id, seedReplayId } = await startSearch({
       iterations: 4,
-      perIteration: 1,
       ceiling: 20,
     });
 
@@ -275,15 +281,21 @@ describe('a search for a better station config, when it stalls or loses its stat
 
     expect((await searchRow(id))?.stopReason).toBe('iterations-spent');
 
-    const inbox = (
-      await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200)
-    ).body as InboxEntry[];
+    const notices = await eventually(async () => {
+      const inbox = (
+        await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200)
+      ).body as InboxEntry[];
+      const found = inbox.filter(
+        (each): each is Extract<InboxEntry, { kind: 'notice' }> =>
+          each.kind === 'notice' && each.link.endsWith(`/${id}`),
+      );
 
-    expect(
-      inbox.some(
-        (each) => each.kind === 'notice' && each.link.endsWith(`/${id}`),
-      ),
-    ).toBe(false);
+      return found.length > 0 ? found : null;
+    }, WITHIN);
+
+    expect(notices.map((each) => [each.form, each.headline])).toEqual([
+      ['ended', 'The search of the Build station ended with no pull request'],
+    ]);
   }, 120_000);
 
   it('stops once its station leaves its line', async () => {
@@ -291,10 +303,9 @@ describe('a search for a better station config, when it stalls or loses its stat
     for (let each = 0; each < 5; each += 1) {
       originals.push(await anOriginal(POLISH));
     }
-    const setId = await createSet(originals, POLISH);
+    await createSet(originals, POLISH);
     const { id, seedReplayId } = await startSearch(
-      setId,
-      { iterations: 1, perIteration: 1, ceiling: 20 },
+      { iterations: 1, ceiling: 20 },
       POLISH,
     );
     const line = (
@@ -323,11 +334,10 @@ describe('a search for a better station config, when it stalls or loses its stat
     expect(await replayEnded(seedReplayId)).not.toBe('running');
   }, 120_000);
 
-  it('is deleted with its team, cancelling its active agent run', async () => {
-    const setId = await createSet(fiveTasks);
-    const { id, seedReplayId } = await startSearch(setId, {
+  it('is deleted with its team and its search schedules, cancelling its active agent run', async () => {
+    await createSet(fiveTasks);
+    const { id, seedReplayId } = await startSearch({
       iterations: 2,
-      perIteration: 1,
       ceiling: 20,
     });
 
@@ -366,6 +376,16 @@ describe('a search for a better station config, when it stalls or loses its stat
     );
     await eventually(
       async () => (await replayRow(seedReplayId)) === undefined,
+      WITHIN,
+    );
+    await eventually(
+      async () =>
+        (
+          await db
+            .select()
+            .from(schema.stationSearchSchedule)
+            .where(eq(schema.stationSearchSchedule.teamId, team.teamId.value))
+        ).length === 0,
       WITHIN,
     );
     expect(

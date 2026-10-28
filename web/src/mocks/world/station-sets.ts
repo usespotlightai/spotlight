@@ -393,6 +393,8 @@ const lastRefreshOf = ({ refresh }: SetSpec): SetRefreshResponseDto | null =>
     removed: refresh.removed.map(refreshedRunOf),
   };
 
+const MIN_SEARCH_TASKS = 5;
+
 export const replaySetOf = (spec: SetSpec): ReplaySetResponseDto => {
   const entries = spec.entries.map(entryOfSet);
 
@@ -405,6 +407,15 @@ export const replaySetOf = (spec: SetSpec): ReplaySetResponseDto => {
       spec.refreshedHoursAgo === null ? null : hoursAgo(spec.refreshedHoursAgo),
     lastRefresh: lastRefreshOf(spec),
     stationGone: false,
+    searchSchedule: {
+      lastStartedAt: null,
+      lastSkip:
+        spec.entries.length < MIN_SEARCH_TASKS
+          ? { reason: 'set-too-small', at: hoursAgo(spec.createdHoursAgo) }
+          : null,
+      checkAfter: hoursAgo(-24),
+      minimumTasks: MIN_SEARCH_TASKS,
+    },
     health: spec.health,
     minGain: MIN_GAIN,
     composition: compositionOf(entries),

@@ -317,6 +317,7 @@ describe('a team, created through the resource API (e2e)', () => {
       'replays.delete-config-pull-requests-of-deleted-team',
       'replays.delete-replay-checks-of-deleted-team',
       'replays.delete-replays-of-deleted-team',
+      'replays.delete-search-schedules-of-deleted-team',
       'replays.delete-searches-of-deleted-team',
       'work.delete-lines-of-deleted-team',
       'work.delete-notices-of-deleted-team',

@@ -10,6 +10,7 @@ import type { ReplaysAccess } from '@replays/application/services/replays-access
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import { StationWithoutReplaySetError } from '@replays/domain/exceptions/station-without-replay-set.error';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -22,6 +23,7 @@ export class ReadReplaySetHandler
     private readonly work: WorkPort,
     private readonly insights: InsightsPort,
     private readonly healths: SetHealths,
+    private readonly schedules: StationSearchScheduleRepository,
   ) {}
 
   async execute(query: ReadReplaySetQuery): Promise<ReplaySetDto> {
@@ -51,6 +53,7 @@ export class ReadReplaySetHandler
         originalOutcomes,
         await this.healths.ofSet(set, standard),
         standard.minGain,
+        await this.schedules.ofSet(set.id),
       );
     } catch (error) {
       rethrowAsApplicationError(error);

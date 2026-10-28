@@ -360,6 +360,7 @@ export const aSearch = (
       candidate: candidateOf('live'),
       replayId: ReplayId.of('replay_seed'),
     },
+    trigger: 'schedule',
     at: NOW,
     by: BY,
   });

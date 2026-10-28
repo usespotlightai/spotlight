@@ -1,23 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import type { ReplaySet } from '@/lib/replay';
 import {
-  budgetFrom,
   byIteration,
-  fieldOf,
   formatHeldOut,
   frontierPoints,
   iterationTitle,
-  NO_REPLAY_SET_YET,
-  pickProblem,
-  problemsOf,
   replayCheckNote,
   type Search,
   type SearchCandidate,
   type SearchDetail,
   searchNumber,
   searchPath,
-  setProblemOf,
-  startProblem,
 } from '@/lib/search';
 
 const AT = {
@@ -26,51 +18,6 @@ const AT = {
   lineId: 'line_1',
   stationId: 'station_1',
 };
-
-const setOf = (tasks: number, over: Partial<ReplaySet> = {}): ReplaySet => ({
-  id: 'set_1',
-  lineId: 'line_1',
-  stationId: 'station_1',
-  createdAt: '2026-10-01T09:00:00.000Z',
-  refreshedAt: null,
-  lastRefresh: null,
-  stationGone: false,
-  health: {
-    noise: null,
-    saturation: null,
-    judge: null,
-    checks: null,
-    oracle: null,
-  },
-  minGain: 0.05,
-  composition: {
-    outcomes: [
-      { outcome: 'accepted', count: 0 },
-      { outcome: 'sent-back', count: 0 },
-      { outcome: 'asked', count: 0 },
-      { outcome: 'failed', count: 0 },
-      { outcome: 'other', count: 0 },
-    ],
-    origins: [],
-    oldest: null,
-    median: null,
-    newest: null,
-    balanceWarning: null,
-  },
-  entries: Array.from({ length: tasks + 1 }, (_, place) => ({
-    runId: `run_${place}`,
-    taskId: `task_${Math.min(place, tasks - 1)}`,
-    title: null,
-    state: 'completed',
-    endedAt: null,
-    addedAt: '2026-10-01T09:00:00.000Z',
-    unreplayableReason: null,
-    reason: null,
-    outcome: 'other',
-    origin: 'person',
-  })),
-  ...over,
-});
 
 const candidate = (over: Partial<SearchCandidate>): SearchCandidate => ({
   candidateId: 'c',
@@ -103,41 +50,11 @@ const candidate = (over: Partial<SearchCandidate>): SearchCandidate => ({
   ...over,
 });
 
-const INPUTS = {
-  iterations: '3',
-  perIteration: '2',
-  concurrency: '4',
-  repeats: '1',
-  amount: '20',
-  currency: 'USD',
-};
-
 describe('search', () => {
   it('places a search under its station', () => {
     expect(searchPath(AT, 'search_1')).toBe(
       '/w/acme/team/team_1/lines/line_1/stations/station_1/searches/search_1',
     );
-  });
-
-  it('counts distinct tasks, not runs, before a set may be searched', () => {
-    expect(setProblemOf(setOf(4))).toBe(
-      'The set covers 4 tasks. A search holds some tasks out. Minimum different tasks: 5',
-    );
-    expect(setProblemOf(setOf(5))).toBeNull();
-    expect(setProblemOf(setOf(5, { stationGone: true }))).toBe(
-      'The station is gone from its line.',
-    );
-  });
-
-  it('says why a search cannot start while a search is under way, the station has no set or the set is small', () => {
-    expect(startProblem(setOf(6), { state: 'searching' } as Search)).toBe(
-      'A search of this station is in progress.',
-    );
-    expect(startProblem(null, null)).toBe(NO_REPLAY_SET_YET);
-    expect(startProblem(setOf(2), null)).toBe(
-      'The set covers 2 tasks. A search holds some tasks out. Minimum different tasks: 5',
-    );
-    expect(startProblem(setOf(6), null)).toBeNull();
   });
 
   it('numbers searches from the first started', () => {
@@ -149,78 +66,6 @@ describe('search', () => {
     expect(searchNumber(searches, 'a')).toBe(1);
     expect(searchNumber(searches, 'b')).toBe(2);
     expect(searchNumber(searches, 'c')).toBeNull();
-  });
-
-  it('reads a budget, and says what is wrong with each field', () => {
-    expect(budgetFrom(INPUTS).budget).toEqual({
-      iterations: 3,
-      perIteration: 2,
-      concurrency: 4,
-      repeats: 1,
-      ceiling: { amount: 20, currency: 'USD' },
-    });
-
-    const { budget, problems } = budgetFrom({
-      ...INPUTS,
-      iterations: '11',
-      perIteration: '1.5',
-      repeats: '6',
-      amount: '',
-    });
-
-    expect(budget).toBeNull();
-    expect(problems.iterations).toBe(
-      'Please enter a whole number from 1 to 10.',
-    );
-    expect(problems.perIteration).toBe(
-      'Please enter a whole number from 1 to 5.',
-    );
-    expect(problems.repeats).toBe('Please enter a whole number from 1 to 5.');
-    expect(problems.ceiling).toBe('Please enter a ceiling above 0.');
-    expect(problems.concurrency).toBeUndefined();
-  });
-
-  it('places a rejection’s field errors on the fields they name', () => {
-    expect(fieldOf('budget.ceiling.amount')).toBe('ceiling');
-    expect(fieldOf('agent.harness')).toBe('agent');
-    expect(fieldOf('agent.effort')).toBe('agent');
-    expect(fieldOf('budget.ceiling.currency')).toBe('ceiling');
-    expect(fieldOf('budget.perIteration')).toBe('perIteration');
-    expect(fieldOf('budget.repeats')).toBe('repeats');
-    expect(fieldOf('setId')).toBe('set');
-    expect(fieldOf('elsewhere')).toBeNull();
-
-    expect(
-      problemsOf({
-        detail: 'invalid',
-        errors: [
-          {
-            path: 'budget.iterations',
-            message: 'is how many times',
-            severity: 'error',
-          },
-        ],
-      }),
-    ).toEqual({ fields: { iterations: 'is how many times' }, general: null });
-    expect(problemsOf({ status: 409, detail: 'Searched already' })).toEqual({
-      fields: {},
-      general: 'Searched already',
-    });
-    expect(problemsOf(null)).toEqual({ fields: {}, general: null });
-  });
-
-  it('may pick only a candidate whose search replay finished, never the seed', () => {
-    expect(pickProblem(candidate({}))).toBeNull();
-    expect(pickProblem(candidate({ replayState: 'running' }))).toBe(
-      'After its replay on the searched tasks finishes, you can open a pull request.',
-    );
-    expect(pickProblem(candidate({ isSeed: true }))).not.toBeNull();
-    expect(pickProblem(candidate({ replayState: 'stopped' }))).toBe(
-      'You can’t open a pull request for this candidate. Its replay stopped before it finished.',
-    );
-    expect(pickProblem(candidate({ replayState: 'ceiling-reached' }))).toBe(
-      'You can’t open a pull request for this candidate. Its replay reached its ceiling before it finished.',
-    );
   });
 
   it('says whether a candidate was held out', () => {

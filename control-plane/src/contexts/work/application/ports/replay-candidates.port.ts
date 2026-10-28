@@ -57,7 +57,7 @@ export interface ReplayThreshold {
   readonly minGain: number;
 }
 
-interface StationSearchAgent {
+export interface StationSearchAgent {
   readonly harness: string;
   readonly model: string | null;
   readonly effort: string | null;
@@ -85,6 +85,7 @@ export interface LiveStation {
   readonly hashes: ConfigHashes;
   readonly replayCheck: ReplayThreshold | null;
   readonly search: StationSearchPolicy | null;
+  readonly agent: StationSearchAgent | null;
 }
 
 export interface ReplayCandidatesPort {

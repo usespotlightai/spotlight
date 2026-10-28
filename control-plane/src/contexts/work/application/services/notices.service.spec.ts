@@ -26,10 +26,20 @@ class InMemoryNotices implements NoticeRepository {
 
   find = async (id: { value: string }) => this.stored.get(id.value) ?? null;
 
-  about = async (addressee: UserId, form: string, subject: string) =>
+  about = async (
+    teamId: TeamId,
+    addressee: UserId | null,
+    form: string,
+    subject: string,
+  ) =>
     [...this.stored.values()].find(
       (each) =>
-        each.isFor(addressee) && each.form === form && each.subject === subject,
+        each.teamId.equals(teamId) &&
+        (each.addressee === null || addressee === null
+          ? each.addressee === addressee
+          : each.addressee.equals(addressee)) &&
+        each.form === form &&
+        each.subject === subject,
     ) ?? null;
 
   deleteForTeam = async (teamId: TeamId) => {
@@ -165,5 +175,36 @@ describe('Notices', () => {
       kind: 'not-found',
     });
     members.add('team_1:user_1');
+  });
+
+  it('addresses a team notice to every member of the team, once per subject, and lets any member resolve it for all', async () => {
+    const memory = new InMemoryNotices();
+    const clock = { now: () => NOW, sleep: async () => {} };
+    const loader = new NoticeLoader(memory, access);
+    const team = { ...STALLED, addressee: null };
+
+    await noticesOver(memory).create(team);
+    await noticesOver(memory).create(team);
+    await noticesOver(memory).create(STALLED);
+
+    expect(memory.stored.size).toBe(2);
+
+    const shared = [...memory.stored.values()].find(
+      (each) => each.addressee === null,
+    );
+
+    members.add('team_1:user_2');
+    expect(shared?.isFor(UserId.of('user_2'))).toBe(true);
+    await new ResolveNoticeHandler(loader, memory, clock).execute(
+      new ResolveNoticeCommand(shared?.id.value ?? '', 'acme', 'user_2'),
+    );
+    expect(memory.stored.get(shared?.id.value ?? '')?.resolvedAt).toEqual(NOW);
+
+    members.delete('team_1:user_2');
+    await expect(
+      new ResolveNoticeHandler(loader, memory, clock).execute(
+        new ResolveNoticeCommand(shared?.id.value ?? '', 'acme', 'user_2'),
+      ),
+    ).rejects.toMatchObject({ kind: 'not-found' });
   });
 });

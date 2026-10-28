@@ -1,4 +1,5 @@
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
+import { ConfigPullRequestFailed } from '@replays/domain/events/config-pull-request-failed.event';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
 import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
@@ -48,7 +49,6 @@ interface State {
   readonly state: ConfigPullRequestState;
   readonly url: string | null;
   readonly reason: ConfigPullRequestReason | null;
-  readonly generation: number;
   readonly retries: number;
   readonly lastCommit: string | null;
   readonly dueAt: Date | null;
@@ -98,10 +98,14 @@ export class ConfigPullRequest extends EventRecorder {
       createdAt: input.at,
       lastCommit: null,
       version: 0,
-      ...ConfigPullRequest.attempted(input.source, input.lineKey, 1, input.at),
+      ...ConfigPullRequest.attempted(input.source, input.lineKey, input.at),
     });
 
-    picked.record(picked.wanted('created', input.by));
+    picked.record(picked.wanted(input.by));
+
+    if (picked.state.reason) {
+      picked.record(picked.failureOf(picked.state.reason));
+    }
 
     return picked;
   }
@@ -133,20 +137,12 @@ export class ConfigPullRequest extends EventRecorder {
         'is due to be tried when, and only when, it is opening',
       );
     }
-    if (!Number.isInteger(state.generation) || state.generation < 1) {
-      throw new InconsistentStateError(
-        AGGREGATE,
-        `has generation ${state.generation}, not 1 or more`,
-      );
-    }
-
     return new ConfigPullRequest(state);
   }
 
   private static attempted(
     source: ConfigSourceOf | null,
     lineKey: string,
-    generation: number,
     at: Date,
   ): Pick<
     State,
@@ -155,7 +151,6 @@ export class ConfigPullRequest extends EventRecorder {
     | 'state'
     | 'url'
     | 'reason'
-    | 'generation'
     | 'retries'
     | 'dueAt'
     | 'updatedAt'
@@ -166,7 +161,6 @@ export class ConfigPullRequest extends EventRecorder {
       state: source ? 'opening' : 'failed',
       url: null,
       reason: source ? null : ConfigPullRequestReason.noSource(lineKey),
-      generation,
       retries: 0,
       dueAt: source ? at : null,
       updatedAt: at,
@@ -229,10 +223,6 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.reason;
   }
 
-  get generation(): number {
-    return this.state.generation;
-  }
-
   get retries(): number {
     return this.state.retries;
   }
@@ -257,16 +247,6 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.version;
   }
 
-  get isRetryable(): boolean {
-    return this.state.state === 'failed';
-  }
-
-  isOpening(generation: number): boolean {
-    return (
-      this.state.state === 'opening' && this.state.generation === generation
-    );
-  }
-
   isDue(now: Date): boolean {
     return this.state.dueAt !== null && this.state.dueAt <= now;
   }
@@ -275,33 +255,6 @@ export class ConfigPullRequest extends EventRecorder {
     this.mustBeOpening();
 
     return this.with({ dueAt: until });
-  }
-
-  retried(input: {
-    lineKey: string;
-    source: ConfigSourceOf | null;
-    at: Date;
-    by: ChangeActor;
-  }): ConfigPullRequest {
-    if (!this.isRetryable) {
-      throw new InconsistentStateError(
-        AGGREGATE,
-        `is ${this.state.state}, and only a failed one is tried again`,
-      );
-    }
-
-    const retried = this.with(
-      ConfigPullRequest.attempted(
-        input.source,
-        input.lineKey,
-        this.state.generation + 1,
-        input.at,
-      ),
-    );
-
-    retried.record(retried.wanted('updated', input.by));
-
-    return retried;
   }
 
   commit(commit: string, at: Date): ConfigPullRequest {
@@ -343,7 +296,16 @@ export class ConfigPullRequest extends EventRecorder {
   failed(reason: ConfigPullRequestReason, at: Date): ConfigPullRequest {
     this.mustBeOpening();
 
-    return this.with({ state: 'failed', reason, dueAt: null, updatedAt: at });
+    const failed = this.with({
+      state: 'failed',
+      reason,
+      dueAt: null,
+      updatedAt: at,
+    });
+
+    failed.record(failed.failureOf(reason));
+
+    return failed;
   }
 
   tried(message: string, at: Date): ConfigPullRequest {
@@ -376,10 +338,11 @@ export class ConfigPullRequest extends EventRecorder {
     }
   }
 
-  private wanted(
-    action: 'created' | 'updated',
-    by: ChangeActor,
-  ): ConfigPullRequestRequested {
+  private failureOf(reason: ConfigPullRequestReason): ConfigPullRequestFailed {
+    return new ConfigPullRequestFailed(this.state.id, this.workspaceId, reason);
+  }
+
+  private wanted(by: ChangeActor): ConfigPullRequestRequested {
     const changed = {
       resource: 'config-pull-request' as const,
       id: this.state.id.value,
@@ -389,16 +352,12 @@ export class ConfigPullRequest extends EventRecorder {
       searchId: this.state.searchId.value,
       candidateId: this.state.candidateId.value,
       candidate: this.state.candidateName,
-      generation: this.state.generation,
     });
 
     return new ConfigPullRequestRequested(
       this.state.id,
       this.teamId,
-      this.state.generation,
-      action === 'created'
-        ? ConfigurationChange.created(changed, by, detail)
-        : ConfigurationChange.updated(changed, by, detail),
+      ConfigurationChange.created(changed, by, detail),
     );
   }
 

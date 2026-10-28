@@ -28,6 +28,7 @@ import type {
   ReplaySet,
   ReplaySetRefresh,
 } from '@replays/domain/aggregates/replay-set.aggregate';
+import type { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import type { RateInterval } from '@replays/domain/services/bootstrap';
 import {
   compositionOf,
@@ -52,6 +53,7 @@ import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
 import type { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import type { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
 import type { EntryPairing } from '@replays/domain/value-objects/entry-pairing.vo';
+import { FEWEST_SEARCH_TASKS } from '@replays/domain/value-objects/held-out-split.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
@@ -440,6 +442,7 @@ export const setView = (
   originalOutcomes: ReadonlyMap<string, OriginalOutcome>,
   health: SetHealth,
   minGain: number,
+  schedule: StationSearchSchedule | null,
 ): ReplaySetDto => {
   const entries = set.entries.map((entry) => ({
     entry,
@@ -455,6 +458,15 @@ export const setView = (
     refreshedAt: set.refreshedAt?.toISOString() ?? null,
     lastRefresh: refreshView(set.lastRefresh, summaries),
     stationGone: set.isAtGoneStation,
+    searchSchedule: schedule && {
+      lastStartedAt: schedule.lastStartedAt?.toISOString() ?? null,
+      lastSkip: schedule.lastSkip && {
+        reason: schedule.lastSkip.reason,
+        at: schedule.lastSkip.at.toISOString(),
+      },
+      checkAfter: schedule.checkAfter.toISOString(),
+      minimumTasks: FEWEST_SEARCH_TASKS,
+    },
     health: healthView(health),
     minGain,
     composition: compositionView(

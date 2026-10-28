@@ -7,7 +7,6 @@ const LEAVING = 240;
 
 type CandidateDetailOfProps = {
   at: ReplayedStation;
-  searchId: string;
   chosen: SearchCandidate | null;
   live: SearchCandidate;
   currency: string;
@@ -17,7 +16,6 @@ type CandidateDetailOfProps = {
 
 export function CandidateDetailOf({
   at,
-  searchId,
   chosen,
   live,
   currency,
@@ -29,7 +27,6 @@ export function CandidateDetailOf({
   return displayed ? (
     <CandidateDetail
       at={at}
-      searchId={searchId}
       candidate={displayed}
       live={live}
       currency={currency}
