@@ -1,6 +1,6 @@
 ---
 name: spotlight-pull-request
-description: Open a pull request for the branch this task was worked on, through Spotlight. Use when the work at this station is ready for someone to review and merge.
+description: Open a pull request for the branch this task was worked on, or change its title and description, through Spotlight. Use when the work at this station is ready for someone to review and merge, or when the description no longer says what the branch does.
 ---
 
 ## Opening a pull request
@@ -20,5 +20,7 @@ A long body is easier piped in, as `spotlight tools call pull-request --title "â
 Where the line works in several repositories, name the one the change is in
 with `--repository <name>`.
 
-One task has one pull request. Calling it again where one is already open answers
-with the one that is there rather than opening another.
+One task has one pull request. Calling it again where one is already open
+changes the title and body of that one, and answers with its address. Without
+`--body`, the body stays as it is. Call it again when the branch changes what
+the description says, so that the description stays true.

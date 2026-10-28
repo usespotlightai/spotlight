@@ -14,10 +14,19 @@ export interface PullRequestOpening {
   readonly body: string;
 }
 
+export interface PullRequestEditing {
+  readonly workspaceId: WorkspaceId;
+  readonly pullRequest: PullRequestUrl;
+  readonly title: string;
+  readonly body: string | null;
+}
+
 export const PULL_REQUESTS = Symbol('PULL_REQUESTS');
 
 export interface PullRequestPort {
   open(opening: PullRequestOpening): Promise<OpenedPullRequestDto>;
+
+  edit(editing: PullRequestEditing): Promise<void>;
 
   changedOn(
     workspaceId: WorkspaceId,

@@ -24,7 +24,7 @@ interface PullRequestFor {
 
 interface PullRequestInput {
   readonly title: string;
-  readonly body: string;
+  readonly body: string | null;
   readonly repository: string | null;
 }
 
@@ -46,6 +46,13 @@ export class OpenPullRequest {
     const task = await this.found(target.taskId);
 
     if (task.pullRequest) {
+      await this.pullRequests.edit({
+        workspaceId: task.workspaceId,
+        pullRequest: task.pullRequest,
+        title: input.title,
+        body: input.body,
+      });
+
       return { url: task.pullRequest.value };
     }
 
@@ -87,7 +94,7 @@ export class OpenPullRequest {
       repository,
       branch: task.branch.value,
       title: input.title,
-      body: input.body,
+      body: input.body ?? '',
     });
 
     return this.transaction.inTransaction(async () => {

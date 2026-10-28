@@ -74,14 +74,14 @@ describe('PullRequestToolUse', () => {
     ]);
   });
 
-  it('names no repository where the agent named none', async () => {
+  it('names no body or repository where the agent named none', async () => {
     const { tool, opened } = using();
 
     await tool.call(CONTEXT, ToolInputs.of({ title: 'Fix the queue' }));
 
     expect(opened[0]?.input).toEqual({
       title: 'Fix the queue',
-      body: '',
+      body: null,
       repository: null,
     });
   });
