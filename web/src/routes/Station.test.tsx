@@ -858,7 +858,7 @@ describe('Station', () => {
       );
 
       expect(
-        screen.queryByRole('link', { name: 'Review with the agent' }),
+        screen.queryByRole('link', { name: 'Review with agent' }),
       ).not.toBeInTheDocument();
       expect(
         document.querySelector('[data-slot="handed-prompt"]'),
@@ -877,7 +877,7 @@ describe('Station', () => {
       renderAt('station_2', 'improve');
 
       expect(sectionTitled('Worth improving')).toHaveTextContent(
-        'Every signal looks healthy over the past 30 days',
+        'All signals are healthy',
       );
     });
 
@@ -887,7 +887,7 @@ describe('Station', () => {
 
       await user.click(
         within(sectionTitled('Worth improving')).getByRole('link', {
-          name: 'Review with the agent',
+          name: 'Review with agent',
         }),
       );
 

@@ -71,11 +71,11 @@ export function WorthImproving({
         <div className="flex justify-center pt-2 pb-10">
           <EmptyState
             icon={CircleCheck}
-            title={`Every signal looks healthy over the ${WORTH_IMPROVING_SPAN}`}
+            title="All signals are healthy"
             action={action}
             className="max-w-md"
           >
-            There’s always room to improve. Talk it through with the agent.
+            No issues detected in the {WORTH_IMPROVING_SPAN}.
           </EmptyState>
         </div>
       )}
