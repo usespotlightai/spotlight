@@ -10,6 +10,7 @@ import {
   withGatewayErrorReported,
 } from '@/lib/error-reporting';
 import { failuresToasted } from '@/lib/failure-toasts';
+import { refuseStrayFileDrops } from '@/lib/file-drops';
 import { withSentRequest } from '@/lib/request-failure';
 import App from './App.tsx';
 import './index.css';
@@ -18,6 +19,8 @@ const root = document.getElementById('root');
 if (!root) {
   throw new Error('Root element #root not found');
 }
+
+refuseStrayFileDrops();
 
 client.interceptors.error.use(withSentRequest);
 client.interceptors.error.use(withGatewayErrorReported);
