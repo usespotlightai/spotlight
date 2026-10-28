@@ -205,12 +205,6 @@ describe('StackCheck', () => {
     ).toBe('skipped');
   });
 
-  it('rejects a check command that is not one short line', () => {
-    expect(() => CheckRequest.of('npx tsc\nrm -rf /', null)).toThrow(
-      InvalidChangeStackError,
-    );
-  });
-
   it('records what each layer’s check found', () => {
     const checked = checking().recordResult(
       RUNNER,

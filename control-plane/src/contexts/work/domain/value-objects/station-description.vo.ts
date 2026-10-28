@@ -8,7 +8,7 @@ export class StationDescription {
 
   static of(written: string): StationDescription {
     return new StationDescription(
-      WrittenText.prose(written, MAX_LENGTH, InvalidStationDescriptionError),
+      WrittenText.of(written, MAX_LENGTH, InvalidStationDescriptionError),
     );
   }
 

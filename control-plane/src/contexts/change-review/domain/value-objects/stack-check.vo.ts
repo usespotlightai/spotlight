@@ -51,7 +51,7 @@ export const WHOLE_STEP = 'whole';
 
 export type StepId = LayerId | typeof WHOLE_STEP;
 
-export const MAX_CHECK_COMMAND = 500;
+export const MAX_CHECK_COMMAND = 65_536;
 
 export interface CheckStep {
   readonly id: StepId;
