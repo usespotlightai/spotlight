@@ -17,7 +17,7 @@ export class PullRequestToolUse implements BuiltInToolUse<TaskToolContext> {
       { runId, taskId, stationId },
       {
         title: (inputs.text('title') ?? '').trim(),
-        body: inputs.text('body') ?? '',
+        body: inputs.text('body') ?? null,
         repository: inputs.text('repository')?.trim() ?? null,
       },
     );

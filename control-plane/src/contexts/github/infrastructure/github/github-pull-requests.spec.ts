@@ -52,6 +52,9 @@ const repository = (over: { open?: boolean; taken?: boolean } = {}) =>
         over.open ? [{ html_url: 'https://github.com/acme/api/pull/3' }] : [],
       );
     }
+    if (url.endsWith('/pulls/3')) {
+      return answering(200, { html_url: 'https://github.com/acme/api/pull/3' });
+    }
     if (url.endsWith('/pulls') && over.taken) {
       return answering(422, {
         errors: [
@@ -118,6 +121,63 @@ describe('GitHubPullRequests', () => {
       await new GitHubPullRequests(access).open(opening);
 
       expect(sentTo('/git/')).toHaveLength(0);
+    });
+  });
+
+  describe('editing one', () => {
+    const editing = (
+      body: string | null,
+      link = 'https://github.com/acme/api/pull/3',
+    ) => ({
+      workspaceId: WorkspaceId.of('ws_1'),
+      pullRequest: PullRequestUrl.of(link),
+      title: 'Fix the queue, twice',
+      body,
+    });
+
+    it('changes its title and body', async () => {
+      repository();
+
+      await new GitHubPullRequests(access).edit(editing('what changed'));
+
+      expect(sent).toEqual([
+        {
+          url: 'https://api.github.com/repos/acme/api/pulls/3',
+          method: 'PATCH',
+          body: { title: 'Fix the queue, twice', body: 'what changed' },
+        },
+      ]);
+    });
+
+    it('leaves its body where none is handed over', async () => {
+      repository();
+
+      await new GitHubPullRequests(access).edit(editing(null));
+
+      expect(lastly('/pulls/3')?.body).toEqual({
+        title: 'Fix the queue, twice',
+      });
+    });
+
+    it('rejects a link that names no pull request', async () => {
+      repository();
+
+      await expect(
+        new GitHubPullRequests(access).edit(
+          editing(null, 'https://github.com/acme/api'),
+        ),
+      ).rejects.toThrow(/is not a GitHub pull request/);
+      expect(sent).toEqual([]);
+    });
+
+    it('carries GitHub’s error', async () => {
+      repository();
+
+      await expect(
+        new GitHubPullRequests(access).edit(
+          editing(null, 'https://github.com/acme/api/pull/4'),
+        ),
+      ).rejects.toThrow(/would not edit/);
     });
   });
 

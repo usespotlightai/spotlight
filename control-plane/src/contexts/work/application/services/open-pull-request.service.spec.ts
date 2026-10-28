@@ -103,7 +103,10 @@ const lineWorking = (repositories: readonly string[]): Line => {
   } as unknown as Line;
 };
 
-const requested = (repository: string | null = null, body = '') => ({
+const requested = (
+  repository: string | null = null,
+  body: string | null = '',
+) => ({
   title: 'Fix the queue',
   body,
   repository,
@@ -126,6 +129,7 @@ const opening = (
   const listened: [string, string][] = [];
   let stored: Task | null = null;
   const opened: Parameters<PullRequestPort['open']>[0][] = [];
+  const edited: Parameters<PullRequestPort['edit']>[0][] = [];
 
   const pullRequests = {
     open: async (request: Parameters<PullRequestPort['open']>[0]) => {
@@ -137,6 +141,9 @@ const opening = (
         stored = over.meanwhile(stored);
       }
       return { url: 'https://github.com/acme/widgets/pull/7' };
+    },
+    edit: async (request: Parameters<PullRequestPort['edit']>[0]) => {
+      edited.push(request);
     },
     changedOn: async (...on: unknown[]) => {
       compared.push(on);
@@ -185,6 +192,7 @@ const opening = (
       );
     },
     opened,
+    edited,
     saved,
     hookCalls,
     compared,
@@ -300,20 +308,52 @@ describe('OpenPullRequest', () => {
     ]);
   });
 
-  it('answers with the one already open rather than opening another', async () => {
+  it('edits the one already open rather than opening another', async () => {
     const already = task().recordPullRequest(
       RUN,
       PullRequestUrl.of('https://github.com/acme/widgets/pull/1'),
       NOW,
       delivery(),
     );
-    const { open, opened, saved } = opening();
+    const { open, opened, edited, saved } = opening();
 
-    const answered = await open(already);
+    const answered = await open(already, requested(null, 'what changed'));
 
     expect(answered.url).toBe('https://github.com/acme/widgets/pull/1');
+    expect(edited).toEqual([
+      {
+        workspaceId: WorkspaceId.of('ws_1'),
+        pullRequest: PullRequestUrl.of(
+          'https://github.com/acme/widgets/pull/1',
+        ),
+        title: 'Fix the queue',
+        body: 'what changed',
+      },
+    ]);
     expect(opened).toEqual([]);
     expect(saved).toEqual([]);
+  });
+
+  it('keeps the body of the one already open where the agent hands over none', async () => {
+    const already = task().recordPullRequest(
+      RUN,
+      PullRequestUrl.of('https://github.com/acme/widgets/pull/1'),
+      NOW,
+      delivery(),
+    );
+    const { open, edited } = opening();
+
+    await open(already, requested(null, null));
+
+    expect(edited[0]?.body).toBeNull();
+  });
+
+  it('opens one with an empty body where the agent hands over none', async () => {
+    const { open, opened } = opening();
+
+    await open(task(), requested(null, null));
+
+    expect(opened[0]?.body).toBe('');
   });
 
   it('records it on the task as it is when GitHub answers, not as it was read before', async () => {

@@ -172,6 +172,7 @@ const pullRequests: PullRequestPort = {
       url: `https://github.com/${CONFIG}/pull/${at < 0 ? github.opened.length : at + 1}`,
     };
   },
+  edit: async () => {},
   changedOn: async () => [],
   changedIn: async () => [],
 };

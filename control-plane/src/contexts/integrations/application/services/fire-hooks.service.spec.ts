@@ -238,6 +238,7 @@ const setUp = (
       calls,
       {
         open: vi.fn(),
+        edit: vi.fn(),
         changedOn: vi.fn(),
         changedIn: vi.fn(async () => ['db/migrations/1.sql']),
       },

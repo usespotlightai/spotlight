@@ -31,7 +31,8 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
     skill: OPENING_PULL_REQUESTS,
     declared: DeclaredTool.of({
       tool: PULL_REQUEST,
-      description: 'Open a pull request for the branch of this task.',
+      description:
+        'Open a pull request for the branch of this task, or change the title and body of the one it has.',
       inputs: [
         {
           name: 'title',
@@ -44,7 +45,8 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
         {
           name: 'body',
           schema: InputSchema.ofType('string'),
-          description: 'The detail, as Markdown',
+          description:
+            'The detail, as Markdown. Without it, an open pull request keeps its body',
           required: false,
           defaulted: false,
           stdin: true,

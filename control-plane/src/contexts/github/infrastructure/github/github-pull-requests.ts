@@ -1,5 +1,6 @@
 import type {
   OpenedPullRequestDto,
+  PullRequestEditing,
   PullRequestOpening,
   PullRequestPort,
 } from '@github/application/ports/pull-request.port';
@@ -51,6 +52,32 @@ export class GitHubPullRequests implements PullRequestPort {
       opening,
       token,
       await this.defaultBranch(opening.repository, token),
+    );
+  }
+
+  async edit(editing: PullRequestEditing): Promise<void> {
+    const repository = editing.pullRequest.repository;
+    const number = editing.pullRequest.number;
+
+    if (repository === null || number === null) {
+      throw new InvalidPullRequestError(
+        `at ${editing.pullRequest.value} is not a GitHub pull request`,
+      );
+    }
+
+    await answered(
+      await call(
+        `${this.at(repository)}/pulls/${number}`,
+        await this.tokenFor(editing.workspaceId),
+        {
+          ...sending({
+            title: editing.title,
+            ...(editing.body === null ? {} : { body: editing.body }),
+          }),
+          method: 'PATCH',
+        },
+      ),
+      `GitHub would not edit ${editing.pullRequest.value}`,
     );
   }
 
