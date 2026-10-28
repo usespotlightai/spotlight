@@ -101,6 +101,7 @@ export function useAttachments(
       onDropCapture: (event: DragEvent) => {
         if (carriesFiles(event.dataTransfer)) {
           event.preventDefault();
+          event.stopPropagation();
         }
         took(event, filesIn(event.dataTransfer));
       },
