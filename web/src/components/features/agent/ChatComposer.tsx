@@ -4,7 +4,7 @@ import { FixedRepositories } from '@/components/features/stations/FixedRepositor
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useSendChatMessage } from '@/hooks/api/useSendChatMessage';
 import { useStopChat } from '@/hooks/api/useStopChat';
-import type { Chat } from '@/lib/chat';
+import { CHAT_KEEPS_REPOSITORIES, type Chat } from '@/lib/chat';
 
 type ChatComposerProps = {
   slug: string;
@@ -35,7 +35,13 @@ export function ChatComposer({ slug, teamId, chat }: ChatComposerProps) {
           onEffort={setEffort}
         />
       }
-      below={<FixedRepositories slug={slug} repositories={chat.repositories} />}
+      below={
+        <FixedRepositories
+          slug={slug}
+          repositories={chat.repositories}
+          because={CHAT_KEEPS_REPOSITORIES}
+        />
+      }
       onSend={({ body, attachments }, sent) =>
         send.mutate(
           { teamId, chatId: chat.id, body, attachments, model, effort },
