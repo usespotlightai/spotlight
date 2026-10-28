@@ -12,6 +12,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { Notice } from '@/components/shared/Notice';
 import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useInsightsTraces } from '@/hooks/api/useInsightsTraces';
 import { narrowedBy, type RunFilter, TRUNCATED_TRACES } from '@/lib/insights';
@@ -111,7 +112,10 @@ export function TraceList({
     <div className="relative flex min-h-0 flex-1 flex-col">
       <TraceVolume volume={data.volume} from={data.from} to={data.to} />
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5">
+      <ScrollArea
+        className="min-h-0 flex-1"
+        contentClassName="min-h-full px-1.5 pb-1.5"
+      >
         <TraceHead />
 
         {data.truncated && (
@@ -167,7 +171,7 @@ export function TraceList({
             ))}
           </ul>
         )}
-      </div>
+      </ScrollArea>
 
       <TraceSelectionBar
         count={selected.length}

@@ -2,6 +2,7 @@ import { Inbox } from 'lucide-react';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { TeamNav } from '@/components/shell/layout/TeamNav';
 import { WorkspaceMenu } from '@/components/shell/layout/WorkspaceMenu';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useInbox } from '@/hooks/api/useInbox';
 import { inboxPath } from '@/lib/inbox';
 import { isAdmin, type Role } from '@/lib/role';
@@ -31,21 +32,23 @@ export function WorkspaceSidebar({ slug, workspace }: WorkspaceSidebarProps) {
         />
       </div>
 
-      <nav className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pt-2">
-        <SidebarLink
-          to={inboxPath(slug)}
-          icon={Inbox}
-          trailing={
-            unseen.length > 0 ? (
-              <p className="text-xs">{unseen.length}</p>
-            ) : null
-          }
-        >
-          Inbox
-        </SidebarLink>
+      <ScrollArea className="min-h-0 flex-1">
+        <nav className="min-h-full flex flex-col gap-4 pt-2">
+          <SidebarLink
+            to={inboxPath(slug)}
+            icon={Inbox}
+            trailing={
+              unseen.length > 0 ? (
+                <p className="text-xs">{unseen.length}</p>
+              ) : null
+            }
+          >
+            Inbox
+          </SidebarLink>
 
-        <TeamNav slug={slug} teams={workspace.teams} />
-      </nav>
+          <TeamNav slug={slug} teams={workspace.teams} />
+        </nav>
+      </ScrollArea>
     </>
   );
 }

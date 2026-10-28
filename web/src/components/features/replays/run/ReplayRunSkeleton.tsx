@@ -5,6 +5,7 @@ import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { RUNS_AUTONOMOUSLY } from '@/lib/run';
 
 export function ReplayRunSkeleton() {
@@ -28,7 +29,7 @@ export function ReplayRunSkeleton() {
       />
 
       <RunSidePanel>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
           <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
             <SkeletonLine className="w-28 self-center text-xs" />
 
@@ -37,7 +38,7 @@ export function ReplayRunSkeleton() {
               <SkeletonLine className="w-40 text-xs" />
             </div>
           </div>
-        </div>
+        </ScrollArea>
 
         <ComposerFooter>
           <ChatInputSkeleton placeholder={RUNS_AUTONOMOUSLY} />

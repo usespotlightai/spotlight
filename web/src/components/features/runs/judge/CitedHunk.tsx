@@ -1,3 +1,4 @@
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { CitedHunk as Hunk } from '@/lib/judge';
 import { cn } from '@/lib/utils';
 
@@ -11,22 +12,24 @@ export function CitedHunk({ hunk }: { hunk: Hunk }) {
         {hunk.path ?? hunk.id} {hunk.header}
       </p>
       {hunk.lines.length > 0 ? (
-        <pre className="overflow-x-auto px-3 py-1.5 font-mono text-xs leading-5">
-          {hunk.lines.map((line, at) => (
-            <span
-              // biome-ignore lint/suspicious/noArrayIndexKey: the position of a line identifies it, because the lines of a hunk are fixed
-              key={at}
-              className={cn(
-                'block',
-                line.startsWith('+') &&
-                  'text-emerald-600 dark:text-emerald-400',
-                line.startsWith('-') && 'text-destructive',
-              )}
-            >
-              {line}
-            </span>
-          ))}
-        </pre>
+        <ScrollArea orientation="horizontal">
+          <pre className="px-3 py-1.5 font-mono text-xs leading-5">
+            {hunk.lines.map((line, at) => (
+              <span
+                // biome-ignore lint/suspicious/noArrayIndexKey: the position of a line identifies it, because the lines of a hunk are fixed
+                key={at}
+                className={cn(
+                  'block',
+                  line.startsWith('+') &&
+                    'text-emerald-600 dark:text-emerald-400',
+                  line.startsWith('-') && 'text-destructive',
+                )}
+              >
+                {line}
+              </span>
+            ))}
+          </pre>
+        </ScrollArea>
       ) : (
         <p className="px-3 py-1.5 text-muted-foreground text-xs">
           The hunk is no longer in the run’s changes.

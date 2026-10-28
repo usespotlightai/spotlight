@@ -2,6 +2,7 @@ import { Virtualizer } from '@pierre/diffs/react';
 import { LayerDetail } from '@/components/features/changes/LayerDetail';
 import { StackNavCohort } from '@/components/features/changes/StackNavCohort';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { usePreloadedLanguages } from '@/hooks/usePreloadedLanguages';
 import { type ChangeStack, layerAt, STACK_NAV_PANE } from '@/lib/change-stack';
@@ -30,20 +31,22 @@ export function ChangeStackView({
         style={{ width: nav.width }}
         className="relative flex shrink-0 border-border border-r-[0.5px]"
       >
-        <nav
-          aria-label="Change stack"
-          className="flex min-w-0 flex-1 flex-col gap-8 overflow-y-auto px-3 py-5 scrollbar-hide"
-        >
-          {stack.cohorts.map((cohort) => (
-            <StackNavCohort
-              key={cohort.id}
-              stack={stack}
-              cohort={cohort}
-              current={shown ?? null}
-              onPick={onPick}
-            />
-          ))}
-        </nav>
+        <ScrollArea className="min-w-0 flex-1">
+          <nav
+            aria-label="Change stack"
+            className="min-h-full flex flex-col gap-8 px-3 py-5"
+          >
+            {stack.cohorts.map((cohort) => (
+              <StackNavCohort
+                key={cohort.id}
+                stack={stack}
+                cohort={cohort}
+                current={shown ?? null}
+                onPick={onPick}
+              />
+            ))}
+          </nav>
+        </ScrollArea>
 
         <PaneHandle {...nav.handleProps} edge="right" resizing={nav.resizing} />
       </div>

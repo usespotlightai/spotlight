@@ -1,5 +1,6 @@
 import { useId, useMemo, useRef } from 'react';
 import { PipelineStageLabel } from '@/components/features/insights/shipping/PipelineStageLabel';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useElementWidth } from '@/hooks/useElementWidth';
 import { usePipelineParticles } from '@/hooks/usePipelineParticles';
 import { formatDurationOrNone } from '@/lib/insights';
@@ -55,7 +56,7 @@ export function PipelineFlowChart({
   const worstPart = worst?.longestPart ?? null;
 
   return (
-    <div className="overflow-x-auto">
+    <ScrollArea orientation="horizontal">
       <div
         ref={frame}
         role="img"
@@ -174,6 +175,6 @@ export function PipelineFlowChart({
           </span>
         )}
       </div>
-    </div>
+    </ScrollArea>
   );
 }

@@ -1,4 +1,5 @@
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { RUBRIC_LABEL, RUBRIC_TEXT_LABEL } from '@/lib/judge';
 
 type GradeRubricProps = {
@@ -7,21 +8,24 @@ type GradeRubricProps = {
 
 export function GradeRubric({ rubric }: GradeRubricProps) {
   return (
-    <section
-      data-slot="grade-rubric"
-      aria-label={RUBRIC_LABEL}
-      // biome-ignore lint/a11y/noNoninteractiveTabindex: a region that scrolls takes focus so that the keyboard can scroll it
-      tabIndex={0}
-      className="max-h-48 overflow-y-auto overscroll-contain break-words rounded outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    <ScrollArea
+      className="max-h-48 rounded"
+      viewportClassName="overscroll-contain"
     >
-      <MarkdownEditor
-        key={rubric}
-        readOnly
-        initialValue={rubric}
-        placeholder=""
-        ariaLabel={RUBRIC_TEXT_LABEL}
-        className="border-none bg-transparent p-0"
-      />
-    </section>
+      <section
+        data-slot="grade-rubric"
+        aria-label={RUBRIC_LABEL}
+        className="break-words"
+      >
+        <MarkdownEditor
+          key={rubric}
+          readOnly
+          initialValue={rubric}
+          placeholder=""
+          ariaLabel={RUBRIC_TEXT_LABEL}
+          className="border-none bg-transparent p-0"
+        />
+      </section>
+    </ScrollArea>
   );
 }

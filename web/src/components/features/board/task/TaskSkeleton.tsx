@@ -7,6 +7,7 @@ import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { TrailSkeleton } from '@/components/shared/skeleton/TrailSkeleton';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const DESCRIPTION = ['w-full', 'w-11/12', 'w-4/5', 'w-3/5'];
 const ACTIVITY = 3;
@@ -34,7 +35,7 @@ export function TaskSkeleton({
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
         <div className="mx-auto flex w-full max-w-5xl gap-10 px-8 py-8">
           <div className="flex min-w-0 flex-1 flex-col gap-3">
             <SkeletonLine className="w-2/5 font-semibold text-2xl leading-8 tracking-tight" />
@@ -76,7 +77,7 @@ export function TaskSkeleton({
             </section>
           </div>
         </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 }

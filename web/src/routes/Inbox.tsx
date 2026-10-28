@@ -7,6 +7,7 @@ import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { PageOutlet } from '@/components/shell/layout/PageOutlet';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useInbox } from '@/hooks/api/useInbox';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
@@ -56,7 +57,10 @@ export function Inbox() {
         >
           <PageHeader title={<Breadcrumbs segments={[{ label: 'Inbox' }]} />} />
 
-          <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-2">
+          <ScrollArea
+            className="min-h-0 flex-1"
+            contentClassName="min-h-full flex flex-col gap-0.5 p-2"
+          >
             {loading(inbox) && (
               <InboxListSkeleton
                 open={sections.isExpanded(OPEN)}
@@ -103,7 +107,7 @@ export function Inbox() {
                 </Disclosure>
               </div>
             )}
-          </div>
+          </ScrollArea>
 
           <PaneHandle
             {...listPane.handleProps}

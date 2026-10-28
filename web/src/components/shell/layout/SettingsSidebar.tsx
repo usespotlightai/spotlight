@@ -11,6 +11,7 @@ import {
 import { Link } from 'react-router';
 import { SettingsNavGroup } from '@/components/shell/layout/SettingsNavGroup';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRunners } from '@/hooks/api/useRunners';
 import { membersPath } from '@/lib/members';
 import { isAdmin, type Role } from '@/lib/role';
@@ -61,58 +62,60 @@ export function SettingsSidebar({
         </Link>
       </div>
 
-      <nav
-        aria-label="Settings"
-        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pt-2"
-      >
-        <SettingsNavGroup heading="Workspace">
-          <li>
-            <SidebarLink to={workspaceGeneralPath(slug)} icon={Settings2}>
-              General
-            </SidebarLink>
-          </li>
-          {isAdmin(workspace.role) && (
+      <ScrollArea className="min-h-0 flex-1">
+        <nav
+          aria-label="Settings"
+          className="min-h-full flex flex-col gap-4 pt-2"
+        >
+          <SettingsNavGroup heading="Workspace">
             <li>
-              <SidebarLink to={membersPath(slug)} icon={Users}>
-                Members
+              <SidebarLink to={workspaceGeneralPath(slug)} icon={Settings2}>
+                General
               </SidebarLink>
             </li>
-          )}
-          <li>
-            <SidebarLink
-              to={runnersPath(slug)}
-              icon={Server}
-              trailing={
-                <p className="text-xs">{fleet && onlineCount(fleet)}</p>
-              }
-            >
-              Runners
-            </SidebarLink>
-          </li>
-          {isAdmin(workspace.role) && (
-            <li>
-              <SidebarLink to={apiAccessPath(slug)} icon={KeyRound}>
-                API access
-              </SidebarLink>
-            </li>
-          )}
-        </SettingsNavGroup>
-
-        {workspace.teams.map((team) => (
-          <SettingsNavGroup key={team.id} heading={team.name}>
-            {TEAM_SETTINGS_PAGES.map((page) => (
-              <li key={page.id}>
-                <SidebarLink
-                  to={teamSettingsPath(slug, team.id, page.id)}
-                  icon={TEAM_SETTINGS_ICONS[page.id]}
-                >
-                  {page.label}
+            {isAdmin(workspace.role) && (
+              <li>
+                <SidebarLink to={membersPath(slug)} icon={Users}>
+                  Members
                 </SidebarLink>
               </li>
-            ))}
+            )}
+            <li>
+              <SidebarLink
+                to={runnersPath(slug)}
+                icon={Server}
+                trailing={
+                  <p className="text-xs">{fleet && onlineCount(fleet)}</p>
+                }
+              >
+                Runners
+              </SidebarLink>
+            </li>
+            {isAdmin(workspace.role) && (
+              <li>
+                <SidebarLink to={apiAccessPath(slug)} icon={KeyRound}>
+                  API access
+                </SidebarLink>
+              </li>
+            )}
           </SettingsNavGroup>
-        ))}
-      </nav>
+
+          {workspace.teams.map((team) => (
+            <SettingsNavGroup key={team.id} heading={team.name}>
+              {TEAM_SETTINGS_PAGES.map((page) => (
+                <li key={page.id}>
+                  <SidebarLink
+                    to={teamSettingsPath(slug, team.id, page.id)}
+                    icon={TEAM_SETTINGS_ICONS[page.id]}
+                  >
+                    {page.label}
+                  </SidebarLink>
+                </li>
+              ))}
+            </SettingsNavGroup>
+          ))}
+        </nav>
+      </ScrollArea>
     </>
   );
 }

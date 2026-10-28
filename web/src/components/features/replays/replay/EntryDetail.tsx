@@ -7,6 +7,7 @@ import { EntryJudgeClaims } from '@/components/features/replays/run/EntryJudgeCl
 import { EntryPairPasses } from '@/components/features/replays/run/EntryPairPasses';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   type EntryComparison,
   formatTitle,
@@ -103,13 +104,16 @@ export function EntryDetail({
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-8 overflow-y-auto px-4 pt-2 pb-6 scrollbar-hide">
+      <ScrollArea
+        className="min-h-0 flex-1"
+        contentClassName="min-h-full flex flex-col gap-8 px-4 pt-2 pb-6"
+      >
         {sides(
           row.baseline.length > 0 ? 'This replay' : 'Result',
           row.candidate,
         )}
         {sides(referenceLabel, row.baseline)}
-      </div>
+      </ScrollArea>
     </SidePane>
   );
 }

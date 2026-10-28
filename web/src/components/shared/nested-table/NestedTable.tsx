@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { NestedHeadings } from '@/components/shared/nested-table/NestedHeadings';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useColumnWidths } from '@/hooks/useColumnWidths';
 import { columnTemplate, filled, type NestedHeading } from '@/lib/nested-table';
 
@@ -23,9 +24,10 @@ export function NestedTable({
   const columns = useColumnWidths(headings.length);
 
   return (
-    <div
+    <ScrollArea
+      orientation="horizontal"
+      className="group/nested @container"
       data-compact={compact || undefined}
-      className="group/nested @container overflow-x-auto"
     >
       <div
         className="grid gap-x-6 @4xl:min-w-min @4xl:grid-cols-[var(--nested-columns)] @lg:group-data-compact/nested:min-w-min @lg:group-data-compact/nested:grid-cols-[var(--nested-columns)]"
@@ -53,6 +55,6 @@ export function NestedTable({
           {children}
         </ul>
       </div>
-    </div>
+    </ScrollArea>
   );
 }

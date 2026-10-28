@@ -1,5 +1,6 @@
 import { getSharedHighlighter } from '@pierre/diffs';
 import { useEffect, useState } from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 const THEME = { light: 'github-light', dark: 'github-dark' } as const;
@@ -47,9 +48,11 @@ export function CodeBlock({
   }, [command]);
 
   return (
-    <div
-      className={cn(
-        'max-h-64 select-text space-y-1 overflow-auto rounded-md border-[0.5px] border-border bg-muted/60 px-3 py-2 font-mono text-[11px] leading-[1.6]',
+    <ScrollArea
+      orientation="both"
+      className="max-h-64 rounded-md border-[0.5px] border-border bg-muted/60"
+      contentClassName={cn(
+        'select-text space-y-1 px-3 py-2 font-mono text-[11px] leading-[1.6]',
         className,
       )}
     >
@@ -71,6 +74,6 @@ export function CodeBlock({
           {output}
         </pre>
       )}
-    </div>
+    </ScrollArea>
   );
 }

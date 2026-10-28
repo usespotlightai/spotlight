@@ -7,6 +7,7 @@ import { DetailHeader } from '@/components/features/trace/view/detail/DetailHead
 import { DetailSection } from '@/components/features/trace/view/detail/DetailSection';
 import { CodeDiff } from '@/components/shared/CodeDiff';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   answeredBy,
   contentsOf,
@@ -61,7 +62,10 @@ export function SpanDetail({
 
   return (
     <SidePane pane={DETAIL_PANE} open={open} duration={duration} ref={ref}>
-      <div className="flex h-full flex-col gap-5 overflow-y-auto px-4 py-4 scrollbar-hide">
+      <ScrollArea
+        className="h-full"
+        contentClassName="min-h-full flex flex-col gap-5 px-4 py-4"
+      >
         <DetailHeader node={node} />
 
         {runId && <RunJudgeScore teamId={teamId} runId={runId} />}
@@ -106,7 +110,7 @@ export function SpanDetail({
             <DetailFields fields={reported} />
           </DetailSection>
         )}
-      </div>
+      </ScrollArea>
     </SidePane>
   );
 }

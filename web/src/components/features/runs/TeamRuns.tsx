@@ -8,6 +8,7 @@ import { Notice } from '@/components/shared/Notice';
 import { ViewPills } from '@/components/shared/ViewPills';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTeamRuns } from '@/hooks/api/useTeamRuns';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import { useStoredState } from '@/hooks/useStoredState';
@@ -74,7 +75,10 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
           </p>
         </Notice>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pb-1.5">
+        <ScrollArea
+          className="min-h-0 flex-1"
+          contentClassName="min-h-full flex flex-col gap-0.5 pb-1.5"
+        >
           {byAge(shown).map(([age, ofAge], at) => (
             <section
               key={age}
@@ -107,7 +111,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
               </Disclosure>
             </section>
           ))}
-        </div>
+        </ScrollArea>
       )}
     </>
   );

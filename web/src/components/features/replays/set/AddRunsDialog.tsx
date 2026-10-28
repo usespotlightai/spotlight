@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAddReplaySetEntry } from '@/hooks/api/useAddReplaySetEntry';
 import { useReplayableRuns } from '@/hooks/api/useReplayableRuns';
 import { useReplaySetSuggestions } from '@/hooks/api/useReplaySetSuggestions';
@@ -102,7 +103,10 @@ export function AddRunsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="-mx-2 flex max-h-[min(60vh,28rem)] flex-col gap-2 overflow-y-auto">
+        <ScrollArea
+          className="-mx-2 max-h-[min(60vh,28rem)]"
+          contentClassName="flex flex-col gap-2"
+        >
           <SuggestedRuns
             suggestions={suggestions}
             setRunIds={setRunIds}
@@ -110,7 +114,7 @@ export function AddRunsDialog({
             onAdd={addRun}
           />
           {body}
-        </div>
+        </ScrollArea>
 
         <DialogFooter>
           <DialogClose render={<Button variant="outline" size="sm" />}>

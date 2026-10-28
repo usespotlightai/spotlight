@@ -6,6 +6,7 @@ import { ChatProposal } from '@/components/features/agent/ChatProposal';
 import { ChatWork } from '@/components/features/agent/ChatWork';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { type Chat, type ChatMoment, momentsOf, turnsOf } from '@/lib/chat';
 import { type RunJournal, STICKY_AT_TOP } from '@/lib/inbox';
@@ -37,9 +38,10 @@ export function ChatThread({
   );
 
   return (
-    <div
-      ref={scroller}
-      className="flex min-h-0 flex-1 overflow-y-auto overflow-x-hidden"
+    <ScrollArea
+      className="min-h-0 flex-1"
+      viewportRef={scroller}
+      contentClassName="min-h-full flex"
     >
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-8 py-8">
@@ -128,6 +130,6 @@ export function ChatThread({
 
         <div className="sticky bottom-0 z-20">{footer}</div>
       </div>
-    </div>
+    </ScrollArea>
   );
 }

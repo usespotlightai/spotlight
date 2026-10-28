@@ -1,6 +1,7 @@
 import { X } from 'lucide-react';
 import { CodeDiff } from '@/components/shared/CodeDiff';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   type FileChange,
   type LineRange,
@@ -55,7 +56,7 @@ export function ChangeDetail({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-hide">
+      <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
         <CodeDiff
           flush
           path={file.path}
@@ -63,7 +64,7 @@ export function ChangeDetail({
           after={file.after}
           lines={lines}
         />
-      </div>
+      </ScrollArea>
     </SidePane>
   );
 }

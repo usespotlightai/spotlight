@@ -1,6 +1,7 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import { CandidateChoice } from '@/components/features/replays/set/CandidateChoice';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { failed, loading } from '@/lib/query';
 import { candidatesInOrder, LIVE, type ReplayCandidate } from '@/lib/replay';
 
@@ -20,7 +21,7 @@ export function CandidateChoices({
   const proposed = candidatesInOrder(candidates.data ?? []);
 
   return (
-    <div className="flex max-h-60 flex-col gap-1 overflow-y-auto">
+    <ScrollArea className="max-h-60" contentClassName="flex flex-col gap-1">
       <CandidateChoice
         value={LIVE}
         name="Live config"
@@ -49,6 +50,6 @@ export function CandidateChoices({
           replay the live config.
         </p>
       )}
-    </div>
+    </ScrollArea>
   );
 }

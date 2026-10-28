@@ -6,6 +6,7 @@ import {
 } from '@/components/features/trace/view/TraceRowSkeleton';
 import { TraceScale } from '@/components/features/trace/view/TraceScale';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { NAMES_PANE } from '@/lib/trace';
 
@@ -38,7 +39,11 @@ export function TraceViewSkeleton() {
         className="relative min-h-0 min-w-0 flex-1"
         style={{ '--names': `${names.width}px` } as CSSProperties}
       >
-        <div className="flex h-full flex-col overflow-auto scrollbar-hide">
+        <ScrollArea
+          orientation="both"
+          className="h-full"
+          contentClassName="min-h-full flex flex-col"
+        >
           <TraceScale label={() => <SkeletonLine className="w-5" />} />
 
           <div className="relative flex-1 px-1.5">
@@ -53,7 +58,7 @@ export function TraceViewSkeleton() {
               ))}
             </ul>
           </div>
-        </div>
+        </ScrollArea>
       </div>
     </div>
   );

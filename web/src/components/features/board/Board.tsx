@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { BoardStation } from '@/components/features/board/BoardStation';
 import { SelectionBar } from '@/components/features/board/SelectionBar';
 import { TaskDragOverlay } from '@/components/features/board/TaskDragOverlay';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import { useBoardDrag } from '@/hooks/useBoardDrag';
 import { useCollapsed } from '@/hooks/useCollapsed';
@@ -78,7 +79,10 @@ export function Board({
         collisionDetection={drag.collisionDetection}
         {...drag.handlers}
       >
-        <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto py-1.5">
+        <ScrollArea
+          className="min-h-0 flex-1"
+          contentClassName="min-h-full flex flex-col gap-0.5 py-1.5"
+        >
           {shown.map(({ station, place }) => (
             <BoardStation
               key={station.id}
@@ -96,7 +100,7 @@ export function Board({
               onSelect={select}
             />
           ))}
-        </div>
+        </ScrollArea>
 
         <TaskDragOverlay stations={line.stations} task={dragged} />
       </DndContext>

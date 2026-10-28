@@ -6,6 +6,7 @@ import { CandidateResults } from '@/components/features/searches/search/Candidat
 import { PickCandidate } from '@/components/features/searches/search/PickCandidate';
 import { PaneSection } from '@/components/shared/PaneSection';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ReplayedStation } from '@/lib/replay';
 import { candidateName, type SearchCandidate } from '@/lib/search';
 import {
@@ -63,9 +64,10 @@ export function CandidateDetail({
         </button>
       </div>
 
-      <div
+      <ScrollArea
+        className="min-h-0 flex-1"
         data-slot="candidate-detail"
-        className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pt-2 pb-6 scrollbar-hide"
+        contentClassName="min-h-full flex flex-col gap-6 px-4 pt-2 pb-6"
       >
         <PaneSection title={CHANGES_TITLE}>
           <CandidateChanges candidate={candidate} />
@@ -95,7 +97,7 @@ export function CandidateDetail({
           searchId={searchId}
           candidate={candidate}
         />
-      </div>
+      </ScrollArea>
     </SidePane>
   );
 }

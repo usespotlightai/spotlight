@@ -11,6 +11,7 @@ import {
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import { lastNoteAt, threadText } from '@/lib/inbox';
 import type { ReplayRun } from '@/lib/replay';
@@ -65,7 +66,11 @@ export function UntaskedRun({
 
         <RunSidePanel>
           <StepAnchorsProvider runId={run.id} journals={run.journals}>
-            <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto">
+            <ScrollArea
+              className="min-h-0 flex-1"
+              viewportRef={scroller}
+              contentClassName="min-h-full"
+            >
               <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
                 <TimeMarker at={run.startedAt} />
                 <RunImage image={run.image} />
@@ -119,7 +124,7 @@ export function UntaskedRun({
                   </div>
                 )}
               </div>
-            </div>
+            </ScrollArea>
 
             {footer}
           </StepAnchorsProvider>

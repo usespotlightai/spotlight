@@ -9,6 +9,7 @@ Element.prototype.setPointerCapture = () => undefined;
 Element.prototype.releasePointerCapture = () => undefined;
 Element.prototype.scrollIntoView = () => undefined;
 Element.prototype.scrollTo = () => undefined;
+Element.prototype.getAnimations = () => [];
 Range.prototype.getBoundingClientRect = () => new DOMRect();
 Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
 HTMLCanvasElement.prototype.getContext = (() =>

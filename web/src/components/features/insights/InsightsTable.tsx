@@ -4,6 +4,7 @@ import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useColumnWidths } from '@/hooks/useColumnWidths';
 import {
   columnTemplate,
@@ -53,7 +54,7 @@ export function InsightsTable<T>({
     );
 
   return (
-    <div className="overflow-x-auto">
+    <ScrollArea orientation="horizontal">
       <table
         aria-label={label}
         data-slot="insights-table"
@@ -125,6 +126,6 @@ export function InsightsTable<T>({
           })}
         </tbody>
       </table>
-    </div>
+    </ScrollArea>
   );
 }

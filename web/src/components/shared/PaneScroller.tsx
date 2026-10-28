@@ -1,4 +1,5 @@
 import type { ReactNode, Ref, UIEventHandler } from 'react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type PaneScrollerProps = {
   sidePanel?: ReactNode;
@@ -16,21 +17,18 @@ export function PaneScroller({
   children,
 }: PaneScrollerProps) {
   return (
-    <div
-      ref={ref}
-      onScroll={onScroll}
-      className="relative flex min-h-0 flex-1 overflow-y-auto"
-    >
-      <div className="flex min-h-full min-w-0 flex-1 flex-col self-start">
+    <div className="relative flex min-h-0 flex-1">
+      <ScrollArea
+        viewportRef={ref}
+        onScroll={onScroll}
+        className="min-w-0 flex-1"
+        contentClassName="flex min-h-full flex-col"
+      >
         <div className="flex flex-1 flex-col">{children}</div>
         {footer && <div className="sticky bottom-0 z-20">{footer}</div>}
-      </div>
+      </ScrollArea>
 
-      {sidePanel && (
-        <div className="sticky top-0 flex h-full shrink-0 self-start">
-          {sidePanel}
-        </div>
-      )}
+      {sidePanel && <div className="flex shrink-0">{sidePanel}</div>}
     </div>
   );
 }
