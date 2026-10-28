@@ -47,7 +47,7 @@ const THEME: EditorThemeClasses = {
   quote: 'my-2 border-border border-l-2 pl-3 text-muted-foreground text-sm',
   text: {
     bold: 'font-semibold',
-    code: 'rounded bg-muted px-1 py-0.5 font-mono text-[0.85em]',
+    code: 'rounded bg-[#ececec] px-1 py-0.5 font-mono dark:bg-muted',
     italic: 'italic',
     strikethrough: 'line-through',
   },
