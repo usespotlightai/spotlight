@@ -44,7 +44,6 @@ const AT = {
 
 const SET = {
   id: 'set_1',
-  name: 'Queue fixes',
   entries: [{}, {}],
 } as ReplaySet;
 

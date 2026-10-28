@@ -435,7 +435,7 @@ describe('HoldSetStartingPoints', () => {
 
     await startingPointHolds.changed(set.id);
     await memory.setRepository.save(
-      (memory.sets.get('set_1') as typeof set).delete(false),
+      (memory.sets.get('set_1') as typeof set).delete(),
     );
     await startingPointHolds.changed(set.id);
     expect(work.startingPointHolds.has('replay-set:set_1')).toBe(false);

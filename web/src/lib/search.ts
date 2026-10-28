@@ -146,7 +146,7 @@ export const iterationTitle = (
 export const tasksIn = (set: ReplaySet): number =>
   new Set(set.entries.map((each) => each.taskId)).size;
 
-const formatTasks = (count: number): string =>
+export const formatTasks = (count: number): string =>
   count === 1 ? '1 task' : `${count} tasks`;
 
 export const setProblemOf = (set: ReplaySet): string | null => {
@@ -161,20 +161,18 @@ export const setProblemOf = (set: ReplaySet): string | null => {
     : null;
 };
 
+export const NO_REPLAY_SET_YET =
+  'The station has no replay set yet. Spotlight keeps one after a run of the station ends.';
+
 export const startProblem = (
-  sets: readonly ReplaySet[],
+  set: ReplaySet | null,
   inProgress: Search | null,
 ): string | null => {
   if (inProgress) {
     return 'A search of this station is in progress.';
   }
-  if (sets.length === 0) {
-    return 'Create a replay set first.';
-  }
 
-  return sets.some((set) => setProblemOf(set) === null)
-    ? null
-    : `No replay set covers ${MIN_TASKS} different tasks yet.`;
+  return set ? setProblemOf(set) : NO_REPLAY_SET_YET;
 };
 
 export const budgetFrom = (
@@ -497,7 +495,6 @@ export const bestScoreOf = (best: SearchBestResponseDto): BestScore => {
 export const SEARCH_HEADINGS: readonly NestedHeading[] = [
   { label: 'Search', indent: 'edge', size: SPREAD },
   { label: 'State', size: SPREAD },
-  { label: 'Replay set', size: SPREAD },
   { label: 'Best', size: 'minmax(8rem,2fr)' },
   { label: 'Success', numeric: true, size: SPREAD },
   { label: 'Iterations', numeric: true, size: SPREAD },
@@ -506,7 +503,7 @@ export const SEARCH_HEADINGS: readonly NestedHeading[] = [
 ];
 
 const GATE_NOTE =
-  'spotlight replay check replays a pull request’s change of this station on this set. One gating set per station.';
+  'spotlight replay check replays the change of a pull request to this station on the station’s replay set. The check does not refresh the set.';
 
 export const replayCheckNote = (
   replayCheck: LineReplayCheck | null | undefined,

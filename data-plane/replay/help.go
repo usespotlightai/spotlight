@@ -27,12 +27,13 @@ var replayHelp = help.Command{
 	Env:     credentialsEnv,
 	Examples: []help.Example{
 		{Command: "spotlight replay propose --station core/delivery/build --name higher-effort station.json"},
-		{Command: "spotlight replay start --station core/delivery/build --set nightly --candidate higher-effort --ceiling 20"},
+		{Command: "spotlight replay start --station core/delivery/build --candidate higher-effort --ceiling 20"},
 		{Command: "spotlight replay watch --team core <replay id>"},
 	},
 	Notes: []string{
 		"Every command but check takes --json and --workspace <slug>.",
-		"--station names a station as <team>/<line>/<station>. A set or candidate is named by its id or its exact name.",
+		"--station names a station as <team>/<line>/<station>. A candidate is named by its id or its exact name.",
+		"Spotlight keeps one replay set for each station and refreshes it from the station's runs.",
 	},
 	Docs: docs,
 }
@@ -70,30 +71,29 @@ var showHelp = help.Command{
 	Docs:     docs + "#spotlight-replay-show",
 }
 
-var setsHelp = help.Command{
-	Path:     "replay sets",
-	Summary:  "List a station's replay sets.",
-	Usage:    []string{"spotlight replay sets --station <team/line/station>"},
+var setHelp = help.Command{
+	Path:     "replay set",
+	Summary:  "Show the replay set that Spotlight keeps for a station.",
+	Usage:    []string{"spotlight replay set --station <team/line/station>"},
 	Flags:    withShared(help.Flag{Name: "station", Value: "<team/line/station>", Usage: "The station. Required."}),
-	Examples: []help.Example{{Command: "spotlight replay sets --station core/delivery/build"}},
-	Docs:     docs + "#spotlight-replay-sets",
+	Examples: []help.Example{{Command: "spotlight replay set --station core/delivery/build"}},
+	Docs:     docs + "#spotlight-replay-set",
 }
 
 var startHelp = help.Command{
 	Path:    "replay start",
-	Summary: "Start a replay of a set under a candidate.",
-	Usage:   []string{"spotlight replay start --station <team/line/station> --set <set> --candidate <candidate | live> --ceiling <amount> [flags]"},
+	Summary: "Start a replay of a station's replay set under a candidate.",
+	Usage:   []string{"spotlight replay start --station <team/line/station> --candidate <candidate | live> --ceiling <amount> [flags]"},
 	Flags: withShared(
 		help.Flag{Name: "station", Value: "<team/line/station>", Usage: "The station. Required."},
-		help.Flag{Name: "set", Value: "<set>", Usage: "The replay set, by name or id. Required."},
 		help.Flag{Name: "candidate", Value: "<candidate>", Usage: "The candidate, by name or id, or live for the live config. Required."},
 		help.Flag{Name: "ceiling", Value: "<amount>", Usage: "The most the replay can spend. Required."},
 		help.Flag{Name: "currency", Value: "<code>", Usage: "The currency of the ceiling. Default: USD."},
 		help.Flag{Name: "repeats", Value: "<n>", Usage: "How many times to replay each run, 1 to 5. Default: 1."},
 	),
 	Examples: []help.Example{
-		{Command: `spotlight replay start --station core/delivery/build --set nightly --candidate "Higher effort" --ceiling 20`},
-		{Comment: "Rate each task by the share of 3 repeats that succeed", Command: "spotlight replay start --station core/delivery/build --set nightly --candidate live --ceiling 60 --repeats 3"},
+		{Command: `spotlight replay start --station core/delivery/build --candidate "Higher effort" --ceiling 20`},
+		{Comment: "Rate each task by the share of 3 repeats that succeed", Command: "spotlight replay start --station core/delivery/build --candidate live --ceiling 60 --repeats 3"},
 	},
 	Notes: []string{"With --repeats above 1, each rate has a 95% interval."},
 	Docs:  docs + "#spotlight-replay-start",
@@ -168,14 +168,15 @@ var checkHelp = help.Command{
 		{Code: 3, Means: "A check is undecided, or still runs at the timeout."},
 	},
 	Notes: []string{
-		"The line's replay_check sets the replay set, the threshold and the ceiling.",
+		"Each changed station is replayed on the replay set that Spotlight keeps for it.",
+		"The line's replay_check sets the threshold and the ceiling.",
 		"Without SPOTLIGHT_API_TOKEN or SPOTLIGHT_OIDC_TRUST, the login from spotlight login is used.",
 	},
 	Docs: docs + "#spotlight-replay-check",
 }
 
 var Commands = []help.Command{
-	replayHelp, proposeHelp, candidatesHelp, showHelp, setsHelp, startHelp, statusHelp, watchHelp, stopHelp, checkHelp,
+	replayHelp, proposeHelp, candidatesHelp, showHelp, setHelp, startHelp, statusHelp, watchHelp, stopHelp, checkHelp,
 }
 
 func helpFor(name string) help.Command {

@@ -50,6 +50,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { keptSet } from './support/kept-sets';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -212,7 +213,6 @@ const bearing = (token: string) => ({
 });
 
 const teamPath = () => `/api/teams/${team.teamId.value}`;
-const stationPath = () => `${teamPath()}/lines/${DELIVERY}/stations/${BUILD}`;
 
 const sent = (update: Record<string, unknown>): string =>
   Buffer.from(JSON.stringify({ sessionId: 'session_1', update })).toString(
@@ -562,17 +562,11 @@ describe('a replay at a station whose judge goes by claims', () => {
       await anOriginal('Drain queue second'),
       await anOriginal('Drain queue third'),
     ];
-    const created = await owner()
-      .post(`${stationPath()}/replay-sets`, { name: 'Paired' })
-      .expect(201);
-    const setId = created.body.id as string;
-    for (const each of originals) {
-      await owner()
-        .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-          runId: each.runId,
-        })
-        .expect(204);
-    }
+    const setId = await keptSet(
+      app,
+      { workspaceId: team.workspaceId.value, stationId: BUILD },
+      originals.map((each) => each.runId),
+    );
     const candidate = await proposed('Build it, draining the queue fast.');
 
     const started = (

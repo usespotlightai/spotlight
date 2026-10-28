@@ -40,10 +40,10 @@ const SET: ReplaySet = {
   id: 'set_1',
   lineId: 'line_1',
   stationId: 'station_1',
-  name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
+  refreshedAt: null,
+  lastRefresh: null,
   stationGone: false,
-  gatesChanges: false,
   health: NEVER_READ,
   minGain: 0.05,
   composition: {

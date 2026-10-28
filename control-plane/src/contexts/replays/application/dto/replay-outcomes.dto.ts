@@ -11,14 +11,7 @@ import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/c
 
 type Planned<T> = T | Forbidden;
 
-export type SetCreated = Planned<{
-  readonly outcome: 'created';
-  readonly id: string;
-}>;
-
 export type SetChanged = Planned<{ readonly outcome: 'changed' }>;
-
-export type SetDeleted = Planned<{ readonly outcome: 'deleted' }>;
 
 interface StartedMoney {
   readonly amount: number;

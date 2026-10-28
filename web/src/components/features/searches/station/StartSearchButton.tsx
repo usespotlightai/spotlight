@@ -4,13 +4,13 @@ import type { ReplayedStation, ReplaySet } from '@/lib/replay';
 
 type StartSearchButtonProps = {
   at: ReplayedStation;
-  sets: readonly ReplaySet[];
+  set: ReplaySet | null;
   disabledBecause: string | null;
 };
 
 export function StartSearchButton({
   at,
-  sets,
+  set,
   disabledBecause,
 }: StartSearchButtonProps) {
   return (
@@ -18,14 +18,16 @@ export function StartSearchButton({
       label="Start a search"
       variant="outline"
       disabledBecause={disabledBecause}
-      dialog={(open, onOpenChange) => (
-        <StartSearchDialog
-          at={at}
-          sets={sets}
-          open={open}
-          onOpenChange={onOpenChange}
-        />
-      )}
+      dialog={(open, onOpenChange) =>
+        set && (
+          <StartSearchDialog
+            at={at}
+            set={set}
+            open={open}
+            onOpenChange={onOpenChange}
+          />
+        )
+      }
     />
   );
 }

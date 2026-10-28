@@ -36,27 +36,9 @@ const SOURCES: Record<ReplayedMark, string> = {
 
 export const formatSource = (mark: ReplayedMark): string => SOURCES[mark];
 
-export type ReplayedSet = {
-  readonly name: string;
-  readonly points: readonly ReplayedPoint[];
-};
-
-export const replayedSetsOf = (
-  points: readonly ReplayedPoint[],
-): ReplayedSet[] => {
-  const grouped = new Map<string, ReplayedPoint[]>();
-
-  for (const point of points) {
-    grouped.set(point.setName, [...(grouped.get(point.setName) ?? []), point]);
-  }
-
-  return [...grouped].map(([name, each]) => ({ name, points: each }));
-};
-
 export type ReplayedPoint = {
   readonly key: string;
   readonly label: string;
-  readonly setName: string;
   readonly searchId: string | null;
   readonly mark: ReplayedMark;
   readonly cost: number;
@@ -153,7 +135,6 @@ export const replayedPoints = (set: CandidatesSet): ReplayedPoint[] =>
           {
             key: each.key,
             label: each.label,
-            setName: set.name,
             searchId: each.searchId,
             mark: each.mark,
             cost: each.cost,

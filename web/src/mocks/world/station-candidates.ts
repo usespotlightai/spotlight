@@ -267,9 +267,7 @@ const replayedSet = (
 
   return {
     setId: set.id,
-    name: set.name,
     stationGone: false,
-    gatesChanges: set.gatesChanges,
     health: {
       ...set.health,
       tasks: set.entries.length,

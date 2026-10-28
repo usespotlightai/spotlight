@@ -22,7 +22,6 @@ import {
   inProgress,
   type ReplayDetail,
   type ReplayedStation,
-  type ReplaySet,
   replaySetPath,
   taskColumnsOf,
 } from '@/lib/replay';
@@ -36,7 +35,6 @@ type ReplayPageProps = {
   line: LineResponseDto | undefined;
   station: StationResponseDto | undefined;
   replay: ReplayDetail;
-  set: ReplaySet;
   trail: BreadcrumbSegment[];
   forward: BreadcrumbSegment[];
 };
@@ -46,7 +44,6 @@ export function ReplayPage({
   line,
   station,
   replay,
-  set,
   trail,
   forward,
 }: ReplayPageProps) {
@@ -68,13 +65,7 @@ export function ReplayPage({
         }
       />
 
-      <ReplayHeading
-        at={at}
-        line={line}
-        station={station}
-        replay={replay}
-        setName={set.name}
-      />
+      <ReplayHeading at={at} line={line} station={station} replay={replay} />
 
       <StationPane
         sidePanel={
@@ -111,8 +102,8 @@ export function ReplayPage({
                   </TrailLink>
                 }
               >
-                The set had no runs when this replay started. Please add runs to
-                the set, then replay it again.
+                The set had no runs when this replay started. Please replay it
+                again after Spotlight adds runs to the set.
               </EmptyState>
             </StateBox>
           ) : (

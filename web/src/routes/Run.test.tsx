@@ -391,7 +391,6 @@ describe('Run', () => {
       replayOfRun.mockReturnValue({
         replayId: 'replay_1',
         setId: 'set_1',
-        setName: 'Queue fixes',
         lineId: 'line_1',
         stationId: 'station_3',
         candidate: {
@@ -424,9 +423,7 @@ describe('Run', () => {
       renderRun();
 
       expect(screen.getByText('Shorter prompt')).toBeInTheDocument();
-      expect(
-        screen.getByRole('link', { name: 'a replay of Queue fixes' }),
-      ).toHaveAttribute(
+      expect(screen.getByRole('link', { name: 'its replay' })).toHaveAttribute(
         'href',
         '/w/acme/team/team_1/lines/line_1/stations/station_3/replays/replay_1',
       );

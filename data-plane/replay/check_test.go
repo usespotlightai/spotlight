@@ -209,7 +209,7 @@ func checkAnswer(result string) string {
 		undecided = `"too-few-scored"`
 	}
 
-	return `{"id":"check_1","setName":"Queue fixes","replayId":"replay_1","scoringPinnedToLive":["check","judge"],
+	return `{"id":"check_1","replayId":"replay_1","scoringPinnedToLive":["check","judge"],
   "result":"` + result + `","undecidedBecause":` + undecided + `,"tasks":3,"compared":3,
   "threshold":{"maxRegressions":0,"minGain":0.05,"ceiling":{"amount":10,"currency":"USD"}},
   "repeats":3,"gain":{"gain":-0.3333,"low":-1,"high":0,"significance":"within-noise","minGain":0.05,"tasks":3},
@@ -271,7 +271,7 @@ func TestCheckPassesOnceTheCheckPassesAndSendsNoThreshold(t *testing.T) {
 	for _, want := range []string{
 		"core/delivery/build: PASSED",
 		"0 of 3 tasks regressed (at most 0 may)",
-		`set "Queue fixes"`,
+		"replaying the station's replay set",
 		"scored with the live check, judge",
 		"https://app.example.test/w/acme/team/",
 		"core/delivery/review: UNDECIDED",

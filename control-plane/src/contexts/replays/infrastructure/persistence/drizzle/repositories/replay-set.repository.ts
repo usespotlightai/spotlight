@@ -4,16 +4,25 @@ import {
   UNIQUE_VIOLATION,
   violates,
 } from '@platform/persistence/drizzle/violations';
-import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
-import { ChangesGatedElsewhereError } from '@replays/domain/exceptions/changes-gated-elsewhere.error';
+import {
+  ReplaySet,
+  type ReplaySetRefresh,
+} from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplaySetVersionConflictError } from '@replays/domain/exceptions/replay-set-version-conflict.error';
+import { StationHasReplaySetError } from '@replays/domain/exceptions/station-has-replay-set.error';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { RefreshCutoff } from '@replays/domain/services/kept-set-refresh';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
-import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
+import { DISPATCHING_REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
+import { ACTIVE_SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import {
+  replay,
+  replayCheck,
+  replaySearch,
   replaySet,
   replaySetEntry,
+  type StoredSetRefresh,
 } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -23,13 +32,40 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNull,
+  lt,
+  notExists,
+  or,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
 type SetRow = typeof replaySet.$inferSelect;
 
 type EntryRow = typeof replaySetEntry.$inferSelect;
 
-const GATES_CHANGES_INDEX = 'replay_set_gates_changes_idx';
+const STATION_INDEX = 'replay_set_station_idx';
+
+const refreshOf = (stored: StoredSetRefresh | null): ReplaySetRefresh | null =>
+  stored && {
+    at: new Date(stored.at),
+    added: stored.added.map((each) => RunId.of(each)),
+    removed: stored.removed.map((each) => RunId.of(each)),
+  };
+
+const storedRefreshOf = (
+  refresh: ReplaySetRefresh | null,
+): StoredSetRefresh | null =>
+  refresh && {
+    at: refresh.at.toISOString(),
+    added: refresh.added.map((each) => each.value),
+    removed: refresh.removed.map((each) => each.value),
+  };
 
 const toSet = (row: SetRow, entries: readonly EntryRow[]): ReplaySet =>
   ReplaySet.rehydrate({
@@ -40,18 +76,20 @@ const toSet = (row: SetRow, entries: readonly EntryRow[]): ReplaySet =>
       lineId: row.lineId,
       stationId: row.stationId,
     },
-    name: ReplaySetName.of(row.name),
     entries: entries
       .filter((each) => each.setId === row.id)
       .map((each) =>
         ReplaySetEntry.of({
           runId: RunId.of(each.runId),
           taskId: TaskId.of(each.taskId),
+          endedAt: each.endedAt,
           addedAt: each.addedAt,
         }),
       ),
-    gatesChanges: row.gatesChanges,
+    removedTasks: row.removedTasks.map((each) => TaskId.of(each)),
     createdAt: row.createdAt,
+    refreshedAt: row.refreshedAt,
+    lastRefresh: refreshOf(row.lastRefresh),
     stationGoneAt: row.stationGoneAt,
     version: row.version,
   });
@@ -90,23 +128,96 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
     return this.withEntries(eq(replaySet.lineId, lineId));
   }
 
-  atStation(stationId: string): Promise<readonly ReplaySet[]> {
-    return this.withEntries(eq(replaySet.stationId, stationId));
+  async ofStation(stationId: string): Promise<ReplaySet | null> {
+    const [found] = await this.withEntries(eq(replaySet.stationId, stationId));
+
+    return found ?? null;
+  }
+
+  async dueForRefresh(
+    cutoff: RefreshCutoff,
+    limit: number,
+  ): Promise<readonly ReplaySet[]> {
+    const db = this.context.db;
+    const entries = sql`(select count(*) from ${replaySetEntry} where ${replaySetEntry.setId} = ${replaySet.id})`;
+    const rows = await db
+      .select()
+      .from(replaySet)
+      .where(
+        and(
+          isNull(replaySet.stationGoneAt),
+          or(
+            isNull(replaySet.refreshedAt),
+            lt(replaySet.refreshedAt, cutoff.before),
+            and(
+              lt(replaySet.refreshedAt, cutoff.unfilledBefore),
+              sql`${entries} < ${cutoff.size}`,
+            ),
+          ),
+          notExists(
+            db
+              .select({ id: replaySearch.id })
+              .from(replaySearch)
+              .where(
+                and(
+                  eq(replaySearch.setId, replaySet.id),
+                  inArray(replaySearch.state, [...ACTIVE_SEARCH_STATES]),
+                ),
+              ),
+          ),
+          notExists(
+            db
+              .select({ id: replay.id })
+              .from(replay)
+              .where(
+                and(
+                  eq(replay.setId, replaySet.id),
+                  inArray(replay.state, [...DISPATCHING_REPLAY_STATES]),
+                ),
+              ),
+          ),
+          notExists(
+            db
+              .select({ id: replayCheck.id })
+              .from(replayCheck)
+              .where(
+                and(
+                  eq(replayCheck.setId, replaySet.id),
+                  eq(replayCheck.baseline, 'awaiting'),
+                ),
+              ),
+          ),
+        ),
+      )
+      .orderBy(sql`${replaySet.refreshedAt} asc nulls first`, asc(replaySet.id))
+      .limit(limit);
+
+    return this.setsOf(rows);
   }
 
   async add(added: ReplaySet): Promise<void> {
     await this.context.inTransaction(async () => {
-      await this.context.db.insert(replaySet).values({
-        id: added.id.value,
-        workspaceId: added.workspaceId.value,
-        teamId: added.teamId.value,
-        lineId: added.station.lineId,
-        stationId: added.station.stationId,
-        name: added.name.value,
-        gatesChanges: added.gatesChanges,
-        createdAt: added.createdAt,
-        version: added.version,
-      });
+      await this.context
+        .inSavepoint(() =>
+          this.context.db.insert(replaySet).values({
+            id: added.id.value,
+            workspaceId: added.workspaceId.value,
+            teamId: added.teamId.value,
+            lineId: added.station.lineId,
+            stationId: added.station.stationId,
+            removedTasks: added.removedTasks.map((each) => each.value),
+            createdAt: added.createdAt,
+            refreshedAt: added.refreshedAt,
+            lastRefresh: storedRefreshOf(added.lastRefresh),
+            version: added.version,
+          }),
+        )
+        .catch((error: unknown) => {
+          if (violates(error, UNIQUE_VIOLATION, STATION_INDEX)) {
+            throw new StationHasReplaySetError(added.station.stationId);
+          }
+          throw error;
+        });
       await this.writeEntries(added);
       await this.events.dispatch(added.pullEvents());
     });
@@ -126,19 +237,14 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
         : await this.context.db
             .update(replaySet)
             .set({
-              name: saved.name.value,
-              gatesChanges: saved.gatesChanges,
+              removedTasks: saved.removedTasks.map((each) => each.value),
+              refreshedAt: saved.refreshedAt,
+              lastRefresh: storedRefreshOf(saved.lastRefresh),
               stationGoneAt: saved.stationGoneAt,
               version: saved.version + 1,
             })
             .where(at)
-            .returning({ id: replaySet.id })
-            .catch((error: unknown) => {
-              if (violates(error, UNIQUE_VIOLATION, GATES_CHANGES_INDEX)) {
-                throw new ChangesGatedElsewhereError(saved.station.stationId);
-              }
-              throw error;
-            });
+            .returning({ id: replaySet.id });
 
       if (written.length === 0) {
         throw new ReplaySetVersionConflictError(saved.id.value);
@@ -166,6 +272,7 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
           setId: set.id.value,
           runId: each.runId.value,
           taskId: each.taskId.value,
+          endedAt: each.endedAt,
           addedAt: each.addedAt,
         })),
       );
@@ -173,7 +280,7 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
   }
 
   private async withEntries(
-    where: ReturnType<typeof eq>,
+    where: SQL | undefined,
     locked = false,
   ): Promise<readonly ReplaySet[]> {
     const query = this.context.db
@@ -181,8 +288,11 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
       .from(replaySet)
       .where(where)
       .orderBy(asc(replaySet.createdAt), asc(replaySet.id));
-    const rows = locked ? await query.for('update') : await query;
 
+    return this.setsOf(locked ? await query.for('update') : await query);
+  }
+
+  private async setsOf(rows: readonly SetRow[]): Promise<readonly ReplaySet[]> {
     if (rows.length === 0) {
       return [];
     }

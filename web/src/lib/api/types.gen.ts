@@ -2701,7 +2701,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'oidc-trust' | 'runner-trust' | 'runner-pool' | 'egress' | 'workspace-runners' | 'replay-candidate' | 'replay' | 'replay-set' | 'replay-search' | 'replay-check' | 'config-pull-request' | 'terraform-state';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'oidc-trust' | 'runner-trust' | 'runner-pool' | 'egress' | 'workspace-runners' | 'replay-candidate' | 'replay' | 'replay-search' | 'replay-check' | 'config-pull-request' | 'terraform-state';
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -7295,6 +7295,23 @@ export type ReplayCandidateResourceListResponseDto = {
   items: Array<ReplayCandidateResourceResponseDto>;
 };
 
+export type RefreshedRunResponseDto = {
+  runId: string;
+  title: string | null;
+};
+
+export type SetRefreshResponseDto = {
+  at: string;
+  /**
+   * Runs the refresh added: the newest run of new tasks
+   */
+  added: Array<RefreshedRunResponseDto>;
+  /**
+   * Runs the refresh took out: entries older than 90 days, or the oldest over 30 runs
+   */
+  removed: Array<RefreshedRunResponseDto>;
+};
+
 export type SetNoiseResponseDto = {
   /**
    * The finished live replay, run more than once, the noise was measured on
@@ -7582,16 +7599,19 @@ export type ReplaySetResponseDto = {
   id: string;
   lineId: string;
   stationId: string;
-  name: string;
   createdAt: string;
   /**
-   * Its station is gone from its line: it takes no more runs, starts no replays and holds no archives; it may still be renamed, have runs taken out, or be deleted
+   * When Spotlight last refreshed the set from its station’s runs; null before the first refresh
+   */
+  refreshedAt: string | null;
+  /**
+   * The last refresh that changed the set; null while no refresh changed it
+   */
+  lastRefresh: SetRefreshResponseDto | null;
+  /**
+   * Its station is gone from its line: it takes no more runs, starts no replays and holds no archives; runs may still be taken out
    */
   stationGone: boolean;
-  /**
-   * Planned changes of its station are checked against it, as `spotlight replay check` requests; a station has at most one such set
-   */
-  gatesChanges: boolean;
   /**
    * Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check return the same answer twice, and how much better the live config does when handed each run’s answer
    */
@@ -7605,55 +7625,6 @@ export type ReplaySetResponseDto = {
    */
   composition: SetCompositionResponseDto;
   entries: Array<ReplaySetEntryResponseDto>;
-};
-
-export type ReplayableRunResponseDto = {
-  runId: string;
-  taskId: string | null;
-  title: string;
-  state: string;
-  endedAt: string;
-  /**
-   * Why it cannot be replayed; null when it can
-   */
-  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'cancelled' | 'dispatch-failed' | null;
-  reason: string | null;
-};
-
-export type SuggestedRunResponseDto = {
-  runId: string;
-  taskId: string | null;
-  title: string;
-  state: string;
-  endedAt: string;
-  /**
-   * Why it cannot be replayed; null when it can
-   */
-  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'cancelled' | 'dispatch-failed' | null;
-  reason: string | null;
-  /**
-   * How the run turned out
-   */
-  outcome: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
-};
-
-export type CreateReplaySetRequestDto = {
-  name: string;
-};
-
-export type ReplaySetCreatedResponseDto = {
-  id: string;
-};
-
-export type RenameReplaySetRequestDto = {
-  name: string;
-};
-
-export type AddReplaySetEntryRequestDto = {
-  /**
-   * A past run of a task at the set’s station
-   */
-  runId: string;
 };
 
 export type CandidateResponseDto = {
@@ -8209,10 +8180,6 @@ export type ReplayDetailResponseDto = {
 export type ReplayOfRunResponseDto = {
   replayId: string;
   setId: string;
-  /**
-   * Its set’s name; null once the set is gone
-   */
-  setName: string | null;
   lineId: string;
   stationId: string;
   candidate: CandidateResponseDto | null;
@@ -9015,10 +8982,9 @@ export type ReplayCheckResponseDto = {
   stationId: string;
   stationKey: string;
   /**
-   * The replay set that gates the station’s changes
+   * The replay set Spotlight keeps for the station
    */
   setId: string;
-  setName: string | null;
   /**
    * The planned candidate the check replays
    */
@@ -9054,7 +9020,7 @@ export type ReplayCheckResponseDto = {
   result: 'running' | 'passed' | 'failed' | 'undecided';
   undecidedBecause: 'replay-gone' | 'stopped' | 'over-ceiling' | 'baseline-unfinished' | 'no-baseline' | 'too-few-scored' | null;
   /**
-   * How many tasks the gating set replays
+   * How many tasks the station’s replay set replays
    */
   tasks: number;
   /**
@@ -9459,15 +9425,10 @@ export type ReplayedCandidateResponseDto = {
 
 export type ReplayedSetResponseDto = {
   setId: string;
-  name: string;
   /**
    * Whether its station has left its line
    */
   stationGone: boolean;
-  /**
-   * Whether it checks every pull request that changes its station
-   */
-  gatesChanges: boolean;
   /**
    * The current health of the set, whatever the period
    */
@@ -19445,7 +19406,7 @@ export type ListReplayCandidatesResponses = {
 
 export type ListReplayCandidatesResponse = ListReplayCandidatesResponses[keyof ListReplayCandidatesResponses];
 
-export type ListReplaySetsData = {
+export type ReadReplaySetData = {
   body?: never;
   headers?: {
     /**
@@ -19463,10 +19424,10 @@ export type ListReplaySetsData = {
     stationId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/replay-sets';
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/replay-set';
 };
 
-export type ListReplaySetsErrors = {
+export type ReadReplaySetErrors = {
   /**
    * Malformed, or requests an API version this server does not serve
    */
@@ -19476,70 +19437,18 @@ export type ListReplaySetsErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * No such team, station, set or run for this caller
+   * No such team, station, set or run for this caller, or the station has no replay set yet
    */
   404: ProblemResponseDto;
 };
 
-export type ListReplaySetsError = ListReplaySetsErrors[keyof ListReplaySetsErrors];
+export type ReadReplaySetError = ReadReplaySetErrors[keyof ReadReplaySetErrors];
 
-export type ListReplaySetsResponses = {
-  200: Array<ReplaySetResponseDto>;
+export type ReadReplaySetResponses = {
+  200: ReplaySetResponseDto;
 };
 
-export type ListReplaySetsResponse = ListReplaySetsResponses[keyof ListReplaySetsResponses];
-
-export type CreateReplaySetData = {
-  body: CreateReplaySetRequestDto;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    lineId: string;
-    stationId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/replay-sets';
-};
-
-export type CreateReplaySetErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * A caller who may read the team but not plan
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such team, station, set or run for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * No name it takes
-   */
-  422: ProblemResponseDto;
-};
-
-export type CreateReplaySetError = CreateReplaySetErrors[keyof CreateReplaySetErrors];
-
-export type CreateReplaySetResponses = {
-  201: ReplaySetCreatedResponseDto;
-};
-
-export type CreateReplaySetResponse = CreateReplaySetResponses[keyof CreateReplaySetResponses];
+export type ReadReplaySetResponse = ReadReplaySetResponses[keyof ReadReplaySetResponses];
 
 export type ListTeamReplaySetsData = {
   body?: never;
@@ -19558,11 +19467,11 @@ export type ListTeamReplaySetsData = {
   };
   query?: {
     /**
-     * With line: the key of the station whose sets to list; a line or station that the team does not own is not found
+     * With line: the key of the station whose set to list; a line or station that the team does not own is not found
      */
     station?: unknown;
     /**
-     * With station: the line of the station whose sets to list
+     * With station: the line of the station whose set to list
      */
     line?: unknown;
   };
@@ -19579,7 +19488,7 @@ export type ListTeamReplaySetsErrors = {
    */
   401: ProblemResponseDto;
   /**
-   * No such team, station, set or run for this caller
+   * No such team, station, set or run for this caller, or the station has no replay set yet
    */
   404: ProblemResponseDto;
   /**
@@ -19595,259 +19504,6 @@ export type ListTeamReplaySetsResponses = {
 };
 
 export type ListTeamReplaySetsResponse = ListTeamReplaySetsResponses[keyof ListTeamReplaySetsResponses];
-
-export type ListReplayableRunsData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    lineId: string;
-    stationId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/replayable-runs';
-};
-
-export type ListReplayableRunsErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * No such team, station, set or run for this caller
-   */
-  404: ProblemResponseDto;
-};
-
-export type ListReplayableRunsError = ListReplayableRunsErrors[keyof ListReplayableRunsErrors];
-
-export type ListReplayableRunsResponses = {
-  200: Array<ReplayableRunResponseDto>;
-};
-
-export type ListReplayableRunsResponse = ListReplayableRunsResponses[keyof ListReplayableRunsResponses];
-
-export type ListReplaySetSuggestionsData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    setId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}/suggestions';
-};
-
-export type ListReplaySetSuggestionsErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * No such team, station, set or run for this caller
-   */
-  404: ProblemResponseDto;
-};
-
-export type ListReplaySetSuggestionsError = ListReplaySetSuggestionsErrors[keyof ListReplaySetSuggestionsErrors];
-
-export type ListReplaySetSuggestionsResponses = {
-  200: Array<SuggestedRunResponseDto>;
-};
-
-export type ListReplaySetSuggestionsResponse = ListReplaySetSuggestionsResponses[keyof ListReplaySetSuggestionsResponses];
-
-export type DeleteReplaySetData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    setId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}';
-};
-
-export type DeleteReplaySetErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * A caller who may read the team but not plan
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such team, station, set or run for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * A replay of the set is still running; stop it first
-   */
-  409: ProblemResponseDto;
-};
-
-export type DeleteReplaySetError = DeleteReplaySetErrors[keyof DeleteReplaySetErrors];
-
-export type DeleteReplaySetResponses = {
-  /**
-   * Deleted
-   */
-  204: void;
-};
-
-export type DeleteReplaySetResponse = DeleteReplaySetResponses[keyof DeleteReplaySetResponses];
-
-export type RenameReplaySetData = {
-  body: RenameReplaySetRequestDto;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    setId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}';
-};
-
-export type RenameReplaySetErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * A caller who may read the team but not plan
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such team, station, set or run for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * No name it takes
-   */
-  422: ProblemResponseDto;
-};
-
-export type RenameReplaySetError = RenameReplaySetErrors[keyof RenameReplaySetErrors];
-
-export type RenameReplaySetResponses = {
-  /**
-   * Renamed
-   */
-  204: void;
-};
-
-export type RenameReplaySetResponse = RenameReplaySetResponses[keyof RenameReplaySetResponses];
-
-export type AddReplaySetEntryData = {
-  body: AddReplaySetEntryRequestDto;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    setId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}/entries';
-};
-
-export type AddReplaySetEntryErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * A caller who may read the team but not plan
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such team, station, set or run for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * The run is in the set already, the set is full, or the run cannot be replayed, saying why
-   */
-  409: ProblemResponseDto;
-  /**
-   * No run named, or a run of another station
-   */
-  422: ProblemResponseDto;
-};
-
-export type AddReplaySetEntryError = AddReplaySetEntryErrors[keyof AddReplaySetEntryErrors];
-
-export type AddReplaySetEntryResponses = {
-  /**
-   * Added
-   */
-  204: void;
-};
-
-export type AddReplaySetEntryResponse = AddReplaySetEntryResponses[keyof AddReplaySetEntryResponses];
 
 export type RemoveReplaySetEntryData = {
   body?: never;
@@ -19884,7 +19540,7 @@ export type RemoveReplaySetEntryErrors = {
    */
   403: ProblemResponseDto;
   /**
-   * No such team, station, set or run for this caller
+   * No such team, station, set or run for this caller, or the station has no replay set yet
    */
   404: ProblemResponseDto;
 };
@@ -19899,110 +19555,6 @@ export type RemoveReplaySetEntryResponses = {
 };
 
 export type RemoveReplaySetEntryResponse = RemoveReplaySetEntryResponses[keyof RemoveReplaySetEntryResponses];
-
-export type UngateChangesData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    setId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}/gates-changes';
-};
-
-export type UngateChangesErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * A caller who may read the team but not plan
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such team, station, set or run for this caller
-   */
-  404: ProblemResponseDto;
-};
-
-export type UngateChangesError = UngateChangesErrors[keyof UngateChangesErrors];
-
-export type UngateChangesResponses = {
-  /**
-   * It no longer gates the station’s changes
-   */
-  204: void;
-};
-
-export type UngateChangesResponse = UngateChangesResponses[keyof UngateChangesResponses];
-
-export type GateChangesData = {
-  body?: never;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version that it uses
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    setId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}/gates-changes';
-};
-
-export type GateChangesErrors = {
-  /**
-   * Malformed, or requests an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * A caller who may read the team but not plan
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such team, station, set or run for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * Another set gates the station’s changes already, or the set’s station is gone
-   */
-  409: ProblemResponseDto;
-};
-
-export type GateChangesError = GateChangesErrors[keyof GateChangesErrors];
-
-export type GateChangesResponses = {
-  /**
-   * It gates the station’s changes
-   */
-  204: void;
-};
-
-export type GateChangesResponse = GateChangesResponses[keyof GateChangesResponses];
 
 export type ListReplaysData = {
   body?: never;
@@ -20634,7 +20186,7 @@ export type StartReplayCheckErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * The line has no replay_check, no replay set gates the station’s changes, or the plan changes nothing that changes how its runs go (nothing-to-replay)
+   * The line has no replay_check, the station has no replay set or no runs in it yet, or the plan changes nothing that changes how its runs go (nothing-to-replay)
    */
   409: ProblemResponseDto;
   /**

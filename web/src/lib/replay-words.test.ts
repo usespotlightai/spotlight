@@ -334,7 +334,7 @@ describe('replay words', () => {
     expect(
       formatBalanceWarning({ dominant: 'failed', count: 7, entries: 8 }),
     ).toBe(
-      '7 of 8 runs failed. Add runs that turned out other ways to balance the set.',
+      '7 of 8 runs failed. Spotlight adds runs that turned out other ways when the station has them.',
     );
   });
 

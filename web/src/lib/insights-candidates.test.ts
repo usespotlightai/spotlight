@@ -4,10 +4,8 @@ import {
   changeLinkOf,
   costBasisNote,
   formatSource,
-  type ReplayedPoint,
   replayedFrontiersOf,
   replayedPoints,
-  replayedSetsOf,
   type SetCandidate,
   stationReplayedPoints,
 } from '@/lib/insights-candidates';
@@ -32,24 +30,6 @@ describe('formatSource', () => {
     expect(formatSource('searched')).toBe('Search');
     expect(formatSource('proposed')).toBe('Proposed');
     expect(formatSource('baseline')).toBe('Live');
-  });
-});
-
-describe('replayedSetsOf', () => {
-  it('groups replayed points by their set in the order they come', () => {
-    const point = (key: string, setName: string) =>
-      ({ key, setName }) as ReplayedPoint;
-
-    expect(
-      replayedSetsOf([
-        point('a', 'Billing'),
-        point('b', 'Reviews'),
-        point('c', 'Billing'),
-      ]).map((set) => [set.name, set.points.map((each) => each.key)]),
-    ).toEqual([
-      ['Billing', ['a', 'c']],
-      ['Reviews', ['b']],
-    ]);
   });
 });
 

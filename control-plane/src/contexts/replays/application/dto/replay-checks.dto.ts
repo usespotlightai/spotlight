@@ -40,7 +40,6 @@ export interface ReplayCheckDto {
   readonly stationId: string;
   readonly stationKey: string;
   readonly setId: string;
-  readonly setName: string | null;
   readonly candidateId: string;
   readonly replayId: string;
   readonly baselineReplayId: string | null;

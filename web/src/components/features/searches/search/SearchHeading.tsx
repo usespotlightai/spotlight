@@ -5,6 +5,7 @@ import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import { type ReplayedStation, replaySetPath } from '@/lib/replay';
+import { REPLAY_SET_TITLE } from '@/lib/replay-words';
 import { type SearchDetail, searchLabel } from '@/lib/search';
 import { formatRan, since } from '@/lib/since';
 
@@ -14,7 +15,6 @@ type SearchHeadingProps = {
   station: StationResponseDto | undefined;
   search: SearchDetail;
   number: number | null;
-  setName: string | null;
 };
 
 export function SearchHeading({
@@ -23,7 +23,6 @@ export function SearchHeading({
   station,
   search,
   number,
-  setName,
 }: SearchHeadingProps) {
   return (
     <StationItemHeading
@@ -33,7 +32,7 @@ export function SearchHeading({
       marks={<SearchStatePill stopReason={search.stopReason} />}
     >
       <TrailLink to={replaySetPath(at, search.setId)} className={INLINE_LINK}>
-        {setName ?? 'Its replay set'}
+        {REPLAY_SET_TITLE}
       </TrailLink>
       {' · '}
       <WithTooltip tooltip={formatRan(search.startedAt, search.endedAt)}>

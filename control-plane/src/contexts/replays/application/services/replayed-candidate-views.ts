@@ -504,9 +504,7 @@ export const replayedCandidatesView = (
             station: set.station,
             set: {
               setId: set.id.value,
-              name: set.name.value,
               stationGone: set.isAtGoneStation,
-              gatesChanges: set.gatesChanges,
               health: healthOf(set, seen.summaries, standardOf(set.id.value)),
               ...setWithChartStatus(
                 baseline ? baselineView(baseline, seen.candidates) : null,

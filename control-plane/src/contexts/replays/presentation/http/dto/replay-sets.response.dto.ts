@@ -3,11 +3,11 @@ import type {
   BalanceWarningDto,
   OriginCountDto,
   OutcomeCountDto,
-  ReplayableRunDto,
+  RefreshedRunDto,
   ReplaySetDto,
   ReplaySetEntryDto,
   SetCompositionDto,
-  SuggestedRunDto,
+  SetRefreshDto,
 } from '@replays/application/dto/replays.dto';
 import {
   ORIGINAL_OUTCOMES,
@@ -198,6 +198,47 @@ export class SetCompositionResponseDto {
   }
 }
 
+export class RefreshedRunResponseDto {
+  @ApiProperty({ example: '9b2f6c1e-4d3a-4e8b-a7f0-2c5d1e9b3a64' })
+  readonly runId: string;
+
+  @ApiProperty({ nullable: true, type: String, example: 'Drain the queue' })
+  readonly title: string | null;
+
+  constructor(run: RefreshedRunDto) {
+    this.runId = run.runId;
+    this.title = run.title;
+  }
+}
+
+export class SetRefreshResponseDto {
+  @ApiProperty({ example: '2026-10-08T09:00:00.000Z' })
+  readonly at: string;
+
+  @ApiProperty({
+    type: RefreshedRunResponseDto,
+    isArray: true,
+    description: 'Runs the refresh added: the newest run of new tasks',
+  })
+  readonly added: RefreshedRunResponseDto[];
+
+  @ApiProperty({
+    type: RefreshedRunResponseDto,
+    isArray: true,
+    description:
+      'Runs the refresh took out: entries older than 90 days, or the oldest over 30 runs',
+  })
+  readonly removed: RefreshedRunResponseDto[];
+
+  constructor(refresh: SetRefreshDto) {
+    this.at = refresh.at;
+    this.added = refresh.added.map((each) => new RefreshedRunResponseDto(each));
+    this.removed = refresh.removed.map(
+      (each) => new RefreshedRunResponseDto(each),
+    );
+  }
+}
+
 export class ReplaySetResponseDto {
   @ApiProperty({ example: '1c7e9a2b-5d4f-4b8e-a3c6-0f2d9e7b1a58' })
   readonly id: string;
@@ -208,23 +249,31 @@ export class ReplaySetResponseDto {
   @ApiProperty()
   readonly stationId: string;
 
-  @ApiProperty({ example: 'Queue fixes' })
-  readonly name: string;
-
   @ApiProperty({ example: '2026-10-01T09:00:00.000Z' })
   readonly createdAt: string;
 
   @ApiProperty({
+    nullable: true,
+    type: String,
+    example: '2026-10-08T09:00:00.000Z',
     description:
-      'Its station is gone from its line: it takes no more runs, starts no replays and holds no archives; it may still be renamed, have runs taken out, or be deleted',
+      'When Spotlight last refreshed the set from its station’s runs; null before the first refresh',
   })
-  readonly stationGone: boolean;
+  readonly refreshedAt: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: SetRefreshResponseDto,
+    description:
+      'The last refresh that changed the set; null while no refresh changed it',
+  })
+  readonly lastRefresh: SetRefreshResponseDto | null;
 
   @ApiProperty({
     description:
-      'Planned changes of its station are checked against it, as `spotlight replay check` requests; a station has at most one such set',
+      'Its station is gone from its line: it takes no more runs, starts no replays and holds no archives; runs may still be taken out',
   })
-  readonly gatesChanges: boolean;
+  readonly stationGone: boolean;
 
   @ApiProperty({
     type: SetHealthResponseDto,
@@ -254,97 +303,17 @@ export class ReplaySetResponseDto {
     this.id = set.id;
     this.lineId = set.lineId;
     this.stationId = set.stationId;
-    this.name = set.name;
     this.createdAt = set.createdAt;
+    this.refreshedAt = set.refreshedAt;
+    this.lastRefresh = set.lastRefresh
+      ? new SetRefreshResponseDto(set.lastRefresh)
+      : null;
     this.stationGone = set.stationGone;
-    this.gatesChanges = set.gatesChanges;
     this.health = new SetHealthResponseDto(set.health);
     this.minGain = set.minGain;
     this.composition = new SetCompositionResponseDto(set.composition);
     this.entries = set.entries.map(
       (each) => new ReplaySetEntryResponseDto(each),
     );
-  }
-}
-
-export class ReplayableRunResponseDto {
-  @ApiProperty()
-  readonly runId: string;
-
-  @ApiProperty({ nullable: true, type: String })
-  readonly taskId: string | null;
-
-  @ApiProperty({ example: 'Drain the queue' })
-  readonly title: string;
-
-  @ApiProperty({ example: 'completed' })
-  readonly state: string;
-
-  @ApiProperty({ example: '2026-10-01T09:00:00.000Z' })
-  readonly endedAt: string;
-
-  @ApiProperty({
-    enum: [...UNREPLAYABLE_REASONS, null],
-    nullable: true,
-    type: String,
-    description: 'Why it cannot be replayed; null when it can',
-  })
-  readonly unreplayableReason: string | null;
-
-  @ApiProperty({ nullable: true, type: String })
-  readonly reason: string | null;
-
-  constructor(run: ReplayableRunDto) {
-    this.runId = run.runId;
-    this.taskId = run.taskId;
-    this.title = run.title;
-    this.state = run.state;
-    this.endedAt = run.endedAt;
-    this.unreplayableReason = run.unreplayableReason;
-    this.reason = run.reason;
-  }
-}
-
-export class SuggestedRunResponseDto extends ReplayableRunResponseDto {
-  @ApiProperty({
-    enum: ORIGINAL_OUTCOMES,
-    description: 'How the run turned out',
-  })
-  readonly outcome: OriginalOutcome;
-
-  constructor(run: SuggestedRunDto) {
-    super(run);
-    this.outcome = run.outcome;
-  }
-}
-
-export class CreateReplaySetRequestDto {
-  @ApiProperty({ example: 'Queue fixes', minLength: 1, maxLength: 100 })
-  readonly name!: string;
-}
-
-export class RenameReplaySetRequestDto {
-  @ApiProperty({
-    example: 'Queue fixes, hard ones',
-    minLength: 1,
-    maxLength: 100,
-  })
-  readonly name!: string;
-}
-
-export class AddReplaySetEntryRequestDto {
-  @ApiProperty({
-    example: '9b2f6c1e-4d3a-4e8b-a7f0-2c5d1e9b3a64',
-    description: 'A past run of a task at the set’s station',
-  })
-  readonly runId!: string;
-}
-
-export class ReplaySetCreatedResponseDto {
-  @ApiProperty()
-  readonly id: string;
-
-  constructor(id: string) {
-    this.id = id;
   }
 }

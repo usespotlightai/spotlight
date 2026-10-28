@@ -142,12 +142,9 @@ export interface AgentProblem {
 export interface WorkPort {
   station(lineId: string, stationId: string): Promise<StationView | null>;
 
-  keyed(lineId: string, key: string): Promise<StationView | null>;
+  findStation(stationId: string): Promise<StationView | null>;
 
-  replayable(
-    workspaceId: WorkspaceId,
-    runs: readonly RunId[],
-  ): Promise<readonly RunReplayability[]>;
+  keyed(lineId: string, key: string): Promise<StationView | null>;
 
   runSummaries(
     workspaceId: WorkspaceId,

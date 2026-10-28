@@ -7,7 +7,6 @@ import {
   type SearchBudget,
   type SearchEstimate,
   type SearchField,
-  setProblemOf,
   typedIn,
 } from '@/lib/search';
 import {
@@ -38,12 +37,7 @@ export const FIRST_BUDGET: BudgetInputs = {
   currency: USUAL_CURRENCY,
 };
 
-export const NO_SET_CHOSEN = 'Choose a replay set.';
-
 const NO_ESTIMATE = 'Please fix the marked field to see an estimate.';
-
-export const firstStartable = (sets: readonly ReplaySet[]): string =>
-  sets.find((set) => setProblemOf(set) === null)?.id ?? '';
 
 export const harnessOf = (
   harnesses: readonly HarnessResponseDto[] | undefined,
@@ -78,12 +72,6 @@ export const searchProblemOf = (
       .find((problem) => problem !== undefined) ?? null
   );
 };
-
-export const saturationOf = (
-  sets: readonly ReplaySet[],
-  setId: string,
-): SetSaturation =>
-  sets.find((each) => each.id === setId)?.health.saturation ?? null;
 
 export const objectiveOf = (
   requested: SearchObjective | null,

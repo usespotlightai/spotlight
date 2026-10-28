@@ -5,12 +5,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReplaySets } from '@/components/features/replays/station/ReplaySets';
 import type { Replay, ReplaySet } from '@/lib/replay';
 
-const sets = vi.fn((): ReplaySet[] | undefined => undefined);
+const sets = vi.fn((): ReplaySet | null | undefined => undefined);
 const error = vi.fn((): unknown => null);
 const replays = vi.fn((): Replay[] | undefined => []);
 
-vi.mock('@/hooks/api/useReplaySets', () => ({
-  useReplaySets: () => ({
+vi.mock('@/hooks/api/useReplaySet', () => ({
+  useReplaySet: () => ({
     data: sets(),
     isPending: sets() === undefined,
     errorUpdateCount: error() ? 1 : 0,
@@ -28,14 +28,6 @@ vi.mock('@/hooks/api/useReplays', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useCreateReplaySet', () => ({
-  useCreateReplaySet: () => ({
-    mutate: vi.fn(),
-    isPending: false,
-    reset: vi.fn(),
-  }),
-}));
-
 const AT = {
   slug: 'acme',
   teamId: 'team_1',
@@ -47,10 +39,10 @@ const SET: ReplaySet = {
   id: 'set_1',
   lineId: 'line_1',
   stationId: 'station_1',
-  name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
+  refreshedAt: null,
+  lastRefresh: null,
   stationGone: false,
-  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -129,38 +121,39 @@ describe('ReplaySets', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers to create the first set where there is none', () => {
-    sets.mockReturnValue([]);
+  it('says Spotlight keeps a set once a run ends, and offers no way to create one', () => {
+    sets.mockReturnValue(null);
 
     renderSets();
 
-    expect(screen.getByText('No replay sets yet')).toBeInTheDocument();
+    expect(screen.getByText('No replay set yet')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Create replay set' }),
+      screen.getByText(
+        'Spotlight keeps a replay set after a run of the station ends.',
+      ),
     ).toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('shows each set’s size, a gone station and its latest replay against the baseline', async () => {
-    sets.mockReturnValue([
-      {
-        ...SET,
-        stationGone: true,
-        entries: [
-          {
-            runId: 'run_1',
-            taskId: 'task_1',
-            title: 'Fix the queue',
-            state: 'completed',
-            endedAt: null,
-            addedAt: '2026-10-01T09:00:00.000Z',
-            unreplayableReason: null,
-            reason: null,
-            outcome: 'other',
-            origin: 'person',
-          },
-        ],
-      },
-    ]);
+  it('shows the set’s size, a gone station and its latest replay against the baseline', async () => {
+    sets.mockReturnValue({
+      ...SET,
+      stationGone: true,
+      entries: [
+        {
+          runId: 'run_1',
+          taskId: 'task_1',
+          title: 'Fix the queue',
+          state: 'completed',
+          endedAt: null,
+          addedAt: '2026-10-01T09:00:00.000Z',
+          unreplayableReason: null,
+          reason: null,
+          outcome: 'other',
+          origin: 'person',
+        },
+      ],
+    });
     replays.mockReturnValue([
       replay({}),
       replay({
@@ -175,13 +168,13 @@ describe('ReplaySets', () => {
 
     renderSets();
 
-    expect(screen.getByRole('link', { name: 'Queue fixes' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Replay set' })).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/lines/line_1/stations/station_1/replay-sets/set_1',
     );
     expect(
       document.querySelector('[data-slot="replay-set"]'),
-    ).toHaveTextContent('Queue fixesStation goneRuns1');
+    ).toHaveTextContent('Replay setStation goneRuns1');
     expect(screen.getByText('Station gone')).toBeInTheDocument();
     const rate = screen.getByRole('button', { name: '75% succeeded' });
     expect(screen.queryByText('Shorter prompt')).not.toBeInTheDocument();
@@ -207,7 +200,7 @@ describe('ReplaySets', () => {
   });
 
   it('shows a replay with the answer against the live replay it was handed the answer against', async () => {
-    sets.mockReturnValue([SET]);
+    sets.mockReturnValue(SET);
     replays.mockReturnValue([
       replay({
         id: 'answer',
@@ -250,7 +243,7 @@ describe('ReplaySets', () => {
   });
 
   it('names a reference that has scored nothing yet, with no rate', async () => {
-    sets.mockReturnValue([SET]);
+    sets.mockReturnValue(SET);
     replays.mockReturnValue([
       replay({
         candidate: {

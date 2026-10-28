@@ -10,6 +10,7 @@ import type {
   MoneyDto,
   PairTallyDto,
   RateIntervalDto,
+  RefreshedRunDto,
   ReplayDto,
   ReplayEntryDto,
   ReplayReferenceDto,
@@ -18,11 +19,15 @@ import type {
   SetCompositionDto,
   SetHealthDto,
   SetNoiseDto,
+  SetRefreshDto,
 } from '@replays/application/dto/replays.dto';
 import type { RunSummary } from '@replays/application/ports/work.port';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import type {
+  ReplaySet,
+  ReplaySetRefresh,
+} from '@replays/domain/aggregates/replay-set.aggregate';
 import type { RateInterval } from '@replays/domain/services/bootstrap';
 import {
   compositionOf,
@@ -50,6 +55,7 @@ import type { EntryPairing } from '@replays/domain/value-objects/entry-pairing.v
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const moneyView = (money: Money): MoneyDto => ({
   amount: money.amount,
@@ -406,6 +412,28 @@ const compositionView = (composition: SetComposition): SetCompositionDto => ({
   balanceWarning: composition.balanceWarning,
 });
 
+export const runsToSummarize = (set: ReplaySet): readonly RunId[] => [
+  ...set.runs,
+  ...(set.lastRefresh?.removed ?? []),
+];
+
+const refreshedRunView =
+  (summaries: readonly RunSummary[]) =>
+  (run: RunId): RefreshedRunDto => ({
+    runId: run.value,
+    title: summaries.find((each) => each.runId.equals(run))?.title ?? null,
+  });
+
+const refreshView = (
+  refresh: ReplaySetRefresh | null,
+  summaries: readonly RunSummary[],
+): SetRefreshDto | null =>
+  refresh && {
+    at: refresh.at.toISOString(),
+    added: refresh.added.map(refreshedRunView(summaries)),
+    removed: refresh.removed.map(refreshedRunView(summaries)),
+  };
+
 export const setView = (
   set: ReplaySet,
   summaries: readonly RunSummary[],
@@ -423,10 +451,10 @@ export const setView = (
     id: set.id.value,
     lineId: set.station.lineId,
     stationId: set.station.stationId,
-    name: set.name.value,
     createdAt: set.createdAt.toISOString(),
+    refreshedAt: set.refreshedAt?.toISOString() ?? null,
+    lastRefresh: refreshView(set.lastRefresh, summaries),
     stationGone: set.isAtGoneStation,
-    gatesChanges: set.gatesChanges,
     health: healthView(health),
     minGain,
     composition: compositionView(

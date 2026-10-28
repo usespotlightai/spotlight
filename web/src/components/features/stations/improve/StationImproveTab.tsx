@@ -1,5 +1,4 @@
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
-import { CreateReplaySetAction } from '@/components/features/replays/station/CreateReplaySetAction';
 import { ReplaySets } from '@/components/features/replays/station/ReplaySets';
 import { StationSearches } from '@/components/features/searches/station/StationSearches';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
@@ -65,11 +64,10 @@ export function StationImproveTab({
           <InsightsCard
             id={REPLAYS_ANCHOR}
             tableOnly
-            title="Replay sets"
+            title="Replay set"
             description={REPLAY_SETS_NOTE}
           >
             <ReplaySets at={at} />
-            <CreateReplaySetAction at={at} />
           </InsightsCard>
 
           <InsightsCard

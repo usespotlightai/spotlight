@@ -2,9 +2,7 @@ import type { RequestHandler } from 'msw';
 import type {
   CandidateResponseDto,
   ConfigPullRequestResponseDto,
-  CreateReplaySetRequestDto,
   EstimateSearchRequestDto,
-  RenameReplaySetRequestDto,
   ReplayStartedResponseDto,
   SearchEstimateResponseDto,
   SearchStartedResponseDto,
@@ -39,16 +37,13 @@ import {
 } from '@/mocks/world/station-searches';
 import {
   checksFor,
-  NO_HEALTH,
   placeOfSet,
-  replayableRuns,
   replaySetOf,
   resourceCandidates,
   runOfStation,
   type SetSpec,
   setSpec,
   setStore,
-  suggestionsFor,
   teamOfLine,
   teamOfSet,
 } from '@/mocks/world/station-sets';
@@ -198,49 +193,19 @@ export const stationHandlers: RequestHandler[] = [
     return judge ? json(judge) : notFound();
   }),
 
-  api.get(`${STATION}/replay-sets`, ({ params }) => {
+  api.get(`${STATION}/replay-set`, ({ params }) => {
     const { teamId, lineId, stationId } = placeOf(params);
-
-    return json(
-      teamOfLine(lineId) === teamId
-        ? setStore()
-            .filter(
-              (set) => set.lineId === lineId && set.stationId === stationId,
-            )
-            .map(replaySetOf)
-        : [],
-    );
-  }),
-
-  api.post(`${STATION}/replay-sets`, async ({ params, request }) => {
-    const { lineId, stationId } = placeOf(params);
-    const { name } = (await request.json()) as CreateReplaySetRequestDto;
-    const id = uniqueId(`set_${slugOf(name)}`, (taken) =>
-      Boolean(setSpec(taken)),
+    const set = setStore().find(
+      (each) => each.lineId === lineId && each.stationId === stationId,
     );
 
-    setStore().push({
-      id,
-      name,
-      lineId,
-      stationId,
-      createdHoursAgo: 0,
-      gatesChanges: false,
-      entries: [],
-      health: NO_HEALTH,
-    });
+    if (teamOfLine(lineId) !== teamId) {
+      return notFound();
+    }
 
-    return json({ id }, 201);
-  }),
-
-  api.get(`${STATION}/replayable-runs`, ({ params }) => {
-    const { teamId, lineId, stationId } = placeOf(params);
-
-    return json(
-      teamOfLine(lineId) === teamId
-        ? replayableRuns(teamId, lineId, stationId)
-        : [],
-    );
+    return set
+      ? json(replaySetOf(set))
+      : problem(404, `Station ${stationId} has no replay set yet.`);
   }),
 
   api.get(`${STATION}/searches`, ({ params }) => {
@@ -411,53 +376,6 @@ export const stationHandlers: RequestHandler[] = [
     ),
   ),
 
-  api.patch(SET, async ({ params, request }) => {
-    const set = setOn(params);
-    const { name } = (await request.json()) as RenameReplaySetRequestDto;
-
-    if (!set) {
-      return notFound();
-    }
-
-    set.name = name;
-    return noContent();
-  }),
-
-  api.delete(SET, ({ params }) => {
-    const setId = param(params, 'setId');
-    const sets = setStore();
-    const at = sets.findIndex((each) => each.id === setOn(params)?.id);
-
-    if (at < 0) {
-      return notFound();
-    }
-
-    sets.splice(at, 1);
-    const replays = replayStore();
-    for (let place = replays.length - 1; place >= 0; place -= 1) {
-      if (replays[place]?.setId === setId) {
-        replays.splice(place, 1);
-      }
-    }
-    return noContent();
-  }),
-
-  api.post(`${SET}/entries`, async ({ params, request }) => {
-    const set = setOn(params);
-    const { runId } = (await request.json()) as { runId: string };
-
-    if (!set) {
-      return notFound();
-    }
-    if (runOfStation(runId)?.stationId !== set.stationId) {
-      return problem(422, 'Sorry, that run did not end at this station.');
-    }
-    if (!set.entries.some((each) => each.runId === runId)) {
-      set.entries.push({ runId, addedHoursAgo: 0, origin: 'person' });
-    }
-    return noContent();
-  }),
-
   api.delete(`${SET}/entries/:runId`, ({ params }) => {
     const set = setOn(params);
     const runId = param(params, 'runId');
@@ -466,29 +384,12 @@ export const stationHandlers: RequestHandler[] = [
       return notFound();
     }
 
+    const taskId = runOfStation(runId)?.taskId;
+
     set.entries = set.entries.filter((each) => each.runId !== runId);
-    return noContent();
-  }),
-
-  api.post(`${SET}/gates-changes`, ({ params }) => {
-    const set = setOn(params);
-
-    if (!set) {
-      return notFound();
-    }
-
-    set.gatesChanges = true;
-    return noContent();
-  }),
-
-  api.delete(`${SET}/gates-changes`, ({ params }) => {
-    const set = setOn(params);
-
-    if (!set) {
-      return notFound();
-    }
-
-    set.gatesChanges = false;
+    set.removedTasks = taskId
+      ? [...set.removedTasks, taskId]
+      : set.removedTasks;
     return noContent();
   }),
 
@@ -526,12 +427,6 @@ export const stationHandlers: RequestHandler[] = [
     const replay = startOn(setId, candidate, { ceiling: body.ceiling });
 
     return json<ReplayStartedResponseDto>(started(replay), 201);
-  }),
-
-  api.get(`${SET}/suggestions`, ({ params }) => {
-    const set = setOn(params);
-
-    return set ? json(suggestionsFor(set)) : notFound();
   }),
 
   api.get('/teams/:teamId/replayed-candidates', ({ params, request }) => {

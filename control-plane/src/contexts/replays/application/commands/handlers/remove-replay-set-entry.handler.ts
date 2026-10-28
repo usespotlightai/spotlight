@@ -1,9 +1,9 @@
 import type { RemoveReplaySetEntryCommand } from '@replays/application/commands/remove-replay-set-entry.command';
 import type { SetChanged } from '@replays/application/dto/replay-outcomes.dto';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
+import type { SetUsage } from '@replays/application/services/set-usage.service';
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
-import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -16,7 +16,7 @@ export class RemoveReplaySetEntryHandler
   constructor(
     private readonly access: ReplaysAccess,
     private readonly sets: ReplaySetRepository,
-    private readonly searches: SearchRepository,
+    private readonly usage: SetUsage,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -39,10 +39,11 @@ export class RemoveReplaySetEntryHandler
           throw new UnknownReplaySetError(command.setId);
         }
 
-        const searched = await this.searches.activeOfSet(locked.id);
-
         await this.sets.save(
-          locked.withoutEntry(RunId.of(command.runId), searched !== null),
+          locked.removeEntry(
+            RunId.of(command.runId),
+            await this.usage.inUse(locked.id),
+          ),
         );
       });
 

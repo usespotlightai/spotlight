@@ -1,5 +1,5 @@
 import { useInsightsOverview } from '@/hooks/api/useInsightsOverview';
-import { useReplaySets } from '@/hooks/api/useReplaySets';
+import { useReplaySet } from '@/hooks/api/useReplaySet';
 import { useSearches } from '@/hooks/api/useSearches';
 import { useStationInsights } from '@/hooks/api/useStationInsights';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
@@ -24,14 +24,14 @@ export function useStationTabLoading(
     tab === 'improve' ? teamId : undefined,
     DEFAULT_PERIOD,
   );
-  const sets = useReplaySets(teamId, lineId, on('improve'));
+  const set = useReplaySet(teamId, lineId, on('improve'));
   const searches = useSearches(teamId, lineId, on('improve'));
 
   if (tab === 'overview') {
     return [outcomes, judge].some(loading);
   }
   if (tab === 'improve') {
-    return [signals, sets, searches].some(loading);
+    return [signals, set, searches].some(loading);
   }
   return false;
 }

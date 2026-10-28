@@ -20,10 +20,10 @@ const SET: ReplaySet = {
   id: 'set_1',
   lineId: 'line_1',
   stationId: 'station_1',
-  name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
+  refreshedAt: null,
+  lastRefresh: null,
   stationGone: false,
-  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -63,7 +63,7 @@ const SET: ReplaySet = {
 };
 
 const FROZEN_BY_SEARCH =
-  'A search of this set is running. Add or take out runs after the search ends or a person stops it.';
+  'A search of this set is running. Take out runs after the search ends or a person stops it.';
 
 const renderRuns = (frozen: boolean) =>
   render(
@@ -75,10 +75,12 @@ const renderRuns = (frozen: boolean) =>
   );
 
 describe('SetRuns', () => {
-  it('lets runs be added and taken out while no search uses the set', () => {
+  it('lets a person take runs out while no search uses the set, and add none', () => {
     renderRuns(false);
 
-    expect(screen.getByRole('button', { name: 'Add runs' })).toBeEnabled();
+    expect(
+      screen.queryByRole('button', { name: 'Add runs' }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', {
         name: 'Take Split the invoice job out of the set',
@@ -86,15 +88,12 @@ describe('SetRuns', () => {
     ).toBeEnabled();
   });
 
-  it('does not add or take out runs while a search uses the set, saying why on each', () => {
+  it('does not take out runs while a search uses the set, saying why', () => {
     renderRuns(true);
 
-    const adding = screen.getByRole('button', { name: 'Add runs' });
     const removing = screen.getByRole('button', {
       name: 'Take Split the invoice job out of the set',
     });
-    expect(adding).toBeDisabled();
-    expect(adding).toHaveAccessibleDescription(FROZEN_BY_SEARCH);
     expect(removing).toBeDisabled();
     expect(removing).toHaveAccessibleDescription(FROZEN_BY_SEARCH);
   });

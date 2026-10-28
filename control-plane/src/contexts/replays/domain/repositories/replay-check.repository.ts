@@ -20,6 +20,8 @@ export interface ReplayCheckRepository {
 
   awaitingBaseline(): Promise<readonly ReplayCheck[]>;
 
+  awaitingBaselineOfSet(setId: ReplaySetId): Promise<readonly ReplayCheck[]>;
+
   ofTeam(teamId: TeamId): Promise<readonly ReplayCheck[]>;
 
   ofSet(setId: ReplaySetId): Promise<readonly ReplayCheck[]>;

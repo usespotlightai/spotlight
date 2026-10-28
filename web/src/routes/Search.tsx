@@ -4,7 +4,7 @@ import { SearchPage } from '@/components/features/searches/search/SearchPage';
 import { SearchSkeleton } from '@/components/features/searches/search/SearchSkeleton';
 import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnlyOrCouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
-import { useTeamReplaySets } from '@/hooks/api/useReplaySets';
+import { useTeamReplaySets } from '@/hooks/api/useReplaySet';
 import { useSearch } from '@/hooks/api/useSearch';
 import { useSearches } from '@/hooks/api/useSearches';
 import { useStation } from '@/hooks/api/useStation';

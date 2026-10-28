@@ -14,8 +14,9 @@ import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
-import { ChangesUngatedError } from '@replays/domain/exceptions/changes-ungated.error';
+import { NoReplaySetError } from '@replays/domain/exceptions/no-replay-set.error';
 import { ReplayCheckUnconfiguredError } from '@replays/domain/exceptions/replay-check-unconfigured.error';
+import { ReplaySetEmptyError } from '@replays/domain/exceptions/replay-set-empty.error';
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
 import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
@@ -188,7 +189,7 @@ export class StartReplayCheckHandler
   private async gated(station: StationView): Promise<Gated> {
     const live = await this.work.live(station.lineId, station.stationId);
     const teamKey = await this.people.teamKey(station.teamId);
-    const atStation = await this.sets.atStation(station.stationId);
+    const set = await this.sets.ofStation(station.stationId);
     const address = teamKey
       ? StationPath.of(teamKey, station.lineKey, station.key)
       : null;
@@ -200,12 +201,11 @@ export class StartReplayCheckHandler
       throw new ReplayCheckUnconfiguredError(station.lineKey);
     }
 
-    const set = atStation.find(
-      (each) => each.gatesChanges && !each.isAtGoneStation,
-    );
-
-    if (!set) {
-      throw new ChangesUngatedError(station.key);
+    if (!set || set.isAtGoneStation) {
+      throw new NoReplaySetError(station.key);
+    }
+    if (set.entries.length === 0) {
+      throw new ReplaySetEmptyError(station.key);
     }
 
     return { station, address, live, threshold: live.threshold, set };
@@ -242,10 +242,6 @@ export class StartReplayCheckHandler
     }
 
     set.stillAtItsStation();
-
-    if (!set.gatesChanges) {
-      throw new ChangesUngatedError(station.key);
-    }
 
     const setEntries = this.hash.sha256(
       set.runs

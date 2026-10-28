@@ -288,7 +288,7 @@ describe('replays', () => {
 
     expect(startProblem(set({}))).toBeNull();
     expect(startProblem(set({ entries: [] }))).toBe(
-      'Please add runs to the set first.',
+      'The set has no runs yet. Spotlight adds runs of the station when it refreshes the set.',
     );
     expect(startProblem(set({ stationGone: true }))).toBe(
       'The station is gone from its line.',

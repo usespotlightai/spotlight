@@ -1,9 +1,10 @@
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
-export class DeleteReplaySetCommand {
+export class ReadReplaySetQuery {
   constructor(
     readonly teamId: string,
-    readonly setId: string,
+    readonly lineId: string,
+    readonly stationId: string,
     readonly principal: Principal,
   ) {}
 }

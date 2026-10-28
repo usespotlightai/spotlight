@@ -39,8 +39,8 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
-import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -441,30 +441,28 @@ describe('replayedCandidatesView', () => {
   });
 
   it('counts distinct tasks apart from runs when a task was worked twice', () => {
-    const twice = [
-      ['run_a', 'task_x'],
-      ['run_b', 'task_x'],
-      ['run_c', 'task_y'],
-    ].reduce(
-      (set, [run, task]) =>
-        set.withEntry(
-          {
-            runId: RunId.of(run as string),
-            taskId: TaskId.of(task as string),
-            stationId: STATION.stationId,
-            unreplayableReason: null,
-            reason: null,
-          },
-          NOW,
-          false,
-        ),
-      ReplaySet.create({
-        id: ReplaySetId.of('set_twice'),
-        station: STATION,
-        name: ReplaySetName.of('Twice'),
-        at: NOW,
-      }),
-    );
+    const twice = ReplaySet.rehydrate({
+      id: ReplaySetId.of('set_twice'),
+      station: STATION,
+      entries: [
+        ['run_a', 'task_x'],
+        ['run_b', 'task_x'],
+        ['run_c', 'task_y'],
+      ].map(([run, task]) =>
+        ReplaySetEntry.of({
+          runId: RunId.of(run as string),
+          taskId: TaskId.of(task as string),
+          endedAt: NOW,
+          addedAt: NOW,
+        }),
+      ),
+      removedTasks: [],
+      createdAt: NOW,
+      refreshedAt: NOW,
+      lastRefresh: null,
+      stationGoneAt: null,
+      version: 0,
+    });
     const baseline = replayedAs(
       replayFor(twice, 'replay_twice_live', 'candidate_live', null, true),
       () => 'completed',

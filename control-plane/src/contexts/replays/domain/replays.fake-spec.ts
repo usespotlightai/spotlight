@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import {
   type ReplayedStation,
   ReplaySet,
@@ -17,11 +18,12 @@ import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
+import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import type { RunResult } from '@replays/domain/value-objects/replay-ending';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
-import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
+import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
@@ -158,36 +160,58 @@ export const candidateOf = (
       });
 };
 
-const entriesOf = (count: number): ReplaySetEntry[] =>
-  Array.from({ length: count }, (_, at) =>
-    ReplaySetEntry.of({
-      runId: RunId.of(`original_${at}`),
-      taskId: TaskId.of(`task_${at}`),
-      addedAt: NOW,
-    }),
-  );
+export const aSet = (count = 0, id = 'set_1'): ReplaySet => {
+  const kept = ReplaySet.create({
+    id: ReplaySetId.of(id),
+    station: STATION,
+    at: NOW,
+  });
 
-export const aSet = (count = 0, id = 'set_1'): ReplaySet =>
-  entriesOf(count).reduce(
-    (set, entry) =>
-      set.withEntry(
+  return count === 0
+    ? kept
+    : kept.refresh(
         {
-          runId: entry.runId,
-          taskId: entry.taskId,
-          stationId: STATION.stationId,
-          unreplayableReason: null,
-          reason: null,
+          add: Array.from({ length: count }, (_, at) => ({
+            runId: RunId.of(`original_${at}`),
+            taskId: TaskId.of(`task_${at}`),
+            stationId: STATION.stationId,
+            unreplayableReason: null,
+            reason: null,
+            endedAt: NOW,
+          })),
+          remove: [],
         },
         NOW,
         false,
-      ),
-    ReplaySet.create({
-      id: ReplaySetId.of(id),
-      station: STATION,
-      name: ReplaySetName.of('Queue fixes'),
-      at: NOW,
+      );
+};
+
+export const aCheck = (setId = ReplaySetId.of('set_1')): ReplayCheck =>
+  ReplayCheck.start({
+    id: ReplayCheckId.of('check_1'),
+    station: STATION,
+    stationKey: 'build',
+    setId,
+    candidateId: CandidateId.of('candidate_planned'),
+    replayId: ReplayId.of('replay_1'),
+    setEntries: 'entries_1',
+    attempt: 1,
+    reference: PlannedReference.of({ pullRequest: 42 }),
+    liveFingerprint: LIVE_FINGERPRINT,
+    candidateFingerprint: FINGERPRINT,
+    liveHashes: LIVE_HASHES,
+    candidateHashes: HASHES,
+    threshold: ReplayThreshold.of({
+      maxRegressions: 0,
+      ceiling: 10,
+      currency: 'USD',
+      minGain: 0.05,
     }),
-  );
+    repeats: 1,
+    scoringPinnedToLive: ['diffs', 'check'],
+    createdAt: NOW,
+    by: BY,
+  });
 
 let next = 0;
 

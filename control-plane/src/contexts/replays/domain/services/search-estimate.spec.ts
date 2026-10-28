@@ -17,6 +17,7 @@ const setOf = (runsPerTask: readonly number[]): ReplaySetEntry[] =>
       ReplaySetEntry.of({
         runId: RunId.of(`run_${task}_${run}`),
         taskId: TaskId.of(`task_${task}`),
+        endedAt: AT,
         addedAt: AT,
       }),
     ),

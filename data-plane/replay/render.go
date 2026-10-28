@@ -15,8 +15,6 @@ type named interface {
 
 func (c candidate) id() string    { return c.ID }
 func (c candidate) label() string { return c.Name }
-func (s replaySet) id() string    { return s.ID }
-func (s replaySet) label() string { return s.Name }
 
 func pick[T named](items []T, query, kind, at string) (T, error) {
 	var none T

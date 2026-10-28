@@ -53,7 +53,6 @@ type checkRegression struct {
 
 type checkRead struct {
 	ID                  string   `json:"id"`
-	SetName             *string  `json:"setName"`
 	ReplayID            string   `json:"replayId"`
 	ScoringPinnedToLive []string `json:"scoringPinnedToLive"`
 	Result              string   `json:"result"`
@@ -387,12 +386,8 @@ func (r *checkReport) print(out io.Writer) {
 			continue
 		}
 
-		set := "its gating set"
-		if read.SetName != nil {
-			set = fmt.Sprintf("set %q", *read.SetName)
-		}
-		fmt.Fprintf(out, "  %d of %d tasks regressed (at most %d may), replaying %s: %d tasks, %d scored on both sides\n",
-			len(read.Regressions), read.Tasks, read.Threshold.MaxRegressions, set, read.Tasks, read.Compared)
+		fmt.Fprintf(out, "  %d of %d tasks regressed (at most %d may), replaying the station's replay set: %d tasks, %d scored on both sides\n",
+			len(read.Regressions), read.Tasks, read.Threshold.MaxRegressions, read.Tasks, read.Compared)
 		if read.UndecidedBecause != nil {
 			fmt.Fprintf(out, "  undecided: %s\n", describeUndecided(*read.UndecidedBecause))
 		}

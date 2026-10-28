@@ -69,7 +69,7 @@ export class ReadReplayCheckHandler
         throw new UnknownReplayCheckError(query.checkId);
       }
 
-      const [{ evaluation, replay, baseline, set }, slug] = await Promise.all([
+      const [{ evaluation, replay, baseline }, slug] = await Promise.all([
         this.evaluations.of(check),
         this.people.workspaceSlug(check.workspaceId),
       ]);
@@ -91,7 +91,6 @@ export class ReadReplayCheckHandler
         stationId: check.station.stationId,
         stationKey: check.stationKey,
         setId: check.setId.value,
-        setName: set?.name.value ?? null,
         candidateId: check.candidateId.value,
         replayId: check.replayId.value,
         baselineReplayId: baseline?.id.value ?? null,

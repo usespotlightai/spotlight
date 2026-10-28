@@ -153,29 +153,28 @@ describe('the Candidates tab', () => {
     );
   });
 
-  it('groups the candidates in one table by station, then replay set, showing the health of each set', () => {
+  it('groups the candidates in one table by station, showing the health of the station’s replay set', () => {
     showing();
 
     const groups = [
       ...document.querySelectorAll('[data-slot="nested-group"]'),
     ].map((each) => each.textContent);
     expect(groups).toEqual([
-      'ImplementationDelivery',
-      expect.stringMatching(/^Migrations and billing24 tasks \(27 runs\)/),
-      'Code ReviewDelivery',
-      expect.stringMatching(/^Reviews sent back12 tasks/),
+      expect.stringMatching(
+        /^ImplementationDeliveryReplay set24 tasks \(27 runs\)/,
+      ),
+      expect.stringMatching(/^Code ReviewDeliveryReplay set12 tasks/),
     ]);
     expect(
-      screen.getByRole('link', { name: 'Migrations and billing' }),
+      screen.getAllByRole('link', { name: 'Replay set' })[0],
     ).toHaveAttribute(
       'href',
       `${STATION}/station_implementation/replay-sets/set_implementation`,
     );
-    expect(screen.getAllByLabelText('Checks pull requests')).toHaveLength(1);
     expect(screen.getAllByLabelText('Set health')).toHaveLength(2);
   });
 
-  it('collapses a station or a replay set and expands it again', async () => {
+  it('collapses a station and expands it again', async () => {
     showing();
 
     await userEvent.click(
@@ -187,11 +186,7 @@ describe('the Candidates tab', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Expand Implementation' }),
     );
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Collapse Reviews sent back' }),
-    );
     expect(screen.getByText('opus-with-migrations-skill')).toBeInTheDocument();
-    expect(screen.queryByText('review-against-spec')).toBeNull();
   });
 
   it('charts each replay set in place of its candidates, under the same collapsible rows', async () => {

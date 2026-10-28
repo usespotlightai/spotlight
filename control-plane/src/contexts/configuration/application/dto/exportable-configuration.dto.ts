@@ -14,7 +14,6 @@ const NOT_EXPORTED = [
   'workspace-token',
   'replay-candidate',
   'replay',
-  'replay-set',
   'replay-search',
   'replay-check',
   'config-pull-request',

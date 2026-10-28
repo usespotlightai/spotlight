@@ -20432,9 +20432,9 @@
         }
       }
     },
-    "/teams/{teamId}/lines/{lineId}/stations/{stationId}/replay-sets": {
+    "/teams/{teamId}/lines/{lineId}/stations/{stationId}/replay-set": {
       "get": {
-        "operationId": "listReplaySets",
+        "operationId": "readReplaySet",
         "parameters": [
           {
             "name": "Spotlight-Api-Version",
@@ -20490,10 +20490,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ReplaySetResponseDto"
-                  }
+                  "$ref": "#/components/schemas/ReplaySetResponseDto"
                 }
               }
             }
@@ -20519,7 +20516,7 @@
             }
           },
           "404": {
-            "description": "No such team, station, set or run for this caller",
+            "description": "No such team, station, set or run for this caller, or the station has no replay set yet",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -20534,140 +20531,7 @@
             "bearer": []
           }
         ],
-        "summary": "The station’s replay sets, each run in them, and whether it can still be replayed",
-        "tags": [
-          "replays"
-        ]
-      },
-      "post": {
-        "operationId": "createReplaySet",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lineId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "stationId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateReplaySetRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReplaySetCreatedResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "A caller who may read the team but not plan",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, station, set or run for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "No name it takes",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Create an empty replay set at the station",
+        "summary": "The replay set Spotlight keeps for the station, each run in it, and whether it can still be replayed",
         "tags": [
           "replays"
         ]
@@ -20712,7 +20576,7 @@
             "name": "station",
             "required": false,
             "in": "query",
-            "description": "With line: the key of the station whose sets to list; a line or station that the team does not own is not found",
+            "description": "With line: the key of the station whose set to list; a line or station that the team does not own is not found",
             "schema": {
               "example": "build"
             }
@@ -20721,7 +20585,7 @@
             "name": "line",
             "required": false,
             "in": "query",
-            "description": "With station: the line of the station whose sets to list",
+            "description": "With station: the line of the station whose set to list",
             "schema": {
               "example": "3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03"
             }
@@ -20762,7 +20626,7 @@
             }
           },
           "404": {
-            "description": "No such team, station, set or run for this caller",
+            "description": "No such team, station, set or run for this caller, or the station has no replay set yet",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -20787,573 +20651,7 @@
             "bearer": []
           }
         ],
-        "summary": "Every replay set of the team, including those whose station is gone from its line; or only those of one station, named by its line and key",
-        "tags": [
-          "replays"
-        ]
-      }
-    },
-    "/teams/{teamId}/lines/{lineId}/stations/{stationId}/replayable-runs": {
-      "get": {
-        "operationId": "listReplayableRuns",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "lineId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "stationId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ReplayableRunResponseDto"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, station, set or run for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "The station’s latest ended task runs to pick a replay set from, saying why any cannot be replayed",
-        "tags": [
-          "replays"
-        ]
-      }
-    },
-    "/teams/{teamId}/replay-sets/{setId}/suggestions": {
-      "get": {
-        "operationId": "listReplaySetSuggestions",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "setId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/SuggestedRunResponseDto"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, station, set or run for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Up to 5 recent runs of the set’s station that would even out how its runs turned out, accepted ones first, then sent back; none are added until requested",
-        "tags": [
-          "replays"
-        ]
-      }
-    },
-    "/teams/{teamId}/replay-sets/{setId}": {
-      "patch": {
-        "operationId": "renameReplaySet",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "setId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RenameReplaySetRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Renamed"
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "A caller who may read the team but not plan",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, station, set or run for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "No name it takes",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Rename a replay set",
-        "tags": [
-          "replays"
-        ]
-      },
-      "delete": {
-        "operationId": "deleteReplaySet",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "setId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Deleted"
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "A caller who may read the team but not plan",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, station, set or run for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "A replay of the set is still running; stop it first",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Delete a replay set and its replays, and release the archives it holds",
-        "tags": [
-          "replays"
-        ]
-      }
-    },
-    "/teams/{teamId}/replay-sets/{setId}/entries": {
-      "post": {
-        "operationId": "addReplaySetEntry",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "setId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AddReplaySetEntryRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "204": {
-            "description": "Added"
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "A caller who may read the team but not plan",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, station, set or run for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "The run is in the set already, the set is full, or the run cannot be replayed, saying why",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "No run named, or a run of another station",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Add a past run of the station to a replay set, holding the archive it started from while it is there",
+        "summary": "Every replay set of the team, including those whose station is gone from its line; or only the set of one station, named by its line and key",
         "tags": [
           "replays"
         ]
@@ -21446,7 +20744,7 @@
             }
           },
           "404": {
-            "description": "No such team, station, set or run for this caller",
+            "description": "No such team, station, set or run for this caller, or the station has no replay set yet",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -21461,215 +20759,7 @@
             "bearer": []
           }
         ],
-        "summary": "Take a run out of a replay set",
-        "tags": [
-          "replays"
-        ]
-      }
-    },
-    "/teams/{teamId}/replay-sets/{setId}/gates-changes": {
-      "post": {
-        "operationId": "gateChanges",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "setId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "It gates the station’s changes"
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "A caller who may read the team but not plan",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, station, set or run for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "Another set gates the station’s changes already, or the set’s station is gone",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Check planned changes of the set’s station against this set, as `spotlight replay check` requests; a station has one such set",
-        "tags": [
-          "replays"
-        ]
-      },
-      "delete": {
-        "operationId": "ungateChanges",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version that it uses",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "setId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "It no longer gates the station’s changes"
-          },
-          "400": {
-            "description": "Malformed, or requests an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "A caller who may read the team but not plan",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, station, set or run for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Stop checking planned changes of the set’s station against this set; checks already started keep running",
+        "summary": "Take a run out of a replay set; Spotlight never adds a run of its task to the set again",
         "tags": [
           "replays"
         ]
@@ -22313,7 +21403,7 @@
         ]
       },
       "post": {
-        "description": "It holds out about 30% of the set’s tasks, replays the live config over the whole set, then runs its agent once per iteration to propose candidates, each replayed on the tasks it did not hold out. The best are replayed on the held-out tasks once it stops searching. The set cannot change while it runs, and a station is searched once at a time.",
+        "description": "It holds out about 30% of the set’s tasks, replays the live config over the whole set, then runs its agent once per iteration to propose candidates, each replayed on the tasks it did not hold out. The best are replayed on the held-out tasks once it stops searching. Spotlight refreshes the set before the search starts. The set does not change while the search runs. A station has one search at a time.",
         "operationId": "startSearch",
         "parameters": [
           {
@@ -22451,7 +21541,7 @@
             "bearer": []
           }
         ],
-        "summary": "Start a search for a better config of the station, over one of its replay sets, within a budget",
+        "summary": "Start a search for a better config of the station, over the replay set that Spotlight keeps for it, within a budget",
         "tags": [
           "replays"
         ]
@@ -23165,7 +22255,7 @@
             }
           },
           "409": {
-            "description": "The line has no replay_check, no replay set gates the station’s changes, or the plan changes nothing that changes how its runs go (nothing-to-replay)",
+            "description": "The line has no replay_check, the station has no replay set or no runs in it yet, or the plan changes nothing that changes how its runs go (nothing-to-replay)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -23190,7 +22280,7 @@
             "bearer": []
           }
         ],
-        "summary": "Check a planned change of a station against the replay set that gates its changes, under the live line’s replay_check; a change already checked against the same live config answers its check",
+        "summary": "Check a planned change of a station against the replay set that Spotlight keeps for the station, under the live line’s replay_check; a change already checked against the same live config answers its check",
         "tags": [
           "replays"
         ]
@@ -30631,7 +29721,6 @@
               "workspace-runners",
               "replay-candidate",
               "replay",
-              "replay-set",
               "replay-search",
               "replay-check",
               "config-pull-request",
@@ -41887,6 +40976,52 @@
           "items"
         ]
       },
+      "RefreshedRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "example": "9b2f6c1e-4d3a-4e8b-a7f0-2c5d1e9b3a64"
+          },
+          "title": {
+            "type": "string",
+            "nullable": true,
+            "example": "Drain the queue"
+          }
+        },
+        "required": [
+          "runId",
+          "title"
+        ]
+      },
+      "SetRefreshResponseDto": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "example": "2026-10-08T09:00:00.000Z"
+          },
+          "added": {
+            "description": "Runs the refresh added: the newest run of new tasks",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefreshedRunResponseDto"
+            }
+          },
+          "removed": {
+            "description": "Runs the refresh took out: entries older than 90 days, or the oldest over 30 runs",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefreshedRunResponseDto"
+            }
+          }
+        },
+        "required": [
+          "at",
+          "added",
+          "removed"
+        ]
+      },
       "SetNoiseResponseDto": {
         "type": "object",
         "properties": {
@@ -42527,21 +41662,29 @@
           "stationId": {
             "type": "string"
           },
-          "name": {
-            "type": "string",
-            "example": "Queue fixes"
-          },
           "createdAt": {
             "type": "string",
             "example": "2026-10-01T09:00:00.000Z"
           },
+          "refreshedAt": {
+            "type": "string",
+            "nullable": true,
+            "example": "2026-10-08T09:00:00.000Z",
+            "description": "When Spotlight last refreshed the set from its station’s runs; null before the first refresh"
+          },
+          "lastRefresh": {
+            "nullable": true,
+            "description": "The last refresh that changed the set; null while no refresh changed it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SetRefreshResponseDto"
+              }
+            ]
+          },
           "stationGone": {
             "type": "boolean",
-            "description": "Its station is gone from its line: it takes no more runs, starts no replays and holds no archives; it may still be renamed, have runs taken out, or be deleted"
-          },
-          "gatesChanges": {
-            "type": "boolean",
-            "description": "Planned changes of its station are checked against it, as `spotlight replay check` requests; a station has at most one such set"
+            "description": "Its station is gone from its line: it takes no more runs, starts no replays and holds no archives; runs may still be taken out"
           },
           "health": {
             "description": "Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check return the same answer twice, and how much better the live config does when handed each run’s answer",
@@ -42575,200 +41718,14 @@
           "id",
           "lineId",
           "stationId",
-          "name",
           "createdAt",
+          "refreshedAt",
+          "lastRefresh",
           "stationGone",
-          "gatesChanges",
           "health",
           "minGain",
           "composition",
           "entries"
-        ]
-      },
-      "ReplayableRunResponseDto": {
-        "type": "object",
-        "properties": {
-          "runId": {
-            "type": "string"
-          },
-          "taskId": {
-            "type": "string",
-            "nullable": true
-          },
-          "title": {
-            "type": "string",
-            "example": "Drain the queue"
-          },
-          "state": {
-            "type": "string",
-            "example": "completed"
-          },
-          "endedAt": {
-            "type": "string",
-            "example": "2026-10-01T09:00:00.000Z"
-          },
-          "unreplayableReason": {
-            "type": "string",
-            "enum": [
-              "unknown-run",
-              "not-a-task-run",
-              "task-gone",
-              "still-running",
-              "no-starting-point",
-              "no-briefing",
-              "archive-gone",
-              "attachments-gone",
-              "answer-gone",
-              "repository-gone",
-              "not-at-the-station",
-              "candidate-unfit",
-              "cannot-start",
-              "unchecked",
-              "cancelled",
-              "dispatch-failed",
-              null
-            ],
-            "nullable": true,
-            "description": "Why it cannot be replayed; null when it can"
-          },
-          "reason": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "required": [
-          "runId",
-          "taskId",
-          "title",
-          "state",
-          "endedAt",
-          "unreplayableReason",
-          "reason"
-        ]
-      },
-      "SuggestedRunResponseDto": {
-        "type": "object",
-        "properties": {
-          "runId": {
-            "type": "string"
-          },
-          "taskId": {
-            "type": "string",
-            "nullable": true
-          },
-          "title": {
-            "type": "string",
-            "example": "Drain the queue"
-          },
-          "state": {
-            "type": "string",
-            "example": "completed"
-          },
-          "endedAt": {
-            "type": "string",
-            "example": "2026-10-01T09:00:00.000Z"
-          },
-          "unreplayableReason": {
-            "type": "string",
-            "enum": [
-              "unknown-run",
-              "not-a-task-run",
-              "task-gone",
-              "still-running",
-              "no-starting-point",
-              "no-briefing",
-              "archive-gone",
-              "attachments-gone",
-              "answer-gone",
-              "repository-gone",
-              "not-at-the-station",
-              "candidate-unfit",
-              "cannot-start",
-              "unchecked",
-              "cancelled",
-              "dispatch-failed",
-              null
-            ],
-            "nullable": true,
-            "description": "Why it cannot be replayed; null when it can"
-          },
-          "reason": {
-            "type": "string",
-            "nullable": true
-          },
-          "outcome": {
-            "type": "string",
-            "enum": [
-              "accepted",
-              "sent-back",
-              "asked",
-              "failed",
-              "other"
-            ],
-            "description": "How the run turned out"
-          }
-        },
-        "required": [
-          "runId",
-          "taskId",
-          "title",
-          "state",
-          "endedAt",
-          "unreplayableReason",
-          "reason",
-          "outcome"
-        ]
-      },
-      "CreateReplaySetRequestDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "Queue fixes",
-            "minLength": 1,
-            "maxLength": 100
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
-      "ReplaySetCreatedResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ]
-      },
-      "RenameReplaySetRequestDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "Queue fixes, hard ones",
-            "minLength": 1,
-            "maxLength": 100
-          }
-        },
-        "required": [
-          "name"
-        ]
-      },
-      "AddReplaySetEntryRequestDto": {
-        "type": "object",
-        "properties": {
-          "runId": {
-            "type": "string",
-            "example": "9b2f6c1e-4d3a-4e8b-a7f0-2c5d1e9b3a64",
-            "description": "A past run of a task at the set’s station"
-          }
-        },
-        "required": [
-          "runId"
         ]
       },
       "CandidateResponseDto": {
@@ -44246,12 +43203,6 @@
           "setId": {
             "type": "string"
           },
-          "setName": {
-            "type": "string",
-            "nullable": true,
-            "example": "Queue fixes",
-            "description": "Its set’s name; null once the set is gone"
-          },
           "lineId": {
             "type": "string"
           },
@@ -44309,7 +43260,6 @@
         "required": [
           "replayId",
           "setId",
-          "setName",
           "lineId",
           "stationId",
           "candidate",
@@ -46239,12 +45189,7 @@
           },
           "setId": {
             "type": "string",
-            "description": "The replay set that gates the station’s changes"
-          },
-          "setName": {
-            "type": "string",
-            "nullable": true,
-            "example": "Queue fixes"
+            "description": "The replay set Spotlight keeps for the station"
           },
           "candidateId": {
             "type": "string",
@@ -46327,7 +45272,7 @@
           },
           "tasks": {
             "type": "number",
-            "description": "How many tasks the gating set replays"
+            "description": "How many tasks the station’s replay set replays"
           },
           "compared": {
             "type": "number",
@@ -46367,7 +45312,6 @@
           "stationId",
           "stationKey",
           "setId",
-          "setName",
           "candidateId",
           "replayId",
           "baselineReplayId",
@@ -47251,17 +46195,9 @@
           "setId": {
             "type": "string"
           },
-          "name": {
-            "type": "string",
-            "example": "Queue fixes"
-          },
           "stationGone": {
             "type": "boolean",
             "description": "Whether its station has left its line"
-          },
-          "gatesChanges": {
-            "type": "boolean",
-            "description": "Whether it checks every pull request that changes its station"
           },
           "health": {
             "description": "The current health of the set, whatever the period",
@@ -47297,9 +46233,7 @@
         },
         "required": [
           "setId",
-          "name",
           "stationGone",
-          "gatesChanges",
           "health",
           "baseline",
           "chartCurrency",

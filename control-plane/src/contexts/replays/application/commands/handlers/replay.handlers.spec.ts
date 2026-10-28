@@ -2,6 +2,7 @@ import { StartReplayHandler } from '@replays/application/commands/handlers/start
 import { StopReplayHandler } from '@replays/application/commands/handlers/stop-replay.handler';
 import { StartReplayCommand } from '@replays/application/commands/start-replay.command';
 import { StopReplayCommand } from '@replays/application/commands/stop-replay.command';
+import type { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
 import {
   ACTOR,
   accessFor,
@@ -9,6 +10,7 @@ import {
   FakeWork,
   IDS,
   InMemoryReplays,
+  refreshingFor,
   snapshotsFor,
   stationsFor,
   TRANSACTION,
@@ -22,15 +24,20 @@ import {
   aReplay,
   aSet,
   candidateOf,
+  NOW,
   runIds,
+  STATION,
 } from '@replays/domain/replays.fake-spec';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { CALIBRATION_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let memory: InMemoryReplays;
 let work: FakeWork;
+let refreshing: RefreshKeptSets;
 
 const CEILING = { amount: 5, currency: 'USD' };
 
@@ -45,6 +52,7 @@ const starting = (mayPlan = true) =>
     CLOCK,
     TRANSACTION,
     stationsFor(memory, work),
+    refreshing,
   );
 
 const baselines = () =>
@@ -80,11 +88,58 @@ const start = (candidate: string, mayPlan = true, repeats = 1) =>
 beforeEach(async () => {
   memory = new InMemoryReplays();
   work = new FakeWork();
+  refreshing = refreshingFor(memory, work);
   await memory.setRepository.add(aSet(2));
   await memory.candidateRepository.add(candidateOf('proposed'));
 });
 
 describe('StartReplayHandler', () => {
+  it('refreshes the set before it reads it, so the replay covers the newest run', async () => {
+    work.recent = [
+      {
+        runId: RunId.of('run_new'),
+        taskId: TaskId.of('task_new'),
+        stationId: STATION.stationId,
+        unreplayableReason: null,
+        reason: null,
+        title: 'Newest',
+        state: 'completed',
+        endedAt: NOW,
+        origin: null,
+      },
+    ];
+
+    await start('candidate_proposed');
+
+    const replay = [...memory.replays.values()].find((each) => !each.baseline);
+
+    expect(replay?.originals.map((each) => each.value)).toContain('run_new');
+  });
+
+  it('starts on the set as it is while a replay of it is in progress', async () => {
+    await start('candidate_proposed');
+    work.recent = [
+      {
+        runId: RunId.of('run_new'),
+        taskId: TaskId.of('task_new'),
+        stationId: STATION.stationId,
+        unreplayableReason: null,
+        reason: null,
+        title: 'Newest',
+        state: 'completed',
+        endedAt: NOW,
+        origin: null,
+      },
+    ];
+
+    await start('candidate_proposed');
+
+    expect(memory.sets.get('set_1')?.runs.map((each) => each.value)).toEqual([
+      'original_0',
+      'original_1',
+    ]);
+  });
+
   it('answers why it could not start, though releasing the live snapshot fails too', async () => {
     memory.candidateRepository.save = async () => {
       throw new Error('the database went away');

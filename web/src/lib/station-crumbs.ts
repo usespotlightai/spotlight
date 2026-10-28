@@ -8,20 +8,21 @@ import {
   replaySetPath,
   replaysAnchorPath,
 } from '@/lib/replay';
+import { REPLAY_SET_TITLE } from '@/lib/replay-words';
 import { searchesAnchorPath, searchLabel, searchPath } from '@/lib/search';
 
-const setsCrumb = (at: ReplayedStation): BreadcrumbSegment => ({
-  label: 'Replay sets',
-  to: replaysAnchorPath(at),
+const setCrumb = (
+  at: ReplayedStation,
+  set: ReplaySet | undefined,
+): BreadcrumbSegment => ({
+  label: REPLAY_SET_TITLE,
+  to: set ? replaySetPath(at, set.id) : replaysAnchorPath(at),
 });
 
 export const setCrumbs = (
   at: ReplayedStation | null,
   set: ReplaySet | undefined,
-): BreadcrumbSegment[] =>
-  at && set
-    ? [setsCrumb(at), { label: set.name, to: replaySetPath(at, set.id) }]
-    : [];
+): BreadcrumbSegment[] => (at && set ? [setCrumb(at, set)] : []);
 
 export const replayCrumbs = (
   at: ReplayedStation | null,
@@ -33,8 +34,7 @@ export const replayCrumbs = (
   }
 
   return [
-    setsCrumb(at),
-    ...(set ? [{ label: set.name, to: replaySetPath(at, set.id) }] : []),
+    setCrumb(at, set),
     ...(replay
       ? [
           {

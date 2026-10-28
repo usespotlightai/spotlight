@@ -47,7 +47,7 @@ vi.mock('@/hooks/api/useSearches', () => ({
 
 const sets = vi.fn((): unknown => undefined);
 
-vi.mock('@/hooks/api/useReplaySets', () => ({
+vi.mock('@/hooks/api/useReplaySet', () => ({
   useTeamReplaySets: () => ({
     data:
       sets() === 'none'
@@ -55,7 +55,6 @@ vi.mock('@/hooks/api/useReplaySets', () => ({
         : (sets() ?? [
             {
               id: 'set_1',
-              name: 'Billing work',
               entries: [
                 {
                   runId: 'run_held_out',
@@ -385,7 +384,7 @@ describe('Search', () => {
     expect(screen.queryByText('Finished')).not.toBeInTheDocument();
     expect(
       screen
-        .getByRole('link', { name: 'Billing work' })
+        .getByRole('link', { name: 'Replay set' })
         .parentElement?.querySelector('[aria-describedby]'),
     ).toHaveAccessibleDescription(/^Started .*, ended /);
     expect(tile('Spent')).toHaveTextContent('$12.00of $20.00');
@@ -393,7 +392,7 @@ describe('Search', () => {
       screen.queryByRole('button', { name: 'Stop' }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'Billing work' }),
+      screen.getByRole('link', { name: 'Replay set' }),
     ).toBeInTheDocument();
   });
 

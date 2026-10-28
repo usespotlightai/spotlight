@@ -29,6 +29,7 @@ import { and, eq, isNotNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { keptSet } from './support/kept-sets';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -196,26 +197,15 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
   return { taskId, runId };
 };
 
-const createSet = async (
-  name: string,
+const createSet = (
   originals: readonly Original[],
   stationId = BUILD,
-): Promise<string> => {
-  const created = await owner()
-    .post(`${stationPath(stationId)}/replay-sets`, { name })
-    .expect(201);
-  const setId = created.body.id as string;
-
-  for (const each of originals) {
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-        runId: each.runId,
-      })
-      .expect(204);
-  }
-
-  return setId;
-};
+): Promise<string> =>
+  keptSet(
+    app,
+    { workspaceId: team.workspaceId.value, stationId },
+    originals.map((each) => each.runId),
+  );
 
 interface Budget {
   readonly iterations: number;
@@ -697,7 +687,7 @@ interface Replayed {
 
 describe('replayed candidates beside live runs', () => {
   it('shows a searched candidate with the scores its search page shows, beside the baseline its replay page names', async () => {
-    const setId = await createSet('Replayed', fiveTasks);
+    const setId = await createSet(fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 1,
       perIteration: 1,
@@ -780,7 +770,11 @@ describe('replayed candidates beside live runs', () => {
   }, 120_000);
 
   it('shows a proposed candidate with the numbers its replay page shows', async () => {
-    const setId = await createSet('Proposed', fiveTasks);
+    const tasks: Original[] = [];
+    for (let each = 0; each < 5; each += 1) {
+      tasks.push(await anOriginal());
+    }
+    const setId = await createSet(tasks);
     const created = await http()
       .post(`/api/resources/lines/${DELIVERY}/stations/build/replay-candidates`)
       .set(TEST_USER_HEADER, team.owner.value)
@@ -835,11 +829,13 @@ describe('replayed candidates beside live runs', () => {
       .find((each) => each.setId === setId);
     const shown = set?.candidates.find((each) => each.kind === 'proposed');
 
-    expect(set?.candidates).toHaveLength(1);
+    expect(
+      set?.candidates.filter((each) => each.kind === 'proposed'),
+    ).toHaveLength(1);
     expect(shown).toMatchObject({
       candidateId: created.body.id,
       replayId: started.id,
-      tasks: fiveTasks.length,
+      tasks: tasks.length,
       runs: replay.totals.entries,
       successRate: replay.totals.successRate,
       scored: replay.totals.scored,

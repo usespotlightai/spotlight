@@ -1,10 +1,9 @@
 import { RateTrack } from '@/components/features/insights/candidates/RateTrack';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
-  INNER_DIVIDER,
-  INNER_GUIDE,
-  INNER_INDENT,
+  OUTER_DIVIDER,
   OUTER_GUIDE,
+  OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { formatCount } from '@/lib/insights';
@@ -28,14 +27,13 @@ export function BaselineRow({ at, baseline, heldOut }: BaselineRowProps) {
       className={cn(
         'relative col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-1 pr-2 @4xl:h-8 @4xl:grid-cols-subgrid',
         OUTER_GUIDE,
-        INNER_GUIDE,
-        INNER_DIVIDER,
+        OUTER_DIVIDER,
       )}
     >
       <div
         className={cn(
           'col-span-full flex min-w-0 flex-col gap-0.5 @4xl:col-span-1',
-          INNER_INDENT,
+          OUTER_INDENT,
         )}
       >
         <span className="font-medium text-foreground text-xs">Live config</span>

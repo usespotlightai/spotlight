@@ -1,70 +1,37 @@
 import {
-  Body,
   Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
-  Patch,
-  Post,
   Query,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
-  ApiBody,
-  ApiCreatedResponse,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiQuery,
 } from '@nestjs/swagger';
-import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import {
   ApiProblemResponse,
   ConventionalApiController,
 } from '@platform/http/resources/conventional-api';
-import { AddReplaySetEntryCommand } from '@replays/application/commands/add-replay-set-entry.command';
-import { CreateReplaySetCommand } from '@replays/application/commands/create-replay-set.command';
-import { DeleteReplaySetCommand } from '@replays/application/commands/delete-replay-set.command';
-import { GateChangesCommand } from '@replays/application/commands/gate-changes.command';
 import { RemoveReplaySetEntryCommand } from '@replays/application/commands/remove-replay-set-entry.command';
-import { RenameReplaySetCommand } from '@replays/application/commands/rename-replay-set.command';
-import type {
-  SetChanged,
-  SetCreated,
-  SetDeleted,
-} from '@replays/application/dto/replay-outcomes.dto';
-import type {
-  ReplayableRunDto,
-  ReplaySetDto,
-  SuggestedRunDto,
-} from '@replays/application/dto/replays.dto';
-import { ListReplaySetSuggestionsQuery } from '@replays/application/queries/list-replay-set-suggestions.query';
-import { ListReplaySetsQuery } from '@replays/application/queries/list-replay-sets.query';
-import { ListReplayableRunsQuery } from '@replays/application/queries/list-replayable-runs.query';
+import type { SetChanged } from '@replays/application/dto/replay-outcomes.dto';
+import type { ReplaySetDto } from '@replays/application/dto/replays.dto';
 import { ListTeamReplaySetsQuery } from '@replays/application/queries/list-team-replay-sets.query';
+import { ReadReplaySetQuery } from '@replays/application/queries/read-replay-set.query';
 import {
   allowed,
   keyedIn,
-  textAt,
 } from '@replays/presentation/http/controllers/requests';
-import {
-  AddReplaySetEntryRequestDto,
-  CreateReplaySetRequestDto,
-  RenameReplaySetRequestDto,
-  ReplayableRunResponseDto,
-  ReplaySetCreatedResponseDto,
-  ReplaySetResponseDto,
-  SuggestedRunResponseDto,
-} from '@replays/presentation/http/dto/replay-sets.response.dto';
-import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
+import { ReplaySetResponseDto } from '@replays/presentation/http/dto/replay-sets.response.dto';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 const SET = 'replay set';
-
-const NAME_PROBLEM = 'Name must be text of 1 to 100 characters.';
 
 const STATION = 'lines/:lineId/stations/:stationId';
 
@@ -72,7 +39,7 @@ const STATION = 'lines/:lineId/stations/:stationId';
 @ApiParam({ name: 'teamId', type: String })
 @ApiProblemResponse(
   HttpStatus.NOT_FOUND,
-  'No such team, station, set or run for this caller',
+  'No such team, station, set or run for this caller, or the station has no replay set yet',
 )
 export class ReplaySetsController {
   constructor(
@@ -80,47 +47,46 @@ export class ReplaySetsController {
     private readonly commandBus: CommandBus,
   ) {}
 
-  @Get(`${STATION}/replay-sets`)
+  @Get(`${STATION}/replay-set`)
   @ApiOperation({
-    operationId: 'listReplaySets',
+    operationId: 'readReplaySet',
     summary:
-      'The station’s replay sets, each run in them, and whether it can still be replayed',
+      'The replay set Spotlight keeps for the station, each run in it, and whether it can still be replayed',
   })
   @ApiParam({ name: 'lineId', type: String })
   @ApiParam({ name: 'stationId', type: String })
-  @ApiOkResponse({ type: ReplaySetResponseDto, isArray: true })
-  async list(
+  @ApiOkResponse({ type: ReplaySetResponseDto })
+  async read(
     @Param('teamId') teamId: string,
     @Param('lineId') lineId: string,
     @Param('stationId') stationId: string,
     @CurrentPrincipal() principal: Principal,
-  ): Promise<ReplaySetResponseDto[]> {
-    const sets = await this.queryBus.execute<
-      ListReplaySetsQuery,
-      readonly ReplaySetDto[]
-    >(new ListReplaySetsQuery(teamId, lineId, stationId, principal));
-
-    return sets.map((each) => new ReplaySetResponseDto(each));
+  ): Promise<ReplaySetResponseDto> {
+    return new ReplaySetResponseDto(
+      await this.queryBus.execute<ReadReplaySetQuery, ReplaySetDto>(
+        new ReadReplaySetQuery(teamId, lineId, stationId, principal),
+      ),
+    );
   }
 
   @Get('replay-sets')
   @ApiOperation({
     operationId: 'listTeamReplaySets',
     summary:
-      'Every replay set of the team, including those whose station is gone from its line; or only those of one station, named by its line and key',
+      'Every replay set of the team, including those whose station is gone from its line; or only the set of one station, named by its line and key',
   })
   @ApiQuery({
     name: 'line',
     required: false,
     example: '3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03',
-    description: 'With station: the line of the station whose sets to list',
+    description: 'With station: the line of the station whose set to list',
   })
   @ApiQuery({
     name: 'station',
     required: false,
     example: 'build',
     description:
-      'With line: the key of the station whose sets to list; a line or station that the team does not own is not found',
+      'With line: the key of the station whose set to list; a line or station that the team does not own is not found',
   })
   @ApiOkResponse({ type: ReplaySetResponseDto, isArray: true })
   @ApiProblemResponse(
@@ -141,196 +107,12 @@ export class ReplaySetsController {
     return sets.map((each) => new ReplaySetResponseDto(each));
   }
 
-  @Get(`${STATION}/replayable-runs`)
-  @ApiOperation({
-    operationId: 'listReplayableRuns',
-    summary:
-      'The station’s latest ended task runs to pick a replay set from, saying why any cannot be replayed',
-  })
-  @ApiParam({ name: 'lineId', type: String })
-  @ApiParam({ name: 'stationId', type: String })
-  @ApiOkResponse({ type: ReplayableRunResponseDto, isArray: true })
-  async replayable(
-    @Param('teamId') teamId: string,
-    @Param('lineId') lineId: string,
-    @Param('stationId') stationId: string,
-    @CurrentPrincipal() principal: Principal,
-  ): Promise<ReplayableRunResponseDto[]> {
-    const runs = await this.queryBus.execute<
-      ListReplayableRunsQuery,
-      readonly ReplayableRunDto[]
-    >(new ListReplayableRunsQuery(teamId, lineId, stationId, principal));
-
-    return runs.map((each) => new ReplayableRunResponseDto(each));
-  }
-
-  @Get('replay-sets/:setId/suggestions')
-  @ApiOperation({
-    operationId: 'listReplaySetSuggestions',
-    summary:
-      'Up to 5 recent runs of the set’s station that would even out how its runs turned out, accepted ones first, then sent back; none are added until requested',
-  })
-  @ApiParam({ name: 'setId', type: String })
-  @ApiOkResponse({ type: SuggestedRunResponseDto, isArray: true })
-  async suggestions(
-    @Param('teamId') teamId: string,
-    @Param('setId') setId: string,
-    @CurrentPrincipal() principal: Principal,
-  ): Promise<SuggestedRunResponseDto[]> {
-    const runs = await this.queryBus.execute<
-      ListReplaySetSuggestionsQuery,
-      readonly SuggestedRunDto[]
-    >(new ListReplaySetSuggestionsQuery(teamId, setId, principal));
-
-    return runs.map((each) => new SuggestedRunResponseDto(each));
-  }
-
-  @Post(`${STATION}/replay-sets`)
-  @ApiOperation({
-    operationId: 'createReplaySet',
-    summary: 'Create an empty replay set at the station',
-  })
-  @ApiParam({ name: 'lineId', type: String })
-  @ApiParam({ name: 'stationId', type: String })
-  @ApiBody({ type: CreateReplaySetRequestDto })
-  @ApiCreatedResponse({ type: ReplaySetCreatedResponseDto })
-  @ApiProblemResponse(HttpStatus.UNPROCESSABLE_ENTITY, 'No name it takes')
-  @ApiProblemResponse(
-    HttpStatus.FORBIDDEN,
-    'A caller who may read the team but not plan',
-  )
-  async create(
-    @Param('teamId') teamId: string,
-    @Param('lineId') lineId: string,
-    @Param('stationId') stationId: string,
-    @Body() body: unknown,
-    @CurrentPrincipal() principal: Principal,
-  ): Promise<ReplaySetCreatedResponseDto> {
-    const created = allowed(
-      SET,
-      await this.commandBus.execute<CreateReplaySetCommand, SetCreated>(
-        new CreateReplaySetCommand(
-          teamId,
-          lineId,
-          stationId,
-          textAt(body, 'name', NAME_PROBLEM),
-          principal,
-        ),
-      ),
-    );
-
-    return new ReplaySetCreatedResponseDto(created.id);
-  }
-
-  @Patch('replay-sets/:setId')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'renameReplaySet',
-    summary: 'Rename a replay set',
-  })
-  @ApiParam({ name: 'setId', type: String })
-  @ApiBody({ type: RenameReplaySetRequestDto })
-  @ApiNoContentResponse({ description: 'Renamed' })
-  @ApiProblemResponse(HttpStatus.UNPROCESSABLE_ENTITY, 'No name it takes')
-  @ApiProblemResponse(
-    HttpStatus.FORBIDDEN,
-    'A caller who may read the team but not plan',
-  )
-  async rename(
-    @Param('teamId') teamId: string,
-    @Param('setId') setId: string,
-    @Body() body: unknown,
-    @CurrentPrincipal() principal: Principal,
-  ): Promise<void> {
-    allowed(
-      SET,
-      await this.commandBus.execute<RenameReplaySetCommand, SetChanged>(
-        new RenameReplaySetCommand(
-          teamId,
-          setId,
-          textAt(body, 'name', NAME_PROBLEM),
-          principal,
-        ),
-      ),
-    );
-  }
-
-  @Delete('replay-sets/:setId')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'deleteReplaySet',
-    summary:
-      'Delete a replay set and its replays, and release the archives it holds',
-  })
-  @ApiParam({ name: 'setId', type: String })
-  @ApiNoContentResponse({ description: 'Deleted' })
-  @ApiProblemResponse(
-    HttpStatus.CONFLICT,
-    'A replay of the set is still running; stop it first',
-  )
-  @ApiProblemResponse(
-    HttpStatus.FORBIDDEN,
-    'A caller who may read the team but not plan',
-  )
-  async delete(
-    @Param('teamId') teamId: string,
-    @Param('setId') setId: string,
-    @CurrentPrincipal() principal: Principal,
-  ): Promise<void> {
-    allowed(
-      SET,
-      await this.commandBus.execute<DeleteReplaySetCommand, SetDeleted>(
-        new DeleteReplaySetCommand(teamId, setId, principal),
-      ),
-    );
-  }
-
-  @Post('replay-sets/:setId/entries')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'addReplaySetEntry',
-    summary:
-      'Add a past run of the station to a replay set, holding the archive it started from while it is there',
-  })
-  @ApiParam({ name: 'setId', type: String })
-  @ApiBody({ type: AddReplaySetEntryRequestDto })
-  @ApiNoContentResponse({ description: 'Added' })
-  @ApiProblemResponse(
-    HttpStatus.CONFLICT,
-    'The run is in the set already, the set is full, or the run cannot be replayed, saying why',
-  )
-  @ApiProblemResponse(
-    HttpStatus.UNPROCESSABLE_ENTITY,
-    'No run named, or a run of another station',
-  )
-  @ApiProblemResponse(
-    HttpStatus.FORBIDDEN,
-    'A caller who may read the team but not plan',
-  )
-  async add(
-    @Param('teamId') teamId: string,
-    @Param('setId') setId: string,
-    @Body() body: unknown,
-    @CurrentPrincipal() principal: Principal,
-  ): Promise<void> {
-    allowed(
-      SET,
-      await this.commandBus.execute<AddReplaySetEntryCommand, SetChanged>(
-        new AddReplaySetEntryCommand(
-          teamId,
-          setId,
-          textAt(body, 'runId', 'Run ID must name a past run of the station.'),
-          principal,
-        ),
-      ),
-    );
-  }
-
   @Delete('replay-sets/:setId/entries/:runId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'removeReplaySetEntry',
-    summary: 'Take a run out of a replay set',
+    summary:
+      'Take a run out of a replay set; Spotlight never adds a run of its task to the set again',
   })
   @ApiParam({ name: 'setId', type: String })
   @ApiParam({ name: 'runId', type: String })
@@ -349,64 +131,6 @@ export class ReplaySetsController {
       SET,
       await this.commandBus.execute<RemoveReplaySetEntryCommand, SetChanged>(
         new RemoveReplaySetEntryCommand(teamId, setId, runId, principal),
-      ),
-    );
-  }
-
-  @Post('replay-sets/:setId/gates-changes')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'gateChanges',
-    summary:
-      'Check planned changes of the set’s station against this set, as `spotlight replay check` requests; a station has one such set',
-  })
-  @ApiParam({ name: 'setId', type: String })
-  @ApiNoContentResponse({ description: 'It gates the station’s changes' })
-  @ApiProblemResponse(
-    HttpStatus.CONFLICT,
-    'Another set gates the station’s changes already, or the set’s station is gone',
-  )
-  @ApiProblemResponse(
-    HttpStatus.FORBIDDEN,
-    'A caller who may read the team but not plan',
-  )
-  async gate(
-    @Param('teamId') teamId: string,
-    @Param('setId') setId: string,
-    @CurrentActor() actor: Actor,
-  ): Promise<void> {
-    allowed(
-      SET,
-      await this.commandBus.execute<GateChangesCommand, SetChanged>(
-        new GateChangesCommand(teamId, setId, true, actor),
-      ),
-    );
-  }
-
-  @Delete('replay-sets/:setId/gates-changes')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    operationId: 'ungateChanges',
-    summary:
-      'Stop checking planned changes of the set’s station against this set; checks already started keep running',
-  })
-  @ApiParam({ name: 'setId', type: String })
-  @ApiNoContentResponse({
-    description: 'It no longer gates the station’s changes',
-  })
-  @ApiProblemResponse(
-    HttpStatus.FORBIDDEN,
-    'A caller who may read the team but not plan',
-  )
-  async ungate(
-    @Param('teamId') teamId: string,
-    @Param('setId') setId: string,
-    @CurrentActor() actor: Actor,
-  ): Promise<void> {
-    allowed(
-      SET,
-      await this.commandBus.execute<GateChangesCommand, SetChanged>(
-        new GateChangesCommand(teamId, setId, false, actor),
       ),
     );
   }

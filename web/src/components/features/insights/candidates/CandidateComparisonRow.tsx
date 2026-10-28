@@ -8,10 +8,9 @@ import { ExpandingRow } from '@/components/shared/nested-table/ExpandingRow';
 import { ExpandToggle } from '@/components/shared/nested-table/ExpandToggle';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
-  INNER_DIVIDER,
-  INNER_GUIDE,
-  INNER_INDENT,
+  OUTER_DIVIDER,
   OUTER_GUIDE,
+  OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
@@ -60,14 +59,14 @@ export function CandidateComparisonRow({
   return (
     <ExpandingRow
       slot="replayed-candidate"
-      className={cn(OUTER_GUIDE, INNER_GUIDE, INNER_DIVIDER)}
+      className={cn(OUTER_GUIDE, OUTER_DIVIDER)}
     >
       {(expansion) => (
         <>
           <div
             className={cn(
               'col-span-full flex min-w-0 flex-col gap-0.5 @4xl:col-span-1',
-              INNER_INDENT,
+              OUTER_INDENT,
             )}
           >
             <div className="flex min-w-0 items-center gap-2">

@@ -8,7 +8,6 @@ import {
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import { baselineOf } from '@replays/domain/services/baseline';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -20,7 +19,6 @@ export class ReadReplayOfRunHandler
   constructor(
     private readonly access: ReplaysAccess,
     private readonly replays: ReplayRepository,
-    private readonly sets: ReplaySetRepository,
     private readonly candidates: CandidateRepository,
   ) {}
 
@@ -30,8 +28,7 @@ export class ReadReplayOfRunHandler
       const run = RunId.of(query.runId);
       const replay = await this.access.replayRanAs(access, run);
       const entry = replay.entries.find((each) => each.ranAs(run));
-      const [set, candidate, ofSet] = await Promise.all([
-        this.sets.find(replay.setId),
+      const [candidate, ofSet] = await Promise.all([
         this.candidates.find(replay.candidateId),
         this.replays.ofSet(replay.setId),
       ]);
@@ -39,7 +36,6 @@ export class ReadReplayOfRunHandler
       return {
         replayId: replay.id.value,
         setId: replay.setId.value,
-        setName: set?.name.value ?? null,
         lineId: replay.station.lineId,
         stationId: replay.station.stationId,
         candidate: candidate ? candidateView(candidate) : null,

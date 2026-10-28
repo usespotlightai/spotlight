@@ -1,4 +1,5 @@
 import { CandidateSetRows } from '@/components/features/insights/candidates/CandidateSetRows';
+import { SetSummary } from '@/components/features/insights/candidates/SetSummary';
 import { StationGroupName } from '@/components/features/insights/candidates/StationGroupName';
 import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
@@ -34,7 +35,12 @@ export function CandidateStationRows({
         depth={0}
         onToggle={() => collapsibles.toggle(station.stationId)}
       >
-        <StationGroupName stationId={station.stationId} names={names} />
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+          <StationGroupName stationId={station.stationId} names={names} />
+          {station.sets.map((set) => (
+            <SetSummary key={set.setId} at={at} set={set} />
+          ))}
+        </div>
       </NestedGroupRow>
 
       <CollapsibleRows open={open}>
@@ -45,8 +51,6 @@ export function CandidateStationRows({
             set={set}
             heldOut={heldOut}
             chartStatus={chartStatus}
-            open={collapsibles.isOpen(set.setId)}
-            onToggle={() => collapsibles.toggle(set.setId)}
           />
         ))}
       </CollapsibleRows>

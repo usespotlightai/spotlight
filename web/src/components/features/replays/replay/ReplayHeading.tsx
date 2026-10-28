@@ -10,7 +10,11 @@ import {
   type ReplayedStation,
   replaySetPath,
 } from '@/lib/replay';
-import { BASELINE_LABEL, BASELINE_NOTE } from '@/lib/replay-words';
+import {
+  BASELINE_LABEL,
+  BASELINE_NOTE,
+  REPLAY_SET_TITLE,
+} from '@/lib/replay-words';
 import { searchPath } from '@/lib/search';
 import { formatRan, since } from '@/lib/since';
 
@@ -26,7 +30,6 @@ type ReplayHeadingProps = {
   line: LineResponseDto | undefined;
   station: StationResponseDto | undefined;
   replay: ReplayDetail;
-  setName: string | null;
 };
 
 export function ReplayHeading({
@@ -34,7 +37,6 @@ export function ReplayHeading({
   line,
   station,
   replay,
-  setName,
 }: ReplayHeadingProps) {
   return (
     <StationItemHeading
@@ -57,7 +59,7 @@ export function ReplayHeading({
       }
     >
       <TrailLink to={replaySetPath(at, replay.setId)} className={LINK}>
-        {setName ?? 'Its set'}
+        {REPLAY_SET_TITLE}
       </TrailLink>
       {replay.search && (
         <>

@@ -7,6 +7,7 @@ import type { DeleteSearches } from '@replays/application/services/delete-search
 import type { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import type { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import type { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
+import type { KeepReplaySets } from '@replays/application/services/keep-replay-sets.service';
 import type { NoticeSearchReflections } from '@replays/application/services/notice-search-reflections.service';
 import type { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
 import type { RecordLineChange } from '@replays/application/services/record-line-change.service';
@@ -86,6 +87,10 @@ import {
   type ReplayStackCompletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/replay-stack-completed.integration-event';
 import {
+  RUN_ENDED,
+  type RunEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-ended.integration-event';
+import {
   SEARCH_RUN_ENDED,
   type SearchRunEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/search-run-ended.integration-event';
@@ -124,6 +129,7 @@ export interface ReplaysReactions {
   readonly requestingSideBySideJudging: RequestReplaySideBySideJudging;
   readonly paired: RecordReplayPairVerdict;
   readonly startingPointHolds: HoldSetStartingPoints;
+  readonly keeping: KeepReplaySets;
   readonly cancellingRuns: CancelReplayRuns;
   readonly deleting: DeleteReplays;
   readonly lineChanges: RecordLineChange;
@@ -339,6 +345,15 @@ export const replaysSubscribers = (
       'replay-set.station-gone',
     ],
     (event) => reactions.startingPointHolds.changed(event.setId),
+  ),
+  subscribing<RunEndedIntegrationEvent>(
+    'replays.keep-replay-set-of-station',
+    [RUN_ENDED],
+    (event) =>
+      reactions.keeping.onRunEnded(
+        event.stationId,
+        WorkspaceId.of(event.workspaceId),
+      ),
   ),
   subscribing<ReplayStopped>(
     'replays.stop-runs-of-stopped-replay',

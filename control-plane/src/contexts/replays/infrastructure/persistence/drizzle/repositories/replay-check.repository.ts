@@ -122,6 +122,15 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
     return this.where(eq(replayCheck.baseline, 'awaiting'));
   }
 
+  awaitingBaselineOfSet(setId: ReplaySetId): Promise<readonly ReplayCheck[]> {
+    return this.where(
+      and(
+        eq(replayCheck.setId, setId.value),
+        eq(replayCheck.baseline, 'awaiting'),
+      ) as SQL,
+    );
+  }
+
   ofTeam(teamId: TeamId): Promise<readonly ReplayCheck[]> {
     return this.where(eq(replayCheck.teamId, teamId.value));
   }

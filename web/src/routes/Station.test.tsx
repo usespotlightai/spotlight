@@ -179,8 +179,8 @@ const sets = vi.fn();
 const setsFailing = vi.fn();
 const refetchSets = vi.fn();
 
-vi.mock('@/hooks/api/useReplaySets', () => ({
-  useReplaySets: () => ({
+vi.mock('@/hooks/api/useReplaySet', () => ({
+  useReplaySet: () => ({
     data: sets(),
     isPending: sets() === undefined,
     errorUpdateCount: setsFailing() ? 1 : 0,
@@ -204,10 +204,6 @@ vi.mock('@/hooks/api/useSearchEstimate', () => ({
 
 vi.mock('@/hooks/api/useStartSearch', () => ({
   useStartSearch: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
-}));
-
-vi.mock('@/hooks/api/useCreateReplaySet', () => ({
-  useCreateReplaySet: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 vi.mock('@/hooks/api/useStationCandidates', () => ({
@@ -346,7 +342,7 @@ beforeEach(() => {
   judged.mockReturnValue({ calibration: CALIBRATION });
   worthImproving.mockReturnValue([]);
   judgeFailing.mockReturnValue(false);
-  sets.mockReturnValue([]);
+  sets.mockReturnValue(null);
   setsFailing.mockReturnValue(false);
   refetchSets.mockClear();
   localStorage.clear();
@@ -790,7 +786,7 @@ describe('Station', () => {
         'What needs attention',
         'Worth improving',
         'Try a change',
-        'Replay sets',
+        'Replay set',
         'Searches',
       ]);
     });
@@ -910,26 +906,26 @@ describe('Station', () => {
       });
     });
 
-    it('says there is no replay set yet, and offers to create one', () => {
+    it('says there is no replay set yet, and offers no way to create one', () => {
       renderAt('station_2', 'improve');
 
-      expect(screen.getByText('No replay sets yet')).toBeInTheDocument();
+      expect(screen.getByText('No replay set yet')).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: 'Create replay set' }),
-      ).toBeInTheDocument();
+        screen.queryByRole('button', { name: /Create replay set/ }),
+      ).not.toBeInTheDocument();
     });
 
-    it('keeps the place of the replay sets while they load', () => {
+    it('keeps the place of the replay set while it loads', () => {
       sets.mockReturnValue(undefined);
 
       renderAt('station_2', 'improve');
 
       expect(
-        screen.getByRole('status', { name: 'Loading the replay sets' }),
+        screen.getByRole('status', { name: 'Loading the replay set' }),
       ).toBeInTheDocument();
     });
 
-    it('says the replay sets could not be loaded, and tries again on request', async () => {
+    it('says the replay set could not be loaded, and tries again on request', async () => {
       const user = userEvent.setup();
       sets.mockReturnValue(undefined);
       setsFailing.mockReturnValue(true);
@@ -937,7 +933,7 @@ describe('Station', () => {
       renderAt('station_2', 'improve');
 
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'The station’s replay sets could not be loaded.',
+        'The station’s replay set could not be loaded.',
       );
 
       await user.click(screen.getByRole('button', { name: 'Try again' }));
@@ -945,16 +941,15 @@ describe('Station', () => {
       expect(refetchSets).toHaveBeenCalled();
     });
 
-    it('says a search needs a replay set, leaving the one way to create it to the replay sets', () => {
+    it('says a search needs the station’s replay set', () => {
       renderAt('station_2', 'improve');
 
       expect(screen.getByText('No searches yet')).toBeInTheDocument();
       expect(
-        screen.getByText('Searches need a replay set to try configs on.'),
+        screen.getByText(
+          'The station has no replay set yet. Spotlight keeps one after a run of the station ends.',
+        ),
       ).toBeInTheDocument();
-      expect(
-        screen.getAllByRole('button', { name: /Create replay set/ }),
-      ).toHaveLength(1);
     });
   });
 

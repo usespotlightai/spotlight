@@ -13,11 +13,9 @@ import type { SearchSpec } from '@/mocks/world/station-searches';
 
 export type SetPick = {
   readonly id: string;
-  readonly name: string;
   readonly lineId: string;
   readonly stationId: string;
   readonly createdHoursAgo: number;
-  readonly gatesChanges: boolean;
   readonly count: number;
   readonly matching: RegExp;
   readonly origins: readonly string[];
@@ -85,11 +83,9 @@ const agreement = (replayId: string, compared: number, agreed: number) => ({
 export const SET_PICKS: readonly SetPick[] = [
   {
     id: 'set_triage_billing',
-    name: 'Billing reports',
     lineId: DELIVERY_ID,
     stationId: TRIAGE_ID,
     createdHoursAgo: 130,
-    gatesChanges: false,
     count: 6,
     matching:
       /refund|charge|invoice|payment|stripe|coupon|dunning|billing|pricing|plan|receipt|credit/i,
@@ -98,11 +94,9 @@ export const SET_PICKS: readonly SetPick[] = [
   },
   {
     id: 'set_spec_api',
-    name: 'Public API changes',
     lineId: DELIVERY_ID,
     stationId: SPEC_ID,
     createdHoursAgo: 110,
-    gatesChanges: true,
     count: 7,
     matching: /api|post |get |429|endpoint|webhook|subscriptions/i,
     origins: ['station'],
@@ -110,11 +104,9 @@ export const SET_PICKS: readonly SetPick[] = [
   },
   {
     id: 'set_review_money',
-    name: 'Changes that touch money or data',
     lineId: DELIVERY_ID,
     stationId: REVIEW_ID,
     createdHoursAgo: 100,
-    gatesChanges: true,
     count: 7,
     matching:
       /payment|refund|charge|invoice|index|table|backfill|card|balance|credit/i,
@@ -125,11 +117,9 @@ export const SET_PICKS: readonly SetPick[] = [
   },
   {
     id: 'set_incident_data',
-    name: 'Data and queue alerts',
     lineId: INCIDENTS_ID,
     stationId: INVESTIGATE_ID,
     createdHoursAgo: 100,
-    gatesChanges: false,
     count: 6,
     matching: /database|replica|queue|cron|disk|memory|worker/i,
     origins: ['slack'],
@@ -137,11 +127,9 @@ export const SET_PICKS: readonly SetPick[] = [
   },
   {
     id: 'set_incident_customer',
-    name: 'Customer-facing incidents',
     lineId: INCIDENTS_ID,
     stationId: MITIGATE_ID,
     createdHoursAgo: 90,
-    gatesChanges: false,
     count: 6,
     matching: /checkout|502|webhook|payments|logins|gateway/i,
     origins: ['station'],
@@ -149,11 +137,9 @@ export const SET_PICKS: readonly SetPick[] = [
   },
   {
     id: 'set_experiment_pricing',
-    name: 'Pricing and trial experiments',
     lineId: EXPERIMENTS_ID,
     stationId: DESIGN_ID,
     createdHoursAgo: 70,
-    gatesChanges: true,
     count: 6,
     matching: /pricing|plans|trial|cancellation|savings|sign-up|usage/i,
     origins: ['person', 'person', 'slack'],
@@ -163,11 +149,9 @@ export const SET_PICKS: readonly SetPick[] = [
   },
   {
     id: 'set_experiment_variants',
-    name: 'Flagged variants',
     lineId: EXPERIMENTS_ID,
     stationId: BUILD_ID,
     createdHoursAgo: 80,
-    gatesChanges: false,
     count: 6,
     matching: /test|try|show|nudge|simplify/i,
     origins: ['station'],

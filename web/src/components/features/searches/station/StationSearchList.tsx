@@ -10,6 +10,7 @@ import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTabl
 import { failed, loading } from '@/lib/query';
 import type { ReplayedStation, ReplaySet } from '@/lib/replay';
 import {
+  NO_REPLAY_SET_YET,
   newestFirst,
   SEARCH_HEADINGS,
   type Search,
@@ -19,14 +20,14 @@ import {
 type StationSearchListProps = {
   at: ReplayedStation;
   searches: UseQueryResult<Search[]>;
-  sets: readonly ReplaySet[] | undefined;
+  set: ReplaySet | null | undefined;
   start: ReactNode;
 };
 
 export function StationSearchList({
   at,
   searches,
-  sets,
+  set,
   start,
 }: StationSearchListProps) {
   const listed = searches.data ?? [];
@@ -57,8 +58,8 @@ export function StationSearchList({
     return (
       <StateBox flat>
         <EmptyState icon={Sparkles} title="No searches yet" action={start}>
-          {sets?.length === 0
-            ? 'Searches need a replay set to try configs on.'
+          {set === null
+            ? NO_REPLAY_SET_YET
             : 'An agent tries configs on a replay set to find a better, cheaper one.'}
         </EmptyState>
       </StateBox>
@@ -73,7 +74,6 @@ export function StationSearchList({
           at={at}
           search={search}
           number={searchNumber(listed, search.id)}
-          setName={sets?.find((set) => set.id === search.setId)?.name ?? null}
         />
       ))}
     </NestedTable>

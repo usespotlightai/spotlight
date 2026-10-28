@@ -13,6 +13,7 @@ const entries = (tasks: readonly string[]): ReplaySetEntry[] =>
     ReplaySetEntry.of({
       runId: RunId.of(`run_${at}`),
       taskId: TaskId.of(task),
+      endedAt: NOW,
       addedAt: NOW,
     }),
   );

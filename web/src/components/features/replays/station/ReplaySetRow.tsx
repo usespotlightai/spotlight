@@ -13,6 +13,7 @@ import {
   type ReplaySet,
   replaySetPath,
 } from '@/lib/replay';
+import { REPLAY_SET_TITLE } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
 type ReplaySetRowProps = {
@@ -28,7 +29,7 @@ export function ReplaySetRow({ at, set }: ReplaySetRowProps) {
           to={replaySetPath(at, set.id)}
           className="truncate font-medium text-foreground outline-none after:absolute after:inset-0 focus-visible:underline"
         >
-          {set.name}
+          {REPLAY_SET_TITLE}
         </TrailLink>
         {set.stationGone && <Pill>Station gone</Pill>}
       </span>

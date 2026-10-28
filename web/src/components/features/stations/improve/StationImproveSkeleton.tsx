@@ -1,4 +1,3 @@
-import { Plus } from 'lucide-react';
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { ImproveSection } from '@/components/features/stations/improve/ImproveSection';
 import { WorthImprovingSkeleton } from '@/components/features/stations/improve/WorthImprovingSkeleton';
@@ -19,21 +18,15 @@ export function StationImproveSkeleton() {
         <div className="grid gap-3 lg:grid-cols-2">
           <InsightsCardSkeleton
             tableOnly
-            label="Loading the replay sets"
-            title="Replay sets"
+            label="Loading the replay set"
+            title="Replay set"
             description={REPLAY_SETS_NOTE}
           >
             <NestedTableSkeleton
-              label="Loading the replay sets"
+              label="Loading the replay set"
               headings={REPLAY_SET_HEADINGS}
               compact
             />
-            <PanelActions>
-              <ButtonSkeleton>
-                <Plus aria-hidden />
-                Create replay set
-              </ButtonSkeleton>
-            </PanelActions>
           </InsightsCardSkeleton>
 
           <InsightsCardSkeleton

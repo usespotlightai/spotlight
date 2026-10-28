@@ -26,7 +26,7 @@ export function SearchEstimateSummary({
   if (!requested) {
     body = (
       <p className="text-muted-foreground text-xs">
-        Choose a replay set and budget to see the estimated runs and spend.
+        Enter a budget to see the estimated runs and spend.
       </p>
     );
   } else if (problem) {

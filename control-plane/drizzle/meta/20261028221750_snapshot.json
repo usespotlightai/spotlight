@@ -1,5 +1,5 @@
 {
-  "id": "c878cda5-074b-4d85-8c15-1387c526e7a0",
+  "id": "12c1f12a-5e8e-442b-ab93-094fe83a7652",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -10314,24 +10314,29 @@
           "primaryKey": false,
           "notNull": true
         },
-        "name": {
-          "name": "name",
-          "type": "text",
+        "removed_tasks": {
+          "name": "removed_tasks",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": true
-        },
-        "gates_changes": {
-          "name": "gates_changes",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true
+        },
+        "refreshed_at": {
+          "name": "refreshed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_refresh": {
+          "name": "last_refresh",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "station_gone_at": {
           "name": "station_gone_at",
@@ -10358,7 +10363,7 @@
               "nulls": "last"
             }
           ],
-          "isUnique": false,
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -10393,18 +10398,17 @@
           "method": "btree",
           "with": {}
         },
-        "replay_set_gates_changes_idx": {
-          "name": "replay_set_gates_changes_idx",
+        "replay_set_refreshed_at_idx": {
+          "name": "replay_set_refreshed_at_idx",
           "columns": [
             {
-              "expression": "station_id",
+              "expression": "refreshed_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
-          "isUnique": true,
-          "where": "\"replay_set\".\"gates_changes\"",
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -10436,6 +10440,12 @@
         "task_id": {
           "name": "task_id",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },

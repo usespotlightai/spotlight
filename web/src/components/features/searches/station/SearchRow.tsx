@@ -18,10 +18,9 @@ type SearchRowProps = {
   at: ReplayedStation;
   search: Search;
   number: number | null;
-  setName: string | null;
 };
 
-export function SearchRow({ at, search, number, setName }: SearchRowProps) {
+export function SearchRow({ at, search, number }: SearchRowProps) {
   return (
     <li data-slot="search" className={cn(TABLE_ROW, ROW_DIVIDER)}>
       <span className={cn(LEAD_CELL, EDGE_INDENT)}>
@@ -43,9 +42,6 @@ export function SearchRow({ at, search, number, setName }: SearchRowProps) {
         >
           {formatSearchState(search.state)}
         </span>
-      </NestedCell>
-      <NestedCell heading="Replay set" numeric={false}>
-        {setName ?? '–'}
       </NestedCell>
       <NestedCell heading="Best" numeric={false}>
         <SearchBestName

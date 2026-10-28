@@ -259,12 +259,9 @@ export class ReplayCheckResponseDto {
   readonly stationKey: string;
 
   @ApiProperty({
-    description: 'The replay set that gates the station’s changes',
+    description: 'The replay set Spotlight keeps for the station',
   })
   readonly setId: string;
-
-  @ApiProperty({ nullable: true, type: String, example: 'Queue fixes' })
-  readonly setName: string | null;
 
   @ApiProperty({ description: 'The planned candidate the check replays' })
   readonly candidateId: string;
@@ -334,7 +331,9 @@ export class ReplayCheckResponseDto {
   })
   readonly undecidedBecause: string | null;
 
-  @ApiProperty({ description: 'How many tasks the gating set replays' })
+  @ApiProperty({
+    description: 'How many tasks the station’s replay set replays',
+  })
   readonly tasks: number;
 
   @ApiProperty({ description: 'How many tasks were scored on both sides' })
@@ -374,7 +373,6 @@ export class ReplayCheckResponseDto {
     this.stationId = check.stationId;
     this.stationKey = check.stationKey;
     this.setId = check.setId;
-    this.setName = check.setName;
     this.candidateId = check.candidateId;
     this.replayId = check.replayId;
     this.baselineReplayId = check.baselineReplayId;

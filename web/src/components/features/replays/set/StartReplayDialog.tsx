@@ -110,7 +110,7 @@ export function StartReplayDialog({
     >
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Replay {set.name}</DialogTitle>
+          <DialogTitle>Replay the set</DialogTitle>
           <DialogDescription>
             Each of the set’s {set.entries.length} runs restarts from its
             starting point under the chosen config. Nothing goes to the task,

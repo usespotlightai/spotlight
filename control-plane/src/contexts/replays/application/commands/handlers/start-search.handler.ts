@@ -3,6 +3,7 @@ import type { SearchStartedOutcome } from '@replays/application/dto/replay-outco
 import type { HashPort } from '@replays/application/ports/hash.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
+import type { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import {
   ceilingSplitOf,
@@ -49,6 +50,7 @@ export class StartSearchHandler
     private readonly transaction: TransactionPort,
     private readonly stations: SetStations,
     private readonly healths: SetHealths,
+    private readonly refreshing: RefreshKeptSets,
   ) {}
 
   async execute(command: StartSearchCommand): Promise<SearchStartedOutcome> {
@@ -62,9 +64,9 @@ export class StartSearchHandler
         command.lineId,
         command.stationId,
       );
-      const seen = await this.access.setOn(access, command.setId);
+      const found = await this.access.setOn(access, command.setId);
 
-      if (!seen.isAtStation(station.stationId)) {
+      if (!found.isAtStation(station.stationId)) {
         throw new UnknownReplaySetError(command.setId);
       }
 
@@ -75,7 +77,10 @@ export class StartSearchHandler
       const agent = searchAgentOf(command.agent, this.work);
       const budget = searchBudgetOf(command.budget);
 
-      await this.stations.stillThere(seen);
+      await this.stations.stillThere(found);
+      await this.refreshing.refreshBefore(found.id);
+
+      const seen = (await this.sets.find(found.id)) ?? found;
 
       const id = SearchId.of(this.ids.generate());
       const seedId = ReplayId.of(this.ids.generate());

@@ -2,6 +2,7 @@ package replay
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -12,11 +13,11 @@ import (
 )
 
 type replaySet struct {
-	ID          string `json:"id"`
-	StationID   string `json:"stationId"`
-	Name        string `json:"name"`
-	CreatedAt   string `json:"createdAt"`
-	StationGone bool   `json:"stationGone"`
+	ID          string  `json:"id"`
+	StationID   string  `json:"stationId"`
+	CreatedAt   string  `json:"createdAt"`
+	RefreshedAt *string `json:"refreshedAt"`
+	StationGone bool    `json:"stationGone"`
 	Entries     []struct {
 		RunID              string  `json:"runId"`
 		TaskID             string  `json:"taskId"`
@@ -126,8 +127,8 @@ func retryDelay(every time.Duration, failures int) time.Duration {
 	return wait
 }
 
-func (c *cli) sets(args []string) error {
-	flags := c.flagsFor("sets")
+func (c *cli) set(args []string) error {
+	flags := c.flagsFor("set")
 	if err := flags.parse(args); err != nil {
 		return err
 	}
@@ -137,48 +138,60 @@ func (c *cli) sets(args []string) error {
 		return err
 	}
 
-	var raw json.RawMessage
-	var sets []replaySet
-	if err := c.api.read(at.sets(), &raw, &sets); err != nil {
-		return fmt.Errorf("list the replay sets of %s: %w", at.address, err)
+	var raw []json.RawMessage
+	if err := c.api.get(at.sets(), &raw); err != nil {
+		return fmt.Errorf("read the replay set of %s: %w", at.address, err)
 	}
-
-	if *flags.json {
-		return c.printJSON(raw)
-	}
-
-	if len(sets) == 0 {
-		fmt.Fprintf(c.out, "%s has no replay sets; pick one on the station's page.\n", at.address)
+	if len(raw) == 0 {
+		fmt.Fprintln(c.out, noSet(at))
 		return nil
 	}
 
-	table := tabled(c.out)
-	fmt.Fprintln(table, "NAME\tRUNS\tREPLAYABLE\tCREATED\tID")
-	for _, each := range sets {
-		replayable := 0
-		for _, run := range each.Entries {
-			if run.UnreplayableReason == nil {
-				replayable++
-			}
-		}
-		fmt.Fprintf(table, "%s\t%d\t%d\t%s\t%s\n", each.Name, len(each.Entries), replayable, each.CreatedAt, each.ID)
+	if *flags.json {
+		return c.printJSON(raw[0])
 	}
+
+	var set replaySet
+	if err := json.Unmarshal(raw[0], &set); err != nil {
+		return fmt.Errorf("Spotlight answered with %q", string(raw[0]))
+	}
+
+	replayable := 0
+	for _, run := range set.Entries {
+		if run.UnreplayableReason == nil {
+			replayable++
+		}
+	}
+	refreshed := "not yet"
+	if set.RefreshedAt != nil {
+		refreshed = *set.RefreshedAt
+	}
+
+	table := tabled(c.out)
+	fmt.Fprintln(table, "RUNS\tREPLAYABLE\tREFRESHED\tID")
+	fmt.Fprintf(table, "%d\t%d\t%s\t%s\n", len(set.Entries), replayable, refreshed, set.ID)
 
 	return table.Flush()
 }
 
-func (c *cli) setsAt(at *station) ([]replaySet, error) {
+func noSet(at *station) string {
+	return fmt.Sprintf("%s has no replay set yet. Spotlight keeps one after a run of the station ends.", at.address)
+}
+
+func (c *cli) setAt(at *station) (replaySet, error) {
 	var sets []replaySet
 	if err := c.api.get(at.sets(), &sets); err != nil {
-		return nil, fmt.Errorf("list the replay sets of %s: %w", at.address, err)
+		return replaySet{}, fmt.Errorf("read the replay set of %s: %w", at.address, err)
+	}
+	if len(sets) == 0 {
+		return replaySet{}, errors.New(noSet(at))
 	}
 
-	return sets, nil
+	return sets[0], nil
 }
 
 func (c *cli) start(args []string) error {
 	flags := c.flagsFor("start")
-	setNamed := flags.set.String("set", "", "the replay set, by name or id")
 	candidateNamed := flags.set.String("candidate", "", "the candidate, by name or id, or live")
 	ceiling := flags.set.String("ceiling", "", "the most the replay may spend")
 	currency := flags.set.String("currency", "USD", "the currency the ceiling is in")
@@ -189,8 +202,8 @@ func (c *cli) start(args []string) error {
 	if *repeats < 1 || *repeats > maxRepeats {
 		return fmt.Errorf("--repeats is how many times to replay each run, from 1 to %d, not %d", maxRepeats, *repeats)
 	}
-	if *setNamed == "" || *candidateNamed == "" {
-		return fmt.Errorf("--set and --candidate name what to replay, and under what\n%s", startHelp.Synopsis())
+	if *candidateNamed == "" {
+		return fmt.Errorf("--candidate names the config to replay the set under\n%s", startHelp.Synopsis())
 	}
 	amount, err := strconv.ParseFloat(*ceiling, 64)
 	if err != nil || amount <= 0 {
@@ -202,11 +215,7 @@ func (c *cli) start(args []string) error {
 		return err
 	}
 
-	sets, err := c.setsAt(at)
-	if err != nil {
-		return err
-	}
-	set, err := pick(sets, *setNamed, "replay set", at.address)
+	set, err := c.setAt(at)
 	if err != nil {
 		return err
 	}
@@ -231,7 +240,7 @@ func (c *cli) start(args []string) error {
 		map[string]any{"candidate": candidateID, "ceiling": money{Amount: amount, Currency: *currency}, "repeats": *repeats},
 		&raw,
 	); err != nil {
-		return fmt.Errorf("start a replay of %s: %w", set.Name, err)
+		return fmt.Errorf("start a replay of the replay set of %s: %w", at.address, err)
 	}
 	if err := json.Unmarshal(raw, &made); err != nil {
 		return fmt.Errorf("Spotlight answered with %q", string(raw))
@@ -241,7 +250,7 @@ func (c *cli) start(args []string) error {
 		return c.printJSON(raw)
 	}
 
-	fmt.Fprintf(c.out, "Started replay %s of %s under %s, spending at most %s.\n", made.ID, set.Name, *candidateNamed, formatMoney(made.Ceiling))
+	fmt.Fprintf(c.out, "Started replay %s of the replay set of %s under %s, spending at most %s.\n", made.ID, at.address, *candidateNamed, formatMoney(made.Ceiling))
 	if *repeats > 1 {
 		fmt.Fprintf(c.out, "It replays each run %d times, to measure how much its results move by chance.\n", *repeats)
 	}

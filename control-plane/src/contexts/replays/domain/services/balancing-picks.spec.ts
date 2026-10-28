@@ -1,10 +1,11 @@
-import type { OriginalOutcome } from '@replays/domain/services/composition';
 import {
   balancingPicks,
-  MAX_SUGGESTED,
   newestOfEachTask,
-} from '@replays/domain/services/set-suggestions';
+} from '@replays/domain/services/balancing-picks';
+import type { OriginalOutcome } from '@replays/domain/services/composition';
 import { describe, expect, it } from 'vitest';
+
+const MAX = 5;
 
 const run = (id: string, outcome: OriginalOutcome) => ({ id, outcome });
 
@@ -27,7 +28,7 @@ describe('balancingPicks', () => {
             run('sent_2', 'sent-back'),
             run('accepted_3', 'accepted'),
           ],
-          MAX_SUGGESTED,
+          MAX,
         ),
       ),
     ).toEqual(['accepted_1', 'sent_1', 'accepted_2', 'sent_2', 'accepted_3']);
@@ -39,7 +40,7 @@ describe('balancingPicks', () => {
         balancingPicks(
           [...repeated('failed', 4), ...repeated('accepted', 2)],
           [run('accepted_1', 'accepted'), run('asked_1', 'asked')],
-          MAX_SUGGESTED,
+          MAX,
         ),
       ),
     ).toEqual(['asked_1', 'accepted_1']);
@@ -55,7 +56,7 @@ describe('balancingPicks', () => {
             run('accepted_2', 'accepted'),
             run('accepted_3', 'accepted'),
           ],
-          MAX_SUGGESTED,
+          MAX,
         ),
       ),
     ).toEqual(['accepted_1']);
@@ -66,7 +67,7 @@ describe('balancingPicks', () => {
       balancingPicks(
         repeated('failed', 3),
         [run('other_1', 'other'), run('failed_1', 'failed')],
-        MAX_SUGGESTED,
+        MAX,
       ),
     ).toEqual([]);
   });
@@ -74,10 +75,8 @@ describe('balancingPicks', () => {
   it('suggests nothing for a balanced set or an empty one', () => {
     const recent = [run('accepted_1', 'accepted'), run('failed_1', 'failed')];
 
-    expect(
-      balancingPicks(['accepted', 'failed'], recent, MAX_SUGGESTED),
-    ).toEqual([]);
-    expect(balancingPicks([], recent, MAX_SUGGESTED)).toEqual([]);
+    expect(balancingPicks(['accepted', 'failed'], recent, MAX)).toEqual([]);
+    expect(balancingPicks([], recent, MAX)).toEqual([]);
   });
 
   it('suggests no more than is requested', () => {

@@ -43,7 +43,7 @@ openSearchFlow();
 
 describe('a search for a better station config, when it stalls or loses its station', () => {
   it('looks into why once two iterations in a row came to nothing, takes a cause for each failing searched task and none for a held-out one, ends stalled and tells who started it', async () => {
-    const setId = await createSet('Stalling', fiveTasks);
+    const setId = await createSet(fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 4,
       perIteration: 1,
@@ -220,7 +220,7 @@ describe('a search for a better station config, when it stalls or loses its stat
   }, 120_000);
 
   it('searches on once looking into why it stalled finds a cause the config can fix, telling no one', async () => {
-    const setId = await createSet('Stalling again', fiveTasks);
+    const setId = await createSet(fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 4,
       perIteration: 1,
@@ -291,7 +291,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     for (let each = 0; each < 5; each += 1) {
       originals.push(await anOriginal(POLISH));
     }
-    const setId = await createSet('Polished', originals, POLISH);
+    const setId = await createSet(originals, POLISH);
     const { id, seedReplayId } = await startSearch(
       setId,
       { iterations: 1, perIteration: 1, ceiling: 20 },
@@ -324,7 +324,7 @@ describe('a search for a better station config, when it stalls or loses its stat
   }, 120_000);
 
   it('is deleted with its team, cancelling its active agent run', async () => {
-    const setId = await createSet('Deleted', fiveTasks);
+    const setId = await createSet(fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 2,
       perIteration: 1,

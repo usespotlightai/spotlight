@@ -66,7 +66,6 @@ export function SearchPage({
         station={station}
         search={search}
         number={number}
-        setName={set?.name ?? null}
       />
 
       <StationPane

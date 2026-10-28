@@ -1,34 +1,17 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { describe, expect, it, vi } from 'vitest';
-import { ReplaySetActions } from '@/components/features/replays/set/ReplaySetActions';
+import { describe, expect, it } from 'vitest';
 import { ReplaySetHeading } from '@/components/features/replays/set/ReplaySetHeading';
 import type { ReplaySet } from '@/lib/replay';
-
-vi.mock('@/hooks/api/useRenameReplaySet', () => ({
-  useRenameReplaySet: () => ({
-    mutate: vi.fn(),
-    isPending: false,
-    reset: vi.fn(),
-  }),
-}));
-
-vi.mock('@/hooks/api/useDeleteReplaySet', () => ({
-  useDeleteReplaySet: () => ({
-    mutate: vi.fn(),
-    isPending: false,
-    reset: vi.fn(),
-  }),
-}));
 
 const SET: ReplaySet = {
   id: 'set_1',
   lineId: 'line_1',
   stationId: 'station_1',
-  name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
+  refreshedAt: null,
+  lastRefresh: null,
   stationGone: false,
-  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -54,53 +37,52 @@ const SET: ReplaySet = {
   entries: [],
 };
 
-const renderHeader = (set: ReplaySet, running = false, searching = false) =>
+const renderHeading = (set: ReplaySet) =>
   render(
     <MemoryRouter>
-      <ReplaySetActions
-        teamId="team_1"
-        set={set}
-        running={running || searching}
-        deletedTo="/w/acme"
-      />
       <ReplaySetHeading set={set} line={undefined} station={undefined} />
     </MemoryRouter>,
   );
 
-describe('ReplaySetHeading and ReplaySetActions', () => {
-  it('names the set and its runs, and lets it be renamed and deleted while nothing of it runs', () => {
-    renderHeader(SET);
+describe('ReplaySetHeading', () => {
+  it('names the set, its runs and that Spotlight keeps it', () => {
+    renderHeading(SET);
 
     expect(
-      screen.getByRole('heading', { name: 'Queue fixes' }),
+      screen.getByRole('heading', { name: 'Replay set' }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/^0 runs · created /)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Rename' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
+    expect(
+      screen.getByText('Kept by Spotlight, not refreshed yet'),
+    ).toBeInTheDocument();
   });
 
-  it('does not delete a set while a replay of it runs, saying why', () => {
-    renderHeader(SET, true);
+  it('counts what the last refresh added and took out, naming the first 3 of each, in its description', () => {
+    renderHeading({
+      ...SET,
+      refreshedAt: new Date().toISOString(),
+      lastRefresh: {
+        at: new Date().toISOString(),
+        added: [
+          { runId: 'run_1', title: 'Drain the queue' },
+          { runId: 'run_2', title: 'Fix the retries' },
+          { runId: 'run_3', title: 'Split the invoice' },
+          { runId: 'run_4', title: 'Cache the prices' },
+        ],
+        removed: [{ runId: 'run_0', title: null }],
+      },
+    });
 
-    const deleting = screen.getByRole('button', { name: 'Delete' });
-    expect(deleting).toBeDisabled();
-    expect(deleting).toHaveAccessibleDescription(
-      'A replay or search of this set is running. Please delete the set after it ends.',
+    const refresh = screen.getByText(/^Kept by Spotlight, refreshed /);
+    expect(refresh).toHaveAccessibleDescription(
+      expect.stringContaining(
+        'Added: 4: Drain the queue, Fix the retries, Split the invoice and 1 more. Taken out: 1: A deleted task.',
+      ),
     );
   });
 
-  it('marks a set whose station is gone, and still offers rename and delete', () => {
-    renderHeader({ ...SET, stationGone: true });
+  it('marks a set whose station is gone', () => {
+    renderHeading({ ...SET, stationGone: true });
 
     expect(screen.getByText('Station gone')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Rename' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
-  });
-
-  it('does not delete a set a search is using, without marking the heading', () => {
-    renderHeader(SET, false, true);
-
-    expect(screen.queryByText(/frozen/i)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled();
   });
 });

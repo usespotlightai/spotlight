@@ -18,6 +18,8 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
+import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
+import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import {
@@ -39,6 +41,7 @@ import { and, eq, isNotNull } from 'drizzle-orm';
 import { afterAll, beforeAll, expect } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './app';
 import { eventually } from './eventually';
+import { keptSet } from './kept-sets';
 import * as schema from './schema';
 import { createTeam } from './team';
 
@@ -293,25 +296,25 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
 };
 
 export const createSet = async (
-  name: string,
   originals: readonly Original[],
   stationId = BUILD,
-): Promise<string> => {
-  const created = await owner()
-    .post(`${stationPath(stationId)}/replay-sets`, { name })
-    .expect(201);
-  const setId = created.body.id as string;
+): Promise<string> =>
+  keptSet(
+    app,
+    { workspaceId: team.workspaceId.value, stationId },
+    originals.map((each) => each.runId),
+  );
 
-  for (const each of originals) {
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-        runId: each.runId,
-      })
-      .expect(204);
-  }
+export const refreshedBefore = (setId: string): Promise<boolean> =>
+  app.get(RefreshKeptSets).refreshBefore(ReplaySetId.of(setId));
 
-  return setId;
-};
+export const setRunsOf = async (setId: string): Promise<string[]> =>
+  (
+    await db
+      .select({ runId: schema.replaySetEntry.runId })
+      .from(schema.replaySetEntry)
+      .where(eq(schema.replaySetEntry.setId, setId))
+  ).map((each) => each.runId);
 
 interface Budget {
   readonly iterations: number;

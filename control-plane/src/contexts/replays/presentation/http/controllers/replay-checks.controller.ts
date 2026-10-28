@@ -95,7 +95,7 @@ export class ReplayChecksController {
   @ApiOperation({
     operationId: 'startReplayCheck',
     summary:
-      'Check a planned change of a station against the replay set that gates its changes, under the live line’s replay_check; a change already checked against the same live config answers its check',
+      'Check a planned change of a station against the replay set that Spotlight keeps for the station, under the live line’s replay_check; a change already checked against the same live config answers its check',
   })
   @ApiHeader({
     name: IDEMPOTENCY_KEY_HEADER,
@@ -128,7 +128,7 @@ export class ReplayChecksController {
   )
   @ApiProblemResponse(
     HttpStatus.CONFLICT,
-    'The line has no replay_check, no replay set gates the station’s changes, or the plan changes nothing that changes how its runs go (nothing-to-replay)',
+    'The line has no replay_check, the station has no replay set or no runs in it yet, or the plan changes nothing that changes how its runs go (nothing-to-replay)',
   )
   @ApiProblemResponse(
     HttpStatus.FORBIDDEN,

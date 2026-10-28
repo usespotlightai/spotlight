@@ -52,14 +52,14 @@ const AT = {
   stationId: 'station_1',
 };
 
-const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
+const setOf = (id: string, tasks: number): ReplaySet => ({
   id,
   lineId: 'line_1',
   stationId: 'station_1',
-  name,
   createdAt: '2026-10-01T09:00:00.000Z',
+  refreshedAt: null,
+  lastRefresh: null,
   stationGone: false,
-  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -96,7 +96,7 @@ const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
   })),
 });
 
-const SETS = [setOf('small', 'Two tasks', 2), setOf('big', 'Billing work', 7)];
+const BIG = setOf('big', 7);
 
 const ESTIMATE: SearchEstimate = {
   objective: 'success',
@@ -115,10 +115,10 @@ const ESTIMATE: SearchEstimate = {
   warnings: [],
 };
 
-const renderDialog = (sets: readonly ReplaySet[] = SETS) =>
+const renderDialog = (set: ReplaySet = BIG) =>
   render(
     <MemoryRouter>
-      <StartSearchDialog at={AT} sets={sets} open onOpenChange={vi.fn()} />
+      <StartSearchDialog at={AT} set={set} open onOpenChange={vi.fn()} />
     </MemoryRouter>,
   );
 
@@ -158,11 +158,13 @@ describe('StartSearchDialog', () => {
     );
   });
 
-  it('chooses the first set big enough to search, and says why a smaller one is not', () => {
+  it('searches on the station’s replay set, and says why a small set cannot be searched', () => {
     renderDialog();
 
-    expect(screen.getByRole('radio', { name: /Billing work/ })).toBeChecked();
-    expect(screen.getByRole('radio', { name: /Two tasks/ })).toBeDisabled();
+    expect(screen.getByText('7 tasks')).toBeInTheDocument();
+
+    renderDialog(setOf('small', 2));
+
     expect(
       screen.getByText(
         'The set covers 2 tasks. A search holds some tasks out. Minimum different tasks: 5',
@@ -329,22 +331,19 @@ describe('StartSearchDialog', () => {
   });
 
   it('shows the aim a saturated set takes before the estimate arrives, without requesting it', () => {
-    const big = setOf('big', 'Billing work', 7);
-    renderDialog([
-      {
-        ...big,
-        health: {
-          ...big.health,
-          saturation: {
-            replayId: 'replay_live',
-            rate: 0.97,
-            interval: { rate: 0.97, low: 0.9, high: 1 },
-            saturated: true,
-            measuredAt: '2026-10-02T09:00:00.000Z',
-          },
+    renderDialog({
+      ...BIG,
+      health: {
+        ...BIG.health,
+        saturation: {
+          replayId: 'replay_live',
+          rate: 0.97,
+          interval: { rate: 0.97, low: 0.9, high: 1 },
+          saturated: true,
+          measuredAt: '2026-10-02T09:00:00.000Z',
         },
       },
-    ]);
+    });
     fireEvent.change(
       screen.getByRole('textbox', { name: 'Most it may spend' }),
       { target: { value: '20' } },

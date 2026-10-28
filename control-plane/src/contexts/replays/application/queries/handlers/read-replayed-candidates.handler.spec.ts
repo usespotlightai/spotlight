@@ -32,7 +32,6 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
-import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
@@ -150,15 +149,20 @@ describe('ReadReplayedCandidatesHandler', () => {
     const set = ReplaySet.create({
       id: ReplaySetId.of('set_other'),
       station: other,
-      name: ReplaySetName.of('Theirs'),
       at: NOW,
-    }).withEntry(
+    }).refresh(
       {
-        runId: RunId.of('original_theirs'),
-        taskId: TaskId.of('task_theirs'),
-        stationId: other.stationId,
-        unreplayableReason: null,
-        reason: null,
+        add: [
+          {
+            runId: RunId.of('original_theirs'),
+            taskId: TaskId.of('task_theirs'),
+            stationId: other.stationId,
+            unreplayableReason: null,
+            reason: null,
+            endedAt: NOW,
+          },
+        ],
+        remove: [],
       },
       NOW,
       false,

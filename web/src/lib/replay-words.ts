@@ -14,9 +14,11 @@ import type {
   SetCompositionResponseDto,
   SetHealthResponseDto,
   SetNoiseResponseDto,
+  SetRefreshResponseDto,
 } from '@/lib/api';
 import { formatPercent } from '@/lib/judge';
 import { since } from '@/lib/since';
+import type { TooltipNote } from '@/lib/tooltip-note';
 
 export type UnreplayableReason = NonNullable<
   ReplaySetEntryResponseDto['unreplayableReason']
@@ -224,8 +226,52 @@ export const formatUnpricedCalls = (count: number): string =>
 
 export const STATION_GONE_FROM_LINE = 'The station is gone from its line.';
 
+export const REPLAY_SET_TITLE = 'Replay set';
+
+export const KEPT_BY_SPOTLIGHT = 'Kept by Spotlight';
+
+export const formatRefreshed = (refreshedAt: string | null): string =>
+  refreshedAt ? `refreshed ${since(refreshedAt)}` : 'not refreshed yet';
+
+const SHOWN_TITLES = 3;
+
+export const formatRefreshedRuns = (
+  runs: SetRefreshResponseDto['added'],
+): string => {
+  if (runs.length === 0) {
+    return 'None';
+  }
+
+  const titles = runs
+    .slice(0, SHOWN_TITLES)
+    .map((each) => each.title ?? 'A deleted task')
+    .join(', ');
+  const more = runs.length - SHOWN_TITLES;
+
+  return more > 0
+    ? `${runs.length}: ${titles} and ${more} more`
+    : `${runs.length}: ${titles}`;
+};
+
+export const refreshNote = (
+  refresh: SetRefreshResponseDto | null,
+): TooltipNote => ({
+  title: KEPT_BY_SPOTLIGHT,
+  body: 'Spotlight refreshes the set from the station’s runs. It refreshes a full set every 7 days and a set that is not full every day. It also refreshes the set before a search or a replay starts. It adds the newest run of new tasks. It takes out runs that ended more than 90 days ago. A task that a person takes out does not come back.',
+  rows: refresh
+    ? [
+        ['Last change', since(refresh.at)],
+        ['Added', formatRefreshedRuns(refresh.added)],
+        ['Taken out', formatRefreshedRuns(refresh.removed)],
+      ]
+    : [['Last change', 'None yet']],
+});
+
+export const REMOVED_TASK_STAYS_OUT =
+  'Spotlight never adds a run of this task to the set again. You can’t undo this.';
+
 export const RUNS_FROZEN_BY_SEARCH =
-  'A search of this set is running. Add or take out runs after the search ends or a person stops it.';
+  'A search of this set is running. Take out runs after the search ends or a person stops it.';
 
 const OVER_CEILING_NOTE =
   'Runs that are in progress at the ceiling still finish. A replay can end slightly over its ceiling.';
@@ -668,9 +714,6 @@ const checksReading = (checks: SetHealth['checks']): HealthReading => {
 
 export const REPEATS_LABEL = 'Repeats';
 
-export const formatHealthListLabel = (setName: string): string =>
-  `${HEALTH_LABEL} of ${setName}`;
-
 export const healthReadingsOf = (
   health: SetHealth,
   minGain: number,
@@ -837,7 +880,7 @@ export const ORIGINS_LABEL = 'Where their tasks came from';
 export const formatBalanceWarning = (
   warning: BalanceWarningResponseDto,
 ): string =>
-  `${warning.count} of ${warning.entries} runs ${RUN_OUTCOME_PHRASES[warning.dominant]}. Add runs that turned out other ways to balance the set.`;
+  `${warning.count} of ${warning.entries} runs ${RUN_OUTCOME_PHRASES[warning.dominant]}. Spotlight adds runs that turned out other ways when the station has them.`;
 
 export const formatEndedSpan = (
   composition: SetCompositionResponseDto,
@@ -853,11 +896,6 @@ export const formatEndedSpan = (
 
   return `Ended between ${since(oldest)} and ${since(newest)} · Median: ${since(median)}`;
 };
-
-export const SUGGESTIONS_LABEL = 'Suggested to even the mix';
-
-export const SUGGESTIONS_NOTE =
-  'Recent runs with outcomes that the set has few of. These runs join the set only when you add them.';
 
 export const REGRESSED_NOTE = (against: string): string =>
   `Regressed: fewer repeats succeeded than in ${against}, or the judge scored it lower.`;

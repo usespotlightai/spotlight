@@ -600,17 +600,8 @@ export class ReplayedSetResponseDto {
   @ApiProperty()
   readonly setId: string;
 
-  @ApiProperty({ example: 'Queue fixes' })
-  readonly name: string;
-
   @ApiProperty({ description: 'Whether its station has left its line' })
   readonly stationGone: boolean;
-
-  @ApiProperty({
-    description:
-      'Whether it checks every pull request that changes its station',
-  })
-  readonly gatesChanges: boolean;
 
   @ApiProperty({
     type: ReplaySetHealthResponseDto,
@@ -645,9 +636,7 @@ export class ReplayedSetResponseDto {
 
   constructor(set: ReplayedSetDto) {
     this.setId = set.setId;
-    this.name = set.name;
     this.stationGone = set.stationGone;
-    this.gatesChanges = set.gatesChanges;
     this.health = new ReplaySetHealthResponseDto(set.health);
     this.baseline = set.baseline
       ? new ReplayedBaselineResponseDto(set.baseline)

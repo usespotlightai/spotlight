@@ -44,6 +44,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { keptSet } from './support/kept-sets';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -162,7 +163,6 @@ const bearing = (token: string) => ({
 });
 
 const teamPath = () => `/api/teams/${team.teamId.value}`;
-const stationPath = () => `${teamPath()}/lines/${DELIVERY}/stations/${BUILD}`;
 
 const sent = (update: Record<string, unknown>): string =>
   Buffer.from(JSON.stringify({ sessionId: 'session_1', update })).toString(
@@ -508,17 +508,11 @@ describe('a replay at a station that checks and judges', () => {
   it('generates each replay’s change stack, checks it with the candidate’s own check, judges it against the change people accepted, and puts the task that regressed first', async () => {
     const first = await anOriginal(true);
     const second = await anOriginal(false);
-    const created = await owner()
-      .post(`${stationPath()}/replay-sets`, { name: 'Scored' })
-      .expect(201);
-    const setId = created.body.id as string;
-    for (const each of [first, second]) {
-      await owner()
-        .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-          runId: each.runId,
-        })
-        .expect(204);
-    }
+    const setId = await keptSet(
+      app,
+      { workspaceId: team.workspaceId.value, stationId: BUILD },
+      [first.runId, second.runId],
+    );
     const candidate = await proposed('Build it, draining the queue in order.');
 
     const started = (

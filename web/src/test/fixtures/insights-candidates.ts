@@ -54,9 +54,7 @@ const SEARCH = {
 
 const IMPLEMENTATION_SET: CandidatesSet = {
   setId: 'set_implementation',
-  name: 'Migrations and billing',
   stationGone: false,
-  gatesChanges: true,
   health: {
     tasks: 24,
     runs: 27,
@@ -307,9 +305,7 @@ const IMPLEMENTATION_SET: CandidatesSet = {
 
 const REVIEW_SET: CandidatesSet = {
   setId: 'set_review',
-  name: 'Reviews sent back',
   stationGone: false,
-  gatesChanges: false,
   health: {
     tasks: 12,
     runs: 12,

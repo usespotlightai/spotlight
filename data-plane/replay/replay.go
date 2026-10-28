@@ -88,8 +88,8 @@ func run(args []string, in io.Reader, out io.Writer, version string) error {
 		return c.candidates(rest)
 	case "show":
 		return c.show(rest)
-	case "sets":
-		return c.sets(rest)
+	case "set":
+		return c.set(rest)
 	case "start":
 		return c.start(rest)
 	case "status":

@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
+import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import {
   ATTACHMENT_STORE,
@@ -18,6 +20,7 @@ import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { keptSet } from './support/kept-sets';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
@@ -60,7 +63,7 @@ let team: Awaited<ReturnType<typeof createTeam>>;
 let readToken: string;
 let planToken: string;
 let stranger: string;
-let gatingSet: string;
+let keptSetId: string;
 let originals: string[];
 
 const http = () => served(app);
@@ -95,7 +98,6 @@ const bearing = (token: string) => ({
 });
 
 const teamPath = () => `/api/teams/${team.teamId.value}`;
-const stationPath = () => `${teamPath()}/lines/${DELIVERY}/stations/${BUILD}`;
 
 const planned = (more: Record<string, unknown> = {}) => ({
   key: 'build',
@@ -143,7 +145,6 @@ interface CheckRead {
     reasons: { code: string; detail: string | null }[];
   }[];
   replayUrl: string | null;
-  setName: string | null;
 }
 
 const anOriginal = async (): Promise<string> => {
@@ -218,20 +219,8 @@ const anOriginal = async (): Promise<string> => {
   return runId;
 };
 
-const createSet = async (name: string, runs: readonly string[]) => {
-  const created = await owner()
-    .post(`${stationPath()}/replay-sets`, { name })
-    .expect(201);
-  const setId = created.body.id as string;
-
-  for (const runId of runs) {
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/entries`, { runId })
-      .expect(204);
-  }
-
-  return setId;
-};
+const createSet = (runs: readonly string[]) =>
+  keptSet(app, { workspaceId: team.workspaceId.value, stationId: BUILD }, runs);
 
 const readCheck = async (id: string, token = readToken): Promise<CheckRead> =>
   (await bearing(token).get(`${teamPath()}/replay-checks/${id}`).expect(200))
@@ -424,7 +413,6 @@ beforeAll(async () => {
   readToken = await tokenWith(['read']);
   planToken = await tokenWith(['plan']);
   originals = [await anOriginal(), await anOriginal(), await anOriginal()];
-  gatingSet = await createSet('Queue fixes', originals);
 }, 60_000);
 
 afterAll(async () => {
@@ -432,65 +420,8 @@ afterAll(async () => {
   await app?.close();
 });
 
-describe('a replay set gating a station’s changes', () => {
-  it('is flagged by one who may plan, one set per station, and shows as such', async () => {
-    const other = await createSet('Flaky', [originals[0] as string]);
-
-    await bearing(readToken)
-      .post(`${teamPath()}/replay-sets/${gatingSet}/gates-changes`, {}, null)
-      .expect(403);
-    await bearing(planToken)
-      .post(`${teamPath()}/replay-sets/${gatingSet}/gates-changes`, {}, null)
-      .expect(204);
-    await bearing(planToken)
-      .post(`${teamPath()}/replay-sets/${gatingSet}/gates-changes`, {}, null)
-      .expect(204);
-
-    const rejected = await bearing(planToken)
-      .post(`${teamPath()}/replay-sets/${other}/gates-changes`, {}, null)
-      .expect(409);
-    expect(rejected.body.detail).toContain('already gates config changes');
-
-    const sets = (
-      await bearing(readToken).get(`${stationPath()}/replay-sets`).expect(200)
-    ).body as { id: string; gatesChanges: boolean }[];
-    expect(sets.map((each) => [each.id, each.gatesChanges])).toEqual(
-      expect.arrayContaining([
-        [gatingSet, true],
-        [other, false],
-      ]),
-    );
-
-    await bearing(planToken)
-      .delete(`${teamPath()}/replay-sets/${gatingSet}/gates-changes`)
-      .expect(204);
-    await bearing(planToken)
-      .post(`${teamPath()}/replay-sets/${other}/gates-changes`, {}, null)
-      .expect(204);
-    await bearing(planToken)
-      .delete(`${teamPath()}/replay-sets/${other}/gates-changes`)
-      .expect(204);
-    const audited = await eventually(async () => {
-      const rows = await db
-        .select()
-        .from(schema.configurationChange)
-        .where(eq(schema.configurationChange.resourceId, gatingSet))
-        .orderBy(schema.configurationChange.seq);
-
-      return rows.length >= 2 && rows;
-    });
-    expect(
-      audited.map((each) => [each.resource, each.action, each.details]),
-    ).toEqual([
-      ['replay-set', 'updated', { gatesChanges: true }],
-      ['replay-set', 'updated', { gatesChanges: false }],
-    ]);
-    expect(audited.every((each) => each.tokenId !== null)).toBe(true);
-  });
-});
-
 describe('a replay check', () => {
-  it('fails, saying why, when no set gates the station', async () => {
+  it('fails, saying why, when the station has no replay set yet', async () => {
     const rejected = await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody(planned()))
       .expect(409);
@@ -499,14 +430,24 @@ describe('a replay check', () => {
       'application/problem+json',
     );
     expect(rejected.body.detail).toContain(
-      'No replay set gates config changes of station build.',
+      'Station build has no replay set yet.',
+    );
+  });
+
+  it('fails, saying why, when the station’s replay set has no runs yet', async () => {
+    await createSet([]);
+
+    const rejected = await bearing(planToken)
+      .post(`${teamPath()}/replay-checks`, checkBody(planned()))
+      .expect(409);
+
+    expect(rejected.body.detail).toBe(
+      'Station build has no runs in its replay set yet.',
     );
   });
 
   it('fails when the line has no replay_check', async () => {
-    await bearing(planToken)
-      .post(`${teamPath()}/replay-sets/${gatingSet}/gates-changes`, {}, null)
-      .expect(204);
+    keptSetId = await createSet(originals);
     await db
       .update(schema.line)
       .set({ replayCheck: null })
@@ -583,7 +524,6 @@ describe('a replay check', () => {
         ceiling: { amount: 4, currency: 'USD' },
       },
       tasks: 3,
-      setName: 'Queue fixes',
     });
     expect(check.replayUrl).toContain(
       `http://localhost:3000/w/${team.slug}/team/${team.teamId.value}/lines/${DELIVERY}/stations/${BUILD}/replays/${check.replayId}`,
@@ -756,23 +696,14 @@ describe('a replay check', () => {
       .expect(200);
     expect(current.body.id).toBe(second.id);
 
-    await owner()
-      .patch(`${teamPath()}/replay-sets/${gatingSet}`)
-      .send({ name: 'Queue fixes' })
-      .expect(204);
     expect(
-      (
-        await bearing(planToken)
-          .post(`${teamPath()}/replay-checks`, checkBody(change))
-          .expect(200)
-      ).body.id,
-    ).toBe(second.id);
-
+      await app.get(RefreshKeptSets).refreshBefore(ReplaySetId.of(keptSetId)),
+    ).toBe(false);
     await owner()
-      .post(`${teamPath()}/replay-sets/${gatingSet}/entries`, {
-        runId: await anOriginal(),
-      })
-      .expect(204);
+      .delete(`${teamPath()}/replay-sets/${keptSetId}/entries/${originals[1]}`)
+      .expect(409);
+
+    await createSet(originals.filter((each) => each !== originals[1]));
     expect((await startCheck(change)).attempt).toBe(4);
   });
 
@@ -829,65 +760,53 @@ describe('a replay check', () => {
   });
 
   it('compares checks started together against the one baseline that comes, and wants a new one once the live station is scored differently', async () => {
-    const race = await createSet('Race', [
+    const raced = new Date();
+    const race = await createSet([
       originals[0] as string,
       originals[2] as string,
+      await anOriginal(),
     ]);
-    await bearing(planToken)
-      .delete(`${teamPath()}/replay-sets/${gatingSet}/gates-changes`)
-      .expect(204);
-    await bearing(planToken)
-      .post(`${teamPath()}/replay-sets/${race}/gates-changes`, {}, null)
-      .expect(204);
 
+    const [one, two] = await Promise.all([
+      startCheck(planned({ prompt: 'Build it, racing.' })),
+      startCheck(planned({ prompt: 'Build it, racing too.' })),
+    ]);
+    const shared = await baselineOf(one as CheckRead);
+
+    expect(await baselineOf(two as CheckRead)).toBe(shared);
+    expect(
+      (
+        await db
+          .select()
+          .from(schema.replay)
+          .where(eq(schema.replay.setId, race))
+      ).filter((each) => each.baseline && each.startedAt >= raced),
+    ).toHaveLength(1);
+
+    await db
+      .update(schema.station)
+      .set({ check: 'npm run test:all' })
+      .where(eq(schema.station.id, BUILD));
     try {
-      const [one, two] = await Promise.all([
-        startCheck(planned({ prompt: 'Build it, racing.' })),
-        startCheck(planned({ prompt: 'Build it, racing too.' })),
-      ]);
-      const shared = await baselineOf(one as CheckRead);
+      const rescored = await startCheck(
+        planned({ prompt: 'Build it, rescored.' }),
+      );
+      const fresh = await baselineOf(rescored);
 
-      expect(await baselineOf(two as CheckRead)).toBe(shared);
-      expect(
-        (
-          await db
-            .select()
-            .from(schema.replay)
-            .where(eq(schema.replay.setId, race))
-        ).filter((each) => each.baseline),
-      ).toHaveLength(1);
-
+      expect(fresh).not.toBe(shared);
+      expect((await readCheck((one as CheckRead).id)).baselineReplayId).toBe(
+        shared,
+      );
+    } finally {
       await db
         .update(schema.station)
-        .set({ check: 'npm run test:all' })
+        .set({ check: 'npm test' })
         .where(eq(schema.station.id, BUILD));
-      try {
-        const rescored = await startCheck(
-          planned({ prompt: 'Build it, rescored.' }),
-        );
-        const fresh = await baselineOf(rescored);
-
-        expect(fresh).not.toBe(shared);
-        expect((await readCheck((one as CheckRead).id)).baselineReplayId).toBe(
-          shared,
-        );
-      } finally {
-        await db
-          .update(schema.station)
-          .set({ check: 'npm test' })
-          .where(eq(schema.station.id, BUILD));
-      }
-    } finally {
-      await bearing(planToken)
-        .delete(`${teamPath()}/replay-sets/${race}/gates-changes`)
-        .expect(204);
-      await bearing(planToken)
-        .post(`${teamPath()}/replay-sets/${gatingSet}/gates-changes`, {}, null)
-        .expect(204);
     }
   });
 
   it('is undecided, saying so, once the baseline it found is gone and none can come', async () => {
+    await createSet([originals[0] as string, await anOriginal()]);
     const check = await startCheck(planned({ prompt: 'Build it, baseless.' }));
     const baseline = await baselineOf(check);
 
@@ -913,7 +832,7 @@ describe('a replay check', () => {
   it('are listed per set, newest first, a page at a time, to any reader of the team, and the line shows its threshold', async () => {
     const all = (
       await bearing(readToken)
-        .get(`${teamPath()}/replay-sets/${gatingSet}/replay-checks?limit=200`)
+        .get(`${teamPath()}/replay-sets/${keptSetId}/replay-checks?limit=200`)
         .expect(200)
     ).body as {
       id: string;
@@ -932,20 +851,20 @@ describe('a replay check', () => {
 
     const first = (
       await bearing(readToken)
-        .get(`${teamPath()}/replay-sets/${gatingSet}/replay-checks?limit=1`)
+        .get(`${teamPath()}/replay-sets/${keptSetId}/replay-checks?limit=1`)
         .expect(200)
     ).body as { id: string }[];
     const next = (
       await bearing(readToken)
         .get(
-          `${teamPath()}/replay-sets/${gatingSet}/replay-checks?limit=1&before=${first[0]?.id}`,
+          `${teamPath()}/replay-sets/${keptSetId}/replay-checks?limit=1&before=${first[0]?.id}`,
         )
         .expect(200)
     ).body as { id: string }[];
     expect([first[0]?.id, next[0]?.id]).toEqual([all[0]?.id, all[1]?.id]);
 
     await http()
-      .get(`${teamPath()}/replay-sets/${gatingSet}/replay-checks`)
+      .get(`${teamPath()}/replay-sets/${keptSetId}/replay-checks`)
       .set(TEST_USER_HEADER, stranger)
       .expect(404);
 
@@ -954,30 +873,5 @@ describe('a replay check', () => {
     expect(lines.find((each) => each.id === DELIVERY)?.replayCheck).toEqual(
       LIVE_CHECK,
     );
-  });
-
-  it('goes with the set it gates when the set is deleted', async () => {
-    const doomed = await createSet('Doomed', [originals[1] as string]);
-    await bearing(planToken)
-      .delete(`${teamPath()}/replay-sets/${gatingSet}/gates-changes`)
-      .expect(204);
-    await bearing(planToken)
-      .post(`${teamPath()}/replay-sets/${doomed}/gates-changes`, {}, null)
-      .expect(204);
-
-    const check = await startCheck(planned({ prompt: 'Build it, then go.' }));
-    const baseline = await baselineOf(check);
-    await endReplay(check.replayId, () => true);
-    await endReplay(baseline, () => true);
-
-    await owner().delete(`${teamPath()}/replay-sets/${doomed}`).expect(204);
-
-    await eventually(async () => {
-      const read = await bearing(readToken).get(
-        `${teamPath()}/replay-checks/${check.id}`,
-      );
-
-      return read.status === 404;
-    });
   });
 });

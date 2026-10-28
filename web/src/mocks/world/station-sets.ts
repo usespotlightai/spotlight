@@ -1,13 +1,13 @@
 import type {
-  ReplayableRunResponseDto,
+  RefreshedRunResponseDto,
   ReplayCandidateResourceResponseDto,
   ReplayCheckSummaryResponseDto,
   ReplaySetEntryResponseDto,
   ReplaySetResponseDto,
   SetCompositionResponseDto,
   SetHealthResponseDto,
+  SetRefreshResponseDto,
   StationRunOutcomeResponseDto,
-  SuggestedRunResponseDto,
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { DELIVERY_ID, PLATFORM_ID, perWorld, SLUG, world } from '@/mocks/world';
@@ -155,21 +155,20 @@ type SetEntrySpec = {
 
 export type SetSpec = {
   readonly id: string;
-  name: string;
   readonly lineId: string;
   readonly stationId: string;
   readonly createdHoursAgo: number;
-  gatesChanges: boolean;
   entries: SetEntrySpec[];
+  removedTasks: readonly string[];
+  refreshedHoursAgo: number | null;
+  refresh: SeededRefresh | null;
   readonly health: SetHealthResponseDto;
 };
 
-export const NO_HEALTH: SetHealthResponseDto = {
-  noise: null,
-  saturation: null,
-  judge: null,
-  checks: null,
-  oracle: null,
+export type SeededRefresh = {
+  readonly hoursAgo: number;
+  readonly added: readonly string[];
+  readonly removed: readonly string[];
 };
 
 const BILLING_HEALTH: SetHealthResponseDto = {
@@ -221,11 +220,9 @@ const entry = (
 const SEEDED_SETS: readonly SetSpec[] = [
   {
     id: 'set_billing_work',
-    name: 'Billing work',
     lineId: DELIVERY_ID,
     stationId: IMPLEMENTATION_ID,
     createdHoursAgo: 140,
-    gatesChanges: true,
     entries: [
       entry('run_flaky_billing_2', 108),
       entry('run_invoice_split_1', 118, 'slack'),
@@ -235,20 +232,14 @@ const SEEDED_SETS: readonly SetSpec[] = [
       entry('run_coupons_1', 139),
       entry('run_vat_1', 139),
     ],
+    removedTasks: [],
+    refreshedHoursAgo: 20,
+    refresh: {
+      hoursAgo: 108,
+      added: ['run_flaky_billing_2'],
+      removed: ['run_billing_1'],
+    },
     health: BILLING_HEALTH,
-  },
-  {
-    id: 'set_docs',
-    name: 'Two docs tasks',
-    lineId: DELIVERY_ID,
-    stationId: IMPLEMENTATION_ID,
-    createdHoursAgo: 40,
-    gatesChanges: false,
-    entries: [
-      entry('run_webhook_docs_1', 40),
-      entry('run_export_docs_1', 39.8),
-    ],
-    health: NO_HEALTH,
   },
 ];
 
@@ -277,28 +268,36 @@ const matchingFirst = (
 const runsOfPick = (pick: SetPick): StationRunFound[] =>
   runsAt(teamOfLine(pick.lineId) ?? '', pick.lineId, pick.stationId);
 
+const REFRESHED_HOURS_AGO = 20;
+
 const setOfPick = (pick: SetPick): SetSpec => {
   const older = runsOfPick(pick).filter((run) => {
     const ago = hoursSince(run.endedAt);
     return ago > pick.createdHoursAgo + 2 && ago < SET_RETENTION_HOURS;
   });
+  const entries = matchingFirst(older, pick.matching)
+    .slice(0, pick.count)
+    .map((run, place) =>
+      entry(
+        run.runId,
+        pick.createdHoursAgo - place * 0.01,
+        pick.origins[place % pick.origins.length],
+      ),
+    );
 
   return {
     id: pick.id,
-    name: pick.name,
     lineId: pick.lineId,
     stationId: pick.stationId,
     createdHoursAgo: pick.createdHoursAgo,
-    gatesChanges: pick.gatesChanges,
-    entries: matchingFirst(older, pick.matching)
-      .slice(0, pick.count)
-      .map((run, place) =>
-        entry(
-          run.runId,
-          pick.createdHoursAgo - place * 0.01,
-          pick.origins[place % pick.origins.length],
-        ),
-      ),
+    entries,
+    removedTasks: [],
+    refreshedHoursAgo: Math.min(REFRESHED_HOURS_AGO, pick.createdHoursAgo),
+    refresh: {
+      hoursAgo: pick.createdHoursAgo,
+      added: entries.map((each) => each.runId),
+      removed: [],
+    },
     health: pick.health,
   };
 };
@@ -382,6 +381,18 @@ const entryOfSet = (entrySpec: SetEntrySpec): ReplaySetEntryResponseDto => {
   };
 };
 
+const refreshedRunOf = (runId: string): RefreshedRunResponseDto => ({
+  runId,
+  title: runOfStation(runId)?.title ?? null,
+});
+
+const lastRefreshOf = ({ refresh }: SetSpec): SetRefreshResponseDto | null =>
+  refresh && {
+    at: hoursAgo(refresh.hoursAgo),
+    added: refresh.added.map(refreshedRunOf),
+    removed: refresh.removed.map(refreshedRunOf),
+  };
+
 export const replaySetOf = (spec: SetSpec): ReplaySetResponseDto => {
   const entries = spec.entries.map(entryOfSet);
 
@@ -389,88 +400,17 @@ export const replaySetOf = (spec: SetSpec): ReplaySetResponseDto => {
     id: spec.id,
     lineId: spec.lineId,
     stationId: spec.stationId,
-    name: spec.name,
     createdAt: hoursAgo(spec.createdHoursAgo),
+    refreshedAt:
+      spec.refreshedHoursAgo === null ? null : hoursAgo(spec.refreshedHoursAgo),
+    lastRefresh: lastRefreshOf(spec),
     stationGone: false,
-    gatesChanges: spec.gatesChanges,
     health: spec.health,
     minGain: MIN_GAIN,
     composition: compositionOf(entries),
     entries,
   };
 };
-
-const ARCHIVE_RETENTION_HOURS = 700;
-
-export const replayableRuns = (
-  teamId: string,
-  lineId: string,
-  stationId: string,
-): ReplayableRunResponseDto[] =>
-  runsAt(teamId, lineId, stationId).map((run) => {
-    const gone = hoursSince(run.endedAt) > ARCHIVE_RETENTION_HOURS;
-
-    return {
-      runId: run.runId,
-      taskId: run.taskId,
-      title: run.title,
-      state: run.state,
-      endedAt: run.endedAt,
-      unreplayableReason: gone ? 'archive-gone' : null,
-      reason: gone
-        ? 'The workspace archive that it started from is no longer stored.'
-        : null,
-    };
-  });
-
-const SUGGESTED: Record<string, readonly string[]> = {
-  set_billing_work: [
-    'run_billing_1',
-    'run_invoice_rounding_1',
-    'run_refunds_2',
-  ],
-};
-
-const SUGGESTED_PER_SET = 3;
-
-const suggestedRuns = (spec: SetSpec): readonly string[] => {
-  const pick = SET_PICKS.find((each) => each.id === spec.id);
-
-  if (!pick) {
-    return SUGGESTED[spec.id] ?? [];
-  }
-
-  const newer = runsOfPick(pick).filter(
-    (run) =>
-      hoursSince(run.endedAt) < pick.createdHoursAgo && run.state !== 'stopped',
-  );
-
-  return matchingFirst(newer, pick.matching)
-    .slice(0, SUGGESTED_PER_SET)
-    .map((run) => run.runId);
-};
-
-export const suggestionsFor = (spec: SetSpec): SuggestedRunResponseDto[] =>
-  suggestedRuns(spec)
-    .filter((runId) => !spec.entries.some((each) => each.runId === runId))
-    .flatMap((runId) => {
-      const run = runOfStation(runId);
-
-      return run
-        ? [
-            {
-              runId,
-              taskId: run.taskId,
-              title: run.title,
-              state: run.state,
-              endedAt: run.endedAt,
-              unreplayableReason: null,
-              reason: null,
-              outcome: run.outcome,
-            },
-          ]
-        : [];
-    });
 
 const replayUrl = (place: StationLocation, replayId: string): string =>
   `/w/${SLUG}/team/${place.teamId}/lines/${place.lineId}/stations/${place.stationId}/replays/${replayId}`;

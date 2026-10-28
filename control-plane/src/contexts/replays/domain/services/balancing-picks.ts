@@ -3,8 +3,6 @@ import {
   type OriginalOutcome,
 } from '@replays/domain/services/composition';
 
-export const MAX_SUGGESTED = 5;
-
 const SUGGESTED_FIRST: readonly OriginalOutcome[] = [
   'accepted',
   'sent-back',

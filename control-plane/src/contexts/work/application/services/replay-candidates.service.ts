@@ -109,6 +109,12 @@ export class ReplayCandidates implements ReplayCandidatesPort {
     return current ? stationOf(current) : null;
   }
 
+  async findStation(stationId: string): Promise<ReplayStation | null> {
+    const current = await this.candidates.withStationId(stationId);
+
+    return current ? stationOf(current) : null;
+  }
+
   async keyed(lineId: string, key: string): Promise<ReplayStation | null> {
     const current = await this.candidates.keyed(lineId, key);
 

@@ -31,10 +31,10 @@ const SET: ReplaySet = {
   id: 'set_1',
   lineId: 'line_1',
   stationId: 'station_1',
-  name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
+  refreshedAt: null,
+  lastRefresh: null,
   stationGone: false,
-  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -95,7 +95,7 @@ describe('SetChecks', () => {
     ).toBeInTheDocument();
   });
 
-  it('says the set gates nothing yet, beside the switch that lets it', () => {
+  it('says there are no checks yet, and that the set checks pull requests', () => {
     pages.mockReturnValue([[]]);
 
     render(
@@ -106,11 +106,11 @@ describe('SetChecks', () => {
 
     expect(screen.getByText('No checks yet')).toBeInTheDocument();
     expect(
-      screen.getByText('The set doesn’t gate config changes.'),
+      screen.getByText(
+        'This set checks pull requests that change this station.',
+      ),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('switch', { name: 'Gates config changes' }),
-    ).not.toBeChecked();
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
   });
 
   it('says it could not load the checks, with a retry', () => {

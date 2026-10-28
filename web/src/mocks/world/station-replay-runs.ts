@@ -258,7 +258,6 @@ export const replayOfRun = (runId: string): ReplayOfRunResponseDto | null => {
   return {
     replayId: replay.id,
     setId: replay.setId,
-    setName: setSpec(replay.setId)?.name ?? null,
     lineId: setSpec(replay.setId)?.lineId ?? '',
     stationId: setSpec(replay.setId)?.stationId ?? '',
     candidate: replay.candidate,

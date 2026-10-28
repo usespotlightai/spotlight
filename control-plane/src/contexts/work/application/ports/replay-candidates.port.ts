@@ -69,6 +69,8 @@ export interface LiveStation {
 export interface ReplayCandidatesPort {
   station(lineId: string, stationId: string): Promise<ReplayStation | null>;
 
+  findStation(stationId: string): Promise<ReplayStation | null>;
+
   keyed(lineId: string, key: string): Promise<ReplayStation | null>;
 
   validate(

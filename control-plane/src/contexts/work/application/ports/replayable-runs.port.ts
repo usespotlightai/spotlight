@@ -25,11 +25,6 @@ export interface RecentRun extends Replayability {
 }
 
 export interface ReplayableRunsPort {
-  check(
-    workspaceId: string,
-    runIds: readonly string[],
-  ): Promise<readonly Replayability[]>;
-
   summaries(
     workspaceId: string,
     runIds: readonly string[],

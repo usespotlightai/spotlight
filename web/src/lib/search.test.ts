@@ -7,6 +7,7 @@ import {
   formatHeldOut,
   frontierPoints,
   iterationTitle,
+  NO_REPLAY_SET_YET,
   pickProblem,
   problemsOf,
   replayCheckNote,
@@ -30,10 +31,10 @@ const setOf = (tasks: number, over: Partial<ReplaySet> = {}): ReplaySet => ({
   id: 'set_1',
   lineId: 'line_1',
   stationId: 'station_1',
-  name: 'Queue fixes',
   createdAt: '2026-10-01T09:00:00.000Z',
+  refreshedAt: null,
+  lastRefresh: null,
   stationGone: false,
-  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -128,15 +129,15 @@ describe('search', () => {
     );
   });
 
-  it('says why a search cannot start while a search is under way or no set is big enough', () => {
-    expect(startProblem([setOf(6)], { state: 'searching' } as Search)).toBe(
+  it('says why a search cannot start while a search is under way, the station has no set or the set is small', () => {
+    expect(startProblem(setOf(6), { state: 'searching' } as Search)).toBe(
       'A search of this station is in progress.',
     );
-    expect(startProblem([], null)).toBe('Create a replay set first.');
-    expect(startProblem([setOf(2)], null)).toBe(
-      'No replay set covers 5 different tasks yet.',
+    expect(startProblem(null, null)).toBe(NO_REPLAY_SET_YET);
+    expect(startProblem(setOf(2), null)).toBe(
+      'The set covers 2 tasks. A search holds some tasks out. Minimum different tasks: 5',
     );
-    expect(startProblem([setOf(2), setOf(6)], null)).toBeNull();
+    expect(startProblem(setOf(6), null)).toBeNull();
   });
 
   it('numbers searches from the first started', () => {
@@ -277,7 +278,7 @@ describe('iterationTitle', () => {
     expect(iterationTitle(1, null)).toBe('Iteration 1 of Search');
   });
 
-  it('explains gating, with the line’s threshold or that it sets none', () => {
+  it('explains the replay check, with the line’s threshold or that it sets none', () => {
     expect(
       replayCheckNote({
         maxRegressions: 2,
@@ -290,7 +291,7 @@ describe('iterationTitle', () => {
     );
     expect(replayCheckNote(null)).toMatch(/Line sets no replay_check\./);
     expect(replayCheckNote(undefined)).toMatch(
-      /^spotlight replay check replays a pull request’s change/,
+      /^spotlight replay check replays the change of a pull request/,
     );
   });
 });

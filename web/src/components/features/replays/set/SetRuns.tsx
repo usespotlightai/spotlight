@@ -1,12 +1,10 @@
 import { History } from 'lucide-react';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { StateBox } from '@/components/features/replays/StateBox';
-import { AddRunsButton } from '@/components/features/replays/set/AddRunsButton';
 import { OutcomeBar } from '@/components/features/replays/set/OutcomeBar';
 import { SetRunRow } from '@/components/features/replays/set/SetRunRow';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
-import { PanelActions } from '@/components/shared/PanelActions';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import {
   type ReplayedStation,
@@ -21,7 +19,8 @@ import {
   ORIGINS_LABEL,
 } from '@/lib/replay-words';
 
-const RUNS_NOTE = 'Past runs of the station. Each replay reruns all of them.';
+const RUNS_NOTE =
+  'Past runs of the station that Spotlight keeps in the set. Each replay reruns all of them.';
 
 const compositionNote = (composition: SetComposition): string =>
   [
@@ -41,9 +40,6 @@ type SetRunsProps = {
 };
 
 export function SetRuns({ at, set, frozen }: SetRunsProps) {
-  const add = set.stationGone ? undefined : (
-    <AddRunsButton at={at} set={set} disabled={frozen} />
-  );
   const { composition } = set;
 
   return (
@@ -65,9 +61,9 @@ export function SetRuns({ at, set, frozen }: SetRunsProps) {
     >
       {set.entries.length === 0 ? (
         <StateBox flat>
-          <EmptyState icon={History} title="No runs in this set" action={add}>
-            Add past runs of the station. If Spotlight retained a run’s starting
-            point, you can replay the run.
+          <EmptyState icon={History} title="No runs in this set">
+            Spotlight adds the station’s replayable runs when it refreshes the
+            set.
           </EmptyState>
         </StateBox>
       ) : (
@@ -93,7 +89,6 @@ export function SetRuns({ at, set, frozen }: SetRunsProps) {
           </NestedTable>
         </div>
       )}
-      {set.entries.length > 0 && add && <PanelActions>{add}</PanelActions>}
     </InsightsCard>
   );
 }

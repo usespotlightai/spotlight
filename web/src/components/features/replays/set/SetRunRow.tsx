@@ -1,5 +1,4 @@
-import { X } from 'lucide-react';
-import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
+import { RemoveSetRunButton } from '@/components/features/replays/set/RemoveSetRunButton';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
@@ -9,18 +8,12 @@ import {
 } from '@/components/shared/nested-table/nested-rows';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { Button } from '@/components/ui/button';
-import { useRemoveReplaySetEntry } from '@/hooks/api/useRemoveReplaySetEntry';
 import {
   formatTitle,
   type ReplayedStation,
   type ReplaySetEntry,
 } from '@/lib/replay';
-import {
-  formatReplayable,
-  formatRunState,
-  RUNS_FROZEN_BY_SEARCH,
-} from '@/lib/replay-words';
+import { formatReplayable, formatRunState } from '@/lib/replay-words';
 import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
@@ -33,7 +26,6 @@ type SetRunRowProps = {
 };
 
 export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
-  const remove = useRemoveReplaySetEntry();
   const title = formatTitle(entry.title);
 
   return (
@@ -61,24 +53,13 @@ export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
         {entry.endedAt ? since(entry.endedAt) : '–'}
       </NestedCell>
       <span className="relative z-10 flex h-4 items-center justify-end">
-        <DisabledReasonTooltip reason={frozen ? RUNS_FROZEN_BY_SEARCH : null}>
-          {(describedBy) => (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="opacity-0 focus-visible:opacity-100 group-hover/run:opacity-100"
-              aria-label={`Take ${title} out of the set`}
-              aria-describedby={describedBy}
-              disabled={remove.isPending || frozen}
-              onClick={() =>
-                remove.mutate({ teamId: at.teamId, setId, runId: entry.runId })
-              }
-            >
-              <X aria-hidden />
-            </Button>
-          )}
-        </DisabledReasonTooltip>
+        <RemoveSetRunButton
+          at={at}
+          setId={setId}
+          runId={entry.runId}
+          title={title}
+          frozen={frozen}
+        />
       </span>
     </li>
   );

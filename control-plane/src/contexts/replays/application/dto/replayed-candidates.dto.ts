@@ -107,9 +107,7 @@ export type ReplayedShownDto = ShownOverLive<RateIntervalDto>;
 
 export interface ReplayedSetDto {
   readonly setId: string;
-  readonly name: string;
   readonly stationGone: boolean;
-  readonly gatesChanges: boolean;
   readonly health: ReplaySetHealthDto;
   readonly baseline: ReplayedBaselineDto | null;
   readonly chartCurrency: string | null;

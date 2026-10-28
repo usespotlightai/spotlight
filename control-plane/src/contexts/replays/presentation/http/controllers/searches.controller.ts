@@ -79,7 +79,7 @@ const PAGE = 50;
 
 const LONGEST_PAGE = 200;
 
-const SET_PROBLEM = 'Replay set must be one of the station’s replay sets.';
+const SET_PROBLEM = 'Replay set must be the replay set of the station.';
 
 interface Answerable {
   status(code: number): unknown;
@@ -168,9 +168,9 @@ export class SearchesController {
   @ApiOperation({
     operationId: 'startSearch',
     summary:
-      'Start a search for a better config of the station, over one of its replay sets, within a budget',
+      'Start a search for a better config of the station, over the replay set that Spotlight keeps for it, within a budget',
     description:
-      'It holds out about 30% of the set’s tasks, replays the live config over the whole set, then runs its agent once per iteration to propose candidates, each replayed on the tasks it did not hold out. The best are replayed on the held-out tasks once it stops searching. The set cannot change while it runs, and a station is searched once at a time.',
+      'It holds out about 30% of the set’s tasks, replays the live config over the whole set, then runs its agent once per iteration to propose candidates, each replayed on the tasks it did not hold out. The best are replayed on the held-out tasks once it stops searching. Spotlight refreshes the set before the search starts. The set does not change while the search runs. A station has one search at a time.',
   })
   @ApiParam({ name: 'lineId', type: String })
   @ApiParam({ name: 'stationId', type: String })

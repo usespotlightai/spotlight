@@ -1668,14 +1668,6 @@ export class ReplayOfRunResponseDto {
   @ApiProperty()
   readonly setId: string;
 
-  @ApiProperty({
-    nullable: true,
-    type: String,
-    example: 'Queue fixes',
-    description: 'Its set’s name; null once the set is gone',
-  })
-  readonly setName: string | null;
-
   @ApiProperty()
   readonly lineId: string;
 
@@ -1711,7 +1703,6 @@ export class ReplayOfRunResponseDto {
   constructor(found: ReplayOfRunDto) {
     this.replayId = found.replayId;
     this.setId = found.setId;
-    this.setName = found.setName;
     this.lineId = found.lineId;
     this.stationId = found.stationId;
     this.candidate = found.candidate

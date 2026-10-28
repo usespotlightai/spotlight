@@ -105,26 +105,16 @@ export class Work implements WorkPort {
     return station ? stationOf(station) : null;
   }
 
-  async keyed(lineId: string, key: string): Promise<StationView | null> {
-    const station = await this.candidates.keyed(lineId, key);
+  async findStation(stationId: string): Promise<StationView | null> {
+    const station = await this.candidates.findStation(stationId);
 
     return station ? stationOf(station) : null;
   }
 
-  async replayable(
-    workspaceId: WorkspaceId,
-    runs: readonly RunId[],
-  ): Promise<readonly RunReplayability[]> {
-    if (runs.length === 0) {
-      return [];
-    }
+  async keyed(lineId: string, key: string): Promise<StationView | null> {
+    const station = await this.candidates.keyed(lineId, key);
 
-    return (
-      await this.runs.check(
-        workspaceId.value,
-        runs.map((each) => each.value),
-      )
-    ).map(replayabilityOf);
+    return station ? stationOf(station) : null;
   }
 
   async runSummaries(

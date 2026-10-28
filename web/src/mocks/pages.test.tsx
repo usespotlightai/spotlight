@@ -18,8 +18,6 @@ vi.mock('@/hooks/api/useSession', async () => ({
 const EMPTY =
   /^(No [a-z’' ]+ (yet|match)|Nobody has|Nothing (here|to show|needs attention))|could not be loaded|couldn’t be loaded|not found|no longer here/i;
 
-const NOT_REPLAYED_YET = 'set_docs';
-
 const workspace = `/w/${SLUG}`;
 
 const teamPages = (teamId: string): string[] => {
@@ -49,7 +47,7 @@ const teamPages = (teamId: string): string[] => {
       ]),
     ]),
     ...setStore()
-      .filter((set) => set.id !== NOT_REPLAYED_YET && onTeam(set.lineId))
+      .filter((set) => onTeam(set.lineId))
       .map(
         (set) => `${station(set.lineId, set.stationId)}/replay-sets/${set.id}`,
       ),

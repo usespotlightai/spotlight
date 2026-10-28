@@ -40,7 +40,6 @@ import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/value-objects/replay-entry.v
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
-import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-detail.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -130,15 +129,20 @@ describe('Replay', () => {
       const set = ReplaySet.create({
         id: ReplaySetId.of('set_2'),
         station: elsewhere,
-        name: ReplaySetName.of('Ship'),
         at: NOW,
-      }).withEntry(
+      }).refresh(
         {
-          runId: RunId.of('original_0'),
-          taskId: TaskId.of('task_0'),
-          stationId: 'station_ship',
-          unreplayableReason: null,
-          reason: null,
+          add: [
+            {
+              runId: RunId.of('original_0'),
+              taskId: TaskId.of('task_0'),
+              stationId: 'station_ship',
+              unreplayableReason: null,
+              reason: null,
+              endedAt: NOW,
+            },
+          ],
+          remove: [],
         },
         NOW,
         false,

@@ -17,7 +17,6 @@ export const CONFIGURED_RESOURCES = [
   'workspace-runners',
   'replay-candidate',
   'replay',
-  'replay-set',
   'replay-search',
   'replay-check',
   'config-pull-request',

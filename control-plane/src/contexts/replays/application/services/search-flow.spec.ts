@@ -35,6 +35,7 @@ import {
   PERSON,
   peopleWho,
   QUIET,
+  refreshingFor,
   snapshotsFor,
   stationsFor,
   TRANSACTION,
@@ -80,6 +81,7 @@ import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -117,6 +119,7 @@ const starting = (mayPlan = true) =>
     TRANSACTION,
     stationsFor(memory, work),
     healthsFor(),
+    refreshingFor(memory, work),
   );
 
 const start = async (
@@ -368,6 +371,34 @@ beforeEach(async () => {
 });
 
 describe('StartSearchHandler', () => {
+  it('refreshes the set before it reads it, so the search covers the newest run', async () => {
+    work.recent = [
+      {
+        runId: RunId.of('run_new'),
+        taskId: TaskId.of('task_new'),
+        stationId: STATION.stationId,
+        unreplayableReason: null,
+        reason: null,
+        title: 'Newest',
+        state: 'completed',
+        endedAt: NOW,
+        origin: null,
+      },
+    ];
+
+    const started = await start();
+
+    if (started.outcome !== 'started') {
+      throw new Error('the search did not start');
+    }
+
+    expect(
+      memory.replays
+        .get(started.seedReplayId)
+        ?.originals.map((each) => each.value),
+    ).toContain('run_new');
+  });
+
   it('replays the live config over the whole set first, in the search’s own pool, within its share of the ceiling', async () => {
     const started = await start();
 

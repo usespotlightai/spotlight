@@ -12,38 +12,35 @@ import {
   problemsOf,
   type SearchField,
   searchPath,
+  setProblemOf,
 } from '@/lib/search';
 import {
   estimateProblemOf,
   FIRST_BUDGET,
-  firstStartable,
   harnessOf,
-  NO_SET_CHOSEN,
   objectiveOf,
   objectiveSuggestionOf,
   saturatedRateOf,
-  saturationOf,
   searchProblemOf,
 } from '@/lib/search-start';
 import type { SearchObjective } from '@/lib/search-words';
 
 type StartSearchFormOptions = {
   at: ReplayedStation;
-  sets: readonly ReplaySet[];
+  set: ReplaySet;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
 export function useStartSearchForm({
   at,
-  sets,
+  set,
   open,
   onOpenChange,
 }: StartSearchFormOptions) {
   const start = useStartSearch();
   const followStarted = useFollowStarted(onOpenChange);
   const { data: harnesses } = useHarnesses();
-  const [chosenSet, setChosenSet] = useState('');
   const [inputs, setInputs] = useState(FIRST_BUDGET);
   const [chosenHarness, setChosenHarness] = useState('');
   const [model, setModel] = useState('');
@@ -52,7 +49,7 @@ export function useStartSearchForm({
     useState<SearchObjective | null>(null);
   const [tried, setTried] = useState(false);
 
-  const setId = chosenSet || firstStartable(sets);
+  const setId = set.id;
   const harness = harnessOf(harnesses, chosenHarness);
   const { budget, problems } = budgetFrom(inputs);
   const { debounced, estimate } = useDebouncedSearchEstimate(
@@ -64,7 +61,7 @@ export function useStartSearchForm({
   const estimateProblems = problemsOf(estimate.error);
   const startProblems = problemsOf(start.error);
   const suggested = estimate.isError ? null : (estimate.data ?? null);
-  const saturation = saturationOf(sets, setId);
+  const saturation = set.health.saturation;
   const requestedObjective = chosenObjective ?? suggested?.objective ?? null;
 
   const shown = (field: SearchField): string | null =>
@@ -88,7 +85,6 @@ export function useStartSearchForm({
   }, start.reset);
 
   const reset = () => {
-    setChosenSet('');
     setInputs(FIRST_BUDGET);
     setChosenHarness('');
     setModel('');
@@ -102,7 +98,7 @@ export function useStartSearchForm({
     event.preventDefault();
     setTried(true);
 
-    if (!setId || !budget || !harness || start.isPending) {
+    if (!budget || !harness || start.isPending) {
       return;
     }
 
@@ -135,13 +131,12 @@ export function useStartSearchForm({
     suggested,
     pending: start.isPending,
     shown,
-    setProblem: shown('set') ?? (tried && !setId ? NO_SET_CHOSEN : null),
+    setProblem: shown('set') ?? setProblemOf(set),
     estimateProblem: estimateProblemOf(
       estimate.isError,
       estimateProblems.general,
     ),
     change,
-    chooseSet: andReset(setChosenSet, start.reset),
     chooseObjective: andReset(setChosenObjective, start.reset),
     chooseHarness,
     chooseModel: andReset(setModel, start.reset),

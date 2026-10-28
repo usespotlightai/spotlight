@@ -189,6 +189,12 @@ export interface StoredHeldOutReplay {
   readonly replay: StoredSearchReplay;
 }
 
+export interface StoredSetRefresh {
+  readonly at: string;
+  readonly added: readonly string[];
+  readonly removed: readonly string[];
+}
+
 export const replaySet = pgTable(
   'replay_set',
   {
@@ -197,19 +203,18 @@ export const replaySet = pgTable(
     teamId: text('team_id').notNull(),
     lineId: text('line_id').notNull(),
     stationId: text('station_id').notNull(),
-    name: text('name').notNull(),
-    gatesChanges: boolean('gates_changes').notNull().default(false),
+    removedTasks: jsonb('removed_tasks').$type<string[]>().notNull(),
     createdAt: timestamp('created_at').notNull(),
+    refreshedAt: timestamp('refreshed_at'),
+    lastRefresh: jsonb('last_refresh').$type<StoredSetRefresh>(),
     stationGoneAt: timestamp('station_gone_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
-    index('replay_set_station_idx').on(table.stationId),
+    uniqueIndex('replay_set_station_idx').on(table.stationId),
     index('replay_set_team_idx').on(table.teamId),
     index('replay_set_line_idx').on(table.lineId),
-    uniqueIndex('replay_set_gates_changes_idx')
-      .on(table.stationId)
-      .where(sql`${table.gatesChanges}`),
+    index('replay_set_refreshed_at_idx').on(table.refreshedAt),
   ],
 );
 
@@ -221,6 +226,7 @@ export const replaySetEntry = pgTable(
       .references(() => replaySet.id, { onDelete: 'cascade' }),
     runId: text('run_id').notNull(),
     taskId: text('task_id').notNull(),
+    endedAt: timestamp('ended_at').notNull(),
     addedAt: timestamp('added_at').notNull(),
   },
   (table) => [primaryKey({ columns: [table.setId, table.runId] })],

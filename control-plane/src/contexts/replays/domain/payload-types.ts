@@ -21,7 +21,6 @@ import { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudgin
 import { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
 import { ReplaySetDeletionRequested } from '@replays/domain/events/replay-set-deletion-requested.event';
 import { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
-import { ReplaySetGateChanged } from '@replays/domain/events/replay-set-gate-changed.event';
 import { ReplaySetStationCheckRequested } from '@replays/domain/events/replay-set-station-check-requested.event';
 import { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
 import { ReplaySideBySideJudgingRequested } from '@replays/domain/events/replay-side-by-side-judging-requested.event';
@@ -42,7 +41,6 @@ import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidatePath } from '@replays/domain/value-objects/candidate-path.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
-import { ChangesGateDetail } from '@replays/domain/value-objects/changes-gate-detail.vo';
 import { ConfigPullRequestDetail } from '@replays/domain/value-objects/config-pull-request-detail.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
@@ -67,7 +65,6 @@ import { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
-import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-detail.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
@@ -105,7 +102,6 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ReplayId,
   ReplaySetEntry,
   ReplaySetId,
-  ReplaySetName,
   ReplayStartDetail,
   RunEnd,
   Money,
@@ -161,8 +157,6 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ReplayCheckDeletionRequested,
   StationHashes,
   PlannedLine,
-  ChangesGateDetail,
-  ReplaySetGateChanged,
   ConfigPullRequestId,
   ConfigPullRequestDetail,
   ConfigPullRequestReason,

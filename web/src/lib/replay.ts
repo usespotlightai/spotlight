@@ -5,7 +5,6 @@ import type {
   GainEstimateResponseDto,
   MoneyResponseDto,
   RateIntervalResponseDto,
-  ReplayableRunResponseDto,
   ReplayCandidateResourceResponseDto,
   ReplayDetailResponseDto,
   ReplayEntryResponseDto,
@@ -16,8 +15,8 @@ import type {
   ReplaySetResponseDto,
   SetCompositionResponseDto,
   SetNoiseResponseDto,
-  SuggestedRunResponseDto,
 } from '@/lib/api';
+import { messageOf, notFound } from '@/lib/error';
 import { formatShortDuration, spentIn } from '@/lib/inbox';
 import { formatClaimsMet, formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
@@ -40,8 +39,6 @@ import type { TooltipNote } from '@/lib/tooltip-note';
 
 export type ReplaySet = ReplaySetResponseDto;
 export type ReplaySetEntry = ReplaySetEntryResponseDto;
-export type ReplayableRun = ReplayableRunResponseDto;
-export type SuggestedRun = SuggestedRunResponseDto;
 export type SetComposition = SetCompositionResponseDto;
 export type Replay = ReplayResponseDto;
 export type ReplayDetail = ReplayDetailResponseDto;
@@ -65,11 +62,16 @@ export type ReplayedStation = {
 
 export const LIVE = 'live';
 
+const NO_REPLAY_SET_YET = 'has no replay set yet.';
+
+export const noReplaySetYet = (thrown: unknown): boolean =>
+  notFound(thrown) && messageOf(thrown, '').endsWith(NO_REPLAY_SET_YET);
+
 export const REPLAYS_ANCHOR = 'replays';
 
 export const REPLAY_SETS_NOTE: TooltipNote = {
   title: 'What is a replay set?',
-  body: 'A collection of past runs that can be rerun with a candidate configuration to measure improvements and detect regressions.',
+  body: 'Past runs of the station that Spotlight keeps and refreshes. Spotlight reruns them with a candidate config to measure improvements and find regressions.',
 };
 
 const MAX_CEILING = 1_000;
@@ -108,7 +110,7 @@ export const startProblem = (set: ReplaySet): string | null => {
     return STATION_GONE_FROM_LINE;
   }
   if (set.entries.length === 0) {
-    return 'Please add runs to the set first.';
+    return 'The set has no runs yet. Spotlight adds runs of the station when it refreshes the set.';
   }
 
   return null;

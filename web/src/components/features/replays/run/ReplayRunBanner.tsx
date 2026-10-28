@@ -72,7 +72,7 @@ export function ReplayRunBanner({ slug, teamId, run }: ReplayRunBannerProps) {
               )}
               className={LINK}
             >
-              {of.setName ? `a replay of ${of.setName}` : 'its replay'}
+              its replay
             </TrailLink>
           </p>
         </div>

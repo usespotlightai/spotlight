@@ -119,32 +119,29 @@ export interface SetHealthDto {
   readonly oracle: OracleReadingDto | null;
 }
 
+export interface RefreshedRunDto {
+  readonly runId: string;
+  readonly title: string | null;
+}
+
+export interface SetRefreshDto {
+  readonly at: string;
+  readonly added: readonly RefreshedRunDto[];
+  readonly removed: readonly RefreshedRunDto[];
+}
+
 export interface ReplaySetDto {
   readonly id: string;
   readonly lineId: string;
   readonly stationId: string;
-  readonly name: string;
   readonly createdAt: string;
+  readonly refreshedAt: string | null;
+  readonly lastRefresh: SetRefreshDto | null;
   readonly stationGone: boolean;
-  readonly gatesChanges: boolean;
   readonly health: SetHealthDto;
   readonly minGain: number;
   readonly composition: SetCompositionDto;
   readonly entries: readonly ReplaySetEntryDto[];
-}
-
-export interface ReplayableRunDto {
-  readonly runId: string;
-  readonly taskId: string | null;
-  readonly title: string;
-  readonly state: string;
-  readonly endedAt: string;
-  readonly unreplayableReason: string | null;
-  readonly reason: string | null;
-}
-
-export interface SuggestedRunDto extends ReplayableRunDto {
-  readonly outcome: OriginalOutcome;
 }
 
 export interface MoneyDto {
@@ -366,7 +363,6 @@ export interface ReplayDetailDto extends ReplayDto {
 export interface ReplayOfRunDto {
   readonly replayId: string;
   readonly setId: string;
-  readonly setName: string | null;
   readonly lineId: string;
   readonly stationId: string;
   readonly candidate: CandidateDto | null;

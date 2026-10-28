@@ -37,9 +37,10 @@ import {
 import type { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-detail.vo';
-import type {
-  ReplayState,
-  ReplayStopReason,
+import {
+  DISPATCHING_REPLAY_STATES,
+  type ReplayState,
+  type ReplayStopReason,
 } from '@replays/domain/value-objects/replay-state';
 import type { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -90,8 +91,6 @@ interface State {
   readonly stoppedAt: Date | null;
   readonly version: number;
 }
-
-const DISPATCHING: readonly ReplayState[] = ['queued', 'running'];
 
 const STOPPED_BEFORE_JUDGING = 'stopped-before-judging';
 
@@ -778,7 +777,7 @@ export class Replay extends EventRecorder {
   }
 
   get isDispatching(): boolean {
-    return DISPATCHING.includes(this.state.state);
+    return DISPATCHING_REPLAY_STATES.includes(this.state.state);
   }
 
   get isInProgress(): boolean {

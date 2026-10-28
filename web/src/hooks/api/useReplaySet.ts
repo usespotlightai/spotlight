@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { listReplaySets, listTeamReplaySets } from '@/lib/api';
-import type { ReplaySet } from '@/lib/replay';
+import { listTeamReplaySets, readReplaySet } from '@/lib/api';
+import { noReplaySetYet, type ReplaySet } from '@/lib/replay';
 
 export const replaySetKeys = {
   all: ['replay-sets'] as const,
@@ -10,7 +10,7 @@ export const replaySetKeys = {
     ['replay-sets', 'team', teamId ?? null] as const,
 };
 
-export function useReplaySets(
+export function useReplaySet(
   teamId: string | undefined,
   lineId: string | undefined,
   stationId: string | undefined,
@@ -18,15 +18,21 @@ export function useReplaySets(
   return useQuery({
     queryKey: replaySetKeys.forStation(stationId),
     enabled: Boolean(teamId && lineId && stationId),
-    queryFn: async (): Promise<ReplaySet[]> => {
-      const { data } = await listReplaySets({
+    queryFn: async (): Promise<ReplaySet | null> => {
+      const { data, error } = await readReplaySet({
         path: {
           teamId: teamId as string,
           lineId: lineId as string,
           stationId: stationId as string,
         },
-        throwOnError: true,
       });
+
+      if (noReplaySetYet(error)) {
+        return null;
+      }
+      if (error || !data) {
+        throw error;
+      }
       return data;
     },
   });

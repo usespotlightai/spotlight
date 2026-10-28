@@ -4,7 +4,7 @@ import { ReplaySkeleton } from '@/components/features/replays/replay/ReplaySkele
 import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnlyOrCouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { useReplay } from '@/hooks/api/useReplay';
-import { useTeamReplaySets } from '@/hooks/api/useReplaySets';
+import { useTeamReplaySets } from '@/hooks/api/useReplaySet';
 import { useStation } from '@/hooks/api/useStation';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { notFound } from '@/lib/error';
@@ -65,7 +65,6 @@ export function Replay() {
       line={line}
       station={station}
       replay={found}
-      set={set}
       trail={trail}
       forward={forward}
     />

@@ -3,14 +3,15 @@ import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
-import { ChangesGatedElsewhereError } from '@replays/domain/exceptions/changes-gated-elsewhere.error';
 import { ReplaySetVersionConflictError } from '@replays/domain/exceptions/replay-set-version-conflict.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
 import { SearchInProgressError } from '@replays/domain/exceptions/search-in-progress.error';
 import { SearchVersionConflictError } from '@replays/domain/exceptions/search-version-conflict.error';
+import { StationHasReplaySetError } from '@replays/domain/exceptions/station-has-replay-set.error';
 import {
   AT,
   aBudget,
+  aCheck,
   aSearch,
   aSet,
   BY,
@@ -26,6 +27,7 @@ import {
   searchRunIds,
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
+import { refreshCutoff } from '@replays/domain/services/kept-set-refresh';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
@@ -34,12 +36,12 @@ import { Money } from '@replays/domain/value-objects/money.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
-import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/drizzle/repositories/candidate.repository';
 import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
+import { DrizzleReplayCheckRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-check.repository';
 import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
 import { DrizzleSearchRepository } from '@replays/infrastructure/persistence/drizzle/repositories/search.repository';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -52,6 +54,7 @@ let searches: DrizzleSearchRepository;
 let sets: DrizzleReplaySetRepository;
 let candidates: DrizzleCandidateRepository;
 let replays: DrizzleReplayRepository;
+let checks: DrizzleReplayCheckRepository;
 const dispatched: DomainEvent[] = [];
 
 beforeAll(async () => {
@@ -67,6 +70,7 @@ beforeAll(async () => {
   sets = new DrizzleReplaySetRepository(context, dispatcher);
   candidates = new DrizzleCandidateRepository(context, dispatcher);
   replays = new DrizzleReplayRepository(context, dispatcher);
+  checks = new DrizzleReplayCheckRepository(context, dispatcher);
 });
 
 afterAll(async () => {
@@ -76,40 +80,20 @@ afterAll(async () => {
 beforeEach(async () => {
   dispatched.length = 0;
   await database.db.execute(
-    'truncate replay_search, replay_set, replay_candidate, replay cascade',
+    'truncate replay_search, replay_set, replay_candidate, replay, replay_check cascade',
   );
 });
 
 const SEED = ReplayId.of('replay_seed');
 
+const DAY_MS = 24 * 60 * 60 * 1_000;
+
 const usd = (amount: number) => Money.of(amount, 'USD');
 
 const charged = (amount: number) => ({ spent: usd(amount), unpriced: 0 });
 
-const searchAt = (id: string): Search => {
-  const set = ReplaySet.create({
-    id: ReplaySetId.of(`set_of_${id}`),
-    station: STATION,
-    name: ReplaySetName.of('Searched'),
-    at: NOW,
-  });
-  const filled = aSet(10).entries.reduce(
-    (each, entry) =>
-      each.withEntry(
-        {
-          runId: entry.runId,
-          taskId: entry.taskId,
-          stationId: STATION.stationId,
-          unreplayableReason: null,
-          reason: null,
-        },
-        NOW,
-        false,
-      ),
-    set,
-  );
-  return aSearch({ id, set: filled });
-};
+const searchAt = (id: string): Search =>
+  aSearch({ id, set: aSet(10, `set_of_${id}`) });
 
 const travelled = (search: Search): Search => {
   const runs = searchRunIds();
@@ -403,29 +387,138 @@ describe('replays, candidates and sets a search stores', () => {
 
     expect((await sets.find(set.id))?.version).toBe(1);
     await expect(
-      sets.save(stale.withoutEntry(RunId.of('original_0'), false)),
+      sets.save(stale.removeEntry(RunId.of('original_0'), false)),
     ).rejects.toThrow(ReplaySetVersionConflictError);
   });
 
-  it('stores which set gates a station’s changes, one per station', async () => {
-    const first = aSet(1);
-    const second = ReplaySet.create({
-      id: ReplaySetId.of('set_2'),
+  it('stores the one set kept per station, the tasks a person removed and its last refresh, and finds it due for a refresh', async () => {
+    const kept = ReplaySet.create({
+      id: ReplaySetId.of('set_1'),
       station: STATION,
-      name: ReplaySetName.of('Other'),
       at: NOW,
     });
 
-    await sets.add(first);
-    await sets.add(second);
-    await sets.save(first.gatingChanges([first, second], BY));
+    await sets.add(kept);
+    await expect(
+      sets.add(
+        ReplaySet.create({
+          id: ReplaySetId.of('set_2'),
+          station: STATION,
+          at: NOW,
+        }),
+      ),
+    ).rejects.toThrow(StationHasReplaySetError);
+    expect(
+      (await sets.dueForRefresh(refreshCutoff(NOW), 10)).map(
+        (each) => each.id.value,
+      ),
+    ).toEqual(['set_1']);
 
-    expect((await sets.find(first.id))?.gatesChanges).toBe(true);
-
-    const stale = (await sets.find(second.id)) as ReplaySet;
-
-    await expect(sets.save(stale.gatingChanges([], BY))).rejects.toThrow(
-      ChangesGatedElsewhereError,
+    await sets.save(
+      kept.refresh(
+        {
+          add: aSet(2).entries.map((each) => ({
+            runId: each.runId,
+            taskId: each.taskId,
+            stationId: STATION.stationId,
+            unreplayableReason: null,
+            reason: null,
+            endedAt: NOW,
+          })),
+          remove: [],
+        },
+        NOW,
+        false,
+      ),
     );
+    await sets.save(
+      ((await sets.locked(kept.id)) as ReplaySet).removeEntry(
+        RunId.of('original_0'),
+        false,
+      ),
+    );
+
+    const found = (await sets.ofStation(STATION.stationId)) as ReplaySet;
+
+    expect(found.runs.map((each) => each.value)).toEqual(['original_1']);
+    expect(found.removedTasks.map((each) => each.value)).toEqual(['task_0']);
+    expect(found.refreshedAt).toEqual(NOW);
+    expect(found.lastRefresh?.at).toEqual(NOW);
+    expect(found.lastRefresh?.added.map((each) => each.value)).toEqual([
+      'original_0',
+      'original_1',
+    ]);
+    expect(await sets.dueForRefresh(refreshCutoff(NOW), 10)).toEqual([]);
+    expect(
+      (await sets.dueForRefresh(refreshCutoff(later(DAY_MS + 1)), 10)).map(
+        (each) => each.id.value,
+      ),
+    ).toEqual(['set_1']);
+  });
+
+  it('finds sets due the longest first, never refreshed before all, so none starves', async () => {
+    const atStation = (id: string) =>
+      ReplaySet.create({
+        id: ReplaySetId.of(id),
+        station: { ...STATION, stationId: `station_${id}` },
+        at: NOW,
+      });
+
+    for (const [id, daysAgo] of [
+      ['set_c', 3],
+      ['set_a', null],
+      ['set_d', 9],
+      ['set_b', null],
+    ] as const) {
+      const created = atStation(id);
+      await sets.add(created);
+      if (daysAgo !== null) {
+        await sets.save(
+          created.refresh(
+            { add: [], remove: [] },
+            new Date(NOW.getTime() - daysAgo * DAY_MS),
+            false,
+          ),
+        );
+      }
+    }
+
+    const due = async (limit: number) =>
+      (await sets.dueForRefresh(refreshCutoff(NOW), limit)).map(
+        (each) => each.id.value,
+      );
+
+    expect(await due(2)).toEqual(['set_a', 'set_b']);
+    expect(await due(10)).toEqual(['set_a', 'set_b', 'set_d', 'set_c']);
+  });
+
+  it('finds no set due while a search, a replay or a check waiting for its baseline uses it', async () => {
+    const used = aSet(10);
+    const free = ReplaySet.create({
+      id: ReplaySetId.of('set_free'),
+      station: { ...STATION, stationId: 'station_free' },
+      at: NOW,
+    });
+    const due = async () =>
+      (await sets.dueForRefresh(refreshCutoff(later(2 * DAY_MS)), 10)).map(
+        (each) => each.id.value,
+      );
+
+    await sets.add(used);
+    await sets.add(free);
+    expect(await due()).toEqual(['set_free', 'set_1']);
+
+    await searches.add(aSearch({ set: used }));
+    expect(await due()).toEqual(['set_free']);
+    await database.db.execute('truncate replay_search cascade');
+
+    await replays.add(
+      replayFor(used, 'replay_running', 'candidate_live', null, true, 1, null),
+    );
+    expect(await due()).toEqual(['set_free']);
+    await database.db.execute('truncate replay cascade');
+
+    await checks.add(aCheck(used.id));
+    expect(await due()).toEqual(['set_free']);
   });
 });

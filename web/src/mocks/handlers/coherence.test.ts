@@ -3,7 +3,6 @@ import {
   listInbox,
   listInsightsPullRequests,
   listInsightsTraces,
-  listReplaySets,
   listReplays,
   listRunChangeStacks,
   listSearches,
@@ -11,6 +10,7 @@ import {
   listTeamRuns,
   readInsightsStations,
   readReplay,
+  readReplaySet,
   readRunMemories,
   readRunNotes,
   readRunReview,
@@ -344,8 +344,6 @@ describe('the task journal and the run conversations tell one story', () => {
   });
 });
 
-const NOT_REPLAYED_YET = 'set_docs';
-
 const agentStations = () =>
   Object.entries(world().lines).flatMap(([teamId, lines]) =>
     lines.flatMap((line) =>
@@ -360,7 +358,8 @@ describe('every agent station improves on its own runs', () => {
 
   it('has replay sets of runs that ended at the station before they were added', async () => {
     for (const path of agentStations()) {
-      const { data: sets } = await listReplaySets({ path, throwOnError: true });
+      const { data: set } = await readReplaySet({ path, throwOnError: true });
+      const sets = [set];
       const { data: outcomes } = await readStationInsights({
         path,
         query: { last: 200 },
@@ -372,7 +371,6 @@ describe('every agent station improves on its own runs', () => {
         ),
       );
 
-      expect(sets.length, path.stationId).toBeGreaterThan(0);
       for (const set of sets) {
         expect(set.entries.length, set.id).toBeGreaterThanOrEqual(2);
         for (const entry of set.entries) {
@@ -391,9 +389,10 @@ describe('every agent station improves on its own runs', () => {
 
   it('replays each set on its own runs, after they ended, against a finished baseline', async () => {
     for (const path of agentStations()) {
-      const { data: sets } = await listReplaySets({ path, throwOnError: true });
+      const { data: set } = await readReplaySet({ path, throwOnError: true });
+      const sets = [set];
 
-      for (const set of sets.filter((each) => each.id !== NOT_REPLAYED_YET)) {
+      for (const set of sets) {
         const { data: replays } = await listReplays({
           path: { teamId: path.teamId, setId: set.id },
           throwOnError: true,
@@ -422,7 +421,8 @@ describe('every agent station improves on its own runs', () => {
 
   it('searches on the station’s sets, splitting their runs and replaying every candidate', async () => {
     for (const path of agentStations()) {
-      const { data: sets } = await listReplaySets({ path, throwOnError: true });
+      const { data: set } = await readReplaySet({ path, throwOnError: true });
+      const sets = [set];
       const { data: searches } = await listSearches({
         path,
         throwOnError: true,

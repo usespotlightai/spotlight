@@ -1,6 +1,5 @@
 import { useParams } from 'react-router';
 import { SetHealth } from '@/components/features/replays/set/health/SetHealth';
-import { ReplaySetActions } from '@/components/features/replays/set/ReplaySetActions';
 import { ReplaySetHeading } from '@/components/features/replays/set/ReplaySetHeading';
 import { ReplaySetSkeleton } from '@/components/features/replays/set/ReplaySetSkeleton';
 import { SetChecks } from '@/components/features/replays/set/SetChecks';
@@ -14,13 +13,12 @@ import {
   Breadcrumbs,
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-import { useTeamReplaySets } from '@/hooks/api/useReplaySets';
+import { useReplaySet } from '@/hooks/api/useReplaySet';
 import { useReplays } from '@/hooks/api/useReplays';
 import { useSearches } from '@/hooks/api/useSearches';
 import { useStation } from '@/hooks/api/useStation';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { failed, loading } from '@/lib/query';
-import { anyInProgress, replaysAnchorPath } from '@/lib/replay';
 import { replayedStationOf } from '@/lib/replayed-station';
 import { ongoing } from '@/lib/search';
 import { setCrumbs } from '@/lib/station-crumbs';
@@ -29,17 +27,12 @@ import { TrailContext, useTrail } from '@/lib/trail';
 export function ReplaySet() {
   const { slug, teamId, lineId, stationId, setId } = useParams();
   const stationTrail = useStationTrail({ slug, teamId, lineId, stationId });
-  const sets = useTeamReplaySets(teamId);
+  const kept = useReplaySet(teamId, lineId, stationId);
   const replays = useReplays(teamId, setId);
   const { line, station } = useStation(teamId, lineId, stationId);
   const searches = useSearches(teamId, lineId, stationId);
 
-  const set = sets.data?.find(
-    (candidate) =>
-      candidate.id === setId &&
-      candidate.lineId === lineId &&
-      candidate.stationId === stationId,
-  );
+  const set = kept.data && kept.data.id === setId ? kept.data : undefined;
   const at = replayedStationOf({ slug, teamId, lineId, stationId });
 
   const searching = Boolean(
@@ -52,17 +45,17 @@ export function ReplaySet() {
   const base: BreadcrumbSegment[] = [...stationTrail, ...setCrumbs(at, set)];
   const { trail, forward } = useTrail(base);
 
-  if (loading(sets)) {
+  if (loading(kept)) {
     return <ReplaySetSkeleton known={trail} />;
   }
 
-  if (failed(sets)) {
+  if (failed(kept)) {
     return (
       <PageNotice>
         <MembersOnlyOrCouldNotLoad
           membersOnly="Only team members can see its replays"
           what="The replay set"
-          query={sets}
+          query={kept}
         />
       </PageNotice>
     );
@@ -72,8 +65,7 @@ export function ReplaySet() {
     return (
       <PageNotice title="Replay set not found">
         <p className="text-muted-foreground text-sm">
-          This team has no replay set at that address. Someone may have deleted
-          it.
+          This team has no replay set at that address.
         </p>
       </PageNotice>
     );
@@ -81,18 +73,7 @@ export function ReplaySet() {
 
   return (
     <TrailContext value={forward}>
-      <PageHeader
-        title={<Breadcrumbs segments={trail} />}
-        bordered={false}
-        actions={
-          <ReplaySetActions
-            teamId={at.teamId}
-            set={set}
-            running={anyInProgress(replays.data ?? []) || searching}
-            deletedTo={replaysAnchorPath(at)}
-          />
-        }
-      />
+      <PageHeader title={<Breadcrumbs segments={trail} />} bordered={false} />
 
       <ReplaySetHeading set={set} line={line} station={station} />
 

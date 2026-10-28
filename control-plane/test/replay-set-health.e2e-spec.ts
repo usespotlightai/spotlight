@@ -39,6 +39,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { keptSet } from './support/kept-sets';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -320,22 +321,12 @@ const anOriginal = async (): Promise<Original> => {
   return { taskId, runId };
 };
 
-const createSet = async (name: string, originals: readonly Original[]) => {
-  const created = await owner()
-    .post(`${stationPath()}/replay-sets`, { name })
-    .expect(201);
-  const setId = created.body.id as string;
-
-  for (const each of originals) {
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-        runId: each.runId,
-      })
-      .expect(204);
-  }
-
-  return setId;
-};
+const createSet = (originals: readonly Original[]) =>
+  keptSet(
+    app,
+    { workspaceId: team.workspaceId.value, stationId: BUILD },
+    originals.map((each) => each.runId),
+  );
 
 interface Claimed {
   readonly token: string;
@@ -575,8 +566,9 @@ interface SetRead {
 }
 
 const setOf = async (setId: string): Promise<SetRead> => {
-  const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
-    .body as SetRead[];
+  const sets = [
+    (await owner().get(`${stationPath()}/replay-set`).expect(200)).body,
+  ] as SetRead[];
   const found = sets.find((each) => each.id === setId);
 
   if (!found) {
@@ -703,7 +695,7 @@ beforeAll(async () => {
   for (let made = 0; made < 5; made += 1) {
     originals.push(await anOriginal());
   }
-  setId = await createSet('Calibrated', originals);
+  setId = await createSet(originals);
 }, 60_000);
 
 afterAll(async () => {

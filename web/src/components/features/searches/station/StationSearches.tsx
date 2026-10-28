@@ -5,7 +5,7 @@ import { useSearchStart } from '@/hooks/useSearchStart';
 import type { ReplayedStation } from '@/lib/replay';
 
 export function StationSearches({ at }: { at: ReplayedStation }) {
-  const { searches, sets } = useSearchStart(at);
+  const { searches, kept } = useSearchStart(at);
   const start = <StartSearchControl at={at} />;
 
   return (
@@ -13,7 +13,7 @@ export function StationSearches({ at }: { at: ReplayedStation }) {
       <StationSearchList
         at={at}
         searches={searches}
-        sets={sets.data}
+        set={kept.data}
         start={start}
       />
       {(searches.data ?? []).length > 0 && <PanelActions>{start}</PanelActions>}

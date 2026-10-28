@@ -12,6 +12,7 @@ import type {
   CancelledRun,
   LeasedSearchRun,
   OracleAnswerInput,
+  PickableRun,
   ReplayRunOrder,
   ReplayRunQueued,
   RunReplayability,
@@ -24,11 +25,14 @@ import type {
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
+import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
 import { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import { SetStations } from '@replays/application/services/set-stations.service';
+import { SetUsage } from '@replays/application/services/set-usage.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
@@ -45,10 +49,12 @@ import {
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { baselineOf } from '@replays/domain/services/baseline';
 import type { OriginalOutcome } from '@replays/domain/services/composition';
+import { isDueForRefresh } from '@replays/domain/services/kept-set-refresh';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { StackStatus } from '@replays/domain/value-objects/change-checks.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
@@ -58,6 +64,7 @@ import type { ReplayThreshold } from '@replays/domain/value-objects/replay-thres
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
+import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -96,8 +103,19 @@ export class InMemoryReplays {
 
   readonly setRepository: ReplaySetRepository = {
     find: async (id: ReplaySetId) => this.sets.get(id.value) ?? null,
-    atStation: async (stationId) =>
-      [...this.sets.values()].filter((each) => each.isAtStation(stationId)),
+    ofStation: async (stationId) =>
+      [...this.sets.values()].find((each) => each.isAtStation(stationId)) ??
+      null,
+    dueForRefresh: async (cutoff, limit) =>
+      [...this.sets.values()]
+        .filter((each) => isDueForRefresh(each, cutoff))
+        .sort(
+          (one, other) =>
+            (one.refreshedAt?.getTime() ?? -1) -
+              (other.refreshedAt?.getTime() ?? -1) ||
+            one.id.value.localeCompare(other.id.value),
+        )
+        .slice(0, limit),
     add: async (set) => {
       this.events.push(...set.pullEvents());
       this.sets.set(set.id.value, set);
@@ -330,6 +348,9 @@ export class FakeWork implements WorkPort {
       ? STATION_VIEW
       : null;
 
+  findStation = async (stationId: string) =>
+    stationId === STATION_VIEW.stationId ? STATION_VIEW : null;
+
   keyed = async (lineId: string, key: string) =>
     lineId === STATION_VIEW.lineId && key === STATION_VIEW.key
       ? STATION_VIEW
@@ -350,7 +371,9 @@ export class FakeWork implements WorkPort {
       origin: null,
     }));
 
-  recentAt = async () => [];
+  recent: PickableRun[] = [];
+
+  recentAt = async () => this.recent;
 
   cancelled: { run: string; leaveRunAsIs: boolean }[] = [];
 
@@ -594,6 +617,31 @@ export const TRANSACTION = {
   inTransaction: <T>(work: () => Promise<T>) => work(),
 };
 
+export const usageFor = (
+  memory: InMemoryReplays,
+  checks: ReplayCheckRepository = new InMemoryChecks(memory.events),
+) =>
+  new SetUsage(
+    { ...memory.searchRepository },
+    { ...memory.replayRepository },
+    checks,
+  );
+
+export const refreshingFor = (
+  memory: InMemoryReplays,
+  work: FakeWork,
+  insights: InsightsPort = new FakeInsights(),
+) =>
+  new RefreshKeptSets(
+    memory.setRepository,
+    usageFor(memory),
+    work,
+    insights,
+    CLOCK,
+    TRANSACTION,
+    QUIET,
+  );
+
 export const stationsFor = (memory: InMemoryReplays, work: FakeWork) =>
   new SetStations(memory.setRepository, work, TRANSACTION, CLOCK);
 
@@ -707,4 +755,63 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
       }),
     );
   }
+}
+
+export class InMemoryChecks implements ReplayCheckRepository {
+  readonly stored = new Map<string, ReplayCheck>();
+
+  constructor(private readonly events: DomainEvent[]) {}
+
+  find = async (id: { value: string }) => this.stored.get(id.value) ?? null;
+
+  matching = async (
+    stationId: string,
+    candidate: StationHashes,
+    live: StationHashes,
+  ) =>
+    [...this.stored.values()].filter(
+      (each) =>
+        each.station.stationId === stationId &&
+        each.candidateHashes.behaviour === candidate.behaviour &&
+        each.liveHashes.scoring === live.scoring,
+    );
+
+  awaitingBaseline = async () =>
+    [...this.stored.values()].filter((each) => each.awaitsBaseline);
+
+  awaitingBaselineOfSet = async (setId: ReplaySetId) =>
+    [...this.stored.values()].filter(
+      (each) => each.awaitsBaseline && each.setId.equals(setId),
+    );
+
+  ofTeam = async () => [...this.stored.values()];
+
+  ofSet = async () => [...this.stored.values()];
+
+  pageOfSet = async (
+    _setId: unknown,
+    page: { before: { value: string } | null; limit: number },
+  ) => {
+    const newest = [...this.stored.values()].reverse();
+    const from = page.before
+      ? newest.findIndex((each) => each.id.value === page.before?.value) + 1
+      : 0;
+
+    return page.before && from === 0
+      ? []
+      : newest.slice(from, from + page.limit);
+  };
+
+  add = async (check: ReplayCheck) => {
+    this.events.push(...check.pullEvents());
+    this.stored.set(check.id.value, check);
+  };
+
+  save = async (check: ReplayCheck) => {
+    if (check.isDeleted) {
+      this.stored.delete(check.id.value);
+    } else {
+      this.stored.set(check.id.value, check);
+    }
+  };
 }

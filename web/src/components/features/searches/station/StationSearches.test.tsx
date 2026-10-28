@@ -7,7 +7,7 @@ import type { Search } from '@/lib/search';
 
 const searches = vi.fn((): Search[] | undefined => undefined);
 const error = vi.fn((): unknown => null);
-const sets = vi.fn((): ReplaySet[] | undefined => []);
+const sets = vi.fn((): ReplaySet | null | undefined => null);
 
 vi.mock('@/hooks/api/useSearches', () => ({
   useSearches: () => ({
@@ -20,8 +20,8 @@ vi.mock('@/hooks/api/useSearches', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useReplaySets', () => ({
-  useReplaySets: () => ({
+vi.mock('@/hooks/api/useReplaySet', () => ({
+  useReplaySet: () => ({
     data: sets(),
     isPending: false,
     errorUpdateCount: 0,
@@ -51,10 +51,10 @@ const setOf = (tasks: number): ReplaySet => ({
   id: 'set_1',
   lineId: 'line_1',
   stationId: 'station_1',
-  name: 'Billing work',
   createdAt: '2026-10-01T09:00:00.000Z',
+  refreshedAt: null,
+  lastRefresh: null,
   stationGone: false,
-  gatesChanges: false,
   health: {
     noise: null,
     saturation: null,
@@ -139,7 +139,7 @@ describe('StationSearches', () => {
   beforeEach(() => {
     searches.mockReturnValue(undefined);
     error.mockReturnValue(null);
-    sets.mockReturnValue([]);
+    sets.mockReturnValue(null);
   });
 
   it('keeps the place of the searches while they load', () => {
@@ -162,7 +162,7 @@ describe('StationSearches', () => {
 
   it('offers a search once a set covers enough tasks', () => {
     searches.mockReturnValue([]);
-    sets.mockReturnValue([setOf(6)]);
+    sets.mockReturnValue(setOf(6));
 
     renderSearches();
 
@@ -172,9 +172,9 @@ describe('StationSearches', () => {
     ).toBeEnabled();
   });
 
-  it('says why no search can start when no set covers enough tasks', () => {
+  it('says why no search can start when the set covers too few tasks', () => {
     searches.mockReturnValue([]);
-    sets.mockReturnValue([setOf(3)]);
+    sets.mockReturnValue(setOf(3));
 
     renderSearches();
 
@@ -182,13 +182,15 @@ describe('StationSearches', () => {
       screen.getByRole('button', { name: 'Start a search' }),
     ).toBeDisabled();
     expect(
-      screen.getByText('No replay set covers 5 different tasks yet.'),
+      screen.getByText(
+        'The set covers 3 tasks. A search holds some tasks out. Minimum different tasks: 5',
+      ),
     ).toBeInTheDocument();
   });
 
   it('lists each search with its progress, spend and best candidate, and does not start a second', () => {
     searches.mockReturnValue([SEARCH]);
-    sets.mockReturnValue([setOf(6)]);
+    sets.mockReturnValue(setOf(6));
 
     renderSearches();
 
@@ -226,7 +228,7 @@ describe('StationSearches', () => {
         best: best && { ...best, overfit: 'too-few-held-out' },
       },
     ]);
-    sets.mockReturnValue([setOf(6)]);
+    sets.mockReturnValue(setOf(6));
 
     renderSearches();
 
@@ -252,7 +254,7 @@ describe('StationSearches', () => {
         },
       },
     ]);
-    sets.mockReturnValue([setOf(6)]);
+    sets.mockReturnValue(setOf(6));
 
     renderSearches();
 

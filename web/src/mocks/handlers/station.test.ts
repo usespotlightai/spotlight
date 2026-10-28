@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addReplaySetEntry,
-  createReplaySet,
-  listReplayableRuns,
   listReplayCandidates,
   listReplaySetChecks,
-  listReplaySetSuggestions,
-  listReplaySets,
   listReplays,
   listSearches,
   listTeamReplaySets,
@@ -15,13 +10,16 @@ import {
   readReplayedCandidates,
   readReplayOfRun,
   readReplayRun,
+  readReplaySet,
   readSearch,
   readSearchRun,
   readStationInsights,
   readStationJudge,
+  removeReplaySetEntry,
   startReplay,
   stopSearch,
 } from '@/lib/api';
+import { noReplaySetYet } from '@/lib/replay';
 import { serveMockApi } from '@/mocks/testing';
 import { DELIVERY_ID, PLATFORM_ID, WORKSPACE } from '@/mocks/world';
 
@@ -92,8 +90,8 @@ describe('the mock station', () => {
     expect(unjudged.calibration.hiddenReason).toBe('no-judge');
   });
 
-  it('lists the station’s replay sets and the team’s', async () => {
-    const { data: atStation } = await listReplaySets({
+  it('reads the station’s replay set and lists the team’s', async () => {
+    const { data: atStation } = await readReplaySet({
       path: IMPLEMENTATION,
       throwOnError: true,
     });
@@ -102,14 +100,16 @@ describe('the mock station', () => {
       throwOnError: true,
     });
 
-    expect(atStation.map((set) => [set.id, set.entries.length])).toEqual([
-      ['set_billing_work', 7],
-      ['set_docs', 2],
+    expect([atStation.id, atStation.entries.length]).toEqual([
+      'set_billing_work',
+      7,
+    ]);
+    expect(atStation.lastRefresh?.removed).toEqual([
+      { runId: 'run_billing_1', title: expect.any(String) },
     ]);
     expect(onTeam.map((set) => set.id)).toEqual(
       expect.arrayContaining([
         'set_billing_work',
-        'set_docs',
         'set_triage_billing',
         'set_review_money',
         'set_incident_data',
@@ -118,19 +118,23 @@ describe('the mock station', () => {
     expect(onTeam.map((set) => set.id)).not.toContain('set_experiment_pricing');
   });
 
+  it('answers 404 for a station without a replay set yet', async () => {
+    const { error, response } = await readReplaySet({
+      path: { ...IMPLEMENTATION, stationId: 'station_backlog' },
+    });
+
+    expect(response?.status).toBe(404);
+    expect(noReplaySetYet(error)).toBe(true);
+  });
+
   it('lists the replays of a set, one of them running', async () => {
     const { data: billing } = await listReplays({
       path: { teamId: PLATFORM_ID, setId: 'set_billing_work' },
       throwOnError: true,
     });
-    const { data: docs } = await listReplays({
-      path: { teamId: PLATFORM_ID, setId: 'set_docs' },
-      throwOnError: true,
-    });
 
     expect(billing.filter((each) => each.state === 'running')).toHaveLength(1);
     expect(billing.filter((each) => each.isBaseline)).toHaveLength(1);
-    expect(docs).toEqual([]);
   });
 
   it('reads a replay compared with its baseline, with its runs', async () => {
@@ -154,30 +158,18 @@ describe('the mock station', () => {
     });
     expect(replay.comparison).toHaveLength(7);
     expect(run.original.title).toBe('Fix the flaky billing test');
-    expect(of.setName).toBe('Billing work');
+    expect(of.setId).toBe('set_billing_work');
   });
 
-  it('answers the set’s checks, suggestions and the station’s replayable runs', async () => {
+  it('answers the set’s checks', async () => {
     const set = { teamId: PLATFORM_ID, setId: 'set_billing_work' };
     const { data: checks } = await listReplaySetChecks({
       path: set,
       query: { limit: 2 },
       throwOnError: true,
     });
-    const { data: suggestions } = await listReplaySetSuggestions({
-      path: set,
-      throwOnError: true,
-    });
-    const { data: replayable } = await listReplayableRuns({
-      path: IMPLEMENTATION,
-      throwOnError: true,
-    });
 
     expect(checks.map((each) => each.result)).toEqual(['running', 'passed']);
-    expect(suggestions.map((each) => each.runId)).toContain('run_billing_1');
-    expect(
-      replayable.some((each) => each.unreplayableReason === 'archive-gone'),
-    ).toBe(true);
   });
 
   it('lists the replay candidates at the station’s address', async () => {
@@ -237,28 +229,28 @@ describe('the mock station', () => {
     );
   });
 
-  it('creates a set, adds a run and replays it', async () => {
-    const { data: created } = await createReplaySet({
-      path: IMPLEMENTATION,
-      body: { name: 'Refund fixes' },
-      throwOnError: true,
-    });
-    await addReplaySetEntry({
-      path: { teamId: PLATFORM_ID, setId: created.id },
-      body: { runId: 'run_refunds_2' },
+  it('takes a run out of a set and replays the rest', async () => {
+    const set = { teamId: PLATFORM_ID, setId: 'set_billing_work' };
+
+    await removeReplaySetEntry({
+      path: { ...set, runId: 'run_vat_1' },
       throwOnError: true,
     });
     const { data: replay } = await startReplay({
-      path: { teamId: PLATFORM_ID, setId: created.id },
+      path: set,
       body: { candidate: 'live', ceiling: { amount: 5, currency: 'USD' } },
       throwOnError: true,
     });
-    const { data: replays } = await listReplays({
-      path: { teamId: PLATFORM_ID, setId: created.id },
+    const { data: kept } = await readReplaySet({
+      path: IMPLEMENTATION,
       throwOnError: true,
     });
 
-    expect(replays.map((each) => each.id)).toEqual([replay.id]);
+    expect(replay.id).toBeTruthy();
+    expect(kept.entries.map((each) => each.runId)).not.toContain('run_vat_1');
+    expect(kept.lastRefresh?.removed.map((each) => each.runId)).toEqual([
+      'run_billing_1',
+    ]);
   });
 
   it('picks a candidate and stops a search', async () => {
@@ -293,10 +285,7 @@ describe('the mock station in an empty workspace', () => {
       path: IMPLEMENTATION,
       throwOnError: true,
     });
-    const { data: sets } = await listReplaySets({
-      path: IMPLEMENTATION,
-      throwOnError: true,
-    });
+    const { error: noSet } = await readReplaySet({ path: IMPLEMENTATION });
     const { data: searches } = await listSearches({
       path: IMPLEMENTATION,
       throwOnError: true,
@@ -316,7 +305,7 @@ describe('the mock station in an empty workspace', () => {
       inForce: null,
     });
     expect(judge.versions).toEqual([]);
-    expect(sets).toEqual([]);
+    expect(noReplaySetYet(noSet)).toBe(true);
     expect(searches).toEqual([]);
     expect(candidates.stations).toEqual([]);
     expect(response?.status).toBe(404);

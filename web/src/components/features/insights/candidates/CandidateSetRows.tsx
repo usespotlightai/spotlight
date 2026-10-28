@@ -1,14 +1,10 @@
 import { BaselineRow } from '@/components/features/insights/candidates/BaselineRow';
 import { CandidateComparisonRow } from '@/components/features/insights/candidates/CandidateComparisonRow';
 import { ReplayedSetChart } from '@/components/features/insights/candidates/ReplayedSetChart';
-import { SetSummary } from '@/components/features/insights/candidates/SetSummary';
-import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
-import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import {
-  INNER_DIVIDER,
-  INNER_GUIDE,
-  INNER_INDENT,
+  OUTER_DIVIDER,
   OUTER_GUIDE,
+  OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
 import type { CandidatesSet } from '@/lib/insights-candidates';
 import type { ReplayedStation } from '@/lib/replay';
@@ -19,8 +15,6 @@ type CandidateSetRowsProps = {
   set: CandidatesSet;
   heldOut: boolean;
   chartStatus: boolean;
-  open: boolean;
-  onToggle: () => void;
 };
 
 export function CandidateSetRows({
@@ -28,51 +22,37 @@ export function CandidateSetRows({
   set,
   heldOut,
   chartStatus,
-  open,
-  onToggle,
 }: CandidateSetRowsProps) {
   const candidates = chartStatus ? [] : set.candidates;
 
   return (
     <>
-      <NestedGroupRow
-        label={set.name}
-        open={open}
-        depth={1}
-        onToggle={onToggle}
-      >
-        <SetSummary at={at} set={set} />
-      </NestedGroupRow>
+      {chartStatus && (
+        <li
+          data-slot="candidate-chart"
+          className={cn(
+            'relative col-span-full py-3 pr-2',
+            OUTER_INDENT,
+            OUTER_GUIDE,
+            OUTER_DIVIDER,
+          )}
+        >
+          <ReplayedSetChart set={set} />
+        </li>
+      )}
 
-      <CollapsibleRows open={open}>
-        {chartStatus && (
-          <li
-            data-slot="candidate-chart"
-            className={cn(
-              'relative col-span-full py-3 pr-2',
-              INNER_INDENT,
-              OUTER_GUIDE,
-              INNER_GUIDE,
-              INNER_DIVIDER,
-            )}
-          >
-            <ReplayedSetChart set={set} />
-          </li>
-        )}
+      {candidates.map((candidate) => (
+        <CandidateComparisonRow
+          key={candidate.candidateId}
+          at={at}
+          candidate={candidate}
+          heldOut={heldOut}
+        />
+      ))}
 
-        {candidates.map((candidate) => (
-          <CandidateComparisonRow
-            key={candidate.candidateId}
-            at={at}
-            candidate={candidate}
-            heldOut={heldOut}
-          />
-        ))}
-
-        {!chartStatus && set.baseline && (
-          <BaselineRow at={at} baseline={set.baseline} heldOut={heldOut} />
-        )}
-      </CollapsibleRows>
+      {!chartStatus && set.baseline && (
+        <BaselineRow at={at} baseline={set.baseline} heldOut={heldOut} />
+      )}
     </>
   );
 }

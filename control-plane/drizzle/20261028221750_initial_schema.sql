@@ -1269,9 +1269,10 @@ CREATE TABLE "replay_set" (
 	"team_id" text NOT NULL,
 	"line_id" text NOT NULL,
 	"station_id" text NOT NULL,
-	"name" text NOT NULL,
-	"gates_changes" boolean DEFAULT false NOT NULL,
+	"removed_tasks" jsonb NOT NULL,
 	"created_at" timestamp NOT NULL,
+	"refreshed_at" timestamp,
+	"last_refresh" jsonb,
 	"station_gone_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL
 );
@@ -1280,6 +1281,7 @@ CREATE TABLE "replay_set_entry" (
 	"set_id" text NOT NULL,
 	"run_id" text NOT NULL,
 	"task_id" text NOT NULL,
+	"ended_at" timestamp NOT NULL,
 	"added_at" timestamp NOT NULL,
 	CONSTRAINT "replay_set_entry_set_id_run_id_pk" PRIMARY KEY("set_id","run_id")
 );
@@ -2011,10 +2013,10 @@ CREATE INDEX "replay_search_team_idx" ON "replay_search" USING btree ("team_id")
 CREATE INDEX "replay_search_set_idx" ON "replay_search" USING btree ("set_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "replay_search_active_idx" ON "replay_search" USING btree ("station_id") WHERE "replay_search"."state" in ('seeding', 'searching', 'holding-out');--> statement-breakpoint
 CREATE UNIQUE INDEX "replay_search_iteration_run_idx" ON "replay_search_iteration" USING btree ("run_id");--> statement-breakpoint
-CREATE INDEX "replay_set_station_idx" ON "replay_set" USING btree ("station_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "replay_set_station_idx" ON "replay_set" USING btree ("station_id");--> statement-breakpoint
 CREATE INDEX "replay_set_team_idx" ON "replay_set" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "replay_set_line_idx" ON "replay_set" USING btree ("line_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "replay_set_gates_changes_idx" ON "replay_set" USING btree ("station_id") WHERE "replay_set"."gates_changes";--> statement-breakpoint
+CREATE INDEX "replay_set_refreshed_at_idx" ON "replay_set" USING btree ("refreshed_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "egress_workspace_key_idx" ON "egress" USING btree ("workspace_id","key");--> statement-breakpoint
 CREATE UNIQUE INDEX "egress_token_hash_idx" ON "egress" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint

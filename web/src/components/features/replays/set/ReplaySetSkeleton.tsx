@@ -5,7 +5,7 @@ import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { TrailSkeleton } from '@/components/shared/skeleton/TrailSkeleton';
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-import { HEALTH_LINE_LABELS } from '@/lib/replay-words';
+import { HEALTH_LINE_LABELS, REPLAY_SET_TITLE } from '@/lib/replay-words';
 
 type ReplaySetSkeletonProps = {
   known: readonly BreadcrumbSegment[];
@@ -18,21 +18,14 @@ export function ReplaySetSkeleton({ known }: ReplaySetSkeletonProps) {
       aria-label="Loading the replay set"
       className="flex min-h-0 flex-1 flex-col"
     >
-      <PageHeader
-        bordered={false}
-        title={<TrailSkeleton known={known} />}
-        actions={
-          <>
-            <Skeleton className="h-7 w-20 rounded-full" />
-            <Skeleton className="h-7 w-18 rounded-full" />
-          </>
-        }
-      />
+      <PageHeader bordered={false} title={<TrailSkeleton known={known} />} />
 
       <div className="flex shrink-0 items-center gap-3 px-3 pt-2 pb-1">
         <Skeleton className="size-10 shrink-0 rounded-lg" />
         <div className="flex min-w-0 flex-col">
-          <SkeletonLine className="w-40 font-semibold text-2xl leading-8 tracking-tight" />
+          <h1 className="truncate font-semibold text-2xl text-foreground leading-8 tracking-tight">
+            {REPLAY_SET_TITLE}
+          </h1>
           <SkeletonLine className="w-28 text-sm leading-5" />
         </div>
       </div>

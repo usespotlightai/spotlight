@@ -3,12 +3,10 @@ import type { ReactNode } from 'react';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { StateBox } from '@/components/features/replays/StateBox';
 import { CheckRow } from '@/components/features/replays/set/CheckRow';
-import { GatesChangesToggle } from '@/components/features/replays/set/GatesChangesToggle';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
-import { PanelActions } from '@/components/shared/PanelActions';
 import { Button } from '@/components/ui/button';
 import { useReplaySetChecks } from '@/hooks/api/useReplaySetChecks';
 import { failed, loading } from '@/lib/query';
@@ -49,9 +47,7 @@ export function SetChecks({ teamId, set, replayCheck }: SetChecksProps) {
     body = (
       <StateBox flat>
         <EmptyState icon={ShieldCheck} title="No checks yet">
-          {set.gatesChanges
-            ? 'This set checks pull requests that change this station.'
-            : 'The set doesn’t gate config changes.'}
+          This set checks pull requests that change this station.
         </EmptyState>
       </StateBox>
     );
@@ -86,9 +82,6 @@ export function SetChecks({ teamId, set, replayCheck }: SetChecksProps) {
       description={replayCheckNote(replayCheck)}
     >
       {body}
-      <PanelActions>
-        <GatesChangesToggle teamId={teamId} set={set} />
-      </PanelActions>
     </InsightsCard>
   );
 }

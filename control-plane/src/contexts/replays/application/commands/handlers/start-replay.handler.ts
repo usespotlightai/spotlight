@@ -1,6 +1,7 @@
 import type { StartReplayCommand } from '@replays/application/commands/start-replay.command';
 import type { ReplayStarted } from '@replays/application/dto/replay-outcomes.dto';
 import type { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
+import type { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { SetStations } from '@replays/application/services/set-stations.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
@@ -45,6 +46,7 @@ export class StartReplayHandler
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
     private readonly stations: SetStations,
+    private readonly refreshing: RefreshKeptSets,
   ) {}
 
   async execute(command: StartReplayCommand): Promise<ReplayStarted> {
@@ -53,7 +55,7 @@ export class StartReplayHandler
         command.teamId,
         command.actor.principal,
       );
-      const seen = await this.access.setOn(access, command.setId);
+      const found = await this.access.setOn(access, command.setId);
 
       if (!access.mayPlan) {
         return forbiddenTo('plan');
@@ -64,7 +66,10 @@ export class StartReplayHandler
         command.ceiling.currency,
       );
 
-      await this.stations.stillThere(seen);
+      await this.stations.stillThere(found);
+      await this.refreshing.refreshBefore(found.id);
+
+      const seen = (await this.sets.find(found.id)) ?? found;
 
       const requested =
         command.candidate === LIVE

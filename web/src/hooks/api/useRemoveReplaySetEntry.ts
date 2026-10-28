@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { replaySetKeys } from '@/hooks/api/useReplaySets';
+import { replaySetKeys } from '@/hooks/api/useReplaySet';
 import { removeReplaySetEntry } from '@/lib/api';
 
 type RemoveReplaySetEntryInput = {

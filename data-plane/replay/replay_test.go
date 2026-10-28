@@ -47,9 +47,7 @@ const (
 )
 
 const sets = `[
-  {"id":"set_1","lineId":"line_1","stationId":"st_build","name":"Queue fixes","createdAt":"2026-10-01T09:00:00.000Z","stationGone":false,"entries":[{"runId":"run_1","taskId":"task_1","unreplayableReason":null},{"runId":"run_2","taskId":"task_2","unreplayableReason":"archive-gone"}]},
-  {"id":"set_2","lineId":"line_1","stationId":"st_build","name":"Flaky","createdAt":"2026-10-01T10:00:00.000Z","stationGone":false,"entries":[]},
-  {"id":"set_3","lineId":"line_1","stationId":"st_build","name":"Flaky","createdAt":"2026-10-01T11:00:00.000Z","stationGone":false,"entries":[]}
+  {"id":"set_1","lineId":"line_1","stationId":"st_build","createdAt":"2026-10-01T09:00:00.000Z","refreshedAt":"2026-10-08T09:00:00.000Z","stationGone":false,"entries":[{"runId":"run_1","taskId":"task_1","unreplayableReason":null},{"runId":"run_2","taskId":"task_2","unreplayableReason":"archive-gone"}]}
 ]`
 
 func replayOf(state string, regressed bool) string {
@@ -335,24 +333,24 @@ func TestShowSaysWhatTheCandidateChanges(t *testing.T) {
 	}
 }
 
-func TestSetsListsTheStationsSetsByLineAndKey(t *testing.T) {
+func TestSetsShowsTheStationsSetByLineAndKey(t *testing.T) {
 	spotlight := serve(t)
 
-	output, err := replaying("sets", "--station", "core/delivery/build")
+	output, err := replaying("set", "--station", "core/delivery/build")
 	if err != nil {
-		t.Fatalf("sets: %v", err)
+		t.Fatalf("set: %v", err)
 	}
 
 	spotlight.last(http.MethodGet, "/api/teams/team_1/replay-sets?line=line_1&station=build")
-	if !strings.Contains(output, "Queue fixes") || !strings.Contains(output, "set_1") {
+	if !strings.Contains(output, "2026-10-08T09:00:00.000Z") || !strings.Contains(output, "set_1") {
 		t.Fatalf("output %q", output)
 	}
 }
 
-func TestStartReplaysASetUnderACandidateNamedWithinACeiling(t *testing.T) {
+func TestStartReplaysTheStationsSetUnderACandidateNamedWithinACeiling(t *testing.T) {
 	spotlight := serve(t)
 
-	output, err := replaying("start", "--station", "core/delivery/build", "--set", "Queue fixes", "--candidate", "Shorter prompt", "--ceiling", "5")
+	output, err := replaying("start", "--station", "core/delivery/build", "--candidate", "Shorter prompt", "--ceiling", "5")
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -371,7 +369,7 @@ func TestStartReplaysASetUnderACandidateNamedWithinACeiling(t *testing.T) {
 func TestStartReplaysEachRunAsOftenAsRequested(t *testing.T) {
 	spotlight := serve(t)
 
-	output, err := replaying("start", "--station", "core/delivery/build", "--set", "Queue fixes", "--candidate", "live", "--ceiling", "5", "--repeats", "3")
+	output, err := replaying("start", "--station", "core/delivery/build", "--candidate", "live", "--ceiling", "5", "--repeats", "3")
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -381,7 +379,7 @@ func TestStartReplaysEachRunAsOftenAsRequested(t *testing.T) {
 	if !strings.Contains(output, "replays each run 3 times") {
 		t.Fatalf("output %q", output)
 	}
-	if _, err := replaying("start", "--station", "core/delivery/build", "--set", "Queue fixes", "--candidate", "live", "--ceiling", "5", "--repeats", "6"); err == nil || !strings.Contains(err.Error(), "--repeats") {
+	if _, err := replaying("start", "--station", "core/delivery/build", "--candidate", "live", "--ceiling", "5", "--repeats", "6"); err == nil || !strings.Contains(err.Error(), "--repeats") {
 		t.Fatalf("err = %v, want --repeats rejected", err)
 	}
 }
@@ -409,14 +407,16 @@ func TestStatusShowsEachRateWithItsIntervalAndSaysWhenTheGainIsWithinNoise(t *te
 	}
 }
 
-func TestStartRejectsAnAmbiguousSetAndANothingCeiling(t *testing.T) {
-	serve(t)
+func TestStartRejectsAStationWithoutASetAndANothingCeiling(t *testing.T) {
+	spotlight := serve(t)
 
-	if _, err := replaying("start", "--station", "core/delivery/build", "--set", "Flaky", "--candidate", "live", "--ceiling", "5"); err == nil || !strings.Contains(err.Error(), "set_2, set_3") {
-		t.Fatalf("err = %v, want the ids to pick from", err)
-	}
-	if _, err := replaying("start", "--station", "core/delivery/build", "--set", "set_1", "--candidate", "live", "--ceiling", "0"); err == nil {
+	if _, err := replaying("start", "--station", "core/delivery/build", "--candidate", "live", "--ceiling", "0"); err == nil {
 		t.Fatalf("a ceiling of nothing was taken")
+	}
+
+	spotlight.answers["GET /api/teams/team_1/replay-sets"] = "[]"
+	if _, err := replaying("start", "--station", "core/delivery/build", "--candidate", "live", "--ceiling", "5"); err == nil || !strings.Contains(err.Error(), "has no replay set yet") {
+		t.Fatalf("err = %v, want no set yet", err)
 	}
 }
 
@@ -639,8 +639,8 @@ func TestALoginInSeveralWorkspacesNeedsTheWorkspaceChosen(t *testing.T) {
 	spotlight.last(http.MethodGet, "/api/resources/workspaces/ws_1/replay-candidates")
 
 	t.Setenv(workspaceVar, "acme")
-	if _, err := replaying("sets", "--station", "core/delivery/build"); err != nil {
-		t.Fatalf("sets with %s: %v", workspaceVar, err)
+	if _, err := replaying("set", "--station", "core/delivery/build"); err != nil {
+		t.Fatalf("set with %s: %v", workspaceVar, err)
 	}
 
 	if _, err := replaying("candidates", "--workspace", "nowhere", "--station", "core/delivery/build"); err == nil || !strings.Contains(err.Error(), "not a member of workspace nowhere") {

@@ -2,7 +2,7 @@ import { ObjectiveChoices } from '@/components/features/searches/station/Objecti
 import { SearchAgentField } from '@/components/features/searches/station/SearchAgentField';
 import { SearchBudgetCounts } from '@/components/features/searches/station/SearchBudgetCounts';
 import { SearchEstimateSummary } from '@/components/features/searches/station/SearchEstimateSummary';
-import { SearchSetField } from '@/components/features/searches/station/SearchSetField';
+import { SearchSetLine } from '@/components/features/searches/station/SearchSetLine';
 import { SearchWarnings } from '@/components/features/searches/station/SearchWarnings';
 import { CeilingField } from '@/components/shared/form/CeilingField';
 import { Button } from '@/components/ui/button';
@@ -22,18 +22,18 @@ import { SEARCH_CEILING_NOTE } from '@/lib/search-words';
 
 type StartSearchDialogProps = {
   at: ReplayedStation;
-  sets: readonly ReplaySet[];
+  set: ReplaySet;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
 export function StartSearchDialog({
   at,
-  sets,
+  set,
   open,
   onOpenChange,
 }: StartSearchDialogProps) {
-  const form = useStartSearchForm({ at, sets, open, onOpenChange });
+  const form = useStartSearchForm({ at, set, open, onOpenChange });
 
   return (
     <Dialog
@@ -54,13 +54,7 @@ export function StartSearchDialog({
           </DialogHeader>
 
           <form onSubmit={form.submit} className="contents">
-            <SearchSetField
-              sets={sets}
-              setId={form.setId}
-              problem={form.setProblem}
-              disabled={form.pending}
-              onChange={form.chooseSet}
-            />
+            <SearchSetLine set={set} problem={form.setProblem} />
 
             <SearchBudgetCounts
               inputs={form.inputs}

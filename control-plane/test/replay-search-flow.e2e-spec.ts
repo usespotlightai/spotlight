@@ -37,6 +37,7 @@ import {
   originalsOf,
   owner,
   proposing,
+  refreshedBefore,
   replayEnded,
   replayRow,
   STUB_GUIDANCE,
@@ -44,6 +45,7 @@ import {
   searchRow,
   searchRunsOf,
   searchState,
+  setRunsOf,
   startSearch,
   stationPath,
   teamPath,
@@ -56,7 +58,7 @@ openSearchFlow();
 
 describe('a search for a better station config', () => {
   it('estimates what it would start, spend and take, as it splits its ceiling, writing nothing', async () => {
-    const setId = await createSet('Estimated', tenTasks);
+    const setId = await createSet(tenTasks);
     const budget = { iterations: 2, perIteration: 2, ceiling: 40 };
 
     const estimate = (
@@ -82,6 +84,7 @@ describe('a search for a better station config', () => {
         ReplaySetEntry.of({
           runId: RunId.of(each.runId),
           taskId: TaskId.of(each.taskId),
+          endedAt: new Date(),
           addedAt: new Date(),
         }),
       ),
@@ -194,7 +197,7 @@ describe('a search for a better station config', () => {
   }, 120_000);
 
   it('replays the live config first, then runs its agent, takes its candidates only on the searched tasks, shows it no held-out task, holds out its frontier, and finishes', async () => {
-    const setId = await createSet('Searched', tenTasks);
+    const setId = await createSet(tenTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 2,
       perIteration: 2,
@@ -210,17 +213,12 @@ describe('a search for a better station config', () => {
     expect(await searchRunsOf(id)).toEqual([]);
 
     const extra = await anOriginal();
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-        runId: extra.runId,
-      })
-      .expect(409);
+    expect(await refreshedBefore(setId)).toBe(false);
     await owner()
       .delete(
         `${teamPath()}/replay-sets/${setId}/entries/${tenTasks[0]?.runId}`,
       )
       .expect(409);
-    await owner().delete(`${teamPath()}/replay-sets/${setId}`).expect(409);
     await owner()
       .post(`${stationPath()}/searches`, {
         setId,
@@ -541,15 +539,12 @@ describe('a search for a better station config', () => {
       (await auditOf(id)).map((each) => [each.resource, each.action]),
     ).toEqual([['replay-search', 'created']]);
 
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-        runId: extra.runId,
-      })
-      .expect(204);
+    expect(await refreshedBefore(setId)).toBe(true);
+    expect(await setRunsOf(setId)).toContain(extra.runId);
   }, 120_000);
 
   it('ends when its seed spends past its ceiling, and when a person stops it', async () => {
-    const setId = await createSet('Capped', fiveTasks);
+    const setId = await createSet(fiveTasks);
     const capped = await startSearch(setId, {
       iterations: 1,
       perIteration: 1,
