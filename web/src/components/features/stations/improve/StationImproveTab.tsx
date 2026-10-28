@@ -44,7 +44,7 @@ export function StationImproveTab({
               slug={slug}
               teamId={teamId}
               targetStation={targetStation}
-              label="Review with the agent"
+              label="Review with agent"
               size="regular"
             />
           }

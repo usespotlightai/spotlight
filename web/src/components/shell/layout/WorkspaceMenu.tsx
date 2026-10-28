@@ -54,7 +54,11 @@ export function WorkspaceMenu({
         />
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" sideOffset={6} className="min-w-56">
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="min-w-56 origin-top"
+      >
         <DropdownMenuItem
           closeOnClick
           render={<Link to={settingsPath(slug)}>Settings</Link>}

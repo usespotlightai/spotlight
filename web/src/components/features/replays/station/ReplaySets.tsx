@@ -44,8 +44,7 @@ export function ReplaySets({ at }: ReplaySetsProps) {
     body = (
       <StateBox flat>
         <EmptyState icon={Repeat} title="No replay sets yet" action={create}>
-          A replay set contains past runs to replay under a candidate. Create
-          one to start comparing.
+          Replay past runs to compare candidates and measure improvements.
         </EmptyState>
       </StateBox>
     );

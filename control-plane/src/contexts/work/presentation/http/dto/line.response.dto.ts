@@ -1,7 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
+import {
+  REPOSITORY_HOSTS,
+  type RepositoryHost,
+} from '@shared-kernel/domain/value-objects/repository.vo';
 import type {
   LineReplayCheckSummary,
   LineSourceSummary,
+  RepositorySummary,
   StationAlertSummary,
   StationJudgeSummary,
 } from '@work/application/ports/line-reader.port';
@@ -307,6 +312,33 @@ export class LineReplayCheckResponseDto {
   }
 }
 
+export class LineRepositoryResponseDto {
+  @ApiProperty({
+    example: 'usespotlightai/spotlight',
+    description: 'The repository, as owner/name',
+  })
+  readonly fullName: string;
+
+  @ApiProperty({
+    enum: REPOSITORY_HOSTS,
+    example: 'github',
+    description: 'Where the repository is hosted',
+  })
+  readonly host: RepositoryHost;
+
+  @ApiProperty({
+    example: 'https://github.com/usespotlightai/spotlight',
+    description: 'The repository on its host',
+  })
+  readonly url: string;
+
+  constructor(repository: RepositorySummary) {
+    this.fullName = repository.fullName;
+    this.host = repository.host;
+    this.url = repository.url;
+  }
+}
+
 export class LineResponseDto {
   @ApiProperty({ example: '7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43' })
   readonly id: string;
@@ -327,12 +359,11 @@ export class LineResponseDto {
   readonly reactions: ReactionResponseDto[];
 
   @ApiProperty({
-    type: String,
+    type: LineRepositoryResponseDto,
     isArray: true,
-    example: ['usespotlightai/spotlight'],
-    description: 'The repositories a run on this line works in, as owner/name',
+    description: 'The repositories a run on this line works in',
   })
-  readonly repositories: string[];
+  readonly repositories: LineRepositoryResponseDto[];
 
   @ApiProperty({
     type: LineSourceResponseDto,
@@ -356,7 +387,7 @@ export class LineResponseDto {
     name: string,
     stations: StationResponseDto[],
     reactions: ReactionResponseDto[],
-    repositories: string[],
+    repositories: readonly RepositorySummary[],
     source: LineSourceSummary | null,
     replayCheck: LineReplayCheckSummary | null,
   ) {
@@ -365,7 +396,9 @@ export class LineResponseDto {
     this.name = name;
     this.stations = stations;
     this.reactions = reactions;
-    this.repositories = repositories;
+    this.repositories = repositories.map(
+      (each) => new LineRepositoryResponseDto(each),
+    );
     this.source = source ? new LineSourceResponseDto(source) : null;
     this.replayCheck = replayCheck
       ? new LineReplayCheckResponseDto(replayCheck)

@@ -1,6 +1,7 @@
 import type {
   LineReplayCheckSummary,
   LineSourceSummary,
+  RepositorySummary,
   StationAlertSummary,
   StationJudgeSummary,
 } from '@work/application/ports/line-reader.port';
@@ -35,7 +36,7 @@ export interface LineDto {
   readonly name: string;
   readonly stations: readonly StationDto[];
   readonly reactions: readonly ReactionDto[];
-  readonly repositories: readonly string[];
+  readonly repositories: readonly RepositorySummary[];
   readonly source: LineSourceSummary | null;
   readonly replayCheck: LineReplayCheckSummary | null;
 }

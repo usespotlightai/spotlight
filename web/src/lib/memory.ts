@@ -337,5 +337,9 @@ export const repositoriesOf = (
   line: LineResponseDto | undefined,
   lines: readonly LineResponseDto[],
 ): string[] => [
-  ...new Set((line ? [line] : lines).flatMap((each) => each.repositories)),
+  ...new Set(
+    (line ? [line] : lines).flatMap((each) =>
+      each.repositories.map((repository) => repository.fullName),
+    ),
+  ),
 ];

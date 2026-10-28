@@ -169,7 +169,18 @@ beforeEach(() => {
     { fullName: 'acme/api' },
     { fullName: 'acme/web' },
   ]);
-  lines.mockReturnValue([{ id: 'line_1', repositories: ['acme/api'] }]);
+  lines.mockReturnValue([
+    {
+      id: 'line_1',
+      repositories: [
+        {
+          fullName: 'acme/api',
+          host: 'github',
+          url: 'https://github.com/acme/api',
+        },
+      ],
+    },
+  ]);
 });
 
 describe('TeamIntegrations', () => {
@@ -240,7 +251,21 @@ describe('TeamIntegrations', () => {
 
   it('marks a repository the team’s lines use that the App cannot access', async () => {
     lines.mockReturnValue([
-      { id: 'line_1', repositories: ['acme/api', 'acme/infra'] },
+      {
+        id: 'line_1',
+        repositories: [
+          {
+            fullName: 'acme/api',
+            host: 'github',
+            url: 'https://github.com/acme/api',
+          },
+          {
+            fullName: 'acme/infra',
+            host: 'github',
+            url: 'https://github.com/acme/infra',
+          },
+        ],
+      },
     ]);
     showing();
 

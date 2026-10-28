@@ -91,7 +91,13 @@ const line = {
       judge: null,
     },
   ],
-  repositories: ['usespotlightai/spotlight'],
+  repositories: [
+    {
+      fullName: 'usespotlightai/spotlight',
+      host: 'github',
+      url: 'https://github.com/usespotlightai/spotlight',
+    },
+  ],
 };
 
 const lines = vi.fn();
@@ -852,7 +858,7 @@ describe('Station', () => {
       );
 
       expect(
-        screen.queryByRole('link', { name: 'Review with the agent' }),
+        screen.queryByRole('link', { name: 'Review with agent' }),
       ).not.toBeInTheDocument();
       expect(
         document.querySelector('[data-slot="handed-prompt"]'),
@@ -871,7 +877,7 @@ describe('Station', () => {
       renderAt('station_2', 'improve');
 
       expect(sectionTitled('Worth improving')).toHaveTextContent(
-        'Every signal looks healthy over the past 30 days',
+        'All signals are healthy',
       );
     });
 
@@ -881,7 +887,7 @@ describe('Station', () => {
 
       await user.click(
         within(sectionTitled('Worth improving')).getByRole('link', {
-          name: 'Review with the agent',
+          name: 'Review with agent',
         }),
       );
 
@@ -909,7 +915,7 @@ describe('Station', () => {
 
       expect(screen.getByText('No replay sets yet')).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: 'Create a replay set' }),
+        screen.getByRole('button', { name: 'Create replay set' }),
       ).toBeInTheDocument();
     });
 
@@ -947,7 +953,7 @@ describe('Station', () => {
         screen.getByText('Searches need a replay set to try configs on.'),
       ).toBeInTheDocument();
       expect(
-        screen.getAllByRole('button', { name: /Create a replay set/ }),
+        screen.getAllByRole('button', { name: /Create replay set/ }),
       ).toHaveLength(1);
     });
   });

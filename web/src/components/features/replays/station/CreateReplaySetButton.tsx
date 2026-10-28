@@ -27,7 +27,7 @@ export function CreateReplaySetButton({ at }: CreateReplaySetButtonProps) {
         onClick={() => setOpen(true)}
       >
         <Plus aria-hidden />
-        Create a replay set
+        Create replay set
       </Button>
 
       <ReplaySetNameDialog

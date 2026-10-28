@@ -133,6 +133,21 @@ export type ReactionResponseDto = {
   to: string;
 };
 
+export type LineRepositoryResponseDto = {
+  /**
+   * The repository, as owner/name
+   */
+  fullName: string;
+  /**
+   * Where the repository is hosted
+   */
+  host: 'github';
+  /**
+   * The repository on its host
+   */
+  url: string;
+};
+
 export type LineSourceResponseDto = {
   /**
    * The GitHub repository that contains the line’s Terraform
@@ -173,9 +188,9 @@ export type LineResponseDto = {
   stations: Array<StationResponseDto>;
   reactions: Array<ReactionResponseDto>;
   /**
-   * The repositories a run on this line works in, as owner/name
+   * The repositories a run on this line works in
    */
-  repositories: Array<string>;
+  repositories: Array<LineRepositoryResponseDto>;
   /**
    * Where the line’s Terraform lives, which Spotlight opens pull requests against when a person picks a better station config. Null when the line does not say.
    */

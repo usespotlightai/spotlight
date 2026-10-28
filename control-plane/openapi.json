@@ -24109,6 +24109,34 @@
           "to"
         ]
       },
+      "LineRepositoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "fullName": {
+            "type": "string",
+            "example": "usespotlightai/spotlight",
+            "description": "The repository, as owner/name"
+          },
+          "host": {
+            "type": "string",
+            "enum": [
+              "github"
+            ],
+            "example": "github",
+            "description": "Where the repository is hosted"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://github.com/usespotlightai/spotlight",
+            "description": "The repository on its host"
+          }
+        },
+        "required": [
+          "fullName",
+          "host",
+          "url"
+        ]
+      },
       "LineSourceResponseDto": {
         "type": "object",
         "properties": {
@@ -24188,13 +24216,10 @@
             }
           },
           "repositories": {
-            "example": [
-              "usespotlightai/spotlight"
-            ],
-            "description": "The repositories a run on this line works in, as owner/name",
+            "description": "The repositories a run on this line works in",
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/LineRepositoryResponseDto"
             }
           },
           "source": {

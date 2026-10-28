@@ -6,6 +6,7 @@ import type {
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { PRIYA } from '@/mocks/world/people';
+import { onGitHub } from '@/mocks/world/repositories';
 import { progressOfState } from '@/mocks/world/run-progress';
 import { runStationOf, station } from '@/mocks/world/stations';
 
@@ -73,7 +74,7 @@ export const GROWTH_LINES: LineResponseDto[] = [
     name: 'Experiments',
     stations: STATIONS,
     reactions: [],
-    repositories: ['acme/web'],
+    repositories: [onGitHub('acme/web')],
     source: null,
     replayCheck: null,
   },

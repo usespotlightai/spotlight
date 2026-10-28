@@ -9,8 +9,10 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { LineMapper } from '@work/application/mappers/line.mapper';
 import type {
   LineDetail,
   LineReaderPort,
@@ -236,7 +238,9 @@ const group = (
       .map(({ happening, from, to }) => ({ happening, from, to })),
     repositories: working
       .filter((each) => each.lineId === id)
-      .map((each) => each.repository),
+      .map((each) =>
+        LineMapper.repositoryToSummary(Repository.of(each.repository)),
+      ),
     source: line.source,
     replayCheck: line.replayCheck,
   }));

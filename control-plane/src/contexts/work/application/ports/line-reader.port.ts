@@ -1,3 +1,4 @@
+import type { RepositoryHost } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { StationKind } from '@work/domain/entities/station.entity';
@@ -54,13 +55,19 @@ export interface LineReplayCheckSummary {
   readonly minGain: number;
 }
 
+export interface RepositorySummary {
+  readonly fullName: string;
+  readonly host: RepositoryHost;
+  readonly url: string;
+}
+
 export interface LineDetail {
   readonly id: string;
   readonly key: string;
   readonly name: string;
   readonly stations: readonly StationSummary[];
   readonly reactions: readonly ReactionSummary[];
-  readonly repositories: readonly string[];
+  readonly repositories: readonly RepositorySummary[];
   readonly source: LineSourceSummary | null;
   readonly replayCheck: LineReplayCheckSummary | null;
 }

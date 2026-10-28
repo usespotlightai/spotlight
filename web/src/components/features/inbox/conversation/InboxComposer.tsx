@@ -43,7 +43,7 @@ export function InboxComposer({
       below={
         <FixedRepositories
           slug={slug}
-          repositories={line?.repositories ?? []}
+          repositories={(line?.repositories ?? []).map((each) => each.fullName)}
           because={LINE_SETS_REPOSITORIES}
         />
       }

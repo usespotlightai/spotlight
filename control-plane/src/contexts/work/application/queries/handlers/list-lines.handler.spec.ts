@@ -41,7 +41,13 @@ const board: LineDetail = {
       to: 'station_2',
     },
   ],
-  repositories: ['acme/api'],
+  repositories: [
+    {
+      fullName: 'acme/api',
+      host: 'github',
+      url: 'https://github.com/acme/api',
+    },
+  ],
   replayCheck: {
     maxRegressions: 0,
     ceiling: 10,
@@ -89,7 +95,13 @@ describe('ListLinesHandler', () => {
             to: 'station_2',
           },
         ],
-        repositories: ['acme/api'],
+        repositories: [
+          {
+            fullName: 'acme/api',
+            host: 'github',
+            url: 'https://github.com/acme/api',
+          },
+        ],
         replayCheck: {
           maxRegressions: 0,
           ceiling: 10,

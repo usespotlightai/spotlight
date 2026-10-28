@@ -140,7 +140,11 @@ const placedFrom = (
   if (writing.stationId && !station) {
     return 'Sorry, that line has no such station.';
   }
-  const repositories = new Set(lines.flatMap((each) => each.repositories));
+  const repositories = new Set(
+    lines.flatMap((each) =>
+      each.repositories.map((repository) => repository.fullName),
+    ),
+  );
   if (writing.repository && !repositories.has(writing.repository)) {
     return 'Sorry, the team has no such repository.';
   }

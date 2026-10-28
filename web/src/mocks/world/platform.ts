@@ -6,6 +6,7 @@ import type {
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { MAYA, PRIYA, SAM, TOM } from '@/mocks/world/people';
+import { onGitHub } from '@/mocks/world/repositories';
 import { progressOfState } from '@/mocks/world/run-progress';
 import { runStationOf, station } from '@/mocks/world/stations';
 
@@ -162,7 +163,7 @@ export const PLATFORM_LINES: LineResponseDto[] = [
     name: 'Delivery',
     stations: DELIVERY_STATIONS,
     reactions: [],
-    repositories: ['acme/api', 'acme/worker'],
+    repositories: [onGitHub('acme/api'), onGitHub('acme/worker')],
     source: { repository: 'acme/config', path: 'lines/delivery.tf' },
     replayCheck: {
       maxRegressions: 0,
@@ -177,7 +178,7 @@ export const PLATFORM_LINES: LineResponseDto[] = [
     name: 'Incidents',
     stations: INCIDENT_STATIONS,
     reactions: [],
-    repositories: ['acme/api', 'acme/infra'],
+    repositories: [onGitHub('acme/api'), onGitHub('acme/infra')],
     source: null,
     replayCheck: null,
   },

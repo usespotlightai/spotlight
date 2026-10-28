@@ -4,8 +4,17 @@ const SEPARATOR = '/';
 const MAX_LENGTH = 100;
 const SHAPE = /^[A-Za-z0-9._-]+$/;
 
+export const REPOSITORY_HOSTS = ['github'] as const;
+
+export type RepositoryHost = (typeof REPOSITORY_HOSTS)[number];
+
+const ADDRESSES: Record<RepositoryHost, string> = {
+  github: 'https://github.com',
+};
+
 export class Repository {
   private constructor(
+    readonly host: RepositoryHost,
     readonly owner: string,
     readonly name: string,
   ) {}
@@ -32,14 +41,18 @@ export class Repository {
       }
     }
 
-    return new Repository(owner, name.replace(/\.git$/, ''));
+    return new Repository('github', owner, name.replace(/\.git$/, ''));
   }
 
   get value(): string {
     return `${this.owner}${SEPARATOR}${this.name}`;
   }
 
+  get url(): string {
+    return `${ADDRESSES[this.host]}/${this.value}`;
+  }
+
   equals(other: Repository): boolean {
-    return this.value === other.value;
+    return this.host === other.host && this.value === other.value;
   }
 }

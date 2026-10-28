@@ -1,9 +1,10 @@
 import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
+import type { TooltipText } from '@/lib/tooltip-note';
 
 type CardTitleProps = {
   titleId: string;
   title: string;
-  description?: string;
+  description?: TooltipText;
   level?: 2 | 3;
 };
 

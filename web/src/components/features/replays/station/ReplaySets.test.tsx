@@ -136,7 +136,7 @@ describe('ReplaySets', () => {
 
     expect(screen.getByText('No replay sets yet')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Create a replay set' }),
+      screen.getByRole('button', { name: 'Create replay set' }),
     ).toBeInTheDocument();
   });
 
