@@ -2,16 +2,12 @@ import { InvalidChangeStackError } from '@change-review/domain/exceptions/invali
 import { MAX_CHECK_COMMAND } from '@change-review/domain/value-objects/stack-check.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 
-const oneLine = (raw: string, what: string): string => {
+const commandOf = (raw: string, what: string): string => {
   const trimmed = raw.trim();
 
-  if (
-    !trimmed ||
-    trimmed.length > MAX_CHECK_COMMAND ||
-    /[\r\n]/.test(trimmed)
-  ) {
+  if (!trimmed || trimmed.length > MAX_CHECK_COMMAND) {
     throw InvalidChangeStackError.because(
-      `${what} must be one line of at most ${MAX_CHECK_COMMAND} characters`,
+      `${what} must not be empty and must be at most ${MAX_CHECK_COMMAND} characters`,
     );
   }
 
@@ -37,8 +33,8 @@ export class CheckRequest {
     placement: RunnerPlacement = RunnerPlacement.anywhere(),
   ): CheckRequest {
     return new CheckRequest(
-      oneLine(command, 'check command'),
-      setup === null ? null : oneLine(setup, 'setup command'),
+      commandOf(command, 'check command'),
+      setup === null ? null : commandOf(setup, 'setup command'),
       placement,
     );
   }

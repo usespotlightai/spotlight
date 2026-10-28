@@ -484,6 +484,27 @@ describe('compileLine', () => {
     });
   });
 
+  it('keeps a station check of many lines as written', () => {
+    const script = 'set -e\nif [ -f Makefile ]; then\n  make check\nfi\n';
+    const compiled = compileLine(
+      withStation(1, { ...DELIVERY.stations[1], check: script, diffs: true }),
+    );
+
+    expect(compiled.ok && compiled.line.stations[1]?.check?.value).toBe(script);
+  });
+
+  it('points at a station check longer than 65536 characters', () => {
+    expect(
+      problemsOf(
+        withStation(1, {
+          ...DELIVERY.stations[1],
+          check: 'x'.repeat(65_537),
+          diffs: true,
+        }),
+      )[0],
+    ).toMatchObject({ field: FieldPath.dotted('stations.1.check') });
+  });
+
   it('rejects a station that checks its layers while a repository has no setup, pointing at that repository', () => {
     expect(
       problemsOf({

@@ -88,6 +88,16 @@ describe('the repositories a line works', () => {
     expect(line.repositories.entries[1]?.setup).toBeNull();
   });
 
+  it('reads a setup of many lines as written', () => {
+    const line = read([
+      { name: 'acme/api', setup: 'set -e\nnpm ci\nnpm run build\n' },
+    ]);
+
+    expect(line.repositories.entries[0]?.setup?.value).toBe(
+      'set -e\nnpm ci\nnpm run build\n',
+    );
+  });
+
   it('rejects one that is not named owner/name', () => {
     expect(invalidAt(['not-a-repo'])).toEqual(['repositories.0.name']);
   });
@@ -98,9 +108,9 @@ describe('the repositories a line works', () => {
     ).toEqual(['repositories.1.image']);
   });
 
-  it('rejects a setup of more than one line, where the line names it', () => {
+  it('rejects a setup longer than 65536 characters, where the line names it', () => {
     expect(
-      invalidAt([{ name: 'acme/api', setup: 'npm ci\nnpm run build' }]),
+      invalidAt([{ name: 'acme/api', setup: 'x'.repeat(65_537) }]),
     ).toEqual(['repositories.0.setup']);
   });
 

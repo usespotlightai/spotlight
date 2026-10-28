@@ -8,7 +8,7 @@ export class AgentPrompt {
 
   static of(written: string): AgentPrompt {
     return new AgentPrompt(
-      WrittenText.prose(written, MAX_LENGTH, InvalidAgentPromptError),
+      WrittenText.of(written, MAX_LENGTH, InvalidAgentPromptError),
     );
   }
 

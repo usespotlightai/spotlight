@@ -27,11 +27,7 @@ const isRate = (value: number): boolean =>
   Number.isFinite(value) && value >= 0 && value <= 1;
 
 const rubricOf = (written: string, scored: boolean): string => {
-  const rubric = WrittenText.prose(
-    written,
-    MAX_RUBRIC_LENGTH,
-    InvalidRubricError,
-  );
+  const rubric = WrittenText.of(written, MAX_RUBRIC_LENGTH, InvalidRubricError);
 
   if (!scored) {
     return rubric;
@@ -60,7 +56,7 @@ const claimsOf = (written: readonly string[]): readonly string[] => {
   }
 
   return written.map((each) =>
-    WrittenText.prose(each, MAX_CLAIM_LENGTH, InvalidClaimError).trim(),
+    WrittenText.of(each, MAX_CLAIM_LENGTH, InvalidClaimError).trim(),
   );
 };
 
