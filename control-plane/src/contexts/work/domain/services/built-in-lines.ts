@@ -13,6 +13,7 @@ import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
+import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
@@ -29,6 +30,7 @@ interface StationOpening {
   readonly diffs?: boolean;
   readonly decisions?: boolean;
   readonly memories?: boolean;
+  readonly judge?: StationJudge | null;
   readonly ends: boolean;
 }
 
@@ -47,6 +49,9 @@ export interface LineOpening {
   readonly reviews?: ReviewPolicy | null;
 }
 
+const judgeOf = (rubric: string): StationJudge =>
+  StationJudge.of({ rubric, sample: 0.2, minAgreement: 0.6 });
+
 const opening = (input: {
   key: string;
   name: string;
@@ -58,6 +63,7 @@ const opening = (input: {
   diffs?: boolean;
   decisions?: boolean;
   memories?: boolean;
+  rubric?: string;
   ends?: boolean;
 }): StationOpening => ({
   key: StationKey.of(input.key),
@@ -70,6 +76,7 @@ const opening = (input: {
   diffs: input.diffs ?? false,
   decisions: input.decisions ?? false,
   memories: input.memories ?? false,
+  judge: input.rubric ? judgeOf(input.rubric) : null,
   ends: input.ends ?? false,
 });
 
@@ -246,6 +253,45 @@ Make no edits and push nothing: the branch is theirs.
 
 Say in your note what you found, most serious first, and pass the task to \`done\`.`;
 
+const TRIAGE_RUBRIC = `scores: yes-no
+
+The note says in a sentence or two what the request comes down to, and names
+what it leaves open or takes for granted. The run changed no file. The task
+went to Spec or Implementation only when a plan could be written against it,
+and to a person when the request was ambiguous, contradictory or already done.
+The note does not plan the change.`;
+
+const SPEC_RUBRIC = `scores: yes-no
+
+The plan names the approach and why it beats the obvious alternative, the real
+files and functions to change, how to test it, and what is out of scope.
+Someone could implement it without going back to the requester. It does not
+reopen what the request wants, and it puts a decision that is not the agent's
+to make to a person.`;
+
+const IMPLEMENTATION_RUBRIC = `scores: yes-no
+
+The change does what the spec describes, and no more. It matches the
+surrounding code, adds tests that fail without it, leaves the tests and the
+linter passing, and is pushed to the task's branch. The note says what changed,
+what was tested, and what the spec did not anticipate. A wrong spec went back
+to Spec, not into a different change.`;
+
+const CODE_REVIEW_RUBRIC = `scores: yes-no
+
+The review judges the change against the spec and the notes. Each finding is
+real, has a severity that is not overstated, and says where it is, what goes
+wrong, when, and what would fix it. A fault in the code went back to
+Implementation, and a fault in the plan to Spec. A sound change got a pull
+request and went to done.`;
+
+const PULL_REQUEST_REVIEW_RUBRIC = `scores: yes-no
+
+The review judges the pull request against its description. Each finding is a
+comment on its line, starts with a severity that is not overstated, and says
+what goes wrong, when, and what would fix it. The review requests changes only
+for a high finding. The run made no edit and pushed nothing.`;
+
 const REVIEW_STATIONS: readonly StationOpening[] = [
   opening({
     key: 'backlog',
@@ -259,6 +305,7 @@ const REVIEW_STATIONS: readonly StationOpening[] = [
     name: 'Review',
     color: '#56b98d',
     prompt: PULL_REQUEST_REVIEW,
+    rubric: PULL_REQUEST_REVIEW_RUBRIC,
     ends: true,
     diffs: true,
     tools: [REVIEW_COMMENT, REVIEW],
@@ -284,6 +331,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     name: 'Triage',
     color: '#93a1b5',
     prompt: TRIAGE,
+    rubric: TRIAGE_RUBRIC,
     passesTo: ['spec', 'implementation'],
   }),
   opening({
@@ -291,6 +339,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     name: 'Spec',
     color: '#5c66d9',
     prompt: SPEC,
+    rubric: SPEC_RUBRIC,
     passesTo: ['implementation'],
   }),
   opening({
@@ -298,6 +347,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     name: 'Implementation',
     color: '#edc12b',
     prompt: IMPLEMENTATION,
+    rubric: IMPLEMENTATION_RUBRIC,
     passesTo: ['code-review', 'spec'],
     decisions: true,
   }),
@@ -306,6 +356,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     name: 'Code Review',
     color: '#56b98d',
     prompt: CODE_REVIEW,
+    rubric: CODE_REVIEW_RUBRIC,
     passesTo: ['spec', 'implementation'],
     ends: true,
     tools: [PULL_REQUEST],
