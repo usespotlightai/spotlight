@@ -1,5 +1,5 @@
-import { SearchBestName } from '@/components/features/searches/station/SearchBestName';
-import { SearchBestScore } from '@/components/features/searches/station/SearchBestScore';
+import { SearchBestName } from '@/components/features/searches/set/SearchBestName';
+import { SearchBestScore } from '@/components/features/searches/set/SearchBestScore';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,

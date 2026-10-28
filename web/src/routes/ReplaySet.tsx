@@ -5,6 +5,7 @@ import { ReplaySetSkeleton } from '@/components/features/replays/set/ReplaySetSk
 import { SetChecks } from '@/components/features/replays/set/SetChecks';
 import { SetReplays } from '@/components/features/replays/set/SetReplays';
 import { SetRuns } from '@/components/features/replays/set/SetRuns';
+import { SetSearches } from '@/components/features/searches/set/SetSearches';
 import { StationPane } from '@/components/features/stations/StationPane';
 import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnlyOrCouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
@@ -17,6 +18,7 @@ import { useReplaySet } from '@/hooks/api/useReplaySet';
 import { useReplays } from '@/hooks/api/useReplays';
 import { useSearches } from '@/hooks/api/useSearches';
 import { useStation } from '@/hooks/api/useStation';
+import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { failed, loading } from '@/lib/query';
 import { replayedStationOf } from '@/lib/replayed-station';
@@ -44,6 +46,7 @@ export function ReplaySet() {
 
   const base: BreadcrumbSegment[] = [...stationTrail, ...setCrumbs(at, set)];
   const { trail, forward } = useTrail(base);
+  useScrollToHash(Boolean(set) && !loading(searches));
 
   if (loading(kept)) {
     return <ReplaySetSkeleton known={trail} />;
@@ -79,6 +82,8 @@ export function ReplaySet() {
 
       <StationPane>
         <SetReplays at={at} set={set} replays={replays} />
+
+        <SetSearches at={at} set={set} searches={searches} />
 
         <SetHealth at={at} set={set} />
 

@@ -1,6 +1,6 @@
+import { InsightsTableCardSkeleton } from '@/components/features/insights/InsightsTableCardSkeleton';
 import { InsightsTileSkeleton } from '@/components/features/insights/InsightsTileSkeleton';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
-import { ImproveCardSkeleton } from '@/components/features/stations/improve/ImproveCardSkeleton';
 import { StationPane } from '@/components/features/stations/StationPane';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
@@ -37,7 +37,7 @@ export function SearchSkeleton({ known }: SearchSkeletonProps) {
             <InsightsTileSkeleton key={label} label={label} detail />
           ))}
         </InsightsTiles>
-        <ImproveCardSkeleton label="Loading the candidates" rows={5} />
+        <InsightsTableCardSkeleton rows={5} />
       </StationPane>
     </div>
   );

@@ -15,7 +15,10 @@ import {
   ORIGINAL_OUTCOMES,
   type OriginalOutcome,
 } from '@replays/domain/services/composition';
-import { SEARCH_SKIP_REASONS } from '@replays/domain/value-objects/search-skip-reason';
+import {
+  SEARCH_SKIP_REASONS,
+  type SearchSkipReason,
+} from '@replays/domain/value-objects/search-skip-reason';
 import { UNREPLAYABLE_REASONS } from '@replays/domain/value-objects/unreplayable-reason';
 import { SetHealthResponseDto } from '@replays/presentation/http/dto/replays.response.dto';
 
@@ -246,9 +249,9 @@ export class SearchSkipResponseDto {
   @ApiProperty({
     enum: SEARCH_SKIP_REASONS,
     description:
-      'Why Spotlight did not start an automatic search of the station: the policy is off, the set cannot score or is too small, set health warns, no fresh held-out tasks, the ceiling is too low, no agent, the monthly ceiling, an open config pull request, or the cooldown',
+      'Why Spotlight did not start an automatic search of the station: the set cannot score or is too small, set health warns, no fresh held-out tasks, the ceiling is too low, no agent, the monthly ceiling, an open config pull request, or the cooldown',
   })
-  readonly reason: string;
+  readonly reason: SearchSkipReason;
 
   @ApiProperty({ description: 'When Spotlight first skipped for this reason' })
   readonly at: string;

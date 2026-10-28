@@ -37,10 +37,9 @@ export type SearchObjective = SearchResponseDto['objective'];
 export type SearchTrigger = SearchResponseDto['trigger'];
 export type SearchPick = NonNullable<SearchResponseDto['pick']>;
 type PickDecline = NonNullable<SearchPick['reason']>;
-export type SearchSchedule = NonNullable<
-  ReplaySetResponseDto['searchSchedule']
->;
-type SkipReason = NonNullable<SearchSchedule['lastSkip']>['reason'];
+type SearchSchedule = NonNullable<ReplaySetResponseDto['searchSchedule']>;
+export type SearchSkip = NonNullable<SearchSchedule['lastSkip']>;
+type SkipReason = SearchSkip['reason'];
 export type CauseKind = FailureCauseResponseDto['cause'];
 export type ReflectionResult = NonNullable<
   SearchReflectionResponseDto['result']
@@ -523,9 +522,9 @@ const PICK_DECLINES: Record<PickDecline, string> = {
     'The best candidate is likely overfit. It did better only on the searched tasks.',
   'station-gone':
     'The station is gone from its line. Spotlight cannot change its config.',
-  'pull-request-open': 'A config pull request for the station is open.',
+  'pull-request-open': 'A config pull request for the station is already open.',
   'rejected-before':
-    "A config pull request for each passing candidate was closed on GitHub before. Spotlight does not propose these configs again while the station's live config stays the same.",
+    'A person closed a config pull request for each passing candidate while the live config stayed the same.',
 };
 
 const PICKED: Record<PullRequestState, (name: string) => string> = {
@@ -554,7 +553,6 @@ export const formatPick = (
     : PICK_DECLINES[pick.reason ?? 'no-candidate'];
 
 const SKIP_REASONS: Record<SkipReason, (minimumTasks: number) => string> = {
-  disabled: () => 'the search policy of the station is off.',
   'no-agent': () => 'no runner can start the harness of the search agent.',
   'no-scoring': () => 'the station has no judge and no check.',
   'set-too-small': (minimumTasks) =>
@@ -574,7 +572,10 @@ const SKIP_REASONS: Record<SkipReason, (minimumTasks: number) => string> = {
   cooldown: () => 'the last search of the station started too recently.',
 };
 
-export const formatSkip = (schedule: SearchSchedule): string =>
-  schedule.lastSkip
-    ? `Spotlight did not start a search: ${SKIP_REASONS[schedule.lastSkip.reason](schedule.minimumTasks)}`
+export const formatSkip = (
+  skip: SearchSkip | null,
+  minimumTasks: number,
+): string =>
+  skip
+    ? `Spotlight did not start a search: ${SKIP_REASONS[skip.reason](minimumTasks)}`
     : NO_SEARCHES_YET;

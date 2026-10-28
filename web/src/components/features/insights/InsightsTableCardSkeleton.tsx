@@ -4,21 +4,19 @@ const FRAME = 58;
 const HEADINGS = 31;
 const FOOTER = 40;
 
-type ImproveCardSkeletonProps = {
-  label: string;
+type InsightsTableCardSkeletonProps = {
   rows: number;
   rowHeight?: number;
   footer?: boolean;
 };
 
-export function ImproveCardSkeleton({
-  label,
+export function InsightsTableCardSkeleton({
   rows,
   rowHeight = 41,
   footer = false,
-}: ImproveCardSkeletonProps) {
+}: InsightsTableCardSkeletonProps) {
   return (
-    <div role="status" aria-label={label} className="flex">
+    <div aria-hidden className="flex">
       <Skeleton
         className="w-full rounded-lg"
         style={{

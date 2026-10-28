@@ -8,9 +8,11 @@ import {
   type Search,
   type SearchCandidate,
   type SearchDetail,
+  searchesPath,
   searchNumber,
   searchPath,
 } from '@/lib/search';
+import { searchCrumbs } from '@/lib/station-crumbs';
 
 const AT = {
   slug: 'acme',
@@ -55,6 +57,30 @@ describe('search', () => {
     expect(searchPath(AT, 'search_1')).toBe(
       '/w/acme/team/team_1/lines/line_1/stations/station_1/searches/search_1',
     );
+  });
+
+  it('lists the searches of a station on its replay set', () => {
+    expect(searchesPath(AT, 'set_1')).toBe(
+      '/w/acme/team/team_1/lines/line_1/stations/station_1/replay-sets/set_1#searches',
+    );
+  });
+
+  it('walks back from a search to the replay set it searched', () => {
+    expect(searchCrumbs(AT, { id: 'search_1', setId: 'set_1' }, 2)).toEqual([
+      {
+        label: 'Replay set',
+        to: '/w/acme/team/team_1/lines/line_1/stations/station_1/replay-sets/set_1',
+      },
+      {
+        label: 'Search 2',
+        to: '/w/acme/team/team_1/lines/line_1/stations/station_1/searches/search_1',
+      },
+    ]);
+    expect(
+      searchCrumbs(AT, { id: 'search_1', setId: null }, 2).map(
+        (each) => each.label,
+      ),
+    ).toEqual(['Search 2']);
   });
 
   it('numbers searches from the first started', () => {

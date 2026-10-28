@@ -235,9 +235,7 @@ export const formatRefreshed = (refreshedAt: string | null): string =>
 
 const SHOWN_TITLES = 3;
 
-export const formatRefreshedRuns = (
-  runs: SetRefreshResponseDto['added'],
-): string => {
+const formatRefreshedRuns = (runs: SetRefreshResponseDto['added']): string => {
   if (runs.length === 0) {
     return 'None';
   }
@@ -407,8 +405,6 @@ export const FLIPPED_TASKS_LABEL = 'Tasks that went both ways';
 export const NOT_SCORED_YET = 'Not scored yet';
 
 export const NO_SCORE_YET = 'No score yet';
-
-export const SUCCEEDED = 'succeeded';
 
 export const THE_BASELINE = 'the baseline';
 
@@ -603,7 +599,7 @@ const roomReading = (
       ...base,
       text: `Too few runs to tell: ${counted(oracle.answered, 'run', 'runs')} with an answer`,
       tone: 'unknown',
-      advice: `Spotlight needs 5 runs that were accepted or sent back to measure room. Please add some to the set. ${ANSWER_DEFINITION}`,
+      advice: `Spotlight needs 5 runs that were accepted or sent back to measure room. Spotlight adds runs to the set as the station works more tasks. ${ANSWER_DEFINITION}`,
     };
   }
 
@@ -711,8 +707,6 @@ const checksReading = (checks: SetHealth['checks']): HealthReading => {
         advice: `The check gave the same answer both times.${pending}`,
       };
 };
-
-export const REPEATS_LABEL = 'Repeats';
 
 export const healthReadingsOf = (
   health: SetHealth,

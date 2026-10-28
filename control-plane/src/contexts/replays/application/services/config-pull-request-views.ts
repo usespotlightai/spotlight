@@ -6,7 +6,7 @@ import type {
 import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 
-const reasonView = (
+export const configPullRequestReasonView = (
   reason: ConfigPullRequestReason | null,
 ): ConfigPullRequestReasonDto | null =>
   reason && {
@@ -33,9 +33,9 @@ export const configPullRequestView = (
   branch: pullRequest.branch,
   state: pullRequest.current,
   closedBecause: pullRequest.closedBecause,
-  closeFailure: reasonView(pullRequest.closeFailure),
+  closeFailure: configPullRequestReasonView(pullRequest.closeFailure),
   url: pullRequest.url,
-  reason: reasonView(pullRequest.reason),
+  reason: configPullRequestReasonView(pullRequest.reason),
   createdAt: pullRequest.createdAt.toISOString(),
   updatedAt: pullRequest.updatedAt.toISOString(),
 });
@@ -46,7 +46,7 @@ export const candidatePullRequestView = (
   id: pullRequest.id.value,
   state: pullRequest.current,
   closedBecause: pullRequest.closedBecause,
-  closeFailure: reasonView(pullRequest.closeFailure),
+  closeFailure: configPullRequestReasonView(pullRequest.closeFailure),
   url: pullRequest.url,
-  reason: reasonView(pullRequest.reason),
+  reason: configPullRequestReasonView(pullRequest.reason),
 });

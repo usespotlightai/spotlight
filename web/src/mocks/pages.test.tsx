@@ -41,10 +41,7 @@ const teamPages = (teamId: string): string[] => {
     ),
     ...lines.flatMap((line) => [
       `${team}/lines/${line.id}`,
-      ...line.stations.flatMap((each) => [
-        station(line.id, each.id),
-        `${station(line.id, each.id)}/improve`,
-      ]),
+      ...line.stations.map((each) => station(line.id, each.id)),
     ]),
     ...setStore()
       .filter((set) => onTeam(set.lineId))

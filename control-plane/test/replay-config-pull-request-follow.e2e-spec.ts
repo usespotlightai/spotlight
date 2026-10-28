@@ -331,7 +331,7 @@ describe('following a config pull request after it opened', () => {
       expect.objectContaining({
         headline: 'The search of the Build station ended with no pull request',
         points: [
-          "A config pull request for each passing candidate was closed on GitHub before. Spotlight does not propose this config again while the station's live config stays the same.",
+          'A person closed a config pull request for each passing candidate while the live config stayed the same.',
         ],
       }),
     ]);
@@ -391,9 +391,7 @@ describe('following a config pull request after it opened', () => {
     ).toEqual([
       expect.objectContaining({
         headline: 'The search of the Polish station ended with no pull request',
-        points: [
-          'A config pull request for the station is open. Spotlight keeps one open config pull request for each station.',
-        ],
+        points: ['A config pull request for the station is already open.'],
       }),
     ]);
   }, 300_000);

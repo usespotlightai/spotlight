@@ -81,11 +81,7 @@ export const dueVerdict = (input: DueInput): ScheduleVerdict => {
   const { policy, lastStartedAt, cooldownFrom, now } = input;
 
   if (!policy?.enabled) {
-    return {
-      kind: 'skip',
-      reason: 'disabled',
-      checkAfter: after(now, SET_RECHECK_MS),
-    };
+    return { kind: 'wait', checkAfter: after(now, SET_RECHECK_MS) };
   }
   if (!input.scores) {
     return {

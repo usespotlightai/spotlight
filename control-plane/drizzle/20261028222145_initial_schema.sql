@@ -44,7 +44,7 @@ CREATE TYPE "public"."replay_search_state" AS ENUM('seeding', 'searching', 'hold
 CREATE TYPE "public"."replay_search_stop_reason" AS ENUM('iterations-spent', 'ceiling-reached', 'stalled', 'stopped', 'station-gone', 'seed-failed');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_trigger" AS ENUM('schedule', 'alert');--> statement-breakpoint
 CREATE TYPE "public"."replay_state" AS ENUM('queued', 'running', 'finished', 'stopped', 'ceiling-reached');--> statement-breakpoint
-CREATE TYPE "public"."search_skip_reason" AS ENUM('disabled', 'no-agent', 'no-scoring', 'set-too-small', 'no-fresh-held-out', 'ceiling-too-low', 'noisy', 'judge-unstable', 'flaky-checks', 'no-headroom', 'monthly-ceiling', 'pull-request-open', 'cooldown');--> statement-breakpoint
+CREATE TYPE "public"."search_skip_reason" AS ENUM('no-agent', 'no-scoring', 'set-too-small', 'no-fresh-held-out', 'ceiling-too-low', 'noisy', 'judge-unstable', 'flaky-checks', 'no-headroom', 'monthly-ceiling', 'pull-request-open', 'cooldown');--> statement-breakpoint
 CREATE TYPE "public"."inbox_request_form" AS ENUM('memories', 'grade', 'alert');--> statement-breakpoint
 CREATE TYPE "public"."notice_form" AS ENUM('ended', 'advice');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_claimed" AS ENUM('queued', 'cancelled', 'unreplayable');--> statement-breakpoint

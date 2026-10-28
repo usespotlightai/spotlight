@@ -351,10 +351,10 @@ describe('Search', () => {
 
     expect(screen.getByText('Search not found')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'See the station’s searches' }),
+      screen.getByRole('link', { name: 'Open the station' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_1/improve#searches',
+      '/w/acme/team/team_1/lines/line_1/stations/station_1',
     );
   });
 
@@ -394,10 +394,16 @@ describe('Search', () => {
     ).toHaveAccessibleDescription(
       'Spotlight started this search. A station alert fired.',
     );
+    const [crumb, setLink] = screen.getAllByRole('link', {
+      name: 'Replay set',
+    });
+
+    expect(crumb).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_1/stations/station_1/replay-sets/set_1',
+    );
     expect(
-      screen
-        .getByRole('link', { name: 'Replay set' })
-        .parentElement?.querySelectorAll('[aria-describedby]')[1],
+      setLink?.parentElement?.querySelectorAll('[aria-describedby]')[1],
     ).toHaveAccessibleDescription(/^Started .*, ended /);
     expect(screen.getByText('No pull request')).toHaveAccessibleDescription(
       'No candidate did better than the live config on the held-out tasks.',
@@ -406,9 +412,7 @@ describe('Search', () => {
     expect(
       screen.queryByRole('button', { name: 'Stop' }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'Replay set' }),
-    ).toBeInTheDocument();
+    expect(setLink).toBeInTheDocument();
   });
 
   it('says the search aims for more success, and names its best', () => {

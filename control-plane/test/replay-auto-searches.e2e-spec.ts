@@ -12,7 +12,6 @@ import {
   policyAt,
   scheduleOf,
 } from './support/auto-searches';
-import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import {
   anOriginal,
@@ -32,10 +31,8 @@ import {
   startSearch,
   stationPath,
   team,
-  teamNotices,
   teamPath,
   tenTasks,
-  WITHIN,
 } from './support/search-flow';
 
 openSearchFlow();
@@ -54,7 +51,7 @@ const counted = async () => ({
 });
 
 describe('searches Spotlight starts on its own', () => {
-  it('skips a set with too few tasks at no cost, says so once to the team, and shows why on the set', async () => {
+  it('skips a set with too few tasks at no cost, and shows why on the set', async () => {
     const few = [];
     for (let each = 0; each < 3; each += 1) {
       few.push(await anOriginal());
@@ -90,25 +87,6 @@ describe('searches Spotlight starts on its own', () => {
     expect(Date.parse(set.searchSchedule.checkAfter)).toBeGreaterThan(
       Date.now() + 23 * HOUR_MS,
     );
-
-    const advice = await eventually(async () => {
-      const found = (await teamNotices()).filter(
-        (each) => each.form === 'advice',
-      );
-
-      return found.length > 0 ? found : null;
-    }, WITHIN);
-
-    expect(advice).toEqual([
-      expect.objectContaining({
-        teamId: team.teamId.value,
-        headline: 'Spotlight cannot search the Build station',
-        points: [
-          'The replay set of the station has too few tasks. Spotlight adds tasks from new runs of the station.',
-          'Minimum tasks required: 5',
-        ],
-      }),
-    ]);
   }, 120_000);
 
   it('starts one search across two stations of a line when the monthly ceiling fits only one, however the ticks overlap', async () => {

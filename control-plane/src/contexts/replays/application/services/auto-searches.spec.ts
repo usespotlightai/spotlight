@@ -347,13 +347,16 @@ describe('AutoSearches', () => {
     );
   });
 
-  it('skips a station whose policy is off', async () => {
+  it('starts no search at a station whose policy is off, and records no skip', async () => {
     policy = policyOf({ enabled: false });
 
     await auto().processDue();
 
     expect(searches()).toEqual([]);
-    expect(schedule().lastSkip?.reason).toBe('disabled');
+    expect(schedule().lastSkip).toBeNull();
+    expect(schedule().checkAfter).toEqual(
+      new Date(now.getTime() + 24 * 60 * 60_000),
+    );
   });
 
   it('leaves a schedule that changed while Spotlight looked at it due, and does not overwrite it', async () => {
@@ -399,14 +402,17 @@ describe('AutoSearches', () => {
 
   it('re-checks the monthly ceiling under the line lock, and skips when a search started there since it looked', async () => {
     policy = policyOf({ monthlyCeiling: 10, ceiling: 10 });
-    const { ofLineStartedSince, ofStation } = memory.searchRepository;
+    const { ofLineStartedSince, activeAtStation, newestAtStation } =
+      memory.searchRepository;
 
     memory.searchRepository.ofLineStartedSince = async () => [];
-    memory.searchRepository.ofStation = async () => [];
+    memory.searchRepository.activeAtStation = async () => null;
+    memory.searchRepository.newestAtStation = async () => null;
     await memory.searchRepository.add(aSearch({ id: 'search_meanwhile' }));
     await auto().processDue();
     memory.searchRepository.ofLineStartedSince = ofLineStartedSince;
-    memory.searchRepository.ofStation = ofStation;
+    memory.searchRepository.activeAtStation = activeAtStation;
+    memory.searchRepository.newestAtStation = newestAtStation;
 
     expect(searches().map((each) => each.id)).toEqual([
       SearchId.of('search_meanwhile'),

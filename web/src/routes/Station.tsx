@@ -1,26 +1,28 @@
 import { useParams } from 'react-router';
+import { StationOverviewSkeleton } from '@/components/features/stations/overview/StationOverviewSkeleton';
+import { StationBody } from '@/components/features/stations/StationBody';
 import { StationHeading } from '@/components/features/stations/StationHeading';
 import { StationPane } from '@/components/features/stations/StationPane';
 import { StationSkeleton } from '@/components/features/stations/StationSkeleton';
-import { StationTabBody } from '@/components/features/stations/StationTabBody';
-import { StationTabSkeleton } from '@/components/features/stations/StationTabSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useStation } from '@/hooks/api/useStation';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
-import { useStationTabLoading } from '@/hooks/useStationTabLoading';
+import { useStationOverviewLoading } from '@/hooks/useStationOverviewLoading';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { failed, loading } from '@/lib/query';
-import { stationTab } from '@/lib/station';
 import { TrailContext, useTrail } from '@/lib/trail';
 
 export function Station() {
-  const { slug, teamId, lineId, stationId, tab: shown } = useParams();
-  const tab = stationTab(shown);
+  const { slug, teamId, lineId, stationId } = useParams();
   const { lines, line, station } = useStation(teamId, lineId, stationId);
-  const tabLoading = useStationTabLoading(tab, { teamId, lineId, stationId });
+  const overviewLoading = useStationOverviewLoading({
+    teamId,
+    lineId,
+    stationId: station?.kind === 'work' ? station.id : undefined,
+  });
   const crumbs = useStationTrail({ slug, teamId, lineId, stationId }).slice(
     0,
     -1,
@@ -29,10 +31,10 @@ export function Station() {
     station ? [...crumbs, { label: station.name }] : crumbs,
   );
 
-  useScrollToHash(Boolean(station) && !tabLoading);
+  useScrollToHash(Boolean(station) && !overviewLoading);
 
   if (loading(lines)) {
-    return <StationSkeleton tab={tab ?? 'overview'} />;
+    return <StationSkeleton />;
   }
 
   if (failed(lines)) {
@@ -47,7 +49,7 @@ export function Station() {
     );
   }
 
-  if (!line || !station || !slug || !teamId || !tab) {
+  if (!line || !station || !slug || !teamId) {
     return (
       <PageNotice title="Station not found">
         <p className="text-muted-foreground text-sm">
@@ -66,19 +68,19 @@ export function Station() {
         teamId={teamId}
         line={line}
         station={station}
-        tab={tab}
       />
 
       <StationPane>
-        {tabLoading && station.kind === 'work' ? (
-          <StationTabSkeleton tab={tab} />
+        {overviewLoading && station.kind === 'work' ? (
+          <div role="status" aria-label="Loading the station overview">
+            <StationOverviewSkeleton />
+          </div>
         ) : (
-          <StationTabBody
+          <StationBody
             slug={slug}
             teamId={teamId}
             line={line}
             station={station}
-            tab={tab}
           />
         )}
       </StationPane>

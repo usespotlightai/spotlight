@@ -2,7 +2,7 @@ import { PageNotice } from '@/components/shared/PageNotice';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button-variants';
 import type { ReplayedStation } from '@/lib/replay';
-import { searchesAnchorPath } from '@/lib/search';
+import { stationPath } from '@/lib/station';
 import { cn } from '@/lib/utils';
 
 type SearchNotFoundProps = {
@@ -17,13 +17,13 @@ export function SearchNotFound({ at }: SearchNotFoundProps) {
       </p>
       {at && (
         <TrailLink
-          to={searchesAnchorPath(at)}
+          to={stationPath(at.slug, at.teamId, at.lineId, at.stationId)}
           className={cn(
             buttonVariants({ variant: 'outline', size: 'sm' }),
             'rounded-full bg-card shadow-none',
           )}
         >
-          See the station’s searches
+          Open the station
         </TrailLink>
       )}
     </PageNotice>

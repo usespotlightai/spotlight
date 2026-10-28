@@ -37,6 +37,7 @@ import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-r
 import type { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import { SEARCH_SKIP_REASONS } from '@replays/domain/value-objects/search-skip-reason';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -245,7 +246,7 @@ describe('NoticeSearchResults', () => {
     ]);
   });
 
-  it('advises the team only on the skips a person can fix', async () => {
+  it('advises the team only on the skips a person must fix, the ones that stop improvement', async () => {
     const skipped = (reason: StationSearchSkipped['reason']) =>
       new StationSearchSkipped(
         STATION.workspaceId,
@@ -256,27 +257,21 @@ describe('NoticeSearchResults', () => {
         NOW,
       );
 
-    for (const reason of [
-      'no-scoring',
-      'set-too-small',
-      'no-headroom',
-      'cooldown',
-      'monthly-ceiling',
-      'pull-request-open',
-      'ceiling-too-low',
-      'no-agent',
-    ] as const) {
+    for (const reason of SEARCH_SKIP_REASONS) {
       await noticing().skipped(skipped(reason));
     }
 
-    expect(advised.map((each) => each.about)).toEqual([
-      `no-scoring ${NOW.toISOString()}`,
-      `set-too-small ${NOW.toISOString()}`,
-      `no-headroom ${NOW.toISOString()}`,
-      `ceiling-too-low ${NOW.toISOString()}`,
-      `no-agent ${NOW.toISOString()}`,
-    ]);
-    expect(advised[0]).toMatchObject({
+    expect(advised.map((each) => each.about)).toEqual(
+      [
+        'no-agent',
+        'no-scoring',
+        'ceiling-too-low',
+        'noisy',
+        'judge-unstable',
+        'flaky-checks',
+      ].map((reason) => `${reason} ${NOW.toISOString()}`),
+    );
+    expect(advised[1]).toMatchObject({
       headline: 'Spotlight cannot search the Build station',
       points: [
         'The station has no judge and no check. Spotlight cannot score a config without one of them.',

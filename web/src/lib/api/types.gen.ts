@@ -7698,9 +7698,9 @@ export type ReplaySetEntryResponseDto = {
 
 export type SearchSkipResponseDto = {
   /**
-   * Why Spotlight did not start an automatic search of the station: the policy is off, the set cannot score or is too small, set health warns, no fresh held-out tasks, the ceiling is too low, no agent, the monthly ceiling, an open config pull request, or the cooldown
+   * Why Spotlight did not start an automatic search of the station: the set cannot score or is too small, set health warns, no fresh held-out tasks, the ceiling is too low, no agent, the monthly ceiling, an open config pull request, or the cooldown
    */
-  reason: 'disabled' | 'no-agent' | 'no-scoring' | 'set-too-small' | 'no-fresh-held-out' | 'ceiling-too-low' | 'noisy' | 'judge-unstable' | 'flaky-checks' | 'no-headroom' | 'monthly-ceiling' | 'pull-request-open' | 'cooldown';
+  reason: 'no-agent' | 'no-scoring' | 'set-too-small' | 'no-fresh-held-out' | 'ceiling-too-low' | 'noisy' | 'judge-unstable' | 'flaky-checks' | 'no-headroom' | 'monthly-ceiling' | 'pull-request-open' | 'cooldown';
   /**
    * When Spotlight first skipped for this reason
    */
@@ -9413,6 +9413,53 @@ export type ReplayedCandidatesResponseDto = {
    * Stations with a candidate replayed in the period, newest first
    */
   stations: Array<ReplayedStationResponseDto>;
+};
+
+export type StationImprovementResponseDto = {
+  /**
+   * What Spotlight does now to improve the station: a search runs, Spotlight picks a candidate of the last search or opens its pull request, a config pull request is open, the search policy is off, the station has no runs in its replay set yet, a person must act before Spotlight can improve the station, a merged pull request improved the station since the last search, or Spotlight waits for its next check
+   */
+  status: 'searching' | 'picking' | 'pull-request-open' | 'off' | 'not-started' | 'not-improving' | 'improved' | 'waiting';
+  /**
+   * The search that runs, or whose pick is pending; null unless the status is searching or picking
+   */
+  searchId: string | null;
+  /**
+   * choosing while Spotlight has not picked a candidate of the finished search, opening while the picked candidate has no pull request yet; null unless the status is picking
+   */
+  pickPhase: 'choosing' | 'opening' | null;
+  /**
+   * The open config pull request, or the merged one that improved the station; null for other statuses, and while the pull request is not on GitHub yet
+   */
+  pullRequestUrl: string | null;
+  /**
+   * When a merged config pull request improved the station; null unless the status is improved
+   */
+  improvedAt: string | null;
+  /**
+   * Why Spotlight cannot start a search until a person acts; null unless the status is not-improving because of a skip
+   */
+  skip: SearchSkipResponseDto | null;
+  /**
+   * Why the newest config pull request of the station could not be opened; null unless the status is not-improving because of it
+   */
+  pullRequestFailure: ConfigPullRequestReasonResponseDto | null;
+  /**
+   * The fewest different tasks a set needs before Spotlight can search it
+   */
+  minimumTasks: number;
+  /**
+   * The replay set Spotlight keeps for the station; null while it keeps none
+   */
+  setId: string | null;
+  /**
+   * When Spotlight last started a search of the station; null before the first
+   */
+  lastStartedAt: string | null;
+  /**
+   * When Spotlight next looks at the station; null while it keeps no replay set
+   */
+  checkAfter: string | null;
 };
 
 export type HookSigningRequestDtoWritable = {
@@ -20257,3 +20304,47 @@ export type ReadReplayedCandidatesResponses = {
 };
 
 export type ReadReplayedCandidatesResponse = ReadReplayedCandidatesResponses[keyof ReadReplayedCandidatesResponses];
+
+export type ReadStationImprovementData = {
+  body?: never;
+  headers?: {
+    /**
+     * The API version the client was written against; every response names the version that it uses
+     */
+    'Spotlight-Api-Version'?: '2026-09-23';
+    /**
+     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
+     */
+    'Spotlight-Client'?: string;
+  };
+  path: {
+    teamId: string;
+    lineId: string;
+    stationId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/lines/{lineId}/stations/{stationId}/improvement';
+};
+
+export type ReadStationImprovementErrors = {
+  /**
+   * Malformed, or requests an API version this server does not serve
+   */
+  400: ProblemResponseDto;
+  /**
+   * No valid credentials
+   */
+  401: ProblemResponseDto;
+  /**
+   * No such team or station for this caller
+   */
+  404: ProblemResponseDto;
+};
+
+export type ReadStationImprovementError = ReadStationImprovementErrors[keyof ReadStationImprovementErrors];
+
+export type ReadStationImprovementResponses = {
+  200: StationImprovementResponseDto;
+};
+
+export type ReadStationImprovementResponse = ReadStationImprovementResponses[keyof ReadStationImprovementResponses];

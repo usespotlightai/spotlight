@@ -12,14 +12,18 @@ import type {
 } from '@/lib/api';
 import { spentIn } from '@/lib/inbox';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
-import type { ReplayedStation, ReplaySet } from '@/lib/replay';
+import {
+  type ReplayedStation,
+  type ReplaySet,
+  replaySetPath,
+} from '@/lib/replay';
 import { minGainSentence } from '@/lib/replay-words';
 import type {
   CauseKind,
   PullRequestStatus,
   SearchState,
 } from '@/lib/search-words';
-import { stationPath, stationTabPath } from '@/lib/station';
+import { stationPath } from '@/lib/station';
 import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 
 export type Search = SearchResponseDto;
@@ -53,8 +57,8 @@ export const searchCandidatePath = (
 ): string =>
   `${searchPath(at, searchId)}#${searchCandidateAnchor(candidateId)}`;
 
-export const searchesAnchorPath = (at: ReplayedStation): string =>
-  `${stationTabPath(at.slug, at.teamId, at.lineId, at.stationId, 'improve')}#${SEARCHES_ANCHOR}`;
+export const searchesPath = (at: ReplayedStation, setId: string): string =>
+  `${replaySetPath(at, setId)}#${SEARCHES_ANCHOR}`;
 
 export const ongoing = (state: SearchState): boolean =>
   state === 'seeding' || state === 'searching' || state === 'holding-out';
@@ -105,9 +109,6 @@ export const iterationTitle = (
   iteration: number,
   number: number | null,
 ): string => `Iteration ${iteration} of ${searchLabel(number)}`;
-
-export const formatTasks = (count: number): string =>
-  count === 1 ? '1 task' : `${count} tasks`;
 
 export const formatCostPerRun = (
   cost: number | null,

@@ -1,4 +1,5 @@
 import type { OriginalOutcome } from '@replays/domain/services/composition';
+import type { SearchSkipReason } from '@replays/domain/value-objects/search-skip-reason';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
 export interface ReplaySetEntryDto {
@@ -131,7 +132,7 @@ export interface SetRefreshDto {
 }
 
 export interface SearchSkipDto {
-  readonly reason: string;
+  readonly reason: SearchSkipReason;
   readonly at: string;
 }
 

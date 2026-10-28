@@ -352,6 +352,18 @@ export class DrizzleSearchRepository implements SearchRepository {
     return found ?? null;
   }
 
+  async newestAtStation(stationId: string): Promise<Search | null> {
+    const rows = await this.context.db
+      .select()
+      .from(replaySearch)
+      .where(eq(replaySearch.stationId, stationId))
+      .orderBy(desc(replaySearch.startedAt), desc(replaySearch.id))
+      .limit(1);
+    const [found] = await this.ofRows(rows);
+
+    return found ?? null;
+  }
+
   async activeOfSet(setId: ReplaySetId): Promise<Search | null> {
     const [found] = await this.withIterations(
       and(eq(replaySearch.setId, setId.value), active) as SQL,

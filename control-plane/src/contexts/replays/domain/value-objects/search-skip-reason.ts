@@ -1,5 +1,4 @@
 export const SEARCH_SKIP_REASONS = [
-  'disabled',
   'no-agent',
   'no-scoring',
   'set-too-small',

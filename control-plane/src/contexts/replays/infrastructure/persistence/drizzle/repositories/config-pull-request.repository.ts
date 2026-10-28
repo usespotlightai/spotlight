@@ -24,7 +24,17 @@ import {
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, inArray, lt, lte, type SQL, sql } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  lt,
+  lte,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 
 type PullRequestRow = typeof configPullRequest.$inferSelect;
 
@@ -177,6 +187,25 @@ export class DrizzleConfigPullRequestRepository
 
   ofTeam(teamId: TeamId): Promise<readonly ConfigPullRequest[]> {
     return this.where(eq(configPullRequest.teamId, teamId.value));
+  }
+
+  async newestAtStation(
+    stationId: string,
+    states: readonly ConfigPullRequestState[],
+  ): Promise<ConfigPullRequest | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(configPullRequest)
+      .where(
+        and(
+          eq(configPullRequest.stationId, stationId),
+          inArray(configPullRequest.state, [...states]),
+        ),
+      )
+      .orderBy(desc(configPullRequest.updatedAt), desc(configPullRequest.id))
+      .limit(1);
+
+    return found ? toPullRequest(found) : null;
   }
 
   async openAtStation(stationId: string): Promise<boolean> {

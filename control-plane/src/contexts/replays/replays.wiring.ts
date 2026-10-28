@@ -108,6 +108,7 @@ import { ReadReplayOfRunHandler } from '@replays/application/queries/handlers/re
 import { ReadReplaySetHandler } from '@replays/application/queries/handlers/read-replay-set.handler';
 import { ReadReplayedCandidatesHandler } from '@replays/application/queries/handlers/read-replayed-candidates.handler';
 import { ReadSearchHandler } from '@replays/application/queries/handlers/read-search.handler';
+import { ReadStationImprovementHandler } from '@replays/application/queries/handlers/read-station-improvement.handler';
 import { ImportCandidateQuery } from '@replays/application/queries/import-candidate.query';
 import { ListCandidatesQuery } from '@replays/application/queries/list-candidates.query';
 import { ListReplaysQuery } from '@replays/application/queries/list-replays.query';
@@ -123,6 +124,7 @@ import { ReadReplayOfRunQuery } from '@replays/application/queries/read-replay-o
 import { ReadReplaySetQuery } from '@replays/application/queries/read-replay-set.query';
 import { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
 import { ReadSearchQuery } from '@replays/application/queries/read-search.query';
+import { ReadStationImprovementQuery } from '@replays/application/queries/read-station-improvement.query';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { AutoSearches } from '@replays/application/services/auto-searches.service';
 import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
@@ -195,6 +197,7 @@ import { ReplaysController } from '@replays/presentation/http/controllers/replay
 import { RunnerFailureCausesController } from '@replays/presentation/http/controllers/runner-failure-causes.controller';
 import { RunnerSearchCandidatesController } from '@replays/presentation/http/controllers/runner-search-candidates.controller';
 import { SearchesController } from '@replays/presentation/http/controllers/searches.controller';
+import { StationImprovementsController } from '@replays/presentation/http/controllers/station-improvements.controller';
 import {
   CLOCK,
   type ClockPort,
@@ -257,6 +260,7 @@ export const REPLAYS_CONTROLLERS: readonly Type[] = [
   RunnerFailureCausesController,
   ConfigPullRequestsController,
   ReplayedCandidatesController,
+  StationImprovementsController,
 ];
 
 export const REPLAYS_PROVIDERS: readonly Provider[] = [
@@ -656,6 +660,18 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     SetHealths,
     DrizzleStationSearchScheduleRepository,
   ]),
+  ...bindQueryHandler(
+    ReadStationImprovementQuery,
+    ReadStationImprovementHandler,
+    [
+      ReplaysAccess,
+      DrizzleReplaySetRepository,
+      DrizzleStationSearchScheduleRepository,
+      DrizzleSearchRepository,
+      DrizzleConfigPullRequestRepository,
+      WORK,
+    ],
+  ),
   ...bindQueryHandler(ListTeamReplaySetsQuery, ListTeamReplaySetsHandler, [
     ReplaysAccess,
     DrizzleReplaySetRepository,

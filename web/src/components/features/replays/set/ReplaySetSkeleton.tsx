@@ -1,4 +1,4 @@
-import { ImproveCardSkeleton } from '@/components/features/stations/improve/ImproveCardSkeleton';
+import { InsightsTableCardSkeleton } from '@/components/features/insights/InsightsTableCardSkeleton';
 import { StationPane } from '@/components/features/stations/StationPane';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
@@ -31,14 +31,12 @@ export function ReplaySetSkeleton({ known }: ReplaySetSkeletonProps) {
       </div>
 
       <StationPane>
-        <ImproveCardSkeleton label="Loading the replays" rows={3} />
-        <ImproveCardSkeleton
-          label="Loading the health"
-          rows={HEALTH_LINE_LABELS.length}
-        />
+        <InsightsTableCardSkeleton rows={3} />
+        <InsightsTableCardSkeleton rows={3} />
+        <InsightsTableCardSkeleton rows={HEALTH_LINE_LABELS.length} />
         <div className="grid items-start gap-3 lg:grid-cols-2">
-          <ImproveCardSkeleton label="Loading the runs" rows={5} />
-          <ImproveCardSkeleton label="Loading the checks" rows={3} />
+          <InsightsTableCardSkeleton rows={5} />
+          <InsightsTableCardSkeleton rows={3} />
         </div>
       </StationPane>
     </div>

@@ -2,10 +2,10 @@ import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCar
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
 import { WORTH_IMPROVING_HEADINGS, WORTH_IMPROVING_NOTE } from '@/lib/insights';
 
-export function WorthImprovingSkeleton() {
+export function WorthImprovingSkeleton({ label }: { label?: string }) {
   return (
     <InsightsCardSkeleton
-      label="Loading the station’s signals"
+      label={label}
       tableOnly
       title="Worth improving"
       description={WORTH_IMPROVING_NOTE}

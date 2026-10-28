@@ -17,11 +17,14 @@ import {
   readRunScores,
   readSearch,
   readStationAlert,
+  readStationImprovement,
   readStationInsights,
   readTaskDecisions,
   readTaskJournal,
   readTaskTrace,
 } from '@/lib/api';
+import { ongoing } from '@/lib/search';
+import { isTransientSkip } from '@/lib/station-improvement';
 import { serveMockApi } from '@/mocks/testing';
 import {
   DELIVERY_ID,
@@ -355,6 +358,91 @@ const agentStations = () =>
 
 describe('every agent station improves on its own runs', () => {
   serveMockApi();
+
+  it('reads the improvement status from the station’s own set, searches and pull requests', async () => {
+    for (const path of agentStations()) {
+      const { data: set } = await readReplaySet({ path, throwOnError: true });
+      const { data: searches } = await listSearches({
+        path,
+        throwOnError: true,
+      });
+      const { data: improvement } = await readStationImprovement({
+        path,
+        throwOnError: true,
+      });
+      const details = await Promise.all(
+        searches.map(
+          async (each) =>
+            (
+              await readSearch({
+                path: { teamId: path.teamId, searchId: each.id },
+                throwOnError: true,
+              })
+            ).data,
+        ),
+      );
+      const [newest] = [...searches].sort((one, other) =>
+        other.startedAt.localeCompare(one.startedAt),
+      );
+      const newestDetail = details.find((each) => each.id === newest?.id);
+      const picked =
+        newest?.pick?.outcome === 'picked' ? newest.pick.candidateId : null;
+      const pullRequests = details.flatMap((each) =>
+        each.candidates.flatMap((candidate) =>
+          candidate.pullRequest ? [candidate.pullRequest] : [],
+        ),
+      );
+      const lastSkip = set.searchSchedule?.lastSkip ?? null;
+      const improvedAt = set.searchSchedule?.lastImprovedAt ?? null;
+      const expected = (() => {
+        if (newest && ongoing(newest.state)) {
+          return 'searching';
+        }
+        if (
+          newest &&
+          ((newest.state === 'finished' && !newest.pick) ||
+            (picked &&
+              !newestDetail?.candidates.some(
+                (each) => each.candidateId === picked && each.pullRequest,
+              )))
+        ) {
+          return 'picking';
+        }
+        if (
+          pullRequests.some((each) =>
+            ['opening', 'opened', 'closing'].includes(each.state),
+          )
+        ) {
+          return 'pull-request-open';
+        }
+        if (set.entries.length === 0) {
+          return 'not-started';
+        }
+        if (
+          lastSkip &&
+          !isTransientSkip(lastSkip.reason) &&
+          (!improvedAt || lastSkip.at > improvedAt)
+        ) {
+          return 'not-improving';
+        }
+        if (improvedAt && (!newest || improvedAt >= newest.startedAt)) {
+          return 'improved';
+        }
+        return 'waiting';
+      })();
+
+      expect(improvement.status, path.stationId).toBe(expected);
+      expect(improvement.setId).toBe(set.id);
+      if (improvement.searchId) {
+        expect(newest?.id).toBe(improvement.searchId);
+      }
+      if (improvement.pullRequestUrl) {
+        expect(pullRequests.map((each) => each.url)).toContain(
+          improvement.pullRequestUrl,
+        );
+      }
+    }
+  });
 
   it('has replay sets of runs that ended at the station before they were added', async () => {
     for (const path of agentStations()) {

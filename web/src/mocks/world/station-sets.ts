@@ -165,7 +165,7 @@ export type SetSpec = {
   readonly health: SetHealthResponseDto;
 };
 
-export type SeededRefresh = {
+type SeededRefresh = {
   readonly hoursAgo: number;
   readonly added: readonly string[];
   readonly removed: readonly string[];
@@ -393,7 +393,7 @@ const lastRefreshOf = ({ refresh }: SetSpec): SetRefreshResponseDto | null =>
     removed: refresh.removed.map(refreshedRunOf),
   };
 
-const MIN_SEARCH_TASKS = 5;
+export const MIN_SEARCH_TASKS = 5;
 
 export const replaySetOf = (spec: SetSpec): ReplaySetResponseDto => {
   const entries = spec.entries.map(entryOfSet);

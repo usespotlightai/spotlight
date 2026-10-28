@@ -22455,6 +22455,111 @@
           "replays"
         ]
       }
+    },
+    "/teams/{teamId}/lines/{lineId}/stations/{stationId}/improvement": {
+      "get": {
+        "operationId": "readStationImprovement",
+        "parameters": [
+          {
+            "name": "Spotlight-Api-Version",
+            "in": "header",
+            "description": "The API version the client was written against; every response names the version that it uses",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "2026-09-23"
+              ],
+              "default": "2026-09-23"
+            }
+          },
+          {
+            "name": "Spotlight-Client",
+            "in": "header",
+            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "example": "terraform-provider/0.1.0"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stationId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StationImprovementResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed, or requests an API version this server does not serve",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid credentials",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such team or station for this caller",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "What Spotlight does now to improve the station, from its search schedule, its active search, its config pull requests and its replay set",
+        "tags": [
+          "replays"
+        ]
+      }
     }
   },
   "info": {
@@ -41439,7 +41544,6 @@
           "reason": {
             "type": "string",
             "enum": [
-              "disabled",
               "no-agent",
               "no-scoring",
               "set-too-small",
@@ -41453,7 +41557,7 @@
               "pull-request-open",
               "cooldown"
             ],
-            "description": "Why Spotlight did not start an automatic search of the station: the policy is off, the set cannot score or is too small, set health warns, no fresh held-out tasks, the ceiling is too low, no agent, the monthly ceiling, an open config pull request, or the cooldown"
+            "description": "Why Spotlight did not start an automatic search of the station: the set cannot score or is too small, set health warns, no fresh held-out tasks, the ceiling is too low, no agent, the monthly ceiling, an open config pull request, or the cooldown"
           },
           "at": {
             "type": "string",
@@ -45753,6 +45857,104 @@
           "period",
           "truncated",
           "stations"
+        ]
+      },
+      "StationImprovementResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "searching",
+              "picking",
+              "pull-request-open",
+              "off",
+              "not-started",
+              "not-improving",
+              "improved",
+              "waiting"
+            ],
+            "description": "What Spotlight does now to improve the station: a search runs, Spotlight picks a candidate of the last search or opens its pull request, a config pull request is open, the search policy is off, the station has no runs in its replay set yet, a person must act before Spotlight can improve the station, a merged pull request improved the station since the last search, or Spotlight waits for its next check"
+          },
+          "searchId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The search that runs, or whose pick is pending; null unless the status is searching or picking"
+          },
+          "pickPhase": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "choosing",
+              "opening",
+              null
+            ],
+            "description": "choosing while Spotlight has not picked a candidate of the finished search, opening while the picked candidate has no pull request yet; null unless the status is picking"
+          },
+          "pullRequestUrl": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://github.com/acme/platform/pull/7",
+            "description": "The open config pull request, or the merged one that improved the station; null for other statuses, and while the pull request is not on GitHub yet"
+          },
+          "improvedAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When a merged config pull request improved the station; null unless the status is improved"
+          },
+          "skip": {
+            "nullable": true,
+            "description": "Why Spotlight cannot start a search until a person acts; null unless the status is not-improving because of a skip",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SearchSkipResponseDto"
+              }
+            ]
+          },
+          "pullRequestFailure": {
+            "nullable": true,
+            "description": "Why the newest config pull request of the station could not be opened; null unless the status is not-improving because of it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfigPullRequestReasonResponseDto"
+              }
+            ]
+          },
+          "minimumTasks": {
+            "type": "number",
+            "example": 5,
+            "description": "The fewest different tasks a set needs before Spotlight can search it"
+          },
+          "setId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The replay set Spotlight keeps for the station; null while it keeps none"
+          },
+          "lastStartedAt": {
+            "type": "string",
+            "nullable": true,
+            "description": "When Spotlight last started a search of the station; null before the first"
+          },
+          "checkAfter": {
+            "type": "string",
+            "nullable": true,
+            "description": "When Spotlight next looks at the station; null while it keeps no replay set"
+          }
+        },
+        "required": [
+          "status",
+          "searchId",
+          "pickPhase",
+          "pullRequestUrl",
+          "improvedAt",
+          "skip",
+          "pullRequestFailure",
+          "minimumTasks",
+          "setId",
+          "lastStartedAt",
+          "checkAfter"
         ]
       }
     }

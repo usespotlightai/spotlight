@@ -2,7 +2,7 @@ import { CircleCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { SignalRow } from '@/components/features/insights/SignalRow';
-import { WorthImprovingSkeleton } from '@/components/features/stations/improve/WorthImprovingSkeleton';
+import { WorthImprovingSkeleton } from '@/components/features/stations/overview/WorthImprovingSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
@@ -35,7 +35,7 @@ export function WorthImproving({
   );
 
   if (loading(overview)) {
-    return <WorthImprovingSkeleton />;
+    return <WorthImprovingSkeleton label="Loading the station’s signals" />;
   }
 
   return (

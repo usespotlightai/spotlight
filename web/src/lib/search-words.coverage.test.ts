@@ -133,16 +133,7 @@ describe('search words cover every code the API can answer', () => {
       );
     }
     for (const reason of codesOf('SearchSkipResponseDto', 'reason')) {
-      worded(
-        formatSkip({
-          lastStartedAt: null,
-          lastSkip: { reason: reason as never, at: '' },
-          lastImprovedAt: null,
-          checkAfter: '',
-          minimumTasks: 5,
-        }),
-        reason,
-      );
+      worded(formatSkip({ reason: reason as never, at: '' }, 5), reason);
     }
   });
 

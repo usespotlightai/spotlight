@@ -1,5 +1,5 @@
 {
-  "id": "48d9a662-33ce-4d02-865c-d6a32c861876",
+  "id": "113918b4-e96b-4c54-9369-912e5f4c3dd2",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -16100,7 +16100,6 @@
       "name": "search_skip_reason",
       "schema": "public",
       "values": [
-        "disabled",
         "no-agent",
         "no-scoring",
         "set-too-small",

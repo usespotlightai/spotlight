@@ -132,7 +132,7 @@ describe('search words', () => {
         null,
       ),
     ).toBe(
-      "A config pull request for each passing candidate was closed on GitHub before. Spotlight does not propose these configs again while the station's live config stays the same.",
+      'A person closed a config pull request for each passing candidate while the live config stayed the same.',
     );
     expect(formatPick(picked, null)).toBe(
       'Spotlight picked tests-first. Its config pull request is opening.',
@@ -141,13 +141,10 @@ describe('search words', () => {
 
   it('says why Spotlight did not start a search, with the minimum the server sends', () => {
     expect(
-      formatSkip({
-        lastStartedAt: null,
-        lastSkip: { reason: 'set-too-small', at: '2026-10-01T09:00:00.000Z' },
-        lastImprovedAt: null,
-        checkAfter: '2026-10-02T09:00:00.000Z',
-        minimumTasks: 6,
-      }),
+      formatSkip(
+        { reason: 'set-too-small', at: '2026-10-01T09:00:00.000Z' },
+        6,
+      ),
     ).toBe(
       'Spotlight did not start a search: the replay set has too few tasks. Minimum tasks: 6',
     );

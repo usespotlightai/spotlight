@@ -1,7 +1,5 @@
-import { StationImproveTab } from '@/components/features/stations/improve/StationImproveTab';
-import { StationOverviewTab } from '@/components/features/stations/overview/StationOverviewTab';
+import { StationOverview } from '@/components/features/stations/overview/StationOverview';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
-import type { StationTab } from '@/lib/station';
 
 const ENDS = {
   backlog:
@@ -10,21 +8,14 @@ const ENDS = {
     'Tasks land here when the line is done with them. Nothing runs here.',
 };
 
-type StationTabBodyProps = {
+type StationBodyProps = {
   slug: string;
   teamId: string;
   line: LineResponseDto;
   station: StationResponseDto;
-  tab: StationTab;
 };
 
-export function StationTabBody({
-  slug,
-  teamId,
-  line,
-  station,
-  tab,
-}: StationTabBodyProps) {
+export function StationBody({ slug, teamId, line, station }: StationBodyProps) {
   if (station.kind !== 'work') {
     return (
       <p className="text-muted-foreground text-sm leading-6">
@@ -33,15 +24,8 @@ export function StationTabBody({
     );
   }
 
-  return tab === 'overview' ? (
-    <StationOverviewTab
-      slug={slug}
-      teamId={teamId}
-      line={line}
-      station={station}
-    />
-  ) : (
-    <StationImproveTab
+  return (
+    <StationOverview
       slug={slug}
       teamId={teamId}
       line={line}

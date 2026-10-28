@@ -1,4 +1,4 @@
-import { ImproveCardSkeleton } from '@/components/features/stations/improve/ImproveCardSkeleton';
+import { InsightsTableCardSkeleton } from '@/components/features/insights/InsightsTableCardSkeleton';
 import { StationPane } from '@/components/features/stations/StationPane';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
@@ -42,7 +42,7 @@ export function ReplaySkeleton({ known }: ReplaySkeletonProps) {
             </div>
           ))}
         </div>
-        <ImproveCardSkeleton label="Loading the tasks" rows={5} />
+        <InsightsTableCardSkeleton rows={5} />
       </StationPane>
     </div>
   );

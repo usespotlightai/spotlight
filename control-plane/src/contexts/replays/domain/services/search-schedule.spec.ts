@@ -76,17 +76,13 @@ describe('dueVerdict', () => {
     });
   });
 
-  it('skips a station whose policy is off or missing, and looks again a day later', () => {
-    const skipped = {
-      kind: 'skip',
-      reason: 'disabled',
-      checkAfter: ahead(DAY),
-    };
+  it('waits a day at a station whose policy is off or missing, with no skip', () => {
+    const waiting = { kind: 'wait', checkAfter: ahead(DAY) };
 
     expect(dueVerdict(due({ policy: policyOf({ enabled: false }) }))).toEqual(
-      skipped,
+      waiting,
     );
-    expect(dueVerdict(due({ policy: null }))).toEqual(skipped);
+    expect(dueVerdict(due({ policy: null }))).toEqual(waiting);
   });
 
   it('skips a station with no judge and no check before anything else but the policy, and looks again a day later', () => {
@@ -97,7 +93,7 @@ describe('dueVerdict', () => {
     });
     expect(
       dueVerdict(due({ scores: false, policy: policyOf({ enabled: false }) })),
-    ).toMatchObject({ reason: 'disabled' });
+    ).toEqual({ kind: 'wait', checkAfter: ahead(DAY) });
   });
 
   it('waits an hour while a search of the station runs', () => {

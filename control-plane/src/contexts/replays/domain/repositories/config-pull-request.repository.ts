@@ -30,6 +30,11 @@ export interface ConfigPullRequestRepository {
 
   openAtStation(stationId: string): Promise<boolean>;
 
+  newestAtStation(
+    stationId: string,
+    states: readonly ConfigPullRequestState[],
+  ): Promise<ConfigPullRequest | null>;
+
   fromGitHub(
     workspaceId: WorkspaceId,
     pullRequest: GitHubPullRequestKey,

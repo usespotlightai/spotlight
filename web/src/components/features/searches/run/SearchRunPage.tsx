@@ -5,13 +5,8 @@ import { useLines } from '@/hooks/api/useLines';
 import { useSearches } from '@/hooks/api/useSearches';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { failureSentence } from '@/lib/replay-words';
-import {
-  iterationTitle,
-  type SearchRun,
-  searchLabel,
-  searchNumber,
-  searchPath,
-} from '@/lib/search';
+import { iterationTitle, type SearchRun, searchNumber } from '@/lib/search';
+import { searchCrumbs } from '@/lib/station-crumbs';
 import { useTrail } from '@/lib/trail';
 
 type SearchRunPageProps = {
@@ -37,11 +32,14 @@ export function SearchRunPage({ slug, teamId, run }: SearchRunPageProps) {
   const searches = useSearches(teamId, line?.id, stationId);
   const number = searchNumber(searches.data ?? [], run.searchId);
 
+  const search = searches.data?.find((each) => each.id === run.searchId);
   const base: BreadcrumbSegment[] = [
     ...stationTrail,
-    ...(at
-      ? [{ label: searchLabel(number), to: searchPath(at, run.searchId) }]
-      : []),
+    ...searchCrumbs(
+      at,
+      { id: run.searchId, setId: search?.setId ?? null },
+      number,
+    ),
     { label: `Iteration ${run.iteration}` },
   ];
   const { trail, forward } = useTrail(base);

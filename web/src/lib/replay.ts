@@ -34,8 +34,7 @@ import {
   THE_LIVE_CONFIG,
   THE_SEARCH_START,
 } from '@/lib/replay-words';
-import { stationPath, stationTabPath } from '@/lib/station';
-import type { TooltipNote } from '@/lib/tooltip-note';
+import { stationPath } from '@/lib/station';
 
 export type ReplaySet = ReplaySetResponseDto;
 export type ReplaySetEntry = ReplaySetEntryResponseDto;
@@ -67,18 +66,11 @@ const NO_REPLAY_SET_YET = 'has no replay set yet.';
 export const noReplaySetYet = (thrown: unknown): boolean =>
   notFound(thrown) && messageOf(thrown, '').endsWith(NO_REPLAY_SET_YET);
 
-export const REPLAYS_ANCHOR = 'replays';
-
-export const REPLAY_SETS_NOTE: TooltipNote = {
-  title: 'What is a replay set?',
-  body: 'Past runs of the station that Spotlight keeps and refreshes. Spotlight reruns them with a candidate config to measure improvements and find regressions.',
-};
-
 const MAX_CEILING = 1_000;
 
 export type CountBounds = { readonly min: number; readonly max: number };
 
-export const REPEAT_BOUNDS = {
+const REPEAT_BOUNDS = {
   min: 1,
   max: 5,
 } as const satisfies CountBounds;
@@ -90,9 +82,6 @@ export const replaySetPath = (at: ReplayedStation, setId: string): string =>
 
 export const replayPath = (at: ReplayedStation, replayId: string): string =>
   `${stationPath(at.slug, at.teamId, at.lineId, at.stationId)}/replays/${encodeURIComponent(replayId)}`;
-
-export const replaysAnchorPath = (at: ReplayedStation): string =>
-  `${stationTabPath(at.slug, at.teamId, at.lineId, at.stationId, 'improve')}#${REPLAYS_ANCHOR}`;
 
 export const inProgress = (state: ReplayState): boolean =>
   state === 'queued' || state === 'running';
@@ -350,7 +339,7 @@ export const ceilingFrom = (
   return { amount: value, currency };
 };
 
-export const countFrom = (
+const countFrom = (
   text: string,
   { min, max }: CountBounds,
 ): number | string => {
@@ -415,12 +404,6 @@ export const taskTitleIn = (set: ReplaySet, taskId: string): string =>
 
 export const flippedTitles = (set: ReplaySet, noise: SetNoise): string[] =>
   noise.flippedTasks.map((taskId) => taskTitleIn(set, taskId));
-
-export const REPLAY_SET_HEADINGS: readonly NestedHeading[] = [
-  { label: 'Set', indent: 'edge', size: 'minmax(10rem,2fr)' },
-  { label: 'Runs', numeric: true, size: SPREAD },
-  { label: 'Latest replay', size: 'minmax(12rem,3fr)' },
-];
 
 export const SET_REPLAY_HEADINGS: readonly NestedHeading[] = [
   { label: 'Config', indent: 'edge', size: 'minmax(10rem,2fr)' },

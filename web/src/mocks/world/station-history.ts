@@ -2,7 +2,6 @@ import type { ConfigChangeResponseDto } from '@/lib/api';
 
 export const IMPLEMENTATION_ID = 'station_implementation';
 export const STATION_ADDRESS = 'platform/delivery/implementation';
-export const CONFIG_REPOSITORY = 'acme/config';
 export const TESTS_FIRST_PULL_REQUEST =
   'https://github.com/acme/config/pull/58';
 

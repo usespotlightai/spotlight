@@ -6,6 +6,7 @@ import type {
 } from '@/lib/api';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { replayedCandidates } from '@/mocks/world/station-candidates';
+import { stationImprovement } from '@/mocks/world/station-improvement';
 import { stationOf, stationRunOutcomes } from '@/mocks/world/station-insights';
 import { stationJudge } from '@/mocks/world/station-judge';
 import { replayOfRun, replayRun } from '@/mocks/world/station-replay-runs';
@@ -183,6 +184,14 @@ export const stationHandlers: RequestHandler[] = [
     const judge = stationJudge(teamId, lineId, stationId);
 
     return judge ? json(judge) : notFound();
+  }),
+
+  api.get(`${STATION}/improvement`, ({ params }) => {
+    const { teamId, lineId, stationId } = placeOf(params);
+
+    return stationOf(teamId, lineId, stationId)
+      ? json(stationImprovement(teamId, lineId, stationId))
+      : notFound();
   }),
 
   api.get(`${STATION}/replay-set`, ({ params }) => {

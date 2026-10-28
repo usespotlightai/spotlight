@@ -14,6 +14,7 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
+import { pendingPickOf } from '@replays/domain/services/pending-pick';
 import { objectiveFor } from '@replays/domain/services/search-objective';
 import {
   BUSY_RECHECK_MS,
@@ -143,18 +144,18 @@ export class AutoSearches implements PendingJobsPort {
   }
 
   private async busy(stationId: string): Promise<boolean> {
-    const searches = await this.searches.ofStation(stationId);
-    const [last] = [...searches].sort(
-      (one, other) => other.startedAt.getTime() - one.startedAt.getTime(),
-    );
-    const picked = last?.pickedCandidate ?? null;
+    const [active, newest] = await Promise.all([
+      this.searches.activeAtStation(stationId),
+      this.searches.newestAtStation(stationId),
+    ]);
+    const picked = newest?.pickedCandidate ?? null;
+    const pickHasPullRequest =
+      newest !== null &&
+      picked !== null &&
+      (await this.pullRequests.forCandidate(newest.id, picked)) !== null;
 
     return (
-      searches.some((each) => each.isActive) ||
-      (last?.awaitsPick ?? false) ||
-      (last !== undefined &&
-        picked !== null &&
-        (await this.pullRequests.forCandidate(last.id, picked)) === null)
+      active !== null || pendingPickOf(newest, pickHasPullRequest) !== null
     );
   }
 

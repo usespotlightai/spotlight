@@ -62,6 +62,7 @@ import type { OriginalOutcome } from '@replays/domain/services/composition';
 import { isDueForRefresh } from '@replays/domain/services/kept-set-refresh';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { StackStatus } from '@replays/domain/value-objects/change-checks.vo';
+import type { ConfigPullRequestState } from '@replays/domain/value-objects/config-pull-request-state';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -355,6 +356,12 @@ export class InMemoryReplays {
       [...this.searches.values()].find(
         (each) => each.isActive && each.station.stationId === stationId,
       ) ?? null,
+    newestAtStation: async (stationId) =>
+      [...this.searches.values()]
+        .filter((each) => each.station.stationId === stationId)
+        .sort(
+          (one, other) => other.startedAt.getTime() - one.startedAt.getTime(),
+        )[0] ?? null,
     activeOfSet: async (setId) =>
       [...this.searches.values()].find(
         (each) => each.isActive && each.setId.equals(setId),
@@ -761,6 +768,23 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
   async ofTeam(teamId: { value: string }) {
     return [...this.stored.values()].filter(
       (each) => each.teamId.value === teamId.value,
+    );
+  }
+
+  async newestAtStation(
+    stationId: string,
+    states: readonly ConfigPullRequestState[],
+  ) {
+    return (
+      [...this.stored.values()]
+        .filter(
+          (each) =>
+            each.station.stationId === stationId &&
+            states.includes(each.current),
+        )
+        .sort(
+          (one, other) => other.updatedAt.getTime() - one.updatedAt.getTime(),
+        )[0] ?? null
     );
   }
 

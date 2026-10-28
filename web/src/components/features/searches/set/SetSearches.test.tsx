@@ -1,32 +1,13 @@
+import type { UseQueryResult } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { StationSearches } from '@/components/features/searches/station/StationSearches';
+import { SetSearches } from '@/components/features/searches/set/SetSearches';
 import type { ReplaySet } from '@/lib/replay';
 import type { Search } from '@/lib/search';
 
 const searches = vi.fn((): Search[] | undefined => undefined);
 const error = vi.fn((): unknown => null);
-const sets = vi.fn((): ReplaySet | null | undefined => null);
-
-vi.mock('@/hooks/api/useSearches', () => ({
-  useSearches: () => ({
-    data: searches(),
-    isPending: searches() === undefined,
-    errorUpdateCount: error() ? 1 : 0,
-    error: error(),
-    isFetching: false,
-    refetch: vi.fn(),
-  }),
-}));
-
-vi.mock('@/hooks/api/useReplaySet', () => ({
-  useReplaySet: () => ({
-    data: sets(),
-    isPending: sets() === undefined,
-    errorUpdateCount: 0,
-  }),
-}));
 
 const AT = {
   slug: 'acme',
@@ -119,18 +100,27 @@ const SEARCH: Search = {
   endedAt: null,
 };
 
-const renderSearches = () =>
+const queried = () =>
+  ({
+    data: searches(),
+    isPending: searches() === undefined,
+    errorUpdateCount: error() ? 1 : 0,
+    error: error(),
+    isFetching: false,
+    refetch: vi.fn(),
+  }) as unknown as UseQueryResult<Search[]>;
+
+const renderSearches = (set: ReplaySet = setOf(6)) =>
   render(
     <MemoryRouter>
-      <StationSearches at={AT} />
+      <SetSearches at={AT} set={set} searches={queried()} />
     </MemoryRouter>,
   );
 
-describe('StationSearches', () => {
+describe('SetSearches', () => {
   beforeEach(() => {
     searches.mockReturnValue(undefined);
     error.mockReturnValue(null);
-    sets.mockReturnValue(null);
   });
 
   it('keeps the place of the searches while they load', () => {
@@ -139,18 +129,6 @@ describe('StationSearches', () => {
     expect(
       screen.getByRole('status', { name: 'Loading the searches' }),
     ).toBeInTheDocument();
-  });
-
-  it('keeps the place of the searches while the set loads, with no empty text', () => {
-    searches.mockReturnValue([]);
-    sets.mockReturnValue(undefined);
-
-    renderSearches();
-
-    expect(
-      screen.getByRole('status', { name: 'Loading the searches' }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText('No searches yet')).not.toBeInTheDocument();
   });
 
   it('tells someone off the team that only its members see searches', () => {
@@ -165,7 +143,6 @@ describe('StationSearches', () => {
 
   it('says Spotlight starts searches while there are none, with no button to start one', () => {
     searches.mockReturnValue([]);
-    sets.mockReturnValue(setOf(6));
 
     renderSearches();
 
@@ -180,18 +157,17 @@ describe('StationSearches', () => {
 
   it('says why Spotlight skipped the last search', () => {
     searches.mockReturnValue([]);
-    sets.mockReturnValue({
+
+    renderSearches({
       ...setOf(3),
       searchSchedule: {
         lastStartedAt: null,
         lastSkip: { reason: 'set-too-small', at: '2026-10-01T09:00:00.000Z' },
-        lastImprovedAt: null,
         checkAfter: '2026-10-02T09:00:00.000Z',
+        lastImprovedAt: null,
         minimumTasks: 5,
       },
     });
-
-    renderSearches();
 
     expect(
       screen.getByText(
@@ -202,7 +178,6 @@ describe('StationSearches', () => {
 
   it('lists each search with its progress, spend and best candidate', () => {
     searches.mockReturnValue([SEARCH]);
-    sets.mockReturnValue(setOf(6));
 
     renderSearches();
 
@@ -235,7 +210,6 @@ describe('StationSearches', () => {
         best: best && { ...best, overfit: 'too-few-held-out' },
       },
     ]);
-    sets.mockReturnValue(setOf(6));
 
     renderSearches();
 
@@ -261,7 +235,6 @@ describe('StationSearches', () => {
         },
       },
     ]);
-    sets.mockReturnValue(setOf(6));
 
     renderSearches();
 

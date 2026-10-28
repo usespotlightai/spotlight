@@ -32,6 +32,8 @@ export interface SearchRepository {
 
   activeAtStation(stationId: string): Promise<Search | null>;
 
+  newestAtStation(stationId: string): Promise<Search | null>;
+
   activeOfSet(setId: ReplaySetId): Promise<Search | null>;
 
   ofStation(stationId: string): Promise<readonly Search[]>;
