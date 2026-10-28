@@ -26,6 +26,7 @@ export function TileSparkline({ label, values }: TileSparklineProps) {
             fill="var(--chart-primary)"
             fillOpacity={0.08}
             dot={false}
+            activeDot={false}
             isAnimationActive={false}
           />
         </AreaChart>
