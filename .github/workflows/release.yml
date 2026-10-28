@@ -30,7 +30,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.INFRA_APP_ID }}
+          client-id: ${{ secrets.INFRA_APP_ID }}
           private-key: ${{ secrets.INFRA_PRIVATE_KEY }}
       - id: release
         uses: googleapis/release-please-action@v5
@@ -71,7 +71,7 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.INFRA_APP_ID }}
+          client-id: ${{ secrets.INFRA_APP_ID }}
           private-key: ${{ secrets.INFRA_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
           repositories: infrastructure
