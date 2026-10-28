@@ -38,6 +38,10 @@ interface BranchRule {
   readonly parameters?: RequiredReviews;
 }
 
+interface SubjectCustomization {
+  readonly sub_claim_prefix: string;
+}
+
 const requiresAReview = (reviews: RequiredReviews | undefined): boolean =>
   (reviews?.required_approving_review_count ?? 0) >= 1;
 
@@ -84,6 +88,21 @@ export class GitHubRepositorySettings implements RepositorySettingsPort {
       repositoryId: String(found.id),
       ownerId: String(found.owner.id),
     };
+  }
+
+  async oidcSubjectPrefixOf(
+    workspaceId: WorkspaceId,
+    repository: Repository,
+  ): Promise<string> {
+    const customization = await answered<SubjectCustomization>(
+      await call(
+        `${this.at(repository)}/actions/oidc/customization/sub`,
+        await this.tokenFor(workspaceId),
+      ),
+      `GitHub would not return the OIDC subject settings of ${repository.value}`,
+    );
+
+    return customization.sub_claim_prefix;
   }
 
   async putVariables(

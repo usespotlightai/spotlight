@@ -238,6 +238,55 @@ describe('GitHubRepositorySettings', () => {
     });
   });
 
+  describe('reading the OIDC subject prefix', () => {
+    const subjectSettings = (answer: Answer) =>
+      routing((_, url) =>
+        url.endsWith('/repos/acme/config/actions/oidc/customization/sub')
+          ? answer
+          : { status: 404, body: { message: `unrouted ${url}` } },
+      );
+
+    const prefix = () =>
+      new GitHubRepositorySettings(access).oidcSubjectPrefixOf(
+        workspaceId,
+        repository,
+      );
+
+    it('takes the prefix GitHub gives a repository with classic subjects', async () => {
+      subjectSettings({
+        status: 200,
+        body: {
+          use_default: true,
+          use_immutable_subject: false,
+          sub_claim_prefix: 'repo:acme/config',
+        },
+      });
+
+      expect(await prefix()).toBe('repo:acme/config');
+    });
+
+    it('takes the prefix GitHub gives a repository with immutable subjects', async () => {
+      subjectSettings({
+        status: 200,
+        body: {
+          use_default: true,
+          use_immutable_subject: true,
+          sub_claim_prefix: 'repo:acme@7/config@101',
+        },
+      });
+
+      expect(await prefix()).toBe('repo:acme@7/config@101');
+    });
+
+    it('carries GitHub’s error when it may not read the settings', async () => {
+      subjectSettings({ status: 403, body: { message: 'Refused' } });
+
+      await expect(prefix()).rejects.toThrow(
+        'GitHub would not return the OIDC subject settings of acme/config: Refused',
+      );
+    });
+  });
+
   describe('putting Actions variables', () => {
     it('creates a variable that is missing', async () => {
       variables([]);
