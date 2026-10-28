@@ -33,8 +33,7 @@ export class CostSliceResponseDto {
     nullable: true,
     type: Number,
     example: 0.39,
-    description:
-      'Share of the spend, 0 to 1; none when the spend is zero',
+    description: 'Share of the spend, 0 to 1; none when the spend is zero',
   })
   readonly share: number | null;
 
