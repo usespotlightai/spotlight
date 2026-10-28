@@ -36,6 +36,7 @@ import {
   THE_SEARCH_START,
 } from '@/lib/replay-words';
 import { stationPath, stationTabPath } from '@/lib/station';
+import type { TooltipNote } from '@/lib/tooltip-note';
 
 export type ReplaySet = ReplaySetResponseDto;
 export type ReplaySetEntry = ReplaySetEntryResponseDto;
@@ -66,8 +67,10 @@ export const LIVE = 'live';
 
 export const REPLAYS_ANCHOR = 'replays';
 
-export const REPLAY_SETS_NOTE =
-  'A few past runs to replay under a candidate. Spotlight compares the results with the original runs.';
+export const REPLAY_SETS_NOTE: TooltipNote = {
+  title: 'What is a replay set?',
+  body: 'A collection of past runs that can be rerun with a candidate configuration to measure improvements and detect regressions.',
+};
 
 const MAX_CEILING = 1_000;
 

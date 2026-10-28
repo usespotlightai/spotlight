@@ -2,6 +2,7 @@ import { type ReactNode, useId, useState } from 'react';
 import { CardTitle } from '@/components/features/insights/CardHeading';
 import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
 import { OverflowFade } from '@/components/shared/OverflowFade';
+import type { TooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 const TABLE_HEIGHT = 'max-h-96';
@@ -9,7 +10,7 @@ const TABLE_HEIGHT = 'max-h-96';
 type InsightsCardProps = {
   title: string;
   id?: string;
-  description?: string;
+  description?: TooltipText;
   actions?: ReactNode;
   table?: ReactNode;
   tableOnly?: boolean;

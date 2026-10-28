@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
+import type { TooltipText } from '@/lib/tooltip-note';
 
 type InsightsCardSkeletonProps = {
   label?: string;
   title: string;
-  description?: string;
+  description?: TooltipText;
   actions?: ReactNode;
   switchable?: boolean;
   tableOnly?: boolean;
