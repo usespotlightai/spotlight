@@ -10,6 +10,7 @@ import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 export interface CostSlice {
   readonly key: string | null;
   readonly amount: number;
+  readonly share: number | null;
   readonly runs: number;
 }
 
@@ -285,12 +286,18 @@ const inFirstOrder = <T extends { readonly first: CostPlace }>(
   );
 
 export const costBreakdownFrom = (counts: CostCounts): CostBreakdown => {
-  const priced = counts.spend !== null;
+  const { spend } = counts;
+  const priced = spend !== null;
   const slicesOf = (part: CostPart): readonly CostSlice[] =>
-    priced
+    spend
       ? inFirstOrder(counts.shares.filter((each) => each.part === part))
           .sort((a, b) => b.amount - a.amount)
-          .map(({ key, amount, runs }) => ({ key, amount, runs }))
+          .map(({ key, amount, runs }) => ({
+            key,
+            amount,
+            share: rateOf(amount, spend.amount),
+            runs,
+          }))
       : [];
 
   return {
