@@ -5,11 +5,15 @@ import {
 } from '@shared-kernel/domain/value-objects/repository.vo';
 import type {
   LineReplayCheckSummary,
+  LineSearchSummary,
   LineSourceSummary,
   RepositorySummary,
+  SearchPolicySummary,
   StationAlertSummary,
   StationJudgeSummary,
 } from '@work/application/ports/line-reader.port';
+import { EFFORTS } from '@work/domain/value-objects/effort.vo';
+import { SEARCH_OBJECTIVES } from '@work/domain/value-objects/search-policy.vo';
 import { ALERT_MEASURES } from '@work/domain/value-objects/station-alert.vo';
 
 export class StationJudgeResponseDto {
@@ -112,6 +116,141 @@ export class StationAlertResponseDto {
   }
 }
 
+export class LineSearchResponseDto {
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether Spotlight searches for better station configs on its own',
+  })
+  readonly enabled: boolean;
+
+  @ApiProperty({
+    example: 50,
+    description:
+      'The most all automatic searches of the line may spend in one calendar month',
+  })
+  readonly monthlyCeiling: number;
+
+  @ApiProperty({
+    example: 'USD',
+    description: 'The currency of the ceilings',
+  })
+  readonly currency: string;
+
+  @ApiProperty({
+    example: 10,
+    description: 'The most one automatic search may spend',
+  })
+  readonly ceiling: number;
+
+  @ApiProperty({
+    example: '7d',
+    description:
+      'The longest time between two scheduled searches of a station, as in 12h or 7d',
+  })
+  readonly period: string;
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether an alert that goes off on a station starts a search',
+  })
+  readonly onAlert: boolean;
+
+  @ApiProperty({
+    example: '3d',
+    description:
+      'The shortest time between two automatic searches of a station, as in 12h or 3d',
+  })
+  readonly cooldown: string;
+
+  constructor(policy: LineSearchSummary) {
+    this.enabled = policy.enabled;
+    this.monthlyCeiling = policy.monthlyCeiling;
+    this.currency = policy.currency;
+    this.ceiling = policy.ceiling;
+    this.period = policy.period;
+    this.onAlert = policy.onAlert;
+    this.cooldown = policy.cooldown;
+  }
+}
+
+export class StationSearchAgentResponseDto {
+  @ApiProperty({
+    example: 'claude-code',
+    description: 'The harness that proposes candidate configs',
+  })
+  readonly harness: string;
+
+  @ApiProperty({
+    example: null,
+    nullable: true,
+    type: String,
+    description: 'The model the harness uses. Null leaves its default.',
+  })
+  readonly model: string | null;
+
+  @ApiProperty({
+    enum: [...EFFORTS, null],
+    example: 'high',
+    nullable: true,
+    description: 'How hard the agent thinks. Null leaves its default.',
+  })
+  readonly effort: string | null;
+
+  constructor(agent: NonNullable<SearchPolicySummary['agent']>) {
+    this.harness = agent.harness;
+    this.model = agent.model;
+    this.effort = agent.effort;
+  }
+}
+
+export class StationSearchResponseDto extends LineSearchResponseDto {
+  @ApiProperty({
+    type: StationSearchAgentResponseDto,
+    nullable: true,
+    description:
+      'The agent that proposes candidates. Null when Spotlight picks one.',
+  })
+  readonly agent: StationSearchAgentResponseDto | null;
+
+  @ApiProperty({
+    example: 3,
+    nullable: true,
+    type: Number,
+    description:
+      'How many iterations one search runs. Null when Spotlight picks.',
+  })
+  readonly iterations: number | null;
+
+  @ApiProperty({
+    example: null,
+    nullable: true,
+    type: Number,
+    description:
+      'How many times each task is replayed. Null when Spotlight picks.',
+  })
+  readonly repeats: number | null;
+
+  @ApiProperty({
+    enum: [...SEARCH_OBJECTIVES, null],
+    example: null,
+    nullable: true,
+    description:
+      'What a search improves: success or cost. Null when the station’s health decides.',
+  })
+  readonly objective: string | null;
+
+  constructor(policy: SearchPolicySummary) {
+    super(policy);
+    this.agent = policy.agent
+      ? new StationSearchAgentResponseDto(policy.agent)
+      : null;
+    this.iterations = policy.iterations;
+    this.repeats = policy.repeats;
+    this.objective = policy.objective;
+  }
+}
+
 export class StationResponseDto {
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
   readonly id: string;
@@ -190,6 +329,14 @@ export class StationResponseDto {
   readonly alerts: StationAlertResponseDto[];
 
   @ApiProperty({
+    type: StationSearchResponseDto,
+    nullable: true,
+    description:
+      'How Spotlight searches for better configs of the station on its own: the line’s search with the station’s own search over it. Null for a backlog or the completed station.',
+  })
+  readonly search: StationSearchResponseDto | null;
+
+  @ApiProperty({
     enum: ['backlog', 'work', 'completed'],
     description:
       'The ends of the line: a backlog is where a task waits before anything works it, and completed is where it lands once its pull request is merged',
@@ -217,6 +364,7 @@ export class StationResponseDto {
     agentPrompt: string | null,
     judge: StationJudgeSummary | null,
     alerts: readonly StationAlertSummary[],
+    search: SearchPolicySummary | null,
     kind: string,
     skills: readonly string[],
   ) {
@@ -232,6 +380,7 @@ export class StationResponseDto {
     this.agentPrompt = agentPrompt;
     this.judge = judge ? new StationJudgeResponseDto(judge) : null;
     this.alerts = alerts.map((each) => new StationAlertResponseDto(each));
+    this.search = search ? new StationSearchResponseDto(search) : null;
     this.kind = kind;
     this.skills = [...skills];
   }
@@ -381,6 +530,13 @@ export class LineResponseDto {
   })
   readonly replayCheck: LineReplayCheckResponseDto | null;
 
+  @ApiProperty({
+    type: LineSearchResponseDto,
+    description:
+      'How Spotlight searches for better station configs on its own, set through Terraform. A station’s own search changes it for that station.',
+  })
+  readonly search: LineSearchResponseDto;
+
   constructor(
     id: string,
     key: string,
@@ -390,6 +546,7 @@ export class LineResponseDto {
     repositories: readonly RepositorySummary[],
     source: LineSourceSummary | null,
     replayCheck: LineReplayCheckSummary | null,
+    search: LineSearchSummary,
   ) {
     this.id = id;
     this.key = key;
@@ -403,5 +560,6 @@ export class LineResponseDto {
     this.replayCheck = replayCheck
       ? new LineReplayCheckResponseDto(replayCheck)
       : null;
+    this.search = new LineSearchResponseDto(search);
   }
 }

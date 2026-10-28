@@ -10,6 +10,7 @@ import { StationHarnessChanged } from '@work/domain/events/station-harness-chang
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
 import { InvalidStationChangeError } from '@work/domain/exceptions/invalid-station-change.error';
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
+import { InvalidStationSearchError } from '@work/domain/exceptions/invalid-station-search.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
 import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -36,6 +37,10 @@ import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import {
+  LineSearchPolicy,
+  StationSearchOverride,
+} from '@work/domain/value-objects/search-policy.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -1040,5 +1045,75 @@ describe('Line, what it records of its changes', () => {
         line.delete(new Map([[working?.id.value ?? '', 2]]), changeActorIn()),
       ).toThrow(`${working?.name.value} (2)`);
     });
+  });
+});
+
+describe('a line’s search policy', () => {
+  const searching = (
+    search: LineSearchPolicy | null,
+    override: StationSearchOverride | null,
+  ) =>
+    Line.rehydrate({
+      id: LineId.of('line_search'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      key: LineKey.of('delivery'),
+      name: LineName.of('Delivery'),
+      search,
+      stations: [
+        Station.of({
+          id: StationId.of('station_backlog'),
+          key: StationKey.of('backlog'),
+          name: StationName.of('Backlog'),
+          position: 0,
+          color: StationColor.of('#a3a8b0'),
+          kind: 'backlog',
+        }),
+        Station.of({
+          id: StationId.of('station_build'),
+          key: StationKey.of('build'),
+          name: StationName.of('Build'),
+          position: 1,
+          color: StationColor.of('#a3a8b0'),
+          search: override,
+        }),
+        Station.of({
+          id: StationId.of('station_completed'),
+          key: StationKey.of('completed'),
+          name: StationName.of('Completed'),
+          position: 2,
+          color: StationColor.of('#a3a8b0'),
+          kind: 'completed',
+        }),
+      ],
+    });
+
+  it('searches with the default policy when the line sets none', () => {
+    expect(searching(null, null).searchPolicy).toBe(LineSearchPolicy.DEFAULT);
+  });
+
+  it('refuses a station ceiling above the line’s monthly ceiling', () => {
+    expect(() =>
+      searching(
+        LineSearchPolicy.of({ monthlyCeiling: 20 }),
+        StationSearchOverride.of({ ceiling: 25 }),
+      ),
+    ).toThrow(InvalidStationSearchError);
+  });
+
+  it('refuses a lowered monthly ceiling below a station ceiling it already has', () => {
+    const line = searching(null, StationSearchOverride.of({ ceiling: 30 }));
+
+    expect(() =>
+      line.update(
+        {
+          key: line.key,
+          name: line.name,
+          stations: line.stations,
+          search: LineSearchPolicy.of({ monthlyCeiling: 20 }),
+        },
+        changeActorIn(),
+      ),
+    ).toThrow(InvalidStationSearchError);
   });
 });

@@ -9,6 +9,7 @@ import type {
   ReplayCandidatesPort,
   ReplayStation,
   ReplayThreshold,
+  StationSearchPolicy,
   ValidatedCandidate,
 } from '@work/application/ports/replay-candidates.port';
 import type {
@@ -18,6 +19,7 @@ import type {
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
 import type { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
+import type { SearchPolicy } from '@work/domain/value-objects/search-policy.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 const UNSTARTABLE: ValidatedCandidate = {
@@ -52,6 +54,21 @@ const thresholdOf = (
     ceiling: policy.ceiling,
     currency: policy.currency,
     minGain: policy.minGain,
+  };
+
+const searchOf = (policy: SearchPolicy | null): StationSearchPolicy | null =>
+  policy && {
+    enabled: policy.enabled,
+    monthlyCeiling: policy.monthlyCeiling.amount,
+    currency: policy.monthlyCeiling.currency,
+    ceiling: policy.ceiling.amount,
+    periodMilliseconds: policy.period.milliseconds,
+    onAlert: policy.onAlert,
+    cooldownMilliseconds: policy.cooldown.milliseconds,
+    agent: policy.agent?.toPrimitives() ?? null,
+    iterations: policy.iterations,
+    repeats: policy.repeats,
+    objective: policy.objective,
   };
 
 const stationOf = ({ line, station }: StationInLine): ReplayStation => ({
@@ -178,6 +195,9 @@ export class ReplayCandidates implements ReplayCandidatesPort {
           scoring: scoringOf(current.station, config),
           hashes: this.hashesOf(current.line, current.station, config),
           replayCheck: thresholdOf(current.line.replayCheck),
+          search: searchOf(
+            current.line.searchPolicy.resolvedFor(current.station),
+          ),
         }
       : null;
   }

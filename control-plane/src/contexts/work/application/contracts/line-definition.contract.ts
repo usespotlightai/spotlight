@@ -17,6 +17,24 @@ export type LineDefinitionAlert = {
   readonly over: number;
 };
 
+export type LineDefinitionSearchAgent = {
+  readonly harness: string;
+  readonly model?: string;
+  readonly effort?: string;
+};
+
+export type LineDefinitionStationSearch = {
+  readonly enabled?: boolean;
+  readonly ceiling?: number;
+  readonly period?: string;
+  readonly onAlert?: boolean;
+  readonly cooldown?: string;
+  readonly agent?: LineDefinitionSearchAgent;
+  readonly iterations?: number;
+  readonly repeats?: number;
+  readonly objective?: 'success' | 'cost';
+};
+
 export type LineDefinitionStation = {
   readonly key: string;
   readonly name: string;
@@ -35,6 +53,7 @@ export type LineDefinitionStation = {
   readonly memories?: boolean;
   readonly judge?: LineDefinitionJudge;
   readonly alerts: readonly LineDefinitionAlert[];
+  readonly search?: LineDefinitionStationSearch;
   readonly tools: readonly string[];
   readonly skills: readonly string[];
   readonly passesTo: readonly string[];
@@ -73,6 +92,16 @@ export type LineDefinitionReplayCheck = {
   readonly minGain: number;
 };
 
+export type LineDefinitionSearch = {
+  readonly enabled?: boolean;
+  readonly monthlyCeiling?: number;
+  readonly currency?: string;
+  readonly ceiling?: number;
+  readonly period?: string;
+  readonly onAlert?: boolean;
+  readonly cooldown?: string;
+};
+
 export type LineDefinitionSource = {
   readonly repository: string;
   readonly path: string;
@@ -88,5 +117,6 @@ export type LineDefinition = {
   readonly reactions: readonly LineDefinitionReaction[];
   readonly reviews?: LineDefinitionReviews;
   readonly replayCheck?: LineDefinitionReplayCheck;
+  readonly search?: LineDefinitionSearch;
   readonly source?: LineDefinitionSource;
 };

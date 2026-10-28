@@ -1,6 +1,10 @@
 import { repeatedIn } from '@shared-kernel/domain/services/distinct';
 import type { StationKind } from '@work/domain/entities/station.entity';
 import type { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import type {
+  LineSearchPolicy,
+  StationSearchOverride,
+} from '@work/domain/value-objects/search-policy.vo';
 
 interface LaidStation {
   readonly key: string;
@@ -23,7 +27,14 @@ export type LinePart =
   | {
       readonly of: 'station';
       readonly station: string;
-      readonly field: 'passesTo' | 'tools' | 'skills' | 'judge' | 'alerts';
+      readonly field:
+        | 'passesTo'
+        | 'tools'
+        | 'skills'
+        | 'judge'
+        | 'alerts'
+        | 'search';
+      readonly within?: readonly string[];
     }
   | {
       readonly of: 'repository';
@@ -151,6 +162,34 @@ export const setupProblem = (
         part: { of: 'repository', place: unready, field: 'setup' },
       }
     : null;
+};
+
+interface SearchingStation {
+  readonly key: { readonly value: string };
+  readonly search: StationSearchOverride | null;
+}
+
+export const searchProblem = (
+  stations: readonly SearchingStation[],
+  search: LineSearchPolicy,
+): LayoutProblem | null => {
+  for (const station of stations) {
+    const problem = station.search && search.overrideProblem(station.search);
+
+    if (problem) {
+      return {
+        reason: `station ${station.key.value} ${problem.reason}`,
+        part: {
+          of: 'station',
+          station: station.key.value,
+          field: 'search',
+          within: [problem.field],
+        },
+      };
+    }
+  }
+
+  return null;
 };
 
 export const reactionsProblem = (

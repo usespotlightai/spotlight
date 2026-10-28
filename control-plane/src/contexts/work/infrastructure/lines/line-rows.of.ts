@@ -4,6 +4,10 @@ import type { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import type { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
 import type { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import type { LineRows } from '@work/infrastructure/lines/line-rows.render';
+import {
+  lineSearchRow,
+  stationSearchRow,
+} from '@work/infrastructure/lines/search-rows';
 import type {
   ConfigSourceRow,
   ReplayCheckRow,
@@ -116,6 +120,7 @@ export const stationColumnsOf = (each: Station) => ({
     below: alert.below,
     over: alert.over,
   })),
+  search: stationSearchRow(each.search),
   kind: each.kind,
   finishes: each.routes.ends,
 });
@@ -127,6 +132,7 @@ export const lineRowsOf = (line: Line): LineRows => ({
     role: line.role?.value ?? null,
     reviews: reviewsRow(line.reviews),
     replayCheck: replayCheckRow(line.replayCheck),
+    search: lineSearchRow(line.search),
     source: sourceRow(line.source),
     runners: [...line.placement.requiredLabels],
   },

@@ -1521,6 +1521,7 @@ CREATE TABLE "line" (
 	"role" text,
 	"reviews" jsonb,
 	"replay_check" jsonb,
+	"search" jsonb,
 	"source" jsonb,
 	"runners" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
@@ -1565,6 +1566,7 @@ CREATE TABLE "station" (
 	"memories" boolean DEFAULT false NOT NULL,
 	"judge" jsonb,
 	"alerts" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"search" jsonb,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );

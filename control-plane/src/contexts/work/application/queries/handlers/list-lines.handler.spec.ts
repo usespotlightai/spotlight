@@ -6,6 +6,16 @@ import { ListLinesHandler } from '@work/application/queries/handlers/list-lines.
 import { ListLinesQuery } from '@work/application/queries/list-lines.query';
 import { describe, expect, it, vi } from 'vitest';
 
+const LINE_SEARCH = {
+  enabled: true,
+  monthlyCeiling: 50,
+  currency: 'USD',
+  ceiling: 10,
+  period: '7d',
+  onAlert: true,
+  cooldown: '3d',
+};
+
 const bare = {
   color: '#a3a8b0',
   description: null,
@@ -15,6 +25,13 @@ const bare = {
   agentPrompt: null,
   judge: null,
   alerts: [],
+  search: {
+    ...LINE_SEARCH,
+    agent: { harness: 'claude-code', model: null, effort: 'high' },
+    iterations: 3,
+    repeats: null,
+    objective: 'cost',
+  },
   kind: 'work' as const,
   skills: [],
 };
@@ -55,6 +72,7 @@ const board: LineDetail = {
     minGain: 0.05,
   },
   source: { repository: 'acme/platform', path: 'teams/core.tf' },
+  search: LINE_SEARCH,
 };
 
 const reader = (result: LineDetail[] | null): LineReaderPort => ({
@@ -109,6 +127,7 @@ describe('ListLinesHandler', () => {
           minGain: 0.05,
         },
         source: { repository: 'acme/platform', path: 'teams/core.tf' },
+        search: LINE_SEARCH,
       },
     ]);
   });

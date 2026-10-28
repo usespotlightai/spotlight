@@ -74,6 +74,68 @@ export type StationAlertResponseDto = {
   over: number;
 };
 
+export type StationSearchAgentResponseDto = {
+  /**
+   * The harness that proposes candidate configs
+   */
+  harness: string;
+  /**
+   * The model the harness uses. Null leaves its default.
+   */
+  model: string | null;
+  /**
+   * How hard the agent thinks. Null leaves its default.
+   */
+  effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | null;
+};
+
+export type StationSearchResponseDto = {
+  /**
+   * Whether Spotlight searches for better station configs on its own
+   */
+  enabled: boolean;
+  /**
+   * The most all automatic searches of the line may spend in one calendar month
+   */
+  monthlyCeiling: number;
+  /**
+   * The currency of the ceilings
+   */
+  currency: string;
+  /**
+   * The most one automatic search may spend
+   */
+  ceiling: number;
+  /**
+   * The longest time between two scheduled searches of a station, as in 12h or 7d
+   */
+  period: string;
+  /**
+   * Whether an alert that goes off on a station starts a search
+   */
+  onAlert: boolean;
+  /**
+   * The shortest time between two automatic searches of a station, as in 12h or 3d
+   */
+  cooldown: string;
+  /**
+   * The agent that proposes candidates. Null when Spotlight picks one.
+   */
+  agent: StationSearchAgentResponseDto | null;
+  /**
+   * How many iterations one search runs. Null when Spotlight picks.
+   */
+  iterations: number | null;
+  /**
+   * How many times each task is replayed. Null when Spotlight picks.
+   */
+  repeats: number | null;
+  /**
+   * What a search improves: success or cost. Null when the station’s health decides.
+   */
+  objective: 'success' | 'cost' | null;
+};
+
 export type StationResponseDto = {
   id: string;
   /**
@@ -114,6 +176,10 @@ export type StationResponseDto = {
    * When a measure of the station’s runs worsens enough to warn about, in the order they were written
    */
   alerts: Array<StationAlertResponseDto>;
+  /**
+   * How Spotlight searches for better configs of the station on its own: the line’s search with the station’s own search over it. Null for a backlog or the completed station.
+   */
+  search: StationSearchResponseDto | null;
   /**
    * The ends of the line: a backlog is where a task waits before anything works it, and completed is where it lands once its pull request is merged
    */
@@ -178,6 +244,37 @@ export type LineReplayCheckResponseDto = {
   minGain: number;
 };
 
+export type LineSearchResponseDto = {
+  /**
+   * Whether Spotlight searches for better station configs on its own
+   */
+  enabled: boolean;
+  /**
+   * The most all automatic searches of the line may spend in one calendar month
+   */
+  monthlyCeiling: number;
+  /**
+   * The currency of the ceilings
+   */
+  currency: string;
+  /**
+   * The most one automatic search may spend
+   */
+  ceiling: number;
+  /**
+   * The longest time between two scheduled searches of a station, as in 12h or 7d
+   */
+  period: string;
+  /**
+   * Whether an alert that goes off on a station starts a search
+   */
+  onAlert: boolean;
+  /**
+   * The shortest time between two automatic searches of a station, as in 12h or 3d
+   */
+  cooldown: string;
+};
+
 export type LineResponseDto = {
   id: string;
   /**
@@ -199,6 +296,10 @@ export type LineResponseDto = {
    * The threshold planned changes of the line’s stations are checked against, set through Terraform; null when the line checks none
    */
   replayCheck: LineReplayCheckResponseDto | null;
+  /**
+   * How Spotlight searches for better station configs on its own, set through Terraform. A station’s own search changes it for that station.
+   */
+  search: LineSearchResponseDto;
 };
 
 export type FieldErrorResponseDto = {

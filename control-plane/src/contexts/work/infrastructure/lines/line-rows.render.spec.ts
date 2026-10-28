@@ -1,3 +1,4 @@
+import { LineSearchPolicy } from '@work/domain/value-objects/search-policy.vo';
 import { compileLine } from '@work/infrastructure/lines/line.compile';
 import {
   type LineRows,
@@ -27,6 +28,7 @@ const station = (
   memories: false,
   judge: null,
   alerts: [],
+  search: null,
   finishes: false,
   ...over,
 });
@@ -38,6 +40,7 @@ const ROWS: LineRows = {
     role: null,
     reviews: null,
     replayCheck: null,
+    search: null,
     source: null,
     runners: [],
   },
@@ -105,6 +108,65 @@ describe('renderLineRows', () => {
       minGain: 0.05,
     });
     expect(Object.keys(renderLineRows(ROWS))).not.toContain('replayCheck');
+    expect(compileLine(rendered).ok).toBe(true);
+  });
+
+  it('renders the line’s search policy whole wherever the line has one, and a station’s own search settings with only what it sets', () => {
+    const rendered = renderLineRows({
+      ...ROWS,
+      line: {
+        ...ROWS.line,
+        search: {
+          ...LineSearchPolicy.DEFAULT.toPrimitives(),
+          monthlyCeiling: 80,
+          onAlert: false,
+        },
+      },
+      stations: [
+        ...ROWS.stations.slice(0, 1),
+        station('build', {
+          finishes: true,
+          search: {
+            enabled: false,
+            ceiling: null,
+            period: '12h',
+            onAlert: null,
+            cooldown: '6h',
+            agent: { harness: 'claude-code', model: null, effort: 'high' },
+            iterations: 4,
+            repeats: null,
+            objective: 'cost',
+          },
+        }),
+        ...ROWS.stations.slice(2),
+      ],
+    });
+
+    expect(rendered.search).toEqual({
+      enabled: true,
+      monthlyCeiling: 80,
+      currency: 'USD',
+      ceiling: 10,
+      period: '7d',
+      onAlert: false,
+      cooldown: '3d',
+    });
+    expect(rendered.stations[1]?.search).toEqual({
+      enabled: false,
+      period: '12h',
+      cooldown: '6h',
+      agent: { harness: 'claude-code', effort: 'high' },
+      iterations: 4,
+      objective: 'cost',
+    });
+    expect(Object.keys(rendered.stations[0] ?? {})).not.toContain('search');
+    expect(Object.keys(renderLineRows(ROWS))).not.toContain('search');
+    expect(
+      renderLineRows({
+        ...ROWS,
+        line: { ...ROWS.line, search: LineSearchPolicy.DEFAULT.toPrimitives() },
+      }).search,
+    ).toEqual(LineSearchPolicy.DEFAULT.toPrimitives());
     expect(compileLine(rendered).ok).toBe(true);
   });
 

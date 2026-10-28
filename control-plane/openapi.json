@@ -23066,6 +23066,127 @@
           "over"
         ]
       },
+      "StationSearchAgentResponseDto": {
+        "type": "object",
+        "properties": {
+          "harness": {
+            "type": "string",
+            "example": "claude-code",
+            "description": "The harness that proposes candidate configs"
+          },
+          "model": {
+            "type": "string",
+            "example": null,
+            "nullable": true,
+            "description": "The model the harness uses. Null leaves its default."
+          },
+          "effort": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "xhigh",
+              "max",
+              null
+            ],
+            "example": "high",
+            "nullable": true,
+            "description": "How hard the agent thinks. Null leaves its default."
+          }
+        },
+        "required": [
+          "harness",
+          "model",
+          "effort"
+        ]
+      },
+      "StationSearchResponseDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether Spotlight searches for better station configs on its own"
+          },
+          "monthlyCeiling": {
+            "type": "number",
+            "example": 50,
+            "description": "The most all automatic searches of the line may spend in one calendar month"
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD",
+            "description": "The currency of the ceilings"
+          },
+          "ceiling": {
+            "type": "number",
+            "example": 10,
+            "description": "The most one automatic search may spend"
+          },
+          "period": {
+            "type": "string",
+            "example": "7d",
+            "description": "The longest time between two scheduled searches of a station, as in 12h or 7d"
+          },
+          "onAlert": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether an alert that goes off on a station starts a search"
+          },
+          "cooldown": {
+            "type": "string",
+            "example": "3d",
+            "description": "The shortest time between two automatic searches of a station, as in 12h or 3d"
+          },
+          "agent": {
+            "nullable": true,
+            "description": "The agent that proposes candidates. Null when Spotlight picks one.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StationSearchAgentResponseDto"
+              }
+            ]
+          },
+          "iterations": {
+            "type": "number",
+            "example": 3,
+            "nullable": true,
+            "description": "How many iterations one search runs. Null when Spotlight picks."
+          },
+          "repeats": {
+            "type": "number",
+            "example": null,
+            "nullable": true,
+            "description": "How many times each task is replayed. Null when Spotlight picks."
+          },
+          "objective": {
+            "type": "string",
+            "enum": [
+              "success",
+              "cost",
+              null
+            ],
+            "example": null,
+            "nullable": true,
+            "description": "What a search improves: success or cost. Null when the station’s health decides."
+          }
+        },
+        "required": [
+          "enabled",
+          "monthlyCeiling",
+          "currency",
+          "ceiling",
+          "period",
+          "onAlert",
+          "cooldown",
+          "agent",
+          "iterations",
+          "repeats",
+          "objective"
+        ]
+      },
       "StationResponseDto": {
         "type": "object",
         "properties": {
@@ -23138,6 +23259,16 @@
               "$ref": "#/components/schemas/StationAlertResponseDto"
             }
           },
+          "search": {
+            "nullable": true,
+            "description": "How Spotlight searches for better configs of the station on its own: the line’s search with the station’s own search over it. Null for a backlog or the completed station.",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StationSearchResponseDto"
+              }
+            ]
+          },
           "kind": {
             "type": "string",
             "enum": [
@@ -23171,6 +23302,7 @@
           "agentPrompt",
           "judge",
           "alerts",
+          "search",
           "kind",
           "skills"
         ]
@@ -23277,6 +23409,55 @@
           "minGain"
         ]
       },
+      "LineSearchResponseDto": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether Spotlight searches for better station configs on its own"
+          },
+          "monthlyCeiling": {
+            "type": "number",
+            "example": 50,
+            "description": "The most all automatic searches of the line may spend in one calendar month"
+          },
+          "currency": {
+            "type": "string",
+            "example": "USD",
+            "description": "The currency of the ceilings"
+          },
+          "ceiling": {
+            "type": "number",
+            "example": 10,
+            "description": "The most one automatic search may spend"
+          },
+          "period": {
+            "type": "string",
+            "example": "7d",
+            "description": "The longest time between two scheduled searches of a station, as in 12h or 7d"
+          },
+          "onAlert": {
+            "type": "boolean",
+            "example": true,
+            "description": "Whether an alert that goes off on a station starts a search"
+          },
+          "cooldown": {
+            "type": "string",
+            "example": "3d",
+            "description": "The shortest time between two automatic searches of a station, as in 12h or 3d"
+          }
+        },
+        "required": [
+          "enabled",
+          "monthlyCeiling",
+          "currency",
+          "ceiling",
+          "period",
+          "onAlert",
+          "cooldown"
+        ]
+      },
       "LineResponseDto": {
         "type": "object",
         "properties": {
@@ -23331,6 +23512,14 @@
                 "$ref": "#/components/schemas/LineReplayCheckResponseDto"
               }
             ]
+          },
+          "search": {
+            "description": "How Spotlight searches for better station configs on its own, set through Terraform. A station’s own search changes it for that station.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LineSearchResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -23341,7 +23530,8 @@
           "reactions",
           "repositories",
           "source",
-          "replayCheck"
+          "replayCheck",
+          "search"
         ]
       },
       "FieldErrorResponseDto": {

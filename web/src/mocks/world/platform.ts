@@ -8,7 +8,7 @@ import { hoursAgo } from '@/mocks/clock';
 import { MAYA, PRIYA, SAM, TOM } from '@/mocks/world/people';
 import { onGitHub } from '@/mocks/world/repositories';
 import { progressOfState } from '@/mocks/world/run-progress';
-import { runStationOf, station } from '@/mocks/world/stations';
+import { LINE_SEARCH, runStationOf, station } from '@/mocks/world/stations';
 
 export const PLATFORM_ID = 'team_platform';
 export const DELIVERY_ID = 'line_delivery';
@@ -69,6 +69,14 @@ const DELIVERY_STATIONS: StationResponseDto[] = [
       passThreshold: 1,
       sample: 0.2,
       minAgreement: 0.6,
+    },
+    search: {
+      ...LINE_SEARCH,
+      ceiling: 20,
+      agent: { harness: 'claude-code', model: 'opus', effort: 'high' },
+      iterations: 4,
+      repeats: null,
+      objective: 'cost',
     },
     alerts: [
       {
@@ -171,6 +179,7 @@ export const PLATFORM_LINES: LineResponseDto[] = [
       currency: 'USD',
       minGain: 0.05,
     },
+    search: LINE_SEARCH,
   },
   {
     id: INCIDENTS_ID,
@@ -181,6 +190,7 @@ export const PLATFORM_LINES: LineResponseDto[] = [
     repositories: [onGitHub('acme/api'), onGitHub('acme/infra')],
     source: null,
     replayCheck: null,
+    search: LINE_SEARCH,
   },
 ];
 

@@ -1,5 +1,5 @@
 {
-  "id": "12c1f12a-5e8e-442b-ab93-094fe83a7652",
+  "id": "6262e0f6-6ff9-4153-be31-d9b2dc8dbbbf",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -12383,6 +12383,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "search": {
+          "name": "search",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "source": {
           "name": "source",
           "type": "jsonb",
@@ -12805,6 +12811,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'[]'::jsonb"
+        },
+        "search": {
+          "name": "search",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

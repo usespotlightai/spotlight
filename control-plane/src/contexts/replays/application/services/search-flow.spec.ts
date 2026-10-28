@@ -365,6 +365,7 @@ beforeEach(async () => {
     scoring: UNSCORED,
     hashes: LIVE_HASHES,
     threshold: null,
+    search: null,
   });
   await memory.setRepository.add(aSet(10));
   memory.events.splice(0);

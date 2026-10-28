@@ -113,6 +113,7 @@ const assemble = (
       memories: planned.memories,
       judge: planned.judge,
       alerts: planned.alerts,
+      search: planned.search,
       tools: planned.tools,
       skills: planned.skills,
       routes: StationRoutes.of({
@@ -130,6 +131,7 @@ const assemble = (
     reviews: plan.reviews,
     placement: plan.placement,
     replayCheck: plan.replayCheck,
+    search: plan.search,
     source: plan.source,
     stations,
     reactions: plan.reactions.map((planned) =>

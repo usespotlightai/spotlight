@@ -86,6 +86,14 @@ export function StationConfigSkeleton() {
         </SkeletonBlock>
 
         <SkeletonBlock>
+          <ConfigCard title="Automatic improvement">
+            <ConfigCardValue detail={<SkeletonLine className="w-36" />}>
+              <SkeletonLine className="w-8" />
+            </ConfigCardValue>
+          </ConfigCard>
+        </SkeletonBlock>
+
+        <SkeletonBlock>
           <ConfigCard title="Config fingerprint">
             <ConfigCardValue detail={<SkeletonLine className="w-28" />}>
               <SkeletonLine className="w-28" />

@@ -24,6 +24,7 @@ import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo'
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
@@ -199,6 +200,7 @@ export class Work implements WorkPort {
           scoring: scoringOf(live.scoring),
           hashes: StationHashes.of(live.hashes),
           threshold: live.replayCheck && ReplayThreshold.of(live.replayCheck),
+          search: live.search && SearchPolicy.of(live.search),
         }
       : null;
   }

@@ -4,6 +4,7 @@ import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { REVIEW_STARTS } from '@work/domain/value-objects/review-policy.vo';
+import { SEARCH_OBJECTIVES } from '@work/domain/value-objects/search-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
@@ -43,6 +44,24 @@ const alertSchema = z.object({
   over: z.number(),
 });
 
+const stationSearchSchema = z.object({
+  enabled: z.boolean().optional(),
+  ceiling: z.number().optional(),
+  period: z.string().optional(),
+  onAlert: z.boolean().optional(),
+  cooldown: z.string().optional(),
+  agent: z
+    .object({
+      harness: z.string(),
+      model: z.string().optional(),
+      effort: z.enum(EFFORTS).optional(),
+    })
+    .optional(),
+  iterations: z.number().optional(),
+  repeats: z.number().optional(),
+  objective: z.enum(SEARCH_OBJECTIVES).optional(),
+});
+
 const stationSchema = z.object({
   key: identifier(StationKey.of),
   name: z.string().min(1, 'is what this station is called on the board'),
@@ -64,6 +83,7 @@ const stationSchema = z.object({
   memories: z.boolean().optional(),
   judge: judgeSchema.optional(),
   alerts: z.array(alertSchema).default([]),
+  search: stationSearchSchema.optional(),
   tools: z.array(identifier(Tool.of)).default([]),
   skills: z.array(identifier(SkillKey.of)).default([]),
   passesTo: z.array(identifier(StationKey.of)).default([]),
@@ -114,6 +134,16 @@ const replayCheckSchema = z.object({
   minGain: z.number().default(0.05),
 });
 
+const lineSearchSchema = z.object({
+  enabled: z.boolean().optional(),
+  monthlyCeiling: z.number().optional(),
+  currency: z.string().optional(),
+  ceiling: z.number().optional(),
+  period: z.string().optional(),
+  onAlert: z.boolean().optional(),
+  cooldown: z.string().optional(),
+});
+
 const sourceSchema = z.object({
   repository: z.string(),
   path: z.string(),
@@ -133,6 +163,7 @@ export const lineSchema = z.object({
   reactions: z.array(reactionSchema).default([]),
   reviews: reviewsSchema.optional(),
   replayCheck: replayCheckSchema.optional(),
+  search: lineSearchSchema.optional(),
   source: z.preprocess(
     (source) => source ?? undefined,
     sourceSchema.optional(),

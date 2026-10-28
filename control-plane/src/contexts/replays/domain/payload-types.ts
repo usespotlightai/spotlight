@@ -73,6 +73,7 @@ import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
+import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
 import { SearchStartDetail } from '@replays/domain/value-objects/search-start-detail.vo';
@@ -152,6 +153,7 @@ export const REPLAYS_PAYLOAD_TYPES = [
   SearchStopRequested,
   ReplayCheckId,
   ReplayThreshold,
+  SearchPolicy,
   ReplayedPeriod,
   ReplayCheckStarted,
   ReplayCheckDeletionRequested,

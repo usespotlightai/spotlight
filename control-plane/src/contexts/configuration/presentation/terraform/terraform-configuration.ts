@@ -31,8 +31,10 @@ import type {
   LineDefinitionReplayCheck,
   LineDefinitionRepository,
   LineDefinitionReviews,
+  LineDefinitionSearch,
   LineDefinitionSource,
   LineDefinitionStation,
+  LineDefinitionStationSearch,
 } from '@work/application/contracts/line-definition.contract';
 
 export interface TerraformFile {
@@ -433,6 +435,35 @@ const line = (
       ],
     );
 
+  const stationSearch = (set: LineDefinitionStationSearch): HclBlock =>
+    block(
+      'search',
+      [],
+      [
+        ...present('enabled', set.enabled),
+        ...present('ceiling', set.ceiling),
+        ...present('period', set.period),
+        ...present('on_alert', set.onAlert),
+        ...present('cooldown', set.cooldown),
+        ...present('iterations', set.iterations),
+        ...present('repeats', set.repeats),
+        ...present('objective', set.objective),
+        ...(set.agent
+          ? [
+              block(
+                'agent',
+                [],
+                [
+                  attribute('harness', set.agent.harness),
+                  ...present('model', set.agent.model),
+                  ...present('effort', set.agent.effort),
+                ],
+              ),
+            ]
+          : []),
+      ],
+    );
+
   const station = (each: LineDefinitionStation): HclBlock => {
     const path = `prompts/${resource.teamKey}/${resource.key}/${each.key}.md`;
 
@@ -481,6 +512,7 @@ const line = (
         attribute('ends', each.ends),
         ...(each.judge ? [judge(each.key, each.judge)] : []),
         ...each.alerts.map(alert),
+        ...(each.search ? [stationSearch(each.search)] : []),
       ],
     );
   };
@@ -539,6 +571,21 @@ const line = (
       ],
     );
 
+  const search = (policy: LineDefinitionSearch): HclBlock =>
+    block(
+      'search',
+      [],
+      [
+        ...present('enabled', policy.enabled),
+        ...present('monthly_ceiling', policy.monthlyCeiling),
+        ...present('currency', policy.currency),
+        ...present('ceiling', policy.ceiling),
+        ...present('period', policy.period),
+        ...present('on_alert', policy.onAlert),
+        ...present('cooldown', policy.cooldown),
+      ],
+    );
+
   const source = (from: LineDefinitionSource): HclBlock =>
     block(
       'source',
@@ -561,6 +608,7 @@ const line = (
       ...definition.reactions.map(reaction),
       ...(definition.reviews ? [reviews(definition.reviews)] : []),
       ...(definition.replayCheck ? [replayCheck(definition.replayCheck)] : []),
+      ...(definition.search ? [search(definition.search)] : []),
       ...(definition.source ? [source(definition.source)] : []),
     ],
     { files },

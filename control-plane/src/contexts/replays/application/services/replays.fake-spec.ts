@@ -11,6 +11,7 @@ import type {
   AgentProblem,
   CancelledRun,
   LeasedSearchRun,
+  LiveConfig,
   OracleAnswerInput,
   PickableRun,
   ReplayRunOrder,
@@ -403,13 +404,14 @@ export class FakeWork implements WorkPort {
 
   threshold: ReplayThreshold | null = null;
 
-  live = async () => ({
+  live = async (): Promise<LiveConfig> => ({
     lineKey: 'delivery',
     block: StationBlock.of({ key: 'build', name: 'Build', kind: 'work' }),
     fingerprint: FINGERPRINT,
     scoring: UNSCORED,
     hashes: LIVE_HASHES,
     threshold: this.threshold,
+    search: null,
   });
 
   unanswerable = new Set<string>();

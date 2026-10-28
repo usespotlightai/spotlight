@@ -4,6 +4,20 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Station } from '@/routes/Station';
 
+const SEARCH = {
+  enabled: true,
+  monthlyCeiling: 50,
+  currency: 'USD',
+  ceiling: 10,
+  period: '7d',
+  onAlert: true,
+  cooldown: '3d',
+  agent: null,
+  iterations: null,
+  repeats: null,
+  objective: null,
+};
+
 const line = {
   id: 'line_1',
   key: 'default',
@@ -21,6 +35,7 @@ const line = {
       skills: [],
       alerts: [],
       judge: null,
+      search: null,
     },
     {
       id: 'station_1',
@@ -33,6 +48,7 @@ const line = {
       skills: [],
       alerts: [],
       judge: null,
+      search: { ...SEARCH, enabled: false },
     },
     {
       id: 'station_2',
@@ -46,6 +62,7 @@ const line = {
       agentPrompt: '## Role\n\n- Sort the queue\n- Ask when unsure',
       kind: 'work',
       skills: ['our-migrations', 'grafana-dashboards'],
+      search: SEARCH,
       judge: {
         rubric: '## A good run\n\n- Changes only what it must',
         claims: [],
@@ -89,6 +106,7 @@ const line = {
       skills: [],
       alerts: [],
       judge: null,
+      search: null,
     },
   ],
   repositories: [
@@ -1049,6 +1067,44 @@ describe('Station', () => {
 
       expect(sectionTitled('Judge')).toHaveTextContent(
         'No judgeOnly people score runs here.',
+      );
+    });
+
+    it('says how Spotlight improves the station on its own, with the rest on hover', async () => {
+      const user = userEvent.setup();
+      renderAt('station_2');
+
+      const improvement = sectionTitled('Automatic improvement');
+
+      expect(improvement).toHaveTextContent(
+        'OnUp to $10 a search · every 7 days',
+      );
+
+      await user.hover(
+        improvement.querySelector('[data-slot="search-policy"]') as Element,
+      );
+
+      expect(
+        await screen.findByText('Line ceiling a month'),
+      ).toBeInTheDocument();
+    });
+
+    it('shows no automatic improvement at the ends of the line', () => {
+      for (const end of ['station_0', 'station_3']) {
+        const { unmount } = renderAt(end);
+
+        expect(
+          screen.queryByRole('heading', { name: 'Automatic improvement' }),
+        ).not.toBeInTheDocument();
+        unmount();
+      }
+    });
+
+    it('says no search runs where automatic improvement is off', () => {
+      renderAt('station_1');
+
+      expect(sectionTitled('Automatic improvement')).toHaveTextContent(
+        'OffNo automatic searches',
       );
     });
 

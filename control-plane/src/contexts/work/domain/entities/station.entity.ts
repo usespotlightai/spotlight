@@ -9,6 +9,7 @@ import {
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
+import type { StationSearchOverride } from '@work/domain/value-objects/search-policy.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import type { StationCheck } from '@work/domain/value-objects/station-check.vo';
@@ -40,6 +41,7 @@ type Part = {
   memories?: boolean;
   judge?: StationJudge | null;
   alerts?: readonly StationAlert[];
+  search?: StationSearchOverride | null;
   routes?: StationRoutes;
   tools?: readonly Tool[];
   skills?: readonly SkillKey[];
@@ -64,6 +66,7 @@ export type StationInput = {
   memories?: boolean;
   judge?: StationJudge | null;
   alerts?: readonly StationAlert[];
+  search?: StationSearchOverride | null;
   kind?: StationKind;
   routes?: StationRoutes;
   tools?: readonly Tool[];
@@ -96,6 +99,7 @@ export abstract class Station {
   abstract readonly memories: boolean;
   abstract readonly judge: StationJudge | null;
   abstract readonly alerts: readonly StationAlert[];
+  abstract readonly search: StationSearchOverride | null;
 
   static of(input: StationInput): Station {
     Station.guardWhatItEnables(input.tools ?? [], input.skills ?? []);
@@ -132,6 +136,7 @@ export abstract class Station {
           input.memories ?? false,
           input.judge ?? null,
           StationAlert.together(input.alerts ?? []),
+          input.search ?? null,
         );
     }
   }
@@ -218,6 +223,7 @@ class WorkStation extends Station {
     readonly memories: boolean,
     readonly judge: StationJudge | null,
     readonly alerts: readonly StationAlert[],
+    readonly search: StationSearchOverride | null,
   ) {
     super(id, key, name, position, color, description, routes, tools, skills);
   }
@@ -261,6 +267,7 @@ class WorkStation extends Station {
       part.memories !== undefined ? part.memories : this.memories,
       part.judge !== undefined ? part.judge : this.judge,
       part.alerts ? StationAlert.together(part.alerts) : this.alerts,
+      part.search !== undefined ? part.search : this.search,
     );
   }
 }
@@ -279,6 +286,7 @@ class Backlog extends Station {
   readonly memories = false;
   readonly judge = null;
   readonly alerts: readonly StationAlert[] = [];
+  readonly search = null;
 
   runsOn(): Station {
     throw new InvalidStationChangeError(
@@ -327,6 +335,7 @@ class Completed extends Station {
   readonly memories = false;
   readonly judge = null;
   readonly alerts: readonly StationAlert[] = [];
+  readonly search = null;
 
   runsOn(): Station {
     throw new InvalidStationChangeError(

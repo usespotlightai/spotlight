@@ -4,6 +4,7 @@ import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo'
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import type { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
@@ -75,6 +76,7 @@ export interface LiveConfig {
   readonly scoring: CandidateScoring;
   readonly hashes: StationHashes;
   readonly threshold: ReplayThreshold | null;
+  readonly search: SearchPolicy | null;
 }
 
 export interface OracleAnswerInput {

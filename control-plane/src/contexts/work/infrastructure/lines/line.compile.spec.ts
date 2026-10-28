@@ -368,6 +368,123 @@ describe('compileLine', () => {
     ).toBe('replayCheck.currency');
   });
 
+  it('reads the line’s search policy, filling in what it leaves out, and none when it has none', () => {
+    const compiled = compileLine({
+      ...DELIVERY,
+      search: {
+        monthlyCeiling: 100,
+        currency: 'eur',
+        period: '36h',
+        cooldown: '1d',
+      },
+    });
+
+    expect(compiled.ok && compiled.line.search?.toPrimitives()).toEqual({
+      enabled: true,
+      monthlyCeiling: 100,
+      currency: 'EUR',
+      ceiling: 10,
+      period: '36h',
+      onAlert: true,
+      cooldown: '1d',
+    });
+
+    const unset = compileLine(DELIVERY);
+
+    expect(unset.ok && unset.line.search).toBeNull();
+  });
+
+  it('points at the search setting it rejects', () => {
+    const at = (search: object) =>
+      dottedOf(problemsOf({ ...DELIVERY, search })[0]?.field);
+
+    expect(at({ ceiling: 0 })).toBe('search.ceiling');
+    expect(at({ monthlyCeiling: 5 })).toBe('search.ceiling');
+    expect(at({ currency: 'dollars' })).toBe('search.currency');
+    expect(at({ period: '30m' })).toBe('search.period');
+    expect(at({ cooldown: 'weekly' })).toBe('search.cooldown');
+    expect(at({ onAlert: 'yes' })).toBe('search.onAlert');
+    expect(at({ period: '2d' })).toBe('search.cooldown');
+  });
+
+  it('reads a station’s own search settings, and none where it has none', () => {
+    const compiled = compileLine(
+      withStation(1, {
+        ...DELIVERY.stations[1],
+        search: {
+          enabled: false,
+          ceiling: 25,
+          agent: { harness: 'claude-code', effort: 'high' },
+          iterations: 4,
+          objective: 'cost',
+        },
+      }),
+    );
+
+    expect(compiled.ok && compiled.line.stations[1]?.search).toMatchObject({
+      enabled: false,
+      ceiling: 25,
+      period: null,
+      agent: {
+        harness: { value: 'claude-code' },
+        model: null,
+        effort: { value: 'high' },
+      },
+      iterations: 4,
+      repeats: null,
+      objective: 'cost',
+    });
+    expect(compiled.ok && compiled.line.stations[0]?.search).toBeNull();
+  });
+
+  it('points at the station search setting it rejects', () => {
+    const at = (search: object) =>
+      dottedOf(
+        problemsOf(withStation(1, { ...DELIVERY.stations[1], search }))[0]
+          ?.field,
+      );
+
+    expect(at({ iterations: 11 })).toBe('stations.1.search.iterations');
+    expect(at({ repeats: 0 })).toBe('stations.1.search.repeats');
+    expect(at({ objective: 'speed' })).toBe('stations.1.search.objective');
+    expect(at({ cooldown: '10m' })).toBe('stations.1.search.cooldown');
+    expect(at({ agent: { harness: ' ' } })).toBe(
+      'stations.1.search.agent.harness',
+    );
+    expect(at({ agent: { harness: 'claude-code', effort: 'huge' } })).toBe(
+      'stations.1.search.agent.effort',
+    );
+    expect(at({ ceiling: 60 })).toBe('stations.1.search.ceiling');
+    expect(at({ period: '1d' })).toBe('stations.1.search.cooldown');
+  });
+
+  it('points at a station ceiling the line’s lowered monthly ceiling no longer allows', () => {
+    expect(
+      dottedOf(
+        problemsOf({
+          ...withStation(1, {
+            ...DELIVERY.stations[1],
+            search: { ceiling: 30 },
+          }),
+          search: { monthlyCeiling: 20 },
+        })[0]?.field,
+      ),
+    ).toBe('stations.1.search.ceiling');
+  });
+
+  it('rejects search settings at a station where nothing runs', () => {
+    expect(
+      dottedOf(
+        problemsOf(
+          withStation(0, {
+            ...DELIVERY.stations[0],
+            search: { enabled: true },
+          }),
+        )[0]?.field,
+      ),
+    ).toBe('stations.0.search');
+  });
+
   it('reads where the line’s Terraform lives, taking no source as none', () => {
     const compiled = compileLine({
       ...DELIVERY,
