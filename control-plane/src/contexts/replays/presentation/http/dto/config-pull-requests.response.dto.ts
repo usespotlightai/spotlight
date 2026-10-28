@@ -5,6 +5,7 @@ import type {
   ConfigPullRequestReasonDto,
 } from '@replays/application/dto/config-pull-requests.dto';
 import {
+  CONFIG_PULL_REQUEST_CLOSE_REASONS,
   CONFIG_PULL_REQUEST_ERRORS,
   CONFIG_PULL_REQUEST_STATES,
 } from '@replays/domain/value-objects/config-pull-request-state';
@@ -67,8 +68,31 @@ export class CandidatePullRequestResponseDto {
   @ApiProperty({ example: '0b6f1c2e-7a44-4d35-9e8a-3f5d2c1b7a90' })
   readonly id: string;
 
-  @ApiProperty({ enum: CONFIG_PULL_REQUEST_STATES, example: 'opened' })
+  @ApiProperty({
+    enum: CONFIG_PULL_REQUEST_STATES,
+    example: 'opened',
+    description:
+      'opening while Spotlight opens it on GitHub; opened while it is open; closing while Spotlight closes it on GitHub; merged or closed once it is no longer open; failed if Spotlight could not open it. A pull request that is opening, opened or closing is open for its station.',
+  })
   readonly state: string;
+
+  @ApiProperty({
+    nullable: true,
+    enum: [...CONFIG_PULL_REQUEST_CLOSE_REASONS, null],
+    type: String,
+    example: null,
+    description:
+      'Why it closes or closed: stale when the live config of the station changed after it opened, by-person when it was closed on GitHub; null unless it is closing or closed',
+  })
+  readonly closedBecause: string | null;
+
+  @ApiProperty({
+    type: ConfigPullRequestReasonResponseDto,
+    nullable: true,
+    description:
+      'Why Spotlight could not close it on GitHub after the live config changed; null unless that close failed',
+  })
+  readonly closeFailure: ConfigPullRequestReasonResponseDto | null;
 
   @ApiProperty({
     nullable: true,
@@ -88,6 +112,10 @@ export class CandidatePullRequestResponseDto {
   constructor(pullRequest: CandidatePullRequestDto) {
     this.id = pullRequest.id;
     this.state = pullRequest.state;
+    this.closedBecause = pullRequest.closedBecause;
+    this.closeFailure = pullRequest.closeFailure
+      ? new ConfigPullRequestReasonResponseDto(pullRequest.closeFailure)
+      : null;
     this.url = pullRequest.url;
     this.reason = pullRequest.reason
       ? new ConfigPullRequestReasonResponseDto(pullRequest.reason)

@@ -521,6 +521,9 @@ describe('a search for a better station config', () => {
       'ceiling-reached',
     );
     expect(await searchRunsOf(capped.id)).toEqual([]);
+    expect(
+      await eventually(async () => (await searchOf(capped.id)).pick, WITHIN),
+    ).toMatchObject({ outcome: 'declined' });
 
     const stopped = await startSearch({
       iterations: 3,

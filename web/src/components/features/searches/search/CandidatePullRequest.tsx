@@ -1,3 +1,4 @@
+import { ClosedPullRequestNote } from '@/components/features/searches/search/ClosedPullRequestNote';
 import { SECTION_LINK } from '@/components/shared/section-link';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import type { SearchCandidate } from '@/lib/search';
@@ -8,38 +9,23 @@ import {
 import { cn } from '@/lib/utils';
 
 export function CandidatePullRequest({
-  candidate,
+  pullRequest,
 }: {
-  candidate: SearchCandidate;
+  pullRequest: SearchCandidate['pullRequest'];
 }) {
-  const opened = candidate.pullRequest;
-
-  if (!opened) {
+  if (!pullRequest) {
     return '–';
   }
 
-  if (opened.state === 'opened' && opened.url) {
-    return (
-      <a
-        href={opened.url}
-        target="_blank"
-        rel="noreferrer"
-        className={cn(SECTION_LINK, 'relative z-10 text-foreground')}
-      >
-        {formatPullRequestCell('opened')}
-      </a>
-    );
-  }
-
-  if (opened.state === 'failed') {
+  if (pullRequest.state === 'failed') {
     return (
       <span className="inline-flex items-center gap-1.5 text-destructive">
         {formatPullRequestCell('failed')}
-        {opened.reason && (
+        {pullRequest.reason && (
           <WarningTooltip
             tone="destructive"
             label="Why"
-            tooltip={`${formatPullRequestReason(opened.reason)}. ${opened.reason.message}`}
+            tooltip={`${formatPullRequestReason(pullRequest.reason)}. ${pullRequest.reason.message}`}
             className="relative z-10"
           />
         )}
@@ -47,5 +33,24 @@ export function CandidatePullRequest({
     );
   }
 
-  return formatPullRequestCell(opened.state);
+  if (!pullRequest.url) {
+    return formatPullRequestCell(pullRequest.state);
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <a
+        href={pullRequest.url}
+        target="_blank"
+        rel="noreferrer"
+        className={cn(SECTION_LINK, 'relative z-10 text-foreground')}
+      >
+        {formatPullRequestCell(pullRequest.state)}
+      </a>
+      <ClosedPullRequestNote
+        pullRequest={pullRequest}
+        className="relative z-10"
+      />
+    </span>
+  );
 }

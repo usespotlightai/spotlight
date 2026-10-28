@@ -180,6 +180,8 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       pullRequest: {
         id: 'config_pull_request_1',
         state: 'opened',
+        closedBecause: null,
+        closeFailure: null,
         url: 'https://github.com/acme/spotlight-config/pull/42',
         reason: null,
       },

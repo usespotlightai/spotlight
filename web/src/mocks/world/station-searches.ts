@@ -10,11 +10,8 @@ import type {
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { perWorld, world } from '@/mocks/world';
-import {
-  added,
-  changed,
-  TESTS_FIRST_PULL_REQUEST,
-} from '@/mocks/world/station-history';
+import { CONFIG_PULL_REQUESTS } from '@/mocks/world/config-pull-requests';
+import { added, changed } from '@/mocks/world/station-history';
 import { intervalOf, rateOf, rounded } from '@/mocks/world/station-measures';
 import {
   BILLING_SET_ID,
@@ -147,12 +144,7 @@ const SEEDED: readonly SearchSpec[] = [
         heldOutReplayId: 'replay_tf_tests_first_held_out',
         onFrontier: true,
         overfit: 'likely',
-        pullRequest: {
-          id: 'config_pull_request_58',
-          state: 'opened',
-          url: TESTS_FIRST_PULL_REQUEST,
-          reason: null,
-        },
+        pullRequest: CONFIG_PULL_REQUESTS.opened,
       },
       {
         candidate: CANDIDATES.medium,

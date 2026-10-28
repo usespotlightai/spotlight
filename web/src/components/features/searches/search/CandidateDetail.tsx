@@ -90,7 +90,7 @@ export function CandidateDetail({
           />
         </PaneSection>
 
-        <PickedPullRequest candidate={candidate} />
+        <PickedPullRequest pullRequest={candidate.pullRequest} />
       </ScrollArea>
     </SidePane>
   );

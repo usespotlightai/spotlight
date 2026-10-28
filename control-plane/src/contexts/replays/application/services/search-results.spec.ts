@@ -65,6 +65,8 @@ const picking = () =>
     memory.searchRepository,
     memory.replayRepository,
     pullRequests,
+    memory.candidateRepository,
+    memory.scheduleRepository,
     new SetHealths(work, memory.replayRepository, memory.candidateRepository),
     work,
     IDS,
@@ -286,7 +288,7 @@ describe('NoticeSearchResults', () => {
 
 describe('SearchSchedules', () => {
   const schedules = () =>
-    new SearchSchedules(memory.scheduleRepository, TRANSACTION, CLOCK);
+    new SearchSchedules(memory.scheduleRepository, work, TRANSACTION, CLOCK);
 
   beforeEach(async () => {
     await memory.scheduleRepository.add(
@@ -306,6 +308,25 @@ describe('SearchSchedules', () => {
     await schedules().lineChanged(STATION.lineId);
 
     expect(memory.schedules.get(STATION.stationId)?.checkAfter).toEqual(NOW);
+  });
+
+  it('forgets the configs rejected against another live config when the line changes', async () => {
+    const rejectedAgainst = StationFingerprint.of('c'.repeat(64));
+    const rejected = memory.schedules
+      .get(STATION.stationId)
+      ?.configRejected(
+        StationFingerprint.of('e'.repeat(64)),
+        rejectedAgainst,
+        NOW,
+      );
+
+    memory.schedules.set(STATION.stationId, rejected as StationSearchSchedule);
+    await schedules().lineChanged(STATION.lineId);
+
+    expect(memory.schedules.get(STATION.stationId)).toMatchObject({
+      rejected: [],
+      rejectedAgainst: null,
+    });
   });
 
   it('looks at a station at once when its alert fires', async () => {

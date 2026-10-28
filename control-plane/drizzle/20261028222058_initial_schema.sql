@@ -30,8 +30,9 @@ CREATE TYPE "public"."memory_proposer" AS ENUM('drafter', 'agent');--> statement
 CREATE TYPE "public"."memory_source" AS ENUM('person', 'run', 'outside');--> statement-breakpoint
 CREATE TYPE "public"."memory_status" AS ENUM('active', 'retired');--> statement-breakpoint
 CREATE TYPE "public"."memory_use_via" AS ENUM('briefed', 'recalled');--> statement-breakpoint
+CREATE TYPE "public"."config_pull_request_close_reason" AS ENUM('stale', 'by-person');--> statement-breakpoint
 CREATE TYPE "public"."config_pull_request_error" AS ENUM('no-source', 'repository-unreachable', 'file-missing', 'file-unparsable', 'block-not-found', 'blocks-ambiguous', 'computed-attribute', 'base-changed', 'edit-failed', 'branch-taken', 'file-unwritable', 'github-error');--> statement-breakpoint
-CREATE TYPE "public"."config_pull_request_state" AS ENUM('opening', 'opened', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."config_pull_request_state" AS ENUM('opening', 'opened', 'closing', 'merged', 'closed', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."replay_candidate_kind" AS ENUM('live', 'proposed', 'searched', 'planned', 'oracle');--> statement-breakpoint
 CREATE TYPE "public"."replay_check_baseline" AS ENUM('awaiting', 'found', 'unavailable');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_result" AS ENUM('completed', 'failed', 'exhausted', 'cancelled');--> statement-breakpoint
@@ -1071,6 +1072,14 @@ CREATE TABLE "config_pull_request" (
 	"branch" text NOT NULL,
 	"state" "config_pull_request_state" NOT NULL,
 	"url" text,
+	"number" integer,
+	"github_id" bigint,
+	"based_on" text,
+	"proposing" text,
+	"checked_at" timestamp,
+	"closed_because" "config_pull_request_close_reason",
+	"close_failure_code" "config_pull_request_error",
+	"close_failure_message" text,
 	"error_code" "config_pull_request_error",
 	"error_message" text,
 	"error_attribute" text,
@@ -1299,6 +1308,10 @@ CREATE TABLE "station_search_schedule" (
 	"last_skip_at" timestamp,
 	"searched_tasks" jsonb NOT NULL,
 	"alert_pending_since" timestamp,
+	"rejected" jsonb NOT NULL,
+	"rejected_against" text,
+	"last_rejected_at" timestamp,
+	"last_improved_at" timestamp,
 	"check_after" timestamp NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
@@ -2014,7 +2027,11 @@ CREATE INDEX "memory_use_run_idx" ON "memory_use" USING btree ("run_id","at");--
 CREATE UNIQUE INDEX "config_pull_request_candidate_idx" ON "config_pull_request" USING btree ("search_id","candidate_id");--> statement-breakpoint
 CREATE INDEX "config_pull_request_team_idx" ON "config_pull_request" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "config_pull_request_station_idx" ON "config_pull_request" USING btree ("station_id");--> statement-breakpoint
-CREATE INDEX "config_pull_request_due_idx" ON "config_pull_request" USING btree ("due_at") WHERE "config_pull_request"."state" = 'opening';--> statement-breakpoint
+CREATE UNIQUE INDEX "config_pull_request_github_idx" ON "config_pull_request" USING btree ("workspace_id","github_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "config_pull_request_number_idx" ON "config_pull_request" USING btree ("workspace_id",lower("repository"),"number");--> statement-breakpoint
+CREATE UNIQUE INDEX "config_pull_request_open_station_idx" ON "config_pull_request" USING btree ("station_id") WHERE "config_pull_request"."state" in ('opening', 'opened', 'closing');--> statement-breakpoint
+CREATE INDEX "config_pull_request_check_idx" ON "config_pull_request" USING btree ("checked_at") WHERE "config_pull_request"."state" = 'opened';--> statement-breakpoint
+CREATE INDEX "config_pull_request_due_idx" ON "config_pull_request" USING btree ("state","due_at") WHERE "config_pull_request"."state" in ('opening', 'closing');--> statement-breakpoint
 CREATE INDEX "replay_set_idx" ON "replay" USING btree ("set_id");--> statement-breakpoint
 CREATE INDEX "replay_candidate_idx" ON "replay" USING btree ("candidate_id");--> statement-breakpoint
 CREATE INDEX "replay_team_state_idx" ON "replay" USING btree ("team_id","state");--> statement-breakpoint

@@ -145,7 +145,7 @@ export function CandidateTableRow({
         {formatCostPerRun(candidate.costPerRun, currency)}
       </NestedCell>
       <NestedCell heading="Pull request" numeric={false}>
-        <CandidatePullRequest candidate={candidate} />
+        <CandidatePullRequest pullRequest={candidate.pullRequest} />
       </NestedCell>
     </li>
   );

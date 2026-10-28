@@ -1,4 +1,5 @@
 import type {
+  CandidatePullRequestResponseDto,
   ConfigPullRequestReasonResponseDto,
   FailureCauseResponseDto,
   ReplayCheckResponseDto,
@@ -20,9 +21,14 @@ import type { TooltipNote, TooltipRow } from '@/lib/tooltip-note';
 export type SearchState = SearchResponseDto['state'];
 export type SearchStopReason = NonNullable<SearchResponseDto['stopReason']>;
 export type IterationState = SearchIterationResponseDto['state'];
-export type PullRequestState = NonNullable<
-  SearchCandidateResponseDto['pullRequest']
->['state'];
+export type PullRequestState = CandidatePullRequestResponseDto['state'];
+export type PullRequestStatus = Pick<
+  CandidatePullRequestResponseDto,
+  'state' | 'closedBecause' | 'closeFailure'
+>;
+type CloseReason = NonNullable<
+  CandidatePullRequestResponseDto['closedBecause']
+>;
 export type PullRequestReason = ConfigPullRequestReasonResponseDto;
 type ReasonCode = PullRequestReason['code'];
 type CheckResult = ReplayCheckResponseDto['result'];
@@ -68,8 +74,20 @@ const ITERATION_STATES: Record<IterationState, string> = {
 const PULL_REQUEST_STATES: Record<PullRequestState, string> = {
   opening: 'Opening a pull request…',
   opened: 'Pull request opened',
+  closing: 'Spotlight is closing the pull request…',
+  merged: 'Pull request merged',
+  closed: 'Pull request closed',
   failed: 'No pull request opened',
 };
+
+const CLOSE_REASONS: Record<CloseReason, string> = {
+  stale:
+    'The live config of the station changed after the pull request opened.',
+  'by-person': 'The pull request was closed on GitHub.',
+};
+
+const NOT_PROPOSED_AGAIN =
+  "Spotlight does not propose this config again while the station's live config stays the same.";
 
 const REASONS: Record<ReasonCode, string> = {
   'no-source': 'Line names no repository for its Terraform',
@@ -118,6 +136,28 @@ export const formatPullRequestState = (state: PullRequestState): string =>
 
 export const formatPullRequestReason = (reason: PullRequestReason): string =>
   REASONS[reason.code];
+
+export const formatPullRequestClosed = (
+  pullRequest: Pick<
+    CandidatePullRequestResponseDto,
+    'closedBecause' | 'closeFailure'
+  >,
+): string | null => {
+  const { closedBecause, closeFailure } = pullRequest;
+
+  if (!closedBecause) {
+    return null;
+  }
+
+  return [
+    CLOSE_REASONS[closedBecause],
+    closedBecause === 'by-person' && NOT_PROPOSED_AGAIN,
+    closeFailure &&
+      `Sorry, Spotlight could not close it on GitHub. ${closeFailure.message}`,
+  ]
+    .filter(Boolean)
+    .join(' ');
+};
 
 export const formatCheckResult = (
   result: CheckResult,
@@ -365,6 +405,9 @@ export const candidateGainNote = (
 const PULL_REQUEST_CELLS: Record<PullRequestState, string> = {
   opening: 'Opening…',
   opened: 'Opened',
+  closing: 'Closing…',
+  merged: 'Merged',
+  closed: 'Closed',
   failed: 'Not opened',
 };
 
@@ -480,22 +523,34 @@ const PICK_DECLINES: Record<PickDecline, string> = {
     'The best candidate is likely overfit. It did better only on the searched tasks.',
   'station-gone':
     'The station is gone from its line. Spotlight cannot change its config.',
+  'pull-request-open': 'A config pull request for the station is open.',
+  'rejected-before':
+    "A config pull request for each passing candidate was closed on GitHub before. Spotlight does not propose these configs again while the station's live config stays the same.",
 };
 
 const PICKED: Record<PullRequestState, (name: string) => string> = {
   opening: (name) =>
     `Spotlight picked ${name}. Its config pull request is opening.`,
   opened: (name) => `Spotlight opened a config pull request for ${name}.`,
+  closing: (name) =>
+    `Spotlight is closing the config pull request for ${name}.`,
+  merged: (name) => `The config pull request for ${name} merged.`,
+  closed: (name) => `The config pull request for ${name} is closed.`,
   failed: (name) =>
     `Spotlight picked ${name}. Its config pull request could not be opened.`,
 };
 
 export const formatPick = (
   pick: SearchPick,
-  pullRequest: PullRequestState | null,
+  pullRequest: PullRequestStatus | null,
 ): string =>
   pick.outcome === 'picked'
-    ? PICKED[pullRequest ?? 'opening'](pick.name ?? 'a candidate')
+    ? [
+        PICKED[pullRequest?.state ?? 'opening'](pick.name ?? 'a candidate'),
+        pullRequest && formatPullRequestClosed(pullRequest),
+      ]
+        .filter(Boolean)
+        .join(' ')
     : PICK_DECLINES[pick.reason ?? 'no-candidate'];
 
 const SKIP_REASONS: Record<SkipReason, (minimumTasks: number) => string> = {

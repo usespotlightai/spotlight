@@ -1,13 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
+import { ConfigPullRequestOpenAtStationError } from '@replays/domain/exceptions/config-pull-request-open-at-station.error';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
-import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
+import type {
+  ConfigPullRequestRepository,
+  GitHubPullRequestKey,
+} from '@replays/domain/repositories/config-pull-request.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
-import type { ConfigPullRequestState } from '@replays/domain/value-objects/config-pull-request-state';
+import {
+  type ConfigPullRequestState,
+  OPEN_CONFIG_PULL_REQUEST_STATES,
+} from '@replays/domain/value-objects/config-pull-request-state';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { configPullRequest } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -16,11 +24,9 @@ import {
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, inArray, lte, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, lt, lte, type SQL, sql } from 'drizzle-orm';
 
 type PullRequestRow = typeof configPullRequest.$inferSelect;
-
-const OPEN_STATES: ConfigPullRequestState[] = ['opening', 'opened'];
 
 const reasonOf = (row: PullRequestRow): ConfigPullRequestReason | null => {
   if (row.errorCode === null) {
@@ -42,6 +48,17 @@ const reasonOf = (row: PullRequestRow): ConfigPullRequestReason | null => {
   });
 };
 
+const closeFailureOf = (row: PullRequestRow): ConfigPullRequestReason | null =>
+  row.closeFailureCode === null
+    ? null
+    : ConfigPullRequestReason.of({
+        code: row.closeFailureCode,
+        message: row.closeFailureMessage ?? '',
+      });
+
+const fingerprintOf = (raw: string | null): StationFingerprint | null =>
+  raw === null ? null : StationFingerprint.of(raw);
+
 const toPullRequest = (row: PullRequestRow): ConfigPullRequest =>
   ConfigPullRequest.rehydrate({
     id: ConfigPullRequestId.of(row.id),
@@ -60,6 +77,13 @@ const toPullRequest = (row: PullRequestRow): ConfigPullRequest =>
     branch: row.branch,
     state: row.state,
     url: row.url,
+    number: row.number,
+    gitHubId: row.gitHubId,
+    basedOn: fingerprintOf(row.basedOn),
+    proposing: fingerprintOf(row.proposing),
+    checkedAt: row.checkedAt,
+    closedBecause: row.closedBecause,
+    closeFailure: closeFailureOf(row),
     reason: reasonOf(row),
     retries: row.retries,
     lastCommit: row.lastCommit,
@@ -83,6 +107,14 @@ const columnsOf = (aggregate: ConfigPullRequest) => ({
   branch: aggregate.branch,
   state: aggregate.current,
   url: aggregate.url,
+  number: aggregate.number,
+  gitHubId: aggregate.gitHubId,
+  basedOn: aggregate.basedOn?.value ?? null,
+  proposing: aggregate.proposing?.value ?? null,
+  checkedAt: aggregate.checkedAt,
+  closedBecause: aggregate.closedBecause,
+  closeFailureCode: aggregate.closeFailure?.code ?? null,
+  closeFailureMessage: aggregate.closeFailure?.message ?? null,
   errorCode: aggregate.reason?.code ?? null,
   errorMessage: aggregate.reason?.message ?? null,
   errorAttribute: aggregate.reason?.attribute ?? null,
@@ -154,7 +186,9 @@ export class DrizzleConfigPullRequestRepository
       .where(
         and(
           eq(configPullRequest.stationId, stationId),
-          inArray(configPullRequest.state, OPEN_STATES),
+          inArray(configPullRequest.state, [
+            ...OPEN_CONFIG_PULL_REQUEST_STATES,
+          ]),
         ),
       )
       .limit(1);
@@ -162,11 +196,64 @@ export class DrizzleConfigPullRequestRepository
     return found !== undefined;
   }
 
-  due(now: Date): Promise<readonly ConfigPullRequest[]> {
+  due(
+    state: Extract<ConfigPullRequestState, 'opening' | 'closing'>,
+    now: Date,
+  ): Promise<readonly ConfigPullRequest[]> {
     return this.where(
       and(
-        eq(configPullRequest.state, 'opening'),
+        eq(configPullRequest.state, state),
         lte(configPullRequest.dueAt, now),
+      ) as SQL,
+    );
+  }
+
+  async fromGitHub(
+    workspaceId: WorkspaceId,
+    pullRequest: GitHubPullRequestKey,
+  ): Promise<ConfigPullRequest | null> {
+    const [found] = await this.where(
+      and(
+        eq(configPullRequest.workspaceId, workspaceId.value),
+        pullRequest.gitHubId === null
+          ? and(
+              eq(
+                sql`lower(${configPullRequest.repository})`,
+                pullRequest.repository.toLowerCase(),
+              ),
+              eq(configPullRequest.number, pullRequest.number),
+            )
+          : eq(configPullRequest.gitHubId, pullRequest.gitHubId),
+      ) as SQL,
+    );
+
+    return found ?? null;
+  }
+
+  async dueForCheck(
+    checkedBefore: Date,
+    limit: number,
+  ): Promise<readonly ConfigPullRequest[]> {
+    return (
+      await this.context.db
+        .select()
+        .from(configPullRequest)
+        .where(
+          and(
+            eq(configPullRequest.state, 'opened'),
+            lt(configPullRequest.checkedAt, checkedBefore),
+          ),
+        )
+        .orderBy(asc(configPullRequest.checkedAt), asc(configPullRequest.id))
+        .limit(limit)
+    ).map(toPullRequest);
+  }
+
+  openedOnLine(lineId: string): Promise<readonly ConfigPullRequest[]> {
+    return this.where(
+      and(
+        eq(configPullRequest.lineId, lineId),
+        eq(configPullRequest.state, 'opened'),
       ) as SQL,
     );
   }
@@ -180,9 +267,7 @@ export class DrizzleConfigPullRequestRepository
           ...columnsOf(added),
           version: added.version,
         })
-        .onConflictDoNothing({
-          target: [configPullRequest.searchId, configPullRequest.candidateId],
-        })
+        .onConflictDoNothing()
         .returning({ id: configPullRequest.id });
 
       if (written.length === 0) {
@@ -191,6 +276,11 @@ export class DrizzleConfigPullRequestRepository
           added.candidateId,
         );
 
+        if (!existing && added.isOpen) {
+          throw new ConfigPullRequestOpenAtStationError(
+            added.station.stationId,
+          );
+        }
         if (!existing) {
           throw new ConfigPullRequestVersionConflictError(added.id.value);
         }

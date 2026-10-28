@@ -6,7 +6,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import {
   EDGE_INDENT,
   LEAD_CELL,

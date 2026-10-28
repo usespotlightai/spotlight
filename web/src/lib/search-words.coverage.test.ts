@@ -11,6 +11,8 @@ import {
   formatNoBest,
   formatObjective,
   formatPick,
+  formatPullRequestCell,
+  formatPullRequestClosed,
   formatPullRequestReason,
   formatPullRequestState,
   formatReflectionResult,
@@ -78,13 +80,23 @@ describe('search words cover every code the API can answer', () => {
     }
   });
 
-  it('words every state of a config pull request and every reason it failed', () => {
+  it('words every state of a config pull request, every reason it closed and every reason it failed', () => {
     for (const schema of [
       'CandidatePullRequestResponseDto',
       'ConfigPullRequestResponseDto',
     ]) {
       for (const state of codesOf(schema, 'state')) {
         worded(formatPullRequestState(state as never), state);
+        worded(formatPullRequestCell(state as never), state);
+      }
+      for (const because of codesOf(schema, 'closedBecause')) {
+        worded(
+          formatPullRequestClosed({
+            closedBecause: because as never,
+            closeFailure: null,
+          }) ?? '',
+          because,
+        );
       }
     }
     for (const code of codesOf('ConfigPullRequestReasonResponseDto', 'code')) {
@@ -125,6 +137,7 @@ describe('search words cover every code the API can answer', () => {
         formatSkip({
           lastStartedAt: null,
           lastSkip: { reason: reason as never, at: '' },
+          lastImprovedAt: null,
           checkAfter: '',
           minimumTasks: 5,
         }),

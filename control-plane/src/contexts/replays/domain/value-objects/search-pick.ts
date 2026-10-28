@@ -7,6 +7,8 @@ export const SEARCH_PICK_DECLINES = [
   'over-regression-limit',
   'likely-overfit',
   'station-gone',
+  'pull-request-open',
+  'rejected-before',
 ] as const;
 
 export type SearchPickDecline = (typeof SEARCH_PICK_DECLINES)[number];

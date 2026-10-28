@@ -453,6 +453,7 @@ describe('GitHubWebhookParser', () => {
         action: 'closed',
         repository: { full_name: 'acme/api' },
         pull_request: pull({
+          id: 707,
           merge_commit_sha: 'c'.repeat(40),
           closed_at: '2026-09-21T09:30:00Z',
         }),
@@ -465,6 +466,7 @@ describe('GitHubWebhookParser', () => {
           kind: 'pull-request-closed',
           pullRequest: 'https://github.com/acme/api/pull/7',
           repository: 'acme/api',
+          gitHubId: 707,
           merge: { commit: 'c'.repeat(40) },
           closedAt: new Date('2026-09-21T09:30:00Z'),
         },
@@ -493,6 +495,24 @@ describe('GitHubWebhookParser', () => {
 
     it('reads nothing of a pull request still open', () => {
       expect(closed({ action: 'opened' })).toEqual([]);
+    });
+
+    it('reads a reopen, with the GitHub id of the pull request', () => {
+      expect(
+        eventsOf('pull_request', {
+          action: 'reopened',
+          repository: { full_name: 'acme/api' },
+          pull_request: pull({ id: 707, updated_at: '2026-09-22T09:30:00Z' }),
+        }).filter((each) => each.kind === 'pull-request-reopened'),
+      ).toEqual([
+        {
+          kind: 'pull-request-reopened',
+          pullRequest: 'https://github.com/acme/api/pull/7',
+          repository: 'acme/api',
+          gitHubId: 707,
+          reopenedAt: new Date('2026-09-22T09:30:00Z'),
+        },
+      ]);
     });
   });
 

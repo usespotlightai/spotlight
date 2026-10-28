@@ -16,7 +16,7 @@ import type { ReplayedStation, ReplaySet } from '@/lib/replay';
 import { minGainSentence } from '@/lib/replay-words';
 import type {
   CauseKind,
-  PullRequestState,
+  PullRequestStatus,
   SearchState,
 } from '@/lib/search-words';
 import { stationPath, stationTabPath } from '@/lib/station';
@@ -64,10 +64,10 @@ export const ongoingIn = (searches: readonly Search[]): Search | null =>
 
 export const pickedPullRequestOf = (
   detail: SearchDetail,
-): PullRequestState | null =>
+): PullRequestStatus | null =>
   detail.candidates.find(
     (each) => each.candidateId === detail.pick?.candidateId,
-  )?.pullRequest?.state ?? null;
+  )?.pullRequest ?? null;
 
 export const candidatesOf = (detail: SearchDetail): SearchCandidate[] => [
   detail.seed,
@@ -76,7 +76,11 @@ export const candidatesOf = (detail: SearchDetail): SearchCandidate[] => [
 
 export const stillMoving = (detail: SearchDetail): boolean =>
   ongoing(detail.state) ||
-  candidatesOf(detail).some((each) => each.pullRequest?.state === 'opening');
+  candidatesOf(detail).some(
+    (each) =>
+      each.pullRequest?.state === 'opening' ||
+      each.pullRequest?.state === 'closing',
+  );
 
 export const newestFirst = (searches: readonly Search[]): Search[] =>
   [...searches].sort((one, other) =>

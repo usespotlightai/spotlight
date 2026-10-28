@@ -464,6 +464,7 @@ export const setView = (
         reason: schedule.lastSkip.reason,
         at: schedule.lastSkip.at.toISOString(),
       },
+      lastImprovedAt: schedule.lastImprovedAt?.toISOString() ?? null,
       checkAfter: schedule.checkAfter.toISOString(),
       minimumTasks: FEWEST_SEARCH_TASKS,
     },

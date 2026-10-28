@@ -37,6 +37,7 @@ import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggreg
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
+import { ConfigPullRequestOpenAtStationError } from '@replays/domain/exceptions/config-pull-request-open-at-station.error';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import { StationSearchScheduleVersionConflictError } from '@replays/domain/exceptions/station-search-schedule-version-conflict.error';
@@ -149,6 +150,10 @@ export class InMemoryReplays {
             lastSkip: schedule.lastSkip,
             searchedTasks: schedule.searchedTasks,
             alertPendingSince: schedule.alertPendingSince,
+            rejected: schedule.rejected,
+            rejectedAgainst: schedule.rejectedAgainst,
+            lastRejectedAt: schedule.lastRejectedAt,
+            lastImprovedAt: schedule.lastImprovedAt,
             checkAfter: schedule.checkAfter,
             version: schedule.version + 1,
           }),
@@ -761,13 +766,47 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
 
   async openAtStation(stationId: string) {
     return [...this.stored.values()].some(
-      (each) =>
-        each.station.stationId === stationId && each.current !== 'failed',
+      (each) => each.station.stationId === stationId && each.isOpen,
     );
   }
 
-  async due(now: Date) {
-    return [...this.stored.values()].filter((each) => each.isDue(now));
+  async fromGitHub(
+    workspaceId: { value: string },
+    key: { gitHubId: number | null; repository: string; number: number },
+  ) {
+    return (
+      [...this.stored.values()].find(
+        (each) =>
+          each.workspaceId.value === workspaceId.value &&
+          (key.gitHubId === null
+            ? each.repository?.toLowerCase() === key.repository.toLowerCase() &&
+              each.number === key.number
+            : each.gitHubId === key.gitHubId),
+      ) ?? null
+    );
+  }
+
+  async dueForCheck(checkedBefore: Date, limit: number) {
+    return [...this.stored.values()]
+      .filter(
+        (each) =>
+          each.current === 'opened' &&
+          each.checkedAt !== null &&
+          each.checkedAt < checkedBefore,
+      )
+      .slice(0, limit);
+  }
+
+  async openedOnLine(lineId: string) {
+    return [...this.stored.values()].filter(
+      (each) => each.station.lineId === lineId && each.current === 'opened',
+    );
+  }
+
+  async due(state: 'opening' | 'closing', now: Date) {
+    return [...this.stored.values()].filter(
+      (each) => each.current === state && each.isDue(now),
+    );
   }
 
   async add(added: ConfigPullRequest) {
@@ -775,6 +814,9 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
 
     if (existing) {
       return existing;
+    }
+    if (added.isOpen && (await this.openAtStation(added.station.stationId))) {
+      throw new ConfigPullRequestOpenAtStationError(added.station.stationId);
     }
 
     this.events.push(...added.pullEvents());
@@ -811,6 +853,13 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
         branch: saved.branch,
         state: saved.current,
         url: saved.url,
+        number: saved.number,
+        gitHubId: saved.gitHubId,
+        basedOn: saved.basedOn,
+        proposing: saved.proposing,
+        checkedAt: saved.checkedAt,
+        closedBecause: saved.closedBecause,
+        closeFailure: saved.closeFailure,
         reason: saved.reason,
         retries: saved.retries,
         lastCommit: saved.lastCommit,

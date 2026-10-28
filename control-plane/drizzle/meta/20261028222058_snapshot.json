@@ -1,5 +1,5 @@
 {
-  "id": "f6485b5a-9ff0-43d7-91a7-99134ce359ce",
+  "id": "48d9a662-33ce-4d02-865c-d6a32c861876",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -8689,6 +8689,56 @@
           "primaryKey": false,
           "notNull": false
         },
+        "number": {
+          "name": "number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "github_id": {
+          "name": "github_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "based_on": {
+          "name": "based_on",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "proposing": {
+          "name": "proposing",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "checked_at": {
+          "name": "checked_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closed_because": {
+          "name": "closed_because",
+          "type": "config_pull_request_close_reason",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "close_failure_code": {
+          "name": "close_failure_code",
+          "type": "config_pull_request_error",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "close_failure_message": {
+          "name": "close_failure_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "error_code": {
           "name": "error_code",
           "type": "config_pull_request_error",
@@ -8810,9 +8860,95 @@
           "method": "btree",
           "with": {}
         },
+        "config_pull_request_github_idx": {
+          "name": "config_pull_request_github_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "github_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "config_pull_request_number_idx": {
+          "name": "config_pull_request_number_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lower(\"repository\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "number",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "config_pull_request_open_station_idx": {
+          "name": "config_pull_request_open_station_idx",
+          "columns": [
+            {
+              "expression": "station_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"config_pull_request\".\"state\" in ('opening', 'opened', 'closing')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "config_pull_request_check_idx": {
+          "name": "config_pull_request_check_idx",
+          "columns": [
+            {
+              "expression": "checked_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"config_pull_request\".\"state\" = 'opened'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "config_pull_request_due_idx": {
           "name": "config_pull_request_due_idx",
           "columns": [
+            {
+              "expression": "state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
             {
               "expression": "due_at",
               "isExpression": false,
@@ -8821,7 +8957,7 @@
             }
           ],
           "isUnique": false,
-          "where": "\"config_pull_request\".\"state\" = 'opening'",
+          "where": "\"config_pull_request\".\"state\" in ('opening', 'closing')",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -10584,6 +10720,30 @@
         },
         "alert_pending_since": {
           "name": "alert_pending_since",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rejected": {
+          "name": "rejected",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rejected_against": {
+          "name": "rejected_against",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_rejected_at": {
+          "name": "last_rejected_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_improved_at": {
+          "name": "last_improved_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -15789,6 +15949,14 @@
         "recalled"
       ]
     },
+    "public.config_pull_request_close_reason": {
+      "name": "config_pull_request_close_reason",
+      "schema": "public",
+      "values": [
+        "stale",
+        "by-person"
+      ]
+    },
     "public.config_pull_request_error": {
       "name": "config_pull_request_error",
       "schema": "public",
@@ -15813,6 +15981,9 @@
       "values": [
         "opening",
         "opened",
+        "closing",
+        "merged",
+        "closed",
         "failed"
       ]
     },

@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { RepositoryUnreachableError } from '@github/application/errors/repository-unreachable.error';
 import {
   PULL_REQUESTS,
+  type PullRequestAt,
   type PullRequestOpening,
   type PullRequestPort,
+  type PullRequestStatusDto,
 } from '@github/application/ports/pull-request.port';
 import {
   REPOSITORY_CONTENTS,
@@ -137,7 +139,14 @@ export const github = {
   files: new Map<string, string>(),
   commits: [] as RepositoryCommit[],
   opened: [] as PullRequestOpening[],
+  closed: [] as PullRequestAt[],
+  comments: [] as { number: number; body: string }[],
+  statuses: new Map<number, PullRequestStatusDto>(),
+  failing: null as Error | null,
+  commentFailing: null as Error | null,
 };
+
+export const GITHUB_ID_BASE = 1_000;
 
 const repositoryContents: RepositoryContentsPort = {
   fileAt: async (_workspace, repository, path) => {
@@ -176,11 +185,38 @@ const pullRequests: PullRequestPort = {
       github.opened.push(opening);
     }
 
+    const number = at < 0 ? github.opened.length : at + 1;
+
     return {
-      url: `https://github.com/${CONFIG}/pull/${at < 0 ? github.opened.length : at + 1}`,
+      url: `https://github.com/${CONFIG}/pull/${number}`,
+      number,
+      id: GITHUB_ID_BASE + number,
+      repository: CONFIG,
     };
   },
   edit: async () => {},
+  statusOf: async (at) => {
+    if (github.failing) {
+      throw github.failing;
+    }
+
+    return github.statuses.get(at.number) ?? { state: 'open', closedAt: null };
+  },
+  close: async (at) => {
+    if (github.failing) {
+      throw github.failing;
+    }
+
+    github.closed.push(at);
+    github.statuses.set(at.number, { state: 'closed', closedAt: new Date() });
+  },
+  comment: async (at, body) => {
+    if (github.commentFailing) {
+      throw github.commentFailing;
+    }
+
+    github.comments.push({ number: at.number, body });
+  },
   changedOn: async () => [],
   changedIn: async () => [],
 };
@@ -750,6 +786,11 @@ export const openSearchFlow = (): void => {
     github.files.clear();
     github.commits.length = 0;
     github.opened.length = 0;
+    github.closed.length = 0;
+    github.comments.length = 0;
+    github.statuses.clear();
+    github.failing = null;
+    github.commentFailing = null;
     app = await openApp((module) =>
       module
         .overrideProvider(WORKSPACE_ARCHIVE_STORE)

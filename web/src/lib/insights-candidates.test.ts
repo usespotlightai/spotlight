@@ -177,6 +177,8 @@ describe('changeLinkOf', () => {
         pullRequest: {
           id: 'pr',
           state: 'opening',
+          closedBecause: null,
+          closeFailure: null,
           url: null,
           reason: null,
         },

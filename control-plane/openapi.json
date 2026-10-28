@@ -41482,6 +41482,12 @@
               }
             ]
           },
+          "lastImprovedAt": {
+            "type": "string",
+            "nullable": true,
+            "example": "2026-10-28T09:00:00.000Z",
+            "description": "When a config pull request of the station last merged; null if none merged"
+          },
           "checkAfter": {
             "type": "string",
             "description": "When Spotlight next looks at the station"
@@ -41495,6 +41501,7 @@
         "required": [
           "lastStartedAt",
           "lastSkip",
+          "lastImprovedAt",
           "checkAfter",
           "minimumTasks"
         ]
@@ -43323,9 +43330,11 @@
               "over-regression-limit",
               "likely-overfit",
               "station-gone",
+              "pull-request-open",
+              "rejected-before",
               null
             ],
-            "description": "Why no candidate was picked: none finished on the held-out tasks, none did better than the live config there by the line’s min_gain, the best was over the regression limit, or the best was likely overfit"
+            "description": "Why no candidate was picked: none finished on the held-out tasks, none did better than the live config there by the line’s min_gain, the best was over the regression limit, the best was likely overfit, the station is gone, a config pull request for the station was open, or a config pull request for each passing candidate was closed on GitHub while the live config stayed the same"
           }
         },
         "required": [
@@ -43783,9 +43792,34 @@
             "enum": [
               "opening",
               "opened",
+              "closing",
+              "merged",
+              "closed",
               "failed"
             ],
-            "example": "opened"
+            "example": "opened",
+            "description": "opening while Spotlight opens it on GitHub; opened while it is open; closing while Spotlight closes it on GitHub; merged or closed once it is no longer open; failed if Spotlight could not open it. A pull request that is opening, opened or closing is open for its station."
+          },
+          "closedBecause": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "stale",
+              "by-person",
+              null
+            ],
+            "example": null,
+            "description": "Why it closes or closed: stale when the live config of the station changed after it opened, by-person when it was closed on GitHub; null unless it is closing or closed"
+          },
+          "closeFailure": {
+            "nullable": true,
+            "description": "Why Spotlight could not close it on GitHub after the live config changed; null unless that close failed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfigPullRequestReasonResponseDto"
+              }
+            ]
           },
           "url": {
             "type": "string",
@@ -43807,6 +43841,8 @@
         "required": [
           "id",
           "state",
+          "closedBecause",
+          "closeFailure",
           "url",
           "reason"
         ]
@@ -44825,9 +44861,34 @@
             "enum": [
               "opening",
               "opened",
+              "closing",
+              "merged",
+              "closed",
               "failed"
             ],
-            "example": "opened"
+            "example": "opened",
+            "description": "opening while Spotlight opens it on GitHub; opened while it is open; closing while Spotlight closes it on GitHub; merged or closed once it is no longer open; failed if Spotlight could not open it. A pull request that is opening, opened or closing is open for its station."
+          },
+          "closedBecause": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "stale",
+              "by-person",
+              null
+            ],
+            "example": null,
+            "description": "Why it closes or closed: stale when the live config of the station changed after it opened, by-person when it was closed on GitHub; null unless it is closing or closed"
+          },
+          "closeFailure": {
+            "nullable": true,
+            "description": "Why Spotlight could not close it on GitHub after the live config changed; null unless that close failed",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ConfigPullRequestReasonResponseDto"
+              }
+            ]
           },
           "url": {
             "type": "string",
@@ -44901,6 +44962,8 @@
         "required": [
           "id",
           "state",
+          "closedBecause",
+          "closeFailure",
           "url",
           "reason",
           "teamId",

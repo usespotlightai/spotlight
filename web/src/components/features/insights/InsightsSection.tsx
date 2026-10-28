@@ -1,6 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
-import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { cn } from '@/lib/utils';
 
 type InsightsSectionProps = {

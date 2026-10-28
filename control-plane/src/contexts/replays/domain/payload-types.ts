@@ -1,9 +1,12 @@
 import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
 import { CandidateDeletionRequested } from '@replays/domain/events/candidate-deletion-requested.event';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
+import { ConfigPullRequestClosed } from '@replays/domain/events/config-pull-request-closed.event';
 import { ConfigPullRequestDeletionRequested } from '@replays/domain/events/config-pull-request-deletion-requested.event';
 import { ConfigPullRequestFailed } from '@replays/domain/events/config-pull-request-failed.event';
+import { ConfigPullRequestMerged } from '@replays/domain/events/config-pull-request-merged.event';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
+import { ConfigPullRequestReopened } from '@replays/domain/events/config-pull-request-reopened.event';
 import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
 import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayCeilingReached } from '@replays/domain/events/replay-ceiling-reached.event';
@@ -170,5 +173,8 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ConfigPullRequestRequested,
   ConfigPullRequestOpened,
   ConfigPullRequestFailed,
+  ConfigPullRequestReopened,
+  ConfigPullRequestMerged,
+  ConfigPullRequestClosed,
   ConfigPullRequestDeletionRequested,
 ] as const;

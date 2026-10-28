@@ -482,6 +482,56 @@ describe('Search', () => {
     ]);
   });
 
+  it('follows the config pull request of the pick after it opened, linking it in its row and its pane with why it closed on hover', async () => {
+    const url = 'https://github.com/acme/config/pull/42';
+
+    detail.mockReturnValue({
+      ...DETAIL,
+      pick: {
+        outcome: 'picked',
+        candidateId: 'tests',
+        name: 'tests-first',
+        reason: null,
+      },
+      candidates: DETAIL.candidates.map((each) =>
+        each.candidateId === 'tests'
+          ? {
+              ...each,
+              pullRequest: {
+                id: 'config_pull_request_1',
+                state: 'closed',
+                closedBecause: 'stale',
+                closeFailure: null,
+                url,
+                reason: null,
+              },
+            }
+          : each,
+      ),
+    });
+
+    renderSearch();
+
+    expect(screen.getByText('Picked by Spotlight')).toHaveAccessibleDescription(
+      'The config pull request for tests-first is closed. The live config of the station changed after the pull request opened.',
+    );
+
+    expect(
+      within(candidateRow('tests-first')).getByRole('link', { name: 'Closed' }),
+    ).toHaveAttribute('href', url);
+
+    const opened = await openCandidate('tests-first');
+    const followed = opened.querySelector(
+      '[data-slot="picked-pull-request"]',
+    ) as HTMLElement;
+    expect(
+      within(followed).getByText('Pull request closed'),
+    ).toBeInTheDocument();
+    expect(
+      within(followed).getByRole('link', { name: 'View pull request' }),
+    ).toHaveAttribute('href', url);
+  });
+
   it('marks a candidate that gained only on the tasks the search could see', async () => {
     detail.mockReturnValue(DETAIL);
 

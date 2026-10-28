@@ -1,6 +1,7 @@
 import { GITHUB_EVENT_MAPPERS } from '@github/application/integration-events/github.event-mappers';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
+import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
 import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
@@ -64,6 +65,7 @@ describe('GITHUB_EVENT_MAPPERS', () => {
           WorkspaceId.of('ws_1'),
           'https://github.com/acme/api/pull/7',
           'acme/api',
+          707,
           { commit: 'c'.repeat(40) },
           new Date('2026-09-21T09:30:00Z'),
         ),
@@ -74,9 +76,33 @@ describe('GITHUB_EVENT_MAPPERS', () => {
         workspaceId: 'ws_1',
         pullRequest: 'https://github.com/acme/api/pull/7',
         repository: 'acme/api',
+        gitHubId: 707,
         merged: true,
         mergeCommit: 'c'.repeat(40),
         closedAt: '2026-09-21T09:30:00.000Z',
+      },
+    ]);
+  });
+
+  it('publishes a reopened pull request with its GitHub id', () => {
+    expect(
+      published(
+        new PullRequestReopened(
+          WorkspaceId.of('ws_1'),
+          'https://github.com/acme/api/pull/7',
+          'acme/api',
+          707,
+          new Date('2026-09-22T09:30:00Z'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'github.pull-request-reopened.v1',
+        workspaceId: 'ws_1',
+        pullRequest: 'https://github.com/acme/api/pull/7',
+        repository: 'acme/api',
+        gitHubId: 707,
+        reopenedAt: '2026-09-22T09:30:00.000Z',
       },
     ]);
   });
@@ -113,6 +139,7 @@ describe('GITHUB_EVENT_MAPPERS', () => {
           WorkspaceId.of('ws_1'),
           'https://github.com/acme/api/pull/7',
           'acme/api',
+          null,
           null,
           null,
         ),

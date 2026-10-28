@@ -271,6 +271,15 @@ export class SearchScheduleResponseDto {
   readonly lastSkip: SearchSkipResponseDto | null;
 
   @ApiProperty({
+    nullable: true,
+    type: String,
+    example: '2026-10-28T09:00:00.000Z',
+    description:
+      'When a config pull request of the station last merged; null if none merged',
+  })
+  readonly lastImprovedAt: string | null;
+
+  @ApiProperty({
     description: 'When Spotlight next looks at the station',
   })
   readonly checkAfter: string;
@@ -286,6 +295,7 @@ export class SearchScheduleResponseDto {
     this.lastStartedAt = schedule.lastStartedAt;
     this.lastSkip =
       schedule.lastSkip && new SearchSkipResponseDto(schedule.lastSkip);
+    this.lastImprovedAt = schedule.lastImprovedAt;
     this.checkAfter = schedule.checkAfter;
     this.minimumTasks = schedule.minimumTasks;
   }

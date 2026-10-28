@@ -69,6 +69,7 @@ export interface DueInput {
   readonly policy: SearchPolicy | null;
   readonly scores: boolean;
   readonly lastStartedAt: Date | null;
+  readonly cooldownFrom: Date | null;
   readonly alertPendingSince: Date | null;
   readonly now: Date;
   readonly busy: boolean;
@@ -77,7 +78,7 @@ export interface DueInput {
 }
 
 export const dueVerdict = (input: DueInput): ScheduleVerdict => {
-  const { policy, lastStartedAt, now } = input;
+  const { policy, lastStartedAt, cooldownFrom, now } = input;
 
   if (!policy?.enabled) {
     return {
@@ -106,8 +107,8 @@ export const dueVerdict = (input: DueInput): ScheduleVerdict => {
     return { kind: 'wait', checkAfter: periodEnd };
   }
 
-  const cooldownEnd = lastStartedAt
-    ? after(lastStartedAt, policy.cooldownMilliseconds)
+  const cooldownEnd = cooldownFrom
+    ? after(cooldownFrom, policy.cooldownMilliseconds)
     : null;
 
   if (cooldownEnd && now < cooldownEnd) {

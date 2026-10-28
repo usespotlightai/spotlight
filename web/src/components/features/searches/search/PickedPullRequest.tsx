@@ -1,15 +1,14 @@
+import { ClosedPullRequestNote } from '@/components/features/searches/search/ClosedPullRequestNote';
 import { FailedPullRequest } from '@/components/features/searches/search/FailedPullRequest';
 import { ViewPullRequest } from '@/components/features/searches/search/ViewPullRequest';
 import type { SearchCandidate } from '@/lib/search';
 import { formatPullRequestState } from '@/lib/search-words';
 
 export function PickedPullRequest({
-  candidate,
+  pullRequest,
 }: {
-  candidate: SearchCandidate;
+  pullRequest: SearchCandidate['pullRequest'];
 }) {
-  const pullRequest = candidate.pullRequest;
-
   if (!pullRequest) {
     return null;
   }
@@ -20,16 +19,20 @@ export function PickedPullRequest({
       aria-live="polite"
       className="flex flex-col items-start gap-2 text-xs leading-5"
     >
-      {pullRequest.state === 'opened' && (
-        <ViewPullRequest url={pullRequest.url} />
-      )}
       {pullRequest.state === 'failed' && (
         <FailedPullRequest reason={pullRequest.reason} />
       )}
-      {pullRequest.state === 'opening' && (
-        <p className="text-muted-foreground">
+      {pullRequest.state !== 'failed' && pullRequest.state !== 'opened' && (
+        <p
+          data-slot="pull-request-state"
+          className="inline-flex items-center gap-1.5 text-muted-foreground"
+        >
           {formatPullRequestState(pullRequest.state)}
+          <ClosedPullRequestNote pullRequest={pullRequest} />
         </p>
+      )}
+      {pullRequest.state !== 'failed' && pullRequest.state !== 'opening' && (
+        <ViewPullRequest url={pullRequest.url} />
       )}
     </div>
   );

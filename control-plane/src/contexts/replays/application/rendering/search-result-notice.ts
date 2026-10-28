@@ -39,6 +39,10 @@ const DECLINES: Readonly<Record<SearchPickDecline, string>> = {
     'The best candidate is likely overfit. It did better only on the searched tasks.',
   'station-gone':
     'The station is gone from its line. Spotlight cannot change its config.',
+  'pull-request-open':
+    'A config pull request for the station is open. Spotlight keeps one open config pull request for each station.',
+  'rejected-before':
+    "A config pull request for each passing candidate was closed on GitHub before. Spotlight does not propose this config again while the station's live config stays the same.",
 };
 
 const ADVICE: Readonly<Record<AdvisedSkipReason, readonly string[]>> = {

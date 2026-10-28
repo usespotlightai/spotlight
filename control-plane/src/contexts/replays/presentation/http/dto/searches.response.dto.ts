@@ -240,7 +240,7 @@ export class SearchPickResponseDto {
     enum: [...SEARCH_PICK_DECLINES, null],
     type: String,
     description:
-      'Why no candidate was picked: none finished on the held-out tasks, none did better than the live config there by the line’s min_gain, the best was over the regression limit, or the best was likely overfit',
+      'Why no candidate was picked: none finished on the held-out tasks, none did better than the live config there by the line’s min_gain, the best was over the regression limit, the best was likely overfit, the station is gone, a config pull request for the station was open, or a config pull request for each passing candidate was closed on GitHub while the live config stayed the same',
   })
   readonly reason: string | null;
 

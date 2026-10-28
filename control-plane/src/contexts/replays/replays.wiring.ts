@@ -128,6 +128,7 @@ import { AutoSearches } from '@replays/application/services/auto-searches.servic
 import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
 import { CancelSearch } from '@replays/application/services/cancel-search.service';
 import { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
+import { CloseStaleConfigPullRequests } from '@replays/application/services/close-stale-config-pull-requests.service';
 import { DeleteConfigPullRequests } from '@replays/application/services/delete-config-pull-requests.service';
 import { DeleteReplayChecks } from '@replays/application/services/delete-replay-checks.service';
 import { DeleteReplays } from '@replays/application/services/delete-replays.service';
@@ -135,6 +136,7 @@ import { DeleteSearches } from '@replays/application/services/delete-searches.se
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import { EnsureCheckBaselines } from '@replays/application/services/ensure-check-baselines.service';
+import { FollowConfigPullRequests } from '@replays/application/services/follow-config-pull-requests.service';
 import { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
 import { KeepReplaySets } from '@replays/application/services/keep-replay-sets.service';
@@ -143,6 +145,7 @@ import { NoticeSearchResults } from '@replays/application/services/notice-search
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
 import { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
 import { PickSearchCandidates } from '@replays/application/services/pick-search-candidates.service';
+import { ReconcileConfigPullRequests } from '@replays/application/services/reconcile-config-pull-requests.service';
 import { RecordLineChange } from '@replays/application/services/record-line-change.service';
 import { RecordReplayChangeReview } from '@replays/application/services/record-replay-change-review.service';
 import { RecordReplayPairVerdict } from '@replays/application/services/record-replay-pair-verdict.service';
@@ -580,6 +583,64 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       ),
   },
   {
+    provide: CloseStaleConfigPullRequests,
+    inject: [
+      DrizzleConfigPullRequestRepository,
+      CONFIG_REPOSITORY,
+      TRANSACTION,
+      CLOCK,
+      LOGGER,
+    ],
+    useFactory: (
+      pullRequests: DrizzleConfigPullRequestRepository,
+      configs: ConfigRepositoryPort,
+      transaction: TransactionPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) =>
+      new CloseStaleConfigPullRequests(
+        pullRequests,
+        configs,
+        transaction,
+        clock,
+        logger,
+      ),
+  },
+  {
+    provide: ReconcileConfigPullRequests,
+    inject: [
+      DrizzleConfigPullRequestRepository,
+      CONFIG_REPOSITORY,
+      TRANSACTION,
+      CLOCK,
+      LOGGER,
+    ],
+    useFactory: (
+      pullRequests: DrizzleConfigPullRequestRepository,
+      configs: ConfigRepositoryPort,
+      transaction: TransactionPort,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) =>
+      new ReconcileConfigPullRequests(
+        pullRequests,
+        configs,
+        transaction,
+        clock,
+        logger,
+      ),
+  },
+  {
+    provide: FollowConfigPullRequests,
+    inject: [DrizzleConfigPullRequestRepository, WORK, TRANSACTION, CLOCK],
+    useFactory: (
+      pullRequests: DrizzleConfigPullRequestRepository,
+      work: WorkPort,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new FollowConfigPullRequests(pullRequests, work, transaction, clock),
+  },
+  {
     provide: DeleteConfigPullRequests,
     inject: [DrizzleConfigPullRequestRepository, TRANSACTION],
     useFactory: (
@@ -1005,12 +1066,13 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: SearchSchedules,
-    inject: [DrizzleStationSearchScheduleRepository, TRANSACTION, CLOCK],
+    inject: [DrizzleStationSearchScheduleRepository, WORK, TRANSACTION, CLOCK],
     useFactory: (
       schedules: DrizzleStationSearchScheduleRepository,
+      work: WorkPort,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new SearchSchedules(schedules, transaction, clock),
+    ) => new SearchSchedules(schedules, work, transaction, clock),
   },
   {
     provide: PickSearchCandidates,
@@ -1018,6 +1080,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       DrizzleSearchRepository,
       DrizzleReplayRepository,
       DrizzleConfigPullRequestRepository,
+      DrizzleCandidateRepository,
+      DrizzleStationSearchScheduleRepository,
       SetHealths,
       WORK,
       ID_GENERATOR,
@@ -1028,6 +1092,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       searches: DrizzleSearchRepository,
       replays: DrizzleReplayRepository,
       pullRequests: DrizzleConfigPullRequestRepository,
+      candidates: DrizzleCandidateRepository,
+      schedules: DrizzleStationSearchScheduleRepository,
       healths: SetHealths,
       work: WorkPort,
       ids: IdGeneratorPort,
@@ -1038,6 +1104,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
         searches,
         replays,
         pullRequests,
+        candidates,
+        schedules,
         healths,
         work,
         ids,
@@ -1066,6 +1134,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       DispatchReplayRuns,
       AdvanceSearches,
       OpenConfigPullRequests,
+      CloseStaleConfigPullRequests,
+      ReconcileConfigPullRequests,
       EnsureCheckBaselines,
       RefreshKeptSets,
       AutoSearches,
@@ -1075,13 +1145,24 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       dispatching: DispatchReplayRuns,
       advancing: AdvanceSearches,
       opening: OpenConfigPullRequests,
+      closing: CloseStaleConfigPullRequests,
+      reconciling: ReconcileConfigPullRequests,
       baselines: EnsureCheckBaselines,
       refreshing: RefreshKeptSets,
       searching: AutoSearches,
       logger: LoggerPort,
     ) =>
       new PendingJobWorker(
-        [dispatching, advancing, opening, baselines, refreshing, searching],
+        [
+          dispatching,
+          advancing,
+          opening,
+          closing,
+          reconciling,
+          baselines,
+          refreshing,
+          searching,
+        ],
         logger,
       ),
   },
@@ -1354,6 +1435,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       NoticeSearchResults,
       PickSearchCandidates,
       SearchSchedules,
+      FollowConfigPullRequests,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1386,6 +1468,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       noticingResults: NoticeSearchResults,
       picking: PickSearchCandidates,
       schedules: SearchSchedules,
+      following: FollowConfigPullRequests,
     ) => {
       types.register('replays', REPLAYS_PAYLOAD_TYPES);
       mappers.register(REPLAYS_EVENT_MAPPERS);
@@ -1418,6 +1501,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           noticingResults,
           picking,
           schedules,
+          following,
         }),
       );
       return true;

@@ -12,6 +12,7 @@ export class PullRequestClosed implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly pullRequest: string,
     readonly repository: string,
+    readonly gitHubId: number | null,
     readonly merge: PullRequestMerge | null,
     readonly closedAt: Date | null,
   ) {}

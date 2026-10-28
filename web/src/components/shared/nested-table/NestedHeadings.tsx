@@ -1,6 +1,6 @@
 import { useRef } from 'react';
-import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import { ColumnResizer } from '@/components/shared/ColumnResizer';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import {
   EDGE_INDENT,
   INNER_INDENT,

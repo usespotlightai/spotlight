@@ -185,6 +185,7 @@ describe('StationSearches', () => {
       searchSchedule: {
         lastStartedAt: null,
         lastSkip: { reason: 'set-too-small', at: '2026-10-01T09:00:00.000Z' },
+        lastImprovedAt: null,
         checkAfter: '2026-10-02T09:00:00.000Z',
         minimumTasks: 5,
       },

@@ -32,6 +32,8 @@ export const configPullRequestView = (
   path: pullRequest.path,
   branch: pullRequest.branch,
   state: pullRequest.current,
+  closedBecause: pullRequest.closedBecause,
+  closeFailure: reasonView(pullRequest.closeFailure),
   url: pullRequest.url,
   reason: reasonView(pullRequest.reason),
   createdAt: pullRequest.createdAt.toISOString(),
@@ -43,6 +45,8 @@ export const candidatePullRequestView = (
 ): CandidatePullRequestDto => ({
   id: pullRequest.id.value,
   state: pullRequest.current,
+  closedBecause: pullRequest.closedBecause,
+  closeFailure: reasonView(pullRequest.closeFailure),
   url: pullRequest.url,
   reason: reasonView(pullRequest.reason),
 });

@@ -5,6 +5,7 @@ export type PullRequestClosedIntegrationEvent = {
   readonly workspaceId: string;
   readonly pullRequest: string;
   readonly repository: string;
+  readonly gitHubId: number | null;
   readonly closedAt: string | null;
 } & (
   | { readonly merged: true; readonly mergeCommit: string }

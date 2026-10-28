@@ -89,11 +89,50 @@ describe('search words', () => {
       reason: null,
     };
 
-    expect(formatPick(picked, 'opened')).toBe(
-      'Spotlight opened a config pull request for tests-first.',
-    );
-    expect(formatPick(picked, 'failed')).toBe(
+    expect(
+      formatPick(picked, {
+        state: 'opened',
+        closedBecause: null,
+        closeFailure: null,
+      }),
+    ).toBe('Spotlight opened a config pull request for tests-first.');
+    expect(
+      formatPick(picked, {
+        state: 'failed',
+        closedBecause: null,
+        closeFailure: null,
+      }),
+    ).toBe(
       'Spotlight picked tests-first. Its config pull request could not be opened.',
+    );
+    expect(
+      formatPick(picked, {
+        state: 'merged',
+        closedBecause: null,
+        closeFailure: null,
+      }),
+    ).toBe('The config pull request for tests-first merged.');
+    expect(
+      formatPick(picked, {
+        state: 'closed',
+        closedBecause: 'by-person',
+        closeFailure: null,
+      }),
+    ).toBe(
+      "The config pull request for tests-first is closed. The pull request was closed on GitHub. Spotlight does not propose this config again while the station's live config stays the same.",
+    );
+    expect(
+      formatPick(
+        {
+          outcome: 'declined',
+          candidateId: null,
+          name: null,
+          reason: 'rejected-before',
+        },
+        null,
+      ),
+    ).toBe(
+      "A config pull request for each passing candidate was closed on GitHub before. Spotlight does not propose these configs again while the station's live config stays the same.",
     );
     expect(formatPick(picked, null)).toBe(
       'Spotlight picked tests-first. Its config pull request is opening.',
@@ -105,6 +144,7 @@ describe('search words', () => {
       formatSkip({
         lastStartedAt: null,
         lastSkip: { reason: 'set-too-small', at: '2026-10-01T09:00:00.000Z' },
+        lastImprovedAt: null,
         checkAfter: '2026-10-02T09:00:00.000Z',
         minimumTasks: 6,
       }),

@@ -1,5 +1,8 @@
 import type { GainEstimate } from '@replays/domain/services/gain-estimate';
-import { autoPickOf } from '@replays/domain/services/search-picks';
+import {
+  autoPickOf,
+  NO_CONSTRAINTS,
+} from '@replays/domain/services/search-picks';
 import { regressionsOf } from '@replays/domain/services/search-regressions';
 import type { SearchScores } from '@replays/domain/services/search-scores';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
@@ -79,8 +82,54 @@ describe('autoPickOf', () => {
         ),
         'success',
         THRESHOLD,
+        NO_CONSTRAINTS,
       ),
     ).toEqual({ outcome: 'picked', candidateId: CandidateId.of('best') });
+  });
+
+  it('takes the next passing candidate when a person rejected the config of the best one before', () => {
+    expect(
+      autoPickOf(
+        scoresOf(
+          scored('good', { heldOutScore: 0.8 }),
+          scored('best', { heldOutScore: 0.9 }),
+        ),
+        'success',
+        THRESHOLD,
+        { rejected: [CandidateId.of('best')], pullRequestOpen: false },
+      ),
+    ).toEqual({ outcome: 'picked', candidateId: CandidateId.of('good') });
+  });
+
+  it('declines as rejected before when a person rejected the config of every passing candidate', () => {
+    expect(
+      autoPickOf(
+        scoresOf(
+          scored('best', { heldOutScore: 0.9 }),
+          scored('flat', { heldOutSignificance: 'within-noise' }),
+        ),
+        'success',
+        THRESHOLD,
+        { rejected: [CandidateId.of('best')], pullRequestOpen: false },
+      ),
+    ).toEqual({ outcome: 'declined', reason: 'rejected-before' });
+  });
+
+  it('declines a passing candidate while a config pull request of the station is open', () => {
+    expect(
+      autoPickOf(scoresOf(scored('best')), 'success', THRESHOLD, {
+        rejected: [],
+        pullRequestOpen: true,
+      }),
+    ).toEqual({ outcome: 'declined', reason: 'pull-request-open' });
+    expect(
+      autoPickOf(
+        scoresOf(scored('flat', { heldOutSignificance: 'within-noise' })),
+        'success',
+        THRESHOLD,
+        { rejected: [], pullRequestOpen: true },
+      ),
+    ).toEqual({ outcome: 'declined', reason: 'no-held-out-gain' });
   });
 
   it('declines when no candidate was held out', () => {
@@ -89,9 +138,12 @@ describe('autoPickOf', () => {
         scoresOf(scored('searched only', { heldOutScore: null })),
         'success',
         THRESHOLD,
+        NO_CONSTRAINTS,
       ),
     ).toEqual({ outcome: 'declined', reason: 'no-candidate' });
-    expect(autoPickOf(scoresOf(), 'success', THRESHOLD)).toEqual({
+    expect(
+      autoPickOf(scoresOf(), 'success', THRESHOLD, NO_CONSTRAINTS),
+    ).toEqual({
       outcome: 'declined',
       reason: 'no-candidate',
     });
@@ -104,6 +156,7 @@ describe('autoPickOf', () => {
           scoresOf(scored('flat', { heldOutSignificance: significance })),
           'success',
           THRESHOLD,
+          NO_CONSTRAINTS,
         ),
       ).toEqual({ outcome: 'declined', reason: 'no-held-out-gain' });
     }
@@ -115,6 +168,7 @@ describe('autoPickOf', () => {
         scoresOf(scored('regressing', { regressions: regressionsOf(1, 1) })),
         'success',
         THRESHOLD,
+        NO_CONSTRAINTS,
       ),
     ).toEqual({ outcome: 'declined', reason: 'over-regression-limit' });
     expect(
@@ -122,6 +176,7 @@ describe('autoPickOf', () => {
         scoresOf(scored('regressing', { regressions: regressionsOf(1, 1) })),
         'success',
         null,
+        NO_CONSTRAINTS,
       ),
     ).toEqual({ outcome: 'picked', candidateId: CandidateId.of('regressing') });
   });
@@ -132,6 +187,7 @@ describe('autoPickOf', () => {
         scoresOf(scored('thin', { heldOutGain: gain('better', 2) })),
         'success',
         THRESHOLD,
+        NO_CONSTRAINTS,
       ),
     ).toEqual({ outcome: 'declined', reason: 'likely-overfit' });
   });
@@ -148,6 +204,7 @@ describe('autoPickOf', () => {
         ),
         'success',
         THRESHOLD,
+        NO_CONSTRAINTS,
       ),
     ).toEqual({ outcome: 'picked', candidateId: CandidateId.of('next') });
   });
@@ -167,6 +224,7 @@ describe('autoPickOf', () => {
         ),
         'success',
         THRESHOLD,
+        NO_CONSTRAINTS,
       ),
     ).toEqual({ outcome: 'declined', reason: 'over-regression-limit' });
   });
@@ -179,7 +237,9 @@ describe('autoPickOf', () => {
       costPerRun: 0.5,
     });
 
-    expect(autoPickOf(scoresOf(cheaper), 'cost', THRESHOLD)).toEqual({
+    expect(
+      autoPickOf(scoresOf(cheaper), 'cost', THRESHOLD, NO_CONSTRAINTS),
+    ).toEqual({
       outcome: 'picked',
       candidateId: CandidateId.of('cheaper'),
     });
@@ -194,7 +254,9 @@ describe('autoPickOf', () => {
       scored('worse', { heldOutSignificance: 'worse', costPerRun: 0.5 }),
       scored('unpriced', { costPerRun: null }),
     ]) {
-      expect(autoPickOf(scoresOf(candidate), 'cost', THRESHOLD)).toEqual({
+      expect(
+        autoPickOf(scoresOf(candidate), 'cost', THRESHOLD, NO_CONSTRAINTS),
+      ).toEqual({
         outcome: 'declined',
         reason: 'not-cheaper',
       });

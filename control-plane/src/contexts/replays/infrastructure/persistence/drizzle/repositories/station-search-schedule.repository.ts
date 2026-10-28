@@ -4,6 +4,7 @@ import { StationSearchSchedule } from '@replays/domain/aggregates/station-search
 import { StationSearchScheduleVersionConflictError } from '@replays/domain/exceptions/station-search-schedule-version-conflict.error';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { stationSearchSchedule } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
   DOMAIN_EVENT_DISPATCHER,
@@ -32,6 +33,13 @@ const toSchedule = (row: ScheduleRow): StationSearchSchedule =>
         : null,
     searchedTasks: row.searchedTasks.map((each) => TaskId.of(each)),
     alertPendingSince: row.alertPendingSince,
+    rejected: row.rejected.map((each) => StationFingerprint.of(each)),
+    rejectedAgainst:
+      row.rejectedAgainst === null
+        ? null
+        : StationFingerprint.of(row.rejectedAgainst),
+    lastRejectedAt: row.lastRejectedAt,
+    lastImprovedAt: row.lastImprovedAt,
     checkAfter: row.checkAfter,
     version: row.version,
   });
@@ -46,6 +54,10 @@ const columnsOf = (schedule: StationSearchSchedule) => ({
   lastSkipAt: schedule.lastSkip?.at ?? null,
   searchedTasks: schedule.searchedTasks.map((each) => each.value),
   alertPendingSince: schedule.alertPendingSince,
+  rejected: schedule.rejected.map((each) => each.value),
+  rejectedAgainst: schedule.rejectedAgainst?.value ?? null,
+  lastRejectedAt: schedule.lastRejectedAt,
+  lastImprovedAt: schedule.lastImprovedAt,
   checkAfter: schedule.checkAfter,
 });
 

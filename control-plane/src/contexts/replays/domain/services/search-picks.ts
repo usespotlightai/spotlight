@@ -5,6 +5,7 @@ import {
 } from '@replays/domain/services/search-ranking';
 import { exceedsRegressionLimit } from '@replays/domain/services/search-regressions';
 import type { SearchScores } from '@replays/domain/services/search-scores';
+import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import type {
@@ -13,6 +14,16 @@ import type {
 } from '@replays/domain/value-objects/search-pick';
 
 type Scored = SearchScores['candidates'][number];
+
+export interface PickConstraints {
+  readonly rejected: readonly CandidateId[];
+  readonly pullRequestOpen: boolean;
+}
+
+export const NO_CONSTRAINTS: PickConstraints = {
+  rejected: [],
+  pullRequestOpen: false,
+};
 
 const declineOf = (
   candidate: Scored,
@@ -47,6 +58,7 @@ export const autoPickOf = (
   scores: SearchScores,
   objective: SearchObjective,
   threshold: ReplayThreshold | null,
+  constraints: PickConstraints,
 ): SearchPick => {
   const heldOut = scores.candidates.filter(
     (each) => each.heldOutScore !== null,
@@ -60,15 +72,28 @@ export const autoPickOf = (
     return { outcome: 'declined', reason: 'no-candidate' };
   }
 
-  const passing = ranked.find(
+  const passing = ranked.filter(
     (each) => declineOf(each, scores.seed, objective, threshold) === null,
   );
+  const fresh = passing.find(
+    (each) =>
+      !constraints.rejected.some((rejected) =>
+        rejected.equals(each.candidateId),
+      ),
+  );
 
-  return passing
-    ? { outcome: 'picked', candidateId: passing.candidateId }
-    : {
-        outcome: 'declined',
-        reason:
-          declineOf(top, scores.seed, objective, threshold) ?? 'no-candidate',
-      };
+  if (fresh && constraints.pullRequestOpen) {
+    return { outcome: 'declined', reason: 'pull-request-open' };
+  }
+  if (fresh) {
+    return { outcome: 'picked', candidateId: fresh.candidateId };
+  }
+
+  return {
+    outcome: 'declined',
+    reason:
+      passing.length > 0
+        ? 'rejected-before'
+        : (declineOf(top, scores.seed, objective, threshold) ?? 'no-candidate'),
+  };
 };

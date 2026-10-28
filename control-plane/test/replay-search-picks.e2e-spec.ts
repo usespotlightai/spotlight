@@ -5,11 +5,12 @@ import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-requ
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { autoSearched } from './support/app';
-import { dueNow, scheduleOf } from './support/auto-searches';
+import { activeSearchAt, dueNow, scheduleOf } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import {
@@ -25,6 +26,7 @@ import {
   delivered,
   drained,
   endedSearchRun,
+  GITHUB_ID_BASE,
   github,
   judged,
   leasedSearchRun,
@@ -163,7 +165,7 @@ describe('a search for a better station config, ranking and picking its candidat
     ).toMatchObject({ errorCode: 'file-missing' });
   }, 120_000);
 
-  it('opens one config pull request for a candidate that passes every gate, tells the team, and waits to search the station again while it is open', async () => {
+  it('opens one config pull request for a candidate that passes every gate, tells the team, waits to search the station again while it is open, and searches again once it merged', async () => {
     const tasks = [];
     for (let each = 0; each < 17; each += 1) {
       tasks.push(await anOriginal());
@@ -321,5 +323,41 @@ describe('a search for a better station config, ranking and picking its candidat
       ),
     ).toEqual([]);
     expect(github.opened).toHaveLength(1);
+
+    await delivered({
+      kind: PULL_REQUEST_CLOSED,
+      workspaceId: team.workspaceId.value,
+      pullRequest: `https://github.com/${CONFIG}/pull/1`,
+      repository: CONFIG,
+      gitHubId: GITHUB_ID_BASE + 1,
+      closedAt: new Date().toISOString(),
+      merged: true,
+      mergeCommit: 'merge_1',
+    } as never);
+
+    expect(
+      (
+        await db
+          .select()
+          .from(schema.configPullRequest)
+          .where(eq(schema.configPullRequest.id, pullRequestId.value))
+      )[0],
+    ).toMatchObject({ state: 'merged', number: 1, closedBecause: null });
+    expect(
+      await eventually(
+        async () => (await scheduleOf(searchedAt()))?.lastImprovedAt ?? null,
+        WITHIN,
+      ),
+    ).toBeInstanceOf(Date);
+
+    await dueNow(searchedAt(), { lastStartedAt: null });
+    await autoSearched(app);
+
+    expect(await activeSearchAt(searchedAt())).toBeDefined();
+    expect(
+      (await teamNotices()).filter((each) =>
+        each.link.endsWith(`/searches/${id}`),
+      ),
+    ).toEqual(notices);
   }, 180_000);
 });

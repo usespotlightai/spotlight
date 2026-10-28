@@ -138,6 +138,7 @@ export interface SearchSkipDto {
 export interface SearchScheduleDto {
   readonly lastStartedAt: string | null;
   readonly lastSkip: SearchSkipDto | null;
+  readonly lastImprovedAt: string | null;
   readonly checkAfter: string;
   readonly minimumTasks: number;
 }

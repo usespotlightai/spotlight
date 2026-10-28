@@ -3,6 +3,7 @@ import { StationSearchSkipped } from '@replays/domain/events/station-search-skip
 import { SearchInCooldownError } from '@replays/domain/exceptions/search-in-cooldown.error';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { SearchSkipReason } from '@replays/domain/value-objects/search-skip-reason';
+import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -21,9 +22,16 @@ interface State {
   readonly lastSkip: SearchSkip | null;
   readonly searchedTasks: readonly TaskId[];
   readonly alertPendingSince: Date | null;
+  readonly rejected: readonly StationFingerprint[];
+  readonly rejectedAgainst: StationFingerprint | null;
+  readonly lastRejectedAt: Date | null;
+  readonly lastImprovedAt: Date | null;
   readonly checkAfter: Date;
   readonly version: number;
 }
+
+const later = (one: Date | null, other: Date | null): Date | null =>
+  one && other ? (one > other ? one : other) : (one ?? other);
 
 export class StationSearchSchedule extends EventRecorder {
   private constructor(
@@ -45,6 +53,10 @@ export class StationSearchSchedule extends EventRecorder {
       lastSkip: null,
       searchedTasks: [],
       alertPendingSince: null,
+      rejected: [],
+      rejectedAgainst: null,
+      lastRejectedAt: null,
+      lastImprovedAt: null,
       checkAfter: input.at,
       version: 0,
     });
@@ -61,10 +73,27 @@ export class StationSearchSchedule extends EventRecorder {
         'records each searched task once',
       );
     }
+    if (
+      state.rejected.some((each, at) =>
+        state.rejected.slice(0, at).some((other) => other.equals(each)),
+      )
+    ) {
+      throw new InconsistentStateError(
+        'station search schedule',
+        'records each rejected config once',
+      );
+    }
+    if (state.rejected.length > 0 !== (state.rejectedAgainst !== null)) {
+      throw new InconsistentStateError(
+        'station search schedule',
+        'knows the live config that configs were rejected against when, and only when, one is rejected',
+      );
+    }
 
     return new StationSearchSchedule({
       ...state,
       searchedTasks: [...state.searchedTasks],
+      rejected: [...state.rejected],
     });
   }
 
@@ -104,6 +133,30 @@ export class StationSearchSchedule extends EventRecorder {
     return this.state.alertPendingSince;
   }
 
+  get rejected(): readonly StationFingerprint[] {
+    return this.state.rejected;
+  }
+
+  get rejectedAgainst(): StationFingerprint | null {
+    return this.state.rejectedAgainst;
+  }
+
+  get lastRejectedAt(): Date | null {
+    return this.state.lastRejectedAt;
+  }
+
+  get lastImprovedAt(): Date | null {
+    return this.state.lastImprovedAt;
+  }
+
+  get cooldownFrom(): Date | null {
+    return later(this.state.lastStartedAt, this.state.lastRejectedAt);
+  }
+
+  hasRejected(fingerprint: StationFingerprint): boolean {
+    return this.state.rejected.some((each) => each.equals(fingerprint));
+  }
+
   get checkAfter(): Date {
     return this.state.checkAfter;
   }
@@ -120,6 +173,49 @@ export class StationSearchSchedule extends EventRecorder {
     return this.with({
       alertPendingSince: this.state.alertPendingSince ?? at,
       checkAfter: at < this.state.checkAfter ? at : this.state.checkAfter,
+    });
+  }
+
+  configRejected(
+    fingerprint: StationFingerprint,
+    against: StationFingerprint,
+    at: Date,
+  ): StationSearchSchedule {
+    const kept = this.state.rejectedAgainst?.equals(against)
+      ? this.state.rejected
+      : [];
+
+    return this.with({
+      rejected: kept.some((each) => each.equals(fingerprint))
+        ? kept
+        : [...kept, fingerprint],
+      rejectedAgainst: against,
+      lastRejectedAt: later(this.state.lastRejectedAt, at),
+    });
+  }
+
+  configReopened(fingerprint: StationFingerprint): StationSearchSchedule {
+    const rejected = this.state.rejected.filter(
+      (each) => !each.equals(fingerprint),
+    );
+
+    return this.with({
+      rejected,
+      rejectedAgainst: rejected.length > 0 ? this.state.rejectedAgainst : null,
+    });
+  }
+
+  liveChanged(live: StationFingerprint | null): StationSearchSchedule {
+    const { rejectedAgainst } = this.state;
+
+    return rejectedAgainst && !live?.equals(rejectedAgainst)
+      ? this.with({ rejected: [], rejectedAgainst: null })
+      : this;
+  }
+
+  improved(at: Date): StationSearchSchedule {
+    return this.with({
+      lastImprovedAt: later(this.state.lastImprovedAt, at),
     });
   }
 
@@ -162,9 +258,9 @@ export class StationSearchSchedule extends EventRecorder {
     at: Date;
     cooldownMilliseconds: number;
   }): StationSearchSchedule {
-    const { lastStartedAt } = this.state;
-    const cooldownEnd = lastStartedAt
-      ? new Date(lastStartedAt.getTime() + input.cooldownMilliseconds)
+    const { cooldownFrom } = this;
+    const cooldownEnd = cooldownFrom
+      ? new Date(cooldownFrom.getTime() + input.cooldownMilliseconds)
       : null;
 
     if (cooldownEnd && input.at < cooldownEnd) {

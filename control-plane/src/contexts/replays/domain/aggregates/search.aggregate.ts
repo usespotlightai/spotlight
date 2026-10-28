@@ -44,7 +44,10 @@ import {
   type SearchIterationKind,
 } from '@replays/domain/value-objects/search-iteration.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
-import type { SearchPick } from '@replays/domain/value-objects/search-pick';
+import type {
+  SearchPick,
+  SearchPickDecline,
+} from '@replays/domain/value-objects/search-pick';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
 import { SearchStartDetail } from '@replays/domain/value-objects/search-start-detail.vo';
@@ -714,6 +717,18 @@ export class Search extends EventRecorder {
     );
 
     return recorded;
+  }
+
+  pickWithdrawn(reason: SearchPickDecline): Search {
+    if (this.state.pick?.outcome !== 'picked') {
+      throw new InvalidSearchError('withdraws only a pick it made');
+    }
+
+    const withdrawn = this.with({ pick: { outcome: 'declined', reason } });
+
+    withdrawn.record(new SearchPickDeclined(this.id, this.workspaceId, reason));
+
+    return withdrawn;
   }
 
   stationLeft(at: Date): Search {

@@ -1268,7 +1268,9 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
         onFrontier: true,
         pullRequest: {
           id: 'config_pull_request_design_metric_first',
-          state: 'opened',
+          state: 'merged',
+          closedBecause: null,
+          closeFailure: null,
           url: 'https://github.com/acme/config/pull/66',
           reason: null,
         },

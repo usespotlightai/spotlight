@@ -1465,6 +1465,33 @@ describe('Search', () => {
         searching().picked({ outcome: 'declined', reason: 'no-candidate' }),
       ).toThrow(InvalidSearchError);
     });
+
+    it('withdraws a pick it made, saying why, and nothing else', () => {
+      const finished = holdingOutFinished();
+      const picked = finished.picked({
+        outcome: 'picked',
+        candidateId: CandidateId.of('candidate_one'),
+      });
+
+      picked.pullEvents();
+
+      const withdrawn = picked.pickWithdrawn('pull-request-open');
+
+      expect(withdrawn.pick).toEqual({
+        outcome: 'declined',
+        reason: 'pull-request-open',
+      });
+      expect(withdrawn.pullEvents()).toEqual([
+        new SearchPickDeclined(
+          SEARCH_ID,
+          picked.workspaceId,
+          'pull-request-open',
+        ),
+      ]);
+      expect(() => withdrawn.pickWithdrawn('pull-request-open')).toThrow(
+        InvalidSearchError,
+      );
+    });
   });
 
   describe('ending early', () => {

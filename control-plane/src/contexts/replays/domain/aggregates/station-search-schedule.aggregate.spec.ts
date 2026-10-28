@@ -1,8 +1,15 @@
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
 import { SearchInCooldownError } from '@replays/domain/exceptions/search-in-cooldown.error';
-import { later, NOW, STATION } from '@replays/domain/replays.fake-spec';
+import {
+  FINGERPRINT,
+  LIVE_FINGERPRINT,
+  later,
+  NOW,
+  STATION,
+} from '@replays/domain/replays.fake-spec';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -13,6 +20,8 @@ const created = () =>
     setId: ReplaySetId.of('set_1'),
     at: NOW,
   });
+
+const OTHER = StationFingerprint.of('c'.repeat(64));
 
 const tasks = (...names: string[]) => names.map((each) => TaskId.of(each));
 
@@ -103,6 +112,77 @@ describe('StationSearchSchedule', () => {
     ).toThrow(SearchInCooldownError);
   });
 
+  it('restarts the cooldown when a config is rejected, and remembers each rejected config once', () => {
+    const started = created().started({
+      searched: tasks('a'),
+      inSet: tasks('a'),
+      at: NOW,
+      cooldownMilliseconds: 10,
+    });
+    const rejected = started
+      .configRejected(FINGERPRINT, LIVE_FINGERPRINT, later(8))
+      .configRejected(FINGERPRINT, LIVE_FINGERPRINT, later(9))
+      .configRejected(OTHER, LIVE_FINGERPRINT, later(5));
+
+    expect(rejected.rejected).toEqual([FINGERPRINT, OTHER]);
+    expect(rejected.rejectedAgainst).toEqual(LIVE_FINGERPRINT);
+    expect(rejected.lastRejectedAt).toEqual(later(9));
+    expect(rejected.cooldownFrom).toEqual(later(9));
+    expect(() =>
+      rejected.started({
+        searched: tasks('a'),
+        inSet: tasks('a'),
+        at: later(18),
+        cooldownMilliseconds: 10,
+      }),
+    ).toThrow(SearchInCooldownError);
+    expect(
+      rejected.started({
+        searched: tasks('a'),
+        inSet: tasks('a'),
+        at: later(19),
+        cooldownMilliseconds: 10,
+      }).lastStartedAt,
+    ).toEqual(later(19));
+  });
+
+  it('forgets rejected configs once the live config of the station changes', () => {
+    const rejected = created().configRejected(
+      FINGERPRINT,
+      LIVE_FINGERPRINT,
+      later(8),
+    );
+
+    expect(rejected.liveChanged(LIVE_FINGERPRINT)).toBe(rejected);
+    expect(rejected.liveChanged(OTHER)).toMatchObject({
+      rejected: [],
+      rejectedAgainst: null,
+      lastRejectedAt: later(8),
+    });
+    expect(rejected.configRejected(OTHER, OTHER, later(9)).rejected).toEqual([
+      OTHER,
+    ]);
+  });
+
+  it('forgets a rejection when its pull request reopens, and keeps the cooldown', () => {
+    const reopened = created()
+      .configRejected(FINGERPRINT, LIVE_FINGERPRINT, later(8))
+      .configReopened(FINGERPRINT);
+
+    expect(reopened).toMatchObject({
+      rejected: [],
+      rejectedAgainst: null,
+      lastRejectedAt: later(8),
+    });
+    expect(reopened.hasRejected(FINGERPRINT)).toBe(false);
+  });
+
+  it('keeps the latest time a merged pull request improved the station', () => {
+    expect(
+      created().improved(later(9)).improved(later(5)).lastImprovedAt,
+    ).toEqual(later(9));
+  });
+
   it('rejects a stored schedule that records a searched task twice', () => {
     expect(() =>
       StationSearchSchedule.rehydrate({
@@ -112,6 +192,10 @@ describe('StationSearchSchedule', () => {
         lastSkip: null,
         searchedTasks: tasks('a', 'a'),
         alertPendingSince: null,
+        rejected: [],
+        rejectedAgainst: null,
+        lastRejectedAt: null,
+        lastImprovedAt: null,
         checkAfter: NOW,
         version: 0,
       }),

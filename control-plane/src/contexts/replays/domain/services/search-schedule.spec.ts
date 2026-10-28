@@ -54,6 +54,7 @@ const due = (over: Partial<DueInput> = {}): DueInput => ({
   pullRequestOpen: false,
   monthSpent: Money.none('USD'),
   ...over,
+  cooldownFrom: over.cooldownFrom ?? over.lastStartedAt ?? null,
 });
 
 const set = (over: Partial<SetInput> = {}): SetInput => ({
@@ -127,6 +128,12 @@ describe('dueVerdict', () => {
       dueVerdict(
         due({ lastStartedAt: ago(DAY), alertPendingSince: ago(HOUR) }),
       ),
+    ).toEqual({ kind: 'skip', reason: 'cooldown', checkAfter: ahead(2 * DAY) });
+  });
+
+  it('skips for the cooldown after a person rejects a config pull request, even when the period has ended', () => {
+    expect(
+      dueVerdict(due({ lastStartedAt: ago(8 * DAY), cooldownFrom: ago(DAY) })),
     ).toEqual({ kind: 'skip', reason: 'cooldown', checkAfter: ahead(2 * DAY) });
   });
 

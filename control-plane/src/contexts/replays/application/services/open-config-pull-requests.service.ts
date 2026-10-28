@@ -9,7 +9,10 @@ import {
 } from '@replays/application/rendering/config-pull-request-body';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
+import type {
+  ConfigPullRequest,
+  OpenedPullRequest,
+} from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
@@ -25,7 +28,6 @@ import {
 import { scoresOf } from '@replays/domain/services/search-scores';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
@@ -36,7 +38,7 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 const CLAIM_MS = 10 * 60_000;
 
 type Opened =
-  | { readonly url: PullRequestUrl; readonly proposing: StationFingerprint }
+  | { readonly opened: OpenedPullRequest }
   | { readonly reason: ConfigPullRequestReason };
 
 const because = (error: unknown): string =>
@@ -67,7 +69,10 @@ export class OpenConfigPullRequests implements PendingJobsPort {
   ) {}
 
   async processDue(): Promise<void> {
-    for (const pullRequest of await this.pullRequests.due(this.clock.now())) {
+    for (const pullRequest of await this.pullRequests.due(
+      'opening',
+      this.clock.now(),
+    )) {
       await this.attempt(pullRequest).catch((error: unknown) =>
         this.logger.warn(
           { err: error, pullRequestId: pullRequest.id.value },
@@ -122,8 +127,8 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     }
 
     await this.saved(
-      'url' in opened
-        ? pullRequest.open(opened.url, opened.proposing, this.clock.now())
+      'opened' in opened
+        ? pullRequest.open(opened.opened, this.clock.now())
         : pullRequest.failed(opened.reason, this.clock.now()),
     );
   }
@@ -242,15 +247,26 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       }),
     );
 
+    const {
+      url,
+      number,
+      gitHubId,
+      repository: canonical,
+    } = await this.configs.opened(pullRequest.workspaceId, repository, {
+      branch: pullRequest.branch,
+      title,
+      body: ConfigPullRequestBody.of(facts),
+    });
+
     return {
-      url: PullRequestUrl.of(
-        await this.configs.opened(pullRequest.workspaceId, repository, {
-          branch: pullRequest.branch,
-          title,
-          body: ConfigPullRequestBody.of(facts),
-        }),
-      ),
-      proposing: candidate.fingerprint,
+      opened: {
+        url: PullRequestUrl.of(url),
+        number,
+        gitHubId,
+        repository: Repository.of(canonical),
+        basedOn: seed.fingerprint,
+        proposing: candidate.fingerprint,
+      },
     };
   }
 

@@ -19,6 +19,8 @@ export interface ConfigPullRequestDto {
   readonly path: string | null;
   readonly branch: string;
   readonly state: string;
+  readonly closedBecause: string | null;
+  readonly closeFailure: ConfigPullRequestReasonDto | null;
   readonly url: string | null;
   readonly reason: ConfigPullRequestReasonDto | null;
   readonly createdAt: string;
@@ -28,6 +30,8 @@ export interface ConfigPullRequestDto {
 export interface CandidatePullRequestDto {
   readonly id: string;
   readonly state: string;
+  readonly closedBecause: string | null;
+  readonly closeFailure: ConfigPullRequestReasonDto | null;
   readonly url: string | null;
   readonly reason: ConfigPullRequestReasonDto | null;
 }

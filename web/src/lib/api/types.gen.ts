@@ -7714,6 +7714,10 @@ export type SearchScheduleResponseDto = {
    */
   lastSkip: SearchSkipResponseDto | null;
   /**
+   * When a config pull request of the station last merged; null if none merged
+   */
+  lastImprovedAt: string | null;
+  /**
    * When Spotlight next looks at the station
    */
   checkAfter: string;
@@ -8412,9 +8416,9 @@ export type SearchPickResponseDto = {
   candidateId: string | null;
   name: string | null;
   /**
-   * Why no candidate was picked: none finished on the held-out tasks, none did better than the live config there by the line’s min_gain, the best was over the regression limit, or the best was likely overfit
+   * Why no candidate was picked: none finished on the held-out tasks, none did better than the live config there by the line’s min_gain, the best was over the regression limit, the best was likely overfit, the station is gone, a config pull request for the station was open, or a config pull request for each passing candidate was closed on GitHub while the live config stayed the same
    */
-  reason: 'no-candidate' | 'no-held-out-gain' | 'not-cheaper' | 'over-regression-limit' | 'likely-overfit' | 'station-gone' | null;
+  reason: 'no-candidate' | 'no-held-out-gain' | 'not-cheaper' | 'over-regression-limit' | 'likely-overfit' | 'station-gone' | 'pull-request-open' | 'rejected-before' | null;
 };
 
 export type SearchResponseDto = {
@@ -8600,7 +8604,18 @@ export type ConfigPullRequestReasonResponseDto = {
 
 export type CandidatePullRequestResponseDto = {
   id: string;
-  state: 'opening' | 'opened' | 'failed';
+  /**
+   * opening while Spotlight opens it on GitHub; opened while it is open; closing while Spotlight closes it on GitHub; merged or closed once it is no longer open; failed if Spotlight could not open it. A pull request that is opening, opened or closing is open for its station.
+   */
+  state: 'opening' | 'opened' | 'closing' | 'merged' | 'closed' | 'failed';
+  /**
+   * Why it closes or closed: stale when the live config of the station changed after it opened, by-person when it was closed on GitHub; null unless it is closing or closed
+   */
+  closedBecause: 'stale' | 'by-person' | null;
+  /**
+   * Why Spotlight could not close it on GitHub after the live config changed; null unless that close failed
+   */
+  closeFailure: ConfigPullRequestReasonResponseDto | null;
   /**
    * The pull request, once it opened
    */
@@ -9012,7 +9027,18 @@ export type FailureCauseRecordedResponseDto = {
 
 export type ConfigPullRequestResponseDto = {
   id: string;
-  state: 'opening' | 'opened' | 'failed';
+  /**
+   * opening while Spotlight opens it on GitHub; opened while it is open; closing while Spotlight closes it on GitHub; merged or closed once it is no longer open; failed if Spotlight could not open it. A pull request that is opening, opened or closing is open for its station.
+   */
+  state: 'opening' | 'opened' | 'closing' | 'merged' | 'closed' | 'failed';
+  /**
+   * Why it closes or closed: stale when the live config of the station changed after it opened, by-person when it was closed on GitHub; null unless it is closing or closed
+   */
+  closedBecause: 'stale' | 'by-person' | null;
+  /**
+   * Why Spotlight could not close it on GitHub after the live config changed; null unless that close failed
+   */
+  closeFailure: ConfigPullRequestReasonResponseDto | null;
   /**
    * The pull request, once it opened
    */

@@ -114,6 +114,7 @@ export class AutoSearches implements PendingJobsPort {
       scores:
         live !== null && (live.scoring.judges || live.scoring.checksChanges),
       lastStartedAt: due.lastStartedAt,
+      cooldownFrom: due.cooldownFrom,
       alertPendingSince: due.alertPendingSince,
       now,
       busy: await this.busy(stationId),

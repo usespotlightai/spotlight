@@ -413,6 +413,7 @@ export const replaySetOf = (spec: SetSpec): ReplaySetResponseDto => {
         spec.entries.length < MIN_SEARCH_TASKS
           ? { reason: 'set-too-small', at: hoursAgo(spec.createdHoursAgo) }
           : null,
+      lastImprovedAt: null,
       checkAfter: hoursAgo(-24),
       minimumTasks: MIN_SEARCH_TASKS,
     },
