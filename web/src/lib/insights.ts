@@ -1020,7 +1020,7 @@ export const signalPrompt = (reading: SignalReading): string =>
 
 export const WORTH_IMPROVING_SPAN = rangeOf(DEFAULT_PERIOD).label.toLowerCase();
 
-export const WORTH_IMPROVING_NOTE = `Signals that got worse over the ${WORTH_IMPROVING_SPAN}, or that trail the rest of the team. The team’s agent reads these signals, the config and recent runs, and suggests what to change.`;
+export const WORTH_IMPROVING_NOTE = `Signals that have declined over the ${WORTH_IMPROVING_SPAN} or fall below team benchmarks. The team’s agent analyzes recent runs and configuration to suggest improvements.`;
 
 export const WORTH_IMPROVING_HEADINGS = signalHeadings('edge');
 
