@@ -59,7 +59,7 @@
     "cron": "^4.4.0",
     "drizzle-orm": "^0.45.4",
     "graphql": "^17.0.2",
-    "ioredis": "~5.6.1",
+    "ioredis": "~6.0.0",
     "jose": "^6.2.13",
     "nestjs-pino": "^5.3.1",
     "nodemailer": "^10.2.1",
