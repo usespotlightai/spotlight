@@ -118,21 +118,21 @@ describe('costBreakdownFrom the counts of costCountsOf', () => {
     expect(cost.unpriced).toBe(1);
     expect(cost.mixedCurrencies).toBe(false);
     expect(cost.byHarness).toEqual([
-      { key: 'claude-code', amount: 2, runs: 1 },
-      { key: 'codex', amount: 1, runs: 1 },
+      { key: 'claude-code', amount: 2, share: 2 / 3, runs: 1 },
+      { key: 'codex', amount: 1, share: 1 / 3, runs: 1 },
     ]);
     expect(cost.byModel).toEqual([
-      { key: 'sonnet', amount: 2, runs: 1 },
-      { key: null, amount: 1, runs: 1 },
+      { key: 'sonnet', amount: 2, share: 2 / 3, runs: 1 },
+      { key: null, amount: 1, share: 1 / 3, runs: 1 },
     ]);
     expect(cost.byStation.map((each) => each.key)).toEqual([
       'station_1',
       'station_2',
     ]);
     expect(cost.byRepository).toEqual([
-      { key: 'acme/api', amount: 1, runs: 1 },
-      { key: 'acme/web', amount: 1, runs: 1 },
-      { key: null, amount: 1, runs: 1 },
+      { key: 'acme/api', amount: 1, share: 1 / 3, runs: 1 },
+      { key: 'acme/web', amount: 1, share: 1 / 3, runs: 1 },
+      { key: null, amount: 1, share: 1 / 3, runs: 1 },
     ]);
   });
 

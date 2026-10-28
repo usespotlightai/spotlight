@@ -5894,6 +5894,10 @@ export type CostSliceResponseDto = {
    */
   amount: number;
   /**
+   * Share of the spend, 0 to 1; none when the spend is zero
+   */
+  share: number | null;
+  /**
    * Runs in the slice
    */
   runs: number;

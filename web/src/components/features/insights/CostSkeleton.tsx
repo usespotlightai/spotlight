@@ -1,5 +1,5 @@
-import { BarRowSkeleton } from '@/components/features/insights/BarRowSkeleton';
 import { COST_SANKEY_HEIGHT } from '@/components/features/insights/CostSankey';
+import { CostSlicesSkeleton } from '@/components/features/insights/CostSlicesSkeleton';
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
@@ -18,8 +18,6 @@ const TILES: readonly TileBones[] = [
   { label: 'Cache share', detail: 'Share of input tokens read from cache' },
 ];
 
-const SLICES = 4;
-
 export function CostSkeleton() {
   return (
     <div
@@ -32,12 +30,7 @@ export function CostSkeleton() {
       <div className="grid gap-3 md:grid-cols-2">
         {COST_DIMENSIONS.map((dimension) => (
           <InsightsCardSkeleton key={dimension.id} title={dimension.label}>
-            <ul className="flex flex-col gap-1.5 pb-2">
-              {Array.from({ length: SLICES }, (_, at) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: placeholder slices have no identity
-                <BarRowSkeleton key={at} />
-              ))}
-            </ul>
+            <CostSlicesSkeleton />
           </InsightsCardSkeleton>
         ))}
       </div>
