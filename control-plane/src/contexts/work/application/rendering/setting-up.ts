@@ -178,6 +178,7 @@ export const SettingUp = {
         '- a `README.md` that says what the folder configures, which variables to set, and how to plan and apply. If Spotlight keeps the state, say that Terraform reads its token from `TF_HTTP_PASSWORD`: `export TF_HTTP_PASSWORD=$(spotlight token)` after `spotlight login`, and the same command in CI, where it exchanges the job’s OIDC token through the trust.',
         '- a prompt file per station, `prompts/<team>/<line>/<station>.md`, adapted to what you learned',
         '- each station’s `setup` and `check` commands from the survey',
+        '- a `judge` block on each work station with an agent, so Insights scores its runs from the start. Write its rubric in `judges/<team>/<line>/<station>.md`, starting with `scores: yes-no` or `scores: 1-5`, from what a good run at that station does for this team. Read it with `file()`, and set `sample = 0.2` and `min_agreement = 0.6` unless the team asks for other values.',
         '- `skills/` adopted from the team’s own rules files',
         '- a `reviews` policy from `CODEOWNERS`, and a few `match` hooks for risky paths',
       ].join('\n'),
@@ -204,7 +205,7 @@ export const SettingUp = {
         `### ${configFolder.ci ? 8 : 7}. Open the pull request`,
         `Commit on a new branch, such as \`${BRANCH}\`, push it, and open the pull request:`,
         `\`\`\`\nspotlight tools call setup-pull-request --branch ${BRANCH} --title "…" < body.md\n\`\`\``,
-        'In the body, list each departure from the built-in lines as a decision with the files it rests on. Say which observability tools you connected, or why there are none. Add the plan.',
+        'In the body, list each departure from the built-in lines as a decision with the files it rests on. Say which observability tools you connected, or why there are none. Say which stations have a judge, and what each rubric checks. Add the plan.',
       ].join('\n'),
     ].join('\n\n');
   },

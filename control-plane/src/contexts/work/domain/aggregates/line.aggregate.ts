@@ -153,6 +153,7 @@ export class Line extends EventRecorder {
           diffs: each.diffs ?? false,
           decisions: each.decisions ?? false,
           memories: each.memories ?? false,
+          judge: each.judge ?? null,
         }),
       ),
       reactions: input.line.reactions.map((each) =>
