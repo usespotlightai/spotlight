@@ -16,6 +16,7 @@ import {
   type Delta,
   type InsightsStations,
 } from '@/lib/insights';
+import { onGitHub } from '@/mocks/world/repositories';
 import { SLUG, TEAM_ID, WORKSPACE } from '@/test/fixtures/team';
 
 export const LINE_ID = 'line_delivery';
@@ -47,7 +48,7 @@ const LINES: LineResponseDto[] = [
     key: 'delivery',
     name: 'Delivery',
     reactions: [],
-    repositories: ['acme/api', 'acme/web'],
+    repositories: [onGitHub('acme/api'), onGitHub('acme/web')],
     source: null,
     replayCheck: null,
     stations: [

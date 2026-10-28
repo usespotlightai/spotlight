@@ -20,7 +20,13 @@ const LINES = [
     name: 'Delivery',
     stations: [{ id: 'station_build', name: 'Implementation', kind: 'work' }],
     reactions: [],
-    repositories: ['acme/api'],
+    repositories: [
+      {
+        fullName: 'acme/api',
+        host: 'github',
+        url: 'https://github.com/acme/api',
+      },
+    ],
   },
 ] as unknown as LineResponseDto[];
 

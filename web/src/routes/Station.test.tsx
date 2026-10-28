@@ -91,7 +91,13 @@ const line = {
       judge: null,
     },
   ],
-  repositories: ['usespotlightai/spotlight'],
+  repositories: [
+    {
+      fullName: 'usespotlightai/spotlight',
+      host: 'github',
+      url: 'https://github.com/usespotlightai/spotlight',
+    },
+  ],
 };
 
 const lines = vi.fn();

@@ -12,8 +12,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const GITHUB = 'https://github.com';
-
 // Never forward the caller's own authorization upstream.
 const FORWARDED = [
   'content-type',
@@ -55,7 +53,7 @@ export class GitHubGitTransport implements RepositoryGitPort {
     call: GitCall,
   ): Promise<GitAnswer> {
     const credential = await this.access.credential(workspaceId);
-    const upstream = `${GITHUB}/${repository.owner}/${repository.name}.git${call.path}${call.search}`;
+    const upstream = `${repository.url}.git${call.path}${call.search}`;
 
     const response = await fetch(upstream, {
       method: call.method,

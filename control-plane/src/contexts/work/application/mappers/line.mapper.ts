@@ -1,6 +1,8 @@
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { LineDto, StationDto } from '@work/application/dto/line.dto';
 import type {
   LineDetail,
+  RepositorySummary,
   StationSummary,
 } from '@work/application/ports/line-reader.port';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
@@ -62,6 +64,14 @@ export const LineMapper = {
     };
   },
 
+  repositoryToSummary(repository: Repository): RepositorySummary {
+    return {
+      fullName: repository.value,
+      host: repository.host,
+      url: repository.url,
+    };
+  },
+
   lineToDto(line: Line): LineDto {
     return {
       id: line.id.value,
@@ -73,7 +83,7 @@ export const LineMapper = {
         from: each.from?.value ?? null,
         to: each.to.value,
       })),
-      repositories: line.repositories.all.map((each) => each.value),
+      repositories: line.repositories.all.map(LineMapper.repositoryToSummary),
       source: line.source
         ? { repository: line.source.repository.value, path: line.source.path }
         : null,
@@ -95,7 +105,7 @@ export const LineMapper = {
       name: detail.name,
       stations: detail.stations.map(LineMapper.summaryToDto),
       reactions: detail.reactions.map((each) => ({ ...each })),
-      repositories: detail.repositories,
+      repositories: detail.repositories.map((each) => ({ ...each })),
       source: detail.source ? { ...detail.source } : null,
       replayCheck: detail.replayCheck ? { ...detail.replayCheck } : null,
     };

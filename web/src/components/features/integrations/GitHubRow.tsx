@@ -26,7 +26,11 @@ export function GitHubRow({
   const lines = useLines(teamId);
   const accessible = (repositories.data ?? []).map((each) => each.fullName);
   const used = [
-    ...new Set((lines.data ?? []).flatMap((line) => line.repositories)),
+    ...new Set(
+      (lines.data ?? []).flatMap((line) =>
+        line.repositories.map((each) => each.fullName),
+      ),
+    ),
   ].sort();
   const inaccessible =
     connected && repositories.data
