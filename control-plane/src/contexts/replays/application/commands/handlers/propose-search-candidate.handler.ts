@@ -10,7 +10,6 @@ import { CandidateProblems } from '@replays/application/rendering/candidate-prob
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
-import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import { SearchRunNotActiveError } from '@replays/domain/exceptions/search-run-not-active.error';
 import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
@@ -30,36 +29,9 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-type Parsed<T> =
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly problem: ConfigurationProblem };
-
-const parsed = <T>(
-  made: () => T,
-  problemOf: (reason: string) => ConfigurationProblem,
-): Parsed<T> => {
-  try {
-    return { ok: true, value: made() };
-  } catch (error) {
-    if (error instanceof InvalidCandidateError) {
-      return { ok: false, problem: problemOf(error.reason) };
-    }
-    throw error;
-  }
-};
-
 const textOf = (raw: unknown): string => (typeof raw === 'string' ? raw : '');
-
-const hypothesisProblem = (reason: string): ConfigurationProblem =>
-  ConfigurationProblem.of({
-    path: '',
-    at: FieldPath.of(['hypothesis']),
-    reason,
-  });
 
 interface Proposal {
   readonly name: CandidateName;
@@ -115,13 +87,13 @@ export class ProposeSearchCandidateHandler
         throw new UnknownStationError(stationId);
       }
 
-      const name = parsed(
+      const name = CandidateProblems.parsed(
         () => CandidateName.searched(textOf(command.name)),
         CandidateProblems.name,
       );
-      const hypothesis = parsed(
+      const hypothesis = CandidateProblems.parsed(
         () => Hypothesis.of(textOf(command.hypothesis)),
-        hypothesisProblem,
+        CandidateProblems.hypothesis,
       );
       const problems = [
         ...(name.ok ? [] : [name.problem]),

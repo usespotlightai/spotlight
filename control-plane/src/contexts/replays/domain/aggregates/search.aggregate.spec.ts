@@ -13,6 +13,7 @@ import { SearchIterationClosedError } from '@replays/domain/exceptions/search-it
 import { SearchNotReflectingError } from '@replays/domain/exceptions/search-not-reflecting.error';
 import { SearchProposalsExhaustedError } from '@replays/domain/exceptions/search-proposals-exhausted.error';
 import { SearchReflectingError } from '@replays/domain/exceptions/search-reflecting.error';
+import { SearchTakesNoRequestsError } from '@replays/domain/exceptions/search-takes-no-requests.error';
 import { UnknownSearchTaskError } from '@replays/domain/exceptions/unknown-search-task.error';
 import {
   AGENT,
@@ -37,15 +38,18 @@ import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
+import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import {
   ATTEMPTS_PER_PROPOSAL,
   SearchIteration,
 } from '@replays/domain/value-objects/search-iteration.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
+import { SearchRequest } from '@replays/domain/value-objects/search-request.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const SEED = ReplayId.of('replay_seed');
@@ -170,6 +174,7 @@ describe('Search', () => {
         split,
         seed: { candidate: candidateOf('live'), replayId: SEED },
         trigger: 'schedule',
+        requests: [],
         at: NOW,
         by: BY,
       });
@@ -211,6 +216,7 @@ describe('Search', () => {
         }),
         seed: { candidate: candidateOf('live'), replayId: SEED },
         trigger: 'schedule',
+        requests: [],
         at: NOW,
         by: BY,
       });
@@ -250,6 +256,7 @@ describe('Search', () => {
           }),
           seed: { candidate: candidateOf('live'), replayId: SEED },
           trigger: 'schedule',
+          requests: [],
           at: NOW,
           by: BY,
         }),
@@ -274,6 +281,7 @@ describe('Search', () => {
           }),
           seed: { candidate: candidateOf('searched'), replayId: SEED },
           trigger: 'schedule',
+          requests: [],
           at: NOW,
           by: BY,
         }),
@@ -1059,6 +1067,27 @@ describe('Search', () => {
       }
     });
 
+    it('replays a waiting requested candidate before it ends stalled', () => {
+      const search = stalledAgain(aBudget({ iterations: 6 })).request(
+        SearchRequest.of({
+          candidateId: CandidateId.of('candidate_asked'),
+          name: CandidateName.searched('asked'),
+          requestedBy: UserId.of('user_asking'),
+        }),
+      );
+      const reflection = search.recordCause(
+        run(3),
+        causeInput(search, 0, 'task'),
+        later(4),
+      );
+
+      const next = reflected(reflection);
+
+      expect(next.current).toBe('searching');
+      expect(next.iterations[2]?.result).toBe('no-config-cause');
+      expect(next.wantedIteration?.kind).toBe('request');
+    });
+
     it('ends stalled when its run failed before it said anything', () => {
       const search = stalledAgain().recordRunEnd(
         run(3),
@@ -1578,6 +1607,8 @@ describe('Search', () => {
       split: search.split,
       calibrates: false,
       seed: search.seed,
+      requests: [],
+      dropped: [],
       state: 'searching' as const,
       stopReason: null,
       trigger: 'schedule' as const,
@@ -1627,6 +1658,8 @@ describe('Search', () => {
         calibrates: false,
         seed: search.seed,
         iterations: search.iterations,
+        requests: [],
+        dropped: [],
         heldOut: [],
         state: 'finished',
         stopReason: 'stalled',
@@ -1649,6 +1682,8 @@ describe('Search', () => {
         calibrates: false,
         seed: search.seed,
         iterations: search.iterations,
+        requests: [],
+        dropped: [],
         heldOut: [],
         state: 'searching',
         stopReason: 'stalled',
@@ -1659,5 +1694,224 @@ describe('Search', () => {
         version: 1,
       }),
     ).toThrow(InconsistentStateError);
+  });
+});
+
+describe('a search that a person asked for', () => {
+  const asked = (name: string, by = 'user_asking') =>
+    SearchRequest.of({
+      candidateId: CandidateId.of(`candidate_${name}`),
+      name: CandidateName.searched(name),
+      requestedBy: UserId.of(by),
+    });
+
+  it('replays the requested candidate as its first iteration, with no agent run, then holds it out', () => {
+    const runIds = searchRunIds();
+    const search = searching(
+      aSearch({
+        budget: aBudget({ iterations: 1 }),
+        requestedBy: 'user_asking',
+      }),
+      runIds,
+    );
+
+    expect(search.wantedIteration?.kind).toBe('request');
+    expect(search.activeRun).toBeNull();
+
+    const taken = search.requestsTaken(
+      () => ReplayId.of('replay_asked'),
+      NOW,
+      runIds,
+    );
+
+    expect(taken.requests).toEqual([]);
+    expect(taken.proposals.map((each) => each.requestedBy?.value)).toEqual([
+      'user_asking',
+    ]);
+    expect(taken.requesters.map((each) => each.value)).toEqual(['user_asking']);
+    expect(endingReplays(taken, ['asked'], 'finished', runIds).current).toBe(
+      'holding-out',
+    );
+  });
+
+  it('takes a request into the next iteration of a running search instead of an agent run', () => {
+    const runIds = searchRunIds();
+    const search = searching(
+      aSearch({ budget: aBudget({ iterations: 3 }) }),
+      runIds,
+    );
+
+    expect(search.requestIteration).toBe(2);
+
+    const next = iterated(
+      search.request(asked('asked')),
+      1,
+      ['one'],
+      runIds,
+      'finished',
+    );
+
+    expect(next.wantedIteration?.kind).toBe('request');
+    expect(next.wantedIteration?.number).toBe(2);
+  });
+
+  it('takes no request once its last iteration began', () => {
+    const search = searching(aSearch({ budget: aBudget({ iterations: 1 }) }));
+
+    expect(search.takesRequests).toBe(false);
+    expect(() => search.request(asked('asked'))).toThrow(
+      SearchTakesNoRequestsError,
+    );
+  });
+
+  it('replays a waiting requested candidate before the ceiling ends it', () => {
+    const spending = (asking: boolean) => {
+      const runIds = searchRunIds();
+      const proposed = proposing(
+        searching(aSearch({ budget: aBudget({ iterations: 3 }) }), runIds),
+        1,
+        ['one'],
+      );
+
+      return endingReplays(
+        (asking ? proposed.request(asked('asked')) : proposed)
+          .recordRunEnd(
+            run(1),
+            { failed: false, started: true },
+            later(1),
+            runIds,
+          )
+          .recordAgentSpend(run(1), NO_SPEND, later(1), runIds),
+        ['one'],
+        'finished',
+        runIds,
+        80,
+      );
+    };
+
+    expect(spending(false).current).not.toBe('searching');
+    expect(spending(true).wantedIteration?.kind).toBe('request');
+  });
+
+  it('takes no request once it cannot afford another iteration', () => {
+    const runIds = searchRunIds();
+    const spent = endingReplays(
+      proposing(
+        searching(aSearch({ budget: aBudget({ iterations: 3 }) }), runIds),
+        1,
+        ['one'],
+      ),
+      ['one'],
+      'finished',
+      runIds,
+      80,
+    );
+
+    expect(spent.current).toBe('searching');
+    expect(spent.takesRequests).toBe(false);
+  });
+
+  it('drops a waiting requested candidate when it ends first, and still knows who asked', () => {
+    const search = searching(aSearch({ budget: aBudget({ iterations: 3 }) }))
+      .request(asked('asked'))
+      .turnOff(later(1));
+
+    expect(search.requests).toEqual([]);
+    expect(search.dropped.map((each) => each.name.value)).toEqual(['asked']);
+    expect(search.requesters.map((each) => each.value)).toEqual([
+      'user_asking',
+    ]);
+  });
+
+  it('starts without a search agent only to replay one requested iteration', () => {
+    const set = aSet(10);
+    const starting = (trigger: 'schedule' | 'request') =>
+      Search.start({
+        id: SEARCH_ID,
+        calibrates: false,
+        set,
+        agent: null,
+        budget: SearchBudget.agentless({
+          ceiling: Money.ceiling(100, 'USD'),
+          repeats: null,
+        }),
+        objective: 'success',
+        split: HeldOutSplit.drawn({
+          searchId: SEARCH_ID,
+          entries: set.entries,
+          hash: sha256,
+        }),
+        seed: { candidate: candidateOf('live'), replayId: SEED },
+        trigger,
+        requests: trigger === 'request' ? [asked('asked')] : [],
+        at: NOW,
+        by: BY,
+      });
+
+    expect(starting('request').agent).toBeNull();
+    expect(() => starting('schedule')).toThrow(InvalidSearchError);
+  });
+
+  it('rejects a stored search that keeps requests after it stopped searching, or dropped them while it searches', () => {
+    const search = searching(aSearch({ budget: aBudget({ iterations: 3 }) }));
+    const state = {
+      id: search.id,
+      station: search.station,
+      setId: search.setId,
+      agent: search.agent,
+      budget: search.budget,
+      objective: search.objective,
+      split: search.split,
+      calibrates: false,
+      seed: search.seed,
+      iterations: search.iterations,
+      heldOut: [],
+      stopReason: null,
+      trigger: 'schedule' as const,
+      pick: null,
+      startedAt: NOW,
+      endedAt: null,
+      version: 1,
+    };
+
+    expect(() =>
+      Search.rehydrate({
+        ...state,
+        requests: [asked('asked')],
+        dropped: [],
+        state: 'finished',
+        stopReason: 'stalled',
+        endedAt: NOW,
+      }),
+    ).toThrow(InconsistentStateError);
+    expect(() =>
+      Search.rehydrate({
+        ...state,
+        requests: [],
+        dropped: [asked('asked')],
+        state: 'searching',
+      }),
+    ).toThrow(InconsistentStateError);
+    expect(() =>
+      Search.rehydrate({
+        ...state,
+        requests: [],
+        dropped: [],
+        state: 'searching',
+        trigger: 'request',
+      }),
+    ).toThrow(InconsistentStateError);
+  });
+
+  it('refuses a request whose name another candidate has', () => {
+    const search = proposing(
+      searching(aSearch({ budget: aBudget({ iterations: 3 }) })),
+      1,
+      ['one'],
+    );
+
+    expect(() => search.request(asked('one'))).toThrow(
+      SearchCandidateNameTakenError,
+    );
   });
 });

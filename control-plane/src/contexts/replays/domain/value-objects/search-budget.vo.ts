@@ -12,9 +12,9 @@ export const MAX_CONCURRENCY = 10;
 
 export const SEARCH_CONCURRENCY = 4;
 
-export const AUTOMATIC_ITERATIONS = 3;
+const AUTOMATIC_ITERATIONS = 3;
 
-export const AUTOMATIC_PER_ITERATION = 2;
+const AUTOMATIC_PER_ITERATION = 2;
 
 const AGENT_SLACK = { parts: 1, of: 10 } as const;
 
@@ -47,6 +47,7 @@ export class SearchBudget {
     readonly ceiling: Money,
     readonly concurrency: number,
     readonly repeats: number,
+    readonly agentRuns: boolean,
   ) {}
 
   static of(input: {
@@ -55,6 +56,7 @@ export class SearchBudget {
     ceiling: Money;
     concurrency?: number;
     repeats?: number;
+    agentRuns?: boolean;
   }): SearchBudget {
     return new SearchBudget(
       counted(input.iterations, MAX_ITERATIONS, 'iterations'),
@@ -70,6 +72,7 @@ export class SearchBudget {
         'concurrency',
       ),
       counted(input.repeats ?? 1, MAX_REPEATS, 'repeats'),
+      input.agentRuns ?? true,
     );
   }
 
@@ -83,6 +86,19 @@ export class SearchBudget {
       perIteration: AUTOMATIC_PER_ITERATION,
       ceiling: input.ceiling,
       ...(input.repeats === null ? {} : { repeats: input.repeats }),
+    });
+  }
+
+  static agentless(input: {
+    ceiling: Money;
+    repeats: number | null;
+  }): SearchBudget {
+    return SearchBudget.of({
+      iterations: 1,
+      perIteration: AUTOMATIC_PER_ITERATION,
+      ceiling: input.ceiling,
+      ...(input.repeats === null ? {} : { repeats: input.repeats }),
+      agentRuns: false,
     });
   }
 
@@ -109,11 +125,9 @@ export class SearchBudget {
     const heldOut = split.heldOut.length * this.repeats;
     const k = this.perIteration;
     const margin = (runs: number) => Math.min(this.concurrency, runs);
-    const agentRuns = this.ceiling.scaled(AGENT_SLACK.parts, AGENT_SLACK.of);
-    const pool = this.ceiling.scaled(
-      AGENT_SLACK.of - AGENT_SLACK.parts,
-      AGENT_SLACK.of,
-    );
+    const slack = this.agentRuns ? AGENT_SLACK.parts : 0;
+    const agentRuns = this.ceiling.scaled(slack, AGENT_SLACK.of);
+    const pool = this.ceiling.scaled(AGENT_SLACK.of - slack, AGENT_SLACK.of);
     const units =
       this.unitsFor(split.searched.length, split.heldOut.length) -
       split.runs * this.repeats -
@@ -182,7 +196,8 @@ export class SearchBudget {
       this.perIteration === other.perIteration &&
       this.ceiling.equals(other.ceiling) &&
       this.concurrency === other.concurrency &&
-      this.repeats === other.repeats
+      this.repeats === other.repeats &&
+      this.agentRuns === other.agentRuns
     );
   }
 }

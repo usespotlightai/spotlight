@@ -22,7 +22,7 @@ interface KeptAt {
 
 const MOST_RECENT = 1_000;
 
-export const KEEP_SET_SUBSCRIBER = 'replays.keep-replay-set-of-station';
+const KEEP_SET_SUBSCRIBER = 'replays.keep-replay-set-of-station';
 
 export const runEnded = async (
   app: INestApplication,
@@ -50,7 +50,7 @@ export const runEnded = async (
   await subscriber.handle(ended as unknown as DomainEvent);
 };
 
-export const keptSetOf = async (
+const keptSetOf = async (
   app: INestApplication,
   at: KeptAt,
 ): Promise<string> => {

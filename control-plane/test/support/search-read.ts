@@ -74,7 +74,7 @@ export const searchReadOf = async (app: INestApplication, id: string) => {
     iterations: search.iterations.map((each) => ({
       number: each.number,
       kind: each.kind,
-      runId: each.runId.value,
+      runId: each.runId?.value ?? null,
       state: each.current,
       reflection: each.reflects
         ? {

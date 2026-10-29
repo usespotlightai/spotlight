@@ -358,7 +358,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
         perIteration: search.budget.perIteration,
         spent: search.spent.amount,
         ceiling: search.budget.ceiling.amount,
-        agent: {
+        agent: search.agent && {
           harness: search.agent.harness,
           model: search.agent.model,
           effort: search.agent.effort,

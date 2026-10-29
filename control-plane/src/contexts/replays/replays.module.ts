@@ -8,6 +8,7 @@ import {
   REPLAYS_PROVIDERS,
 } from '@replays/replays.wiring';
 import { SEARCH_VISIBILITY } from '@work/application/ports/search-visibility.port';
+import { STATION_CHANGE_TESTS } from '@work/application/ports/station-change-tests.port';
 import { WorkModule } from '@work/work.module';
 
 @Module({
@@ -20,6 +21,6 @@ import { WorkModule } from '@work/work.module';
   ],
   controllers: [...REPLAYS_CONTROLLERS],
   providers: [...REPLAYS_PROVIDERS],
-  exports: [SEARCH_VISIBILITY],
+  exports: [SEARCH_VISIBILITY, STATION_CHANGE_TESTS],
 })
 export class ReplaysModule {}

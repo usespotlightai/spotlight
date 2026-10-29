@@ -187,6 +187,13 @@ export interface StoredSearchProposal {
   readonly name: string;
   readonly replay: StoredSearchReplay;
   readonly improved: boolean | null;
+  readonly requestedBy: string | null;
+}
+
+export interface StoredSearchRequest {
+  readonly candidateId: string;
+  readonly name: string;
+  readonly requestedBy: string;
 }
 
 export interface StoredReflectedTask {
@@ -397,7 +404,7 @@ export const replaySearch = pgTable(
     lineId: text('line_id').notNull(),
     stationId: text('station_id').notNull(),
     setId: text('set_id').notNull(),
-    harness: text('harness').notNull(),
+    harness: text('harness'),
     model: text('model'),
     effort: text('effort'),
     iterations: integer('iterations').notNull(),
@@ -406,12 +413,21 @@ export const replaySearch = pgTable(
     ceilingCurrency: text('ceiling_currency').notNull(),
     concurrency: integer('concurrency').notNull(),
     repeats: integer('repeats').notNull(),
+    agentRuns: boolean('agent_runs').notNull(),
     objective: replaySearchObjective('objective').notNull(),
     split: jsonb('split').$type<StoredSplit>().notNull(),
     calibrates: boolean('calibrates').notNull(),
     seedCandidateId: text('seed_candidate_id').notNull(),
     seedFingerprint: text('seed_fingerprint').notNull(),
     seedReplay: jsonb('seed_replay').$type<StoredSearchReplay>().notNull(),
+    requests: jsonb('requests')
+      .$type<StoredSearchRequest[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    droppedRequests: jsonb('dropped_requests')
+      .$type<StoredSearchRequest[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     heldOut: jsonb('held_out')
       .$type<StoredHeldOutReplay[]>()
       .notNull()
@@ -445,7 +461,7 @@ export const replaySearchIteration = pgTable(
       .notNull()
       .references(() => replaySearch.id, { onDelete: 'cascade' }),
     number: integer('number').notNull(),
-    runId: text('run_id').notNull(),
+    runId: text('run_id'),
     kind: replaySearchIterationKind('kind').notNull(),
     state: replaySearchIterationState('state').notNull(),
     proposals: jsonb('proposals')
@@ -621,6 +637,8 @@ export const stationSearchSchedule = pgTable(
     rejectedAgainst: text('rejected_against'),
     lastRejectedAt: timestamp('last_rejected_at'),
     lastImprovedAt: timestamp('last_improved_at'),
+    requestDay: text('request_day'),
+    requestCount: integer('request_count').notNull().default(0),
     checkAfter: timestamp('check_after').notNull(),
     version: integer('version').notNull().default(0),
   },

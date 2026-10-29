@@ -1,14 +1,25 @@
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
+import { RequestLimitReachedError } from '@replays/domain/exceptions/request-limit-reached.error';
 import { SearchInCooldownError } from '@replays/domain/exceptions/search-in-cooldown.error';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { SearchSkipReason } from '@replays/domain/value-objects/search-skip-reason';
+import type { SearchTrigger } from '@replays/domain/value-objects/search-trigger';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+export const REQUESTS_PER_DAY = 3;
+
+export interface RequestTally {
+  readonly day: string;
+  readonly count: number;
+}
+
+const dayOf = (at: Date): string => at.toISOString().slice(0, 10);
 
 export interface SearchSkip {
   readonly reason: SearchSkipReason;
@@ -26,6 +37,7 @@ interface State {
   readonly rejectedAgainst: StationFingerprint | null;
   readonly lastRejectedAt: Date | null;
   readonly lastImprovedAt: Date | null;
+  readonly requests: RequestTally | null;
   readonly checkAfter: Date;
   readonly version: number;
 }
@@ -57,6 +69,7 @@ export class StationSearchSchedule extends EventRecorder {
       rejectedAgainst: null,
       lastRejectedAt: null,
       lastImprovedAt: null,
+      requests: null,
       checkAfter: input.at,
       version: 0,
     });
@@ -87,6 +100,18 @@ export class StationSearchSchedule extends EventRecorder {
       throw new InconsistentStateError(
         'station search schedule',
         'knows the live config that configs were rejected against when, and only when, one is rejected',
+      );
+    }
+
+    if (
+      state.requests &&
+      (!Number.isInteger(state.requests.count) ||
+        state.requests.count < 1 ||
+        state.requests.count > REQUESTS_PER_DAY)
+    ) {
+      throw new InconsistentStateError(
+        'station search schedule',
+        `counts from 1 to ${REQUESTS_PER_DAY} requests a day`,
       );
     }
 
@@ -143,6 +168,36 @@ export class StationSearchSchedule extends EventRecorder {
 
   get lastRejectedAt(): Date | null {
     return this.state.lastRejectedAt;
+  }
+
+  get requests(): RequestTally | null {
+    return this.state.requests;
+  }
+
+  takesRequestOn(at: Date): boolean {
+    const { requests } = this.state;
+
+    return (
+      requests === null ||
+      requests.day !== dayOf(at) ||
+      requests.count < REQUESTS_PER_DAY
+    );
+  }
+
+  requested(at: Date): StationSearchSchedule {
+    if (!this.takesRequestOn(at)) {
+      throw new RequestLimitReachedError(this.stationId, REQUESTS_PER_DAY);
+    }
+
+    const day = dayOf(at);
+    const { requests } = this.state;
+
+    return this.with({
+      requests: {
+        day,
+        count: requests?.day === day ? requests.count + 1 : 1,
+      },
+    });
   }
 
   get lastImprovedAt(): Date | null {
@@ -257,27 +312,32 @@ export class StationSearchSchedule extends EventRecorder {
     inSet: readonly TaskId[];
     at: Date;
     cooldownMilliseconds: number;
+    trigger: SearchTrigger;
   }): StationSearchSchedule {
     const { cooldownFrom } = this;
     const cooldownEnd = cooldownFrom
       ? new Date(cooldownFrom.getTime() + input.cooldownMilliseconds)
       : null;
 
-    if (cooldownEnd && input.at < cooldownEnd) {
-      throw new SearchInCooldownError(this.stationId, cooldownEnd);
-    }
-
     const kept = [...this.state.searchedTasks, ...input.searched].filter(
       (task) => input.inSet.some((each) => each.equals(task)),
     );
+    const searchedTasks = kept.filter(
+      (task, at) => !kept.slice(0, at).some((each) => each.equals(task)),
+    );
+
+    if (input.trigger === 'request') {
+      return this.requested(input.at).with({ searchedTasks });
+    }
+    if (cooldownEnd && input.at < cooldownEnd) {
+      throw new SearchInCooldownError(this.stationId, cooldownEnd);
+    }
 
     return this.with({
       lastStartedAt: input.at,
       lastSkip: null,
       alertPendingSince: null,
-      searchedTasks: kept.filter(
-        (task, at) => !kept.slice(0, at).some((each) => each.equals(task)),
-      ),
+      searchedTasks,
       checkAfter: new Date(input.at.getTime() + input.cooldownMilliseconds),
     });
   }

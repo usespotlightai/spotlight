@@ -381,6 +381,10 @@ import { SEARCH_RUNS } from '@work/application/ports/search-runs.port';
 import { SEARCH_VISIBILITY } from '@work/application/ports/search-visibility.port';
 import { STARTING_POINT_HOLDS } from '@work/application/ports/starting-point-holds.port';
 import {
+  STATION_CHANGE_TESTS,
+  type StationChangeTestsPort,
+} from '@work/application/ports/station-change-tests.port';
+import {
   STATION_PROFILES,
   type StationProfilesPort,
 } from '@work/application/ports/station-profiles.port';
@@ -587,6 +591,7 @@ import {
 } from '@work/application/services/task-dispatch';
 import { TaskViews } from '@work/application/services/task-views.service';
 import { TeamIntegrations } from '@work/application/services/team-integrations.service';
+import { TestStationChangeToolUse } from '@work/application/services/test-station-change.tool-use';
 import { ToolSources } from '@work/application/services/tool-sources.service';
 import { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import { TouchedFiles } from '@work/application/services/touched-files';
@@ -2203,6 +2208,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       PULL_REQUEST_REVIEWING,
       PULL_REQUESTS,
       TRANSACTION,
+      STATION_CHANGE_TESTS,
     ],
     useFactory: (
       opening: OpenPullRequest,
@@ -2212,12 +2218,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       reviewing: PullRequestReviewingPort,
       pullRequests: PullRequestPort,
       transaction: TransactionPort,
+      tests: StationChangeTestsPort,
     ): readonly BuiltInToolUse[] => [
       new PullRequestToolUse(opening),
       new ProposeTaskToolUse(chats, lines, clock),
       new SetupPullRequestToolUse(chats, pullRequests, transaction, clock),
       new ReviewCommentToolUse(reviewing),
       new ReviewToolUse(reviewing),
+      new TestStationChangeToolUse(chats, tests),
     ],
   },
 

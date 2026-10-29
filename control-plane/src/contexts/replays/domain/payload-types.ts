@@ -78,6 +78,7 @@ import { SearchIteration } from '@replays/domain/value-objects/search-iteration.
 import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
+import { SearchRequest } from '@replays/domain/value-objects/search-request.vo';
 import { SearchStartDetail } from '@replays/domain/value-objects/search-start-detail.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
@@ -122,6 +123,7 @@ export const REPLAYS_PAYLOAD_TYPES = [
   SearchIteration,
   SearchProposal,
   SearchReplay,
+  SearchRequest,
   SearchStartDetail,
   ReplaySetEntriesChanged,
   ReplaySetDeleted,

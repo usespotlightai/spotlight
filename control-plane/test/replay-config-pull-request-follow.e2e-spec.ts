@@ -459,6 +459,8 @@ describe('following a config pull request after it opened', () => {
   });
 
   it('reconciles an opened pull request with GitHub once it went six hours without a check, and keeps one open pull request for each station', async () => {
+    github.statuses.set(27, { state: 'closed', closedAt: new Date() });
+
     const id = await anOpenedPullRequest({
       number: 27,
       basedOn: (await liveAt()).fingerprint,
@@ -474,7 +476,6 @@ describe('following a config pull request after it opened', () => {
       }),
     ).rejects.toThrow();
 
-    github.statuses.set(27, { state: 'closed', closedAt: new Date() });
     await eventually(async () => {
       await app.get(ReconcileConfigPullRequests).processDue();
       return (await pullRequestRow(id))?.state === 'closed';

@@ -1,6 +1,7 @@
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchNotices } from '@replays/infrastructure/acl/search-notices.adapter';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { NoticeOf } from '@work/application/ports/notices.port';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -14,10 +15,14 @@ const work = () => ({
   allowsExternalLink: (url: string) => url.startsWith('https://github.com/'),
 });
 
-const noticeOf = (pullRequest: string | null) => ({
+const noticeOf = (
+  pullRequest: string | null,
+  addressee: UserId | null = null,
+) => ({
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
   searchId: SearchId.of('search_1'),
+  addressee,
   lineId: 'line_1',
   stationId: 'station_1',
   about: 'result',
@@ -53,5 +58,11 @@ describe('SearchNotices', () => {
 
     expect(created).toHaveLength(1);
     expect(created[0]?.externalLink).toBeNull();
+  });
+
+  it('addresses the notice to the person who asked for the search', async () => {
+    await new SearchNotices(work()).notify(noticeOf(null, UserId.of('user_1')));
+
+    expect(created[0]?.addressee?.value).toBe('user_1');
   });
 });

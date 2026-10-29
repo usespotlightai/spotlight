@@ -1,6 +1,6 @@
 import { InvalidSpendCeilingError } from '@work/domain/exceptions/invalid-spend-ceiling.error';
 
-export const MAX_SPEND_CEILING = 1_000;
+const MAX_SPEND_CEILING = 1_000;
 
 const CURRENCY = /^[A-Z]{3}$/;
 

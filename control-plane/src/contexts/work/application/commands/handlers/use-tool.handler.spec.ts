@@ -55,6 +55,7 @@ import {
   REVIEW,
   REVIEW_COMMENT,
   SETUP_PULL_REQUEST,
+  TEST_STATION_CHANGE,
 } from '@work/domain/services/built-in-tools';
 import type { PersonRule } from '@work/domain/services/stricter-rule';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
@@ -340,10 +341,12 @@ const using = (
         return 'Proposed.';
       },
     },
-    ...[REVIEW_COMMENT, REVIEW, SETUP_PULL_REQUEST].map((tool) => ({
-      tool,
-      call: async () => null,
-    })),
+    ...[REVIEW_COMMENT, REVIEW, SETUP_PULL_REQUEST, TEST_STATION_CHANGE].map(
+      (tool) => ({
+        tool,
+        call: async () => null,
+      }),
+    ),
   ]);
 
   const integrationTools: IntegrationToolsPort = {

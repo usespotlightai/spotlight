@@ -6,7 +6,7 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 
-export const CHECK_EVERY_MS = 6 * 60 * 60_000;
+const CHECK_EVERY_MS = 6 * 60 * 60_000;
 
 const CHECKED_PER_TICK = 20;
 

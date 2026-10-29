@@ -25,6 +25,8 @@ export const REVIEW_COMMENT = Tool.of('review-comment');
 
 export const REVIEW = Tool.of('review');
 
+export const TEST_STATION_CHANGE = Tool.of('test-station-change');
+
 export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
   {
     worksOn: 'task',
@@ -220,13 +222,78 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
       ],
     }),
   },
+  {
+    worksOn: 'chat',
+    skill: null,
+    declared: DeclaredTool.of({
+      tool: TEST_STATION_CHANGE,
+      description:
+        'Measure a change to the station this chat improves. Spotlight replays it against the live config and tells the person the result in the inbox.',
+      inputs: [
+        {
+          name: 'name',
+          schema: InputSchema.ofType('string'),
+          description:
+            'A slug that names the change, for example shorter-prompt. It must differ from the names of other candidates',
+          required: true,
+          defaulted: false,
+          stdin: false,
+        },
+        {
+          name: 'hypothesis',
+          schema: InputSchema.ofType('string'),
+          description: 'What you expect the change to improve',
+          required: true,
+          defaulted: false,
+          stdin: false,
+        },
+        {
+          name: 'config',
+          schema: InputSchema.ofType('string'),
+          description:
+            'The changed station block as JSON, as the line resource contains a station',
+          required: true,
+          defaulted: false,
+          stdin: true,
+        },
+        {
+          name: 'mode',
+          schema: InputSchema.of({ type: 'string', enum: ['test', 'search'] }),
+          description:
+            'test replays only this change. search also lets the search agent refine it. Default: test',
+          required: false,
+          defaulted: false,
+          stdin: false,
+        },
+        {
+          name: 'line',
+          schema: InputSchema.ofType('string'),
+          description: 'The line of the station, by its key',
+          required: false,
+          defaulted: false,
+          stdin: false,
+        },
+        {
+          name: 'station',
+          schema: InputSchema.ofType('string'),
+          description: 'The station, by its key',
+          required: false,
+          defaulted: false,
+          stdin: false,
+        },
+      ],
+    }),
+  },
 ];
 
-export const builtInToolsForChat = (
-  settingUp: boolean,
-): readonly BuiltInTool[] =>
+export const builtInToolsForChat = (chat: {
+  readonly settingUp: boolean;
+  readonly improving: boolean;
+}): readonly BuiltInTool[] =>
   builtInToolsFor('chat').filter(
-    (each) => settingUp || !each.declared.tool.equals(SETUP_PULL_REQUEST),
+    (each) =>
+      (chat.settingUp || !each.declared.tool.equals(SETUP_PULL_REQUEST)) &&
+      (chat.improving || !each.declared.tool.equals(TEST_STATION_CHANGE)),
   );
 
 export const builtInTool = (tool: Tool): BuiltInTool | null =>

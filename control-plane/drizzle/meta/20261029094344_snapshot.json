@@ -1,5 +1,5 @@
 {
-  "id": "3c323efa-4348-4e1d-aeb7-501d5284032d",
+  "id": "a6c1c6bf-bd3c-4935-a068-cbd260d17e52",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -10078,7 +10078,7 @@
           "name": "harness",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "model": {
           "name": "model",
@@ -10128,6 +10128,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "agent_runs": {
+          "name": "agent_runs",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
         "objective": {
           "name": "objective",
           "type": "replay_search_objective",
@@ -10164,6 +10170,20 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
+        },
+        "requests": {
+          "name": "requests",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "dropped_requests": {
+          "name": "dropped_requests",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "held_out": {
           "name": "held_out",
@@ -10315,7 +10335,7 @@
           "name": "run_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "kind": {
           "name": "kind",
@@ -10713,6 +10733,19 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
+        },
+        "request_day": {
+          "name": "request_day",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "request_count": {
+          "name": "request_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         },
         "check_after": {
           "name": "check_after",
@@ -15999,7 +16032,8 @@
       "schema": "public",
       "values": [
         "propose",
-        "reflect"
+        "reflect",
+        "request"
       ]
     },
     "public.replay_search_iteration_state": {
@@ -16059,7 +16093,8 @@
       "schema": "public",
       "values": [
         "schedule",
-        "alert"
+        "alert",
+        "request"
       ]
     },
     "public.replay_state": {

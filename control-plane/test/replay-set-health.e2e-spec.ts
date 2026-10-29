@@ -775,9 +775,10 @@ describe('checking a replay set’s health', () => {
       (entries) => entries.every((each) => each.endedAt !== null),
       () => 5,
     );
-    await eventually(
-      async () => (await replayOf(app, calibrationId)).current === 'finished',
-    );
+    await eventually(async () => {
+      await processed();
+      return (await replayOf(app, calibrationId)).current === 'finished';
+    }, 30_000);
     await turnedOff(search.id);
     await workUntil([calibrationId], recalibrated, () => 5);
 
