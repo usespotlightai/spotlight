@@ -31,8 +31,7 @@ export function NoCandidates({ slug, teamId, lineId }: NoCandidatesProps) {
           </TrailLink>
         }
       >
-        Replay a station’s past tasks under a changed config to compare it with
-        live.
+        Spotlight replays the candidates of each automatic search here.
       </EmptyState>
     </div>
   );

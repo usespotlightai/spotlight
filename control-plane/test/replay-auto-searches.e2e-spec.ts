@@ -12,7 +12,6 @@ import {
   policyAt,
   scheduleOf,
 } from './support/auto-searches';
-import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import {
   anOriginal,
@@ -24,27 +23,19 @@ import {
   drained,
   fiveTasks,
   openSearchFlow,
-  owner,
   POLISH,
   replayEnded,
   searchedAt,
   searchOf,
   startSearch,
-  stationPath,
   team,
-  teamNotices,
-  teamPath,
   tenTasks,
-  WITHIN,
+  turnedOff,
 } from './support/search-flow';
 
 openSearchFlow();
 
 const HOUR_MS = 60 * 60 * 1000;
-
-const stopped = async (searchId: string): Promise<void> => {
-  await owner().post(`${teamPath()}/searches/${searchId}/stop`).expect(204);
-};
 
 const counted = async () => ({
   searches: (await db.select().from(schema.replaySearch)).length,
@@ -54,7 +45,7 @@ const counted = async () => ({
 });
 
 describe('searches Spotlight starts on its own', () => {
-  it('skips a set with too few tasks at no cost, says so once to the team, and shows why on the set', async () => {
+  it('skips a set with too few tasks at no cost, and records why', async () => {
     const few = [];
     for (let each = 0; each < 3; each += 1) {
       few.push(await anOriginal());
@@ -74,41 +65,12 @@ describe('searches Spotlight starts on its own', () => {
       'set-too-small',
     );
 
-    const set = (await owner().get(`${stationPath()}/replay-set`).expect(200))
-      .body as {
-      searchSchedule: {
-        lastStartedAt: string | null;
-        lastSkip: { reason: string } | null;
-        checkAfter: string;
-      };
-    };
+    const schedule = await scheduleOf(searchedAt());
 
-    expect(set.searchSchedule).toMatchObject({
-      lastStartedAt: null,
-      lastSkip: { reason: 'set-too-small' },
-    });
-    expect(Date.parse(set.searchSchedule.checkAfter)).toBeGreaterThan(
+    expect(schedule?.lastStartedAt).toBeNull();
+    expect(schedule?.checkAfter.getTime()).toBeGreaterThan(
       Date.now() + 23 * HOUR_MS,
     );
-
-    const advice = await eventually(async () => {
-      const found = (await teamNotices()).filter(
-        (each) => each.form === 'advice',
-      );
-
-      return found.length > 0 ? found : null;
-    }, WITHIN);
-
-    expect(advice).toEqual([
-      expect.objectContaining({
-        teamId: team.teamId.value,
-        headline: 'Spotlight cannot search the Build station',
-        points: [
-          'The replay set of the station has too few tasks. Spotlight adds tasks from new runs of the station.',
-          'Minimum tasks required: 5',
-        ],
-      }),
-    ]);
   }, 120_000);
 
   it('starts one search across two stations of a line when the monthly ceiling fits only one, however the ticks overlap', async () => {
@@ -146,7 +108,7 @@ describe('searches Spotlight starts on its own', () => {
       ].filter((each) => each !== null),
     ).toEqual(['monthly-ceiling']);
 
-    await stopped(started[0]?.id as string);
+    await turnedOff(started[0]?.id as string);
   }, 120_000);
 
   it('starts exactly one search when an alert fires on a station that is also due on schedule', async () => {
@@ -171,7 +133,7 @@ describe('searches Spotlight starts on its own', () => {
 
     expect(active.map((each) => each.trigger)).toEqual(['alert']);
 
-    await stopped(active[0]?.id as string);
+    await turnedOff(active[0]?.id as string);
   }, 120_000);
 
   it('starts a search when a station alert fires, once the cooldown ended, before the period ends', async () => {
@@ -207,7 +169,7 @@ describe('searches Spotlight starts on its own', () => {
     expect((await scheduleOf(searchedAt()))?.alertPendingSince).toBeNull();
     expect((await searchOf(started?.id as string)).trigger).toBe('alert');
 
-    await stopped(started?.id as string);
+    await turnedOff(started?.id as string);
   }, 120_000);
 
   it('never holds out a task that an earlier automatic search of the station searched on', async () => {
@@ -216,7 +178,7 @@ describe('searches Spotlight starts on its own', () => {
     const first = await startSearch({ iterations: 1, ceiling: 20 });
     const firstRead = await searchOf(first.id);
 
-    await stopped(first.id);
+    await turnedOff(first.id);
 
     const second = await startSearch({ iterations: 1, ceiling: 20 });
     const secondRead = await searchOf(second.id);
@@ -235,7 +197,7 @@ describe('searches Spotlight starts on its own', () => {
       ]),
     );
 
-    await stopped(second.id);
+    await turnedOff(second.id);
   }, 120_000);
 
   it('stops starting searches once one more could pass the monthly ceiling of the line', async () => {
@@ -245,7 +207,7 @@ describe('searches Spotlight starts on its own', () => {
 
     await drained(() => ({ score: 4, cost: 0.1 }));
     expect(await replayEnded(spending.seedReplayId)).toBe('finished');
-    await stopped(spending.id);
+    await turnedOff(spending.id);
 
     await policyAt(
       searchedAt(),

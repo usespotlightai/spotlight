@@ -60,52 +60,6 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
   }),
 }));
 
-const replayRun = vi.fn((): unknown => undefined);
-const replayRunMissing = vi.fn(() => true);
-const replayOfRun = vi.fn((): unknown => undefined);
-
-vi.mock('@/hooks/api/useReplayRun', () => ({
-  replayRunKeys: {
-    forRun: () => ['replay-run'],
-    replayOf: () => ['replay-run', 'replay'],
-  },
-  useReplayRun: () => ({
-    data: replayRun(),
-    isPending: replayRun() === undefined,
-    errorUpdateCount: replayRunMissing() ? 1 : 0,
-    error: replayRunMissing() ? { status: 404 } : null,
-    isFetching: false,
-    refetch: vi.fn(),
-  }),
-}));
-
-const searchRun = vi.fn((): unknown => undefined);
-
-vi.mock('@/hooks/api/useSearchRun', () => ({
-  useSearchRun: () => ({
-    data: searchRun(),
-    isPending: false,
-    errorUpdateCount: searchRun() ? 0 : 1,
-    error: searchRun() ? null : { status: 404 },
-    isFetching: false,
-    refetch: vi.fn(),
-  }),
-}));
-
-vi.mock('@/hooks/api/useSearches', () => ({
-  useSearches: () => ({
-    data: [{ id: 'search_1', startedAt: '2026-08-29T09:00:00.000Z' }],
-  }),
-}));
-
-vi.mock('@/hooks/api/useReplayOfRun', () => ({
-  useReplayOfRun: () => ({
-    data: replayOfRun(),
-    isPending: replayOfRun() === undefined,
-    errorUpdateCount: 0,
-  }),
-}));
-
 vi.mock('@/hooks/api/useRunStream', () => ({ useRunStream: () => undefined }));
 vi.mock('@/hooks/api/useRunMemories', () => ({
   runMemoryKeys: { forRun: () => ['run-memories'] },
@@ -250,10 +204,6 @@ describe('Run', () => {
     refetchConversation.mockReset();
     journal.mockReturnValue([]);
     journalFailing.mockReturnValue(false);
-    replayRun.mockReturnValue(undefined);
-    replayRunMissing.mockReturnValue(true);
-    replayOfRun.mockReturnValue(undefined);
-    searchRun.mockReturnValue(undefined);
   });
 
   describe('while it loads', () => {
@@ -366,81 +316,6 @@ describe('Run', () => {
 
     expect(container.querySelector('header')).toBeInTheDocument();
     expect(screen.getByText('This team has no such run.')).toBeInTheDocument();
-  });
-
-  describe('a replay run', () => {
-    const replay = (over: Record<string, unknown> = {}) => ({
-      ...run({ id: 'run_1', taskId: null, taskTitle: null }),
-      original: {
-        runId: 'run_original',
-        taskId: 'task_1',
-        title: 'Fix the queue',
-      },
-      spend: null,
-      journals: [{ runId: 'run_1', attempt: 1, steps: [step], spans: [] }],
-      briefing: '## Implementation\n\nDrain the stuck retry queues.',
-      agent: { harness: 'claude-code', model: 'opus', effort: 'medium' },
-      repositories: ['acme/worker'],
-      ...over,
-    });
-
-    beforeEach(() => {
-      runs.mockReturnValue([run({ id: 'run_2' })]);
-      replayRun.mockReturnValue(replay());
-      replayRunMissing.mockReturnValue(false);
-      replayOfRun.mockReturnValue({
-        replayId: 'replay_1',
-        setId: 'set_1',
-        lineId: 'line_1',
-        stationId: 'station_3',
-        candidate: {
-          id: 'candidate_1',
-          name: 'Shorter prompt',
-          kind: 'proposed',
-          fingerprint: 'abc',
-          station: {},
-          createdAt: '2026-08-29T09:00:00.000Z',
-        },
-        startedAsBaseline: false,
-        isBaseline: false,
-        state: 'running',
-        entry: null,
-      });
-    });
-
-    it('says which run it replays, and leads to it', () => {
-      const { container } = renderRun();
-      const banner = container.querySelector(
-        '[data-slot="replay-run-banner"]',
-      ) as HTMLElement;
-
-      expect(
-        within(banner).getByRole('link', { name: 'Fix the queue' }),
-      ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_original');
-    });
-
-    it('names its candidate and leads to its replay', () => {
-      renderRun();
-
-      expect(screen.getByText('Shorter prompt')).toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'its replay' })).toHaveAttribute(
-        'href',
-        '/w/acme/team/team_1/lines/line_1/stations/station_3/replays/replay_1',
-      );
-    });
-
-    it('shows its briefing and what it did, with a composer nobody can use', () => {
-      renderRun();
-
-      expect(
-        screen.getByText(/Drain the stuck retry queues\./),
-      ).toBeInTheDocument();
-      expect(screen.getByText('queue-stats --all')).toBeInTheDocument();
-      expect(
-        screen.getByRole('textbox', { name: 'Message the agent' }),
-      ).toHaveAttribute('contenteditable', 'false');
-      expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
-    });
   });
 
   it('shows the note of the station', () => {
@@ -1021,53 +896,6 @@ describe('Run', () => {
         screen.getByText('Implementation is working…'),
       ).toBeInTheDocument();
       expect(screen.queryByText('Waiting for you')).not.toBeInTheDocument();
-    });
-  });
-
-  describe('a search run', () => {
-    beforeEach(() => {
-      runs.mockReturnValue([run({ id: 'run_2' })]);
-      searchRun.mockReturnValue({
-        ...run({ id: 'run_1', taskId: null, taskTitle: null }),
-        searchId: 'search_1',
-        iteration: 2,
-        agent: { harness: 'claude-code', model: 'opus', effort: null },
-        failure: 'runner-lost',
-        endedAt: '2026-08-29T10:00:00.000Z',
-        spent: {
-          spentCosts: [{ amount: 0.5, currency: 'USD' }],
-          unpricedCalls: 1,
-        },
-        spend: null,
-        journals: [{ runId: 'run_1', attempt: 1, steps: [step], spans: [] }],
-        briefing: '# Searching for a better station',
-      });
-    });
-
-    it('leaves which iteration it is to the breadcrumbs, and says how it failed at the end', () => {
-      const { container } = renderRun();
-
-      expect(
-        container.querySelector('[data-slot="search-run-banner"]'),
-      ).toBeNull();
-      expect(screen.getByText('Runner lost (not scored).')).toBeInTheDocument();
-    });
-
-    it('shows the briefing of its agent, and a composer nobody can use', () => {
-      renderRun();
-
-      expect(
-        screen.getByText(/Searching for a better station/),
-      ).toBeInTheDocument();
-      const composer = screen.getByRole('textbox', {
-        name: 'Message the agent',
-      });
-      expect(composer).toHaveAttribute('contenteditable', 'false');
-      expect(composer).toHaveAttribute(
-        'aria-placeholder',
-        'The agent runs autonomously. It can’t receive messages.',
-      );
-      expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
     });
   });
 });

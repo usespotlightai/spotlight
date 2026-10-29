@@ -15,7 +15,9 @@ import {
   candidateOf,
   concludedAll,
   LIVE_FINGERPRINT,
+  SEARCH_ID,
 } from '@replays/domain/replays.fake-spec';
+import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -38,22 +40,33 @@ const oracles = () =>
   );
 
 const finishedLive = async (
-  input: { runSubset?: readonly RunId[]; repeats?: number } = {},
+  input: {
+    runSubset?: readonly RunId[];
+    repeats?: number;
+    searchId?: SearchId;
+    calibration?: boolean;
+    ceiling?: number;
+  } = {},
 ) => {
   const replay = concludedAll(
     aReplay({
       id: 'replay_live',
       count: 4,
       candidate: LIVE,
-      ceiling: 10,
       ...input,
+      ceiling: input.ceiling ?? 10,
     }),
   );
 
   replay.pullEvents();
   await memory.replayRepository.add(replay);
 
-  return new ReplayEnded(replay.id, replay.workspaceId, null, 'finished');
+  return new ReplayEnded(
+    replay.id,
+    replay.workspaceId,
+    replay.searchId,
+    'finished',
+  );
 };
 
 const oracleReplays = () =>
@@ -181,5 +194,31 @@ describe('StartOracleReplay', () => {
     await oracles().baselineEnded(whole);
 
     expect(oracleReplays()).toEqual([]);
+  });
+
+  it('replays the answer after the calibrating seed of a search, and never after a plain seed', async () => {
+    insights.accepted.add('original_0');
+
+    await oracles().baselineEnded(
+      await finishedLive({ repeats: 3, searchId: SEARCH_ID }),
+    );
+
+    expect(oracleReplays()).toEqual([]);
+
+    memory.replays.clear();
+    await oracles().baselineEnded(
+      await finishedLive({
+        repeats: 3,
+        searchId: SEARCH_ID,
+        calibration: true,
+        ceiling: 100,
+      }),
+    );
+
+    const [oracle] = oracleReplays();
+
+    expect(oracle?.referenceReplayId?.value).toBe('replay_live');
+    expect(oracle?.searchId).toBeNull();
+    expect(oracle?.repeats).toBe(3);
   });
 });

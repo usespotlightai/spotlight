@@ -147,7 +147,7 @@ const IMPLEMENTATION = TargetStation.rehydrate({
 });
 
 describe('ChatBriefing', () => {
-  it('briefs a chat that targets a station to read its history first, and to propose Terraform', () => {
+  it('briefs a chat that targets a station to read its history first', () => {
     const briefed = brief(targetStationChat(), [], null, [DELIVERY]);
 
     expect(briefed).toContain('## Improving a station');
@@ -157,6 +157,18 @@ describe('ChatBriefing', () => {
     );
     expect(briefed).toContain('Propose one change at a time');
     expect(briefed).toContain('prompts/<team>/delivery/implementation.md');
+  });
+
+  it('briefs a chat that targets a station to test its change with the tool, and to show a diff only when the tool cannot start', () => {
+    const briefed = brief(targetStationChat(), [], null, [DELIVERY]);
+
+    expect(briefed).toContain(
+      'spotlight tools call test-station-change --name <slug> --hypothesis "…" < station.json',
+    );
+    expect(briefed).toContain('Add `--mode search` only when the person asks');
+    expect(briefed).toContain(
+      'Show a Terraform diff only when the tool cannot start',
+    );
   });
 
   it('tells the agent when the station it was to improve is gone', () => {

@@ -34,7 +34,7 @@ const TITLES = new Map<string, string | null>([
 ]);
 
 describe('ReflectionNoticeWording', () => {
-  it('names each fix outside the config by its task’s title, and its suggestion or else its evidence', () => {
+  it('names each task by its title, the cause outside the config, its suggestion or else its evidence, and the fix', () => {
     const points = ReflectionNoticeWording.pointsOf(
       {
         result: 'no-config-cause',
@@ -50,8 +50,24 @@ describe('ReflectionNoticeWording', () => {
 
     expect(points).toEqual([
       'No config change can fix the 2 tasks still failing. The rest of the budget stays unspent.',
-      'Fix the judge’s rubric, for “Drain the queue on restart”: Drop the test requirement.',
-      'Take the task out of the replay set, or reword it, for one of the searched tasks: Evidence 2.',
+      '“Drain the queue on restart”: the cause is the judge. Drop the test requirement. Please fix the rubric of the judge.',
+      'Untitled task: the cause is the task itself. Evidence 2. Spotlight takes the task out of the replay set.',
+    ]);
+  });
+
+  it('lists only the fixes, one for each task, for the advice after a stall', () => {
+    expect(
+      ReflectionNoticeWording.fixesOf(
+        {
+          result: 'no-config-cause',
+          endedSearch: true,
+          looked: 2,
+          fixes: [cause(2, 'check', 'Run the linter on changed files only.')],
+        },
+        TITLES,
+      ),
+    ).toEqual([
+      'Untitled task: the cause is the check. Run the linter on changed files only. Please fix the check of the station.',
     ]);
   });
 
@@ -68,7 +84,36 @@ describe('ReflectionNoticeWording', () => {
     );
 
     expect(points).toHaveLength(20);
-    expect(points[19]).toBe('The search page shows 7 more.');
+    expect(points[19]).toBe('7 more causes are not shown.');
+  });
+
+  it('counts the causes it leaves out', () => {
+    const points = ReflectionNoticeWording.fixesOf(
+      {
+        result: 'no-config-cause',
+        endedSearch: true,
+        looked: 21,
+        fixes: Array.from({ length: 21 }, (_, at) => cause(at, 'infra')),
+      },
+      TITLES,
+    );
+
+    expect(points[19]).toBe('2 more causes are not shown.');
+  });
+
+  it('clips long evidence and keeps the fix', () => {
+    const [point] = ReflectionNoticeWording.fixesOf(
+      {
+        result: 'no-config-cause',
+        endedSearch: true,
+        looked: 1,
+        fixes: [cause(1, 'judge', 'x'.repeat(3_000))],
+      },
+      TITLES,
+    );
+
+    expect(point?.length).toBeLessThanOrEqual(1_000);
+    expect(point).toMatch(/… {1,2}Please fix the rubric of the judge\.$/);
   });
 
   it('always says what happened first, even with nothing for a person to fix', () => {

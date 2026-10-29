@@ -1,16 +1,12 @@
-import { RemoveReplaySetEntryHandler } from '@replays/application/commands/handlers/remove-replay-set-entry.handler';
-import { RemoveReplaySetEntryCommand } from '@replays/application/commands/remove-replay-set-entry.command';
 import { KeepReplaySets } from '@replays/application/services/keep-replay-sets.service';
 import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
 import {
-  accessFor,
   CLOCK,
   FakeInsights,
   FakeWork,
   IDS,
   InMemoryChecks,
   InMemoryReplays,
-  PERSON,
   peopleWho,
   QUIET,
   STATION_VIEW,
@@ -27,7 +23,6 @@ import {
   aReplay,
   aSearch,
   aSet,
-  BY,
   NOW,
   SEARCH_ID,
   STATION,
@@ -47,7 +42,7 @@ let checks: InMemoryChecks;
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 
-const errorOf = async (call: Promise<unknown>) =>
+const _errorOf = async (call: Promise<unknown>) =>
   call.then(
     () => {
       throw new Error('it was allowed');
@@ -72,14 +67,6 @@ const recent = (run: string, task = `task_of_${run}`) => ({
   origin: null,
 });
 
-const removing = () =>
-  new RemoveReplaySetEntryHandler(
-    accessFor(memory, work),
-    memory.setRepository,
-    usageFor(memory, checks),
-    TRANSACTION,
-  );
-
 const keeping = (people = peopleWho(true)) =>
   new KeepReplaySets(
     memory.setRepository,
@@ -93,6 +80,7 @@ const keeping = (people = peopleWho(true)) =>
 const refreshing = () =>
   new RefreshKeptSets(
     memory.setRepository,
+    memory.searchRepository,
     usageFor(memory, checks),
     work,
     insights,
@@ -108,7 +96,6 @@ const stateOf = (set: ReplaySet) => ({
   id: set.id,
   station: set.station,
   entries: set.entries,
-  removedTasks: set.removedTasks,
   createdAt: set.createdAt,
   refreshedAt: set.refreshedAt,
   lastRefresh: set.lastRefresh,
@@ -121,7 +108,6 @@ const unrefreshed = (refreshedAt: Date | null = null) =>
     id: ReplaySetId.of('set_1'),
     station: STATION,
     entries: [],
-    removedTasks: [],
     createdAt: NOW,
     refreshedAt,
     lastRefresh: null,
@@ -134,99 +120,6 @@ beforeEach(() => {
   work = new FakeWork();
   insights = new FakeInsights();
   checks = new InMemoryChecks(memory.events);
-});
-
-describe('RemoveReplaySetEntryHandler', () => {
-  it('takes a run out of a set, and its task never comes back', async () => {
-    await memory.setRepository.add(aSet(2));
-    work.recent = [recent('newer_of_task_0', 'task_0')];
-
-    await removing().execute(
-      new RemoveReplaySetEntryCommand('team_1', 'set_1', 'original_0', PERSON),
-    );
-    await refreshing().refreshBefore(ReplaySetId.of('set_1'));
-
-    expect(runsOfSet()).toEqual(['original_1']);
-    expect(
-      memory.sets.get('set_1')?.removedTasks.map((each) => each.value),
-    ).toEqual(['task_0']);
-  });
-
-  it('denies one who may read the team but not plan', async () => {
-    await memory.setRepository.add(aSet(2));
-
-    expect(
-      await new RemoveReplaySetEntryHandler(
-        accessFor(memory, work, false),
-        memory.setRepository,
-        usageFor(memory, checks),
-        TRANSACTION,
-      ).execute(
-        new RemoveReplaySetEntryCommand(
-          'team_1',
-          'set_1',
-          'original_0',
-          PERSON,
-        ),
-      ),
-    ).toEqual({ outcome: 'forbidden', act: 'plan' });
-  });
-
-  it('lets no run go while a replay of the set is in progress', async () => {
-    await memory.setRepository.add(aSet(2));
-    await memory.replayRepository.add(aReplay({ count: 2 }));
-
-    expect(
-      await errorOf(
-        removing().execute(
-          new RemoveReplaySetEntryCommand(
-            'team_1',
-            'set_1',
-            'original_0',
-            PERSON,
-          ),
-        ),
-      ),
-    ).toBe('conflict');
-    expect(runsOfSet()).toEqual(['original_0', 'original_1']);
-  });
-
-  it('lets no run go while a check of the set waits for its baseline', async () => {
-    await memory.setRepository.add(aSet(2));
-    await checks.add(aCheck());
-
-    expect(
-      await errorOf(
-        removing().execute(
-          new RemoveReplaySetEntryCommand(
-            'team_1',
-            'set_1',
-            'original_0',
-            PERSON,
-          ),
-        ),
-      ),
-    ).toBe('conflict');
-  });
-
-  it('lets no run go while a search uses the set', async () => {
-    const set = aSet(10);
-    await memory.setRepository.add(set);
-    await memory.searchRepository.add(aSearch({ set }));
-
-    expect(
-      await errorOf(
-        removing().execute(
-          new RemoveReplaySetEntryCommand(
-            'team_1',
-            'set_1',
-            'original_0',
-            PERSON,
-          ),
-        ),
-      ),
-    ).toBe('conflict');
-  });
 });
 
 describe('KeepReplaySets', () => {
@@ -350,6 +243,7 @@ describe('RefreshKeptSets', () => {
 
     await new RefreshKeptSets(
       repository,
+      memory.searchRepository,
       usageFor(memory, checks),
       work,
       insights,
@@ -374,7 +268,7 @@ describe('RefreshKeptSets', () => {
 
     const search = await memory.searchRepository.find(SEARCH_ID);
     await memory.searchRepository.save(
-      search?.stop(NOW, BY) ?? expect.unreachable(),
+      search?.turnOff(NOW) ?? expect.unreachable(),
     );
     await refreshing().processDue();
 

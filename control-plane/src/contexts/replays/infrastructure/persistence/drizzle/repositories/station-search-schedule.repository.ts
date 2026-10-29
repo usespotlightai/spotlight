@@ -40,6 +40,10 @@ const toSchedule = (row: ScheduleRow): StationSearchSchedule =>
         : StationFingerprint.of(row.rejectedAgainst),
     lastRejectedAt: row.lastRejectedAt,
     lastImprovedAt: row.lastImprovedAt,
+    requests:
+      row.requestDay === null
+        ? null
+        : { day: row.requestDay, count: row.requestCount },
     checkAfter: row.checkAfter,
     version: row.version,
   });
@@ -58,6 +62,8 @@ const columnsOf = (schedule: StationSearchSchedule) => ({
   rejectedAgainst: schedule.rejectedAgainst?.value ?? null,
   lastRejectedAt: schedule.lastRejectedAt,
   lastImprovedAt: schedule.lastImprovedAt,
+  requestDay: schedule.requests?.day ?? null,
+  requestCount: schedule.requests?.count ?? 0,
   checkAfter: schedule.checkAfter,
 });
 

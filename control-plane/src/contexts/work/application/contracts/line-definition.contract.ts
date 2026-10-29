@@ -17,7 +17,7 @@ export type LineDefinitionAlert = {
   readonly over: number;
 };
 
-export type LineDefinitionSearchAgent = {
+type LineDefinitionSearchAgent = {
   readonly harness: string;
   readonly model?: string;
   readonly effort?: string;

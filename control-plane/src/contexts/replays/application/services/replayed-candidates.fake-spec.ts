@@ -87,7 +87,7 @@ export interface ReplayedWorld {
   readonly candidates: readonly Candidate[];
 }
 
-export const heldOutOf = (
+const heldOutOf = (
   search: Search,
   replays: readonly Replay[],
   ids: () => RunId,
@@ -145,7 +145,6 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
       replayId: ReplayId.of('replay_wordy'),
     });
   const missed = searching.split.searchedRuns[0]?.value;
-  const proposed = candidateOf('proposed');
   const searched = [
     replayedAs(
       replayFor(set, 'replay_seed', 'candidate_live', null, true),
@@ -188,20 +187,11 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
             ),
           ]
         : []),
-      replayedAs(
-        replayOf(set, 'replay_proposed', proposed, new Date(NOW.getTime() + 1)),
-        (original) =>
-          original === 'original_1' || original === 'original_2'
-            ? 'failed'
-            : 'completed',
-        3,
-      ),
     ],
     candidates: [
       candidateOf('live'),
       searchedCandidate('terse'),
       searchedCandidate('wordy'),
-      proposed,
     ],
   };
 };

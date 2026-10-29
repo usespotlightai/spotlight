@@ -80,9 +80,12 @@ export const refreshOf = (
   recent: readonly Replayable[],
   outcomes: ReadonlyMap<string, OriginalOutcome>,
   at: Date,
+  taskCaused: ReadonlySet<string> = new Set(),
 ): ReplaySetChanges => {
   const retired = [...set.entries]
-    .filter((each) => isTooOld(each.endedAt, at))
+    .filter(
+      (each) => isTooOld(each.endedAt, at) || taskCaused.has(each.taskId.value),
+    )
     .sort((one, other) => one.endedAt.getTime() - other.endedAt.getTime());
   const kept = set.entries.filter((each) => !retired.includes(each));
   const pickable = newestOfEachTask(
@@ -90,6 +93,7 @@ export const refreshOf = (
       run.unreplayableReason === null &&
       run.taskId !== null &&
       run.stationId === set.station.stationId &&
+      !taskCaused.has(run.taskId.value) &&
       !isTooOld(run.endedAt, at)
         ? [
             {
@@ -100,10 +104,7 @@ export const refreshOf = (
           ]
         : [],
     ),
-    [
-      ...kept.map((each) => each.taskId.value),
-      ...set.removedTasks.map((each) => each.value),
-    ],
+    kept.map((each) => each.taskId.value),
   );
   const added = filled(
     kept.map((each) => originalOutcomeOf(outcomes, each.runId.value)),

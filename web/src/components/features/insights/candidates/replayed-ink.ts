@@ -17,11 +17,6 @@ export const REPLAYED_INK: Record<ReplayedMark, Ink> = {
     swatch: 'bg-chart-2',
     outline: 'border-[1.5px] border-chart-2',
   },
-  proposed: {
-    fill: 'var(--chart-3)',
-    swatch: 'bg-chart-3',
-    outline: 'border-[1.5px] border-chart-3',
-  },
 };
 
 export const FRONTIER_INK: Omit<Ink, 'outline'> = {

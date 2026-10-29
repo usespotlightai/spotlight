@@ -108,16 +108,21 @@ func TestAGroupWithoutACommandPrintsItsHelp(t *testing.T) {
 	outsideARun(t)
 
 	code, out, _ := ran("replay")
-	if code != 0 || !strings.Contains(out, "Commands:\n  propose") {
+	if code != 0 || !strings.Contains(out, "Commands:\n  check") {
 		t.Fatalf("exit %d, printed\n%s", code, out)
+	}
+	for _, removed := range []string{"propose", "candidates", "show", "set", "start", "status", "watch", "stop"} {
+		if strings.Contains(out, "\n  "+removed+" ") {
+			t.Errorf("replay help lists %s:\n%s", removed, out)
+		}
 	}
 }
 
 func TestSuggestsTheCommandNearATypo(t *testing.T) {
 	outsideARun(t)
 
-	code, _, errs := ran("replay", "strat", "--team", "core")
-	if code != 1 || !strings.Contains(errs, `no command "replay strat"`) || !strings.Contains(errs, "Did you mean spotlight replay start?") {
+	code, _, errs := ran("replay", "chek", "plan.json")
+	if code != 1 || !strings.Contains(errs, `no command "replay chek"`) || !strings.Contains(errs, "Did you mean spotlight replay check?") {
 		t.Fatalf("exit %d, said\n%s", code, errs)
 	}
 }

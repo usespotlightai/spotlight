@@ -1,3 +1,4 @@
+import { ExternalPillLink } from '@/components/shared/ExternalPillLink';
 import { PillLink } from '@/components/shared/PillLink';
 import {
   type InboxNotice,
@@ -50,7 +51,15 @@ export function NoticeCard({ slug, notice }: NoticeCardProps) {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <PillLink variant="default" to={noticeLinkPath(slug, notice)}>
+        {notice.externalLink && (
+          <ExternalPillLink variant="default" href={notice.externalLink.url}>
+            {notice.externalLink.label}
+          </ExternalPillLink>
+        )}
+        <PillLink
+          variant={notice.externalLink ? 'outline' : 'default'}
+          to={noticeLinkPath(slug, notice)}
+        >
           {notice.linkLabel}
         </PillLink>
       </div>

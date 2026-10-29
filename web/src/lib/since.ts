@@ -20,8 +20,3 @@ export const since = (at: string): string => {
     day: 'numeric',
   });
 };
-
-export const formatRan = (startedAt: string, endedAt: string | null): string =>
-  endedAt
-    ? `Started ${since(startedAt)}, ended ${since(endedAt)}`
-    : `Started ${since(startedAt)}`;

@@ -297,7 +297,6 @@ export class StartReplayCheckHandler
           candidate: await this.snapshots.taken(set),
           ceiling: threshold.ceiling,
           repeats: planned.repeats,
-          calibration: false,
         }
       : null;
     const replayId = ReplayId.of(this.ids.generate());

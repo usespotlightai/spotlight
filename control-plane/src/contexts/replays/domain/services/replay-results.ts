@@ -54,7 +54,7 @@ export interface PairTally {
   readonly ties: number;
 }
 
-export const SCORES_UNCOMPARED = [
+const SCORES_UNCOMPARED = [
   'unjudged',
   'other-rubric',
   'other-reference',
@@ -160,12 +160,6 @@ export const taskSuccessesOf = (
   }
 
   return successes;
-};
-
-export const scoredOriginalsOf = (replay: Replay): readonly RunId[] => {
-  const successes = taskSuccessesOf(replay);
-
-  return replay.originals.filter((original) => successes.has(original.value));
 };
 
 export const totalsOf = (

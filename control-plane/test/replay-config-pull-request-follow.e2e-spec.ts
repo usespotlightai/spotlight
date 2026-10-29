@@ -21,6 +21,7 @@ import { dueNow, scheduleOf } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import {
+  ADVISE_ON_STALL,
   anOriginal,
   app,
   BUILD,
@@ -37,6 +38,7 @@ import {
   github,
   judged,
   leasedSearchRun,
+  noticesSince,
   openSearchFlow,
   POLISH,
   PROMPT_FILE,
@@ -47,6 +49,7 @@ import {
   searchRow,
   searchState,
   startSearch,
+  subscriberDone,
   team,
   teamNotices,
   WITHIN,
@@ -238,10 +241,11 @@ const seventeenTasks = async (stationId = BUILD) => {
   return tasks;
 };
 
-const resultNoticesOf = async (searchId: string) =>
-  (await teamNotices()).filter((each) =>
-    each.link.endsWith(`/searches/${searchId}`),
-  );
+const silentAfter = async (at: Date) => {
+  await eventually(() => subscriberDone(ADVISE_ON_STALL), WITHIN);
+
+  return noticesSince(at);
+};
 
 describe('following a config pull request after it opened', () => {
   it('remembers a config a person rejected, restarts the cooldown of the station, and does not propose that config again', async () => {
@@ -303,6 +307,7 @@ describe('following a config pull request after it opened', () => {
       .set({ lastRejectedAt: new Date(Date.now() - 2 * HOUR_MS) })
       .where(eq(schema.stationSearchSchedule.stationId, BUILD));
 
+    const secondAt = new Date();
     const second = await startSearch({
       iterations: 1,
       ceiling: 60,
@@ -321,20 +326,7 @@ describe('following a config pull request after it opened', () => {
     });
     expect(await pullRequestsOf(second.id)).toEqual([]);
     expect(github.opened).toHaveLength(1);
-    expect(
-      await eventually(async () => {
-        const found = await resultNoticesOf(second.id);
-
-        return found.length > 0 ? found : null;
-      }, WITHIN),
-    ).toEqual([
-      expect.objectContaining({
-        headline: 'The search of the Build station ended with no pull request',
-        points: [
-          "A config pull request for each passing candidate was closed on GitHub before. Spotlight does not propose this config again while the station's live config stays the same.",
-        ],
-      }),
-    ]);
+    expect(await silentAfter(secondAt)).toEqual([]);
 
     await reopenedOnGitHub(1);
 
@@ -361,9 +353,10 @@ describe('following a config pull request after it opened', () => {
     ).toMatchObject({ rejected: [opened?.proposing] });
   }, 300_000);
 
-  it('declines the pick of a search that finishes while a config pull request of its station is open, and still tells the team', async () => {
+  it('declines the pick of a search that finishes while a config pull request of its station is open, and tells nobody', async () => {
     await createSet(await seventeenTasks(POLISH), POLISH);
 
+    const searchedFrom = new Date();
     const search = await startSearch(
       { iterations: 1, ceiling: 60, objective: 'success' },
       POLISH,
@@ -382,20 +375,7 @@ describe('following a config pull request after it opened', () => {
       await eventually(async () => (await searchOf(search.id)).pick, WITHIN),
     ).toMatchObject({ outcome: 'declined', reason: 'pull-request-open' });
     expect(await pullRequestsOf(search.id)).toEqual([]);
-    expect(
-      await eventually(async () => {
-        const found = await resultNoticesOf(search.id);
-
-        return found.length > 0 ? found : null;
-      }, WITHIN),
-    ).toEqual([
-      expect.objectContaining({
-        headline: 'The search of the Polish station ended with no pull request',
-        points: [
-          'A config pull request for the station is open. Spotlight keeps one open config pull request for each station.',
-        ],
-      }),
-    ]);
+    expect(await silentAfter(searchedFrom)).toEqual([]);
   }, 300_000);
 
   it('closes a config pull request on GitHub with a comment once the live config of its station changed, keeps it closed as stale, forgets rejected configs, and records a merge that arrives after', async () => {
@@ -442,18 +422,20 @@ describe('following a config pull request after it opened', () => {
   });
 
   it('records a merge instead of closing when GitHub says the stale pull request merged before the close job ran', async () => {
+    github.statuses.set(24, { state: 'merged', closedAt: new Date() });
+
     const id = await staleAfterChange(24, 'Build it, merged on GitHub.');
 
-    github.statuses.set(24, { state: 'merged', closedAt: new Date() });
     await closedAfterJob(id, 'merged');
 
     expect(github.closed.map((each) => each.number)).not.toContain(24);
   });
 
   it('closes a stale pull request with the failure recorded when GitHub refuses the close for good, and when only the comment fails', async () => {
+    github.failing = new RepositoryUnreachableError(CONFIG);
+
     const refused = await staleAfterChange(25, 'Build it, refused.');
 
-    github.failing = new RepositoryUnreachableError(CONFIG);
     await closedAfterJob(refused);
     github.failing = null;
 
@@ -463,9 +445,10 @@ describe('following a config pull request after it opened', () => {
       closeFailureCode: 'repository-unreachable',
     });
 
+    github.commentFailing = new Error('GitHub is down');
+
     const uncommented = await staleAfterChange(26, 'Build it, uncommented.');
 
-    github.commentFailing = new Error('GitHub is down');
     await closedAfterJob(uncommented);
     github.commentFailing = null;
 
@@ -479,6 +462,8 @@ describe('following a config pull request after it opened', () => {
   });
 
   it('reconciles an opened pull request with GitHub once it went six hours without a check, and keeps one open pull request for each station', async () => {
+    github.statuses.set(27, { state: 'closed', closedAt: new Date() });
+
     const id = await anOpenedPullRequest({
       number: 27,
       basedOn: (await liveAt()).fingerprint,
@@ -494,7 +479,6 @@ describe('following a config pull request after it opened', () => {
       }),
     ).rejects.toThrow();
 
-    github.statuses.set(27, { state: 'closed', closedAt: new Date() });
     await eventually(async () => {
       await app.get(ReconcileConfigPullRequests).processDue();
       return (await pullRequestRow(id))?.state === 'closed';

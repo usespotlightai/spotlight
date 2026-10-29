@@ -11,7 +11,6 @@ import { ReplaySetEntryTakenError } from '@replays/domain/exceptions/replay-set-
 import { ReplaySetFullError } from '@replays/domain/exceptions/replay-set-full.error';
 import { ReplaySetInUseError } from '@replays/domain/exceptions/replay-set-in-use.error';
 import { ReplaySetStationGoneError } from '@replays/domain/exceptions/replay-set-station-gone.error';
-import { ReplaySetTaskRemovedError } from '@replays/domain/exceptions/replay-set-task-removed.error';
 import { UnknownReplaySetEntryError } from '@replays/domain/exceptions/unknown-replay-set-entry.error';
 import { UnreplayableEntryError } from '@replays/domain/exceptions/unreplayable-entry.error';
 import { aSet, NOW, STATION } from '@replays/domain/replays.fake-spec';
@@ -48,7 +47,6 @@ describe('ReplaySet', () => {
     });
 
     expect(set.entries).toEqual([]);
-    expect(set.removedTasks).toEqual([]);
     expect(set.refreshedAt).toBeNull();
     expect(set.lastRefresh).toBeNull();
     expect(set.pullEvents()).toEqual([]);
@@ -197,45 +195,6 @@ describe('ReplaySet', () => {
       expect(() =>
         aSet(1).refresh({ add: [], remove: [RunId.of('run_9')] }, LATER, false),
       ).toThrow(UnknownReplaySetEntryError);
-    });
-  });
-
-  describe('removeEntry', () => {
-    it('removes a run, and rejects removing one it never contained', () => {
-      const set = aSet(2);
-      set.pullEvents();
-
-      const without = set.removeEntry(RunId.of('original_0'), false);
-
-      expect(without.runs.map((each) => each.value)).toEqual(['original_1']);
-      expect(without.pullEvents()).toEqual([
-        new ReplaySetEntriesChanged(set.id, set.workspaceId),
-      ]);
-      expect(() => without.removeEntry(RunId.of('original_0'), false)).toThrow(
-        UnknownReplaySetEntryError,
-      );
-    });
-
-    it('never takes a run of a task a person removed again', () => {
-      const without = aSet(2).removeEntry(RunId.of('original_0'), false);
-
-      expect(without.removedTasks.map((each) => each.value)).toEqual([
-        'task_0',
-      ]);
-      expect(without.wasRemoved(TaskId.of('task_0'))).toBe(true);
-      expect(() =>
-        without.refresh(
-          adding({ ...replayable('run_9'), taskId: TaskId.of('task_0') }),
-          LATER,
-          false,
-        ),
-      ).toThrow(ReplaySetTaskRemovedError);
-    });
-
-    it('is refused while a search, a replay or a check uses the set', () => {
-      expect(() => aSet(2).removeEntry(RunId.of('original_0'), true)).toThrow(
-        ReplaySetInUseError,
-      );
     });
   });
 

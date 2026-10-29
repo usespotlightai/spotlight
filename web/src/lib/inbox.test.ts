@@ -374,10 +374,14 @@ const notice = (over: Partial<InboxNotice> = {}): InboxNotice => ({
   id: 'notice_1',
   teamId: 'team_1',
   form: 'ended',
-  headline: 'The search stalled',
-  points: ['Fix the judge’s rubric (Rename the worker): it wants tests.'],
-  link: 'lines/line_1/stations/station_1/searches/search_1',
-  linkLabel: 'Open the search',
+  headline: 'Spotlight opened a config pull request for the Build station',
+  points: ['Candidate terse changes prompt.', 'Held-out gain: +8 points'],
+  link: 'lines/line_1/stations/station_1',
+  linkLabel: 'Open the station',
+  externalLink: {
+    url: 'https://github.com/acme/config/pull/7',
+    label: 'Review the pull request',
+  },
   askedAt: '2026-10-01T10:00:00.000Z',
   unread: true,
   resolved: false,
@@ -393,14 +397,12 @@ describe('notices', () => {
 
   it('turns the link within its team into a full route', () => {
     expect(noticeLinkPath('acme', notice())).toBe(
-      '/w/acme/team/team_1/lines/line_1/stations/station_1/searches/search_1',
+      '/w/acme/team/team_1/lines/line_1/stations/station_1',
     );
   });
 
   it('previews its first point', () => {
-    expect(noticePreviewOf(notice())).toBe(
-      'Fix the judge’s rubric (Rename the worker): it wants tests.',
-    );
+    expect(noticePreviewOf(notice())).toBe('Candidate terse changes prompt.');
   });
 
   it('tells a notice from a conversation sharing its id', () => {

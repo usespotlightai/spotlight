@@ -1,7 +1,7 @@
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import { judgeGuidanceOf } from '@shared-kernel/domain/value-objects/judge-guidance';
 
-export const JUDGE_SCALES = ['yes-no', 'number', 'claims'] as const;
+const JUDGE_SCALES = ['yes-no', 'number', 'claims'] as const;
 
 export type JudgeScale = (typeof JUDGE_SCALES)[number];
 

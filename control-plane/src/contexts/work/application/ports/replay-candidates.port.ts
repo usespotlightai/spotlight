@@ -57,7 +57,7 @@ export interface ReplayThreshold {
   readonly minGain: number;
 }
 
-export interface StationSearchAgent {
+interface StationSearchAgent {
   readonly harness: string;
   readonly model: string | null;
   readonly effort: string | null;

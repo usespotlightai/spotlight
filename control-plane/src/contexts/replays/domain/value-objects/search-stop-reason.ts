@@ -2,7 +2,7 @@ export const SEARCH_STOP_REASONS = [
   'iterations-spent',
   'ceiling-reached',
   'stalled',
-  'stopped',
+  'turned-off',
   'station-gone',
   'seed-failed',
 ] as const;

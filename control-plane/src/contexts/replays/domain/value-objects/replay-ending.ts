@@ -1,4 +1,4 @@
-export const REPLAY_ENDINGS = [
+const REPLAY_ENDINGS = [
   'completed',
   'failed',
   'stopped',

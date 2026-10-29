@@ -8,7 +8,6 @@ import type { ReplayedMark, ReplayedPoint } from '@/lib/insights-candidates';
 const SHAPES: Record<ReplayedMark, MarkShape> = {
   baseline: 'diamond',
   searched: 'circle',
-  proposed: 'square',
 };
 
 export type ReplayedPointMarkProps = {
