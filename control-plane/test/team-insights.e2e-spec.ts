@@ -867,8 +867,8 @@ describe('the team’s insights (e2e)', () => {
       spend: { amount: 1.25, currency: 'USD' },
       unpriced: 0,
       mixedCurrencies: false,
-      byModel: [{ key: 'sonnet', amount: 1.25, runs: 1 }],
-      byRepository: [{ key: 'acme/api', amount: 1.25, runs: 1 }],
+      byModel: [{ key: 'sonnet', amount: 1.25, share: 1, runs: 1 }],
+      byRepository: [{ key: 'acme/api', amount: 1.25, share: 1, runs: 1 }],
       links: [
         {
           source: 'model:sonnet',

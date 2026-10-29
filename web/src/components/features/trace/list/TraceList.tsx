@@ -5,7 +5,6 @@ import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { TraceHead } from '@/components/features/trace/list/TraceHead';
 import { TraceListSkeleton } from '@/components/features/trace/list/TraceListSkeleton';
 import { TraceRow } from '@/components/features/trace/list/TraceRow';
-import { TraceRunRow } from '@/components/features/trace/list/TraceRunRow';
 import { TraceSelectionBar } from '@/components/features/trace/list/TraceSelectionBar';
 import { TraceVolume } from '@/components/features/trace/list/TraceVolume';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -13,12 +12,10 @@ import { EmptyState } from '@/components/shared/EmptyState';
 import { Notice } from '@/components/shared/Notice';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useInsightsTraces } from '@/hooks/api/useInsightsTraces';
 import { narrowedBy, type RunFilter, TRUNCATED_TRACES } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 import { rangeOf } from '@/lib/range';
-import { runPath } from '@/lib/run';
 import { taskTracePath } from '@/lib/task';
 import { teamSectionPath } from '@/lib/team';
 import { useForwardTrail } from '@/lib/trail';
@@ -39,13 +36,11 @@ export function TraceList({
   onEveryTrace,
 }: TraceListProps) {
   const traces = useInsightsTraces(teamId, range, filter);
-  const harnesses = useHarnesses();
   const navigate = useNavigate();
   const trail = useForwardTrail();
   const narrowed = narrowedBy(filter).length > 0;
 
   const [selected, setSelected] = useState<readonly string[]>([]);
-  const [toggled, setToggled] = useState<ReadonlySet<string>>(new Set());
 
   if (loading(traces)) {
     return <TraceListSkeleton />;
@@ -86,17 +81,6 @@ export function TraceList({
     setSelected((current) =>
       on ? [...current, taskId] : current.filter((each) => each !== taskId),
     );
-
-  const opened = (taskId: string) => narrowed !== toggled.has(taskId);
-
-  const flip = (taskId: string) =>
-    setToggled((current) => {
-      const next = new Set(current);
-      if (!next.delete(taskId)) {
-        next.add(taskId);
-      }
-      return next;
-    });
 
   const discuss = () =>
     navigate(teamSectionPath(slug, teamId, 'agent'), {
@@ -146,27 +130,7 @@ export function TraceList({
                   to={taskTracePath(slug, teamId, trace.taskId)}
                   selected={chosen.has(trace.taskId)}
                   onSelectedChange={(on) => toggle(trace.taskId, on)}
-                  open={opened(trace.taskId)}
-                  onOpenChange={() => flip(trace.taskId)}
                 />
-
-                {opened(trace.taskId) && (
-                  <ul
-                    id={`runs-${trace.taskId}`}
-                    aria-label={`Runs of ${trace.title}`}
-                    className="flex flex-col"
-                  >
-                    {trace.runs.map((run) => (
-                      <TraceRunRow
-                        key={run.runId}
-                        run={run}
-                        to={runPath(slug, teamId, run.runId)}
-                        people={data.people}
-                        harnesses={harnesses.data}
-                      />
-                    ))}
-                  </ul>
-                )}
               </li>
             ))}
           </ul>

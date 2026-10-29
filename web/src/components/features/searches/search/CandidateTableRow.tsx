@@ -1,5 +1,6 @@
 import { CandidateIcons } from '@/components/features/searches/CandidateIcons';
 import { CandidatePullRequest } from '@/components/features/searches/search/CandidatePullRequest';
+import { CandidateRate } from '@/components/features/searches/search/CandidateRate';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
@@ -9,11 +10,8 @@ import {
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import { WithTooltip } from '@/components/shared/WithTooltip';
-import { formatPercent } from '@/lib/judge';
-import type { RateInterval } from '@/lib/replay';
 import {
   formatGain,
-  formatInterval,
   formatRunsScored,
   formatState,
   NOT_SCORED_YET,
@@ -33,28 +31,6 @@ const GAIN_TONES = {
   worse: 'text-destructive',
   'within-noise': 'text-muted-foreground',
 } as const;
-
-function Rate({
-  rate,
-  interval,
-  more,
-}: {
-  rate: number;
-  interval: RateInterval | null;
-  more?: string;
-}) {
-  const note = [interval && `Likely range: ${formatInterval(interval)}`, more]
-    .filter(Boolean)
-    .join(' · ');
-
-  return note ? (
-    <WithTooltip tooltip={note}>
-      <span className="relative z-10">{formatPercent(rate)}</span>
-    </WithTooltip>
-  ) : (
-    formatPercent(rate)
-  );
-}
 
 type CandidateTableRowProps = {
   candidate: SearchCandidate;
@@ -111,7 +87,7 @@ export function CandidateTableRow({
             {NOT_SCORED_YET}
           </span>
         ) : (
-          <Rate
+          <CandidateRate
             rate={candidate.searchScore}
             interval={candidate.searchInterval}
             more={formatRunsScored(candidate.searchScored)}
@@ -122,7 +98,7 @@ export function CandidateTableRow({
         {candidate.heldOutScore === null ? (
           formatHeldOut(candidate)
         ) : (
-          <Rate
+          <CandidateRate
             rate={candidate.heldOutScore}
             interval={candidate.heldOutInterval}
           />

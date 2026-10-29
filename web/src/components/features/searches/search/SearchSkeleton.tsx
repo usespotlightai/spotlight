@@ -32,7 +32,11 @@ export function SearchSkeleton({ known }: SearchSkeletonProps) {
       </div>
 
       <StationPane>
-        <InsightsTiles label="Loading the search in numbers" className="gap-3">
+        <InsightsTiles
+          label="Loading the search in numbers"
+          stacked
+          className="gap-3"
+        >
           {TILES.map((label) => (
             <InsightsTileSkeleton key={label} label={label} detail />
           ))}

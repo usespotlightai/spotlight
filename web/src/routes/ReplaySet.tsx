@@ -49,8 +49,9 @@ export function ReplaySet() {
       ),
   );
 
-  const base: BreadcrumbSegment[] = [...stationTrail, ...setCrumbs(at, set)];
-  const { trail, forward } = useTrail(base);
+  const crumbs = setCrumbs(at, set);
+  const base: BreadcrumbSegment[] = [...stationTrail, ...crumbs];
+  const { trail, forward } = useTrail(base, Math.max(crumbs.length, 1));
 
   if (loading(sets)) {
     return <ReplaySetSkeleton known={trail} />;

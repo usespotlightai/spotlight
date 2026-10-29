@@ -1,4 +1,3 @@
-import { SearchStatePill } from '@/components/features/searches/SearchStatePill';
 import { StationItemHeading } from '@/components/features/stations/StationItemHeading';
 import { INLINE_LINK } from '@/components/shared/section-link';
 import { WithTooltip } from '@/components/shared/WithTooltip';
@@ -6,6 +5,7 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import { type ReplayedStation, replaySetPath } from '@/lib/replay';
 import { type SearchDetail, searchLabel } from '@/lib/search';
+import { formatStopReason, formatStopReasonMark } from '@/lib/search-words';
 import { formatRan, since } from '@/lib/since';
 
 type SearchHeadingProps = {
@@ -25,12 +25,13 @@ export function SearchHeading({
   number,
   setName,
 }: SearchHeadingProps) {
+  const stopped = formatStopReasonMark(search.stopReason);
+
   return (
     <StationItemHeading
       line={line}
       station={station}
       title={searchLabel(number)}
-      marks={<SearchStatePill stopReason={search.stopReason} />}
     >
       <TrailLink to={replaySetPath(at, search.setId)} className={INLINE_LINK}>
         {setName ?? 'Its replay set'}
@@ -39,6 +40,14 @@ export function SearchHeading({
       <WithTooltip tooltip={formatRan(search.startedAt, search.endedAt)}>
         <span>{since(search.endedAt ?? search.startedAt)}</span>
       </WithTooltip>
+      {search.stopReason && stopped && (
+        <>
+          {' · '}
+          <WithTooltip tooltip={`${formatStopReason(search.stopReason)}.`}>
+            <span data-slot="stop-reason">{stopped}</span>
+          </WithTooltip>
+        </>
+      )}
     </StationItemHeading>
   );
 }

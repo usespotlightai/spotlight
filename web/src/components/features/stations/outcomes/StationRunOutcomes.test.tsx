@@ -184,8 +184,11 @@ describe('StationRunOutcomes', () => {
       'CompletedVisit1ChecksChecks passedHuman actionAcceptedPull requestMergedDuration3mCost$0.60',
     );
     expect(second).toHaveTextContent(
-      'FailedThe agent ran out of turnsVisit2Checks–Human action–Pull request–Duration–',
+      'FailedVisit2Checks–Human action–Pull request–Duration–',
     );
+    expect(
+      (second as HTMLElement).querySelector('[aria-describedby]'),
+    ).toHaveAccessibleDescription('The agent ran out of turns');
     expect(
       within(second as HTMLElement).getByRole('link', { name: 'Failed' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_2');

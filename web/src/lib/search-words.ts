@@ -11,6 +11,7 @@ import type {
 import { formatPercent } from '@/lib/judge';
 import type { GainEstimate } from '@/lib/replay';
 import {
+  counted,
   formatGain,
   formatGainRange,
   formatInterval,
@@ -162,7 +163,12 @@ const OBJECTIVES: Record<SearchObjective, string> = {
 
 const OBJECTIVE_NOTES: Record<SearchObjective, string> = {
   success: 'Spotlight ranks candidates by how often they succeed.',
-  cost: 'Spotlight ranks candidates by cost per run. Only candidates that match the live config’s success, within noise, count.',
+  cost: 'Spotlight ranks candidates by cost per run, considering only those whose success rate matches the live configuration within statistical uncertainty.',
+};
+
+const AIMS: Record<SearchObjective, string> = {
+  success: 'The search aims for more success.',
+  cost: 'The search aims to maintain the same success rate at a lower cost.',
 };
 
 const BEST_TERMS: Record<SearchObjective, string> = {
@@ -175,10 +181,25 @@ const NO_BEST: Record<SearchObjective, string> = {
   cost: 'No candidate matches the live config’s success yet',
 };
 
-const FRONTIER_NOTES: Record<SearchObjective, string> = {
-  success:
-    'Success on the searched tasks and cost per run of each candidate. Frontier: candidates that no other candidate beats for less. The live config is always on the frontier.',
-  cost: 'Success on the searched tasks and cost per run of each candidate. Frontier: candidates that match the live config’s success, within noise, and that no other candidate matches for less. The live config is always on the frontier.',
+const FRONTIER_NOTES: Record<SearchObjective, TooltipNote> = {
+  success: {
+    body: 'Success on the searched tasks and cost per run of each candidate.',
+    rows: [
+      [
+        'Frontier',
+        'Candidates that no other candidate beats for less. The live config is always on the frontier.',
+      ],
+    ],
+  },
+  cost: {
+    body: 'Each candidate is evaluated by its success rate on the searched tasks and its cost per run.',
+    rows: [
+      [
+        'Frontier',
+        'Candidates that match the live configuration’s success rate, within statistical uncertainty, and cannot be matched by another candidate at a lower cost. The live configuration is always included as a baseline.',
+      ],
+    ],
+  },
 };
 
 export const OBJECTIVE_LABEL = 'Aim for';
@@ -189,6 +210,9 @@ export const formatObjective = (objective: SearchObjective): string =>
 export const objectiveNote = (objective: SearchObjective): string =>
   OBJECTIVE_NOTES[objective];
 
+export const formatAims = (objective: SearchObjective): string =>
+  `${AIMS[objective]} ${OBJECTIVE_NOTES[objective]}`;
+
 export const formatObjectiveSuggested = (rate: number): string =>
   `Suggested: the live config already succeeds on ${formatPercent(rate)} of this set. The set has little room for more success.`;
 
@@ -198,7 +222,7 @@ export const formatBestTerm = (objective: SearchObjective): string =>
 export const formatNoBest = (objective: SearchObjective): string =>
   NO_BEST[objective];
 
-export const frontierNote = (objective: SearchObjective): string =>
+export const frontierNote = (objective: SearchObjective): TooltipNote =>
   FRONTIER_NOTES[objective];
 
 export const bestScoreNote = (
@@ -214,6 +238,12 @@ export const bestScoreNote = (
 
 export const formatBestOn = (heldOut: boolean): string =>
   heldOut ? 'held out' : 'searched';
+
+export const formatSuccessOn = (heldOut: boolean): string =>
+  `Success rate, ${formatBestOn(heldOut)}`;
+
+export const formatCheapest = (cost: string, live: string | null): string =>
+  live === null ? `${cost} per run` : `${cost} per run, down from ${live}`;
 
 const OVERFIT_LABELS: Record<Overfit, string> = {
   likely: 'Likely overfit',
@@ -358,28 +388,38 @@ export const REFLECTION_ITERATION_PENDING =
 
 export const SEE_WHY_IT_STALLED = 'See why it stalled';
 
-export const SPLIT_NOTE =
-  'The search agent sees only the searched tasks and their scores. It doesn’t see the held-out tasks. After the search, the best candidates replay on the held-out tasks to check that they don’t only fit what the agent saw.';
-
-export const formatHeldOutTasks = (titles: readonly string[]): string =>
-  titles.length > 0 ? `Held out: ${titles.join(', ')}.` : '';
+export const formatSplitNote = (heldOut: readonly string[]): TooltipNote => ({
+  body: 'The search agent only sees the tasks and scores used during the search. Afterward, the best candidates are evaluated against held-out tasks the agent hasn’t seen, to verify that improvements generalize beyond the search.',
+  list: { title: `Held-out tasks (${heldOut.length})`, items: heldOut },
+});
 
 export const ON_THE_FRONTIER = 'On the frontier';
 
 export const ON_THE_FRONTIER_NOTE: TooltipNote = {
   title: ON_THE_FRONTIER,
-  body: 'No other candidate succeeds more for less.',
+  body: 'No other candidate achieves a higher success rate without increasing cost, or a lower cost without reducing success.',
 };
 
 export const CANDIDATES_NOTE =
-  'Configs that the search agent proposed, by iteration. Select a candidate to see its hypothesis, results and pull request.';
+  'Candidate configurations proposed by the search agent, organized by iteration. Select a candidate to view its hypothesis, evaluation results, and pull request.';
 
 export const formatBudgetNote = (
-  budget: Pick<SearchResponseDto['budget'], 'perIteration' | 'concurrency'>,
-  repeats: string,
+  budget: Pick<
+    SearchResponseDto['budget'],
+    'perIteration' | 'concurrency' | 'repeats'
+  >,
   agent: string,
-): string =>
-  `Each iteration tries ${budget.perIteration} ${budget.perIteration === 1 ? 'candidate' : 'candidates'}, ${budget.concurrency} at once. ${repeats}. Search agent: ${agent}`;
+): TooltipNote => ({
+  body: [
+    `Each iteration proposes up to ${counted(budget.perIteration, 'candidate', 'candidates')}.`,
+    `Up to ${counted(budget.concurrency, 'replay run', 'replay runs')} run in parallel.`,
+    `Each run is replayed ${budget.repeats === 1 ? 'once' : `${budget.repeats} times`} per candidate.`,
+  ].join(' '),
+  rows: [['Search agent', agent]],
+});
+
+export const formatEffort = (effort: string): string =>
+  `${effort.charAt(0).toUpperCase()}${effort.slice(1)} reasoning`;
 
 export const candidateGainNote = (
   searched: SearchCandidateResponseDto['searchedGain'],
@@ -422,7 +462,7 @@ export const formatIterationNote = (
 
 const STOP_REASON_MARKS: Record<SearchStopReason, string | null> = {
   'iterations-spent': null,
-  'ceiling-reached': 'Hit its ceiling',
+  'ceiling-reached': 'Ceiling reached',
   stalled: 'Stalled',
   stopped: 'Stopped',
   'station-gone': 'Station gone',
@@ -436,10 +476,10 @@ export const formatStopReasonMark = (
 
 export const NO_VALUE = '–';
 
-export const formatLikely = (
+export const estimatedRateRows = (
   interval: { readonly low: number; readonly high: number } | null,
-): string | null =>
-  interval ? `Likely range: ${formatInterval(interval)}.` : null;
+): TooltipRow[] =>
+  interval ? [['Estimated success rate', formatInterval(interval)]] : [];
 
 export const formatSentences = (...parts: readonly (string | null)[]): string =>
   parts.filter(Boolean).join(' ');

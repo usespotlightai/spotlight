@@ -19,6 +19,14 @@ export function TooltipNoteContent({ note }: { note: TooltipNote }) {
           ))}
         </span>
       )}
+      {note.list && note.list.items.length > 0 && (
+        <span className="flex flex-col gap-0.5">
+          <span className="font-medium">{note.list.title}</span>
+          {note.list.items.map((item) => (
+            <span key={item}>{item}</span>
+          ))}
+        </span>
+      )}
     </span>
   );
 }

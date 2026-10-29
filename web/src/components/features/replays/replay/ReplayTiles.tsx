@@ -56,7 +56,7 @@ export function ReplayTiles({ replay }: ReplayTilesProps) {
   const parts = spendBreakdown(replay);
 
   return (
-    <InsightsTiles label="The replay in numbers" className="gap-3">
+    <InsightsTiles label="The replay in numbers" stacked className="gap-3">
       <InsightsTile
         label="Success"
         value={

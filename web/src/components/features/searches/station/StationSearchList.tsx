@@ -1,5 +1,5 @@
 import type { UseQueryResult } from '@tanstack/react-query';
-import { Sparkles } from 'lucide-react';
+import { Cone } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { StateBox } from '@/components/features/replays/StateBox';
 import { SearchRow } from '@/components/features/searches/station/SearchRow';
@@ -56,7 +56,7 @@ export function StationSearchList({
   if (listed.length === 0) {
     return (
       <StateBox flat>
-        <EmptyState icon={Sparkles} title="No searches yet" action={start}>
+        <EmptyState icon={Cone} title="No searches yet" action={start}>
           {sets?.length === 0
             ? 'Searches need a replay set to try configs on.'
             : 'An agent tries configs on a replay set to find a better, cheaper one.'}

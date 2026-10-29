@@ -213,7 +213,7 @@ export const failureSentence = (failure: string): string => {
 export const formatRunState = (state: string): string =>
   RUN_STATES[state] ?? sentence(state);
 
-const counted = (count: number, one: string, many: string): string =>
+export const counted = (count: number, one: string, many: string): string =>
   `${count.toLocaleString()} ${count === 1 ? one : many}`;
 
 export const formatUnpricedRuns = (count: number): string =>

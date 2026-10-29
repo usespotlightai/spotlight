@@ -1,3 +1,4 @@
+import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
@@ -8,7 +9,6 @@ import {
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { since } from '@/lib/since';
 import {
-  endedBadly,
   formatChecks,
   formatEnding,
   formatHumanAction,
@@ -30,17 +30,14 @@ export function OutcomeRow({ run, to }: OutcomeRowProps) {
       <span className={cn(LEAD_CELL, EDGE_INDENT)}>
         <TrailLink
           to={to}
-          className={cn(
-            'shrink-0 font-medium outline-none after:absolute after:inset-0',
-            endedBadly(run.ending) ? 'text-destructive' : 'text-foreground',
-          )}
+          className="shrink-0 font-medium text-foreground outline-none after:absolute after:inset-0"
         >
           {formatEnding(run.ending)}
         </TrailLink>
 
         {run.failure && (
-          <span className="truncate text-muted-foreground" title={run.failure}>
-            {run.failure}
+          <span className="relative flex">
+            <InfoTooltip tooltip={run.failure} />
           </span>
         )}
       </span>

@@ -34,3 +34,13 @@ export const TYPE_SERIES = [
   { label: 'Spotlight', color: 'var(--chart-primary)' },
   { label: 'People alone', color: 'var(--chart-1)' },
 ] as const;
+
+const SLICE_FILLS = [
+  'var(--chart-primary)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+  'var(--chart-3)',
+] as const;
+
+export const sliceFill = (at: number): string =>
+  SLICE_FILLS[at] ?? 'var(--chart-1)';

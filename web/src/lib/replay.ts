@@ -512,7 +512,7 @@ export const taskHeadingsOf = (
 
 export const RESULT_INK: Record<ReplayEntry['result'], string> = {
   pending: 'text-muted-foreground',
-  succeeded: 'text-emerald-600 dark:text-emerald-400',
-  failed: 'text-destructive',
+  succeeded: 'text-foreground',
+  failed: 'text-foreground',
   unscored: 'text-muted-foreground',
 };

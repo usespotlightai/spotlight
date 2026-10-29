@@ -20,6 +20,7 @@ import {
   objectiveNote,
   type PullRequestReason,
 } from '@/lib/search-words';
+import { tooltipText } from '@/lib/tooltip-note';
 
 type Schema = {
   readonly properties: Readonly<
@@ -155,7 +156,7 @@ describe('search words cover every code the API can answer', () => {
       worded(formatObjective(objective as never), objective);
       worded(objectiveNote(objective as never), objective);
       worded(formatBestTerm(objective as never), objective);
-      worded(frontierNote(objective as never), objective);
+      worded(tooltipText(frontierNote(objective as never)), objective);
       worded(formatNoBest(objective as never), objective);
     }
   });

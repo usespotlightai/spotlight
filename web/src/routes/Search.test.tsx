@@ -77,7 +77,15 @@ vi.mock('@/hooks/useStationTrail', () => ({
 }));
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
-  useHarnesses: () => ({ data: [{ id: 'claude-code', name: 'Claude Code' }] }),
+  useHarnesses: () => ({
+    data: [
+      {
+        id: 'claude-code',
+        name: 'Claude Code',
+        models: [{ id: 'opus', name: 'Opus' }],
+      },
+    ],
+  }),
 }));
 
 vi.mock('@/hooks/api/useStopSearch', () => ({
@@ -407,22 +415,51 @@ describe('Search', () => {
     );
   });
 
-  it('says a search aims for the same success for less, naming its cheapest and how its frontier is drawn', () => {
+  it('says a search aims for the same success rate at a lower cost, naming its cheapest and how its frontier is drawn', () => {
     detail.mockReturnValue({ ...DETAIL, objective: 'cost', best: null });
 
     renderSearch();
 
     expect(tileNote('Cheapest')).toHaveAccessibleDescription(
-      /^The search aims for the same success for less\./,
+      /^The search aims to maintain the same success rate at a lower cost\. Spotlight ranks candidates by cost per run, considering only those whose success rate matches the live configuration within statistical uncertainty\.$/,
     );
     expect(tile('Cheapest')).toHaveTextContent(
       'No candidate matches the live config’s success yet',
     );
     expect(
       screen.getByText(
-        /Frontier: candidates that match the live config’s success, within noise/,
+        /Frontier: Candidates that match the live configuration’s success rate, within statistical uncertainty/,
       ),
     ).toBeInTheDocument();
+  });
+
+  it('shows the cheapest candidate’s cost per run next to the live config’s, with its success rate on hover', () => {
+    detail.mockReturnValue({
+      ...DETAIL,
+      objective: 'cost',
+      best: {
+        candidateId: 'tests',
+        name: 'tests-first',
+        isSeed: false,
+        searchScore: 0.8,
+        searchInterval: null,
+        heldOutScore: 0.5,
+        heldOutInterval: { rate: 0.5, low: 0.09, high: 0.91 },
+        costPerRun: 0.14,
+        overfit: null,
+        regressions: { searched: 0, heldOut: 0, total: 0 },
+        exceedsRegressionLimit: false,
+      },
+    });
+
+    renderSearch();
+
+    expect(tile('Cheapest')).toHaveTextContent(
+      'tests-first$0.14 per run, down from $0.50',
+    );
+    expect(tileNote('Cheapest')).toHaveAccessibleDescription(
+      /Success rate, held out: 50%\. Estimated success rate: 9–91%\.$/,
+    );
   });
 
   it('names the held-out tasks', () => {
@@ -432,7 +469,17 @@ describe('Search', () => {
 
     expect(tile('Tasks')).toHaveTextContent('5searched · 2 held out');
     expect(tileNote('Tasks')).toHaveAccessibleDescription(
-      /Held out: Retry refunds on timeout\.$/,
+      /^The search agent only sees the tasks and scores used during the search\..*Held-out tasks \(\d\): .*Retry refunds on timeout\.$/,
+    );
+  });
+
+  it('says what each iteration tries and which agent searches', () => {
+    detail.mockReturnValue(DETAIL);
+
+    renderSearch();
+
+    expect(tileNote('Iterations')).toHaveAccessibleDescription(
+      'Each iteration proposes up to 2 candidates. Up to 4 replay runs run in parallel. Each run is replayed once per candidate. Search agent: Claude Code · Opus · High reasoning.',
     );
   });
 
@@ -448,24 +495,20 @@ describe('Search', () => {
     });
     expect(within(table).getByText('Live config')).toBeInTheDocument();
     expect(within(table).getByText('tests-first')).toBeInTheDocument();
-    expect(within(table).getByText('100%')).toBeInTheDocument();
 
     const tests = within(table).getByText('tests-first').closest('tr');
-    const slots = (slot: string) =>
-      [...(tests?.querySelectorAll(`[data-slot="${slot}"]`) ?? [])].map(
+    expect(
+      [...(tests?.querySelectorAll('td') ?? [])].map(
         (each) => each.textContent,
-      );
-    expect(slots('rate-with-interval')).toEqual([
-      '80% (60–100%)',
-      '100% (100–100%)',
+      ),
+    ).toEqual([
+      expect.stringContaining('tests-first'),
+      '80%',
+      expect.any(String),
     ]);
-    expect(slots('gain-significance')).toEqual([
-      '+20 pts(+5 to +35)· Better',
-      '+10 pts(−20 to +40)· within noise',
-    ]);
-    expect(slots('pair-tally')).toEqual([
-      'Side by side with the search’s starting config: 3 wins, 1 loss, 1 tie',
-    ]);
+    expect(
+      tests?.querySelector('[data-slot="candidate-rate"]'),
+    ).toHaveAccessibleDescription('Likely range: 60–100% · of 5 runs scored');
   });
 
   it('marks a candidate that gained only on the tasks the search could see', async () => {
@@ -552,7 +595,7 @@ describe('Search', () => {
     ).toBeInTheDocument();
   });
 
-  it('counts each candidate’s regressions in the frontier table, and marks one over the line’s regression limit wherever it shows', async () => {
+  it('marks a candidate over the line’s regression limit wherever it shows', async () => {
     const [tests] = DETAIL.candidates;
     const over = tests && {
       ...tests,
@@ -609,42 +652,9 @@ describe('Search', () => {
       within(table).getByText(name).closest('tr') as HTMLElement;
 
     expect(
-      row('tests-first').querySelector('[data-slot="regressions"]'),
-    ).toHaveTextContent('3');
-    expect(
       within(row('tests-first')).getByRole('img', mark),
     ).toBeInTheDocument();
-    expect(
-      row('Live config').querySelector('[data-slot="regressions"]'),
-    ).toBeNull();
     expect(within(row('Live config')).queryByRole('img', mark)).toBeNull();
-  });
-
-  it('counts regressions without a mark when the line sets no regression limit', () => {
-    const [tests] = DETAIL.candidates;
-    detail.mockReturnValue({
-      ...DETAIL,
-      candidates: tests
-        ? [{ ...tests, regressions: { searched: 4, heldOut: null, total: 4 } }]
-        : [],
-    });
-
-    renderSearch();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
-
-    const testsRow = within(
-      screen.getByRole('table', { name: 'Candidates by success and cost' }),
-    )
-      .getByText('tests-first')
-      .closest('tr');
-
-    expect(
-      testsRow?.querySelector('[data-slot="regressions"]'),
-    ).toHaveTextContent('4');
-    expect(
-      testsRow?.querySelector('[data-slot="regression-limit"]'),
-    ).toBeNull();
   });
 
   it('says plainly when too few held-out tasks were scored to tell, without marking it', async () => {

@@ -1,4 +1,3 @@
-import { ChevronRight } from 'lucide-react';
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { TRACE_COLUMNS } from '@/components/features/trace/list/columns';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
@@ -14,8 +13,6 @@ type TraceRowProps = {
   to: string;
   selected: boolean;
   onSelectedChange: (on: boolean) => void;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
 };
 
 export function TraceRow({
@@ -23,8 +20,6 @@ export function TraceRow({
   to,
   selected,
   onSelectedChange,
-  open,
-  onOpenChange,
 }: TraceRowProps) {
   return (
     <div
@@ -64,20 +59,6 @@ export function TraceRow({
       </span>
 
       <span className="flex min-w-0 items-center gap-1">
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={open ? `runs-${trace.taskId}` : undefined}
-          aria-label={`${open ? 'Hide' : 'Show'} the runs of ${trace.title}`}
-          onClick={() => onOpenChange(!open)}
-          className="-ml-1 relative z-10 shrink-0 rounded-sm p-0.5 text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
-        >
-          <ChevronRight
-            aria-hidden
-            className={cn('size-3.5 transition-transform', open && 'rotate-90')}
-          />
-        </button>
-
         <TrailLink
           to={to}
           className="min-w-0 truncate text-foreground outline-none after:absolute after:inset-0 after:rounded-md"

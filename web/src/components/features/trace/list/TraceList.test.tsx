@@ -34,12 +34,6 @@ vi.mock('@/hooks/api/useLines', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useHarnesses', () => ({
-  useHarnesses: () => ({
-    data: [{ id: 'claude-code', name: 'Claude Code' }],
-  }),
-}));
-
 vi.mock('@/components/features/trace/list/TraceVolume', () => ({
   TraceVolume: () => null,
 }));
@@ -128,33 +122,10 @@ describe('TraceList', () => {
     ).toHaveAttribute('href', '/w/acme/team/team_1/tasks/task_1/trace');
   });
 
-  it('shows the runs of a trace on request, each leading to its run', async () => {
-    showing();
-
-    expect(
-      screen.queryByRole('link', { name: 'Failed' }),
-    ).not.toBeInTheDocument();
-
-    await userEvent.click(
-      screen.getByRole('button', {
-        name: 'Show the runs of Drain the stuck retry queues',
-      }),
-    );
-
-    expect(screen.getByRole('link', { name: 'Failed' })).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/runs/run_1',
-    );
-    expect(
-      screen.getByText('Ada Lovelace · Claude Code · opus'),
-    ).toBeInTheDocument();
-  });
-
-  it('shows the matching runs of each trace when narrowed, and how many runs it had', () => {
+  it('says how many of the runs of each trace match when narrowed', () => {
     traces.mockReturnValue([{ ...traced, total: 3 }]);
     showing({ outcome: 'failed' });
 
-    expect(screen.getByRole('link', { name: 'Failed' })).toBeInTheDocument();
     expect(screen.getByText('1 of 3 runs')).toBeInTheDocument();
   });
 

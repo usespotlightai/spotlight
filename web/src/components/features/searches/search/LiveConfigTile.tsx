@@ -6,7 +6,7 @@ import {
   NOT_SCORED_YET,
 } from '@/lib/replay-words';
 import type { SearchDetail } from '@/lib/search';
-import { formatLikely, formatSentences, NO_VALUE } from '@/lib/search-words';
+import { estimatedRateRows, NO_VALUE } from '@/lib/search-words';
 
 export function LiveConfigTile({ search }: { search: SearchDetail }) {
   const { seed } = search;
@@ -21,10 +21,10 @@ export function LiveConfigTile({ search }: { search: SearchDetail }) {
           : NO_VALUE
       }
       detail={scored ? formatRunsScored(seed.searchScored) : NOT_SCORED_YET}
-      tooltip={formatSentences(
-        formatLikely(seed.searchInterval),
-        `${minGainSentence(search.minGain)}.`,
-      )}
+      tooltip={{
+        body: `${minGainSentence(search.minGain)}.`,
+        rows: estimatedRateRows(seed.searchInterval),
+      }}
     />
   );
 }

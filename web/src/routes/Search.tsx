@@ -32,10 +32,11 @@ export function Search() {
       : undefined;
   const number = searchId ? searchNumber(searches.data ?? [], searchId) : null;
   const set = sets.data?.find((each) => each.id === found?.setId);
-  const { trail, forward } = useTrail([
-    ...stationTrail,
-    ...searchCrumbs(at, found, number),
-  ]);
+  const crumbs = searchCrumbs(at, found, number);
+  const { trail, forward } = useTrail(
+    [...stationTrail, ...crumbs],
+    Math.max(crumbs.length, 1),
+  );
   useScrollToHash(Boolean(found && at));
 
   if (loading(search)) {

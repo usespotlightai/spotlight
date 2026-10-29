@@ -35,6 +35,7 @@ export function TallySparkline({ trend }: { trend: readonly TrendPoint[] }) {
           stroke="var(--chart-primary)"
           strokeWidth={1.5}
           dot={false}
+          activeDot={false}
           isAnimationActive={false}
         />
         <Line
@@ -42,6 +43,7 @@ export function TallySparkline({ trend }: { trend: readonly TrendPoint[] }) {
           stroke="var(--destructive)"
           strokeWidth={1}
           dot={false}
+          activeDot={false}
           isAnimationActive={false}
         />
       </LineChart>

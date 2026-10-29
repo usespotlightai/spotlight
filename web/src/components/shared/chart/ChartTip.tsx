@@ -13,7 +13,7 @@ export function ChartTip({ placement, style, children }: ChartTipProps) {
     <div
       style={style}
       className={cn(
-        'whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-overlay',
+        'whitespace-nowrap rounded-md bg-popover px-2.5 py-1.5 text-popover-foreground text-xs shadow-md ring-1 ring-foreground/10',
         placement?.left && '-translate-x-full',
         placement?.above && '-translate-y-full',
       )}

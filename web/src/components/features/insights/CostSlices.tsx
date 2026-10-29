@@ -1,11 +1,11 @@
-import { BarRow } from '@/components/features/insights/BarRow';
+import { CostDonut } from '@/components/features/insights/CostDonut';
+import { CostSliceRow } from '@/components/features/insights/CostSliceRow';
+import { sliceFill } from '@/components/features/insights/chart-series';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
-import { spentIn } from '@/lib/inbox';
 import {
   type CostDimension,
   type CostSlice,
-  formatCount,
   type SliceNamer,
   sliceFilter,
 } from '@/lib/insights';
@@ -25,49 +25,42 @@ export function CostSlices({
   currency,
   named,
 }: CostSlicesProps) {
-  const max = Math.max(...slices.map((slice) => slice.amount), 0);
-
   return (
     <InsightsCard title={title}>
       {slices.length === 0 ? (
         <p className="py-2 text-muted-foreground text-sm">Nothing priced.</p>
       ) : (
-        <ul
-          aria-label={`Spend ${title.toLowerCase()}`}
-          className="flex flex-col gap-1.5 pb-2"
-        >
-          {slices.map((slice) => {
-            const label = named(dimension, slice.key);
-            const filter = sliceFilter(dimension, slice.key);
+        <div className="flex items-center gap-4 pb-3">
+          {slices.some((slice) => slice.amount > 0) && (
+            <CostDonut slices={slices} />
+          )}
+          <ul
+            aria-label={`Spend ${title.toLowerCase()}`}
+            className="flex min-w-0 flex-1 flex-col gap-1.5"
+          >
+            {slices.map((slice, at) => {
+              const label = named(dimension, slice.key);
+              const filter = sliceFilter(dimension, slice.key);
 
-            return (
-              <BarRow
-                key={slice.key ?? 'none'}
-                slot="cost-slice"
-                share={max > 0 ? slice.amount / max : 0}
-                values={
-                  <>
-                    <span className="text-muted-foreground tabular-nums">
-                      {formatCount(slice.runs)}{' '}
-                      {slice.runs === 1 ? 'run' : 'runs'}
-                    </span>
-                    <span className="w-16 text-right text-foreground tabular-nums">
-                      {spentIn(slice.amount, currency)}
-                    </span>
-                  </>
-                }
-              >
-                {filter ? (
-                  <InsightsLink tab="traces" filter={filter}>
-                    {label}
-                  </InsightsLink>
-                ) : (
-                  label
-                )}
-              </BarRow>
-            );
-          })}
-        </ul>
+              return (
+                <CostSliceRow
+                  key={slice.key ?? 'none'}
+                  slice={slice}
+                  fill={sliceFill(at)}
+                  currency={currency}
+                >
+                  {filter ? (
+                    <InsightsLink tab="traces" filter={filter}>
+                      {label}
+                    </InsightsLink>
+                  ) : (
+                    label
+                  )}
+                </CostSliceRow>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </InsightsCard>
   );

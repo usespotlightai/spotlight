@@ -38456,6 +38456,12 @@
             "example": 4.2,
             "description": "In the spend’s currency"
           },
+          "share": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.39,
+            "description": "Share of the spend, 0 to 1; none when the spend is zero"
+          },
           "runs": {
             "type": "number",
             "example": 11,
@@ -38465,6 +38471,7 @@
         "required": [
           "key",
           "amount",
+          "share",
           "runs"
         ]
       },

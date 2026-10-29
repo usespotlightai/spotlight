@@ -5,13 +5,11 @@ import { LiveConfigTile } from '@/components/features/searches/search/LiveConfig
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { formatSpend } from '@/lib/insights';
 import type { ReplaySet } from '@/lib/replay';
-import { formatRepeats } from '@/lib/replay-words';
 import { type SearchDetail, setTaskTitle } from '@/lib/search';
 import {
   formatBudgetNote,
-  formatHeldOutTasks,
-  formatSentences,
-  SPLIT_NOTE,
+  formatEffort,
+  formatSplitNote,
 } from '@/lib/search-words';
 
 type SearchTilesProps = {
@@ -22,11 +20,14 @@ type SearchTilesProps = {
 export function SearchTiles({ search, set }: SearchTilesProps) {
   const { data: harnesses } = useHarnesses();
   const { budget, agent, split } = search;
-  const harness =
-    harnesses?.find((each) => each.id === agent.harness)?.name ?? agent.harness;
+  const harness = harnesses?.find((each) => each.id === agent.harness);
+  const model =
+    agent.model &&
+    (harness?.models.find((each) => each.id === agent.model)?.name ??
+      agent.model);
 
   return (
-    <InsightsTiles label="The search in numbers" className="gap-3">
+    <InsightsTiles label="The search in numbers" stacked className="gap-3">
       <BestTile search={search} />
       <LiveConfigTile search={search} />
 
@@ -36,8 +37,13 @@ export function SearchTiles({ search, set }: SearchTilesProps) {
         detail={`${search.proposed} ${search.proposed === 1 ? 'candidate' : 'candidates'} proposed`}
         tooltip={formatBudgetNote(
           budget,
-          formatRepeats(budget.repeats),
-          [harness, agent.model, agent.effort].filter(Boolean).join(' · '),
+          [
+            harness?.name ?? agent.harness,
+            model,
+            agent.effort && formatEffort(agent.effort),
+          ]
+            .filter(Boolean)
+            .join(' · '),
         )}
       />
 
@@ -45,11 +51,8 @@ export function SearchTiles({ search, set }: SearchTilesProps) {
         label="Tasks"
         value={`${split.searchedTasks}`}
         detail={`searched · ${split.heldOutTasks} held out`}
-        tooltip={formatSentences(
-          SPLIT_NOTE,
-          formatHeldOutTasks(
-            split.heldOut.map((entry) => setTaskTitle(entry, set)),
-          ),
+        tooltip={formatSplitNote(
+          split.heldOut.map((entry) => setTaskTitle(entry, set)),
         )}
       />
 

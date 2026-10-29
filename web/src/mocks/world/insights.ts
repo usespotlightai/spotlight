@@ -672,9 +672,14 @@ const slicesOf = (
   distinct(runs.map(keyOf))
     .map((key) => {
       const matching = runs.filter((run) => keyOf(run) === key);
+      const amount = sumOf(matching.map((run) => run.cost?.amount ?? 0));
       return {
         key,
-        amount: cents(sumOf(matching.map((run) => run.cost?.amount ?? 0))),
+        amount: cents(amount),
+        share: shareOf(
+          amount,
+          sumOf(runs.map((run) => run.cost?.amount ?? 0)),
+        ),
         runs: matching.length,
       };
     })
