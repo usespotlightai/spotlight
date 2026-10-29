@@ -16,7 +16,7 @@ export class SearchNotices implements SearchNoticesPort {
     return this.notices.create({
       workspaceId: notice.workspaceId,
       teamId: notice.teamId,
-      addressee: null,
+      addressee: notice.addressee,
       form: 'ended',
       subject: `replay-search ${notice.searchId.value} ${notice.about}`,
       link: `lines/${notice.lineId}/stations/${notice.stationId}`,

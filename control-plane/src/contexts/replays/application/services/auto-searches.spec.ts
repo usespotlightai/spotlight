@@ -1,4 +1,5 @@
 import { AutoSearches } from '@replays/application/services/auto-searches.service';
+import { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
 import {
   FakeWork,
   IDS,
@@ -81,12 +82,20 @@ const auto = () =>
     memory.setRepository,
     memory.searchRepository,
     pullRequests,
-    refreshingFor(memory, work),
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
+    new CheckSearchReadiness(
+      refreshingFor(memory, work),
+      memory.setRepository,
+      new SetHealths(work, memory.replayRepository, memory.candidateRepository),
+      work,
+      { sha256 },
+      IDS,
+      clock,
+    ),
     new StartSearch(
       snapshotsFor(memory, work),
       memory.setRepository,
       memory.replayRepository,
+      memory.candidateRepository,
       memory.searchRepository,
       memory.scheduleRepository,
       { sha256 },
@@ -95,8 +104,6 @@ const auto = () =>
       TRANSACTION,
     ),
     work,
-    { sha256 },
-    IDS,
     clock,
     TRANSACTION,
     QUIET,
@@ -173,8 +180,8 @@ describe('AutoSearches', () => {
     const [search] = searches();
 
     expect(search?.trigger).toBe('schedule');
-    expect(search?.agent.harness).toBe('claude-code');
-    expect(search?.agent.model).toBe('opus');
+    expect(search?.agent?.harness).toBe('claude-code');
+    expect(search?.agent?.model).toBe('opus');
     expect(search?.budget.iterations).toBe(2);
     expect(search?.budget.ceiling).toEqual(Money.ceiling(10, 'USD'));
     expect(schedule().lastStartedAt).toEqual(NOW);
@@ -228,7 +235,7 @@ describe('AutoSearches', () => {
 
     await auto().processDue();
 
-    expect(searches()[0]?.agent.harness).toBe('codex');
+    expect(searches()[0]?.agent?.harness).toBe('codex');
   });
 
   it('starts on a station alert once the cooldown ended, before the period ends', async () => {
@@ -338,6 +345,7 @@ describe('AutoSearches', () => {
           inSet: aSet(10).entries.map((each) => each.taskId),
           at: new Date(NOW.getTime() - 30 * DAY),
           cooldownMilliseconds: 3 * DAY,
+          trigger: 'schedule',
         })
         .postponed(NOW),
     );

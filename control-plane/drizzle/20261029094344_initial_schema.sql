@@ -36,13 +36,13 @@ CREATE TYPE "public"."config_pull_request_state" AS ENUM('opening', 'opened', 'c
 CREATE TYPE "public"."replay_candidate_kind" AS ENUM('live', 'searched', 'planned', 'oracle');--> statement-breakpoint
 CREATE TYPE "public"."replay_check_baseline" AS ENUM('awaiting', 'found', 'unavailable');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_result" AS ENUM('completed', 'failed', 'exhausted', 'cancelled');--> statement-breakpoint
-CREATE TYPE "public"."replay_search_iteration_kind" AS ENUM('propose', 'reflect');--> statement-breakpoint
+CREATE TYPE "public"."replay_search_iteration_kind" AS ENUM('propose', 'reflect', 'request');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_iteration_state" AS ENUM('wanted', 'running', 'ended', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_objective" AS ENUM('success', 'cost');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_reflection_result" AS ENUM('continued', 'no-config-cause', 'no-failures', 'did-not-run', 'ceiling-reached');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_state" AS ENUM('seeding', 'searching', 'holding-out', 'finished', 'stopped');--> statement-breakpoint
 CREATE TYPE "public"."replay_search_stop_reason" AS ENUM('iterations-spent', 'ceiling-reached', 'stalled', 'turned-off', 'station-gone', 'seed-failed');--> statement-breakpoint
-CREATE TYPE "public"."replay_search_trigger" AS ENUM('schedule', 'alert');--> statement-breakpoint
+CREATE TYPE "public"."replay_search_trigger" AS ENUM('schedule', 'alert', 'request');--> statement-breakpoint
 CREATE TYPE "public"."replay_state" AS ENUM('queued', 'running', 'finished', 'stopped', 'ceiling-reached');--> statement-breakpoint
 CREATE TYPE "public"."search_skip_reason" AS ENUM('no-agent', 'no-scoring', 'set-too-small', 'no-fresh-held-out', 'ceiling-too-low', 'noisy', 'judge-unstable', 'flaky-checks', 'no-headroom', 'monthly-ceiling', 'pull-request-open', 'cooldown');--> statement-breakpoint
 CREATE TYPE "public"."inbox_request_form" AS ENUM('memories', 'grade', 'alert');--> statement-breakpoint
@@ -1234,7 +1234,7 @@ CREATE TABLE "replay_search" (
 	"line_id" text NOT NULL,
 	"station_id" text NOT NULL,
 	"set_id" text NOT NULL,
-	"harness" text NOT NULL,
+	"harness" text,
 	"model" text,
 	"effort" text,
 	"iterations" integer NOT NULL,
@@ -1243,12 +1243,15 @@ CREATE TABLE "replay_search" (
 	"ceiling_currency" text NOT NULL,
 	"concurrency" integer NOT NULL,
 	"repeats" integer NOT NULL,
+	"agent_runs" boolean NOT NULL,
 	"objective" "replay_search_objective" NOT NULL,
 	"split" jsonb NOT NULL,
 	"calibrates" boolean NOT NULL,
 	"seed_candidate_id" text NOT NULL,
 	"seed_fingerprint" text NOT NULL,
 	"seed_replay" jsonb NOT NULL,
+	"requests" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"dropped_requests" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"held_out" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"state" "replay_search_state" NOT NULL,
 	"stop_reason" "replay_search_stop_reason",
@@ -1262,7 +1265,7 @@ CREATE TABLE "replay_search" (
 CREATE TABLE "replay_search_iteration" (
 	"search_id" text NOT NULL,
 	"number" integer NOT NULL,
-	"run_id" text NOT NULL,
+	"run_id" text,
 	"kind" "replay_search_iteration_kind" NOT NULL,
 	"state" "replay_search_iteration_state" NOT NULL,
 	"proposals" jsonb DEFAULT '[]'::jsonb NOT NULL,
@@ -1312,6 +1315,8 @@ CREATE TABLE "station_search_schedule" (
 	"rejected_against" text,
 	"last_rejected_at" timestamp,
 	"last_improved_at" timestamp,
+	"request_day" text,
+	"request_count" integer DEFAULT 0 NOT NULL,
 	"check_after" timestamp NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );

@@ -121,6 +121,10 @@ const searched = (
   while (search.wantedIteration) {
     const iteration = search.wantedIteration;
     const run = iteration.runId;
+
+    if (!run) {
+      throw new Error('a requested iteration has no agent run');
+    }
     const proposed: Replay[] = [];
 
     search = search.queueRun(run);

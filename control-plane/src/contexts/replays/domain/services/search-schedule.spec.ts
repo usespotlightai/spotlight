@@ -64,6 +64,7 @@ const set = (over: Partial<SetInput> = {}): SetInput => ({
   freshHeldOut: true,
   affordable: true,
   agent: AGENT,
+  needsAgent: true,
   ...over,
 });
 

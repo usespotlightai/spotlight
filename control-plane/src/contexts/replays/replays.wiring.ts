@@ -83,6 +83,7 @@ import { AutoSearches } from '@replays/application/services/auto-searches.servic
 import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
 import { CancelSearch } from '@replays/application/services/cancel-search.service';
 import { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
+import { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
 import { CloseStaleConfigPullRequests } from '@replays/application/services/close-stale-config-pull-requests.service';
 import { DeleteConfigPullRequests } from '@replays/application/services/delete-config-pull-requests.service';
 import { DeleteReplayChecks } from '@replays/application/services/delete-replay-checks.service';
@@ -123,6 +124,7 @@ import { SetUsage } from '@replays/application/services/set-usage.service';
 import { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
 import { StartSearch } from '@replays/application/services/start-search.service';
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
+import { StationChangeTests } from '@replays/application/services/station-change-tests.service';
 import { TurnOffSearches } from '@replays/application/services/turn-off-searches.service';
 import { REPLAYS_PAYLOAD_TYPES } from '@replays/domain/payload-types';
 import { ChangeReview } from '@replays/infrastructure/acl/change-review.adapter';
@@ -191,6 +193,7 @@ import {
   STARTING_POINT_HOLDS,
   type StartingPointHoldsPort,
 } from '@work/application/ports/starting-point-holds.port';
+import { STATION_CHANGE_TESTS } from '@work/application/ports/station-change-tests.port';
 
 const REPLAYS_EVENTS = Symbol('REPLAYS_EVENTS');
 
@@ -568,6 +571,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       DrizzleSearchRepository,
       DrizzleCandidateRepository,
       DrizzleReplayRepository,
+      DrizzleReplaySetRepository,
       SetHealths,
       WORK,
       ID_GENERATOR,
@@ -578,6 +582,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       searches: DrizzleSearchRepository,
       candidates: DrizzleCandidateRepository,
       replays: DrizzleReplayRepository,
+      sets: DrizzleReplaySetRepository,
       healths: SetHealths,
       work: WorkPort,
       ids: IdGeneratorPort,
@@ -588,6 +593,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
         searches,
         candidates,
         replays,
+        sets,
         healths,
         work,
         ids,
@@ -794,6 +800,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       LiveSnapshots,
       DrizzleReplaySetRepository,
       DrizzleReplayRepository,
+      DrizzleCandidateRepository,
       DrizzleSearchRepository,
       DrizzleStationSearchScheduleRepository,
       HASH,
@@ -805,6 +812,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       snapshots: LiveSnapshots,
       sets: DrizzleReplaySetRepository,
       replays: DrizzleReplayRepository,
+      candidates: DrizzleCandidateRepository,
       searches: DrizzleSearchRepository,
       schedules: DrizzleStationSearchScheduleRepository,
       hash: HashPort,
@@ -816,6 +824,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
         snapshots,
         sets,
         replays,
+        candidates,
         searches,
         schedules,
         hash,
@@ -831,12 +840,9 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       DrizzleReplaySetRepository,
       DrizzleSearchRepository,
       DrizzleConfigPullRequestRepository,
-      RefreshKeptSets,
-      SetHealths,
+      CheckSearchReadiness,
       StartSearch,
       WORK,
-      HASH,
-      ID_GENERATOR,
       CLOCK,
       TRANSACTION,
       LOGGER,
@@ -846,12 +852,9 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       sets: DrizzleReplaySetRepository,
       searches: DrizzleSearchRepository,
       pullRequests: DrizzleConfigPullRequestRepository,
-      refreshing: RefreshKeptSets,
-      healths: SetHealths,
+      readiness: CheckSearchReadiness,
       starting: StartSearch,
       work: WorkPort,
-      hash: HashPort,
-      ids: IdGeneratorPort,
       clock: ClockPort,
       transaction: TransactionPort,
       logger: LoggerPort,
@@ -861,15 +864,87 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
         sets,
         searches,
         pullRequests,
-        refreshing,
-        healths,
+        readiness,
         starting,
+        work,
+        clock,
+        transaction,
+        logger,
+      ),
+  },
+  {
+    provide: STATION_CHANGE_TESTS,
+    inject: [
+      WORK,
+      PEOPLE,
+      DrizzleStationSearchScheduleRepository,
+      DrizzleReplaySetRepository,
+      DrizzleSearchRepository,
+      DrizzleCandidateRepository,
+      DrizzleConfigPullRequestRepository,
+      CheckSearchReadiness,
+      StartSearch,
+      ID_GENERATOR,
+      CLOCK,
+      TRANSACTION,
+    ],
+    useFactory: (
+      work: WorkPort,
+      people: PeoplePort,
+      schedules: DrizzleStationSearchScheduleRepository,
+      sets: DrizzleReplaySetRepository,
+      searches: DrizzleSearchRepository,
+      candidates: DrizzleCandidateRepository,
+      pullRequests: DrizzleConfigPullRequestRepository,
+      readiness: CheckSearchReadiness,
+      starting: StartSearch,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+      transaction: TransactionPort,
+    ) =>
+      new StationChangeTests(
+        work,
+        people,
+        schedules,
+        sets,
+        searches,
+        candidates,
+        pullRequests,
+        readiness,
+        starting,
+        ids,
+        clock,
+        transaction,
+      ),
+  },
+  {
+    provide: CheckSearchReadiness,
+    inject: [
+      RefreshKeptSets,
+      DrizzleReplaySetRepository,
+      SetHealths,
+      WORK,
+      HASH,
+      ID_GENERATOR,
+      CLOCK,
+    ],
+    useFactory: (
+      refreshing: RefreshKeptSets,
+      sets: DrizzleReplaySetRepository,
+      healths: SetHealths,
+      work: WorkPort,
+      hash: HashPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) =>
+      new CheckSearchReadiness(
+        refreshing,
+        sets,
+        healths,
         work,
         hash,
         ids,
         clock,
-        transaction,
-        logger,
       ),
   },
   {

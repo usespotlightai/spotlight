@@ -8,6 +8,7 @@ import {
 } from '@replays/domain/aggregates/replay-set.aggregate';
 import { Search } from '@replays/domain/aggregates/search.aggregate';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
@@ -29,6 +30,7 @@ import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
+import { SearchRequest } from '@replays/domain/value-objects/search-request.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
@@ -38,6 +40,7 @@ import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const NOW = new Date('2026-10-01T09:00:00.000Z');
@@ -348,6 +351,7 @@ export const aSearch = (
     set?: ReplaySet;
     objective?: SearchObjective;
     calibrates?: boolean;
+    requestedBy?: string;
   } = {},
 ): Search => {
   const set = input.set ?? aSet(input.count ?? 10);
@@ -368,7 +372,16 @@ export const aSearch = (
       candidate: candidateOf('live'),
       replayId: ReplayId.of('replay_seed'),
     },
-    trigger: 'schedule',
+    trigger: input.requestedBy ? 'request' : 'schedule',
+    requests: input.requestedBy
+      ? [
+          SearchRequest.of({
+            candidateId: CandidateId.of('candidate_asked'),
+            name: CandidateName.searched('asked'),
+            requestedBy: UserId.of(input.requestedBy),
+          }),
+        ]
+      : [],
     at: NOW,
     by: BY,
   });

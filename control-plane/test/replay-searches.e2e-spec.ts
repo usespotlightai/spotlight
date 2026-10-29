@@ -142,7 +142,7 @@ describe('DrizzleSearchRepository', () => {
     expect(found?.current).toBe('seeding');
     expect(found?.split.equals(started.split)).toBe(true);
     expect(found?.budget.equals(started.budget)).toBe(true);
-    expect(found?.agent.equals(started.agent)).toBe(true);
+    expect(found?.agent).toEqual(started.agent);
     expect(found?.seed.fingerprint.equals(started.seed.fingerprint)).toBe(true);
 
     const moved = travelled(found as Search);

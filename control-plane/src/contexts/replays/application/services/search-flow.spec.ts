@@ -109,6 +109,7 @@ const starting = () =>
     snapshotsFor(memory, work),
     memory.setRepository,
     memory.replayRepository,
+    memory.candidateRepository,
     memory.searchRepository,
     memory.scheduleRepository,
     HASH,
@@ -157,6 +158,7 @@ const start = async (
     calibrates: over.calibrates ?? false,
     objective: over.objective ?? 'success',
     trigger: 'schedule',
+    requested: null,
     policy: SearchPolicy.of({
       enabled: true,
       monthlyCeiling: 1_000,
@@ -200,6 +202,7 @@ const iterating = () =>
     memory.searchRepository,
     memory.candidateRepository,
     memory.replayRepository,
+    memory.setRepository,
     healthsFor(),
     work,
     IDS,

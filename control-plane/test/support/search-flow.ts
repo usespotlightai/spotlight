@@ -568,7 +568,10 @@ export const entryOf = async (runId: string) => {
   return entry;
 };
 
-type Plan = (replayId: string) => { score: number; cost: number };
+type Plan = (
+  replayId: string,
+  repeat: number,
+) => { score: number; cost: number };
 
 const SETTLE_CHECKS = 50;
 
@@ -630,7 +633,7 @@ export const drained = async (plan: Plan): Promise<void> => {
       throw new Error(`claimed ${assignment.runId}, which is no replay run`);
     }
 
-    const { score, cost } = plan(entry.replayId);
+    const { score, cost } = plan(entry.replayId, entry.repeat);
 
     await finished(assignment, score, cost);
     await judged();
@@ -674,6 +677,7 @@ export const leasedSearchRun = async (
 export const endedSearchRun = async (
   { token, runId }: Claimed,
   failed = false,
+  cost = 0.05,
 ) => {
   await bearing(token)
     .post(`/api/runs/${runId}/events`, {
@@ -686,7 +690,7 @@ export const endedSearchRun = async (
             sessionUpdate: 'usage_update',
             used: 1_000,
             size: 200_000,
-            cost: { amount: 0.05, currency: 'USD' },
+            cost: { amount: cost, currency: 'USD' },
           }),
         },
       ],

@@ -549,6 +549,21 @@ export const replaysSubscribers = (
     ['replays.search-pick-declined'],
     (event) => reactions.noticingResults.pickDeclined(event),
   ),
+  subscribing<SearchPickDeclined>(
+    'replays.notice-requesters-of-declined-search',
+    ['replays.search-pick-declined'],
+    (event) => reactions.noticingResults.requestersOfDecline(event),
+  ),
+  subscribing<SearchCandidatePicked>(
+    'replays.notice-requesters-of-other-pick',
+    ['replays.search-candidate-picked'],
+    (event) => reactions.noticingResults.requestersOfOtherPick(event),
+  ),
+  subscribing<SearchEnded>(
+    'replays.notice-requesters-of-stopped-search',
+    ['replays.search-ended'],
+    (event) => reactions.noticingResults.requestersOfStop(event),
+  ),
   subscribing<StationSearchSkipped>(
     'replays.notice-skipped-station-search',
     ['replays.station-search-skipped'],

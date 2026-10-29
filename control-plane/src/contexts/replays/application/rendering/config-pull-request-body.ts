@@ -42,7 +42,7 @@ interface ShownChange {
 }
 
 interface SearchFacts {
-  readonly trigger: 'schedule' | 'alert';
+  readonly trigger: 'schedule' | 'alert' | 'request';
   readonly iterations: number;
   readonly reflections: number;
   readonly maxIterations: number;
@@ -53,7 +53,7 @@ interface SearchFacts {
     readonly harness: string;
     readonly model: string | null;
     readonly effort: string | null;
-  };
+  } | null;
   readonly setRuns: number;
   readonly refreshedAt: Date | null;
   readonly spread: number | null;
@@ -371,15 +371,18 @@ const describeTasks = (facts: ConfigPullRequestFacts): string | null => {
 const TRIGGERS: Readonly<Record<SearchFacts['trigger'], string>> = {
   schedule: 'the schedule of the search policy',
   alert: 'a station alert',
+  request: 'a person, from a chat that improves the station',
 };
 
 const describeSearch = (
   search: SearchFacts,
   facts: ConfigPullRequestFacts,
 ): string => {
-  const agent = [search.agent.harness, search.agent.model, search.agent.effort]
-    .filter((each) => each !== null)
-    .join(' · ');
+  const agent = search.agent
+    ? [search.agent.harness, search.agent.model, search.agent.effort]
+        .filter((each) => each !== null)
+        .join(' · ')
+    : 'none, Spotlight replayed only the candidate a person asked for';
   const refreshed = search.refreshedAt
     ? `refreshed ${search.refreshedAt.toISOString().slice(0, 10)}`
     : 'not refreshed yet';
@@ -454,7 +457,7 @@ export const ConfigPullRequestBody = {
       describeChanges(facts.changes),
       ...(facts.hypothesis
         ? [
-            `## Why it should be better\n\nThe search's agent wrote:\n\n${fenced(capped(facts.hypothesis, MAX_VALUE))}`,
+            `## Why it should be better\n\nThe agent that proposed it wrote:\n\n${fenced(capped(facts.hypothesis, MAX_VALUE))}`,
           ]
         : []),
       [

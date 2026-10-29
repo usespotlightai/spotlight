@@ -154,6 +154,7 @@ export class InMemoryReplays {
             rejectedAgainst: schedule.rejectedAgainst,
             lastRejectedAt: schedule.lastRejectedAt,
             lastImprovedAt: schedule.lastImprovedAt,
+            requests: schedule.requests,
             checkAfter: schedule.checkAfter,
             version: schedule.version + 1,
           }),
