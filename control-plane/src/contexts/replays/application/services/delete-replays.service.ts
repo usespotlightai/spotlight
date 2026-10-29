@@ -61,7 +61,7 @@ export class DeleteReplays {
       const set = await this.sets.find(id);
 
       if (set) {
-        await this.sets.save(set.delete(false));
+        await this.sets.save(set.delete());
       }
     });
   }

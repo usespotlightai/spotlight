@@ -4,6 +4,20 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export interface OpenedPullRequestDto {
   readonly url: string;
+  readonly number: number;
+  readonly id: number;
+  readonly repository: string;
+}
+
+export interface PullRequestStatusDto {
+  readonly state: 'open' | 'closed' | 'merged';
+  readonly closedAt: Date | null;
+}
+
+export interface PullRequestAt {
+  readonly workspaceId: WorkspaceId;
+  readonly repository: Repository;
+  readonly number: number;
 }
 
 export interface PullRequestOpening {
@@ -27,6 +41,12 @@ export interface PullRequestPort {
   open(opening: PullRequestOpening): Promise<OpenedPullRequestDto>;
 
   edit(editing: PullRequestEditing): Promise<void>;
+
+  statusOf(at: PullRequestAt): Promise<PullRequestStatusDto>;
+
+  close(at: PullRequestAt): Promise<void>;
+
+  comment(at: PullRequestAt, body: string): Promise<void>;
 
   changedOn(
     workspaceId: WorkspaceId,

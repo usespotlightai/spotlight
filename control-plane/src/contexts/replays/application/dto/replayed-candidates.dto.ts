@@ -9,8 +9,6 @@ import type { ChartStatus } from '@replays/domain/services/replayed-chart';
 import type { ShownOverLive } from '@replays/domain/services/shown-over-live';
 import type { ReplayedPeriodName } from '@replays/domain/value-objects/replayed-period.vo';
 
-type ReplayedCandidateKind = 'searched' | 'proposed';
-
 export interface ReplayedPeriodDto {
   readonly name: ReplayedPeriodName;
   readonly from: string;
@@ -74,7 +72,6 @@ export interface ReplayedSearchDto {
 export interface ReplayedCandidateDto {
   readonly candidateId: string;
   readonly name: string;
-  readonly kind: ReplayedCandidateKind;
   readonly hypothesis: string | null;
   readonly fingerprint: string | null;
   readonly changes: readonly StationChangeDto[];
@@ -107,9 +104,7 @@ export type ReplayedShownDto = ShownOverLive<RateIntervalDto>;
 
 export interface ReplayedSetDto {
   readonly setId: string;
-  readonly name: string;
   readonly stationGone: boolean;
-  readonly gatesChanges: boolean;
   readonly health: ReplaySetHealthDto;
   readonly baseline: ReplayedBaselineDto | null;
   readonly chartCurrency: string | null;

@@ -19,6 +19,32 @@ export interface ReplayCheckRow {
   readonly minGain: number;
 }
 
+export interface LineSearchRow {
+  readonly enabled: boolean;
+  readonly monthlyCeiling: number;
+  readonly currency: string;
+  readonly ceiling: number;
+  readonly period: string;
+  readonly onAlert: boolean;
+  readonly cooldown: string;
+}
+
+export interface StationSearchRow {
+  readonly enabled: boolean | null;
+  readonly ceiling: number | null;
+  readonly period: string | null;
+  readonly onAlert: boolean | null;
+  readonly cooldown: string | null;
+  readonly agent: {
+    readonly harness: string;
+    readonly model: string | null;
+    readonly effort: string | null;
+  } | null;
+  readonly iterations: number | null;
+  readonly repeats: number | null;
+  readonly objective: string | null;
+}
+
 export interface ConfigSourceRow {
   readonly repository: string;
   readonly path: string;
@@ -65,6 +91,7 @@ export const line = pgTable(
     role: text('role'),
     reviews: jsonb('reviews').$type<ReviewsRow>(),
     replayCheck: jsonb('replay_check').$type<ReplayCheckRow>(),
+    search: jsonb('search').$type<LineSearchRow>(),
     source: jsonb('source').$type<ConfigSourceRow>(),
     runners: jsonb('runners').$type<string[]>().notNull().default([]),
     version: integer('version').notNull().default(0),
@@ -111,6 +138,7 @@ export const station = pgTable(
     memories: boolean('memories').notNull().default(false),
     judge: jsonb('judge').$type<StationJudgeRow>(),
     alerts: jsonb('alerts').$type<StationAlertRow[]>().notNull().default([]),
+    search: jsonb('search').$type<StationSearchRow>(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at')
       .defaultNow()

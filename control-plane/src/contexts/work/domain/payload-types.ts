@@ -96,6 +96,7 @@ import { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
 import { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
 import { NetworkResponse } from '@work/domain/value-objects/network-response.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
 import { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
@@ -122,9 +123,16 @@ import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { SearchId } from '@work/domain/value-objects/search-id.vo';
+import { SearchInterval } from '@work/domain/value-objects/search-interval.vo';
 import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
+import {
+  LineSearchPolicy,
+  SearchAgent,
+  StationSearchOverride,
+} from '@work/domain/value-objects/search-policy.vo';
 import { Signing } from '@work/domain/value-objects/signing.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
+import { SpendCeiling } from '@work/domain/value-objects/spend-ceiling.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
 import { StartingPoint } from '@work/domain/value-objects/starting-point.vo';
 import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
@@ -205,6 +213,11 @@ export const WORK_PAYLOAD_TYPES = [
   PullRequestLink,
   RepositorySetup,
   ReplayCheckPolicy,
+  LineSearchPolicy,
+  SearchAgent,
+  StationSearchOverride,
+  SearchInterval,
+  SpendCeiling,
   CiSetup,
   ConfigFolder,
   ConfigSource,
@@ -267,6 +280,7 @@ export const WORK_PAYLOAD_TYPES = [
   InboxRequestId,
   NoticeId,
   NoticeLink,
+  NoticeExternalLink,
   NoticeWording,
   InboxRequestSubject,
   InboxRequestRead,

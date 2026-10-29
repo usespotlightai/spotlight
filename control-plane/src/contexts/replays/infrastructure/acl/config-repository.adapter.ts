@@ -8,8 +8,11 @@ import { ConfigRepositoryError } from '@replays/application/errors/config-reposi
 import type {
   ConfigCommit,
   ConfigFile,
+  ConfigPullRequestAt,
   ConfigPullRequestOpening,
+  ConfigPullRequestStatus,
   ConfigRepositoryPort,
+  OpenedConfigPullRequest,
 } from '@replays/application/ports/config-repository.port';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -93,7 +96,7 @@ export class ConfigRepository implements ConfigRepositoryPort {
     workspaceId: WorkspaceId,
     repository: Repository,
     opening: ConfigPullRequestOpening,
-  ): Promise<string> {
+  ): Promise<OpenedConfigPullRequest> {
     const opened = await withRepositoryErrors(() =>
       this.pullRequests.open({
         workspaceId,
@@ -104,6 +107,39 @@ export class ConfigRepository implements ConfigRepositoryPort {
       }),
     );
 
-    return opened.url;
+    return {
+      url: opened.url,
+      number: opened.number,
+      gitHubId: opened.id,
+      repository: opened.repository,
+    };
+  }
+
+  statusOf(
+    workspaceId: WorkspaceId,
+    pullRequest: ConfigPullRequestAt,
+  ): Promise<ConfigPullRequestStatus> {
+    return withRepositoryErrors(() =>
+      this.pullRequests.statusOf({ workspaceId, ...pullRequest }),
+    );
+  }
+
+  async closed(
+    workspaceId: WorkspaceId,
+    pullRequest: ConfigPullRequestAt,
+  ): Promise<void> {
+    await withRepositoryErrors(() =>
+      this.pullRequests.close({ workspaceId, ...pullRequest }),
+    );
+  }
+
+  async commented(
+    workspaceId: WorkspaceId,
+    pullRequest: ConfigPullRequestAt,
+    body: string,
+  ): Promise<void> {
+    await withRepositoryErrors(() =>
+      this.pullRequests.comment({ workspaceId, ...pullRequest }, body),
+    );
   }
 }

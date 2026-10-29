@@ -4,6 +4,7 @@ import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo'
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import type { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
@@ -75,6 +76,8 @@ export interface LiveConfig {
   readonly scoring: CandidateScoring;
   readonly hashes: StationHashes;
   readonly threshold: ReplayThreshold | null;
+  readonly search: SearchPolicy | null;
+  readonly agent: SearchAgent | null;
 }
 
 export interface OracleAnswerInput {
@@ -142,12 +145,9 @@ export interface AgentProblem {
 export interface WorkPort {
   station(lineId: string, stationId: string): Promise<StationView | null>;
 
-  keyed(lineId: string, key: string): Promise<StationView | null>;
+  findStation(stationId: string): Promise<StationView | null>;
 
-  replayable(
-    workspaceId: WorkspaceId,
-    runs: readonly RunId[],
-  ): Promise<readonly RunReplayability[]>;
+  keyed(lineId: string, key: string): Promise<StationView | null>;
 
   runSummaries(
     workspaceId: WorkspaceId,
@@ -176,8 +176,6 @@ export interface WorkPort {
   cancelQueued(runs: readonly RunId[]): Promise<void>;
 
   cancel(run: RunId, leaveRunAsIs: boolean): Promise<CancelledRun>;
-
-  durations(runs: readonly RunId[]): Promise<ReadonlyMap<string, number>>;
 
   agentProblem(agent: SearchAgent): AgentProblem | null;
 

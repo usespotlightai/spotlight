@@ -69,3 +69,30 @@ export const failingSearchedTasksOf = (
 
   return { candidateId, tasks };
 };
+
+export const tasksWithTaskCause = (
+  searches: readonly Search[],
+): ReadonlySet<string> => {
+  const standing = new Set<string>();
+  const ordered = [...searches].sort(
+    (one, other) => one.startedAt.getTime() - other.startedAt.getTime(),
+  );
+
+  for (const search of ordered) {
+    for (const iteration of search.iterations.filter((each) => each.reflects)) {
+      for (const task of iteration.reflectedOn) {
+        const blamed = iteration.causes.some(
+          (each) => each.cause === 'task' && each.isAbout(task.taskId),
+        );
+
+        if (blamed) {
+          standing.add(task.taskId.value);
+        } else if (iteration.causes.some((each) => each.isAbout(task.taskId))) {
+          standing.delete(task.taskId.value);
+        }
+      }
+    }
+  }
+
+  return standing;
+};

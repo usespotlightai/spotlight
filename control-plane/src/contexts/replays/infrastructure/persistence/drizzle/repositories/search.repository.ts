@@ -7,10 +7,7 @@ import {
 import { Search } from '@replays/domain/aggregates/search.aggregate';
 import { SearchInProgressError } from '@replays/domain/exceptions/search-in-progress.error';
 import { SearchVersionConflictError } from '@replays/domain/exceptions/search-version-conflict.error';
-import type {
-  SearchPage,
-  SearchRepository,
-} from '@replays/domain/repositories/search.repository';
+import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
@@ -28,8 +25,10 @@ import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@replays/domain/value-objects/search-iteration.vo';
+import type { SearchPick } from '@replays/domain/value-objects/search-pick';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
+import { SearchRequest } from '@replays/domain/value-objects/search-request.vo';
 import { ACTIVE_SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import {
@@ -39,7 +38,9 @@ import {
   type StoredFailureCause,
   type StoredModelSpent,
   type StoredReflectedTask,
+  type StoredSearchPick,
   type StoredSearchReplay,
+  type StoredSearchRequest,
   type StoredSplitEntry,
 } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import {
@@ -61,9 +62,9 @@ import {
   gte,
   inArray,
   isNull,
-  lt,
   or,
   type SQL,
+  sql,
 } from 'drizzle-orm';
 
 type SearchRow = typeof replaySearch.$inferSelect;
@@ -170,7 +171,7 @@ const storedCause = (cause: FailureCause): StoredFailureCause => ({
 const toIteration = (row: IterationRow, currency: string): SearchIteration =>
   SearchIteration.rehydrate({
     number: row.number,
-    runId: RunId.of(row.runId),
+    runId: row.runId === null ? null : RunId.of(row.runId),
     kind: row.kind,
     state: row.state,
     proposals: row.proposals.map((each) =>
@@ -179,6 +180,8 @@ const toIteration = (row: IterationRow, currency: string): SearchIteration =>
         name: CandidateName.searched(each.name),
         replay: searchReplayOf(each.replay, currency),
         improved: each.improved,
+        requestedBy:
+          each.requestedBy === null ? null : UserId.of(each.requestedBy),
       }),
     ),
     attempts: row.attempts,
@@ -188,6 +191,31 @@ const toIteration = (row: IterationRow, currency: string): SearchIteration =>
     reflectedOn: row.reflectedOn.map(reflectedTaskOf),
     causes: row.causes.map(causeOf),
   });
+
+const requestOf = (stored: StoredSearchRequest): SearchRequest =>
+  SearchRequest.of({
+    candidateId: CandidateId.of(stored.candidateId),
+    name: CandidateName.searched(stored.name),
+    requestedBy: UserId.of(stored.requestedBy),
+  });
+
+const storedRequest = (request: SearchRequest): StoredSearchRequest => ({
+  candidateId: request.candidateId.value,
+  name: request.name.value,
+  requestedBy: request.requestedBy.value,
+});
+
+const pickOf = (stored: StoredSearchPick | null): SearchPick | null =>
+  stored &&
+  (stored.outcome === 'picked'
+    ? { outcome: 'picked', candidateId: CandidateId.of(stored.candidateId) }
+    : { outcome: 'declined', reason: stored.reason });
+
+const storedPick = (pick: SearchPick | null): StoredSearchPick | null =>
+  pick &&
+  (pick.outcome === 'picked'
+    ? { outcome: 'picked', candidateId: pick.candidateId.value }
+    : { outcome: 'declined', reason: pick.reason });
 
 const toSearch = (
   row: SearchRow,
@@ -202,23 +230,28 @@ const toSearch = (
       stationId: row.stationId,
     },
     setId: ReplaySetId.of(row.setId),
-    agent: SearchAgent.of({
-      harness: row.harness,
-      model: row.model,
-      effort: row.effort,
-    }),
+    agent:
+      row.harness === null
+        ? null
+        : SearchAgent.of({
+            harness: row.harness,
+            model: row.model,
+            effort: row.effort,
+          }),
     budget: SearchBudget.of({
       iterations: row.iterations,
       perIteration: row.perIteration,
       ceiling: Money.ceiling(row.ceilingAmount, row.ceilingCurrency),
       concurrency: row.concurrency,
       repeats: row.repeats,
+      agentRuns: row.agentRuns,
     }),
     objective: row.objective,
     split: HeldOutSplit.rehydrate({
       searched: splitEntriesOf(row.split.searched),
       heldOut: splitEntriesOf(row.split.heldOut),
     }),
+    calibrates: row.calibrates,
     seed: {
       candidateId: CandidateId.of(row.seedCandidateId),
       fingerprint: StationFingerprint.of(row.seedFingerprint),
@@ -228,13 +261,16 @@ const toSearch = (
       .filter((each) => each.searchId === row.id)
       .sort((one, other) => one.number - other.number)
       .map((each) => toIteration(each, row.ceilingCurrency)),
+    requests: row.requests.map(requestOf),
+    dropped: row.droppedRequests.map(requestOf),
     heldOut: row.heldOut.map((each) => ({
       candidateId: CandidateId.of(each.candidateId),
       replay: searchReplayOf(each.replay, row.ceilingCurrency),
     })),
     state: row.state,
     stopReason: row.stopReason,
-    startedBy: row.startedBy ? UserId.of(row.startedBy) : null,
+    trigger: row.trigger,
+    pick: pickOf(row.pick),
     startedAt: row.startedAt,
     endedAt: row.endedAt,
     version: row.version,
@@ -291,6 +327,26 @@ export class DrizzleSearchRepository implements SearchRepository {
     );
   }
 
+  ofLineStartedSince(lineId: string, since: Date): Promise<readonly Search[]> {
+    return this.withIterations(
+      and(
+        eq(replaySearch.lineId, lineId),
+        gte(replaySearch.startedAt, since),
+      ) as SQL,
+    );
+  }
+
+  async lockedOfLineStartedSince(
+    lineId: string,
+    since: Date,
+  ): Promise<readonly Search[]> {
+    await this.context.db.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`replay-search-line:${lineId}`}, 0))`,
+    );
+
+    return this.ofLineStartedSince(lineId, since);
+  }
+
   async ranAs(run: RunId): Promise<Search | null> {
     const [found] = await this.withIterations(
       exists(
@@ -313,6 +369,24 @@ export class DrizzleSearchRepository implements SearchRepository {
     const [found] = await this.withIterations(
       and(eq(replaySearch.stationId, stationId), active) as SQL,
     );
+
+    return found ?? null;
+  }
+
+  activeOfLine(lineId: string): Promise<readonly Search[]> {
+    return this.withIterations(
+      and(eq(replaySearch.lineId, lineId), active) as SQL,
+    );
+  }
+
+  async newestAtStation(stationId: string): Promise<Search | null> {
+    const rows = await this.context.db
+      .select()
+      .from(replaySearch)
+      .where(eq(replaySearch.stationId, stationId))
+      .orderBy(desc(replaySearch.startedAt), desc(replaySearch.id))
+      .limit(1);
+    const [found] = await this.ofRows(rows);
 
     return found ?? null;
   }
@@ -361,49 +435,6 @@ export class DrizzleSearchRepository implements SearchRepository {
         ),
       ) as SQL,
     );
-  }
-
-  async pageOfTeam(
-    teamId: TeamId,
-    page: SearchPage,
-  ): Promise<readonly Search[]> {
-    const [after] = page.before
-      ? await this.context.db
-          .select({ id: replaySearch.id, startedAt: replaySearch.startedAt })
-          .from(replaySearch)
-          .where(
-            and(
-              eq(replaySearch.id, page.before.value),
-              eq(replaySearch.teamId, teamId.value),
-            ),
-          )
-      : [];
-
-    if (page.before && !after) {
-      return [];
-    }
-
-    const rows = await this.context.db
-      .select()
-      .from(replaySearch)
-      .where(
-        and(
-          eq(replaySearch.teamId, teamId.value),
-          after
-            ? or(
-                lt(replaySearch.startedAt, after.startedAt),
-                and(
-                  eq(replaySearch.startedAt, after.startedAt),
-                  lt(replaySearch.id, after.id),
-                ),
-              )
-            : undefined,
-        ),
-      )
-      .orderBy(desc(replaySearch.startedAt), desc(replaySearch.id))
-      .limit(page.limit);
-
-    return this.ofRows(rows);
   }
 
   async add(added: Search): Promise<void> {
@@ -458,30 +489,35 @@ export class DrizzleSearchRepository implements SearchRepository {
       lineId: aggregate.station.lineId,
       stationId: aggregate.station.stationId,
       setId: aggregate.setId.value,
-      harness: aggregate.agent.harness,
-      model: aggregate.agent.model,
-      effort: aggregate.agent.effort,
+      harness: aggregate.agent?.harness ?? null,
+      model: aggregate.agent?.model ?? null,
+      effort: aggregate.agent?.effort ?? null,
       iterations: aggregate.budget.iterations,
       perIteration: aggregate.budget.perIteration,
       ceilingAmount: aggregate.budget.ceiling.amount,
       ceilingCurrency: aggregate.budget.ceiling.currency,
       concurrency: aggregate.budget.concurrency,
       repeats: aggregate.budget.repeats,
+      agentRuns: aggregate.budget.agentRuns,
       objective: aggregate.objective,
       split: {
         searched: storedSplitEntries(aggregate.split.searched),
         heldOut: storedSplitEntries(aggregate.split.heldOut),
       },
+      calibrates: aggregate.calibrates,
       seedCandidateId: aggregate.seed.candidateId.value,
       seedFingerprint: aggregate.seed.fingerprint.value,
       seedReplay: storedReplay(aggregate.seed.replay),
+      requests: aggregate.requests.map(storedRequest),
+      droppedRequests: aggregate.dropped.map(storedRequest),
       heldOut: aggregate.heldOut.map((each) => ({
         candidateId: each.candidateId.value,
         replay: storedReplay(each.replay),
       })),
       state: aggregate.current,
       stopReason: aggregate.stopReason,
-      startedBy: aggregate.startedBy?.value ?? null,
+      trigger: aggregate.trigger,
+      pick: storedPick(aggregate.pick),
       startedAt: aggregate.startedAt,
       endedAt: aggregate.endedAt,
     };
@@ -497,7 +533,7 @@ export class DrizzleSearchRepository implements SearchRepository {
         aggregate.iterations.map((each) => ({
           searchId: aggregate.id.value,
           number: each.number,
-          runId: each.runId.value,
+          runId: each.runId?.value ?? null,
           kind: each.kind,
           state: each.current,
           proposals: each.proposals.map((proposal) => ({
@@ -505,6 +541,7 @@ export class DrizzleSearchRepository implements SearchRepository {
             name: proposal.name.value,
             replay: storedReplay(proposal.replay),
             improved: proposal.improved,
+            requestedBy: proposal.requestedBy?.value ?? null,
           })),
           attempts: each.attempts,
           agentSpent: storedSpent(each.agentSpent),

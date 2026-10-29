@@ -72,8 +72,6 @@ vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({ data: answer.lines }),
 }));
 
-const STATION = '/w/acme/team/team_1/lines/line_delivery/stations';
-
 const showing = (period: InsightsPeriod = '30d') =>
   render(
     <MemoryRouter>
@@ -135,7 +133,9 @@ describe('the Candidates tab', () => {
       screen.getByText('No candidates replayed in this period'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Replay a station’s past tasks under a changed config/),
+      screen.getByText(
+        /Spotlight replays the candidates of each automatic search/,
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open the line' })).toHaveAttribute(
       'href',
@@ -153,29 +153,25 @@ describe('the Candidates tab', () => {
     );
   });
 
-  it('groups the candidates in one table by station, then replay set, showing the health of each set', () => {
+  it('groups the candidates in one table by station, showing the health of the station’s replay set', () => {
     showing();
 
     const groups = [
       ...document.querySelectorAll('[data-slot="nested-group"]'),
     ].map((each) => each.textContent);
     expect(groups).toEqual([
-      'ImplementationDelivery',
-      expect.stringMatching(/^Migrations and billing24 tasks \(27 runs\)/),
-      'Code ReviewDelivery',
-      expect.stringMatching(/^Reviews sent back12 tasks/),
+      expect.stringMatching(
+        /^ImplementationDeliveryReplay set24 tasks \(27 runs\)/,
+      ),
+      expect.stringMatching(/^Code ReviewDeliveryReplay set12 tasks/),
     ]);
     expect(
-      screen.getByRole('link', { name: 'Migrations and billing' }),
-    ).toHaveAttribute(
-      'href',
-      `${STATION}/station_implementation/replay-sets/set_implementation`,
-    );
-    expect(screen.getAllByLabelText('Checks pull requests')).toHaveLength(1);
+      screen.queryByRole('link', { name: 'Replay set' }),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByLabelText('Set health')).toHaveLength(2);
   });
 
-  it('collapses a station or a replay set and expands it again', async () => {
+  it('collapses a station and expands it again', async () => {
     showing();
 
     await userEvent.click(
@@ -187,11 +183,7 @@ describe('the Candidates tab', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Expand Implementation' }),
     );
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Collapse Reviews sent back' }),
-    );
     expect(screen.getByText('opus-with-migrations-skill')).toBeInTheDocument();
-    expect(screen.queryByText('review-against-spec')).toBeNull();
   });
 
   it('charts each replay set in place of its candidates, under the same collapsible rows', async () => {
@@ -238,34 +230,22 @@ describe('the Candidates tab', () => {
     expect(row('review-against-spec')).toHaveTextContent('Held out–');
   });
 
-  it('leads Changes to the pull request, the search or the replay, whichever shows the change', () => {
+  it('leads to the config pull request where there is one, and nowhere else', () => {
     showing();
 
-    expect(
-      within(row('opus-with-migrations-skill')).getByRole('link', {
-        name: 'Changes',
-      }),
-    ).toHaveAttribute(
+    const link = within(row('opus-with-migrations-skill')).getByRole('link', {
+      name: 'Pull request',
+    });
+
+    expect(link).toHaveAttribute(
       'href',
       'https://github.com/acme/spotlight-config/pull/42',
     );
+    expect(link).toHaveAttribute('target', '_blank');
     expect(
-      within(row('sonnet-terse-prompt')).getByRole('link', {
-        name: 'Changes',
-      }),
-    ).toHaveAttribute(
-      'href',
-      `${STATION}/station_implementation/searches/search_1#candidate-candidate_terse`,
-    );
-
-    const proposed = row('review-against-spec');
-    expect(proposed).toHaveTextContent('SourceProposed');
-    expect(
-      within(proposed).getByRole('link', { name: 'Changes' }),
-    ).toHaveAttribute(
-      'href',
-      `${STATION}/station_review/replays/replay_spec_review`,
-    );
+      within(row('sonnet-terse-prompt')).queryByRole('link'),
+    ).not.toBeInTheDocument();
+    expect(row('review-against-spec')).toHaveTextContent('SourceSearch');
   });
 
   it('says a candidate was not compared with live where no task was compared', () => {

@@ -1,4 +1,4 @@
-export type TooltipRow = readonly [label: string, value: string];
+type TooltipRow = readonly [label: string, value: string];
 
 export type TooltipList = {
   readonly title: string;

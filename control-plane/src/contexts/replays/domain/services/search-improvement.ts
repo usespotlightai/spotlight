@@ -1,7 +1,10 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { gainBetween } from '@replays/domain/services/gain-estimate';
-import { rankedOf } from '@replays/domain/services/search-ranking';
+import {
+  isCheaperAtParity,
+  rankedOf,
+} from '@replays/domain/services/search-ranking';
 import { scoredOn, scoresOf } from '@replays/domain/services/search-scores';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 
@@ -56,10 +59,5 @@ export const improvedOnBestBefore = (
   const cost = scoredOn(candidate, runSubset, currency).costPerRun;
   const bestCost = scoredOn(bestReplay, runSubset, currency).costPerRun;
 
-  return (
-    estimate.significance !== 'worse' &&
-    cost !== null &&
-    bestCost !== null &&
-    cost < bestCost
-  );
+  return isCheaperAtParity(estimate.significance, cost, bestCost);
 };

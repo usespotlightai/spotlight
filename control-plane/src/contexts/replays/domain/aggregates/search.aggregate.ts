@@ -3,20 +3,19 @@ import type {
   ReplayedStation,
   ReplaySet,
 } from '@replays/domain/aggregates/replay-set.aggregate';
+import { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
 import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
-import { SearchReflected } from '@replays/domain/events/search-reflected.event';
-import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
+import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
-import { SearchStopRequested } from '@replays/domain/events/search-stop-requested.event';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
-import { SearchEndedError } from '@replays/domain/exceptions/search-ended.error';
 import { SearchIterationClosedError } from '@replays/domain/exceptions/search-iteration-closed.error';
 import { SearchNotReflectingError } from '@replays/domain/exceptions/search-not-reflecting.error';
 import { SearchProposalsExhaustedError } from '@replays/domain/exceptions/search-proposals-exhausted.error';
 import { SearchReflectingError } from '@replays/domain/exceptions/search-reflecting.error';
+import { SearchTakesNoRequestsError } from '@replays/domain/exceptions/search-takes-no-requests.error';
 import { UnknownSearchTaskError } from '@replays/domain/exceptions/unknown-search-task.error';
 import { frontierOf } from '@replays/domain/services/frontier';
 import type { ReplayCharge } from '@replays/domain/services/replay-charge';
@@ -44,8 +43,13 @@ import {
   type SearchIterationKind,
 } from '@replays/domain/value-objects/search-iteration.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
+import type {
+  SearchPick,
+  SearchPickDecline,
+} from '@replays/domain/value-objects/search-pick';
 import { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import { SearchReplay } from '@replays/domain/value-objects/search-replay.vo';
+import type { SearchRequest } from '@replays/domain/value-objects/search-request.vo';
 import { SearchStartDetail } from '@replays/domain/value-objects/search-start-detail.vo';
 import {
   ACTIVE_SEARCH_STATES,
@@ -56,6 +60,7 @@ import type {
   SearchCutShort,
   SearchStopReason,
 } from '@replays/domain/value-objects/search-stop-reason';
+import type { SearchTrigger } from '@replays/domain/value-objects/search-trigger';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -114,20 +119,33 @@ interface State {
   readonly id: SearchId;
   readonly station: ReplayedStation;
   readonly setId: ReplaySetId;
-  readonly agent: SearchAgent;
+  readonly agent: SearchAgent | null;
   readonly budget: SearchBudget;
   readonly objective: SearchObjective;
   readonly split: HeldOutSplit;
+  readonly calibrates: boolean;
   readonly seed: SearchSeed;
   readonly iterations: readonly SearchIteration[];
+  readonly requests: readonly SearchRequest[];
+  readonly dropped: readonly SearchRequest[];
   readonly heldOut: readonly HeldOutReplay[];
   readonly state: SearchState;
   readonly stopReason: SearchStopReason | null;
-  readonly startedBy: UserId | null;
+  readonly trigger: SearchTrigger;
+  readonly pick: SearchPick | null;
   readonly startedAt: Date;
   readonly endedAt: Date | null;
   readonly version: number;
 }
+
+const agentFits = (state: {
+  readonly agent: SearchAgent | null;
+  readonly budget: SearchBudget;
+  readonly trigger: SearchTrigger;
+}): boolean =>
+  (state.agent === null) === !state.budget.agentRuns &&
+  (state.agent !== null ||
+    (state.trigger === 'request' && state.budget.iterations === 1));
 
 const isActive = (state: SearchState): boolean =>
   (ACTIVE_SEARCH_STATES as readonly SearchState[]).includes(state);
@@ -143,17 +161,31 @@ export class Search extends EventRecorder {
   static start(input: {
     id: SearchId;
     set: ReplaySet;
-    agent: SearchAgent;
+    agent: SearchAgent | null;
     budget: SearchBudget;
     objective: SearchObjective;
     split: HeldOutSplit;
+    calibrates: boolean;
     seed: { candidate: SeedCandidate; replayId: ReplayId };
+    trigger: SearchTrigger;
+    requests: readonly SearchRequest[];
     at: Date;
     by: ChangeActor;
   }): Search {
     const { set, seed } = input;
 
     set.stillAtItsStation();
+
+    if ((input.trigger === 'request') !== input.requests.length > 0) {
+      throw new InvalidSearchError(
+        'starts with a requested candidate when, and only when, a person asked for it',
+      );
+    }
+    if (!agentFits(input)) {
+      throw new InvalidSearchError(
+        'runs without a search agent only to replay one requested iteration',
+      );
+    }
 
     if (!input.split.covers(set.runs)) {
       throw new InvalidSearchError(
@@ -169,7 +201,7 @@ export class Search extends EventRecorder {
       );
     }
 
-    input.budget.splitCeiling(input.split);
+    input.budget.splitCeiling(input.split, input.calibrates);
 
     const started = new Search({
       id: input.id,
@@ -179,16 +211,20 @@ export class Search extends EventRecorder {
       budget: input.budget,
       objective: input.objective,
       split: input.split,
+      calibrates: input.calibrates,
       seed: {
         candidateId: seed.candidate.id,
         fingerprint: seed.candidate.fingerprint,
         replay: SearchReplay.started(seed.replayId),
       },
       iterations: [],
+      requests: [...input.requests],
+      dropped: [],
       heldOut: [],
       state: 'seeding',
       stopReason: null,
-      startedBy: input.by.actor?.principal.userId ?? null,
+      trigger: input.trigger,
+      pick: null,
       startedAt: input.at,
       endedAt: null,
       version: 0,
@@ -251,9 +287,56 @@ export class Search extends EventRecorder {
       );
     }
 
+    if (!agentFits(state)) {
+      throw new InconsistentStateError(
+        'search',
+        'runs without a search agent only to replay one requested iteration',
+      );
+    }
+    if (
+      state.requests.length > 0 &&
+      state.state !== 'seeding' &&
+      state.state !== 'searching'
+    ) {
+      throw new InconsistentStateError(
+        'search',
+        'keeps requested candidates waiting only while it searches',
+      );
+    }
+    if (
+      state.dropped.length > 0 &&
+      (state.state === 'seeding' || state.state === 'searching')
+    ) {
+      throw new InconsistentStateError(
+        'search',
+        'drops requested candidates only once it stopped searching',
+      );
+    }
+    if (
+      state.trigger === 'request' &&
+      state.requests.length + state.dropped.length === 0 &&
+      !state.iterations.some((each) =>
+        each.proposals.some((proposal) => proposal.requestedBy !== null),
+      )
+    ) {
+      throw new InconsistentStateError(
+        'search',
+        'that a person asked for holds the candidate they asked for',
+      );
+    }
+
+    if (state.pick !== null && state.state !== 'finished') {
+      throw new InconsistentStateError(
+        'search',
+        'picks a candidate only once it has finished',
+      );
+    }
+
     return new Search({
       ...state,
       iterations: [...state.iterations],
+      requests: [...state.requests],
+      dropped: [...state.dropped],
       heldOut: [...state.heldOut],
     });
   }
@@ -278,7 +361,7 @@ export class Search extends EventRecorder {
     return this.state.setId;
   }
 
-  get agent(): SearchAgent {
+  get agent(): SearchAgent | null {
     return this.state.agent;
   }
 
@@ -299,7 +382,14 @@ export class Search extends EventRecorder {
   }
 
   get ceilingSplit(): SearchCeilingSplit {
-    return this.state.budget.splitCeiling(this.state.split);
+    return this.state.budget.splitCeiling(
+      this.state.split,
+      this.state.calibrates,
+    );
+  }
+
+  get calibrates(): boolean {
+    return this.state.calibrates;
   }
 
   get seed(): SearchSeed {
@@ -314,6 +404,67 @@ export class Search extends EventRecorder {
     return this.state.iterations.flatMap((each) => each.proposals);
   }
 
+  get requests(): readonly SearchRequest[] {
+    return this.state.requests;
+  }
+
+  get dropped(): readonly SearchRequest[] {
+    return this.state.dropped;
+  }
+
+  get requesters(): readonly UserId[] {
+    return this.requested
+      .map((each) => each.requestedBy)
+      .filter(
+        (each, at, all) => all.findIndex((other) => other.equals(each)) === at,
+      );
+  }
+
+  get requested(): readonly {
+    readonly candidateId: CandidateId;
+    readonly name: CandidateName;
+    readonly requestedBy: UserId;
+  }[] {
+    return [
+      ...this.proposals.flatMap((each) =>
+        each.requestedBy
+          ? [
+              {
+                candidateId: each.candidateId,
+                name: each.name,
+                requestedBy: each.requestedBy,
+              },
+            ]
+          : [],
+      ),
+      ...this.state.requests,
+      ...this.state.dropped,
+    ];
+  }
+
+  get openingRequest(): CandidateId | null {
+    return this.state.trigger === 'request'
+      ? (this.requested[0]?.candidateId ?? null)
+      : null;
+  }
+
+  get requestIteration(): number {
+    const last = this.lastIteration;
+
+    return last?.awaitsRequests
+      ? last.number
+      : this.state.iterations.length + 1;
+  }
+
+  get takesRequests(): boolean {
+    return (
+      (this.state.state === 'seeding' || this.state.state === 'searching') &&
+      this.requestIteration <= this.state.budget.iterations &&
+      this.state.requests.length < this.state.budget.perIteration &&
+      (this.hasRequests || this.affordsIteration)
+    );
+  }
+
   get heldOut(): readonly HeldOutReplay[] {
     return this.state.heldOut;
   }
@@ -326,8 +477,22 @@ export class Search extends EventRecorder {
     return this.state.stopReason;
   }
 
-  get startedBy(): UserId | null {
-    return this.state.startedBy;
+  get trigger(): SearchTrigger {
+    return this.state.trigger;
+  }
+
+  get pick(): SearchPick | null {
+    return this.state.pick;
+  }
+
+  get awaitsPick(): boolean {
+    return this.state.state === 'finished' && this.state.pick === null;
+  }
+
+  get pickedCandidate(): CandidateId | null {
+    return this.state.pick?.outcome === 'picked'
+      ? this.state.pick.candidateId
+      : null;
   }
 
   get startedAt(): Date {
@@ -446,7 +611,10 @@ export class Search extends EventRecorder {
   acceptProposal(run: RunId, proposal: AcceptedProposal): Search {
     const iteration = this.proposingIn(run);
 
-    if (this.proposals.some((each) => each.isNamed(proposal.name))) {
+    if (
+      this.proposals.some((each) => each.isNamed(proposal.name)) ||
+      this.state.requests.some((each) => each.isNamed(proposal.name))
+    ) {
       throw new SearchCandidateNameTakenError(proposal.name.value);
     }
 
@@ -457,9 +625,57 @@ export class Search extends EventRecorder {
           name: proposal.name,
           replay: SearchReplay.started(proposal.replayId),
           improved: null,
+          requestedBy: null,
         }),
       ),
     );
+  }
+
+  request(request: SearchRequest): Search {
+    if (!this.takesRequests) {
+      throw new SearchTakesNoRequestsError(this.id.value);
+    }
+    if (
+      this.proposals.some((each) => each.isNamed(request.name)) ||
+      this.state.requests.some((each) => each.isNamed(request.name))
+    ) {
+      throw new SearchCandidateNameTakenError(request.name.value);
+    }
+
+    return this.with({ requests: [...this.state.requests, request] });
+  }
+
+  requestsTaken(
+    replayIds: () => ReplayId,
+    at: Date,
+    runIds: () => RunId,
+  ): Search {
+    const last = this.lastIteration;
+
+    if (!this.isActive || !last?.awaitsRequests) {
+      throw new InvalidSearchError(
+        'takes requested candidates only into an iteration that waits for them',
+      );
+    }
+
+    const taken = last.taken(
+      this.state.requests.map((each) =>
+        SearchProposal.of({
+          candidateId: each.candidateId,
+          name: each.name,
+          replay: SearchReplay.started(replayIds()),
+          improved: null,
+          requestedBy: each.requestedBy,
+        }),
+      ),
+    );
+
+    return this.with({
+      iterations: this.state.iterations.map((each) =>
+        each === last ? taken : each,
+      ),
+      requests: [],
+    }).advancedAt(at, runIds);
   }
 
   reflectingOn(
@@ -649,30 +865,48 @@ export class Search extends EventRecorder {
     }).heldOutAt(at);
   }
 
-  stop(at: Date, by: ChangeActor): Search {
-    if (!this.isActive) {
-      throw new SearchEndedError(this.id.value);
+  turnOff(at: Date): Search {
+    return this.isActive ? this.cutShort('turned-off', at) : this;
+  }
+
+  picked(pick: SearchPick): Search {
+    if (this.state.state !== 'finished' || this.state.pick !== null) {
+      throw new InvalidSearchError(
+        'picks a candidate once, after it has finished',
+      );
+    }
+    if (
+      pick.outcome === 'picked' &&
+      !this.proposals.some((each) => each.candidateId.equals(pick.candidateId))
+    ) {
+      throw new InvalidSearchError('picks only a candidate it proposed');
     }
 
-    const stopped = this.cutShort('stopped', at);
+    const recorded = this.with({ pick });
 
-    stopped.record(
-      new SearchStopRequested(
-        this.id,
-        this.teamId,
-        ConfigurationChange.updated(this.whatChanged, by),
-      ),
+    recorded.record(
+      pick.outcome === 'picked'
+        ? new SearchCandidatePicked(this.id, this.workspaceId, pick.candidateId)
+        : new SearchPickDeclined(this.id, this.workspaceId, pick.reason),
     );
 
-    return stopped;
+    return recorded;
+  }
+
+  pickWithdrawn(reason: SearchPickDecline): Search {
+    if (this.state.pick?.outcome !== 'picked') {
+      throw new InvalidSearchError('withdraws only a pick it made');
+    }
+
+    const withdrawn = this.with({ pick: { outcome: 'declined', reason } });
+
+    withdrawn.record(new SearchPickDeclined(this.id, this.workspaceId, reason));
+
+    return withdrawn;
   }
 
   stationLeft(at: Date): Search {
     return this.isActive ? this.cutShort('station-gone', at) : this;
-  }
-
-  recordSetGone(at: Date): Search {
-    return this.isActive ? this.cutShort('set-gone', at) : this;
   }
 
   delete(): Search {
@@ -736,13 +970,17 @@ export class Search extends EventRecorder {
   private searchingAt(at: Date, runIds: () => RunId): Search {
     const searching = this.with({ state: 'searching' });
 
-    return searching.affordsIteration
+    return searching.hasRequests || searching.affordsIteration
       ? searching.wantingIteration(runIds, 'propose')
       : searching.ranItsCourse('ceiling-reached', at);
   }
 
   private get affordsIteration(): boolean {
-    return this.state.budget.allowsIteration(this.spent, this.state.split);
+    return this.state.budget.allowsIteration(
+      this.spent,
+      this.state.split,
+      this.state.calibrates,
+    );
   }
 
   private advancedAt(at: Date, runIds: () => RunId): Search {
@@ -757,10 +995,13 @@ export class Search extends EventRecorder {
     if (this.state.iterations.length >= this.state.budget.iterations) {
       return this.ranItsCourse('iterations-spent', at);
     }
+    if (this.hasRequests) {
+      return this.wantingIteration(runIds, 'propose');
+    }
     if (this.stalls) {
       return this.roomToReflect
         ? this.wantingIteration(runIds, 'reflect')
-        : this.stalledUnreflected(at);
+        : this.ranItsCourse('stalled', at);
     }
     if (!this.affordsIteration) {
       return this.ranItsCourse('ceiling-reached', at);
@@ -769,12 +1010,20 @@ export class Search extends EventRecorder {
     return this.wantingIteration(runIds, 'propose');
   }
 
+  private get hasRequests(): boolean {
+    return this.state.requests.length > 0;
+  }
+
   private get roomToReflect(): boolean {
     const { budget, split, iterations } = this.state;
 
     return (
       budget.iterations - iterations.length >= REFLECTION_AND_ONE_MORE &&
-      budget.allowsIteration(this.spent.plus(this.ceilingSplit.agentRun), split)
+      budget.allowsIteration(
+        this.spent.plus(this.ceilingSplit.agentRun),
+        split,
+        this.state.calibrates,
+      )
     );
   }
 
@@ -785,14 +1034,6 @@ export class Search extends EventRecorder {
       recent.length === STALLED_AFTER &&
       recent.every((each) => each.cameToNothing)
     );
-  }
-
-  private stalledUnreflected(at: Date): Search {
-    const stalled = this.ranItsCourse('stalled', at);
-
-    stalled.record(new SearchStalledUnreflected(this.id, this.workspaceId));
-
-    return stalled;
   }
 
   private reflectedAt(
@@ -807,30 +1048,24 @@ export class Search extends EventRecorder {
         : reflection.causes.length === 0 && reflection.current === 'failed'
           ? 'did-not-run'
           : 'no-config-cause');
-    const next = stalledAs
-      ? this.ranItsCourse('stalled', at)
-      : this.state.iterations.length >= this.state.budget.iterations
-        ? this.ranItsCourse('iterations-spent', at)
-        : this.affordsIteration
+    const next =
+      this.state.iterations.length >= this.state.budget.iterations
+        ? this.ranItsCourse(stalledAs ? 'stalled' : 'iterations-spent', at)
+        : this.hasRequests
           ? this.wantingIteration(runIds, 'propose')
-          : this.ranItsCourse('ceiling-reached', at);
+          : stalledAs
+            ? this.ranItsCourse('stalled', at)
+            : this.affordsIteration
+              ? this.wantingIteration(runIds, 'propose')
+              : this.ranItsCourse('ceiling-reached', at);
     const outcome =
       stalledAs ??
       (next.state.state === 'searching' ? 'continued' : 'ceiling-reached');
-    const concluded = next.changingIteration(reflection.runId, (each) =>
-      each.concluded(outcome),
-    );
-
-    concluded.record(
-      new SearchReflected(
-        this.id,
-        this.workspaceId,
-        reflection.number,
-        outcome !== 'continued',
+    return next.with({
+      iterations: next.state.iterations.map((each) =>
+        each.number === reflection.number ? each.concluded(outcome) : each,
       ),
-    );
-
-    return concluded;
+    });
   }
 
   private wantingIteration(
@@ -838,7 +1073,10 @@ export class Search extends EventRecorder {
     kind: SearchIterationKind,
   ): Search {
     const number = this.state.iterations.length + 1;
-    const iteration = SearchIteration.wanted(number, runIds(), kind);
+    const iteration =
+      kind === 'propose' && this.state.requests.length > 0
+        ? SearchIteration.requested(number)
+        : SearchIteration.wanted(number, runIds(), kind);
     const wanting = this.with({
       iterations: [...this.state.iterations, iteration],
     });
@@ -860,7 +1098,11 @@ export class Search extends EventRecorder {
       return this.endedAs('finished', stopReason, at);
     }
 
-    const holdingOut = this.with({ state: 'holding-out', stopReason });
+    const holdingOut = this.with({
+      state: 'holding-out',
+      stopReason,
+      ...this.droppedRequests,
+    });
 
     holdingOut.record(new SearchHoldingOutRequested(this.id, this.workspaceId));
 
@@ -894,7 +1136,12 @@ export class Search extends EventRecorder {
     ]
       .filter((each) => !each.hasEnded)
       .map((each) => each.replayId);
-    const ended = this.with({ state, stopReason, endedAt: at });
+    const ended = this.with({
+      state,
+      stopReason,
+      endedAt: at,
+      ...this.droppedRequests,
+    });
 
     ended.record(
       new SearchEnded(
@@ -908,6 +1155,13 @@ export class Search extends EventRecorder {
     );
 
     return ended;
+  }
+
+  private get droppedRequests(): Pick<State, 'requests' | 'dropped'> {
+    return {
+      requests: [],
+      dropped: [...this.state.dropped, ...this.state.requests],
+    };
   }
 
   private with(part: Partial<State>): Search {

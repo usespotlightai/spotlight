@@ -1,13 +1,8 @@
-import { Fragment } from 'react';
 import { ReplayedAgentConfigRow } from '@/components/features/insights/changes/ReplayedAgentConfigRow';
-import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
-import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
-import { useCollapsibles } from '@/hooks/useCollapsibles';
 import {
   REPLAYED_HEADINGS,
   type ReplayedPoint,
-  replayedSetsOf,
 } from '@/lib/insights-candidates';
 
 type ReplayedAgentConfigTableProps = {
@@ -19,37 +14,16 @@ export function ReplayedAgentConfigTable({
   points,
   currency,
 }: ReplayedAgentConfigTableProps) {
-  const collapsibles = useCollapsibles();
-
   return (
     <div className="mt-4">
       <NestedTable label="Replayed configs" headings={REPLAYED_HEADINGS}>
-        {replayedSetsOf(points).map((set) => {
-          const open = collapsibles.isOpen(set.name);
-
-          return (
-            <Fragment key={set.name}>
-              <NestedGroupRow
-                label={set.name}
-                open={open}
-                depth={0}
-                onToggle={() => collapsibles.toggle(set.name)}
-              >
-                <span className="font-medium text-foreground">{set.name}</span>
-                <span className="ml-1.5 text-muted-foreground">replayed</span>
-              </NestedGroupRow>
-              <CollapsibleRows open={open}>
-                {set.points.map((point) => (
-                  <ReplayedAgentConfigRow
-                    key={point.key}
-                    point={point}
-                    currency={currency}
-                  />
-                ))}
-              </CollapsibleRows>
-            </Fragment>
-          );
-        })}
+        {points.map((point) => (
+          <ReplayedAgentConfigRow
+            key={point.key}
+            point={point}
+            currency={currency}
+          />
+        ))}
       </NestedTable>
     </div>
   );

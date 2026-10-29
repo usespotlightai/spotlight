@@ -4,11 +4,6 @@ import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export interface SearchPage {
-  readonly before: SearchId | null;
-  readonly limit: number;
-}
-
 export interface SearchRepository {
   find(id: SearchId): Promise<Search | null>;
 
@@ -21,9 +16,20 @@ export interface SearchRepository {
     since: Date,
   ): Promise<readonly Search[]>;
 
+  ofLineStartedSince(lineId: string, since: Date): Promise<readonly Search[]>;
+
+  lockedOfLineStartedSince(
+    lineId: string,
+    since: Date,
+  ): Promise<readonly Search[]>;
+
   ranAs(run: RunId): Promise<Search | null>;
 
   activeAtStation(stationId: string): Promise<Search | null>;
+
+  activeOfLine(lineId: string): Promise<readonly Search[]>;
+
+  newestAtStation(stationId: string): Promise<Search | null>;
 
   activeOfSet(setId: ReplaySetId): Promise<Search | null>;
 
@@ -32,8 +38,6 @@ export interface SearchRepository {
   ofTeam(teamId: TeamId): Promise<readonly Search[]>;
 
   advancing(): Promise<readonly Search[]>;
-
-  pageOfTeam(teamId: TeamId, page: SearchPage): Promise<readonly Search[]>;
 
   add(search: Search): Promise<void>;
 

@@ -87,16 +87,6 @@ const Memory = lazyPage(
   (module) => module.Memory,
 );
 
-const Replay = lazyPage(
-  () => import('./routes/Replay.tsx'),
-  (module) => module.Replay,
-);
-
-const ReplaySet = lazyPage(
-  () => import('./routes/ReplaySet.tsx'),
-  (module) => module.ReplaySet,
-);
-
 const Run = lazyPage(
   () => import('./routes/Run.tsx'),
   (module) => module.Run,
@@ -115,11 +105,6 @@ const Runners = lazyPage(
 const Runs = lazyPage(
   () => import('./routes/Runs.tsx'),
   (module) => module.Runs,
-);
-
-const Search = lazyPage(
-  () => import('./routes/Search.tsx'),
-  (module) => module.Search,
 );
 
 const Station = lazyPage(
@@ -194,20 +179,8 @@ export default function App() {
                 <Route index element={<TeamIndex />} />
                 <Route path="lines/:lineId" element={<LineBoard />} />
                 <Route
-                  path="lines/:lineId/stations/:stationId/:tab?"
+                  path="lines/:lineId/stations/:stationId"
                   element={<Station />}
-                />
-                <Route
-                  path="lines/:lineId/stations/:stationId/replay-sets/:setId"
-                  element={<ReplaySet />}
-                />
-                <Route
-                  path="lines/:lineId/stations/:stationId/replays/:replayId"
-                  element={<Replay />}
-                />
-                <Route
-                  path="lines/:lineId/stations/:stationId/searches/:searchId"
-                  element={<Search />}
                 />
                 <Route path="tasks/:taskId" element={<Task />} />
                 <Route path="tasks/:taskId/trace" element={<TaskTrace />} />

@@ -8,6 +8,7 @@ import {
   type SetHealth,
   setHealthOf,
   UNREAD_HEALTH,
+  wantsCalibration,
 } from '@replays/domain/services/set-health';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
@@ -97,6 +98,18 @@ export class SetHealths {
         ];
       }),
     );
+  }
+
+  async calibrationWanted(
+    set: ReplaySet,
+    liveFingerprint: StationFingerprint,
+  ): Promise<boolean> {
+    const replays = await this.replays.ofSet(set.id);
+    const configs = await this.candidates.findMany(
+      replays.map((each) => each.candidateId),
+    );
+
+    return wantsCalibration(set, replays, configs, liveFingerprint);
   }
 
   private async comparisonsMissingFrom(

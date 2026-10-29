@@ -50,8 +50,6 @@ const reading = (
       listForTeam: vi.fn(),
       notesFor: vi.fn().mockResolvedValue(found),
       configFor: vi.fn(),
-      replayFor: vi.fn(),
-      searchRunFor: vi.fn(),
     } satisfies RunReaderPort,
     { forRuns: async () => new Map(usages) },
   ).execute(new ReadRunNotesQuery(RUN_ID, 'user_1'));

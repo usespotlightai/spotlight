@@ -8,6 +8,7 @@ import type {
 import type { WebhookSignaturePort } from '@github/application/ports/webhook-signature.port';
 import type { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
 import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
@@ -190,8 +191,21 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
           workspaceId,
           event.pullRequest,
           event.repository,
+          event.gitHubId,
           event.merge,
           event.closedAt,
+        ),
+      ]);
+    }
+
+    if (event.kind === 'pull-request-reopened') {
+      await this.events.dispatch([
+        new PullRequestReopened(
+          workspaceId,
+          event.pullRequest,
+          event.repository,
+          event.gitHubId,
+          event.reopenedAt,
         ),
       ]);
     }

@@ -1,6 +1,3 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   RunConfigSummary,
   RunConfigView,
@@ -36,57 +33,23 @@ const configured = (
   parts: { ...PARTS, ...parts },
 });
 
-const readerOf = (teamId: string | null) =>
-  ({
-    permissionsAsTeamReader: vi
-      .fn()
-      .mockResolvedValue(
-        teamId
-          ? { teamId: TeamId.of(teamId), workspaceId: WorkspaceId.of('ws_1') }
-          : null,
-      ),
-  }) as unknown as WorkspaceAccessPort;
-
-const reading = (
-  found: RunConfigSummary | null,
-  access: WorkspaceAccessPort = readerOf('team_1'),
-) =>
-  new ReadRunConfigHandler(access, {
+const reading = (found: RunConfigSummary | null) =>
+  new ReadRunConfigHandler({
     listForTask: vi.fn(),
     listForTeam: vi.fn(),
     notesFor: vi.fn(),
     configFor: vi.fn().mockResolvedValue(found),
-    replayFor: vi.fn(),
-    searchRunFor: vi.fn(),
   } satisfies RunReaderPort).execute(
     new ReadRunConfigQuery('team_1', 'run_2', 'user_1'),
   );
 
 describe('ReadRunConfigHandler', () => {
-  it('shows a replay run’s config only to those who may read its team’s insights', async () => {
-    const replayed = (teamId: string | null): RunConfigSummary => ({
-      ran: null,
-      before: null,
-      ranForTeam: { workspaceId: 'ws_1', teamId },
-    });
-
-    expect(await reading(replayed('team_1'))).toEqual({
-      fingerprint: null,
-      config: null,
-      changedSince: null,
-    });
-    expect(await reading(replayed('team_1'), readerOf(null))).toBeNull();
-    expect(await reading(replayed('team_2'))).toBeNull();
-  });
-
   it('finds nothing for a run the viewer cannot see', async () => {
     expect(await reading(null)).toBeNull();
   });
 
   it('answers no config for a run that recorded none', async () => {
-    expect(
-      await reading({ ran: null, before: null, ranForTeam: null }),
-    ).toEqual({
+    expect(await reading({ ran: null, before: null })).toEqual({
       fingerprint: null,
       config: null,
       changedSince: null,
@@ -97,7 +60,6 @@ describe('ReadRunConfigHandler', () => {
     const found = await reading({
       ran: configured('run_2', 'b', { effort: 'xhigh' }),
       before: configured('run_1', 'a'),
-      ranForTeam: null,
     });
 
     expect(found?.fingerprint).toBe('b'.repeat(64));
@@ -121,7 +83,6 @@ describe('ReadRunConfigHandler', () => {
     const found = await reading({
       ran: configured('run_2', 'a'),
       before: configured('run_1', 'a'),
-      ranForTeam: null,
     });
 
     expect(found?.changedSince).toBeNull();

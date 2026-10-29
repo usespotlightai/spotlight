@@ -1,203 +1,163 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
-import { estimateOf } from '@replays/domain/services/search-estimate';
-import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
-import { Money } from '@replays/domain/value-objects/money.vo';
-import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
-import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
+import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { LINE_CHANGED } from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { TEST_USER_HEADER } from './support/app';
+import { autoSearched } from './support/app';
+import { activeSearchAt, dueNow } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import {
+  ADVISE_ON_STALL,
   anOriginal,
   app,
   auditOf,
   BUILD,
   bearing,
-  budgetOf,
   claimed,
   createSet,
+  DELIVERY,
   db,
+  delivered,
   drained,
   endedSearchRun,
   entryOf,
   finished,
   fiveTasks,
-  http,
   judged,
   leasedSearchRun,
   liveBlock,
+  noticesSince,
   openSearchFlow,
   originalsOf,
   owner,
   proposing,
+  refreshedBefore,
   replayEnded,
   replayRow,
   STUB_GUIDANCE,
+  searchedAt,
   searchOf,
   searchRow,
   searchRunsOf,
   searchState,
+  setRunsOf,
   startSearch,
   stationPath,
+  subscriberDone,
+  team,
   teamPath,
   tenTasks,
-  tokenWith,
+  turnedOff,
   WITHIN,
 } from './support/search-flow';
 
 openSearchFlow();
 
 describe('a search for a better station config', () => {
-  it('estimates what it would start, spend and take, as it splits its ceiling, writing nothing', async () => {
-    const setId = await createSet('Estimated', tenTasks);
-    const budget = { iterations: 2, perIteration: 2, ceiling: 40 };
-
-    const estimate = (
-      await owner()
-        .post(`${stationPath()}/searches/estimate`, {
-          setId,
-          budget: budgetOf(budget),
-        })
-        .expect(200)
-    ).body as {
-      searchedTasks: number;
-      heldOutTasks: number;
-      runs: Record<string, number>;
-      perReplayLimits: Record<string, { amount: number }>;
-      estimatedDuration: number | null;
-      minGain: number;
-      objective: string;
-      warnings: { kind: string }[];
-    };
-    const split = HeldOutSplit.drawn({
-      searchId: SearchId.of('estimate'),
-      entries: tenTasks.map((each) =>
-        ReplaySetEntry.of({
-          runId: RunId.of(each.runId),
-          taskId: TaskId.of(each.taskId),
-          addedAt: new Date(),
-        }),
-      ),
-      hash: (text) => createHash('sha256').update(text, 'utf8').digest('hex'),
-    });
-    const expected = estimateOf(
-      SearchBudget.of({
-        iterations: 2,
-        perIteration: 2,
-        ceiling: Money.ceiling(40, 'USD'),
-        concurrency: 10,
-      }),
-      split,
-      [],
-    );
-
-    expect(estimate.searchedTasks).toBe(7);
-    expect(estimate.heldOutTasks).toBe(3);
-    expect(estimate.runs).toEqual(expected.runs);
-    expect(estimate.perReplayLimits.seed?.amount).toBeCloseTo(
-      expected.ceilingSplit.seed.amount,
-      6,
-    );
-    expect(estimate.perReplayLimits.searchReplay?.amount).toBeCloseTo(
-      expected.ceilingSplit.searchReplay.amount,
-      6,
-    );
-    expect(estimate.perReplayLimits.heldOutReplay?.amount).toBeCloseTo(
-      expected.ceilingSplit.heldOutReplay.amount,
-      6,
-    );
-    expect(estimate.estimatedDuration).toBeNull();
-    expect(estimate.minGain).toBe(0.05);
-    expect(estimate.objective).toBe('success');
-    expect(estimate.warnings).toEqual([{ kind: 'noise-unmeasured' }]);
-    expect(await db.select().from(schema.replaySearch)).toEqual([]);
-
-    const repeated = (
-      await owner()
-        .post(`${stationPath()}/searches/estimate`, {
-          setId,
-          budget: { ...budgetOf(budget), repeats: 2 },
-        })
-        .expect(200)
-    ).body as { runs: Record<string, number> };
-
-    expect(repeated.runs).toEqual({
-      seed: expected.runs.seed * 2,
-      searchReplays: expected.runs.searchReplays * 2,
-      heldOutReplays: expected.runs.heldOutReplays * 2,
-      agent: expected.runs.agent,
-      total: expected.runs.total * 2 - expected.runs.agent,
-    });
+  it('is started only by Spotlight, and no route starts, reads, lists, picks or stops a search, or reads its set, replays, candidates or runs', async () => {
+    const setId = await createSet(tenTasks);
 
     await owner()
-      .post(`${stationPath()}/searches/estimate`, {
-        setId,
-        budget: budgetOf({ ...budget, iterations: 11 }),
-      })
-      .expect(422)
-      .expect((answer) =>
-        expect(answer.body.errors).toEqual([
-          expect.objectContaining({
-            path: 'budget.iterations',
-            severity: 'error',
-          }),
-        ]),
-      );
-
-    const reader = await tokenWith(['read']);
-    const stranger = randomUUID();
-
-    await db.insert(schema.user).values({
-      id: stranger,
-      name: 'Eve',
-      email: `${stranger}@example.com`,
-    });
-    await bearing(reader).get(`${stationPath()}/searches`).expect(200);
-    await bearing(reader).get(`${teamPath()}/searches`).expect(200);
-    await bearing(reader)
-      .post(`${stationPath()}/searches/estimate`, {
-        setId,
-        budget: budgetOf(budget),
-      })
-      .expect(200);
-    await bearing(reader)
       .post(`${stationPath()}/searches`, {
         setId,
         agent: { harness: 'claude-code' },
-        budget: budgetOf(budget),
+        budget: { iterations: 1, perIteration: 1 },
       })
-      .expect(403);
-    await http()
-      .get(`${teamPath()}/searches`)
-      .set(TEST_USER_HEADER, stranger)
       .expect(404);
     await owner()
-      .post(`${stationPath()}/searches`, {
-        setId,
-        agent: { harness: 'no-such-harness' },
-        budget: budgetOf(budget),
-      })
-      .expect(422)
-      .expect((answer) =>
-        expect(
-          answer.body.errors.map((each: { path: string }) => each.path),
-        ).toEqual(['agent.harness']),
-      );
+      .post(`${stationPath()}/searches/estimate`, { setId })
+      .expect(404);
     expect(await db.select().from(schema.replaySearch)).toEqual([]);
+
+    const { id, seedReplayId } = await startSearch({
+      iterations: 1,
+      ceiling: 20,
+    });
+    const [seedRun] = await db
+      .select({ runId: schema.replayEntry.runId })
+      .from(schema.replayEntry)
+      .where(eq(schema.replayEntry.replayId, seedReplayId));
+    const replayRun = seedRun?.runId ?? randomUUID();
+
+    for (const path of [
+      `${stationPath()}/searches`,
+      `${stationPath()}/replay-set`,
+      `${stationPath()}/improvement`,
+      `${teamPath()}/searches`,
+      `${teamPath()}/searches/${id}`,
+      `${teamPath()}/replay-sets`,
+      `${teamPath()}/replay-sets/${setId}/replays`,
+      `${teamPath()}/replay-sets/${setId}/replay-checks`,
+      `${teamPath()}/replays/${seedReplayId}`,
+      `${teamPath()}/replay-runs/${replayRun}`,
+      `${teamPath()}/replay-runs/${replayRun}/replay`,
+      `${teamPath()}/search-runs/${replayRun}`,
+      `${teamPath()}/runs/${replayRun}/notes`,
+      `/api/resources/workspaces/${team.workspaceId.value}/replay-candidates`,
+    ]) {
+      await owner().get(path).expect(404);
+    }
+    expect(
+      (
+        (await owner().get(`${teamPath()}/runs`).expect(200)).body as {
+          id: string;
+        }[]
+      ).some((each) => each.id === replayRun),
+    ).toBe(false);
+    await owner()
+      .post(`${teamPath()}/searches/${id}/candidates/${randomUUID()}/pick`)
+      .expect(404);
+    await owner().post(`${teamPath()}/searches/${id}/stop`).expect(404);
+    await owner()
+      .post(`${teamPath()}/replay-sets/${setId}/replays`, {
+        candidate: 'live',
+        ceiling: { amount: 5, currency: 'USD' },
+      })
+      .expect(404);
+    await owner()
+      .post(`${teamPath()}/replays/${seedReplayId}/stop`)
+      .expect(404);
+    await owner()
+      .delete(
+        `${teamPath()}/replay-sets/${setId}/entries/${tenTasks[0]?.runId}`,
+      )
+      .expect(404);
+    await owner()
+      .post(
+        `/api/resources/lines/${DELIVERY}/stations/build/replay-candidates`,
+        {
+          name: 'Shorter',
+          station: { key: 'build' },
+        },
+      )
+      .expect(404);
+    await owner()
+      .get(`${teamPath()}/config-pull-requests/${randomUUID()}`)
+      .expect(404);
+    expect(
+      (await auditOf(id)).map((each) => [
+        each.resource,
+        each.action,
+        each.actor,
+      ]),
+    ).toEqual([['replay-search', 'created', 'spotlight']]);
+
+    await turnedOff(id);
+    await eventually(
+      async () => (await replayRow(seedReplayId))?.state === 'stopped',
+      WITHIN,
+    );
   }, 120_000);
 
-  it('replays the live config first, then runs its agent, takes its candidates only on the searched tasks, shows it no held-out task, holds out its frontier, and finishes', async () => {
-    const setId = await createSet('Searched', tenTasks);
-    const { id, seedReplayId } = await startSearch(setId, {
+  it('replays the live config first, then runs its agent, takes its candidates only on the searched tasks, shows it no held-out task, holds out its frontier, finishes, and tells nobody when it opens no pull request', async () => {
+    const setId = await createSet(tenTasks);
+    const searchedFrom = new Date();
+    const { id, seedReplayId } = await startSearch({
       iterations: 2,
-      perIteration: 2,
       ceiling: 60,
     });
 
@@ -210,24 +170,14 @@ describe('a search for a better station config', () => {
     expect(await searchRunsOf(id)).toEqual([]);
 
     const extra = await anOriginal();
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-        runId: extra.runId,
-      })
-      .expect(409);
-    await owner()
-      .delete(
-        `${teamPath()}/replay-sets/${setId}/entries/${tenTasks[0]?.runId}`,
-      )
-      .expect(409);
-    await owner().delete(`${teamPath()}/replay-sets/${setId}`).expect(409);
-    await owner()
-      .post(`${stationPath()}/searches`, {
-        setId,
-        agent: { harness: 'claude-code' },
-        budget: budgetOf({ iterations: 1, perIteration: 1, ceiling: 10 }),
-      })
-      .expect(409);
+    expect(await refreshedBefore(setId)).toBe(false);
+    await dueNow(searchedAt());
+    await autoSearched(app);
+    expect(
+      (await db.select().from(schema.replaySearch))
+        .filter((each) => each.stationId === BUILD && each.state !== 'stopped')
+        .map((each) => each.id),
+    ).toEqual([id]);
 
     await drained(() => ({ score: 4, cost: 0.2 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
@@ -267,7 +217,9 @@ describe('a search for a better station config', () => {
       'seed',
     ]);
     expect(
-      history.candidates[0]?.runs.map((each) => each.original).sort(),
+      [
+        ...new Set(history.candidates[0]?.runs.map((each) => each.original)),
+      ].sort(),
     ).toEqual(searchedRuns);
     expect(
       history.candidates[0]?.runs.every((each) => each.succeeded === true),
@@ -370,65 +322,20 @@ describe('a search for a better station config', () => {
     expect(await originalsOf(weak.replayId)).toEqual(searchedRuns);
 
     await endedSearchRun(agent);
+    for (const path of [
+      `${teamPath()}/runs/${agent.runId}/config`,
+      `${teamPath()}/runs/${agent.runId}/notes`,
+      `/api/runs/${agent.runId}/stream`,
+    ]) {
+      await owner().get(path).expect(404);
+    }
     await proposing(agent, {
       name: 'late',
       hypothesis: 'Too late.',
       station: block,
     }).expect(404);
 
-    await eventually(async () => {
-      const read = await owner().get(
-        `${teamPath()}/search-runs/${agent.runId}`,
-      );
-
-      return read.status === 200 && read.body.spent.spentCosts.length > 0;
-    }, WITHIN);
-
-    const searchRun = (
-      await owner().get(`${teamPath()}/search-runs/${agent.runId}`).expect(200)
-    ).body as {
-      searchId: string;
-      iteration: number;
-      state: string;
-      agent: { harness: string; model: string | null; effort: string | null };
-      spent: {
-        spentCosts: { amount: number; currency: string }[];
-        unpricedCalls: number;
-      };
-      journals: unknown[];
-      briefing: string;
-    };
-    const [dispatched] = await db
-      .select({ spec: schema.run.spec })
-      .from(schema.run)
-      .where(eq(schema.run.id, agent.runId));
-
-    expect(searchRun.briefing).toBe(
-      (dispatched?.spec as { briefing: string } | undefined)?.briefing,
-    );
-    expect(searchRun).toMatchObject({
-      searchId: id,
-      iteration: 1,
-      state: 'completed',
-      agent: { harness: 'claude-code', model: null, effort: 'high' },
-      spent: {
-        spentCosts: [{ amount: 0.05, currency: 'USD' }],
-        unpricedCalls: 0,
-      },
-    });
-    expect(searchRun.journals.length).toBeGreaterThan(0);
-    await bearing(await tokenWith(['read']))
-      .get(`${teamPath()}/search-runs/${agent.runId}`)
-      .expect(200);
-    await owner()
-      .get(`${teamPath()}/search-runs/${tenTasks[0]?.runId}`)
-      .expect(404);
-
-    const seedRead = (
-      await owner().get(`${teamPath()}/replays/${seedReplayId}`).expect(200)
-    ).body as { search: { searchId: string; candidateName: string } | null };
-
-    expect(seedRead.search).toEqual({ searchId: id, candidateName: 'seed' });
+    expect((await replayRow(seedReplayId))?.searchId).toBe(id);
 
     await drained((replayId) =>
       replayId === strong.replayId
@@ -437,17 +344,7 @@ describe('a search for a better station config', () => {
     );
     expect(await replayEnded(strong.replayId)).toBe('finished');
 
-    const [strongRun] = await db
-      .select({ runId: schema.replayEntry.runId })
-      .from(schema.replayEntry)
-      .where(eq(schema.replayEntry.replayId, strong.replayId));
-    const ofRun = (
-      await owner()
-        .get(`${teamPath()}/replay-runs/${strongRun?.runId}/replay`)
-        .expect(200)
-    ).body as { search: { searchId: string; candidateName: string } | null };
-
-    expect(ofRun.search).toEqual({ searchId: id, candidateName: 'in-order' });
+    expect((await replayRow(strong.replayId))?.searchId).toBe(id);
     expect(await replayEnded(weak.replayId)).toBe('finished');
 
     const second = await leasedSearchRun(id, 2);
@@ -463,9 +360,9 @@ describe('a search for a better station config', () => {
       'terse',
     ]);
     for (const candidate of later.candidates) {
-      expect(candidate.runs.map((each) => each.original).sort()).toEqual(
-        searchedRuns,
-      );
+      expect(
+        [...new Set(candidate.runs.map((each) => each.original))].sort(),
+      ).toEqual(searchedRuns);
       expect(
         candidate.runs.some((each) => heldOutTaskIds.has(each.taskId)),
       ).toBe(false);
@@ -527,32 +424,47 @@ describe('a search for a better station config', () => {
     expect(done.best?.name).toBe('in-order');
     expect(done.spent.amount).toBeGreaterThan(0);
 
-    const listed = (await owner().get(`${stationPath()}/searches`).expect(200))
-      .body as { id: string; best: { name: string } | null }[];
-    const ofTeam = (await owner().get(`${teamPath()}/searches`).expect(200))
-      .body as { id: string; stationId: string; state: string }[];
-
-    expect(listed.find((each) => each.id === id)?.best?.name).toBe('in-order');
-    expect(ofTeam.find((each) => each.id === id)).toMatchObject({
-      stationId: BUILD,
-      state: 'finished',
-    });
     expect(
       (await auditOf(id)).map((each) => [each.resource, each.action]),
     ).toEqual([['replay-search', 'created']]);
+    expect(done.trigger).toBe('schedule');
+    expect(
+      await eventually(async () => (await searchOf(id)).pick, WITHIN),
+    ).toEqual({
+      outcome: 'declined',
+      candidateId: null,
+      name: null,
+      reason: 'no-held-out-gain',
+    });
+    expect(
+      await db
+        .select()
+        .from(schema.configPullRequest)
+        .where(eq(schema.configPullRequest.searchId, id)),
+    ).toEqual([]);
 
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-        runId: extra.runId,
-      })
-      .expect(204);
+    await eventually(() => subscriberDone(ADVISE_ON_STALL), WITHIN);
+    expect(await noticesSince(searchedFrom)).toEqual([]);
+
+    const declined = new SearchPickDeclined(
+      SearchId.of(id),
+      team.workspaceId,
+      'no-held-out-gain',
+    );
+
+    await delivered(declined);
+    await delivered(declined);
+
+    expect(await noticesSince(searchedFrom)).toEqual([]);
+
+    expect(await refreshedBefore(setId)).toBe(true);
+    expect(await setRunsOf(setId)).toContain(extra.runId);
   }, 120_000);
 
-  it('ends when its seed spends past its ceiling, and when a person stops it', async () => {
-    const setId = await createSet('Capped', fiveTasks);
-    const capped = await startSearch(setId, {
+  it('ends when its seed spends past its ceiling, and when its search policy is turned off in the line or at the station alone', async () => {
+    await createSet(fiveTasks);
+    const capped = await startSearch({
       iterations: 1,
-      perIteration: 1,
       ceiling: 1,
     });
 
@@ -567,28 +479,69 @@ describe('a search for a better station config', () => {
       'ceiling-reached',
     );
     expect(await searchRunsOf(capped.id)).toEqual([]);
+    expect(
+      await eventually(async () => (await searchOf(capped.id)).pick, WITHIN),
+    ).toMatchObject({ outcome: 'declined' });
 
-    const stopped = await startSearch(setId, {
+    const stopped = await startSearch({
       iterations: 3,
-      perIteration: 1,
       ceiling: 20,
     });
 
-    await owner().post(`${teamPath()}/searches/${stopped.id}/stop`).expect(204);
-    await owner().post(`${teamPath()}/searches/${stopped.id}/stop`).expect(409);
+    const [line] = await db
+      .select({ search: schema.line.search })
+      .from(schema.line)
+      .where(eq(schema.line.id, DELIVERY));
 
-    expect((await searchRow(stopped.id))?.stopReason).toBe('stopped');
+    await db
+      .update(schema.line)
+      .set({ search: { ...(line?.search as object), enabled: false } as never })
+      .where(eq(schema.line.id, DELIVERY));
+    await delivered({
+      kind: LINE_CHANGED,
+      lineId: DELIVERY,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      stationIds: [BUILD],
+    } as never);
+
+    expect((await searchRow(stopped.id))?.stopReason).toBe('turned-off');
+    expect((await searchRow(stopped.id))?.state).toBe('stopped');
     await eventually(
       async () => (await replayRow(stopped.seedReplayId))?.state === 'stopped',
       WITHIN,
     );
+    expect(await activeSearchAt(searchedAt())).toBeUndefined();
+
+    const again = await startSearch({ iterations: 3, ceiling: 20 });
+    const [station] = await db
+      .select({ search: schema.station.search })
+      .from(schema.station)
+      .where(eq(schema.station.id, BUILD));
+
+    await db
+      .update(schema.station)
+      .set({
+        search: { ...(station?.search as object), enabled: false } as never,
+      })
+      .where(eq(schema.station.id, BUILD));
+    await delivered({
+      kind: LINE_CHANGED,
+      lineId: DELIVERY,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      stationIds: [BUILD],
+    } as never);
+
+    expect(await searchRow(again.id)).toMatchObject({
+      state: 'stopped',
+      stopReason: 'turned-off',
+    });
     expect(
-      (await auditOf(stopped.id)).map((each) => [each.resource, each.action]),
-    ).toEqual(
-      expect.arrayContaining([
-        ['replay-search', 'created'],
-        ['replay-search', 'updated'],
-      ]),
-    );
+      await db
+        .select()
+        .from(schema.configPullRequest)
+        .where(eq(schema.configPullRequest.searchId, again.id)),
+    ).toEqual([]);
   }, 120_000);
 });

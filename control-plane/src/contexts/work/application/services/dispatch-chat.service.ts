@@ -143,9 +143,10 @@ export class DispatchChat implements ChatDispatching {
         briefing,
         handover: { options: [], noteLimit: 0 },
         resume: RunSpecContract.resumeOf(resume),
-        manifest: builtInToolsForChat(chat.setup !== null).map((each) =>
-          toolManifestOf(each.declared),
-        ),
+        manifest: builtInToolsForChat({
+          settingUp: chat.setup !== null,
+          improving: chat.targetStation !== null,
+        }).map((each) => toolManifestOf(each.declared)),
         attachments: Attached.shapes(chat.allAttachments),
         ...(chat.setup ? { spotlightApi: true } : {}),
       }),

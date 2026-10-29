@@ -1,4 +1,4 @@
-import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,

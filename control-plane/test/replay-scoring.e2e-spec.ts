@@ -19,6 +19,11 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
+import {
+  taskComparisons,
+  totalsOf,
+} from '@replays/domain/services/replay-results';
+import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -44,6 +49,8 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { keptSet } from './support/kept-sets';
+import { plannedCandidate, replayOf, startedReplay } from './support/replays';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -143,16 +150,6 @@ let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
-const owner = () => ({
-  get: (path: string) =>
-    http().get(path).set(TEST_USER_HEADER, team.owner.value),
-  post: (path: string, body?: object) =>
-    http()
-      .post(path)
-      .set(TEST_USER_HEADER, team.owner.value)
-      .send(body ?? {}),
-});
-
 const bearing = (token: string) => ({
   post: (path: string, body?: object) =>
     http()
@@ -160,9 +157,6 @@ const bearing = (token: string) => ({
       .set('Authorization', `Bearer ${token}`)
       .send(body ?? {}),
 });
-
-const teamPath = () => `/api/teams/${team.teamId.value}`;
-const stationPath = () => `${teamPath()}/lines/${DELIVERY}/stations/${BUILD}`;
 
 const sent = (update: Record<string, unknown>): string =>
   Buffer.from(JSON.stringify({ sessionId: 'session_1', update })).toString(
@@ -321,18 +315,11 @@ const proposed = async (prompt: string): Promise<string> => {
   const live = await app
     .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
     .live(DELIVERY, BUILD);
-  const answer = await http()
-    .post(`/api/resources/lines/${DELIVERY}/stations/build/replay-candidates`)
-    .set(TEST_USER_HEADER, team.owner.value)
-    .set('Idempotency-Key', randomUUID())
-    .send({
-      name: `Drain in order ${randomUUID().slice(0, 8)}`,
-      station: { ...live?.station, prompt },
-    });
 
-  expect(answer.status).toBe(201);
-
-  return answer.body.id as string;
+  return plannedCandidate(app, DELIVERY, 'build', {
+    ...live?.station,
+    prompt,
+  });
 };
 
 interface Claimed {
@@ -508,29 +495,16 @@ describe('a replay at a station that checks and judges', () => {
   it('generates each replay’s change stack, checks it with the candidate’s own check, judges it against the change people accepted, and puts the task that regressed first', async () => {
     const first = await anOriginal(true);
     const second = await anOriginal(false);
-    const created = await owner()
-      .post(`${stationPath()}/replay-sets`, { name: 'Scored' })
-      .expect(201);
-    const setId = created.body.id as string;
-    for (const each of [first, second]) {
-      await owner()
-        .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-          runId: each.runId,
-        })
-        .expect(204);
-    }
+    const setId = await keptSet(
+      app,
+      { workspaceId: team.workspaceId.value, stationId: BUILD },
+      [first.runId, second.runId],
+    );
     const candidate = await proposed('Build it, draining the queue in order.');
 
-    const started = (
-      await owner()
-        .post(`${teamPath()}/replay-sets/${setId}/replays`, {
-          candidate,
-          ceiling: { amount: 5, currency: 'USD' },
-        })
-        .expect(201)
-    ).body as { id: string; baseline: { id: string } | null };
+    const started = await startedReplay(app, setId, { candidate, amount: 5 });
     const id = started.id;
-    const baselineId = started.baseline?.id as string;
+    const baselineId = started.baselineId as string;
     await eventually(async () => (await replayState(baselineId)) !== undefined);
 
     const plan = (replayId: string, original: string) => {
@@ -671,80 +645,64 @@ describe('a replay at a station that checks and judges', () => {
         (await replayState(baselineId)) === 'finished',
     );
 
-    const detail = (
-      await owner().get(`${teamPath()}/replays/${id}`).expect(200)
-    ).body as {
-      judges: boolean;
-      checks: boolean;
-      totals: { scored: number; unscored: number; successRate: number };
-      comparison: {
-        originalRunId: string;
-        regressed: boolean;
-        scoreDelta: number | null;
-        candidate: {
-          result: string;
-          checks: { state: string; failedAt: string[] };
-          judge: { score: number; referenced: boolean; passed: boolean };
-          generationSpent: {
-            spends: { amount: number; currency: string }[];
-            unpriced: number;
-          } | null;
-          judgingSpent: {
-            spends: { amount: number; currency: string }[];
-            unpriced: number;
-          } | null;
-          reasons: { code: string; detail: string | null; steps: number[] }[];
-        }[];
-        baseline: { result: string }[];
-      }[];
-    };
+    const replay = await replayOf(app, id);
+    const comparison = taskComparisons(replay, await replayOf(app, baselineId));
 
-    expect(detail.judges).toBe(true);
-    expect(detail.checks).toBe(true);
-    expect(detail.totals).toMatchObject({
+    expect(replay.judges).toBe(true);
+    expect(replay.checked).toBe(true);
+    expect(totalsOf(replay)).toMatchObject({
       scored: 2,
       unscored: 0,
       successRate: 0.5,
     });
     expect(
-      detail.comparison.map((each) => [
-        each.originalRunId,
+      comparison.map((each) => [
+        each.original,
         each.regressed,
         each.scoreDelta,
-        each.candidate[0]?.result,
-        each.baseline[0]?.result,
+        each.candidate[0]?.succeeded,
+        each.baseline[0]?.succeeded,
       ]),
     ).toEqual([
-      [second.runId, true, -2, 'failed', 'succeeded'],
-      [first.runId, false, 1, 'succeeded', 'succeeded'],
+      [second.runId, true, -2, false, true],
+      [first.runId, false, 1, true, true],
     ]);
 
-    const [regressed, steady] = detail.comparison;
-    expect(steady?.candidate[0]?.generationSpent).toEqual({
+    const [regressed, steady] = comparison;
+    const spentOf = (spent: ModelSpent | null | undefined) =>
+      spent && {
+        spends: spent.spends.map((each) => ({
+          amount: each.amount,
+          currency: each.currency,
+        })),
+        unpriced: spent.unpriced,
+      };
+
+    expect(spentOf(steady?.candidate[0]?.generationSpent)).toEqual({
       spends: [{ amount: 0.02, currency: 'USD' }],
       unpriced: 0,
     });
-    expect(steady?.candidate[0]?.judgingSpent).toEqual({
+    expect(spentOf(steady?.candidate[0]?.judgingSpent)).toEqual({
       spends: [{ amount: 0.01, currency: 'USD' }],
       unpriced: 0,
     });
-    expect(regressed?.candidate[0]?.checks).toEqual({
+    expect(regressed?.candidate[0]?.checks).toMatchObject({
       state: 'failed',
       failedAt: ['the whole change'],
       why: null,
     });
-    expect(regressed?.candidate[0]?.judge).toMatchObject({
-      score: 2,
-      passed: false,
+    expect(regressed?.candidate[0]?.verdict).toMatchObject({
+      value: 2,
+      passes: false,
       referenced: false,
     });
     expect(regressed?.candidate[0]?.reasons.map((each) => each.code)).toEqual([
       'check-failed',
       'judge-failed',
     ]);
-    expect(steady?.candidate[0]?.judge).toMatchObject({
-      score: 5,
-      passed: true,
+    expect(steady?.candidate[0]?.verdict).toMatchObject({
+      value: 5,
+      passes: true,
       referenced: true,
     });
 

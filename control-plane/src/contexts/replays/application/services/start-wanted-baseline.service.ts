@@ -52,7 +52,6 @@ export class StartWantedBaseline {
           baseline: true,
           ceiling: event.ceiling,
           repeats: event.baselineRepeats,
-          calibration: event.calibration,
           ...(event.unpricedRate ? { unpricedRate: event.unpricedRate } : {}),
           at: this.clock.now(),
           by: ChangeActor.spotlight(set.workspaceId),

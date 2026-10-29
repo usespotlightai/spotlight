@@ -20,6 +20,7 @@ export const LineHttpMapper = {
       dto.agentPrompt,
       dto.judge,
       dto.alerts,
+      dto.search,
       dto.kind,
       dto.skills,
     );
@@ -37,6 +38,7 @@ export const LineHttpMapper = {
       dto.repositories,
       dto.source,
       dto.replayCheck,
+      dto.search,
     );
   },
 };

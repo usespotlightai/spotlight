@@ -1,11 +1,4 @@
 import { ProblemException } from '@platform/http/resources/problem.exception';
-import type {
-  SearchAgentInput,
-  SearchBudgetInput,
-  SearchObjectiveInput,
-} from '@replays/application/commands/start-search.command';
-import { isSearchObjective } from '@replays/domain/value-objects/search-objective';
-import type { Forbidden } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -32,37 +25,6 @@ export const textAt = (
   return typeof value === 'string' ? value : rejectAt([field], reason);
 };
 
-const ceilingAt = (
-  raw: unknown,
-  at: readonly string[],
-  what: string,
-): { readonly amount: number; readonly currency: string } => {
-  const { amount, currency } = fieldsOf(raw);
-
-  if (typeof amount !== 'number') {
-    return rejectAt(
-      [...at, 'amount'],
-      `Ceiling amount must be a number. It is the most the ${what} may spend.`,
-    );
-  }
-
-  return {
-    amount,
-    currency:
-      typeof currency === 'string'
-        ? currency
-        : rejectAt(
-            [...at, 'currency'],
-            'Ceiling currency must be a currency code, such as USD.',
-          ),
-  };
-};
-
-export const ceilingIn = (
-  body: unknown,
-): { readonly amount: number; readonly currency: string } =>
-  ceilingAt(fieldsOf(body).ceiling, ['ceiling'], 'replay');
-
 const countAt = (
   fields: Record<string, unknown>,
   at: readonly string[],
@@ -85,72 +47,6 @@ const optionalTextAt = (
   }
 
   return typeof text === 'string' ? text : rejectAt(at, reason);
-};
-
-export const searchBudgetIn = (body: unknown): SearchBudgetInput => {
-  const budget = fieldsOf(fieldsOf(body).budget);
-  const concurrency = budget.concurrency;
-  const repeats = budget.repeats;
-
-  return {
-    iterations: countAt(
-      budget,
-      ['budget', 'iterations'],
-      'Iterations must be a number.',
-    ),
-    perIteration: countAt(
-      budget,
-      ['budget', 'perIteration'],
-      'Candidates per iteration must be a number.',
-    ),
-    ceiling: ceilingAt(budget.ceiling, ['budget', 'ceiling'], 'search'),
-    concurrency:
-      concurrency === undefined || concurrency === null
-        ? null
-        : countAt(
-            budget,
-            ['budget', 'concurrency'],
-            'Concurrency must be a number.',
-          ),
-    repeats:
-      repeats === undefined || repeats === null
-        ? null
-        : countAt(budget, ['budget', 'repeats'], 'Repeats must be a number.'),
-  };
-};
-
-export const searchAgentIn = (body: unknown): SearchAgentInput => {
-  const agent = fieldsOf(fieldsOf(body).agent);
-  const harness = agent.harness;
-
-  return {
-    harness:
-      typeof harness === 'string'
-        ? harness
-        : rejectAt(['agent', 'harness'], 'Agent harness is required.'),
-    model: optionalTextAt(
-      agent,
-      ['agent', 'model'],
-      'Agent model must be text or left out.',
-    ),
-    effort: optionalTextAt(
-      agent,
-      ['agent', 'effort'],
-      'Agent effort must be text or left out.',
-    ),
-  };
-};
-
-export const objectiveIn = (body: unknown): SearchObjectiveInput => {
-  const value = fieldsOf(body).objective;
-
-  if (value === undefined || value === null) {
-    return null;
-  }
-
-  return isSearchObjective(value)
-    ? value
-    : rejectAt(['objective'], 'Objective must be success, cost or left out.');
 };
 
 export const repeatsIn = (body: unknown): number => {
@@ -186,31 +82,4 @@ export const referenceIn = (
             'Pull request must be a number or left out.',
           ),
   };
-};
-
-export const keyedIn = (
-  line: string | undefined,
-  station: string | undefined,
-): { readonly lineId: string; readonly key: string } | null => {
-  if (line === undefined && station === undefined) {
-    return null;
-  }
-
-  return line && station
-    ? { lineId: line, key: station }
-    : rejectAt(
-        [line ? 'station' : 'line'],
-        'Line and station must be sent together.',
-      );
-};
-
-const isForbidden = <T>(outcome: T | Forbidden): outcome is Forbidden =>
-  (outcome as { readonly outcome?: unknown }).outcome === 'forbidden';
-
-export const allowed = <T>(kind: string, outcome: T | Forbidden): T => {
-  if (isForbidden(outcome)) {
-    throw ProblemException.forbidden(kind, outcome.act);
-  }
-
-  return outcome;
 };

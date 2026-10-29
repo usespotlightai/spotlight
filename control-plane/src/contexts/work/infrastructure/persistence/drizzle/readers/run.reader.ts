@@ -9,7 +9,6 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -17,13 +16,11 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type {
-  ReplayRunSummary,
   RunConfigSummary,
   RunConfigView,
   RunNotesSummary,
   RunReaderPort,
   RunStationSummary,
-  SearchRunSummary,
   TaskRunSummary,
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
@@ -49,7 +46,7 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, desc, eq, isNotNull, lt, sql } from 'drizzle-orm';
+import { and, desc, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 export const ranAt = alias(station, 'ran_at');
@@ -315,12 +312,15 @@ export class DrizzleRunReader implements RunReaderPort {
         fingerprint: run.stationFingerprint,
         parts: run.stationConfig,
         workspaceId: run.workspaceId,
-        replayOfRunId: run.replayOfRunId,
-        searchId: run.searchId,
-        ranForTeamId: run.ranForTeamId,
       })
       .from(run)
-      .where(eq(run.id, runId.value))
+      .where(
+        and(
+          eq(run.id, runId.value),
+          isNull(run.replayOfRunId),
+          isNull(run.searchId),
+        ),
+      )
       .limit(1);
 
     if (
@@ -339,13 +339,8 @@ export class DrizzleRunReader implements RunReaderPort {
           }
         : null;
 
-    const ranForTeam =
-      found.replayOfRunId || found.searchId
-        ? { workspaceId: found.workspaceId, teamId: found.ranForTeamId }
-        : null;
-
     if (!ran || !found.stationId || !found.taskId) {
-      return { ran, before: null, ranForTeam };
+      return { ran, before: null };
     }
 
     const [earlier] = await this.db
@@ -370,168 +365,9 @@ export class DrizzleRunReader implements RunReaderPort {
     return {
       ran,
       before: earlier ? configured(earlier) : null,
-      ranForTeam,
-    };
-  }
-
-  async searchRunFor(
-    teamId: TeamId,
-    workspaceId: WorkspaceId,
-    runId: RunId,
-  ): Promise<SearchRunSummary | null> {
-    const [found] = await this.db
-      .select({
-        id: run.id,
-        state: run.state,
-        stopRequested: sql<boolean>`${run.stopRequestedAt} is not null`,
-        attempt: run.attempt,
-        exitCode: run.exitCode,
-        startedAt: run.createdAt,
-        updatedAt: run.updatedAt,
-        endedAt: run.endedAt,
-        failure: run.failure,
-        harness: run.harness,
-        image: run.ranIn,
-        stationId: ranAt.id,
-        stationName: ranAt.name,
-        stationColor: ranAt.color,
-        stationPosition: ranAt.position,
-        stationLineId: ranAt.lineId,
-        ranForTeamId: run.ranForTeamId,
-        workspaceId: run.workspaceId,
-        searchId: run.searchId,
-        iteration: run.searchIteration,
-        spec: run.spec,
-      })
-      .from(run)
-      .leftJoin(ranAt, eq(ranAt.id, run.stationId))
-      .where(and(eq(run.id, runId.value), isNotNull(run.searchId)))
-      .limit(1);
-
-    if (
-      !found?.searchId ||
-      found.iteration === null ||
-      found.ranForTeamId !== teamId.value ||
-      found.workspaceId !== workspaceId.value
-    ) {
-      return null;
-    }
-
-    const stationCounts = await stationsPerLine(
-      this.db,
-      found.stationLineId ? [found.stationLineId] : [],
-    );
-
-    return {
-      id: found.id,
-      state: found.state,
-      stopRequested: found.stopRequested,
-      attempt: found.attempt,
-      exitCode: found.exitCode,
-      startedAt: found.startedAt,
-      updatedAt: found.updatedAt,
-      harness: found.harness,
-      image: found.image,
-      station: stationSummaryOf(found, stationCounts),
-      review: null,
-      takenUpOnAnswer: false,
-      searchId: found.searchId,
-      iteration: found.iteration,
-      failure: found.failure,
-      endedAt: found.endedAt,
-      briefing: RunSpecContract.from(found.spec).briefing,
-    };
-  }
-
-  async replayFor(
-    teamId: TeamId,
-    workspaceId: WorkspaceId,
-    runId: RunId,
-  ): Promise<ReplayRunSummary | null> {
-    const [found] = await this.db
-      .select({
-        id: run.id,
-        state: run.state,
-        stopRequested: sql<boolean>`${run.stopRequestedAt} is not null`,
-        attempt: run.attempt,
-        exitCode: run.exitCode,
-        startedAt: run.createdAt,
-        updatedAt: run.updatedAt,
-        harness: run.harness,
-        image: run.ranIn,
-        stationId: ranAt.id,
-        stationName: ranAt.name,
-        stationColor: ranAt.color,
-        stationPosition: ranAt.position,
-        stationLineId: ranAt.lineId,
-        ranForTeamId: run.ranForTeamId,
-        workspaceId: run.workspaceId,
-        originalRunId: run.replayOfRunId,
-        originalTaskId: original.taskId,
-        originalTitle: task.title,
-        spec: run.spec,
-        config: run.stationConfig,
-      })
-      .from(run)
-      .leftJoin(ranAt, eq(ranAt.id, run.stationId))
-      .leftJoin(line, eq(line.id, ranAt.lineId))
-      .leftJoin(original, eq(original.id, run.replayOfRunId))
-      .leftJoin(task, eq(task.id, original.taskId))
-      .where(and(eq(run.id, runId.value), isNotNull(run.replayOfRunId)))
-      .limit(1);
-
-    if (
-      !found?.originalRunId ||
-      found.ranForTeamId !== teamId.value ||
-      found.workspaceId !== workspaceId.value
-    ) {
-      return null;
-    }
-
-    const spec = RunSpecContract.from(found.spec);
-
-    if (!found.config || !spec.replay) {
-      throw new InconsistentStateError(
-        'run',
-        `replays without the configuration or checkouts it ran with (${found.id})`,
-      );
-    }
-
-    const stationCounts = await stationsPerLine(
-      this.db,
-      found.stationLineId ? [found.stationLineId] : [],
-    );
-
-    return {
-      id: found.id,
-      state: found.state,
-      stopRequested: found.stopRequested,
-      attempt: found.attempt,
-      exitCode: found.exitCode,
-      startedAt: found.startedAt,
-      updatedAt: found.updatedAt,
-      harness: found.harness,
-      image: found.image,
-      station: stationSummaryOf(found, stationCounts),
-      review: null,
-      takenUpOnAnswer: false,
-      original: {
-        runId: found.originalRunId,
-        taskId: found.originalTaskId,
-        title: found.originalTitle,
-      },
-      briefing: spec.briefing,
-      agent: {
-        harness: found.config.harness,
-        model: found.config.model,
-        effort: found.config.effort,
-      },
-      repositories: spec.replay.checkouts.map((each) => each.repository),
     };
   }
 }
-
-const original = alias(run, 'original');
 
 const configured = (row: {
   runId: string;

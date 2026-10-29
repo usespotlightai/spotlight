@@ -20,6 +20,29 @@ export interface StationAlertSummary {
   readonly over: number;
 }
 
+interface SearchAgentSummary {
+  readonly harness: string;
+  readonly model: string | null;
+  readonly effort: string | null;
+}
+
+export interface LineSearchSummary {
+  readonly enabled: boolean;
+  readonly monthlyCeiling: number;
+  readonly currency: string;
+  readonly ceiling: number;
+  readonly period: string;
+  readonly onAlert: boolean;
+  readonly cooldown: string;
+}
+
+export interface SearchPolicySummary extends LineSearchSummary {
+  readonly agent: SearchAgentSummary | null;
+  readonly iterations: number | null;
+  readonly repeats: number | null;
+  readonly objective: string | null;
+}
+
 export interface StationSummary {
   readonly id: string;
   readonly key: string;
@@ -33,6 +56,7 @@ export interface StationSummary {
   readonly agentPrompt: string | null;
   readonly judge: StationJudgeSummary | null;
   readonly alerts: readonly StationAlertSummary[];
+  readonly search: SearchPolicySummary | null;
   readonly kind: StationKind;
   readonly skills: readonly string[];
 }
@@ -70,6 +94,7 @@ export interface LineDetail {
   readonly repositories: readonly RepositorySummary[];
   readonly source: LineSourceSummary | null;
   readonly replayCheck: LineReplayCheckSummary | null;
+  readonly search: LineSearchSummary;
 }
 
 export const LINE_READER = Symbol('LINE_READER');

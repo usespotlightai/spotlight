@@ -86,6 +86,16 @@ export class CandidateLines {
     return line && station && record ? { line, station, record } : null;
   }
 
+  async withStationId(stationId: string): Promise<StationInLine | null> {
+    const id = StationId.of(stationId);
+    const line = await this.lines.findByStation(id);
+    const station = line?.stationAt(id);
+    const record =
+      line && station ? await this.resources.withId(line.id.value) : null;
+
+    return line && station && record ? { line, station, record } : null;
+  }
+
   async keyed(lineId: string, key: string): Promise<StationInLine | null> {
     const line = await this.lines.find(LineId.of(lineId));
     const parsed = StationKey.parsed(key);

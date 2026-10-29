@@ -26,6 +26,23 @@ export interface ConfigPullRequestOpening {
   readonly body: string;
 }
 
+export interface OpenedConfigPullRequest {
+  readonly url: string;
+  readonly number: number;
+  readonly gitHubId: number;
+  readonly repository: string;
+}
+
+export interface ConfigPullRequestAt {
+  readonly repository: Repository;
+  readonly number: number;
+}
+
+export interface ConfigPullRequestStatus {
+  readonly state: 'open' | 'closed' | 'merged';
+  readonly closedAt: Date | null;
+}
+
 export const CONFIG_REPOSITORY = Symbol('CONFIG_REPOSITORY');
 
 export interface ConfigRepositoryPort {
@@ -53,5 +70,21 @@ export interface ConfigRepositoryPort {
     workspaceId: WorkspaceId,
     repository: Repository,
     opening: ConfigPullRequestOpening,
-  ): Promise<string>;
+  ): Promise<OpenedConfigPullRequest>;
+
+  statusOf(
+    workspaceId: WorkspaceId,
+    pullRequest: ConfigPullRequestAt,
+  ): Promise<ConfigPullRequestStatus>;
+
+  closed(
+    workspaceId: WorkspaceId,
+    pullRequest: ConfigPullRequestAt,
+  ): Promise<void>;
+
+  commented(
+    workspaceId: WorkspaceId,
+    pullRequest: ConfigPullRequestAt,
+    body: string,
+  ): Promise<void>;
 }

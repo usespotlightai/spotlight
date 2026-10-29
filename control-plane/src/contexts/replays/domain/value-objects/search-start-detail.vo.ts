@@ -11,7 +11,7 @@ export class SearchStartDetail implements ChangeDetail {
   private constructor(
     readonly setId: string,
     readonly stationId: string,
-    readonly harness: string,
+    readonly harness: string | null,
     readonly model: string | null,
     readonly effort: string | null,
     readonly iterations: number,
@@ -26,7 +26,7 @@ export class SearchStartDetail implements ChangeDetail {
   static of(input: {
     setId: ReplaySetId;
     stationId: string;
-    agent: SearchAgent;
+    agent: SearchAgent | null;
     budget: SearchBudget;
     objective: SearchObjective;
     heldOutTasks: number;
@@ -34,9 +34,9 @@ export class SearchStartDetail implements ChangeDetail {
     return new SearchStartDetail(
       input.setId.value,
       input.stationId,
-      input.agent.harness,
-      input.agent.model,
-      input.agent.effort,
+      input.agent?.harness ?? null,
+      input.agent?.model ?? null,
+      input.agent?.effort ?? null,
       input.budget.iterations,
       input.budget.perIteration,
       input.budget.concurrency,

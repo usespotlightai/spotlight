@@ -16,6 +16,7 @@ import { LINES, lineAt } from '@work/application/rendering/line-problems';
 import { InvalidConfigSourceError } from '@work/domain/exceptions/invalid-config-source.error';
 import { InvalidLinePlanError } from '@work/domain/exceptions/invalid-line-plan.error';
 import { InvalidReplayCheckPolicyError } from '@work/domain/exceptions/invalid-replay-check-policy.error';
+import { InvalidSearchPolicyError } from '@work/domain/exceptions/invalid-search-policy.error';
 import { InvalidStationAlertError } from '@work/domain/exceptions/invalid-station-alert.error';
 import { InvalidStationJudgeError } from '@work/domain/exceptions/invalid-station-judge.error';
 import type { LinePart } from '@work/domain/services/line-layout';
@@ -35,6 +36,11 @@ import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
+import {
+  LineSearchPolicy,
+  SearchAgent,
+  StationSearchOverride,
+} from '@work/domain/value-objects/search-policy.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
@@ -71,6 +77,50 @@ const addressOf = (input: unknown): string => {
   } catch {
     return LINES;
   }
+};
+
+interface WrittenAgent {
+  readonly harness?: string;
+  readonly model?: string;
+  readonly effort?: string;
+}
+
+type AgentChoice =
+  | {
+      readonly ok: true;
+      readonly harness: HarnessId | null;
+      readonly model: HarnessModel | null;
+      readonly effort: Effort | null;
+    }
+  | { readonly ok: false; readonly field: string; readonly error: unknown };
+
+const compileAgentChoice = (written: WrittenAgent): AgentChoice => {
+  let harness: HarnessId | null = null;
+
+  try {
+    harness =
+      written.harness === undefined ? null : HarnessId.of(written.harness);
+  } catch (error) {
+    return { ok: false, field: 'harness', error };
+  }
+
+  let model: HarnessModel | null = null;
+
+  try {
+    model = written.model === undefined ? null : HarnessModel.of(written.model);
+  } catch (error) {
+    return { ok: false, field: 'model', error };
+  }
+
+  let effort: Effort | null = null;
+
+  try {
+    effort = written.effort === undefined ? null : Effort.of(written.effort);
+  } catch (error) {
+    return { ok: false, field: 'effort', error };
+  }
+
+  return { ok: true, harness, model, effort };
 };
 
 const compileStation = (
@@ -126,29 +176,13 @@ const compileStation = (
     return invalid(['description'], error);
   }
 
-  let harness: HarnessId | null = null;
+  const agent = compileAgentChoice(station);
 
-  try {
-    harness = station.harness ? HarnessId.of(station.harness) : null;
-  } catch (error) {
-    return invalid(['harness'], error);
+  if (!agent.ok) {
+    return invalid([agent.field], agent.error);
   }
 
-  let model: HarnessModel | null = null;
-
-  try {
-    model = station.model ? HarnessModel.of(station.model) : null;
-  } catch (error) {
-    return invalid(['model'], error);
-  }
-
-  let effort: Effort | null = null;
-
-  try {
-    effort = station.effort ? Effort.of(station.effort) : null;
-  } catch (error) {
-    return invalid(['effort'], error);
-  }
+  const { harness, model, effort } = agent;
 
   let placement = RunnerPlacement.anywhere();
 
@@ -186,6 +220,37 @@ const compileStation = (
     }
   }
 
+  let search: StationSearchOverride | null = null;
+
+  if (station.search) {
+    const { agent, ...rest } = station.search;
+    const chosen = agent ? compileAgentChoice(agent) : null;
+
+    if (chosen && !chosen.ok) {
+      return invalid(['search', 'agent', chosen.field], chosen.error);
+    }
+
+    try {
+      search = StationSearchOverride.of({
+        ...rest,
+        agent: chosen?.harness
+          ? SearchAgent.of({
+              harness: chosen.harness,
+              model: chosen.model,
+              effort: chosen.effort,
+            })
+          : null,
+      });
+    } catch (error) {
+      return invalid(
+        error instanceof InvalidSearchPolicyError
+          ? ['search', error.field]
+          : ['search'],
+        error,
+      );
+    }
+  }
+
   return {
     ok: true,
     value: {
@@ -208,6 +273,7 @@ const compileStation = (
       memories: station.memories ?? false,
       judge,
       alerts,
+      search,
       tools: station.tools.map((each) => Tool.of(each)),
       skills: station.skills.map((each) => SkillKey.of(each)),
       passesTo: station.passesTo.map((each) => StationKey.of(each)),
@@ -269,7 +335,11 @@ const placed = (definition: LineFields, part: LinePart): FieldPath => {
         (each) => each.key === part.station,
       );
 
-      return FieldPath.of(at < 0 ? ['stations'] : ['stations', at, part.field]);
+      return FieldPath.of(
+        at < 0
+          ? ['stations']
+          : ['stations', at, part.field, ...(part.within ?? [])],
+      );
     }
     case 'repository':
       return FieldPath.of(['repositories', part.place, part.field]);
@@ -365,6 +435,24 @@ export const compileLine = (input: unknown): ParsedLine => {
     );
   }
 
+  let search: LineSearchPolicy | null = null;
+
+  try {
+    search = definition.search ? LineSearchPolicy.of(definition.search) : null;
+  } catch (error) {
+    problems.push(
+      ConfigurationProblem.of({
+        path,
+        at: FieldPath.of(
+          error instanceof InvalidSearchPolicyError
+            ? ['search', error.field]
+            : ['search'],
+        ),
+        reason: reasoned(error),
+      }),
+    );
+  }
+
   let source: ConfigSource | null = null;
 
   try {
@@ -430,6 +518,7 @@ export const compileLine = (input: unknown): ParsedLine => {
         reviews,
         placement,
         replayCheck,
+        search,
         source,
       }),
     };

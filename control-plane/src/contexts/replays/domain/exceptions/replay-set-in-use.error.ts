@@ -3,7 +3,7 @@ export class ReplaySetInUseError extends Error {
 
   constructor(setId: string) {
     super(
-      `Replay set ${setId} is being replayed or searched. Please stop its replays and searches first.`,
+      `Replay set ${setId} is in use by a replay, a search or a check that waits for its baseline. Please try again after they end.`,
     );
     this.name = 'ReplaySetInUseError';
   }

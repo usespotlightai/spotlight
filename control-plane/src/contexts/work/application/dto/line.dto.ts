@@ -1,7 +1,9 @@
 import type {
   LineReplayCheckSummary,
+  LineSearchSummary,
   LineSourceSummary,
   RepositorySummary,
+  SearchPolicySummary,
   StationAlertSummary,
   StationJudgeSummary,
 } from '@work/application/ports/line-reader.port';
@@ -20,6 +22,7 @@ export interface StationDto {
   readonly agentPrompt: string | null;
   readonly judge: StationJudgeSummary | null;
   readonly alerts: readonly StationAlertSummary[];
+  readonly search: SearchPolicySummary | null;
   readonly kind: StationKind;
   readonly skills: readonly string[];
 }
@@ -39,4 +42,5 @@ export interface LineDto {
   readonly repositories: readonly RepositorySummary[];
   readonly source: LineSourceSummary | null;
   readonly replayCheck: LineReplayCheckSummary | null;
+  readonly search: LineSearchSummary;
 }

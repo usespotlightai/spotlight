@@ -1,3 +1,4 @@
+import { NoFreshHeldOutError } from '@replays/domain/exceptions/no-fresh-held-out.error';
 import { SearchSetTooSmallError } from '@replays/domain/exceptions/search-set-too-small.error';
 import type { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -23,6 +24,31 @@ const tasksOf = (entries: readonly SplitEntry[]): readonly string[] => [
   ...new Set(entries.map((each) => each.taskId.value)),
 ];
 
+const heldOutOf = (tasks: number): number => Math.ceil(HELD_OUT_RATE * tasks);
+
+const splits = (tasks: number): boolean =>
+  heldOutOf(tasks) >= MIN_HELD_OUT && tasks - heldOutOf(tasks) >= MIN_SEARCHED;
+
+const heldOutCountOf = (tasks: number): number => {
+  if (!splits(tasks)) {
+    throw new SearchSetTooSmallError(tasks, heldOutOf(tasks));
+  }
+
+  return heldOutOf(tasks);
+};
+
+const fewestTasks = (): number => {
+  let tasks = 1;
+
+  while (!splits(tasks)) {
+    tasks += 1;
+  }
+
+  return tasks;
+};
+
+export const FEWEST_SEARCH_TASKS = fewestTasks();
+
 export class HeldOutSplit {
   private constructor(
     readonly searched: readonly SplitEntry[],
@@ -33,38 +59,31 @@ export class HeldOutSplit {
     searchId: SearchId;
     entries: readonly ReplaySetEntry[];
     hash: (text: string) => string;
+    excluding?: readonly TaskId[];
   }): HeldOutSplit {
-    const ranked = tasksOf(input.entries)
-      .map((task) => ({
-        task,
-        rank: input.hash(`${input.searchId.value}:${task}`),
-      }))
-      .sort(
-        (one, other) =>
-          textOrder(one.rank, other.rank) || textOrder(one.task, other.task),
-      );
+    const tasks = tasksOf(input.entries);
+    const heldOutCount = heldOutCountOf(tasks.length);
+    const excluded = new Set((input.excluding ?? []).map((each) => each.value));
+    const fresh = tasks.filter((each) => !excluded.has(each));
 
-    return HeldOutSplit.ofRanked(
-      input.entries,
-      ranked.map((each) => each.task),
-    );
-  }
-
-  private static ofRanked(
-    input: readonly ReplaySetEntry[],
-    ranked: readonly string[],
-  ): HeldOutSplit {
-    const heldOutCount = Math.ceil(HELD_OUT_RATE * ranked.length);
-
-    if (
-      heldOutCount < MIN_HELD_OUT ||
-      ranked.length - heldOutCount < MIN_SEARCHED
-    ) {
-      throw new SearchSetTooSmallError(ranked.length, heldOutCount);
+    if (fresh.length < heldOutCount) {
+      throw new NoFreshHeldOutError(fresh.length, heldOutCount);
     }
 
-    const heldOutTasks = new Set(ranked.slice(0, heldOutCount));
-    const entries = input.map((each) => ({
+    const heldOutTasks = new Set(
+      fresh
+        .map((task) => ({
+          task,
+          rank: input.hash(`${input.searchId.value}:${task}`),
+        }))
+        .sort(
+          (one, other) =>
+            textOrder(one.rank, other.rank) || textOrder(one.task, other.task),
+        )
+        .slice(0, heldOutCount)
+        .map((each) => each.task),
+    );
+    const entries = input.entries.map((each) => ({
       runId: each.runId,
       taskId: each.taskId,
     }));
@@ -73,48 +92,6 @@ export class HeldOutSplit {
       entries.filter((each) => !heldOutTasks.has(each.taskId.value)),
       entries.filter((each) => heldOutTasks.has(each.taskId.value)),
     );
-  }
-
-  static costliest(
-    entries: readonly ReplaySetEntry[],
-    units: (searchedRuns: number, heldOutRuns: number) => number,
-  ): HeldOutSplit {
-    const tasks = [...tasksOf(entries)].sort(textOrder);
-    const heldOutCount = Math.ceil(HELD_OUT_RATE * tasks.length);
-    const runsOf = (task: string) =>
-      entries.filter((each) => each.taskId.value === task).length;
-    const subsetSums: Map<number, readonly string[]>[] = Array.from(
-      { length: heldOutCount + 1 },
-      () => new Map(),
-    );
-
-    subsetSums[0]?.set(0, []);
-
-    for (const task of tasks) {
-      const runs = runsOf(task);
-
-      for (let count = heldOutCount; count >= 1; count -= 1) {
-        for (const [heldOutRuns, chosen] of subsetSums[count - 1] ?? []) {
-          const into = subsetSums[count];
-
-          if (into && !into.has(heldOutRuns + runs)) {
-            into.set(heldOutRuns + runs, [...chosen, task]);
-          }
-        }
-      }
-    }
-
-    const [costliest] = [...(subsetSums[heldOutCount] ?? [])].sort(
-      ([one], [other]) =>
-        units(entries.length - other, other) -
-          units(entries.length - one, one) || one - other,
-    );
-    const costliestTasks = costliest?.[1] ?? [];
-
-    return HeldOutSplit.ofRanked(entries, [
-      ...costliestTasks,
-      ...tasks.filter((each) => !costliestTasks.includes(each)),
-    ]);
   }
 
   static rehydrate(input: {

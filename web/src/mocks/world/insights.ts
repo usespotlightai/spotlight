@@ -676,10 +676,7 @@ const slicesOf = (
       return {
         key,
         amount: cents(amount),
-        share: shareOf(
-          amount,
-          sumOf(runs.map((run) => run.cost?.amount ?? 0)),
-        ),
+        share: shareOf(amount, sumOf(runs.map((run) => run.cost?.amount ?? 0))),
         runs: matching.length,
       };
     })

@@ -57,6 +57,26 @@ export interface ReplayThreshold {
   readonly minGain: number;
 }
 
+interface StationSearchAgent {
+  readonly harness: string;
+  readonly model: string | null;
+  readonly effort: string | null;
+}
+
+export interface StationSearchPolicy {
+  readonly enabled: boolean;
+  readonly monthlyCeiling: number;
+  readonly currency: string;
+  readonly ceiling: number;
+  readonly periodMilliseconds: number;
+  readonly onAlert: boolean;
+  readonly cooldownMilliseconds: number;
+  readonly agent: StationSearchAgent | null;
+  readonly iterations: number | null;
+  readonly repeats: number | null;
+  readonly objective: string | null;
+}
+
 export interface LiveStation {
   readonly lineKey: string;
   readonly station: LineDefinitionStation;
@@ -64,10 +84,14 @@ export interface LiveStation {
   readonly scoring: CandidateScoring;
   readonly hashes: ConfigHashes;
   readonly replayCheck: ReplayThreshold | null;
+  readonly search: StationSearchPolicy | null;
+  readonly agent: StationSearchAgent | null;
 }
 
 export interface ReplayCandidatesPort {
   station(lineId: string, stationId: string): Promise<ReplayStation | null>;
+
+  findStation(stationId: string): Promise<ReplayStation | null>;
 
   keyed(lineId: string, key: string): Promise<ReplayStation | null>;
 
