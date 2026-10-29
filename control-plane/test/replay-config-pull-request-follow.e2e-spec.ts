@@ -422,18 +422,20 @@ describe('following a config pull request after it opened', () => {
   });
 
   it('records a merge instead of closing when GitHub says the stale pull request merged before the close job ran', async () => {
+    github.statuses.set(24, { state: 'merged', closedAt: new Date() });
+
     const id = await staleAfterChange(24, 'Build it, merged on GitHub.');
 
-    github.statuses.set(24, { state: 'merged', closedAt: new Date() });
     await closedAfterJob(id, 'merged');
 
     expect(github.closed.map((each) => each.number)).not.toContain(24);
   });
 
   it('closes a stale pull request with the failure recorded when GitHub refuses the close for good, and when only the comment fails', async () => {
+    github.failing = new RepositoryUnreachableError(CONFIG);
+
     const refused = await staleAfterChange(25, 'Build it, refused.');
 
-    github.failing = new RepositoryUnreachableError(CONFIG);
     await closedAfterJob(refused);
     github.failing = null;
 
@@ -443,9 +445,10 @@ describe('following a config pull request after it opened', () => {
       closeFailureCode: 'repository-unreachable',
     });
 
+    github.commentFailing = new Error('GitHub is down');
+
     const uncommented = await staleAfterChange(26, 'Build it, uncommented.');
 
-    github.commentFailing = new Error('GitHub is down');
     await closedAfterJob(uncommented);
     github.commentFailing = null;
 
