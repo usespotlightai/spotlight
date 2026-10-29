@@ -76,7 +76,9 @@ const past = (since: Date | null, wait: number, at: Date): boolean =>
 
 export const runsToSee = (search: Search): readonly RunId[] => [
   ...(search.activeRun ? [search.activeRun] : []),
-  ...search.awaitingAgentSpend.map((each) => each.runId),
+  ...search.awaitingAgentSpend.flatMap((each) =>
+    each.runId ? [each.runId] : [],
+  ),
 ];
 
 export const unclaimedTooLong = (
@@ -127,16 +129,11 @@ export const reconciled = (
     );
   }
 
-  for (const iteration of reconciled.awaitingAgentSpend) {
-    const ended = runs.find((each) => each.run.equals(iteration.runId));
+  for (const { runId } of reconciled.awaitingAgentSpend) {
+    const ended = runId && runs.find((each) => each.run.equals(runId));
 
-    if (past(ended?.endedAt ?? null, USAGE_WAIT_MS, at)) {
-      reconciled = reconciled.recordAgentSpend(
-        iteration.runId,
-        UNPRICED_RUN,
-        at,
-        runIds,
-      );
+    if (runId && past(ended?.endedAt ?? null, USAGE_WAIT_MS, at)) {
+      reconciled = reconciled.recordAgentSpend(runId, UNPRICED_RUN, at, runIds);
     }
   }
 

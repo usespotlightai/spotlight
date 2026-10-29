@@ -773,7 +773,7 @@ describe('a search run ending', () => {
 });
 
 describe('who may watch a search run', () => {
-  it('is someone who reads its team, never someone outside it', async () => {
+  it('is no one, since the app keeps search runs out of view', async () => {
     const queued = order();
 
     await app.get<SearchDispatchPort>(SEARCH_DISPATCH).enqueue(queued);
@@ -782,7 +782,7 @@ describe('who may watch a search run', () => {
 
     expect(
       await reader.findForViewer(RunId.of(queued.id), team.owner),
-    ).not.toBeNull();
+    ).toBeNull();
     expect(
       await reader.findForViewer(RunId.of(queued.id), UserId.of(randomUUID())),
     ).toBeNull();

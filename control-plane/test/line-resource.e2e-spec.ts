@@ -429,6 +429,150 @@ describe('a line, created through the resource API (e2e)', () => {
     }
   });
 
+  it('searches every line by default, stores the search policy it is given, and resolves it for each work station on the team’s lines', async () => {
+    const plain = await create(DELIVERY);
+    const made = await change(plain.body.id, plain.body.version, {
+      ...DELIVERY,
+      search: {
+        monthlyCeiling: 120,
+        currency: 'eur',
+        period: '36h',
+        cooldown: '1d',
+      },
+      stations: DELIVERY.stations.map((each, place) =>
+        place === 1
+          ? {
+              ...each,
+              search: {
+                enabled: false,
+                ceiling: 30,
+                agent: { harness: 'claude-code', effort: 'high' },
+                iterations: 4,
+                objective: 'cost',
+              },
+            }
+          : each,
+      ),
+    });
+    const teamId = fixture.collection.split('/')[4];
+    const listed = await served(app)
+      .get(`/api/teams/${teamId}/lines`)
+      .set(TEST_USER_HEADER, fixture.admin);
+    const line = (
+      listed.body as {
+        id: string;
+        search: unknown;
+        stations: { search: unknown }[];
+      }[]
+    ).find((each) => each.id === made.body.id);
+
+    expect(plain.status).toBe(201);
+    expect(plain.body.definition).not.toHaveProperty('search');
+    expect(made.status).toBe(200);
+    expect(made.body.definition.search).toEqual({
+      enabled: true,
+      monthlyCeiling: 120,
+      currency: 'EUR',
+      ceiling: 10,
+      period: '36h',
+      onAlert: true,
+      cooldown: '1d',
+    });
+    expect(made.body.definition.stations[1].search).toEqual({
+      enabled: false,
+      ceiling: 30,
+      agent: { harness: 'claude-code', effort: 'high' },
+      iterations: 4,
+      objective: 'cost',
+    });
+    expect(made.body.definition.stations[0]).not.toHaveProperty('search');
+    expect(line?.search).toEqual(made.body.definition.search);
+    expect(line?.stations[0]?.search).toBeNull();
+    expect(line?.stations[1]?.search).toEqual({
+      enabled: false,
+      monthlyCeiling: 120,
+      currency: 'EUR',
+      ceiling: 30,
+      period: '36h',
+      onAlert: true,
+      cooldown: '1d',
+      agent: { harness: 'claude-code', model: null, effort: 'high' },
+      iterations: 4,
+      repeats: null,
+      objective: 'cost',
+    });
+  });
+
+  it('stores a written-out search block whole, so it reads back as written', async () => {
+    const made = await create({ ...DELIVERY, search: {} });
+
+    expect(made.status).toBe(201);
+    expect(made.body.definition.search).toEqual({
+      enabled: true,
+      monthlyCeiling: 50,
+      currency: 'USD',
+      ceiling: 10,
+      period: '7d',
+      onAlert: true,
+      cooldown: '3d',
+    });
+  });
+
+  it('rejects a monthly ceiling lowered below a station’s ceiling in the same change', async () => {
+    const withCeiling = (monthlyCeiling: number) => ({
+      ...DELIVERY,
+      search: { monthlyCeiling },
+      stations: DELIVERY.stations.map((each, place) =>
+        place === 1 ? { ...each, search: { ceiling: 30 } } : each,
+      ),
+    });
+    const made = await create(withCeiling(50));
+    const lowered = await change(
+      made.body.id,
+      made.body.version,
+      withCeiling(20),
+    );
+
+    expect(made.status).toBe(201);
+    expect(lowered.status).toBe(422);
+    expect(lowered.body.errors).toEqual([
+      expect.objectContaining({ path: 'stations[1].search.ceiling' }),
+    ]);
+  });
+
+  it('rejects a search setting at its field', async () => {
+    const atStation = (search: object, at = 1) => ({
+      ...DELIVERY,
+      stations: DELIVERY.stations.map((each, place) =>
+        place === at ? { ...each, search } : each,
+      ),
+    });
+
+    for (const [body, path] of [
+      [{ ...DELIVERY, search: { ceiling: 1_001 } }, 'search.ceiling'],
+      [{ ...DELIVERY, search: { monthlyCeiling: 5 } }, 'search.ceiling'],
+      [{ ...DELIVERY, search: { currency: 'dollars' } }, 'search.currency'],
+      [{ ...DELIVERY, search: { period: '30m' } }, 'search.period'],
+      [{ ...DELIVERY, search: { cooldown: 'weekly' } }, 'search.cooldown'],
+      [atStation({ iterations: 11 }), 'stations[1].search.iterations'],
+      [atStation({ repeats: 6 }), 'stations[1].search.repeats'],
+      [atStation({ objective: 'speed' }), 'stations[1].search.objective'],
+      [
+        atStation({ agent: { harness: 'h'.repeat(61) } }),
+        'stations[1].search.agent.harness',
+      ],
+      [{ ...DELIVERY, search: { period: '2d' } }, 'search.cooldown'],
+      [atStation({ ceiling: 60 }), 'stations[1].search.ceiling'],
+      [atStation({ period: '1d' }), 'stations[1].search.cooldown'],
+      [atStation({ enabled: false }, 0), 'stations[0].search'],
+    ] as const) {
+      const rejected = await create(body);
+
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
+    }
+  });
+
   it('stores where the line’s Terraform lives, shows it on the team’s lines, and clears it once set to null', async () => {
     const source = {
       repository: 'acme/platform',

@@ -60,6 +60,11 @@ import {
   toolRowsOf,
 } from '@work/infrastructure/lines/line-rows.of';
 import {
+  lineSearchOf,
+  lineSearchRow,
+  stationSearchOf,
+} from '@work/infrastructure/lines/search-rows';
+import {
   line,
   lineReaction,
   lineRepository,
@@ -110,6 +115,7 @@ const toStation = (row: StationRow, ways: Ways): Station =>
         })
       : null,
     alerts: row.alerts.map((each) => StationAlert.of(each)),
+    search: stationSearchOf(row.search),
     kind: row.kind,
     routes: StationRoutes.of({
       stations: ways.routes.get(row.id) ?? [],
@@ -139,6 +145,7 @@ const toLine = (
     replayCheck: line.replayCheck
       ? ReplayCheckPolicy.of(line.replayCheck)
       : null,
+    search: lineSearchOf(line.search),
     source: line.source ? ConfigSource.of(line.source) : null,
     placement: RunnerPlacement.of(line.runners),
     repositories,
@@ -187,6 +194,7 @@ export class DrizzleLineRepository implements LineRepository {
         role: added.role?.value ?? null,
         reviews: reviewsRow(added.reviews),
         replayCheck: replayCheckRow(added.replayCheck),
+        search: lineSearchRow(added.search),
         source: sourceRow(added.source),
         runners: [...added.placement.requiredLabels],
       });
@@ -224,6 +232,7 @@ export class DrizzleLineRepository implements LineRepository {
         role: saved.role?.value ?? null,
         reviews: reviewsRow(saved.reviews),
         replayCheck: replayCheckRow(saved.replayCheck),
+        search: lineSearchRow(saved.search),
         source: sourceRow(saved.source),
         runners: [...saved.placement.requiredLabels],
       })

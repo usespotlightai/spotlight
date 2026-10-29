@@ -2,6 +2,7 @@ import type { ChangeJudged } from '@insights/domain/events/change-judged.event';
 import type { ChangeJudgingFailed } from '@insights/domain/events/change-judging-failed.event';
 import type { SideBySideJudged } from '@insights/domain/events/side-by-side-judged.event';
 import type { SideBySideJudgingFailed } from '@insights/domain/events/side-by-side-judging-failed.event';
+import type { StationAlertFired } from '@insights/domain/events/station-alert-fired.event';
 import {
   CHANGE_JUDGED,
   type ChangeJudgedIntegrationEvent,
@@ -18,6 +19,10 @@ import {
   SIDE_BY_SIDE_JUDGING_FAILED,
   type SideBySideJudgingFailedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/side-by-side-judging-failed.integration-event';
+import {
+  STATION_ALERT_FIRED,
+  type StationAlertFiredIntegrationEvent,
+} from '@shared-kernel/application/integration-events/station-alert-fired.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 export const INSIGHTS_EVENT_MAPPERS = [
@@ -96,6 +101,16 @@ export const INSIGHTS_EVENT_MAPPERS = [
       failure: event.failure.code,
       spentCosts: event.spent.costs.map((each) => ({ ...each })),
       unpricedCalls: event.spent.unpriced,
+    }),
+  ),
+  mapping<StationAlertFired>(
+    'station-alert.fired',
+    (event): StationAlertFiredIntegrationEvent => ({
+      kind: STATION_ALERT_FIRED,
+      alertId: event.alertId.value,
+      workspaceId: event.workspaceId.value,
+      teamId: event.teamId.value,
+      stationId: event.stationId,
     }),
   ),
 ] as const;

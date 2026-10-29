@@ -36,7 +36,7 @@ const judging = (id: string, repeats = 1, ceiling = 10) =>
     repeats,
     ceiling,
     pairwiseReferenceId: 'baseline_1',
-    candidate: candidateOf('proposed', 'candidate_proposed', RUBRIC),
+    candidate: candidateOf('searched', 'candidate_proposed', RUBRIC),
   });
 
 const baseline = (repeats = 1) =>

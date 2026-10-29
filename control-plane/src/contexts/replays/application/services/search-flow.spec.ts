@@ -1,59 +1,48 @@
 import { ProposeSearchCandidateHandler } from '@replays/application/commands/handlers/propose-search-candidate.handler';
 import { RecordFailureCauseHandler } from '@replays/application/commands/handlers/record-failure-cause.handler';
-import { StartSearchHandler } from '@replays/application/commands/handlers/start-search.handler';
-import { StopSearchHandler } from '@replays/application/commands/handlers/stop-search.handler';
 import { ProposeSearchCandidateCommand } from '@replays/application/commands/propose-search-candidate.command';
 import { RecordFailureCauseCommand } from '@replays/application/commands/record-failure-cause.command';
-import {
-  type SearchBudgetInput,
-  type SearchObjectiveInput,
-  StartSearchCommand,
-} from '@replays/application/commands/start-search.command';
-import { StopSearchCommand } from '@replays/application/commands/stop-search.command';
 import type { SearchCandidateProposed } from '@replays/application/dto/replay-outcomes.dto';
-import type { SearchNotice } from '@replays/application/ports/search-notices.port';
-import { EstimateSearchQuery } from '@replays/application/queries/estimate-search.query';
-import { EstimateSearchHandler } from '@replays/application/queries/handlers/estimate-search.handler';
-import { ReadSearchHandler } from '@replays/application/queries/handlers/read-search.handler';
-import { ReadSearchQuery } from '@replays/application/queries/read-search.query';
+import type {
+  SearchNotice,
+  StationNotice,
+} from '@replays/application/ports/search-notices.port';
 import { DEFAULT_GUIDANCE } from '@replays/application/rendering/visible-result';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { CancelSearch } from '@replays/application/services/cancel-search.service';
 import { DeleteSearches } from '@replays/application/services/delete-searches.service';
 import { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
-import { NoticeSearchReflections } from '@replays/application/services/notice-search-reflections.service';
+import { NoticeSearchResults } from '@replays/application/services/notice-search-results.service';
 import { RecordSearchProgress } from '@replays/application/services/record-search-progress.service';
 import {
-  ACTOR,
-  accessFor,
   CLOCK,
   FakeWork,
   IDS,
   InMemoryConfigPullRequests,
   InMemoryReplays,
-  PERSON,
   peopleWho,
   QUIET,
   refreshingFor,
   snapshotsFor,
-  stationsFor,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
+import { SearchFindings } from '@replays/application/services/search-findings.service';
 import { SearchVisibilities } from '@replays/application/services/search-visibilities.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
+import { StartSearch } from '@replays/application/services/start-search.service';
+import { TurnOffSearches } from '@replays/application/services/turn-off-searches.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
+import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { SearchDeletionRequested } from '@replays/domain/events/search-deletion-requested.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
 import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
-import { SearchReflected } from '@replays/domain/events/search-reflected.event';
-import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
+import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { UnknownSearchRunError } from '@replays/domain/exceptions/unknown-search-run.error';
 import {
   aSet,
-  candidateOf,
   endOf,
   FINGERPRINT,
   LIVE_FINGERPRINT,
@@ -63,25 +52,27 @@ import {
   NOW,
   RUBRIC,
   replayedAs,
-  replayFor,
   runIds,
   STATION,
   sha256,
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
-import { estimateOf } from '@replays/domain/services/search-estimate';
+import { tasksWithTaskCause } from '@replays/domain/services/reflected-tasks';
+import { scoresOf } from '@replays/domain/services/search-scores';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
-import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
+import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
-import type { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -93,7 +84,15 @@ const HASH = { sha256 };
 const healthsFor = () =>
   new SetHealths(work, memory.replayRepository, memory.candidateRepository);
 
-const BUDGET: SearchBudgetInput = {
+interface BudgetTerms {
+  readonly iterations: number;
+  readonly perIteration: number;
+  readonly ceiling: { readonly amount: number; readonly currency: string };
+  readonly concurrency: number | null;
+  readonly repeats: number | null;
+}
+
+const BUDGET: BudgetTerms = {
   iterations: 2,
   perIteration: 2,
   ceiling: { amount: 100, currency: 'USD' },
@@ -105,43 +104,88 @@ const AGENT = { harness: 'claude-code', model: 'opus', effort: 'high' };
 
 const SEED_BLOCK = { key: 'build', name: 'Build', kind: 'work' };
 
-const starting = (mayPlan = true) =>
-  new StartSearchHandler(
-    accessFor(memory, work, mayPlan),
-    work,
-    snapshotsFor(memory, work, mayPlan),
+const starting = () =>
+  new StartSearch(
+    snapshotsFor(memory, work),
     memory.setRepository,
     memory.replayRepository,
+    memory.candidateRepository,
     memory.searchRepository,
+    memory.scheduleRepository,
     HASH,
     IDS,
     CLOCK,
     TRANSACTION,
-    stationsFor(memory, work),
-    healthsFor(),
-    refreshingFor(memory, work),
   );
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const start = async (
   over: {
-    budget?: SearchBudgetInput;
-    mayPlan?: boolean;
-    setId?: string;
-    objective?: SearchObjectiveInput;
+    budget?: BudgetTerms;
+    objective?: SearchObjective;
+    calibrates?: boolean;
   } = {},
-) =>
-  starting(over.mayPlan).execute(
-    new StartSearchCommand(
-      'team_1',
-      STATION.lineId,
-      STATION.stationId,
-      over.setId ?? 'set_1',
-      AGENT,
-      over.budget ?? BUDGET,
-      over.objective ?? null,
-      ACTOR,
-    ),
+) => {
+  const set = memory.sets.get('set_1');
+
+  if (!set) {
+    throw new Error('no set to search');
+  }
+
+  await memory.scheduleRepository.add(
+    StationSearchSchedule.create({
+      station: set.station,
+      setId: set.id,
+      at: NOW,
+    }),
   );
+
+  const terms = over.budget ?? BUDGET;
+  const id = SearchId.of(IDS.generate());
+
+  await starting().begin({
+    id,
+    set,
+    agent: SearchAgent.of(AGENT),
+    budget: SearchBudget.of({
+      iterations: terms.iterations,
+      perIteration: terms.perIteration,
+      ceiling: Money.ceiling(terms.ceiling.amount, terms.ceiling.currency),
+      ...(terms.concurrency === null ? {} : { concurrency: terms.concurrency }),
+      ...(terms.repeats === null ? {} : { repeats: terms.repeats }),
+    }),
+    calibrates: over.calibrates ?? false,
+    objective: over.objective ?? 'success',
+    trigger: 'schedule',
+    requested: null,
+    policy: SearchPolicy.of({
+      enabled: true,
+      monthlyCeiling: 1_000,
+      currency: 'USD',
+      ceiling: terms.ceiling.amount,
+      periodMilliseconds: 7 * DAY_MS,
+      onAlert: true,
+      cooldownMilliseconds: DAY_MS,
+      agent: null,
+      iterations: null,
+      repeats: null,
+      objective: null,
+    }),
+  });
+
+  const search = memory.searches.get(id.value);
+
+  if (!search) {
+    throw new Error('the search did not start');
+  }
+
+  return {
+    outcome: 'started' as const,
+    id: id.value,
+    seedReplayId: search.seed.replay.replayId.value,
+  };
+};
 
 const progress = () =>
   new RecordSearchProgress(
@@ -158,6 +202,7 @@ const iterating = () =>
     memory.searchRepository,
     memory.candidateRepository,
     memory.replayRepository,
+    memory.setRepository,
     healthsFor(),
     work,
     IDS,
@@ -198,10 +243,6 @@ const delivered = async (): Promise<void> => {
         await holdingOut().requested(event.searchId);
       } else if (event instanceof SearchEnded) {
         await cancelling().ended(event);
-      } else if (event instanceof SearchReflected) {
-        await noticing().reflected(event);
-      } else if (event instanceof SearchStalledUnreflected) {
-        await noticing().stalledUnreflected(event);
       }
     }
   }
@@ -209,12 +250,36 @@ const delivered = async (): Promise<void> => {
 
 let noticed: SearchNotice[];
 
+let advised: StationNotice[];
+
+const findings = () => new SearchFindings(work);
+
 const noticing = () =>
-  new NoticeSearchReflections(memory.searchRepository, work, {
-    notify: async (notice) => {
-      noticed.push(notice);
+  new NoticeSearchResults(
+    memory.searchRepository,
+    new InMemoryConfigPullRequests(),
+    memory.candidateRepository,
+    memory.replayRepository,
+    healthsFor(),
+    findings(),
+    work,
+    {
+      notify: async (notice) => {
+        noticed.push(notice);
+      },
+      advise: async (notice) => {
+        advised.push(notice);
+      },
     },
-  });
+  );
+
+const turnedOff = () =>
+  new TurnOffSearches(
+    memory.searchRepository,
+    work,
+    TRANSACTION,
+    CLOCK,
+  ).lineChanged(STATION.lineId);
 
 const recording = () =>
   new RecordFailureCauseHandler(
@@ -356,6 +421,7 @@ const seeded = async (budget = BUDGET) => {
 
 beforeEach(async () => {
   noticed = [];
+  advised = [];
   memory = new InMemoryReplays();
   work = new FakeWork();
   work.live = async () => ({
@@ -365,227 +431,11 @@ beforeEach(async () => {
     scoring: UNSCORED,
     hashes: LIVE_HASHES,
     threshold: null,
+    search: null,
+    agent: null,
   });
   await memory.setRepository.add(aSet(10));
   memory.events.splice(0);
-});
-
-describe('StartSearchHandler', () => {
-  it('refreshes the set before it reads it, so the search covers the newest run', async () => {
-    work.recent = [
-      {
-        runId: RunId.of('run_new'),
-        taskId: TaskId.of('task_new'),
-        stationId: STATION.stationId,
-        unreplayableReason: null,
-        reason: null,
-        title: 'Newest',
-        state: 'completed',
-        endedAt: NOW,
-        origin: null,
-      },
-    ];
-
-    const started = await start();
-
-    if (started.outcome !== 'started') {
-      throw new Error('the search did not start');
-    }
-
-    expect(
-      memory.replays
-        .get(started.seedReplayId)
-        ?.originals.map((each) => each.value),
-    ).toContain('run_new');
-  });
-
-  it('replays the live config over the whole set first, in the search’s own pool, within its share of the ceiling', async () => {
-    const started = await start();
-
-    if (started.outcome !== 'started') {
-      throw new Error('the search did not start');
-    }
-
-    const search = theSearch();
-    const seed = memory.replays.get(started.seedReplayId);
-
-    expect(search.current).toBe('seeding');
-    expect(search.split.heldOutTasks).toBe(3);
-    expect(seed?.baseline).toBe(true);
-    expect(seed?.searchId?.equals(search.id)).toBe(true);
-    expect(seed?.entries).toHaveLength(10);
-    expect(seed?.ceiling.equals(search.ceilingSplit.seed)).toBe(true);
-    expect(work.searchesDispatched).toHaveLength(0);
-  });
-
-  it('looks for the same success at less cost on a set the live config saturates, and warns of it, unless told otherwise', async () => {
-    await memory.candidateRepository.add(
-      candidateOf('live', 'candidate_saturating', null, null, LIVE_FINGERPRINT),
-    );
-    await memory.replayRepository.add(
-      replayedAs(
-        replayFor(
-          aSet(10),
-          'replay_saturating',
-          'candidate_saturating',
-          null,
-          true,
-          1,
-          null,
-        ),
-        () => 'completed',
-      ),
-    );
-
-    const started = await start();
-
-    if (started.outcome !== 'started') {
-      throw new Error('the search did not start');
-    }
-
-    expect(started.objective).toBe('cost');
-    expect(started.warnings).toContainEqual({ kind: 'saturated', rate: 1 });
-    expect(memory.searches.get(started.id)?.objective).toBe('cost');
-  });
-
-  it('looks for success on a set the live config does not saturate, and as told on one it does', async () => {
-    const plain = await start();
-
-    expect(plain.outcome === 'started' && plain.objective).toBe('success');
-
-    await new StopSearchHandler(
-      accessFor(memory, work, true),
-      memory.searchRepository,
-      CLOCK,
-      TRANSACTION,
-    ).execute(
-      new StopSearchCommand(
-        'team_1',
-        plain.outcome === 'started' ? plain.id : '',
-        ACTOR,
-      ),
-    );
-    await memory.candidateRepository.add(
-      candidateOf('live', 'candidate_saturating', null, null, LIVE_FINGERPRINT),
-    );
-    await memory.replayRepository.add(
-      replayedAs(
-        replayFor(
-          aSet(10),
-          'replay_saturating',
-          'candidate_saturating',
-          null,
-          true,
-          1,
-          null,
-        ),
-        () => 'completed',
-      ),
-    );
-
-    const started = await start({ objective: 'success' });
-
-    expect(started.outcome === 'started' && started.objective).toBe('success');
-  });
-
-  it('rejects a second search of the station, a harness no runner starts, a set elsewhere, and denies a caller who may not plan', async () => {
-    await start();
-
-    await expect(start()).rejects.toMatchObject({ kind: 'conflict' });
-
-    work.invalidAgent = { field: 'harness', reason: 'is unknown' };
-    expect(await start()).toMatchObject({
-      outcome: 'invalid',
-      problems: [expect.objectContaining({ reason: 'is unknown' })],
-    });
-    work.invalidAgent = null;
-
-    await expect(start({ setId: 'set_elsewhere' })).rejects.toMatchObject({
-      kind: 'not-found',
-    });
-    expect(await start({ mayPlan: false })).toEqual({
-      outcome: 'forbidden',
-      act: 'plan',
-    });
-    expect(
-      [...memory.candidates.values()].filter((each) => each.isLive),
-    ).toHaveLength(1);
-  });
-
-  it('rejects a set with too few tasks to hold some out, and releases the live snapshot it made', async () => {
-    memory.sets.clear();
-    await memory.setRepository.add(aSet(4));
-
-    const rejected = await start();
-
-    expect(
-      rejected.outcome === 'invalid' &&
-        rejected.problems.map((each) => each.field.rendered),
-    ).toEqual(['setId']);
-    expect(memory.candidates.size).toBe(0);
-  });
-
-  it('names the field of each term it rejects', async () => {
-    const rejected = await starting().execute(
-      new StartSearchCommand(
-        'team_1',
-        STATION.lineId,
-        STATION.stationId,
-        'set_1',
-        { harness: ' ', model: 'm'.repeat(201), effort: '' },
-        {
-          iterations: 11,
-          perIteration: 0,
-          ceiling: { amount: 0, currency: 'USD' },
-          concurrency: 99,
-          repeats: null,
-        },
-        null,
-        ACTOR,
-      ),
-    );
-
-    expect(
-      rejected.outcome === 'invalid' &&
-        rejected.problems.map((each) => each.field.rendered),
-    ).toEqual(['agent.harness', 'agent.model', 'agent.effort']);
-
-    const budget = await start({
-      budget: {
-        iterations: 11,
-        perIteration: 0,
-        ceiling: { amount: 0, currency: 'USD' },
-        concurrency: 99,
-        repeats: null,
-      },
-    });
-
-    expect(
-      budget.outcome === 'invalid' &&
-        budget.problems.map((each) => each.field.rendered),
-    ).toEqual([
-      'budget.ceiling.amount',
-      'budget.iterations',
-      'budget.perIteration',
-      'budget.concurrency',
-    ]);
-
-    const low = await start({
-      budget: {
-        iterations: 10,
-        perIteration: 5,
-        ceiling: { amount: 0.5, currency: 'USD' },
-        concurrency: null,
-        repeats: null,
-      },
-    });
-
-    expect(
-      low.outcome === 'invalid' &&
-        low.problems.map((each) => each.field.rendered),
-    ).toEqual(['budget.ceiling.amount']);
-    expect(memory.searches.size).toBe(0);
-  });
 });
 
 describe('a search’s iterations', () => {
@@ -608,22 +458,17 @@ describe('a search’s iterations', () => {
     }
   });
 
-  it('is stopped while seeding: its seed replay stops and its agent never runs', async () => {
+  it('is stopped when its search policy is turned off while seeding: its seed replay stops and its agent never runs', async () => {
     const started = await start();
 
     if (started.outcome !== 'started') {
       throw new Error('the search did not start');
     }
 
-    await new StopSearchHandler(
-      accessFor(memory, work),
-      memory.searchRepository,
-      CLOCK,
-      TRANSACTION,
-    ).execute(new StopSearchCommand('team_1', theSearch().id.value, ACTOR));
+    await turnedOff();
     await delivered();
 
-    expect(theSearch().stopReason).toBe('stopped');
+    expect(theSearch().stopReason).toBe('turned-off');
     expect(memory.replays.get(started.seedReplayId)?.current).toBe('stopped');
     expect(work.searchesDispatched).toHaveLength(0);
   });
@@ -679,16 +524,20 @@ describe('a search’s iterations', () => {
       ['propose', 'failed'],
       ['propose', 'failed'],
     ]);
-    expect(noticed).toEqual([
-      expect.objectContaining({
-        addressee: (PERSON as PersonPrincipal).userId,
-        searchId: theSearch().id,
-        about: 'stalled',
-        endedSearch: true,
-        headline:
-          'The search for a better Build config ended with no budget left to reflect',
-      }),
+    expect(noticed).toEqual([]);
+    expect(await findings().findingsOf(theSearch())).toEqual([
+      'Two iterations in a row found nothing better. No budget was left to find out why.',
     ]);
+
+    await noticing().pickDeclined(
+      new SearchPickDeclined(
+        theSearch().id,
+        theSearch().workspaceId,
+        'no-candidate',
+      ),
+    );
+
+    expect(advised).toEqual([]);
   });
 
   it('retries an iteration whose dispatch failed, from the sweeper', async () => {
@@ -710,7 +559,7 @@ describe('a search’s iterations', () => {
 
 describe('a stalled search looking into why', () => {
   const stalledOn = async (
-    budget: SearchBudgetInput,
+    budget: BudgetTerms,
     failing: (original: string) => boolean,
   ) => {
     const started = await start({ budget });
@@ -735,7 +584,7 @@ describe('a stalled search looking into why', () => {
     return entry;
   };
 
-  it('briefs its agent with the searched tasks the best config still fails, takes one cause each, never for a held-out task, and ends stalled telling who started it', async () => {
+  it('briefs its agent with the searched tasks the best config still fails, takes one cause each, never for a held-out task, and ends stalled with the causes, advising the team once on them', async () => {
     work.runSummaries = async (_workspace, runs) =>
       runs.map((runId) => ({
         runId,
@@ -801,19 +650,75 @@ describe('a stalled search looking into why', () => {
 
     expect(theSearch().current).toBe('finished');
     expect(theSearch().stopReason).toBe('stalled');
-    expect(noticed).toEqual([
-      expect.objectContaining({
-        addressee: (PERSON as PersonPrincipal).userId,
-        searchId: theSearch().id,
-        about: 'iteration 3',
-        endedSearch: true,
-        points: [
-          'No config change can fix the 2 tasks still failing. The rest of the budget stays unspent.',
-          'Fix the judge’s rubric, for “Drain the queue”: Loosen the rubric.',
-          `Fix what the run needed around the work, for one of the searched tasks: Task ${searchedAt(1).taskId.value} failed for the infra.`,
-        ],
-      }),
+    expect(noticed).toEqual([]);
+    expect(await findings().findingsOf(theSearch())).toEqual([
+      'No config change can fix the 2 tasks still failing. The rest of the budget stays unspent.',
+      '“Drain the queue”: the cause is the judge. Loosen the rubric. Please fix the rubric of the judge.',
+      `Untitled task: the cause is what the run needed around the work. Task ${searchedAt(1).taskId.value} failed for the infra. Please fix the setup that the run needs.`,
     ]);
+
+    await noticing().pickDeclined(
+      new SearchPickDeclined(
+        theSearch().id,
+        theSearch().workspaceId,
+        'no-candidate',
+      ),
+    );
+    await noticing().pickDeclined(
+      new SearchPickDeclined(
+        theSearch().id,
+        theSearch().workspaceId,
+        'no-candidate',
+      ),
+    );
+
+    expect(noticed).toEqual([]);
+    expect(advised).toHaveLength(2);
+    expect(advised[0]).toEqual({
+      workspaceId: STATION.workspaceId,
+      teamId: STATION.teamId,
+      lineId: STATION.lineId,
+      stationId: STATION.stationId,
+      about: `stalled ${theSearch().id.value}`,
+      headline:
+        'The search of the Build station stalled on causes outside the config',
+      points: [
+        '“Drain the queue”: the cause is the judge. Loosen the rubric. Please fix the rubric of the judge.',
+        `Untitled task: the cause is what the run needed around the work. Task ${searchedAt(1).taskId.value} failed for the infra. Please fix the setup that the run needs.`,
+      ],
+    });
+    expect(advised[1]?.about).toBe(advised[0]?.about);
+  });
+
+  it('takes a task out of the replay set while a reflection blames the task itself, and never takes it back', async () => {
+    await stalledOn({ ...BUDGET, iterations: 5 }, (original) =>
+      theSearch()
+        .split.searchedRuns.slice(0, 2)
+        .some((each) => each.value === original),
+    );
+
+    const run = activeRun();
+
+    await cause(run, searchedAt(0).taskId.value, 'task');
+    await cause(run, searchedAt(1).taskId.value, 'judge');
+    await runEnds(run);
+
+    expect(tasksWithTaskCause([theSearch()])).toEqual(
+      new Set([searchedAt(0).taskId.value]),
+    );
+
+    const set = [...memory.sets.values()][0];
+
+    await refreshingFor(memory, work).refreshBefore(set?.id as ReplaySetId);
+
+    const refreshed = [...memory.sets.values()][0];
+
+    expect(refreshed?.entries.map((each) => each.taskId.value)).not.toContain(
+      searchedAt(0).taskId.value,
+    );
+    expect(refreshed?.entries.map((each) => each.taskId.value)).toContain(
+      searchedAt(1).taskId.value,
+    );
   });
 
   it('searches on once it finds a cause the config can fix, and briefs the next iteration with it', async () => {
@@ -854,15 +759,9 @@ describe('a stalled search looking into why', () => {
     expect(theSearch().iterations[2]?.current).toBe('ended');
     expect(theSearch().iterations[2]?.result).toBe('no-failures');
     expect(work.searchesDispatched).toHaveLength(2);
-    expect(noticed).toEqual([
-      expect.objectContaining({
-        endedSearch: true,
-        points: [
-          'Two iterations in a row found nothing better. The best config already passes every searched task.',
-        ],
-        headline:
-          'The search for a better Build config ended with every searched task passing',
-      }),
+    expect(noticed).toEqual([]);
+    expect(await findings().findingsOf(theSearch())).toEqual([
+      'Two iterations in a row found nothing better. The best config already passes every searched task.',
     ]);
   });
 });
@@ -987,40 +886,23 @@ describe('a search running its course', () => {
 
     expect(theSearch().current).toBe('finished');
 
-    const read = await new ReadSearchHandler(
-      accessFor(memory, work),
-      memory.replayRepository,
-      memory.candidateRepository,
-      new InMemoryConfigPullRequests(),
-      healthsFor(),
-    ).execute(new ReadSearchQuery('team_1', search.id.value, PERSON));
-
-    expect(read.seed.name).toBe('seed');
-    expect(read.candidates.map((each) => [each.name, each.onFrontier])).toEqual(
-      [
-        ['strong', true],
-        ['weak', false],
-      ],
+    const scores = scoresOf(theSearch(), [...memory.replays.values()], 0.05);
+    const strongest = scores.candidates.find(
+      (each) => each.candidateId.value === strong.candidateId,
     );
-    expect(read.candidates[0]?.heldOutScore).toBe(1);
-    expect(read.best?.name).toBe('strong');
-    expect(read.frontier).toContain(strong.candidateId);
+
+    expect(strongest?.heldOutScore).toBe(1);
   });
 
-  it('cancels its agent run and stops its replays once a person stops it', async () => {
+  it('cancels its agent run and stops its replays once its search policy is turned off', async () => {
     await seeded();
     const run = activeRun();
     const proposed = await propose(run, 'firmer');
 
-    await new StopSearchHandler(
-      accessFor(memory, work),
-      memory.searchRepository,
-      CLOCK,
-      TRANSACTION,
-    ).execute(new StopSearchCommand('team_1', theSearch().id.value, ACTOR));
+    await turnedOff();
     await delivered();
 
-    expect(theSearch().stopReason).toBe('stopped');
+    expect(theSearch().stopReason).toBe('turned-off');
     expect(work.cancelledSearchRuns).toEqual([run]);
     expect(
       proposed.outcome === 'proposed' &&
@@ -1215,60 +1097,6 @@ describe('DeleteSearches', () => {
   });
 });
 
-describe('EstimateSearchHandler', () => {
-  it('counts the runs and ceilings the budget allows, and times them from the set’s runs', async () => {
-    for (const each of aSet(10).runs) {
-      work.durationsOf.set(each.value, 60_000);
-    }
-
-    const answered = await new EstimateSearchHandler(
-      accessFor(memory, work),
-      work,
-      healthsFor(),
-    ).execute(
-      new EstimateSearchQuery(
-        'team_1',
-        STATION.lineId,
-        STATION.stationId,
-        'set_1',
-        BUDGET,
-        null,
-        PERSON,
-      ),
-    );
-
-    if ('problems' in answered) {
-      throw new Error('the estimate was rejected');
-    }
-
-    const estimate = answered;
-    const budget = SearchBudget.of({
-      iterations: 2,
-      perIteration: 2,
-      ceiling: Money.ceiling(100, 'USD'),
-    });
-    const split = HeldOutSplit.costliest(
-      aSet(10).entries,
-      (searched, heldOut) => budget.unitsFor(searched, heldOut),
-    );
-    const expected = estimateOf(budget, split, Array(10).fill(60_000));
-
-    expect(estimate.runs).toEqual({
-      seed: 10,
-      searchReplays: 28,
-      heldOutReplays: 6,
-      agent: 2,
-      total: 46,
-    });
-    expect(estimate.perReplayLimits.searchReplay.amount).toBe(
-      budget.splitCeiling(split).searchReplay.amount,
-    );
-    expect(estimate.estimatedDuration).toBe(expected.ms);
-    expect(estimate.estimatedDuration).toBe(60_000 * (3 + 2 * (1 + 4) + 2));
-    expect(memory.searches.size).toBe(0);
-  });
-});
-
 describe('RecordSearchProgress', () => {
   it('closes an iteration that proposed nothing only once its late usage came, and charges an unpriced run its limit', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
@@ -1444,12 +1272,7 @@ describe('AdvanceSearches', () => {
       throw new Error('the proposal was rejected');
     }
 
-    await new StopSearchHandler(
-      accessFor(memory, work),
-      memory.searchRepository,
-      CLOCK,
-      TRANSACTION,
-    ).execute(new StopSearchCommand('team_1', theSearch().id.value, ACTOR));
+    await turnedOff();
     memory.events.splice(0);
 
     expect(memory.replays.get(proposed.replayId)?.current).toBe('queued');

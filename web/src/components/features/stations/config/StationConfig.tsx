@@ -4,6 +4,7 @@ import { AlertsCard } from '@/components/features/stations/config/AlertsCard';
 import { FingerprintCard } from '@/components/features/stations/config/FingerprintCard';
 import { JudgeCard } from '@/components/features/stations/config/JudgeCard';
 import { LineCard } from '@/components/features/stations/config/LineCard';
+import { SearchPolicyCard } from '@/components/features/stations/config/SearchPolicyCard';
 import { SkillsCard } from '@/components/features/stations/config/SkillsCard';
 import { StationPrompt } from '@/components/features/stations/config/StationPrompt';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
@@ -41,6 +42,7 @@ export function StationConfig({
           judge={station.judge}
         />
         <LineCard line={line} />
+        {station.search && <SearchPolicyCard policy={station.search} />}
         {station.alerts.length > 0 && <AlertsCard alerts={station.alerts} />}
         <FingerprintCard
           slug={slug}

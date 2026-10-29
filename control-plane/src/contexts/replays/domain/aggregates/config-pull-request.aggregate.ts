@@ -1,11 +1,19 @@
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
+import { ConfigPullRequestClosed } from '@replays/domain/events/config-pull-request-closed.event';
+import { ConfigPullRequestFailed } from '@replays/domain/events/config-pull-request-failed.event';
+import { ConfigPullRequestMerged } from '@replays/domain/events/config-pull-request-merged.event';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
+import { ConfigPullRequestReopened } from '@replays/domain/events/config-pull-request-reopened.event';
 import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestDetail } from '@replays/domain/value-objects/config-pull-request-detail.vo';
 import type { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
-import type { ConfigPullRequestState } from '@replays/domain/value-objects/config-pull-request-state';
+import {
+  type ConfigPullRequestCloseReason,
+  type ConfigPullRequestState,
+  OPEN_CONFIG_PULL_REQUEST_STATES,
+} from '@replays/domain/value-objects/config-pull-request-state';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -13,7 +21,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
-import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -24,11 +32,39 @@ const FIRST_RETRY_MS = 30_000;
 const RETRY_GROWTH = 4;
 
 const retryAfterMs = (retries: number): number =>
-  FIRST_RETRY_MS * RETRY_GROWTH ** (retries - 1);
+  FIRST_RETRY_MS * RETRY_GROWTH ** (Math.min(retries, MAX_RETRIES) - 1);
 
 const AGGREGATE = 'config pull request';
 
 const SEARCH_PREFIX = 8;
+
+const ON_GITHUB: readonly ConfigPullRequestState[] = [
+  'opened',
+  'closing',
+  'merged',
+  'closed',
+];
+
+const DUE: readonly ConfigPullRequestState[] = ['opening', 'closing'];
+
+export interface OpenedPullRequest {
+  readonly url: PullRequestUrl;
+  readonly number: number;
+  readonly gitHubId: number;
+  readonly repository: Repository;
+  readonly basedOn: StationFingerprint;
+  readonly proposing: StationFingerprint;
+}
+
+export interface GitHubClose {
+  readonly merged: boolean;
+  readonly at: Date;
+}
+
+export interface GitHubPullRequest {
+  readonly repository: Repository;
+  readonly number: number;
+}
 
 export interface ConfigSourceOf {
   readonly repository: Repository;
@@ -47,8 +83,14 @@ interface State {
   readonly branch: string;
   readonly state: ConfigPullRequestState;
   readonly url: string | null;
+  readonly number: number | null;
+  readonly gitHubId: number | null;
+  readonly basedOn: StationFingerprint | null;
+  readonly proposing: StationFingerprint | null;
+  readonly checkedAt: Date | null;
+  readonly closedBecause: ConfigPullRequestCloseReason | null;
+  readonly closeFailure: ConfigPullRequestReason | null;
   readonly reason: ConfigPullRequestReason | null;
-  readonly generation: number;
   readonly retries: number;
   readonly lastCommit: string | null;
   readonly dueAt: Date | null;
@@ -98,10 +140,14 @@ export class ConfigPullRequest extends EventRecorder {
       createdAt: input.at,
       lastCommit: null,
       version: 0,
-      ...ConfigPullRequest.attempted(input.source, input.lineKey, 1, input.at),
+      ...ConfigPullRequest.attempted(input.source, input.lineKey, input.at),
     });
 
-    picked.record(picked.wanted('created', input.by));
+    picked.record(picked.wanted(input.by));
+
+    if (picked.state.reason) {
+      picked.record(picked.failureOf(picked.state.reason));
+    }
 
     return picked;
   }
@@ -109,10 +155,40 @@ export class ConfigPullRequest extends EventRecorder {
   static rehydrate(state: State): ConfigPullRequest {
     const { state: current, url, reason, repository, path } = state;
 
-    if ((current === 'opened') !== (url !== null)) {
+    const onGitHub = ON_GITHUB.includes(current);
+
+    if (
+      [
+        url,
+        state.number,
+        state.gitHubId,
+        state.basedOn,
+        state.proposing,
+        state.checkedAt,
+      ].some((each) => (each !== null) !== onGitHub)
+    ) {
       throw new InconsistentStateError(
         AGGREGATE,
-        'has a pull request link when, and only when, it opened',
+        'has a pull request link, number, GitHub id, fingerprints and check time when, and only when, it opened',
+      );
+    }
+    if (
+      state.closeFailure !== null &&
+      (current !== 'closed' || state.closedBecause !== 'stale')
+    ) {
+      throw new InconsistentStateError(
+        AGGREGATE,
+        'records a close failure only once it closed as stale',
+      );
+    }
+    if (
+      (current === 'closing' || current === 'closed') !==
+        (state.closedBecause !== null) ||
+      (current === 'closing' && state.closedBecause !== 'stale')
+    ) {
+      throw new InconsistentStateError(
+        AGGREGATE,
+        'says why it closed when, and only when, it closes or closed',
       );
     }
     if ((current === 'failed') !== (reason !== null)) {
@@ -127,26 +203,18 @@ export class ConfigPullRequest extends EventRecorder {
         'knows the repository and file it opens against unless it failed',
       );
     }
-    if ((current === 'opening') !== (state.dueAt !== null)) {
+    if (DUE.includes(current) !== (state.dueAt !== null)) {
       throw new InconsistentStateError(
         AGGREGATE,
-        'is due to be tried when, and only when, it is opening',
+        'is due to be tried when, and only when, it is opening or closing',
       );
     }
-    if (!Number.isInteger(state.generation) || state.generation < 1) {
-      throw new InconsistentStateError(
-        AGGREGATE,
-        `has generation ${state.generation}, not 1 or more`,
-      );
-    }
-
     return new ConfigPullRequest(state);
   }
 
   private static attempted(
     source: ConfigSourceOf | null,
     lineKey: string,
-    generation: number,
     at: Date,
   ): Pick<
     State,
@@ -154,8 +222,14 @@ export class ConfigPullRequest extends EventRecorder {
     | 'path'
     | 'state'
     | 'url'
+    | 'number'
+    | 'gitHubId'
+    | 'basedOn'
+    | 'proposing'
+    | 'checkedAt'
+    | 'closedBecause'
+    | 'closeFailure'
     | 'reason'
-    | 'generation'
     | 'retries'
     | 'dueAt'
     | 'updatedAt'
@@ -165,8 +239,14 @@ export class ConfigPullRequest extends EventRecorder {
       path: source?.path ?? null,
       state: source ? 'opening' : 'failed',
       url: null,
+      number: null,
+      gitHubId: null,
+      basedOn: null,
+      proposing: null,
+      checkedAt: null,
+      closedBecause: null,
+      closeFailure: null,
       reason: source ? null : ConfigPullRequestReason.noSource(lineKey),
-      generation,
       retries: 0,
       dueAt: source ? at : null,
       updatedAt: at,
@@ -225,12 +305,50 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.url;
   }
 
-  get reason(): ConfigPullRequestReason | null {
-    return this.state.reason;
+  get number(): number | null {
+    return this.state.number;
   }
 
-  get generation(): number {
-    return this.state.generation;
+  get basedOn(): StationFingerprint | null {
+    return this.state.basedOn;
+  }
+
+  get proposing(): StationFingerprint | null {
+    return this.state.proposing;
+  }
+
+  get gitHubId(): number | null {
+    return this.state.gitHubId;
+  }
+
+  get checkedAt(): Date | null {
+    return this.state.checkedAt;
+  }
+
+  get closedBecause(): ConfigPullRequestCloseReason | null {
+    return this.state.closedBecause;
+  }
+
+  get closeFailure(): ConfigPullRequestReason | null {
+    return this.state.closeFailure;
+  }
+
+  get gitHubPullRequest(): GitHubPullRequest | null {
+    const { repository, number } = this.state;
+
+    return repository && number !== null
+      ? { repository: Repository.of(repository), number }
+      : null;
+  }
+
+  get isOpen(): boolean {
+    return (
+      OPEN_CONFIG_PULL_REQUEST_STATES as readonly ConfigPullRequestState[]
+    ).includes(this.state.state);
+  }
+
+  get reason(): ConfigPullRequestReason | null {
+    return this.state.reason;
   }
 
   get retries(): number {
@@ -257,97 +375,231 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.version;
   }
 
-  get isRetryable(): boolean {
-    return this.state.state === 'failed';
-  }
-
-  isOpening(generation: number): boolean {
-    return (
-      this.state.state === 'opening' && this.state.generation === generation
-    );
-  }
-
   isDue(now: Date): boolean {
     return this.state.dueAt !== null && this.state.dueAt <= now;
   }
 
   claimed(until: Date): ConfigPullRequest {
-    this.mustBeOpening();
+    this.mustBe('opening', 'closing');
 
     return this.with({ dueAt: until });
   }
 
-  retried(input: {
-    lineKey: string;
-    source: ConfigSourceOf | null;
-    at: Date;
-    by: ChangeActor;
-  }): ConfigPullRequest {
-    if (!this.isRetryable) {
-      throw new InconsistentStateError(
-        AGGREGATE,
-        `is ${this.state.state}, and only a failed one is tried again`,
-      );
-    }
-
-    const retried = this.with(
-      ConfigPullRequest.attempted(
-        input.source,
-        input.lineKey,
-        this.state.generation + 1,
-        input.at,
-      ),
-    );
-
-    retried.record(retried.wanted('updated', input.by));
-
-    return retried;
-  }
-
   commit(commit: string, at: Date): ConfigPullRequest {
-    this.mustBeOpening();
+    this.mustBe('opening');
 
     return this.with({ lastCommit: commit, updatedAt: at });
   }
 
-  open(
-    url: PullRequestUrl,
-    proposing: StationFingerprint,
-    at: Date,
-  ): ConfigPullRequest {
-    this.mustBeOpening();
+  open(opened: OpenedPullRequest, at: Date): ConfigPullRequest {
+    this.mustBe('opening');
 
-    const opened = this.with({
+    const next = this.with({
       state: 'opened',
-      url: url.value,
+      repository: opened.repository.value,
+      url: opened.url.value,
+      number: opened.number,
+      gitHubId: opened.gitHubId,
+      basedOn: opened.basedOn,
+      proposing: opened.proposing,
+      checkedAt: at,
       dueAt: null,
       updatedAt: at,
     });
     const { station } = this.state;
 
-    opened.record(
+    next.record(
       new ConfigPullRequestOpened(
         this.state.id,
         station.workspaceId,
         station.teamId,
         station.stationId,
-        proposing,
-        url,
+        opened.proposing,
+        opened.url,
         at,
       ),
     );
 
-    return opened;
+    return next;
+  }
+
+  isStale(live: StationFingerprint | null): boolean {
+    const { state, basedOn, proposing } = this.state;
+
+    return (
+      state === 'opened' &&
+      !(
+        live &&
+        ((basedOn && live.equals(basedOn)) ||
+          (proposing && live.equals(proposing)))
+      )
+    );
+  }
+
+  closeIfStale(live: StationFingerprint | null, at: Date): ConfigPullRequest {
+    return this.isStale(live)
+      ? this.with({
+          state: 'closing',
+          closedBecause: 'stale',
+          retries: 0,
+          dueAt: at,
+          updatedAt: at,
+        })
+      : this;
+  }
+
+  closeTried(message: string, at: Date): ConfigPullRequest {
+    this.mustBe('closing');
+
+    const retries = this.state.retries + 1;
+
+    return retries >= MAX_RETRIES
+      ? this.with({ retries }).closeFailed(
+          ConfigPullRequestReason.of({ code: 'github-error', message }),
+          at,
+        )
+      : this.with({
+          retries,
+          dueAt: new Date(at.getTime() + retryAfterMs(retries)),
+          updatedAt: at,
+        });
+  }
+
+  closeFailed(reason: ConfigPullRequestReason, at: Date): ConfigPullRequest {
+    this.mustBe('closing');
+
+    return this.with({ closeFailure: reason }).ended({ merged: false, at });
+  }
+
+  closed(at: Date): ConfigPullRequest {
+    this.mustBe('closing');
+
+    return this.ended({ merged: false, at });
+  }
+
+  recordGitHubClose(close: GitHubClose): ConfigPullRequest {
+    const { state } = this.state;
+
+    if (state === 'opened' || state === 'closing') {
+      return this.ended(close);
+    }
+
+    return state === 'closed' && close.merged ? this.ended(close) : this;
+  }
+
+  reopened(at: Date): ConfigPullRequest {
+    const { state, closedBecause, proposing, station } = this.state;
+
+    if (state !== 'closed') {
+      return this;
+    }
+    if (!closedBecause || !proposing) {
+      throw new InconsistentStateError(
+        AGGREGATE,
+        'reopens only once it closed',
+      );
+    }
+
+    const reopened = this.with({
+      state: 'opened',
+      closedBecause: null,
+      closeFailure: null,
+      checkedAt: at,
+      updatedAt: at,
+    });
+
+    reopened.record(
+      new ConfigPullRequestReopened(
+        this.state.id,
+        station.workspaceId,
+        station.teamId,
+        station.stationId,
+        closedBecause,
+        proposing,
+        at,
+      ),
+    );
+
+    return reopened;
+  }
+
+  checked(at: Date): ConfigPullRequest {
+    this.mustBe('opened');
+
+    return this.with({ checkedAt: at });
+  }
+
+  private ended(close: GitHubClose): ConfigPullRequest {
+    const { station, basedOn, proposing } = this.state;
+
+    if (close.merged) {
+      const merged = this.with({
+        state: 'merged',
+        closedBecause: null,
+        closeFailure: null,
+        dueAt: null,
+        updatedAt: close.at,
+      });
+
+      merged.record(
+        new ConfigPullRequestMerged(
+          this.state.id,
+          station.workspaceId,
+          station.teamId,
+          station.stationId,
+          close.at,
+        ),
+      );
+
+      return merged;
+    }
+
+    if (!basedOn || !proposing) {
+      throw new InconsistentStateError(AGGREGATE, 'closes only once it opened');
+    }
+
+    const because: ConfigPullRequestCloseReason =
+      this.state.state === 'closing' ? 'stale' : 'by-person';
+    const closed = this.with({
+      state: 'closed',
+      closedBecause: because,
+      dueAt: null,
+      updatedAt: close.at,
+    });
+
+    closed.record(
+      new ConfigPullRequestClosed(
+        this.state.id,
+        station.workspaceId,
+        station.teamId,
+        station.stationId,
+        because,
+        basedOn,
+        proposing,
+        close.at,
+      ),
+    );
+
+    return closed;
   }
 
   failed(reason: ConfigPullRequestReason, at: Date): ConfigPullRequest {
-    this.mustBeOpening();
+    this.mustBe('opening');
 
-    return this.with({ state: 'failed', reason, dueAt: null, updatedAt: at });
+    const failed = this.with({
+      state: 'failed',
+      reason,
+      dueAt: null,
+      updatedAt: at,
+    });
+
+    failed.record(failed.failureOf(reason));
+
+    return failed;
   }
 
   tried(message: string, at: Date): ConfigPullRequest {
-    this.mustBeOpening();
+    this.mustBe('opening');
 
     const retries = this.state.retries + 1;
 
@@ -367,19 +619,20 @@ export class ConfigPullRequest extends EventRecorder {
     return new ConfigPullRequest(this.state, true);
   }
 
-  private mustBeOpening(): void {
-    if (this.state.state !== 'opening') {
+  private mustBe(...states: readonly ConfigPullRequestState[]): void {
+    if (!states.includes(this.state.state)) {
       throw new InconsistentStateError(
         AGGREGATE,
-        `is ${this.state.state}, not opening`,
+        `is ${this.state.state}, not ${states.join(' or ')}`,
       );
     }
   }
 
-  private wanted(
-    action: 'created' | 'updated',
-    by: ChangeActor,
-  ): ConfigPullRequestRequested {
+  private failureOf(reason: ConfigPullRequestReason): ConfigPullRequestFailed {
+    return new ConfigPullRequestFailed(this.state.id, this.workspaceId, reason);
+  }
+
+  private wanted(by: ChangeActor): ConfigPullRequestRequested {
     const changed = {
       resource: 'config-pull-request' as const,
       id: this.state.id.value,
@@ -389,16 +642,12 @@ export class ConfigPullRequest extends EventRecorder {
       searchId: this.state.searchId.value,
       candidateId: this.state.candidateId.value,
       candidate: this.state.candidateName,
-      generation: this.state.generation,
     });
 
     return new ConfigPullRequestRequested(
       this.state.id,
       this.teamId,
-      this.state.generation,
-      action === 'created'
-        ? ConfigurationChange.created(changed, by, detail)
-        : ConfigurationChange.updated(changed, by, detail),
+      ConfigurationChange.created(changed, by, detail),
     );
   }
 

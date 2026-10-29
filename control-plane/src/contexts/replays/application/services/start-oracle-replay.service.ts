@@ -36,7 +36,7 @@ export class StartOracleReplay {
   ) {}
 
   async baselineEnded(event: ReplayEnded): Promise<void> {
-    if (event.state !== 'finished' || event.searchId !== null) {
+    if (event.state !== 'finished') {
       return;
     }
 
@@ -47,7 +47,7 @@ export class StartOracleReplay {
       !baseline ||
       !live?.isLive ||
       baseline.runSubset !== null ||
-      baseline.searchId !== null
+      (baseline.searchId !== null && !baseline.calibration)
     ) {
       return;
     }

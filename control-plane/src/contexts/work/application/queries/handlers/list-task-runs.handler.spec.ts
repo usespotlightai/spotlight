@@ -35,8 +35,6 @@ const reading = (found: TaskRunSummary[]) => {
     listForTeam: vi.fn(),
     notesFor: vi.fn(),
     configFor: vi.fn(),
-    replayFor: vi.fn(),
-    searchRunFor: vi.fn(),
   } satisfies RunReaderPort;
 
   return { runs, listForTask };

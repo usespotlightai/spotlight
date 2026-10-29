@@ -4,6 +4,20 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Station } from '@/routes/Station';
 
+const SEARCH = {
+  enabled: true,
+  monthlyCeiling: 50,
+  currency: 'USD',
+  ceiling: 10,
+  period: '7d',
+  onAlert: true,
+  cooldown: '3d',
+  agent: null,
+  iterations: null,
+  repeats: null,
+  objective: null,
+};
+
 const line = {
   id: 'line_1',
   key: 'default',
@@ -21,6 +35,7 @@ const line = {
       skills: [],
       alerts: [],
       judge: null,
+      search: null,
     },
     {
       id: 'station_1',
@@ -33,6 +48,7 @@ const line = {
       skills: [],
       alerts: [],
       judge: null,
+      search: { ...SEARCH, enabled: false },
     },
     {
       id: 'station_2',
@@ -46,6 +62,7 @@ const line = {
       agentPrompt: '## Role\n\n- Sort the queue\n- Ask when unsure',
       kind: 'work',
       skills: ['our-migrations', 'grafana-dashboards'],
+      search: SEARCH,
       judge: {
         rubric: '## A good run\n\n- Changes only what it must',
         claims: [],
@@ -89,6 +106,7 @@ const line = {
       skills: [],
       alerts: [],
       judge: null,
+      search: null,
     },
   ],
   repositories: [
@@ -175,45 +193,6 @@ vi.mock('@/hooks/api/useStationJudge', () => ({
   }),
 }));
 
-const sets = vi.fn();
-const setsFailing = vi.fn();
-const refetchSets = vi.fn();
-
-vi.mock('@/hooks/api/useReplaySet', () => ({
-  useReplaySet: () => ({
-    data: sets(),
-    isPending: sets() === undefined,
-    errorUpdateCount: setsFailing() ? 1 : 0,
-    error: null,
-    isFetching: false,
-    refetch: refetchSets,
-  }),
-}));
-
-vi.mock('@/hooks/api/useSearches', () => ({
-  useSearches: () => ({
-    data: [],
-    isPending: false,
-    errorUpdateCount: 0,
-  }),
-}));
-
-vi.mock('@/hooks/api/useSearchEstimate', () => ({
-  useSearchEstimate: () => ({ data: undefined, isFetching: false }),
-}));
-
-vi.mock('@/hooks/api/useStartSearch', () => ({
-  useStartSearch: () => ({ mutate: vi.fn(), isPending: false, reset: vi.fn() }),
-}));
-
-vi.mock('@/hooks/api/useStationCandidates', () => ({
-  useStationCandidates: () => ({
-    path: 'core/default/spec',
-    pathFailed: false,
-    candidates: { data: [], isPending: false, errorUpdateCount: 0 },
-  }),
-}));
-
 const TALLY = {
   runs: 42,
   failed: 1,
@@ -283,8 +262,6 @@ const CALIBRATION = {
 };
 
 const INSIGHTS = '/w/acme/team/team_1/insights';
-const STATION = '/w/acme/team/team_1/lines/line_1/stations/station_2';
-
 function HandedOver() {
   const { state } = useLocation();
 
@@ -296,16 +273,16 @@ function HandedOver() {
   );
 }
 
-const renderAt = (stationId: string, tab?: string) =>
+const renderAt = (stationId: string) =>
   render(
     <MemoryRouter
       initialEntries={[
-        `/w/acme/team/team_1/lines/line_1/stations/${stationId}${tab ? `/${tab}` : ''}`,
+        `/w/acme/team/team_1/lines/line_1/stations/${stationId}`,
       ]}
     >
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/lines/:lineId/stations/:stationId/:tab?"
+          path="/w/:slug/team/:teamId/lines/:lineId/stations/:stationId"
           element={<Station />}
         />
         <Route path="/w/:slug/team/:teamId/agent" element={<HandedOver />} />
@@ -342,9 +319,6 @@ beforeEach(() => {
   judged.mockReturnValue({ calibration: CALIBRATION });
   worthImproving.mockReturnValue([]);
   judgeFailing.mockReturnValue(false);
-  sets.mockReturnValue(null);
-  setsFailing.mockReturnValue(false);
-  refetchSets.mockClear();
   localStorage.clear();
 });
 
@@ -403,21 +377,17 @@ describe('Station', () => {
     expect(screen.queryByText('Station not found')).not.toBeInTheDocument();
   });
 
-  it('keeps the shape of the tab its address opens while the line loads', () => {
+  it('keeps the shape of the overview while the line loads', () => {
     lines.mockReturnValue(undefined);
 
-    const { unmount } = renderAt('station_2');
+    renderAt('station_2');
+
     const overview = screen.getByRole('status', {
       name: 'Loading the station',
     });
+    expect(overview).toHaveTextContent('What needs attention');
     expect(overview).toHaveTextContent('Config');
     expect(overview).toHaveTextContent('Latest runs on this config');
-    unmount();
-
-    renderAt('station_2', 'improve');
-    expect(
-      screen.getByRole('status', { name: 'Loading the station' }),
-    ).not.toHaveTextContent('Latest runs on this config');
   });
 
   it('says the station could not be loaded, and tries again on request', async () => {
@@ -445,14 +415,6 @@ describe('Station', () => {
     ).toBeInTheDocument();
   });
 
-  it('says so when the station has no tab at that address', () => {
-    renderAt('station_2', 'statistics');
-
-    expect(
-      screen.getByRole('heading', { name: 'Station not found' }),
-    ).toBeInTheDocument();
-  });
-
   describe('its ends', () => {
     it('says nothing runs at the backlog, offering no tabs', () => {
       renderAt('station_0');
@@ -464,7 +426,7 @@ describe('Station', () => {
     });
 
     it('says nothing runs where tasks are completed, offering nothing to improve', () => {
-      renderAt('station_3', 'improve');
+      renderAt('station_3');
 
       expect(
         screen.getByText(/the line is done with them/),
@@ -475,54 +437,26 @@ describe('Station', () => {
     });
   });
 
-  describe('its tabs', () => {
-    it('offers Overview and Improve, each at its own address', () => {
-      renderAt('station_2');
+  it('offers the overview as its one tab, opening on what needs attention', () => {
+    renderAt('station_2');
 
-      const tabs = within(screen.getByRole('navigation', { name: 'Station' }));
+    const tabs = within(screen.getByRole('navigation', { name: 'Station' }));
 
-      expect(tabs.getByRole('link', { name: 'Overview' })).toHaveAttribute(
-        'href',
-        STATION,
-      );
-      expect(tabs.getByRole('link', { name: 'Improve' })).toHaveAttribute(
-        'href',
-        `${STATION}/improve`,
-      );
-      expect(tabs.getAllByRole('link')).toHaveLength(2);
-    });
-
-    it('opens on the overview, marking it as the tab in view', () => {
-      renderAt('station_2');
-
-      expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute(
-        'aria-current',
-        'page',
-      );
-      expect(
-        screen.getByRole('heading', { name: 'Recent runs' }),
-      ).toBeInTheDocument();
-    });
-
-    it('moves to another tab when it is picked', async () => {
-      const user = userEvent.setup();
-      renderAt('station_2');
-
-      const tabs = within(screen.getByRole('navigation', { name: 'Station' }));
-
-      await user.click(tabs.getByRole('link', { name: 'Improve' }));
-
-      expect(tabs.getByRole('link', { name: 'Improve' })).toHaveAttribute(
-        'aria-current',
-        'page',
-      );
-      expect(
-        screen.getByRole('heading', { name: 'Worth improving' }),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByRole('heading', { name: 'Recent runs' }),
-      ).not.toBeInTheDocument();
-    });
+    expect(tabs.getAllByRole('link')).toHaveLength(1);
+    expect(tabs.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(tabs.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_1/stations/station_2',
+    );
+    expect(screen.getAllByRole('heading', { level: 2 })[0]).toHaveTextContent(
+      'What needs attention',
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Recent runs' }),
+    ).toBeInTheDocument();
   });
 
   describe('its overview', () => {
@@ -774,21 +708,15 @@ describe('Station', () => {
     });
   });
 
-  describe('its improve tab', () => {
-    it('lays out the ways to improve the station as cards', () => {
-      renderAt('station_2', 'improve');
+  describe('what needs attention', () => {
+    it('shows what is worth improving at the station', () => {
+      renderAt('station_2');
+
+      const attention = sectionTitled('What needs attention');
 
       expect(
-        screen
-          .getAllByRole('heading', { level: 2 })
-          .map((each) => each.textContent),
-      ).toEqual([
-        'What needs attention',
-        'Worth improving',
-        'Try a change',
-        'Replay set',
-        'Searches',
-      ]);
+        within(attention).getByRole('heading', { name: 'Worth improving' }),
+      ).toBeInTheDocument();
     });
 
     it('shows what got worse at the station against before and the team', () => {
@@ -813,7 +741,7 @@ describe('Station', () => {
         },
       ]);
 
-      renderAt('station_2', 'improve');
+      renderAt('station_2');
 
       expect(
         within(sectionTitled('Worth improving'))
@@ -845,7 +773,7 @@ describe('Station', () => {
         },
       ]);
 
-      renderAt('station_2', 'improve');
+      renderAt('station_2');
 
       await user.click(
         within(
@@ -870,7 +798,7 @@ describe('Station', () => {
     });
 
     it('says when nothing needs attention', () => {
-      renderAt('station_2', 'improve');
+      renderAt('station_2');
 
       expect(sectionTitled('Worth improving')).toHaveTextContent(
         'All signals are healthy',
@@ -879,7 +807,7 @@ describe('Station', () => {
 
     it('hands the station to the agent when nothing needs attention', async () => {
       const user = userEvent.setup();
-      renderAt('station_2', 'improve');
+      renderAt('station_2');
 
       await user.click(
         within(sectionTitled('Worth improving')).getByRole('link', {
@@ -904,52 +832,6 @@ describe('Station', () => {
         stationKey: 'spec',
         stationName: 'Spec',
       });
-    });
-
-    it('says there is no replay set yet, and offers no way to create one', () => {
-      renderAt('station_2', 'improve');
-
-      expect(screen.getByText('No replay set yet')).toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', { name: /Create replay set/ }),
-      ).not.toBeInTheDocument();
-    });
-
-    it('keeps the place of the replay set while it loads', () => {
-      sets.mockReturnValue(undefined);
-
-      renderAt('station_2', 'improve');
-
-      expect(
-        screen.getByRole('status', { name: 'Loading the replay set' }),
-      ).toBeInTheDocument();
-    });
-
-    it('says the replay set could not be loaded, and tries again on request', async () => {
-      const user = userEvent.setup();
-      sets.mockReturnValue(undefined);
-      setsFailing.mockReturnValue(true);
-
-      renderAt('station_2', 'improve');
-
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        'The station’s replay set could not be loaded.',
-      );
-
-      await user.click(screen.getByRole('button', { name: 'Try again' }));
-
-      expect(refetchSets).toHaveBeenCalled();
-    });
-
-    it('says a search needs the station’s replay set', () => {
-      renderAt('station_2', 'improve');
-
-      expect(screen.getByText('No searches yet')).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          'The station has no replay set yet. Spotlight keeps one after a run of the station ends.',
-        ),
-      ).toBeInTheDocument();
     });
   });
 
@@ -1049,6 +931,44 @@ describe('Station', () => {
 
       expect(sectionTitled('Judge')).toHaveTextContent(
         'No judgeOnly people score runs here.',
+      );
+    });
+
+    it('says how Spotlight improves the station on its own, with the rest on hover', async () => {
+      const user = userEvent.setup();
+      renderAt('station_2');
+
+      const improvement = sectionTitled('Automatic improvement');
+
+      expect(improvement).toHaveTextContent(
+        'OnUp to $10 a search · every 7 days',
+      );
+
+      await user.hover(
+        improvement.querySelector('[data-slot="search-policy"]') as Element,
+      );
+
+      expect(
+        await screen.findByText('Line ceiling a month'),
+      ).toBeInTheDocument();
+    });
+
+    it('shows no automatic improvement at the ends of the line', () => {
+      for (const end of ['station_0', 'station_3']) {
+        const { unmount } = renderAt(end);
+
+        expect(
+          screen.queryByRole('heading', { name: 'Automatic improvement' }),
+        ).not.toBeInTheDocument();
+        unmount();
+      }
+    });
+
+    it('says no search runs where automatic improvement is off', () => {
+      renderAt('station_1');
+
+      expect(sectionTitled('Automatic improvement')).toHaveTextContent(
+        'OffNo automatic searches',
       );
     });
 

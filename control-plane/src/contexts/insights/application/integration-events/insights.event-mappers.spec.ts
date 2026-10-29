@@ -3,6 +3,8 @@ import { ChangeJudged } from '@insights/domain/events/change-judged.event';
 import { ChangeJudgingFailed } from '@insights/domain/events/change-judging-failed.event';
 import { SideBySideJudged } from '@insights/domain/events/side-by-side-judged.event';
 import { SideBySideJudgingFailed } from '@insights/domain/events/side-by-side-judging-failed.event';
+import { StationAlertFired } from '@insights/domain/events/station-alert-fired.event';
+import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { Citation } from '@insights/domain/value-objects/citation.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
 import { JudgingFailure } from '@insights/domain/value-objects/judging-failure.vo';
@@ -10,6 +12,8 @@ import { PairReason } from '@insights/domain/value-objects/pair-reason.vo';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -20,7 +24,8 @@ const published = (
     | ChangeJudged
     | ChangeJudgingFailed
     | SideBySideJudged
-    | SideBySideJudgingFailed,
+    | SideBySideJudgingFailed
+    | StationAlertFired,
 ) =>
   INSIGHTS_EVENT_MAPPERS.filter((each) => each.from === event.kind).map(
     (each) => each.map(event, new Date()),
@@ -185,6 +190,29 @@ describe('INSIGHTS_EVENT_MAPPERS', () => {
         failure: 'no-evidence',
         spentCosts: [],
         unpricedCalls: 0,
+      },
+    ]);
+  });
+
+  it('publishes a station alert that fired, for the station it fired at', () => {
+    expect(
+      published(
+        new StationAlertFired(
+          AlertId.of('alert_1'),
+          WorkspaceId.of('ws_1'),
+          TeamId.of('team_1'),
+          'station_build',
+          TaskId.of('task_1'),
+          RunId.of('run_1'),
+        ),
+      ),
+    ).toEqual([
+      {
+        kind: 'insights.station-alert-fired.v1',
+        alertId: 'alert_1',
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        stationId: 'station_build',
       },
     ]);
   });

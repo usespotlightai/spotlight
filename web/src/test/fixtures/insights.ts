@@ -17,6 +17,7 @@ import {
   type InsightsStations,
 } from '@/lib/insights';
 import { onGitHub } from '@/mocks/world/repositories';
+import { LINE_SEARCH } from '@/mocks/world/stations';
 import { SLUG, TEAM_ID, WORKSPACE } from '@/test/fixtures/team';
 
 export const LINE_ID = 'line_delivery';
@@ -37,6 +38,7 @@ const station = (
   agentPrompt: null,
   judge: null,
   alerts: [],
+  search: null,
   kind: 'work',
   skills: [],
   ...over,
@@ -51,6 +53,7 @@ const LINES: LineResponseDto[] = [
     repositories: [onGitHub('acme/api'), onGitHub('acme/web')],
     source: null,
     replayCheck: null,
+    search: LINE_SEARCH,
     stations: [
       station({
         id: 'station_backlog',

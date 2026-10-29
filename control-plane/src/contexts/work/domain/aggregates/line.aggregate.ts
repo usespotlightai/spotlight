@@ -20,6 +20,7 @@ import { StationHarnessChanged } from '@work/domain/events/station-harness-chang
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
 import { InvalidReviewPolicyError } from '@work/domain/exceptions/invalid-review-policy.error';
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
+import { InvalidStationSearchError } from '@work/domain/exceptions/invalid-station-search.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
 import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
 import { UnknownHappeningError } from '@work/domain/exceptions/unknown-happening.error';
@@ -29,6 +30,7 @@ import type { LineOpening } from '@work/domain/services/built-in-lines';
 import { entryOf } from '@work/domain/services/line-entry';
 import {
   reactionsProblem,
+  searchProblem,
   setupProblem,
   stationsProblem,
 } from '@work/domain/services/line-layout';
@@ -55,6 +57,7 @@ import {
   reviewsOn,
 } from '@work/domain/value-objects/review-policy.vo';
 import type { ReviewRequestReceived } from '@work/domain/value-objects/review-request.vo';
+import { LineSearchPolicy } from '@work/domain/value-objects/search-policy.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { StationColor } from '@work/domain/value-objects/station-color.vo';
 import type { StationDescription } from '@work/domain/value-objects/station-description.vo';
@@ -73,6 +76,7 @@ export interface LineLayout {
   readonly reviews?: ReviewPolicy | null;
   readonly placement?: RunnerPlacement;
   readonly replayCheck?: ReplayCheckPolicy | null;
+  readonly search?: LineSearchPolicy | null;
   readonly source?: ConfigSource | null;
 }
 
@@ -96,6 +100,7 @@ export class Line extends EventRecorder {
     readonly reviews: ReviewPolicy | null,
     readonly placement: RunnerPlacement,
     readonly replayCheck: ReplayCheckPolicy | null,
+    readonly search: LineSearchPolicy | null,
     readonly source: ConfigSource | null,
     readonly version: number,
     readonly isDeleted = false,
@@ -234,6 +239,15 @@ export class Line extends EventRecorder {
       throw new UnreadyRepositoryError(unready.reason);
     }
 
+    const searching = searchProblem(
+      stations,
+      layout.search ?? LineSearchPolicy.DEFAULT,
+    );
+
+    if (searching) {
+      throw new InvalidStationSearchError(searching.reason);
+    }
+
     if (layout.reviews && !reviewsOn(layout.role ?? null)) {
       throw new InvalidReviewPolicyError(
         `belongs only on a line with role ${LineRole.REVIEW.value}`,
@@ -253,6 +267,7 @@ export class Line extends EventRecorder {
       layout.reviews ?? null,
       layout.placement ?? RunnerPlacement.anywhere(),
       layout.replayCheck ?? null,
+      layout.search ?? null,
       layout.source ?? null,
       version,
     );
@@ -324,6 +339,7 @@ export class Line extends EventRecorder {
       this.reviews,
       this.placement,
       this.replayCheck,
+      this.search,
       this.source,
       this.version,
       true,
@@ -365,6 +381,7 @@ export class Line extends EventRecorder {
         placement: part.placement ?? this.placement,
         replayCheck:
           part.replayCheck !== undefined ? part.replayCheck : this.replayCheck,
+        search: part.search !== undefined ? part.search : this.search,
         source: part.source !== undefined ? part.source : this.source,
       },
       this.version,
@@ -374,6 +391,10 @@ export class Line extends EventRecorder {
     this.recordChangesInto(next);
 
     return next;
+  }
+
+  get searchPolicy(): LineSearchPolicy {
+    return this.search ?? LineSearchPolicy.DEFAULT;
   }
 
   private get whatChanged() {

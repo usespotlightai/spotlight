@@ -119,6 +119,10 @@ export interface InboxNoticeSummary {
   readonly points: readonly string[];
   readonly link: string;
   readonly linkLabel: string;
+  readonly externalLink: {
+    readonly url: string;
+    readonly label: string;
+  } | null;
   readonly askedAt: Date;
   readonly unread: boolean;
   readonly resolved: boolean;

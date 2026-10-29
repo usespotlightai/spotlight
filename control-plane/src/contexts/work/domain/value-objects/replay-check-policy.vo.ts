@@ -1,13 +1,25 @@
 import { InvalidReplayCheckPolicyError } from '@work/domain/exceptions/invalid-replay-check-policy.error';
+import { InvalidSpendCeilingError } from '@work/domain/exceptions/invalid-spend-ceiling.error';
+import { SpendCeiling } from '@work/domain/value-objects/spend-ceiling.vo';
 
-const MAX_CEILING = 1_000;
-const CURRENCY = /^[A-Z]{3}$/;
+const spendOf = (ceiling: number, currency: string): SpendCeiling => {
+  try {
+    return SpendCeiling.of(ceiling, currency);
+  } catch (error) {
+    if (error instanceof InvalidSpendCeilingError) {
+      throw new InvalidReplayCheckPolicyError(
+        error.field === 'amount' ? 'ceiling' : 'currency',
+        error.because,
+      );
+    }
+    throw error;
+  }
+};
 
 export class ReplayCheckPolicy {
   private constructor(
     readonly maxRegressions: number,
-    readonly ceiling: number,
-    readonly currency: string,
+    readonly spend: SpendCeiling,
     readonly minGain: number,
   ) {}
 
@@ -17,8 +29,7 @@ export class ReplayCheckPolicy {
     currency: string;
     minGain: number;
   }): ReplayCheckPolicy {
-    const { maxRegressions, ceiling, minGain } = input;
-    const currency = input.currency.trim().toUpperCase();
+    const { maxRegressions, minGain } = input;
 
     if (!Number.isInteger(maxRegressions) || maxRegressions < 0) {
       throw new InvalidReplayCheckPolicyError(
@@ -26,18 +37,8 @@ export class ReplayCheckPolicy {
         'must be a whole number from 0',
       );
     }
-    if (!Number.isFinite(ceiling) || ceiling <= 0 || ceiling > MAX_CEILING) {
-      throw new InvalidReplayCheckPolicyError(
-        'ceiling',
-        `must be above 0 and at most ${MAX_CEILING.toLocaleString('en-US')}`,
-      );
-    }
-    if (!CURRENCY.test(currency)) {
-      throw new InvalidReplayCheckPolicyError(
-        'currency',
-        'must be a three-letter currency code, as in USD',
-      );
-    }
+
+    const spend = spendOf(input.ceiling, input.currency);
 
     if (!Number.isFinite(minGain) || minGain <= 0 || minGain > 1) {
       throw new InvalidReplayCheckPolicyError(
@@ -46,6 +47,14 @@ export class ReplayCheckPolicy {
       );
     }
 
-    return new ReplayCheckPolicy(maxRegressions, ceiling, currency, minGain);
+    return new ReplayCheckPolicy(maxRegressions, spend, minGain);
+  }
+
+  get ceiling(): number {
+    return this.spend.amount;
+  }
+
+  get currency(): string {
+    return this.spend.currency;
   }
 }

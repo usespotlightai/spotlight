@@ -10,6 +10,6 @@ export class SearchIterationRequested implements DomainEvent {
     readonly searchId: SearchId,
     readonly workspaceId: WorkspaceId,
     readonly iteration: number,
-    readonly runId: RunId,
+    readonly runId: RunId | null,
   ) {}
 }

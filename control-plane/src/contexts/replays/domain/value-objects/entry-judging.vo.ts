@@ -1,6 +1,6 @@
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 
-export const UNJUDGED_BECAUSE = [
+const UNJUDGED_BECAUSE = [
   'unavailable',
   'unreadable-rubric',
   'no-evidence',

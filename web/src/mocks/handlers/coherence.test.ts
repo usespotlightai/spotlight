@@ -3,19 +3,14 @@ import {
   listInbox,
   listInsightsPullRequests,
   listInsightsTraces,
-  listReplays,
   listRunChangeStacks,
-  listSearches,
   listTaskRuns,
   listTeamRuns,
   readInsightsStations,
-  readReplay,
-  readReplaySet,
   readRunMemories,
   readRunNotes,
   readRunReview,
   readRunScores,
-  readSearch,
   readStationAlert,
   readStationInsights,
   readTaskDecisions,
@@ -23,13 +18,7 @@ import {
   readTaskTrace,
 } from '@/lib/api';
 import { serveMockApi } from '@/mocks/testing';
-import {
-  DELIVERY_ID,
-  GROWTH_ID,
-  PLATFORM_ID,
-  SLUG,
-  world,
-} from '@/mocks/world';
+import { DELIVERY_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
 import { ALERT_ID } from '@/mocks/world/inbox';
 import { FINGERPRINTS } from '@/mocks/world/station-history';
 
@@ -341,133 +330,5 @@ describe('the task journal and the run conversations tell one story', () => {
         .flatMap((trace) => trace.runs)
         .find((each) => each.runId === 'run_postgres_2')?.cost?.amount,
     ).toBe(run.spend?.cost);
-  });
-});
-
-const agentStations = () =>
-  Object.entries(world().lines).flatMap(([teamId, lines]) =>
-    lines.flatMap((line) =>
-      line.stations
-        .filter((station) => station.kind === 'work')
-        .map((station) => ({ teamId, lineId: line.id, stationId: station.id })),
-    ),
-  );
-
-describe('every agent station improves on its own runs', () => {
-  serveMockApi();
-
-  it('has replay sets of runs that ended at the station before they were added', async () => {
-    for (const path of agentStations()) {
-      const { data: set } = await readReplaySet({ path, throwOnError: true });
-      const sets = [set];
-      const { data: outcomes } = await readStationInsights({
-        path,
-        query: { last: 200 },
-        throwOnError: true,
-      });
-      const runs = new Map(
-        outcomes.groups.flatMap((group) =>
-          group.runs.map((run) => [run.runId, run]),
-        ),
-      );
-
-      for (const set of sets) {
-        expect(set.entries.length, set.id).toBeGreaterThanOrEqual(2);
-        for (const entry of set.entries) {
-          const run = runs.get(entry.runId);
-
-          expect(run, `${set.id} ${entry.runId}`).toBeDefined();
-          expect(entry.taskId).toBe(run?.taskId);
-          expect(entry.endedAt).toBe(run?.endedAt);
-          expect(entry.addedAt >= (entry.endedAt ?? ''), entry.runId).toBe(
-            true,
-          );
-        }
-      }
-    }
-  });
-
-  it('replays each set on its own runs, after they ended, against a finished baseline', async () => {
-    for (const path of agentStations()) {
-      const { data: set } = await readReplaySet({ path, throwOnError: true });
-      const sets = [set];
-
-      for (const set of sets) {
-        const { data: replays } = await listReplays({
-          path: { teamId: path.teamId, setId: set.id },
-          throwOnError: true,
-        });
-        const setRunIds = new Set(set.entries.map((each) => each.runId));
-        const lastEnded = set.entries
-          .map((each) => each.endedAt ?? '')
-          .sort()
-          .at(-1);
-
-        expect(
-          replays.filter(
-            (each) => each.isBaseline && each.state === 'finished',
-          ),
-          set.id,
-        ).toHaveLength(1);
-        for (const replay of replays) {
-          expect(replay.startedAt > (lastEnded ?? '')).toBe(true);
-          expect(
-            replay.entries.every((each) => setRunIds.has(each.originalRunId)),
-          ).toBe(true);
-        }
-      }
-    }
-  });
-
-  it('searches on the station’s sets, splitting their runs and replaying every candidate', async () => {
-    for (const path of agentStations()) {
-      const { data: set } = await readReplaySet({ path, throwOnError: true });
-      const sets = [set];
-      const { data: searches } = await listSearches({
-        path,
-        throwOnError: true,
-      });
-
-      expect(searches.length, path.stationId).toBeGreaterThan(0);
-      for (const summary of searches) {
-        const { data: search } = await readSearch({
-          path: { teamId: path.teamId, searchId: summary.id },
-          throwOnError: true,
-        });
-        const set = sets.find((each) => each.id === search.setId);
-        const tasks = new Map(
-          set?.entries.map((each) => [each.runId, each.taskId]),
-        );
-        const split = [...search.split.searched, ...search.split.heldOut];
-        const replays = [search.seed, ...search.candidates].flatMap((each) =>
-          [each.replayId, each.heldOutReplayId].flatMap((id) =>
-            id ? [id] : [],
-          ),
-        );
-
-        expect(set, search.id).toBeDefined();
-        expect(split.length).toBe(set?.entries.length);
-        expect(
-          split.every((each) => tasks.get(each.runId) === each.taskId),
-        ).toBe(true);
-        for (const replayId of replays) {
-          const { data: replay } = await readReplay({
-            path: { teamId: path.teamId, replayId },
-            throwOnError: true,
-          });
-
-          expect(replay.setId).toBe(search.setId);
-          expect(replay.search?.searchId).toBe(search.id);
-        }
-      }
-    }
-  });
-
-  it('keeps a team’s searches to itself', async () => {
-    const { response } = await readSearch({
-      path: { teamId: GROWTH_ID, searchId: 'search_tests_first' },
-    });
-
-    expect(response?.status).toBe(404);
   });
 });

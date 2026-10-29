@@ -1,5 +1,5 @@
 import { EmptyDetail } from '@/components/features/insights/EmptyDetail';
-import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';

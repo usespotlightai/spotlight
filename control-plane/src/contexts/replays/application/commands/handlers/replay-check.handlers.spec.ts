@@ -1,9 +1,7 @@
 import { StartReplayCheckHandler } from '@replays/application/commands/handlers/start-replay-check.handler';
 import { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
 import type { ReplayCheckStartedOutcome } from '@replays/application/dto/replay-outcomes.dto';
-import { ListSetReplayChecksHandler } from '@replays/application/queries/handlers/list-set-replay-checks.handler';
 import { ReadReplayCheckHandler } from '@replays/application/queries/handlers/read-replay-check.handler';
-import { ListSetReplayChecksQuery } from '@replays/application/queries/list-set-replay-checks.query';
 import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
 import { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import { EnsureCheckBaselines } from '@replays/application/services/ensure-check-baselines.service';
@@ -112,7 +110,6 @@ const atVersion = (set: ReplaySet, version: number): ReplaySet =>
     id: set.id,
     station: set.station,
     entries: set.entries,
-    removedTasks: set.removedTasks,
     createdAt: set.createdAt,
     refreshedAt: set.refreshedAt,
     lastRefresh: set.lastRefresh,
@@ -169,11 +166,9 @@ const start = (
 const read = (id: string, mayPlan: boolean | null = false) =>
   new ReadReplayCheckHandler(
     accessFor(memory, work, mayPlan),
-    peopleWho(mayPlan),
     work,
     checks,
     evaluations(),
-    'https://app.example.test/',
   ).execute(new ReadReplayCheckQuery('team_1', id, PERSON));
 
 const idOf = (started: ReplayCheckStartedOutcome): string => {
@@ -236,6 +231,8 @@ beforeEach(() => {
     scoring: CHECKED,
     hashes: LIVE_HASHES,
     threshold: work.threshold,
+    search: null,
+    agent: null,
   });
   work.validate = async (_line, _station, block, line) => {
     validated.push({ block, line: line?.value ?? null });
@@ -556,7 +553,7 @@ describe('EnsureCheckBaselines', () => {
 });
 
 describe('ReadReplayCheckHandler', () => {
-  it('reads a running check to any reader of the team, linking its replay in the web app', async () => {
+  it('reads a running check to any reader of the team, with each task of the set and why it stands where it does', async () => {
     keptAtStation();
     const id = idOf(await start());
     const check = checkOf(id);
@@ -572,9 +569,23 @@ describe('ReadReplayCheckHandler', () => {
       },
       reference: { commit: null, pullRequest: 42 },
       scoringPinnedToLive: ['check', 'runners'],
-      tasks: 3,
-      replayUrl: `https://app.example.test/w/acme/team/${STATION.teamId.value}/lines/line_1/stations/${STATION.stationId}/replays/${check.replayId.value}`,
+      taskCount: 3,
     });
+    expect(check.replayId.value).toBeTruthy();
+    expect((await read(id)).tasks).toEqual([
+      expect.objectContaining({
+        regressed: false,
+        live: { result: 'absent', successRate: null, reason: 'Not replayed.' },
+        candidate: {
+          result: 'pending',
+          successRate: null,
+          reason: 'The replay has not finished.',
+        },
+      }),
+      expect.anything(),
+      expect.anything(),
+    ]);
+    expect(await read(id)).not.toHaveProperty('replayUrl');
   });
 
   it('finds no check for one off the team', async () => {
@@ -582,58 +593,5 @@ describe('ReadReplayCheckHandler', () => {
     const id = idOf(await start());
 
     expect(await errorOf(read(id, null))).toBe('not-found');
-  });
-});
-
-describe('ListSetReplayChecksHandler', () => {
-  const list = (
-    before: string | null,
-    limit: number,
-    mayPlan: boolean | null = false,
-  ) =>
-    new ListSetReplayChecksHandler(
-      accessFor(memory, work, mayPlan),
-      peopleWho(mayPlan),
-      checks,
-      evaluations(),
-      'https://app.example.test',
-    ).execute(
-      new ListSetReplayChecksQuery('team_1', 'set_1', PERSON, {
-        before,
-        limit,
-      }),
-    );
-
-  it('lists a set’s checks newest first, a page at a time, each with its result, to any reader of the team', async () => {
-    keptAtStation();
-    const first = idOf(await start());
-    work.validate = async (_line, _station, block) => ({
-      ok: true,
-      fingerprint: PLANNED,
-      hashes: StationHashes.of({
-        behaviour: '5'.repeat(64),
-        scoring: '6'.repeat(64),
-      }),
-      liveHashes: LIVE_HASHES,
-      scoring: CHECKED,
-      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-      block: StationBlock.of(block),
-    });
-    const second = idOf(await start({ ...PLAN, prompt: 'Build it again.' }));
-
-    const page = await list(null, 1);
-    expect(page).toEqual([
-      expect.objectContaining({
-        id: second,
-        stationKey: 'build',
-        result: 'running',
-        regressions: 0,
-        attempt: 1,
-        reference: { commit: null, pullRequest: 42 },
-        replayUrl: expect.stringContaining('https://app.example.test/w/acme/'),
-      }),
-    ]);
-    expect((await list(second, 5)).map((each) => each.id)).toEqual([first]);
-    expect(await errorOf(list(null, 5, null))).toBe('not-found');
   });
 });

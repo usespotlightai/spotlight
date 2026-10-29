@@ -5,6 +5,7 @@ import type { StationKind } from '@work/domain/entities/station.entity';
 import { InvalidLinePlanError } from '@work/domain/exceptions/invalid-line-plan.error';
 import {
   reactionsProblem,
+  searchProblem,
   setupProblem,
   stationsProblem,
 } from '@work/domain/services/line-layout';
@@ -25,6 +26,10 @@ import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import type { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
 import type { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { reviewsOn } from '@work/domain/value-objects/review-policy.vo';
+import {
+  LineSearchPolicy,
+  type StationSearchOverride,
+} from '@work/domain/value-objects/search-policy.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import type { StationCheck } from '@work/domain/value-objects/station-check.vo';
@@ -53,6 +58,7 @@ export interface StationPlan {
   readonly memories: boolean;
   readonly judge: StationJudge | null;
   readonly alerts: readonly StationAlert[];
+  readonly search: StationSearchOverride | null;
   readonly tools: readonly Tool[];
   readonly skills: readonly SkillKey[];
   readonly passesTo: readonly StationKey[];
@@ -60,7 +66,7 @@ export interface StationPlan {
 }
 
 type InvalidStation = {
-  readonly field: 'skills' | 'tools' | 'judge' | 'alerts';
+  readonly field: 'skills' | 'tools' | 'judge' | 'alerts' | 'search';
   readonly reason: string;
 } | null;
 
@@ -81,6 +87,9 @@ const stationProblem = (station: StationPlan): InvalidStation => {
         field: 'alerts',
         reason: `${idle} and has no runs to alert on`,
       };
+    }
+    if (station.search) {
+      return { field: 'search', reason: `${idle} and has no runs to improve` };
     }
   }
 
@@ -112,6 +121,7 @@ export class LinePlan {
     readonly reviews: ReviewPolicy | null,
     readonly placement: RunnerPlacement,
     readonly replayCheck: ReplayCheckPolicy | null,
+    readonly search: LineSearchPolicy | null,
     readonly source: ConfigSource | null,
   ) {}
 
@@ -125,6 +135,7 @@ export class LinePlan {
     reviews?: ReviewPolicy | null;
     placement?: RunnerPlacement;
     replayCheck?: ReplayCheckPolicy | null;
+    search?: LineSearchPolicy | null;
     source?: ConfigSource | null;
   }): LinePlan {
     const reactions = input.reactions ?? [];
@@ -200,6 +211,19 @@ export class LinePlan {
       );
     }
 
+    const searching = searchProblem(
+      input.stations,
+      input.search ?? LineSearchPolicy.DEFAULT,
+    );
+
+    if (searching) {
+      throw new InvalidLinePlanError(
+        input.key.value,
+        searching.reason,
+        searching.part,
+      );
+    }
+
     if (input.reviews && !reviewsOn(input.role ?? null)) {
       throw new InvalidLinePlanError(
         input.key.value,
@@ -218,6 +242,7 @@ export class LinePlan {
       input.reviews ?? null,
       input.placement ?? RunnerPlacement.anywhere(),
       input.replayCheck ?? null,
+      input.search ?? null,
       input.source ?? null,
     );
   }

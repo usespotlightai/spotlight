@@ -25,6 +25,11 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
+import {
+  pairTallyOf,
+  taskComparisons,
+  totalsOf,
+} from '@replays/domain/services/replay-results';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -51,6 +56,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
+import { plannedCandidate, replayOf, startedReplay } from './support/replays';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -194,16 +200,6 @@ let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
-const owner = () => ({
-  get: (path: string) =>
-    http().get(path).set(TEST_USER_HEADER, team.owner.value),
-  post: (path: string, body?: object) =>
-    http()
-      .post(path)
-      .set(TEST_USER_HEADER, team.owner.value)
-      .send(body ?? {}),
-});
-
 const bearing = (token: string) => ({
   post: (path: string, body?: object) =>
     http()
@@ -211,8 +207,6 @@ const bearing = (token: string) => ({
       .set('Authorization', `Bearer ${token}`)
       .send(body ?? {}),
 });
-
-const teamPath = () => `/api/teams/${team.teamId.value}`;
 
 const sent = (update: Record<string, unknown>): string =>
   Buffer.from(JSON.stringify({ sessionId: 'session_1', update })).toString(
@@ -368,18 +362,11 @@ const proposed = async (prompt: string): Promise<string> => {
   const live = await app
     .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
     .live(DELIVERY, BUILD);
-  const answer = await http()
-    .post(`/api/resources/lines/${DELIVERY}/stations/build/replay-candidates`)
-    .set(TEST_USER_HEADER, team.owner.value)
-    .set('Idempotency-Key', randomUUID())
-    .send({
-      name: `Drain in order ${randomUUID().slice(0, 8)}`,
-      station: { ...live?.station, prompt },
-    });
 
-  expect(answer.status).toBe(201);
-
-  return answer.body.id as string;
+  return plannedCandidate(app, DELIVERY, 'build', {
+    ...live?.station,
+    prompt,
+  });
 };
 
 interface Claimed {
@@ -569,16 +556,9 @@ describe('a replay at a station whose judge goes by claims', () => {
     );
     const candidate = await proposed('Build it, draining the queue fast.');
 
-    const started = (
-      await owner()
-        .post(`${teamPath()}/replay-sets/${setId}/replays`, {
-          candidate,
-          ceiling: { amount: 5, currency: 'USD' },
-        })
-        .expect(201)
-    ).body as { id: string; baseline: { id: string } | null };
+    const started = await startedReplay(app, setId, { candidate, amount: 5 });
     const id = started.id;
-    const baselineId = started.baseline?.id as string;
+    const baselineId = started.baselineId as string;
     await eventually(async () => (await replayState(baselineId)) !== undefined);
 
     const both = [id, baselineId];
@@ -695,51 +675,21 @@ describe('a replay at a station whose judge goes by claims', () => {
       return allPaired();
     }, 120_000);
 
-    const detail = (
-      await owner().get(`${teamPath()}/replays/${id}`).expect(200)
-    ).body as {
-      totals: { successRate: number };
-      pairwiseReference: string | null;
-      referencePairs: { wins: number; losses: number; ties: number };
-      comparison: {
-        title: string;
-        pair: string | null;
-        candidate: {
-          judge: {
-            scale: string;
-            score: number;
-            claimResults: boolean[];
-            passThreshold: number;
-            passed: boolean;
-            claims: string[];
-            reasons: { claim: number | null; citations: { kind: string }[] }[];
-          };
-          pair: {
-            state: string;
-            outcome: string;
-            otherRunId: string;
-            passes: { ownShownFirst: boolean; outcome: string }[];
-          };
-          pairingSpent: { spends: { amount: number }[] } | null;
-        }[];
-        baseline: {
-          runId: string;
-          judge: { claimResults: boolean[]; passed: boolean };
-          pair: unknown;
-        }[];
-      }[];
-    };
+    const replay = await replayOf(app, id);
+    const comparison = taskComparisons(replay, await replayOf(app, baselineId));
+    const titled = new Map(
+      originals.map((each, at) => [
+        each.runId,
+        ['Drain queue first', 'Drain queue second', 'Drain queue third'][at],
+      ]),
+    );
 
-    expect(detail.totals.successRate).toBe(1);
-    expect(detail.pairwiseReference).toBe(baselineId);
-    expect(detail.referencePairs).toEqual({
-      wins: 1,
-      losses: 1,
-      ties: 1,
-    });
+    expect(totalsOf(replay).successRate).toBe(1);
+    expect(replay.pairwiseReferenceId?.value).toBe(baselineId);
+    expect(pairTallyOf(replay)).toEqual({ wins: 1, losses: 1, ties: 1 });
     expect(
       Object.fromEntries(
-        detail.comparison.map((each) => [each.title, each.pair]),
+        comparison.map((each) => [titled.get(each.original), each.pair]),
       ),
     ).toEqual({
       'Drain queue first': 'win',
@@ -747,34 +697,31 @@ describe('a replay at a station whose judge goes by claims', () => {
       'Drain queue third': 'tie',
     });
 
-    for (const row of detail.comparison) {
+    for (const row of comparison) {
       const [mine] = row.candidate;
       const [theirs] = row.baseline;
 
-      expect(mine?.judge).toMatchObject({
+      expect(mine?.verdict).toMatchObject({
         scale: 'claims',
-        score: 0.5,
+        value: 0.5,
         claimResults: [true, false],
         passThreshold: 0.5,
-        passed: true,
+        passes: true,
         claims: [...CLAIMS],
       });
-      expect(mine?.judge.reasons.map((each) => each.claim)).toEqual([0, 1]);
-      expect(mine?.judge.reasons[0]?.citations[0]?.kind).toBe('hunk');
+      expect(mine?.verdict?.reasons.map((each) => each.claim)).toEqual([0, 1]);
+      expect(mine?.verdict?.reasons[0]?.hunks.length).toBeGreaterThan(0);
       expect(
-        mine?.pair.passes.map((each) => each.ownShownFirst).sort(),
+        mine?.pairing?.verdict?.passes.map((each) => each.ownShownFirst).sort(),
       ).toEqual([false, true]);
-      expect(theirs?.judge).toMatchObject({
+      expect(theirs?.verdict).toMatchObject({
         claimResults: [true, true],
-        passed: true,
+        passes: true,
       });
-      expect(mine?.pair).toMatchObject({
-        state: 'judged',
-        outcome: row.pair,
-        otherRunId: theirs?.runId,
-      });
+      expect(mine?.pairing?.verdict?.outcome).toBe(row.pair);
+      expect(mine?.pairing?.otherRunId.value).toBe(theirs?.run?.value);
       expect(mine?.pairingSpent?.spends[0]?.amount).toBe(0.04);
-      expect(theirs?.pair).toBeNull();
+      expect(theirs?.pairing).toBeNull();
     }
 
     expect(requests.every((each) => each.scale === 'claims')).toBe(true);

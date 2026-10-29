@@ -16,6 +16,7 @@ import {
   LinePlan,
   type StationPlan,
 } from '@work/domain/value-objects/line-plan.vo';
+import { LineSearchPolicy } from '@work/domain/value-objects/search-policy.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -57,6 +58,7 @@ const station = (
   memories: false,
   judge: null,
   alerts: [],
+  search: null,
   tools: [],
   skills: [],
   passesTo: [],
@@ -84,6 +86,7 @@ const like = (
     name: over.name ?? plan.name,
     stations: over.stations ?? plan.stations,
     reactions: over.reactions ?? plan.reactions,
+    search: over.search === undefined ? plan.search : over.search,
   });
 
 const reconciling = (
@@ -298,5 +301,23 @@ describe('reconciling a line with the plan describing it', () => {
     expect(() =>
       reconciling(like(asPlan(line), { key: LineKey.of('release') }), line),
     ).toThrow(ImmutableFieldError);
+  });
+});
+
+describe('reconciling a line’s search policy', () => {
+  it('keeps the search policy the plan sets, and restores the default once the plan leaves it out', () => {
+    const plan = asPlan(existingLine());
+    const tuned = reconciling(
+      like(plan, { search: LineSearchPolicy.of({ monthlyCeiling: 80 }) }),
+    ).result;
+
+    expect(tuned.ok && tuned.line.search?.monthlyCeiling.amount).toBe(80);
+
+    const restored = tuned.ok ? reconciling(plan, tuned.line).result : tuned;
+
+    expect(restored.ok && restored.line.search).toBeNull();
+    expect(restored.ok && restored.line.searchPolicy).toBe(
+      LineSearchPolicy.DEFAULT,
+    );
   });
 });

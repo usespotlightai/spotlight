@@ -1,11 +1,9 @@
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { ReplayFactsPort } from '@work/application/ports/replay-facts.port';
 import type {
   RecentRun,
   ReplayableRunsPort,
   RunSummary,
 } from '@work/application/ports/replayable-runs.port';
-import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
 import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import { replayBlockOf } from '@work/domain/services/replay-block';
 
@@ -13,7 +11,6 @@ export class ReplayableRuns implements ReplayableRunsPort {
   constructor(
     private readonly facts: ReplayFactsPort,
     private readonly stationRuns: StationRunReaderPort,
-    private readonly usages: RunUsageReaderPort,
   ) {}
 
   async summaries(
@@ -39,24 +36,6 @@ export class ReplayableRuns implements ReplayableRunsPort {
         origin: placed?.origin ?? null,
       };
     });
-  }
-
-  async durations(
-    runIds: readonly string[],
-  ): Promise<ReadonlyMap<string, number>> {
-    if (runIds.length === 0) {
-      return new Map();
-    }
-
-    const usages = await this.usages.forRuns(
-      [...new Set(runIds)].map((each) => RunId.of(each)),
-    );
-
-    return new Map(
-      [...usages].flatMap(([runId, usage]) =>
-        usage.ms === null ? [] : [[runId, usage.ms] as const],
-      ),
-    );
   }
 
   async recentAt(

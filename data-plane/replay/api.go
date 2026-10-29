@@ -2,8 +2,6 @@ package replay
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -78,37 +76,6 @@ func newAPIWith(base, version string, tokens tokenSource, renews bool) *api {
 
 func (a *api) get(path string, into any) error {
 	return a.call(http.MethodGet, path, nil, nil, into)
-}
-
-func (a *api) read(path string, raw *json.RawMessage, into any) error {
-	if err := a.get(path, raw); err != nil {
-		return err
-	}
-
-	if err := json.Unmarshal(*raw, into); err != nil {
-		return fmt.Errorf("Spotlight answered with %q", string(*raw))
-	}
-
-	return nil
-}
-
-func (a *api) post(path string, body, into any) error {
-	return a.call(http.MethodPost, path, body, nil, into)
-}
-
-func (a *api) create(path string, body, into any) error {
-	return a.createOnce(path, newKey(), body, into)
-}
-
-func (a *api) createOnce(path, key string, body, into any) error {
-	once := map[string]string{idempotencyHeader: key}
-
-	err := a.call(http.MethodPost, path, body, once, into)
-	if transient(err) {
-		err = a.call(http.MethodPost, path, body, once, into)
-	}
-
-	return err
 }
 
 func (a *api) call(method, path string, body any, headers map[string]string, into any) error {
@@ -195,10 +162,4 @@ func transient(err error) bool {
 	}
 
 	return true
-}
-
-func newKey() string {
-	key := make([]byte, 16)
-	_, _ = rand.Read(key)
-	return hex.EncodeToString(key)
 }

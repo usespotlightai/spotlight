@@ -21,14 +21,21 @@ import type {
   StationSummary,
 } from '@work/application/ports/line-reader.port';
 import type { StationKind } from '@work/domain/entities/station.entity';
+import { LineSearchPolicy } from '@work/domain/value-objects/search-policy.vo';
+import {
+  lineSearchOf,
+  stationSearchOf,
+} from '@work/infrastructure/lines/search-rows';
 import {
   type ConfigSourceRow,
+  type LineSearchRow,
   line,
   lineReaction,
   lineRepository,
   type ReplayCheckRow,
   type StationAlertRow,
   type StationJudgeRow,
+  type StationSearchRow,
   station,
   stationSkill,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
@@ -47,6 +54,7 @@ const STATION_COLUMNS = {
   stationAgentPrompt: station.agentPrompt,
   stationJudge: station.judge,
   stationAlerts: station.alerts,
+  stationSearch: station.search,
   stationKind: station.kind,
 };
 
@@ -63,6 +71,7 @@ type StationRow = {
   stationAgentPrompt: string | null;
   stationJudge: StationJudgeRow | null;
   stationAlerts: StationAlertRow[];
+  stationSearch: StationSearchRow | null;
   stationKind: StationKind;
 };
 
@@ -72,6 +81,7 @@ type Row = {
   lineName: string;
   lineSource: ConfigSourceRow | null;
   lineReplayCheck: ReplayCheckRow | null;
+  lineSearch: LineSearchRow | null;
 } & { [K in keyof StationRow]: StationRow[K] | null };
 
 type ReactionRow = {
@@ -117,6 +127,7 @@ export class DrizzleLineReader implements LineReaderPort {
         lineName: line.name,
         lineSource: line.source,
         lineReplayCheck: line.replayCheck,
+        lineSearch: line.search,
         ...STATION_COLUMNS,
       })
       .from(line)
@@ -166,6 +177,7 @@ export class DrizzleLineReader implements LineReaderPort {
 
 const summaryOf = (
   row: StationRow,
+  search: LineSearchPolicy,
   skills: readonly SkillRow[],
 ): StationSummary => ({
   id: row.stationId,
@@ -180,6 +192,12 @@ const summaryOf = (
   agentPrompt: row.stationAgentPrompt,
   judge: row.stationJudge,
   alerts: row.stationAlerts,
+  search: LineMapper.searchToSummary(
+    search.resolvedFor({
+      kind: row.stationKind,
+      search: stationSearchOf(row.stationSearch),
+    }),
+  ),
   kind: row.stationKind,
   skills: skills
     .filter((each) => each.stationId === row.stationId)
@@ -199,6 +217,7 @@ const group = (
       name: string;
       source: LineSourceSummary | null;
       replayCheck: LineReplayCheckSummary | null;
+      search: LineSearchPolicy;
       stations: StationSummary[];
     }
   >();
@@ -218,11 +237,12 @@ const group = (
             minGain: row.lineReplayCheck.minGain,
           }
         : null,
+      search: lineSearchOf(row.lineSearch) ?? LineSearchPolicy.DEFAULT,
       stations: [],
     };
 
     if (hasStation(row)) {
-      line.stations.push(summaryOf(row, skills));
+      line.stations.push(summaryOf(row, line.search, skills));
     }
 
     lines.set(row.lineId, line);
@@ -243,5 +263,6 @@ const group = (
       ),
     source: line.source,
     replayCheck: line.replayCheck,
+    search: LineMapper.lineSearchToSummary(line.search),
   }));
 };

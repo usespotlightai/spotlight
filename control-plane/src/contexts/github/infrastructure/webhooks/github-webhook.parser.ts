@@ -61,6 +61,7 @@ interface DetailsPayload {
 }
 
 interface Pull extends DetailsPayload {
+  readonly id?: unknown;
   readonly number?: unknown;
   readonly state?: unknown;
   readonly merged?: unknown;
@@ -454,8 +455,29 @@ const pullRequestClosed = (payload: Payload): WebhookEvent[] => {
       kind: 'pull-request-closed',
       pullRequest,
       repository,
+      gitHubId: at(pull.id),
       merge: pull.merged === true && commit ? { commit } : null,
       closedAt: writtenAt(pull.closed_at),
+    },
+  ];
+};
+
+const pullRequestReopened = (payload: Payload): WebhookEvent[] => {
+  const pull = payload.pull_request;
+  const pullRequest = text(pull?.html_url);
+  const repository = text(payload.repository?.full_name);
+
+  if (payload.action !== 'reopened' || !pull || !pullRequest || !repository) {
+    return [];
+  }
+
+  return [
+    {
+      kind: 'pull-request-reopened',
+      pullRequest,
+      repository,
+      gitHubId: at(pull.id),
+      reopenedAt: writtenAt(pull.updated_at),
     },
   ];
 };
@@ -530,6 +552,7 @@ const eventsIn = (
     ...(event === 'pull_request_review_thread' ? reviewThread(payload) : []),
     ...(event === 'pull_request' ? pullRequestSnapshot(payload) : []),
     ...(event === 'pull_request' ? pullRequestClosed(payload) : []),
+    ...(event === 'pull_request' ? pullRequestReopened(payload) : []),
     ...(event === 'pull_request_review' ? pullRequestReviewed(payload) : []),
     ...(event === 'pull_request_review' ? reviewDismissed(payload) : []),
     ...pullRequestActivity(event, payload),
