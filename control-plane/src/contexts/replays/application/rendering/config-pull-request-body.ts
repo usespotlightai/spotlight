@@ -3,6 +3,7 @@ import {
   clippedText,
   markdownText,
 } from '@replays/application/rendering/markdown-text';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 
 interface ShownInterval {
   readonly low: number;
@@ -60,6 +61,7 @@ interface SearchFacts {
 }
 
 export interface ConfigPullRequestFacts {
+  readonly objective: SearchObjective;
   readonly stationKey: string;
   readonly lineKey: string;
   readonly candidateName: string;
@@ -95,6 +97,12 @@ export interface ConfigPullRequestFacts {
   readonly search: SearchFacts;
   readonly found: readonly string[];
 }
+
+const PICKED_BECAUSE: Readonly<Record<SearchObjective, string>> = {
+  success:
+    'Spotlight picked it because it did better than the live config on the held-out tasks.',
+  cost: 'Spotlight picked it because it costs less per run than the live config and succeeds as often on the held-out tasks, within noise.',
+};
 
 const BODY_LIMIT = 65_536;
 
@@ -194,16 +202,34 @@ const describeRegressions = (facts: ConfigPullRequestFacts): string => {
   const { searched, heldOut } = facts.regressions;
   const onSearched =
     searched === null
-      ? 'it could not be compared on the searched tasks'
-      : `it regressed on ${plural(searched, 'searched task')}`;
+      ? null
+      : `on ${searched} of ${plural(facts.searchedTasks, 'searched task')}`;
   const onHeldOut =
-    heldOut !== null
-      ? plural(heldOut, 'held-out task')
-      : facts.heldOutPending
-        ? 'its replay had not finished'
-        : 'it was not replayed on the held-out tasks';
+    heldOut === null
+      ? null
+      : `on ${heldOut} of ${plural(facts.heldOutTasks, 'held-out task')}`;
+  const regressed = [onSearched, onHeldOut].filter(
+    (each): each is string => each !== null,
+  );
 
-  return `Against the live config ${onSearched}; on the held-out tasks, ${onHeldOut}. The search never showed its agent the held-out tasks.`;
+  return [
+    ...(regressed.length > 0
+      ? [`Against the live config it regressed ${regressed.join(' and ')}.`]
+      : []),
+    ...(searched === null
+      ? [
+          'Spotlight could not compare it with the live config on the searched tasks.',
+        ]
+      : []),
+    ...(heldOut === null
+      ? [
+          facts.heldOutPending
+            ? 'Its held-out replay had not finished.'
+            : 'It was not replayed on the held-out tasks.',
+        ]
+      : []),
+    'The search never showed its agent the held-out tasks.',
+  ].join(' ');
 };
 
 const cost = (amount: number | null, currency: string): string =>
@@ -237,50 +263,53 @@ const changeName = (change: ShownChange): string =>
     ? `\`${change.part}\` · ${markdownText(clippedText(change.name, MAX_TITLE))}`
     : `\`${change.part}\``;
 
-const describeChange = (change: ShownChange, folds: boolean): string => {
-  if (isInline(change.was) && isInline(change.now)) {
-    return `- ${changeName(change)}: ${inline(change.was)} → ${inline(change.now)}`;
-  }
+const isLong = (change: ShownChange): boolean =>
+  !isInline(change.was) || !isInline(change.now);
 
-  if (!folds) {
-    return `- ${changeName(change)}: ${change.kind}. The value is too long to show here.`;
-  }
+const listedChange = (change: ShownChange): string =>
+  isLong(change)
+    ? `- ${changeName(change)}: ${change.kind}. The value is too long to show here.`
+    : `- ${changeName(change)}: ${inline(change.was)} → ${inline(change.now)}`;
 
+const foldedChange = (change: ShownChange): string => {
   const shown = (label: string, value: string | null): string =>
     value === null
       ? `${label}: not set`
       : `${label}:\n\n${fenced(capped(defused(value), MAX_VALUE))}`;
 
   return [
-    `- ${changeName(change)}: ${change.kind}`,
+    `**${changeName(change)}**: ${change.kind}`,
     '',
-    '  <details><summary>Was and now</summary>',
+    '<details><summary>Was and now</summary>',
     '',
     shown('Was', change.was),
     '',
     shown('Now', change.now),
     '',
-    '  </details>',
+    '</details>',
   ].join('\n');
 };
 
 const describeChanges = (changes: readonly ShownChange[]): string => {
-  let folded = 0;
-  const shown = changes.slice(0, MAX_CHANGES).map((change) => {
-    const long = !isInline(change.was) || !isInline(change.now);
-
-    folded += long ? 1 : 0;
-
-    return describeChange(change, folded <= MAX_FOLDED);
-  });
+  const shown = changes.slice(0, MAX_CHANGES);
+  const folded = shown.filter(isLong).slice(0, MAX_FOLDED);
+  const listed = shown.filter((each) => !folded.includes(each));
   const more = changes.length - shown.length;
 
   return [
     '## What changes',
-    '',
-    ...shown,
-    ...(more > 0 ? [`- ${plural(more, 'more change')} are not shown.`] : []),
-  ].join('\n');
+    ...(listed.length > 0 || more > 0
+      ? [
+          [
+            ...listed.map(listedChange),
+            ...(more > 0
+              ? [`- ${plural(more, 'more change')} are not shown.`]
+              : []),
+          ].join('\n'),
+        ]
+      : []),
+    ...folded.map(foldedChange),
+  ].join('\n\n');
 };
 
 const RESULTS: Readonly<Record<TaskSide['result'], string>> = {
@@ -418,7 +447,7 @@ export const ConfigPullRequestBody = {
     const { candidate, seed, currency } = facts;
 
     return fitBody([
-      `Spotlight searched for a better config of the \`${facts.stationKey}\` station on the \`${facts.lineKey}\` line and found \`${defused(facts.candidateName)}\`. Spotlight picked it because it did better than the live config on the held-out tasks. This changes the station as the candidate has it: ${[...new Set(facts.changes.map((each) => each.part))].map((each) => `\`${each}\``).join(', ')}.`,
+      `Spotlight searched for a better config of the \`${facts.stationKey}\` station on the \`${facts.lineKey}\` line and found \`${defused(facts.candidateName)}\`. ${PICKED_BECAUSE[facts.objective]} This changes the station as the candidate has it: ${[...new Set(facts.changes.map((each) => each.part))].map((each) => `\`${each}\``).join(', ')}.`,
       ...[describeOverfit(facts), describeRegressionLimit(facts)].flatMap(
         (each) => (each ? [each] : []),
       ),

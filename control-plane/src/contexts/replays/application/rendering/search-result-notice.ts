@@ -1,4 +1,5 @@
 import type { NoticeWords } from '@replays/application/rendering/reflection-notice';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import {
   isTransientSkip,
   type SearchSkipReason,
@@ -50,10 +51,14 @@ const ADVICE: Readonly<Record<AdvisedSkipReason, readonly string[]>> = {
 };
 
 export interface PickedResult {
+  readonly objective: SearchObjective;
   readonly stationName: string | null;
   readonly candidateName: string;
   readonly changes: readonly string[];
   readonly heldOutGain: number | null;
+  readonly costPerRun: number | null;
+  readonly liveCostPerRun: number | null;
+  readonly currency: string;
 }
 
 const changeOf = (picked: PickedResult): string =>
@@ -66,11 +71,23 @@ const gainOf = (picked: PickedResult): string =>
     ? 'Held-out gain: not measured'
     : `Held-out gain: ${pointsOf(picked.heldOutGain)}`;
 
+const costOf = (picked: PickedResult): string =>
+  picked.costPerRun === null || picked.liveCostPerRun === null
+    ? 'Cost per run: not measured'
+    : `Cost per run: ${picked.costPerRun.toFixed(2)} ${picked.currency}, against ${picked.liveCostPerRun.toFixed(2)} ${picked.currency} for the live config`;
+
+const RESULT_OF: Readonly<
+  Record<SearchObjective, (picked: PickedResult) => string>
+> = {
+  success: gainOf,
+  cost: costOf,
+};
+
 export const SearchResultWording = {
   opened(picked: PickedResult): NoticeWords {
     return {
       headline: `Spotlight opened a config pull request for ${stationOf(picked.stationName)}`,
-      points: [changeOf(picked), gainOf(picked)],
+      points: [changeOf(picked), RESULT_OF[picked.objective](picked)],
     };
   },
 

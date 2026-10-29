@@ -305,6 +305,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     const health = set ? await this.healths.ofSet(set, live) : null;
 
     return {
+      objective: search.objective,
       stationKey,
       lineKey,
       candidateName: pullRequest.candidateName,

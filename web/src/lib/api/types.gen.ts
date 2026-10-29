@@ -289,7 +289,7 @@ export type LineResponseDto = {
    */
   repositories: Array<LineRepositoryResponseDto>;
   /**
-   * Where the line’s Terraform lives, which Spotlight opens pull requests against when a person picks a better station config. Null when the line does not say.
+   * Where the line’s Terraform lives, which Spotlight opens config pull requests against when a search finds a better station config. Null when the line does not say.
    */
   source: LineSourceResponseDto | null;
   /**
@@ -2683,7 +2683,7 @@ export type ConfigurationChangeResponseDto = {
    * Rises with every change; pass it as before to page back
    */
   seq: number;
-  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'oidc-trust' | 'runner-trust' | 'runner-pool' | 'egress' | 'workspace-runners' | 'replay-candidate' | 'replay' | 'replay-search' | 'replay-check' | 'config-pull-request' | 'terraform-state';
+  resource: 'workspace' | 'team' | 'line' | 'skill' | 'harness-profile' | 'integration' | 'hook' | 'secret' | 'workspace-token' | 'oidc-trust' | 'runner-trust' | 'runner-pool' | 'egress' | 'workspace-runners' | 'replay' | 'replay-search' | 'replay-check' | 'config-pull-request' | 'terraform-state';
   resourceId: string;
   /**
    * The key it had within its team or workspace
@@ -7946,7 +7946,7 @@ export type ReplayedCandidateResponseDto = {
    */
   search: ReplayedSearchResponseDto | null;
   /**
-   * The pull request Spotlight opens once a person picks it from its search; null until then
+   * The config pull request Spotlight opens when it picks the candidate as the result of its search; null until then
    */
   pullRequest: CandidatePullRequestResponseDto | null;
   /**

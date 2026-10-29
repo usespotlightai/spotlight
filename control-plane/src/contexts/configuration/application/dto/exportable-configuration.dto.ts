@@ -12,7 +12,6 @@ import type { LineDefinition } from '@work/application/contracts/line-definition
 
 const NOT_EXPORTED = [
   'workspace-token',
-  'replay-candidate',
   'replay',
   'replay-search',
   'replay-check',

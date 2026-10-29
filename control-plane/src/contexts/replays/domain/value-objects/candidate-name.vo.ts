@@ -1,45 +1,19 @@
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 
-const MAX_LENGTH = 100;
-
 const LIVE_PREFIX = 'Live config';
 
 const PLANNED_PREFIX = 'Planned change';
 
 const ORACLE_PREFIX = 'With the answer';
 
-const SEPARATOR = '/';
-
 const SEARCHED = /^[a-z0-9][a-z0-9-]{0,62}$/;
 
 export const SEED_NAME = 'seed';
 
-const CANDIDATE_NAME_PROBLEM = `name must be 1 to ${MAX_LENGTH} characters`;
-
-const problemOf = (raw: string): string | null => {
-  if (raw.length === 0 || raw.length > MAX_LENGTH) {
-    return CANDIDATE_NAME_PROBLEM;
-  }
-  if (raw.trim() !== raw) {
-    return 'name cannot start or end with a space';
-  }
-  if (raw.includes(SEPARATOR)) {
-    return `name cannot contain ${SEPARATOR}`;
-  }
-
-  return null;
-};
-
 export class CandidateName {
   private constructor(readonly value: string) {}
 
-  static of(raw: string): CandidateName {
-    const problem = problemOf(raw);
-
-    if (problem) {
-      throw new InvalidCandidateError(problem);
-    }
-
+  static rehydrate(raw: string): CandidateName {
     return new CandidateName(raw);
   }
 

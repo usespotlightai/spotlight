@@ -531,7 +531,7 @@ export class ReplayedCandidateResponseDto {
     type: CandidatePullRequestResponseDto,
     nullable: true,
     description:
-      'The pull request Spotlight opens once a person picks it from its search; null until then',
+      'The config pull request Spotlight opens when it picks the candidate as the result of its search; null until then',
   })
   readonly pullRequest: CandidatePullRequestResponseDto | null;
 

@@ -112,11 +112,13 @@ export class NoticeSearchResults {
     const replays = await this.replays.ofSearch(search.id);
     const live = await this.healths.standardAt(search.station);
     const stationName = await this.stationNameOf(search);
-    const picked = scoresOf(search, replays, live.minGain).candidates.find(
-      (each) => each.candidateId.equals(pullRequest.candidateId),
+    const scores = scoresOf(search, replays, live.minGain);
+    const picked = scores.candidates.find((each) =>
+      each.candidateId.equals(pullRequest.candidateId),
     );
 
     return {
+      objective: search.objective,
       stationName,
       candidateName: pullRequest.candidateName,
       changes: [
@@ -125,6 +127,9 @@ export class NoticeSearchResults {
         ),
       ],
       heldOutGain: picked?.heldOutGain?.gain ?? null,
+      costPerRun: picked?.costPerRun ?? null,
+      liveCostPerRun: scores.seed.costPerRun,
+      currency: search.budget.ceiling.currency,
     };
   }
 

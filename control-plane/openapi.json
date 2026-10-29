@@ -20751,7 +20751,7 @@
           },
           "source": {
             "nullable": true,
-            "description": "Where the line’s Terraform lives, which Spotlight opens pull requests against when a person picks a better station config. Null when the line does not say.",
+            "description": "Where the line’s Terraform lives, which Spotlight opens config pull requests against when a search finds a better station config. Null when the line does not say.",
             "type": "object",
             "allOf": [
               {
@@ -26812,7 +26812,6 @@
               "runner-pool",
               "egress",
               "workspace-runners",
-              "replay-candidate",
               "replay",
               "replay-search",
               "replay-check",
@@ -39551,7 +39550,7 @@
           },
           "pullRequest": {
             "nullable": true,
-            "description": "The pull request Spotlight opens once a person picks it from its search; null until then",
+            "description": "The config pull request Spotlight opens when it picks the candidate as the result of its search; null until then",
             "type": "object",
             "allOf": [
               {

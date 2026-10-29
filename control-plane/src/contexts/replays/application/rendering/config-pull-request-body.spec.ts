@@ -1,5 +1,6 @@
 import type { TaskRow } from '@replays/application/dto/task-rows.dto';
 import { ConfigPullRequestBody } from '@replays/application/rendering/config-pull-request-body';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { describe, expect, it } from 'vitest';
 
 const row = (title: string | null, over: Partial<TaskRow> = {}): TaskRow => ({
@@ -17,6 +18,7 @@ const row = (title: string | null, over: Partial<TaskRow> = {}): TaskRow => ({
 });
 
 const FACTS = {
+  objective: 'success' as SearchObjective,
   stationKey: 'build',
   lineKey: 'delivery',
   candidateName: 'in-order',
@@ -125,6 +127,19 @@ describe('ConfigPullRequestBody', () => {
     expect(body).toContain('`effort`');
     expect(body).not.toContain('Spotlight](');
     expect(body).not.toMatch(/https?:\/\//);
+  });
+
+  it('says why Spotlight picked the candidate, after the objective of the search', () => {
+    const success = ConfigPullRequestBody.of(FACTS);
+    const cost = ConfigPullRequestBody.of({ ...FACTS, objective: 'cost' });
+
+    expect(success).toContain(
+      'Spotlight picked it because it did better than the live config on the held-out tasks.',
+    );
+    expect(cost).toContain(
+      'Spotlight picked it because it costs less per run than the live config and succeeds as often on the held-out tasks, within noise.',
+    );
+    expect(cost).not.toContain('did better');
   });
 
   it('says when the gain over the live config is within noise, and when it is real', () => {
@@ -254,7 +269,7 @@ describe('ConfigPullRequestBody', () => {
       "Against the live config it regressed on 3 tasks, over the line's regression limit of 2 (`max_regressions`), so weigh that before merging.",
     );
     expect(over).toContain(
-      'Against the live config it regressed on 2 searched tasks; on the held-out tasks, 1 held-out task.',
+      'Against the live config it regressed on 2 of 7 searched tasks and on 1 of 3 held-out tasks. The search never showed its agent the held-out tasks.',
     );
     expect(
       ConfigPullRequestBody.of({ ...FACTS, maxRegressions: 2 }),
@@ -269,7 +284,15 @@ describe('ConfigPullRequestBody', () => {
     });
 
     expect(body).toContain(
-      'Against the live config it could not be compared on the searched tasks; on the held-out tasks, its replay had not finished.',
+      'Spotlight could not compare it with the live config on the searched tasks. Its held-out replay had not finished. The search never showed its agent the held-out tasks.',
+    );
+    expect(
+      ConfigPullRequestBody.of({
+        ...FACTS,
+        regressions: { searched: 1, heldOut: null, total: 1 },
+      }),
+    ).toContain(
+      'Against the live config it regressed on 1 of 7 searched tasks. It was not replayed on the held-out tasks.',
     );
   });
 
@@ -277,9 +300,8 @@ describe('ConfigPullRequestBody', () => {
     const body = ConfigPullRequestBody.of(FACTS);
 
     expect(body).toContain('## What changes');
-    expect(body).toContain('- `effort`: `low` → `high`');
     expect(body).toContain(
-      '- `prompt`: changed\n\n  <details><summary>Was and now</summary>',
+      '## What changes\n\n- `effort`: `low` → `high`\n\n**`prompt`**: changed\n\n<details><summary>Was and now</summary>',
     );
     expect(body).toContain(
       'Now:\n\n```text\nBuild it, then drain the queue.\nKeep the order.\n```',
@@ -287,6 +309,48 @@ describe('ConfigPullRequestBody', () => {
     expect(body).toContain(
       'This changes the station as the candidate has it: `prompt`, `effort`.',
     );
+  });
+
+  it('keeps every folded change out of the list, so the list and the folds both render', () => {
+    const long = (part: string) => ({
+      part,
+      name: null,
+      kind: 'changed' as const,
+      was: `${part} was.\nOn two lines.`,
+      now: `${part} now.\nOn two lines.`,
+    });
+    const body = ConfigPullRequestBody.of({
+      ...FACTS,
+      changes: [
+        long('prompt'),
+        FACTS.changes[1] as (typeof FACTS.changes)[number],
+        long('skills'),
+        { ...long('model'), was: 'm1', now: 'm2' },
+      ],
+    });
+    const section = body.slice(
+      body.indexOf('## What changes'),
+      body.indexOf('\n## ', body.indexOf('## What changes') + 1),
+    );
+    const blocks = section.split('\n\n');
+    const lines = section.split('\n');
+
+    expect(blocks[1]).toBe(
+      '- `effort`: `low` → `high`\n- `model`: `m1` → `m2`',
+    );
+    expect(
+      blocks.filter((each) =>
+        each.split('\n').some((line) => line.startsWith('- ')),
+      ),
+    ).toEqual([blocks[1]]);
+    expect(lines.filter((each) => /^\s+(<\/?details|```)/.test(each))).toEqual(
+      [],
+    );
+    expect(
+      lines.flatMap((each, at) =>
+        each.startsWith('<details>') ? [lines[at - 1], lines[at - 2]] : [],
+      ),
+    ).toEqual(['', '**`prompt`**: changed', '', '**`skills`**: changed']);
   });
 
   it('lists the held-out tasks, then the searched ones, each side with its reason in one line', () => {

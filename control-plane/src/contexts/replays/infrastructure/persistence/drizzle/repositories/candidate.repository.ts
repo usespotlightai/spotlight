@@ -75,7 +75,7 @@ const toCandidate = (row: CandidateRow): Candidate =>
       stationId: row.stationId,
     },
     address: stationPathOf(row),
-    name: CandidateName.of(row.name),
+    name: CandidateName.rehydrate(row.name),
     kind: row.kind,
     block: StationBlock.of(row.station),
     fingerprint: StationFingerprint.of(row.fingerprint),

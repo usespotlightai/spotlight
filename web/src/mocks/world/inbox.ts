@@ -164,7 +164,7 @@ const NOTICES: InboxNoticeResponseDto[] = [
     points: [
       '“Reconcile open invoices after the retry drain”: the cause is the check. The reconcile script needs the billing database, which the runner cannot reach. Please fix the check of the station.',
       '“Drain the stuck retry queues”: the cause is the judge. It wants a test for every change, but this change has nothing to test. Please fix the rubric of the judge.',
-      '“Upgrade the Postgres driver”: the cause is the task itself. Its migration rewrites 1.3M invoice rows, which no candidate finishes in time. Please reword the task.',
+      '“Upgrade the Postgres driver”: the cause is the task itself. Its migration rewrites 1.3M invoice rows, which no candidate finishes in time. Spotlight takes the task out of the replay set.',
     ],
     link: STATION_LINK,
     linkLabel: 'Open the station',
