@@ -5,6 +5,7 @@ import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TileSparkline } from '@/components/features/insights/TileSparkline';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { ShownDelta, TileDrill } from '@/lib/insights';
+import type { TooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 const AGAINST = 'Against the previous period';
@@ -13,7 +14,7 @@ type InsightsTileProps = {
   label: string;
   value: string;
   detail?: ReactNode;
-  tooltip?: string;
+  tooltip?: TooltipText;
   delta?: ShownDelta | null;
   drill?: TileDrill;
   trend?: readonly (number | null)[];
@@ -33,7 +34,7 @@ export function InsightsTile({
   return (
     <div
       data-slot="insights-tile"
-      className="flex min-h-30 min-w-0 flex-col gap-1.5 overflow-hidden group-data-top-aligned/tiles:gap-8.5 rounded-lg border border-border bg-card p-3"
+      className="flex min-h-30 min-w-0 flex-col gap-1.5 overflow-hidden group-data-top-aligned/tiles:gap-8.5 group-data-stacked/tiles:gap-2 rounded-lg border border-border bg-card p-3"
     >
       <dt className="flex min-h-4 items-center gap-1.5 text-foreground text-xs leading-4">
         <span className="truncate">{label}</span>
@@ -43,7 +44,7 @@ export function InsightsTile({
         className={cn(
           '@container flex flex-1 flex-col gap-1.5',
           !sparkline &&
-            'justify-center group-data-top-aligned/tiles:justify-start',
+            'justify-center group-data-top-aligned/tiles:justify-start group-data-stacked/tiles:justify-start',
         )}
       >
         <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

@@ -18,7 +18,7 @@ export function InsightsTileSkeleton({
     <SkeletonBlock>
       <div
         data-slot="insights-tile"
-        className="flex min-h-30 min-w-0 flex-col gap-1.5 overflow-hidden group-data-top-aligned/tiles:gap-8.5 rounded-lg border border-border bg-card p-3"
+        className="flex min-h-30 min-w-0 flex-col gap-1.5 overflow-hidden group-data-top-aligned/tiles:gap-8.5 group-data-stacked/tiles:gap-2 rounded-lg border border-border bg-card p-3"
       >
         <dt className="flex min-h-4 items-center gap-1.5 text-foreground text-xs leading-4">
           {label === null ? (
@@ -32,7 +32,7 @@ export function InsightsTileSkeleton({
           className={cn(
             'flex flex-1 flex-col gap-1.5',
             !trend &&
-              'justify-center group-data-top-aligned/tiles:justify-start',
+              'justify-center group-data-top-aligned/tiles:justify-start group-data-stacked/tiles:justify-start',
           )}
         >
           <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

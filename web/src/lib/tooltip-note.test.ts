@@ -26,4 +26,13 @@ describe('tooltipText', () => {
       ),
     ).toBe('Line allows: 2.');
   });
+
+  it('reads a list after its title', () => {
+    expect(
+      tooltipText({
+        body: 'Held out after the search.',
+        list: { title: 'Held-out tasks (2)', items: ['One', 'Two'] },
+      }),
+    ).toBe('Held out after the search. Held-out tasks (2): One, Two.');
+  });
 });

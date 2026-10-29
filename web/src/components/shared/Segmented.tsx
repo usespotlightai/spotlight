@@ -31,7 +31,7 @@ export function Segmented<T extends string>({
     <fieldset
       ref={group}
       aria-label={label}
-      className="relative m-0 flex h-6 min-w-0 items-center rounded-md border border-border bg-background p-0.5"
+      className="relative m-0 flex h-6 min-w-0 items-center gap-1 rounded-md border border-border bg-background p-0.5"
     >
       {indicator && (
         <span
