@@ -1,7 +1,7 @@
 import {
   DONUT_RING,
   DONUT_SIZE,
-} from '@/components/features/insights/CostDonut';
+} from '@/components/features/insights/SliceDonut';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 

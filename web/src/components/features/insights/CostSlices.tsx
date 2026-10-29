@@ -1,8 +1,8 @@
-import { CostDonut } from '@/components/features/insights/CostDonut';
 import { CostSliceRow } from '@/components/features/insights/CostSliceRow';
 import { sliceFill } from '@/components/features/insights/chart-series';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
+import { SliceDonut } from '@/components/features/insights/SliceDonut';
 import {
   type CostDimension,
   type CostSlice,
@@ -32,7 +32,13 @@ export function CostSlices({
       ) : (
         <div className="flex items-center gap-4 pb-3">
           {slices.some((slice) => slice.amount > 0) && (
-            <CostDonut slices={slices} />
+            <SliceDonut
+              slot="cost-donut"
+              slices={slices.map((slice) => ({
+                key: slice.key ?? 'none',
+                value: slice.amount,
+              }))}
+            />
           )}
           <ul
             aria-label={`Spend ${title.toLowerCase()}`}

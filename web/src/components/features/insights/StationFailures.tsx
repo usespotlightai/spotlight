@@ -1,4 +1,4 @@
-import { BarRow } from '@/components/features/insights/BarRow';
+import { FailureSlices } from '@/components/features/insights/FailureSlices';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
@@ -23,15 +23,6 @@ export function StationFailures({
   report,
 }: StationFailuresProps) {
   const both = report.runFailures.length > 0 && report.taskFailures.length > 0;
-  const failedRuns = Math.max(
-    report.tally.failed,
-    ...report.runFailures.map((failure) => failure.runs),
-    1,
-  );
-  const maxOccurrences = Math.max(
-    ...report.taskFailures.map((failure) => failure.occurrences),
-    1,
-  );
 
   return (
     <div className={cn('grid gap-4', both && 'sm:grid-cols-2')}>
@@ -40,22 +31,18 @@ export function StationFailures({
           {both && (
             <p className="text-[0.7rem] text-muted-foreground">Run failures</p>
           )}
-          <ul aria-label="Run failures" className="flex flex-col gap-1.5 pb-2">
-            {report.runFailures.map((failure) => {
+          <FailureSlices
+            label="Run failures"
+            of="the failed runs"
+            slices={report.runFailures.map((failure) => {
               const [only] = failure.runIds;
               const shown = formatRunFailure(failure);
 
-              return (
-                <BarRow
-                  key={failure.failure ?? 'without-failure'}
-                  share={failure.runs / failedRuns}
-                  values={
-                    <span className="w-10 text-right text-foreground tabular-nums">
-                      {failure.runs}
-                    </span>
-                  }
-                >
-                  {only && failure.runIds.length === 1 ? (
+              return {
+                key: failure.failure ?? 'without-failure',
+                count: failure.runs,
+                label:
+                  only && failure.runIds.length === 1 ? (
                     <TrailLink
                       to={runPath(slug, teamId, only)}
                       className={LINK}
@@ -72,11 +59,10 @@ export function StationFailures({
                     >
                       {shown}
                     </InsightsLink>
-                  )}
-                </BarRow>
-              );
+                  ),
+              };
             })}
-          </ul>
+          />
         </div>
       )}
 
@@ -85,38 +71,36 @@ export function StationFailures({
           {both && (
             <p className="text-[0.7rem] text-muted-foreground">Task failures</p>
           )}
-          <ul aria-label="Task failures" className="flex flex-col gap-1.5 pb-2">
-            {report.taskFailures.map((failure) => {
+          <FailureSlices
+            label="Task failures"
+            of="the task failures"
+            slices={report.taskFailures.map((failure) => {
               const [only] = failure.taskIds;
               const shown = formatTaskFailure(failure);
 
-              return (
-                <BarRow
-                  key={`${failure.source}:${failure.code}`}
-                  share={failure.occurrences / maxOccurrences}
-                  values={
-                    <span className="w-10 text-right text-foreground tabular-nums">
-                      {failure.occurrences}
-                    </span>
-                  }
-                >
-                  {only && failure.taskIds.length === 1 ? (
-                    <InsightsLink tab="traces" filter={{ taskId: only }}>
-                      {shown}
-                    </InsightsLink>
-                  ) : (
-                    shown
-                  )}
-                  {failure.maxInARow > 1 && (
-                    <span className="text-muted-foreground">
-                      {' '}
-                      · {failure.maxInARow} in a row
-                    </span>
-                  )}
-                </BarRow>
-              );
+              return {
+                key: `${failure.source}:${failure.code}`,
+                count: failure.occurrences,
+                label: (
+                  <>
+                    {only && failure.taskIds.length === 1 ? (
+                      <InsightsLink tab="traces" filter={{ taskId: only }}>
+                        {shown}
+                      </InsightsLink>
+                    ) : (
+                      shown
+                    )}
+                    {failure.maxInARow > 1 && (
+                      <span className="text-muted-foreground">
+                        {' '}
+                        · {failure.maxInARow} in a row
+                      </span>
+                    )}
+                  </>
+                ),
+              };
             })}
-          </ul>
+          />
         </div>
       )}
     </div>
