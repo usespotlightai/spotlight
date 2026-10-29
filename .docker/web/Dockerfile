@@ -29,6 +29,7 @@ EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 FROM nginx:${NGINX_VERSION} AS runtime
+RUN apk upgrade --no-cache
 COPY .docker/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
