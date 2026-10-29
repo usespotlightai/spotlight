@@ -1,6 +1,4 @@
 import type { RunSummary } from '@replays/application/ports/work.port';
-import { ReadReplayHandler } from '@replays/application/queries/handlers/read-replay.handler';
-import { ReadReplayQuery } from '@replays/application/queries/read-replay.query';
 import {
   type ReplayedCandidatesSeen,
   replayedCandidatesView,
@@ -9,19 +7,9 @@ import {
 import {
   type ReplayedWorld,
   replayedWorld,
-  replayOf,
 } from '@replays/application/services/replayed-candidates.fake-spec';
-import {
-  accessFor,
-  FakeWork,
-  InMemoryReplays,
-  PERSON,
-} from '@replays/application/services/replays.fake-spec';
-import { searchDetailView } from '@replays/application/services/search-views';
-import { SetHealths } from '@replays/application/services/set-healths.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import {
   aSet,
   BY,
@@ -34,17 +22,15 @@ import {
   STATION,
 } from '@replays/domain/replays.fake-spec';
 import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
+import { scoresOf } from '@replays/domain/services/search-scores';
 import { UNREAD_HEALTH } from '@replays/domain/services/set-health';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
-import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let world: ReplayedWorld;
@@ -106,26 +92,6 @@ const candidateNamed = (
   return found;
 };
 
-const replayPage = async (replayId: string) => {
-  const memory = new InMemoryReplays();
-  const work = new FakeWork();
-
-  for (const each of world.replays) {
-    await memory.replayRepository.add(each);
-  }
-  for (const each of world.candidates) {
-    await memory.candidateRepository.add(each);
-  }
-
-  return new ReadReplayHandler(
-    accessFor(memory, work),
-    memory.replayRepository,
-    memory.candidateRepository,
-    work,
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
-  ).execute(new ReadReplayQuery(STATION.teamId.value, replayId, PERSON));
-};
-
 beforeEach(() => {
   world = replayedWorld();
   STANDARDS = new Map([
@@ -134,87 +100,41 @@ beforeEach(() => {
 });
 
 describe('replayedCandidatesView', () => {
-  it('scores a searched candidate exactly as its search page does', () => {
-    const page = searchDetailView(
-      world.search,
-      world.replays,
-      world.candidates,
-      [],
-      DEFAULT_MIN_GAIN,
-      null,
-    );
+  it('scores a searched candidate as its search scores it', () => {
+    const scores = scoresOf(world.search, world.replays, DEFAULT_MIN_GAIN);
 
     for (const name of ['terse', 'wordy']) {
       const shown = candidateNamed(name);
-      const searched = page.candidates.find((each) => each.name === name);
+      const searched = scores.candidates.find(
+        (each) => each.candidateId.value === shown.candidateId,
+      );
 
       expect(shown).toMatchObject({
-        kind: 'searched',
-        candidateId: searched?.candidateId,
-        replayId: searched?.replayId,
-        replayState: searched?.replayState,
+        replayId: searched?.replayId.value,
         successRate: searched?.searchScore,
         scored: searched?.searchScored,
         costPerRun: searched?.costPerRun,
-        onFrontier: searched?.onFrontier,
-        hypothesis: searched?.hypothesis,
-        fingerprint: searched?.fingerprint,
-        changes: searched?.changes,
         heldOut: null,
-        tasks: page.split.searchedTasks,
+        tasks: world.search.split.searchedTasks,
         search: {
-          searchId: page.id,
-          state: page.state,
-          startedAt: page.startedAt,
+          searchId: world.search.id.value,
+          state: world.search.current,
+          startedAt: world.search.startedAt.toISOString(),
         },
       });
     }
   });
 
-  it('scores a proposed candidate as its replay page totals it, with no search, frontier or held-out', async () => {
-    const page = await replayPage('replay_proposed');
-
-    expect(candidateNamed('Shorter prompt')).toMatchObject({
-      kind: 'proposed',
-      replayId: 'replay_proposed',
-      replayState: page.state,
-      replayedAt: page.startedAt,
-      tasks: page.totals.entries,
-      successRate: page.totals.successRate,
-      scored: page.totals.scored,
-      costPerRun: 3,
-      heldOut: null,
-      onFrontier: null,
-      search: null,
-      pullRequest: null,
-    });
-  });
-
-  it('counts the regressions the replay page shows, against the set baseline it names', async () => {
-    for (const [name, replayId] of [
-      ['terse', 'replay_terse'],
-      ['Shorter prompt', 'replay_proposed'],
-    ] as const) {
-      const page = await replayPage(replayId);
-      const shown = candidateNamed(name);
-
-      expect(shown.regressions).toBe(
-        page.comparison.filter((each) => each.regressed).length,
-      );
-      expect(shown.compared).toBe(
-        page.comparison.filter((each) => each.baseline !== null).length,
-      );
-      expect(onlySet().baseline?.replayId).toBe(page.baselineReplayId);
-    }
-    expect(candidateNamed('Shorter prompt').regressions).toBe(2);
+  it('counts the regressions against the set baseline it names', () => {
     expect(candidateNamed('terse').regressions).toBe(1);
+    expect(candidateNamed('wordy').regressions).toBe(0);
+    expect(onlySet().baseline?.replayId).toBe('replay_seed');
   });
 
   it('shows the live config only as the set baseline, scored over the same tasks beside each candidate', () => {
     const set = onlySet();
 
     expect(set.candidates.map((each) => each.name).sort()).toEqual([
-      'Shorter prompt',
       'terse',
       'wordy',
     ]);
@@ -241,7 +161,7 @@ describe('replayedCandidatesView', () => {
     );
     const known = gains.filter((each) => each !== null);
 
-    expect(known.length).toBeGreaterThan(1);
+    expect(known.length).toBeGreaterThan(0);
 
     expect(known).toEqual([...known].sort((one, other) => other - one));
     expect(gains.slice(known.length).every((each) => each === null)).toBe(true);
@@ -252,7 +172,7 @@ describe('replayedCandidatesView', () => {
 
     expect(set.chartCurrency).toBe('USD');
     expect(set.baseline?.chartStatus).toBe('priced');
-    expect(candidateNamed('Shorter prompt').chartStatus).toBe('priced');
+    expect(candidateNamed('terse').chartStatus).toBe('priced');
   });
 
   it('tells the health of the set from its oldest and newest run ends and its last addition', () => {
@@ -300,54 +220,25 @@ describe('replayedCandidatesView', () => {
       'EUR',
     );
 
-    expect(
-      candidateNamed('Shorter prompt', { baselines: [euros] }),
-    ).toMatchObject({
+    expect(candidateNamed('terse', { baselines: [euros] })).toMatchObject({
       currency: 'USD',
-      costPerRun: 3,
       live: { successRate: 1, costPerRun: 4, currency: 'EUR' },
     });
   });
 
-  it('shows a proposed candidate’s newest finished replay in the period over a newer one still running', () => {
-    const running = replayOf(
-      world.set,
-      'replay_running',
-      candidateOf('proposed'),
-      later(10),
-    );
-
-    expect(
-      candidateNamed('Shorter prompt', {
-        recent: [running, ...seenIn().recent],
-      }).replayId,
-    ).toBe('replay_proposed');
-    expect(
-      candidateNamed('Shorter prompt', {
-        recent: [running],
-      }).replayId,
-    ).toBe('replay_running');
-  });
-
-  it('shows a held-out score apart from the search score, as the search page does', () => {
+  it('shows a held-out score apart from the search score, as the search scores it', () => {
     world = replayedWorld(true);
-    const page = searchDetailView(
+    const searched = scoresOf(
       world.search,
       world.replays,
-      world.candidates,
-      [],
       DEFAULT_MIN_GAIN,
-      null,
-    );
-    const searched = page.candidates.find((each) => each.name === 'terse');
+    ).candidates.find((each) => each.candidateId.value === 'candidate_terse');
 
     expect(searched?.heldOutScore).toBe(1);
-    expect(candidateNamed('terse').heldOut).toEqual({
-      replayId: searched?.heldOutReplayId,
-      state: searched?.heldOutReplayState,
+    expect(candidateNamed('terse').heldOut).toMatchObject({
+      replayId: searched?.heldOutReplayId?.value,
       score: searched?.heldOutScore,
-      interval: searched?.heldOutInterval,
-      tasks: page.split.heldOutTasks,
+      tasks: world.search.split.heldOutTasks,
       runs: world.search.split.heldOut.length,
     });
   });
@@ -368,20 +259,6 @@ describe('replayedCandidatesView', () => {
       at: NOW,
       by: BY,
     });
-    const page = searchDetailView(
-      world.search,
-      world.replays,
-      world.candidates,
-      [picked],
-      DEFAULT_MIN_GAIN,
-      null,
-    );
-
-    expect(
-      candidateNamed('terse', { pullRequests: [picked] }).pullRequest,
-    ).toEqual(
-      page.candidates.find((each) => each.name === 'terse')?.pullRequest,
-    );
     expect(
       candidateNamed('terse', { pullRequests: [picked] }).pullRequest?.id,
     ).toBe('pr_1');
@@ -390,21 +267,13 @@ describe('replayedCandidatesView', () => {
     ).toBeNull();
   });
 
-  it('sets the seed beside each searched candidate, scored on the same searched runs as its search page shows', () => {
-    const page = searchDetailView(
-      world.search,
-      world.replays,
-      world.candidates,
-      [],
-      DEFAULT_MIN_GAIN,
-      null,
-    );
+  it('sets the seed beside each searched candidate, scored on the same searched runs as its search scores it', () => {
+    const { seed } = scoresOf(world.search, world.replays, DEFAULT_MIN_GAIN);
 
-    expect(candidateNamed('terse').search?.seed).toEqual({
-      successRate: page.seed.searchScore,
-      interval: page.seed.searchInterval,
-      costPerRun: page.seed.costPerRun,
-      scored: page.seed.searchScored,
+    expect(candidateNamed('terse').search?.seed).toMatchObject({
+      successRate: seed.searchScore,
+      costPerRun: seed.costPerRun,
+      scored: seed.searchScored,
       chartStatus: 'priced',
     });
     expect(candidateNamed('terse').search?.seed.scored).toBe(
@@ -418,85 +287,29 @@ describe('replayedCandidatesView', () => {
       () => 'completed',
       2,
     );
-    const shown = candidateNamed('Shorter prompt', { baselines: [partial] });
+    const shown = candidateNamed('terse', { baselines: [partial] });
 
     expect(shown).toMatchObject({
-      successRate: 0.8,
-      scored: 10,
-      compared: 5,
-      successRateOnCompared: 0.6,
-      costPerRunOnCompared: 3,
-      regressions: 2,
+      successRate: 6 / 7,
+      scored: 7,
+      compared: 3,
+      successRateOnCompared: 2 / 3,
+      costPerRunOnCompared: 1,
+      regressions: 1,
       live: { successRate: 1, costPerRun: 2, currency: 'USD' },
       shown: {
         basis: 'compared',
         costBasis: 'compared',
-        successRate: 0.6,
+        successRate: 2 / 3,
         liveSuccessRate: 1,
-        runs: 5,
-        costPerRun: 3,
+        runs: 3,
+        costPerRun: 1,
         liveCostPerRun: 2,
       },
     });
   });
 
-  it('counts distinct tasks apart from runs when a task was worked twice', () => {
-    const twice = ReplaySet.rehydrate({
-      id: ReplaySetId.of('set_twice'),
-      station: STATION,
-      entries: [
-        ['run_a', 'task_x'],
-        ['run_b', 'task_x'],
-        ['run_c', 'task_y'],
-      ].map(([run, task]) =>
-        ReplaySetEntry.of({
-          runId: RunId.of(run as string),
-          taskId: TaskId.of(task as string),
-          endedAt: NOW,
-          addedAt: NOW,
-        }),
-      ),
-      removedTasks: [],
-      createdAt: NOW,
-      refreshedAt: NOW,
-      lastRefresh: null,
-      stationGoneAt: null,
-      version: 0,
-    });
-    const baseline = replayedAs(
-      replayFor(twice, 'replay_twice_live', 'candidate_live', null, true),
-      () => 'completed',
-    );
-    const proposed = replayedAs(
-      replayOf(twice, 'replay_twice', candidateOf('proposed'), later(1)),
-      (original) => (original === 'run_b' ? 'failed' : 'completed'),
-    );
-    const [station] = replayedCandidatesView(
-      seenIn({
-        recent: [proposed],
-        searches: [],
-        searchReplays: [],
-        sets: [twice],
-        baselines: [baseline],
-        standards: new Map([
-          [
-            twice.id.value,
-            { health: UNREAD_HEALTH, minGain: DEFAULT_MIN_GAIN },
-          ],
-        ]),
-      }),
-    ).stations;
-    const [set] = station?.sets ?? [];
-
-    expect(set?.health).toMatchObject({ tasks: 2, runs: 3 });
-    expect(set?.candidates[0]).toMatchObject({
-      tasks: 2,
-      runs: 3,
-      scored: 3,
-      compared: 3,
-      successRate: 2 / 3,
-      successRateOnCompared: 2 / 3,
-    });
+  it('counts distinct tasks apart from runs', () => {
     expect(candidateNamed('terse')).toMatchObject({
       tasks: world.search.split.searchedTasks,
       runs: world.search.split.searched.length,

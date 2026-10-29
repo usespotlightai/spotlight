@@ -38,6 +38,7 @@ const liveWith = (search: StationSearchPolicy | null): LiveStation => ({
   scoring: { checksChanges: false, judge: null, rubricVersion: null },
   hashes: { behaviour: 'b'.repeat(64), scoring: 'c'.repeat(64) },
   replayCheck: null,
+  agent: null,
   search,
 });
 

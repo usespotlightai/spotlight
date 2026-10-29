@@ -12,7 +12,8 @@ export interface NoticeRepository {
   find(id: NoticeId): Promise<Notice | null>;
 
   about(
-    addressee: UserId,
+    teamId: TeamId,
+    addressee: UserId | null,
     form: NoticeForm,
     subject: string,
   ): Promise<Notice | null>;

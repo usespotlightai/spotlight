@@ -14,9 +14,9 @@ import {
   spendAmountProblem,
 } from '@work/domain/value-objects/spend-ceiling.vo';
 
-export const MAX_SEARCH_ITERATIONS = 10;
+const MAX_SEARCH_ITERATIONS = 10;
 
-export const MAX_SEARCH_REPEATS = 5;
+const MAX_SEARCH_REPEATS = 5;
 
 export const SEARCH_OBJECTIVES = ['success', 'cost'] as const;
 
@@ -270,7 +270,7 @@ export class LineSearchPolicy {
     if (ceiling.isAbove(monthlyCeiling)) {
       throw new InvalidSearchPolicyError(
         'ceiling',
-        `must be at most the monthly ceiling, ${monthlyCeiling.amount}`,
+        `must be at most the monthly_ceiling, ${monthlyCeiling.amount} ${monthlyCeiling.currency}`,
       );
     }
     if (cooldown.isLongerThan(period)) {
@@ -304,7 +304,7 @@ export class LineSearchPolicy {
     if (resolved.ceiling.isAbove(this.monthlyCeiling)) {
       return {
         field: 'ceiling',
-        reason: `search ceiling must be at most the line's monthly ceiling, ${this.monthlyCeiling.amount} ${this.currency}`,
+        reason: `search ceiling must be at most the line's monthly_ceiling, ${this.monthlyCeiling.amount} ${this.currency}`,
       };
     }
     if (resolved.cooldown.isLongerThan(resolved.period)) {

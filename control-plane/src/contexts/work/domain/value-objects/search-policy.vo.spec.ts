@@ -144,7 +144,7 @@ describe('LineSearchPolicy', () => {
       ),
     ).toEqual({
       field: 'ceiling',
-      reason: expect.stringContaining('monthly ceiling, 50 USD'),
+      reason: expect.stringContaining('monthly_ceiling, 50 USD'),
     });
     expect(
       LineSearchPolicy.DEFAULT.overrideProblem(

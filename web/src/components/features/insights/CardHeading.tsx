@@ -1,4 +1,4 @@
-import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { TooltipText } from '@/lib/tooltip-note';
 
 type CardTitleProps = {

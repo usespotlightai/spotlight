@@ -4,6 +4,8 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Notice } from '@work/domain/aggregates/notice.aggregate';
 import { InvalidNoticeError } from '@work/domain/exceptions/invalid-notice.error';
+import { InvalidNoticeExternalLinkError } from '@work/domain/exceptions/invalid-notice-external-link.error';
+import { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import { noticeForm } from '@work/domain/value-objects/notice-form';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
@@ -25,8 +27,12 @@ const created = (subject = 'replay-search search_1 iteration 3') =>
     form: 'ended',
     subject,
     link: NoticeLink.of({
-      path: 'lines/line_1/stations/station_1/searches/search_1',
-      label: 'Open the search',
+      path: 'lines/line_1/stations/station_1',
+      label: 'Open the station',
+    }),
+    externalLink: NoticeExternalLink.of({
+      url: 'https://github.com/acme/config/pull/12',
+      label: 'Review the pull request',
     }),
     wording: NoticeWording.of({
       headline: 'The search stalled',
@@ -79,6 +85,34 @@ describe('Notice', () => {
     ).toThrow(InvalidNoticeError);
   });
 
+  it('links outside Spotlight only to a GitHub address, with a label', () => {
+    expect(created().externalLink?.url).toBe(
+      'https://github.com/acme/config/pull/12',
+    );
+    for (const url of [
+      '',
+      'http://github.com/acme/config/pull/12',
+      'https://github.com.evil.test/acme',
+      'https://user:secret@github.com/acme',
+      'https://github.com/',
+      'javascript:alert(1)',
+      'lines/line_1',
+      `https://github.com/${'x'.repeat(500)}`,
+    ]) {
+      expect(() =>
+        NoticeExternalLink.of({ url, label: 'Review the pull request' }),
+      ).toThrow(InvalidNoticeExternalLinkError);
+    }
+    for (const label of [' ', 'x'.repeat(61)]) {
+      expect(() =>
+        NoticeExternalLink.of({
+          url: 'https://github.com/acme/config/pull/12',
+          label,
+        }),
+      ).toThrow(InvalidNoticeExternalLinkError);
+    }
+  });
+
   it('keeps showing a resolved notice for 30 days', () => {
     expect(Notice.resolvedShownSince(NOW)).toEqual(
       new Date('2026-09-01T09:00:00.000Z'),
@@ -95,6 +129,7 @@ describe('Notice', () => {
       form: notice.form,
       subject: notice.subject,
       link: notice.link,
+      externalLink: notice.externalLink,
       wording: notice.wording,
       createdAt: NOW,
       resolvedAt: null,

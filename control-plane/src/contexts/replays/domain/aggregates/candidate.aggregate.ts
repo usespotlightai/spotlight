@@ -1,15 +1,8 @@
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
-import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
-import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
-import { CandidateInUseError } from '@replays/domain/exceptions/candidate-in-use.error';
-import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
-import { CandidateManagedBySpotlightError } from '@replays/domain/exceptions/candidate-managed-by-spotlight.error';
-import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { CandidateKind } from '@replays/domain/value-objects/candidate-kind';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
-import { CandidatePath } from '@replays/domain/value-objects/candidate-path.vo';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import type { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
@@ -23,8 +16,6 @@ import type { StationHashes } from '@replays/domain/value-objects/station-hashes
 import type { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -69,31 +60,6 @@ export class Candidate extends EventRecorder {
     readonly isDeleted = false,
   ) {
     super();
-  }
-
-  static propose(
-    input: Proposal & {
-      name: CandidateName;
-      changedFrom: StationChanges;
-      by: ChangeActor;
-    },
-  ): Candidate {
-    const proposed = Candidate.make(
-      input,
-      input.name,
-      'proposed',
-      input.changedFrom,
-    );
-
-    proposed.record(
-      new CandidateProposed(
-        proposed.id,
-        proposed.teamId,
-        ConfigurationChange.created(proposed.whatChanged, input.by),
-      ),
-    );
-
-    return proposed;
   }
 
   static live(input: Proposal): Candidate {
@@ -252,10 +218,6 @@ export class Candidate extends EventRecorder {
     return this.state.address.stationKey;
   }
 
-  get address(): CandidatePath {
-    return CandidatePath.of(this.state.address, this.state.name);
-  }
-
   get name(): CandidateName {
     return this.state.name;
   }
@@ -274,10 +236,6 @@ export class Candidate extends EventRecorder {
 
   get basedOn(): StationFingerprint {
     return this.state.changedFrom.from;
-  }
-
-  get isProposed(): boolean {
-    return this.state.kind === 'proposed';
   }
 
   get search(): CandidateSearch | null {
@@ -340,55 +298,11 @@ export class Candidate extends EventRecorder {
     return this.state.version;
   }
 
-  assertVersion(version: number): void {
-    if (version !== this.state.version) {
-      throw new CandidateVersionConflictError(this.id.value);
-    }
-  }
-
-  delete(inProgress: boolean, by: ChangeActor): Candidate {
-    if (this.isLive) {
-      throw new CandidateIsLiveError(this.id.value);
-    }
-    if (!this.isProposed) {
-      throw new CandidateManagedBySpotlightError(this.id.value);
-    }
-    if (inProgress) {
-      throw new CandidateInUseError(this.id.value);
-    }
-
-    return this.gone(by);
-  }
-
   cascadeDelete(): Candidate {
-    return this.isProposed
-      ? this.gone(ChangeActor.spotlight(this.workspaceId))
-      : new Candidate(this.state, true);
+    return new Candidate(this.state, true);
   }
 
   isFor(stationId: string): boolean {
     return this.state.station.stationId === stationId;
-  }
-
-  private gone(by: ChangeActor): Candidate {
-    const gone = new Candidate(this.state, true);
-
-    gone.record(
-      new CandidateDeleted(
-        this.id,
-        this.teamId,
-        ConfigurationChange.deleted(this.whatChanged, by),
-      ),
-    );
-
-    return gone;
-  }
-
-  private get whatChanged() {
-    return {
-      resource: 'replay-candidate' as const,
-      id: this.id.value,
-      key: this.address.toString(),
-    };
   }
 }

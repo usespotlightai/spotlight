@@ -44,7 +44,6 @@ export class HoldOutSearch {
       const set = await this.sets.find(search.setId);
 
       if (!set) {
-        await this.searches.save(search.recordSetGone(at));
         return;
       }
 

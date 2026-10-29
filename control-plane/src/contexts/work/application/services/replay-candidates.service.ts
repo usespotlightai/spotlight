@@ -198,6 +198,11 @@ export class ReplayCandidates implements ReplayCandidatesPort {
           search: searchOf(
             current.line.searchPolicy.resolvedFor(current.station),
           ),
+          agent: current.station.harness && {
+            harness: current.station.harness.value,
+            model: current.station.model?.value ?? null,
+            effort: current.station.effort?.value ?? null,
+          },
         }
       : null;
   }

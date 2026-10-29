@@ -77,6 +77,7 @@ export interface LiveConfig {
   readonly hashes: StationHashes;
   readonly threshold: ReplayThreshold | null;
   readonly search: SearchPolicy | null;
+  readonly agent: SearchAgent | null;
 }
 
 export interface OracleAnswerInput {
@@ -175,8 +176,6 @@ export interface WorkPort {
   cancelQueued(runs: readonly RunId[]): Promise<void>;
 
   cancel(run: RunId, leaveRunAsIs: boolean): Promise<CancelledRun>;
-
-  durations(runs: readonly RunId[]): Promise<ReadonlyMap<string, number>>;
 
   agentProblem(agent: SearchAgent): AgentProblem | null;
 

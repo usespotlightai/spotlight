@@ -294,7 +294,7 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(error.message).toMatch(/monthly ceiling, 20 USD/);
+    expect(error.message).toMatch(/monthly_ceiling, 20 USD/);
     expect(error.part).toEqual({
       of: 'station',
       station: 'code-review',

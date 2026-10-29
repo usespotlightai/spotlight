@@ -21,9 +21,9 @@ import type { StationFingerprint } from '@replays/domain/value-objects/station-f
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
-export const SATURATED_ABOVE = 0.95;
+const MIN_CHECKED_RUNS = 5;
 
-export const MIN_CHECKED_RUNS = 5;
+export const SATURATED_ABOVE = 0.95;
 
 export const JUDGE_UNSTABLE_BELOW = 0.8;
 
@@ -113,7 +113,7 @@ const isWholeLive = (
 
   return (
     replay.runSubset === null &&
-    replay.searchId === null &&
+    (replay.searchId === null || replay.calibration) &&
     config?.isLive === true &&
     config.fingerprint.equals(liveFingerprint)
   );
@@ -125,7 +125,11 @@ const VALID_CALIBRATION_STATES: readonly ReplayState[] = [
   'finished',
 ];
 
-export const checksSet = (
+const coversSet = (replay: Replay, set: ReplaySet): boolean =>
+  replay.originals.length === set.runs.length &&
+  set.runs.every((run) => replay.originals.some((each) => each.equals(run)));
+
+export const wantsCalibration = (
   set: ReplaySet,
   replays: readonly Replay[],
   configs: readonly ReplayedConfig[],
@@ -136,7 +140,8 @@ export const checksSet = (
     (each) =>
       each.calibration &&
       VALID_CALIBRATION_STATES.includes(each.current) &&
-      isWholeLive(each, configs, liveFingerprint),
+      isWholeLive(each, configs, liveFingerprint) &&
+      coversSet(each, set),
   );
 
 const saturationOf = (live: readonly Replay[]): SetSaturation | null => {

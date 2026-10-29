@@ -59,7 +59,7 @@ describe('setNoiseOf', () => {
     expect(
       setNoiseOf(
         [replay],
-        [candidateOf('proposed', LIVE.id.value)],
+        [candidateOf('searched', LIVE.id.value)],
         LIVE.fingerprint,
       ),
     ).toBeNull();

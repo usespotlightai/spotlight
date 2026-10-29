@@ -1,14 +1,7 @@
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
-import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
-import { CandidateInUseError } from '@replays/domain/exceptions/candidate-in-use.error';
-import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
-import { CandidateManagedBySpotlightError } from '@replays/domain/exceptions/candidate-managed-by-spotlight.error';
-import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import {
   AT,
-  BY,
   candidateOf,
   FINGERPRINT,
   HASHES,
@@ -19,7 +12,6 @@ import {
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
-import { CandidatePath } from '@replays/domain/value-objects/candidate-path.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -27,49 +19,10 @@ import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { StationPath } from '@replays/domain/value-objects/station-path.vo';
-import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { describe, expect, it } from 'vitest';
 
-const changeOf = (candidate: Candidate) => {
-  const [event] = candidate.pullEvents() as ConfigurationChanged[];
-
-  return event?.change;
-};
-
 describe('Candidate', () => {
-  it('is proposed under a name, for one station, saying what it changes from the live config', () => {
-    const proposed = candidateOf('proposed');
-
-    expect(proposed.kind).toBe('proposed');
-    expect(proposed.isLive).toBe(false);
-    expect(proposed.name.value).toBe('Shorter prompt');
-    expect(proposed.address.toString()).toBe(
-      'core/delivery/build/Shorter prompt',
-    );
-    expect(proposed.changedFrom.from).toEqual(LIVE_FINGERPRINT);
-    expect(proposed.changedFrom.changes.map((each) => each.part)).toEqual([
-      'prompt',
-    ]);
-    expect(proposed.isFor(STATION.stationId)).toBe(true);
-    expect(proposed.isFor('station_ship')).toBe(false);
-  });
-
-  it('records its proposal in the configuration audit, at its address', () => {
-    const proposed = candidateOf('proposed');
-    const [event] = proposed.pullEvents();
-
-    expect(event).toBeInstanceOf(CandidateProposed);
-    expect((event as CandidateProposed).change).toMatchObject({
-      resource: 'replay-candidate',
-      resourceId: 'candidate_proposed',
-      key: 'core/delivery/build/Shorter prompt',
-      action: 'created',
-      by: BY,
-    });
-  });
-
   it('snapshots the live config under the day it was taken, changing nothing, unaudited', () => {
     const live = candidateOf('live');
 
@@ -82,101 +35,36 @@ describe('Candidate', () => {
 
   it('keeps the key of the station it is for', () => {
     expect(() =>
-      Candidate.propose({
+      Candidate.fromSearch({
         id: CandidateId.of('candidate_1'),
         station: STATION,
         address: AT,
-        name: CandidateName.of('Renamed'),
+        name: 'renamed',
         block: StationBlock.of({ key: 'ship' }),
         fingerprint: FINGERPRINT,
         hashes: HASHES,
         scoring: UNSCORED,
         changedFrom: StationChanges.none(LIVE_FINGERPRINT),
+        search: {
+          searchId: SearchId.of('search_1'),
+          iteration: 1,
+          hypothesis: Hypothesis.of('Shorter is better.'),
+        },
         at: NOW,
-        by: BY,
       }),
     ).toThrow(InvalidCandidateError);
   });
 
-  it('is deleted at the requested version, when none of its replays is running', () => {
-    const proposed = candidateOf('proposed');
-    proposed.pullEvents();
-
-    expect(() => proposed.assertVersion(1)).toThrow(
-      CandidateVersionConflictError,
-    );
-    expect(() => proposed.delete(true, BY)).toThrow(CandidateInUseError);
-
-    const deleted = proposed.delete(false, BY);
-
-    expect(deleted.isDeleted).toBe(true);
-    expect(changeOf(deleted)).toMatchObject({
-      resource: 'replay-candidate',
-      action: 'deleted',
-      by: BY,
-    });
-  });
-
-  it('is never deleted when it is the live config Spotlight replays', () => {
-    expect(() => candidateOf('live').delete(false, BY)).toThrow(
-      CandidateIsLiveError,
-    );
-  });
-
-  it('is deleted by Spotlight with its team, recording the deletion only of a proposal', () => {
-    const proposed = candidateOf('proposed');
-    proposed.pullEvents();
+  it('is deleted quietly with its team', () => {
     const live = candidateOf('live').cascadeDelete();
 
     expect(live.isDeleted).toBe(true);
     expect(live.pullEvents()).toEqual([]);
-
-    const deleted = proposed.cascadeDelete();
-    const [event] = deleted.pullEvents();
-
-    expect(event).toBeInstanceOf(CandidateDeleted);
-    expect((event as CandidateDeleted).change.by).toEqual(
-      ChangeActor.spotlight(STATION.workspaceId),
-    );
   });
 
-  it('is addressed by team, line and station keys, then its name', () => {
-    const address = CandidatePath.parse('core/delivery/build/Shorter prompt');
-
-    expect(address.station).toEqual(AT);
-    expect(address.name.value).toBe('Shorter prompt');
-    for (const malformed of [
-      'core/delivery/build',
-      'core/delivery/build/ x',
-      'core/delivery/build/a/b',
-      'Core/delivery/build/x',
-    ]) {
-      expect(() => CandidatePath.parse(malformed)).toThrow(
-        InvalidCandidateError,
-      );
-    }
+  it('is addressed by team, line and station keys', () => {
     expect(StationPath.parsed('core/delivery/build')).toEqual(AT);
     expect(StationPath.parsed('core/delivery')).toBeNull();
-  });
-
-  it('is named without surrounding spaces or slashes, and never as Spotlight names its live snapshots', () => {
-    expect(CandidateName.proposed('Shorter prompt').value).toBe(
-      'Shorter prompt',
-    );
-    for (const invalid of [
-      ' Shorter',
-      'Shorter ',
-      'a/b',
-      '',
-      'x'.repeat(101),
-      'Live config, 2026-10-02',
-      'live config tweak',
-    ]) {
-      expect(() => CandidateName.proposed(invalid)).toThrow(
-        InvalidCandidateError,
-      );
-    }
-    expect(CandidateName.live(NOW).value).toBe('Live config, 2026-10-01');
   });
 
   it('has a station block with a key, and a SHA-256 fingerprint', () => {
@@ -228,7 +116,6 @@ describe('Candidate', () => {
       const candidate = searched();
 
       expect(candidate.kind).toBe('searched');
-      expect(candidate.isProposed).toBe(false);
       expect(candidate.name.value).toBe('terse-prompt');
       expect(candidate.search?.searchId.value).toBe('search_1');
       expect(candidate.search?.iteration).toBe(2);
@@ -282,17 +169,10 @@ describe('Candidate', () => {
       expect(() => PlannedReference.of({ pullRequest: 0 })).toThrow(
         InvalidCandidateError,
       );
-      expect(() => CandidateName.proposed('Planned change, PR #1')).toThrow(
-        InvalidCandidateError,
-      );
     });
 
-    it('is never deleted by a person, and goes quietly when deleted with its team', () => {
+    it('goes quietly when deleted with its team', () => {
       for (const candidate of [searched(), planned()]) {
-        expect(() => candidate.delete(false, BY)).toThrow(
-          CandidateManagedBySpotlightError,
-        );
-
         const deleted = candidate.cascadeDelete();
 
         expect(deleted.isDeleted).toBe(true);
@@ -328,7 +208,7 @@ describe('Candidate', () => {
       expect(() =>
         Candidate.rehydrate({
           ...state,
-          kind: 'proposed',
+          kind: 'live',
           search: candidate.search,
           reference: null,
         }),
@@ -366,16 +246,10 @@ describe('Candidate, handed the answer', () => {
 
   it('is made only from the live config', () => {
     expect(() =>
-      Candidate.oracleOf(candidateOf('proposed'), {
+      Candidate.oracleOf(candidateOf('searched'), {
         id: CandidateId.of('candidate_oracle'),
         at: NOW,
       }),
     ).toThrow(InvalidCandidateError);
-  });
-
-  it('keeps people from naming a proposal as Spotlight names it', () => {
-    expect(() => CandidateName.proposed('With the answer, please')).toThrow(
-      InvalidCandidateError,
-    );
   });
 });

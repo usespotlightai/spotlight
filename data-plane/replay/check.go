@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"text/tabwriter"
 	"time"
 )
 
@@ -40,15 +41,19 @@ type checkSide struct {
 	Spent       *money    `json:"spent"`
 }
 
-type checkRegression struct {
-	TaskID    string   `json:"taskId"`
-	Title     *string  `json:"title"`
-	Candidate []string `json:"candidate"`
-	Baseline  []string `json:"baseline"`
-	Reasons   []struct {
-		Code   string  `json:"code"`
-		Detail *string `json:"detail"`
-	} `json:"reasons"`
+type taskSide struct {
+	Result      string   `json:"result"`
+	SuccessRate *float64 `json:"successRate"`
+	Reason      string   `json:"reason"`
+}
+
+type checkTask struct {
+	TaskID        string   `json:"taskId"`
+	OriginalRunID string   `json:"originalRunId"`
+	Title         *string  `json:"title"`
+	Regressed     bool     `json:"regressed"`
+	Live          taskSide `json:"live"`
+	Candidate     taskSide `json:"candidate"`
 }
 
 type checkRead struct {
@@ -57,19 +62,29 @@ type checkRead struct {
 	ScoringPinnedToLive []string `json:"scoringPinnedToLive"`
 	Result              string   `json:"result"`
 	UndecidedBecause    *string  `json:"undecidedBecause"`
-	Tasks               int      `json:"tasks"`
+	TaskCount           int      `json:"taskCount"`
 	Compared            int      `json:"compared"`
 	Threshold           struct {
 		MaxRegressions int     `json:"maxRegressions"`
 		MinGain        float64 `json:"minGain"`
 		Ceiling        money   `json:"ceiling"`
 	} `json:"threshold"`
-	Repeats     int               `json:"repeats"`
-	Gain        *gainEstimate     `json:"gain"`
-	Candidate   checkSide         `json:"candidate"`
-	Baseline    checkSide         `json:"baseline"`
-	Regressions []checkRegression `json:"regressions"`
-	ReplayURL   *string           `json:"replayUrl"`
+	Repeats   int           `json:"repeats"`
+	Gain      *gainEstimate `json:"gain"`
+	Candidate checkSide     `json:"candidate"`
+	Baseline  checkSide     `json:"baseline"`
+	Tasks     []checkTask   `json:"tasks"`
+}
+
+func (r *checkRead) regressions() int {
+	count := 0
+	for _, each := range r.Tasks {
+		if each.Regressed {
+			count++
+		}
+	}
+
+	return count
 }
 
 type stationCheck struct {
@@ -77,7 +92,6 @@ type stationCheck struct {
 	Resource string     `json:"resource"`
 	Status   string     `json:"status"`
 	Message  string     `json:"message,omitempty"`
-	URL      string     `json:"url,omitempty"`
 	Check    *checkRead `json:"check,omitempty"`
 
 	teamID  string
@@ -265,7 +279,7 @@ func (c *checking) run(plan planned, options checkOptions, report *checkReport) 
 		if checked.pending {
 			checked.pending = false
 			checked.Status = checkRunning
-			checked.Message = fmt.Sprintf("still running after %s; it keeps running, so follow it at its link", options.timeout)
+			checked.Message = fmt.Sprintf("still running after %s. The check keeps running in Spotlight.", options.timeout)
 		}
 	}
 }
@@ -335,9 +349,6 @@ func (c *checking) record(checked *stationCheck, read checkRead) {
 	checked.Check = &read
 	checked.Status = read.Result
 	checked.pending = read.Result == checkRunning
-	if read.ReplayURL != nil {
-		checked.URL = *read.ReplayURL
-	}
 }
 
 func checkKey(each plannedStation, options checkOptions) string {
@@ -387,7 +398,7 @@ func (r *checkReport) print(out io.Writer) {
 		}
 
 		fmt.Fprintf(out, "  %d of %d tasks regressed (at most %d may), replaying the station's replay set: %d tasks, %d scored on both sides\n",
-			len(read.Regressions), read.Tasks, read.Threshold.MaxRegressions, read.Tasks, read.Compared)
+			read.regressions(), read.TaskCount, read.Threshold.MaxRegressions, read.TaskCount, read.Compared)
 		if read.UndecidedBecause != nil {
 			fmt.Fprintf(out, "  undecided: %s\n", describeUndecided(*read.UndecidedBecause))
 		}
@@ -402,11 +413,14 @@ func (r *checkReport) print(out io.Writer) {
 		if len(read.ScoringPinnedToLive) > 0 {
 			fmt.Fprintf(out, "  scored with the live %s, which the plan also changes\n", strings.Join(read.ScoringPinnedToLive, ", "))
 		}
-		for _, regressed := range read.Regressions {
-			fmt.Fprintf(out, "  REGRESSED %s: %s\n", describeTask(regressed), describeReasons(regressed))
-		}
-		if each.URL != "" {
-			fmt.Fprintf(out, "  %s\n", each.URL)
+		if len(read.Tasks) > 0 {
+			fmt.Fprintln(out)
+			table := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+			fmt.Fprintln(table, "  Task\tLive config\tCandidate\tRegressed")
+			for _, task := range read.Tasks {
+				fmt.Fprintf(table, "  %s\t%s\t%s\t%s\n", describeTask(task), describeTaskSide(task.Live), describeTaskSide(task.Candidate), regressedMark(task.Regressed))
+			}
+			table.Flush()
 		}
 	}
 }
@@ -430,25 +444,22 @@ func (r *checkReport) summarise(path string) error {
 		return err
 	}
 
-	written.WriteString("| Station | Result | Regressed | Candidate | Baseline | Gain | Spent | Replay |\n")
-	written.WriteString("| --- | --- | --- | --- | --- | --- | --- | --- |\n")
+	written.WriteString("| Station | Result | Regressed | Candidate | Baseline | Gain | Spent |\n")
+	written.WriteString("| --- | --- | --- | --- | --- | --- | --- |\n")
 	for _, each := range r.Stations {
-		regressed, candidate, baseline, gain, spent, link := "", "", "", "", "", ""
+		regressed, candidate, baseline, gain, spent := "", "", "", "", ""
 		if read := each.Check; read != nil {
-			regressed = fmt.Sprintf("%d of %d (at most %d)", len(read.Regressions), read.Tasks, read.Threshold.MaxRegressions)
+			regressed = fmt.Sprintf("%d of %d (at most %d)", read.regressions(), read.TaskCount, read.Threshold.MaxRegressions)
 			candidate = describeSide(read.Candidate)
 			baseline = describeSide(read.Baseline)
 			gain = gainCell(read.Gain)
 			spent = describeSpent(read.Candidate.Spent)
 		}
-		if each.URL != "" {
-			link = fmt.Sprintf("[open](%s)", each.URL)
-		}
-		fmt.Fprintf(&written, "| %s | %s | %s | %s | %s | %s | %s | %s |\n", markdownCell(each.Station), markdownCell(each.Status), markdownCell(regressed), markdownCell(candidate), markdownCell(baseline), markdownCell(gain), markdownCell(spent), link)
+		fmt.Fprintf(&written, "| %s | %s | %s | %s | %s | %s | %s |\n", markdownCell(each.Station), markdownCell(each.Status), markdownCell(regressed), markdownCell(candidate), markdownCell(baseline), markdownCell(gain), markdownCell(spent))
 	}
 
 	for _, each := range r.Stations {
-		if each.Message == "" && (each.Check == nil || (len(each.Check.Regressions) == 0 && each.Check.Gain == nil)) {
+		if each.Message == "" && (each.Check == nil || (len(each.Check.Tasks) == 0 && each.Check.Gain == nil)) {
 			continue
 		}
 		fmt.Fprintf(&written, "\n### %s\n\n", markdownCell(each.Station))
@@ -458,9 +469,11 @@ func (r *checkReport) summarise(path string) error {
 		if each.Check != nil && each.Check.Gain != nil {
 			fmt.Fprintf(&written, "%s\n\n", markdownCell(describeGain(*each.Check.Gain, "the baseline")))
 		}
-		if each.Check != nil {
-			for _, regressed := range each.Check.Regressions {
-				fmt.Fprintf(&written, "- **%s**: %s\n", markdownCell(describeTask(regressed)), markdownCell(describeReasons(regressed)))
+		if each.Check != nil && len(each.Check.Tasks) > 0 {
+			written.WriteString("| Task | Live config | Candidate | Regressed |\n")
+			written.WriteString("| --- | --- | --- | --- |\n")
+			for _, task := range each.Check.Tasks {
+				fmt.Fprintf(&written, "| %s | %s | %s | %s |\n", markdownCell(describeTask(task)), markdownCell(describeTaskSide(task.Live)), markdownCell(describeTaskSide(task.Candidate)), regressedMark(task.Regressed))
 			}
 		}
 	}
@@ -530,33 +543,67 @@ func describeSpent(spent *money) string {
 	return formatMoney(*spent)
 }
 
-func describeTask(regressed checkRegression) string {
-	if regressed.Title != nil && *regressed.Title != "" {
-		return fmt.Sprintf("%s %q", regressed.TaskID, *regressed.Title)
+const (
+	maxReason  = 160
+	untitled   = "Untitled task"
+	regressedY = "Yes"
+	regressedN = "No"
+)
+
+func describeTask(task checkTask) string {
+	if task.Title != nil && strings.TrimSpace(*task.Title) != "" {
+		return oneLine(*task.Title, maxReason)
 	}
 
-	return regressed.TaskID
+	return untitled
 }
 
-func describeReasons(regressed checkRegression) string {
-	baseline := "none"
-	if len(regressed.Baseline) > 0 {
-		baseline = strings.Join(regressed.Baseline, "/")
-	}
-
-	reasons := make([]string, 0, len(regressed.Reasons))
-	for _, each := range regressed.Reasons {
-		if each.Detail != nil && *each.Detail != "" {
-			reasons = append(reasons, each.Code+": "+*each.Detail)
-		} else {
-			reasons = append(reasons, each.Code)
+func describeResult(side taskSide) string {
+	switch side.Result {
+	case "succeeded":
+		return "Succeeded"
+	case "failed":
+		return "Failed"
+	case "mixed":
+		if side.SuccessRate != nil {
+			return fmt.Sprintf("Succeeded %.0f%%", *side.SuccessRate*100)
 		}
+		return "Succeeded in part"
+	case "unscored":
+		return "Not scored"
+	case "pending":
+		return "Running"
+	case "absent":
+		return "Not replayed"
+	default:
+		return side.Result
+	}
+}
+
+func describeTaskSide(side taskSide) string {
+	result := describeResult(side)
+	reason := oneLine(side.Reason, maxReason)
+	if reason == "" || reason == result {
+		return result
 	}
 
-	text := fmt.Sprintf("%s where the baseline %s", strings.Join(regressed.Candidate, "/"), baseline)
-	if len(reasons) > 0 {
-		text += ", " + strings.Join(reasons, "; ")
+	return result + ": " + reason
+}
+
+func regressedMark(regressed bool) string {
+	if regressed {
+		return regressedY
 	}
 
-	return text
+	return regressedN
+}
+
+func oneLine(text string, limit int) string {
+	flat := strings.Join(strings.Fields(text), " ")
+	runes := []rune(flat)
+	if len(runes) <= limit {
+		return flat
+	}
+
+	return strings.TrimSpace(string(runes[:limit-1])) + "…"
 }

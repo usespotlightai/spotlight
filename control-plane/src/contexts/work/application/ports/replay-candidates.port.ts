@@ -85,6 +85,7 @@ export interface LiveStation {
   readonly hashes: ConfigHashes;
   readonly replayCheck: ReplayThreshold | null;
   readonly search: StationSearchPolicy | null;
+  readonly agent: StationSearchAgent | null;
 }
 
 export interface ReplayCandidatesPort {

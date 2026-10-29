@@ -34,8 +34,8 @@ const TITLES = new Map<string, string | null>([
 ]);
 
 describe('ReflectionNoticeWording', () => {
-  it('names each fix outside the config by its task’s title, and its suggestion or else its evidence', () => {
-    const wording = ReflectionNoticeWording.of(
+  it('names each task by its title, the cause outside the config, its suggestion or else its evidence, and the fix', () => {
+    const points = ReflectionNoticeWording.pointsOf(
       {
         result: 'no-config-cause',
         endedSearch: true,
@@ -45,64 +45,75 @@ describe('ReflectionNoticeWording', () => {
           cause(2, 'task'),
         ],
       },
-      'Build',
       TITLES,
     );
 
-    expect(wording.headline).toBe(
-      'The search for a better Build config ended with nothing the config can fix',
-    );
-    expect(wording.points).toEqual([
+    expect(points).toEqual([
       'No config change can fix the 2 tasks still failing. The rest of the budget stays unspent.',
-      'Fix the judge’s rubric, for “Drain the queue on restart”: Drop the test requirement.',
-      'Take the task out of the replay set, or reword it, for one of the searched tasks: Evidence 2.',
+      '“Drain the queue on restart”: the cause is the judge. Drop the test requirement. Please fix the rubric of the judge.',
+      'Untitled task: the cause is the task itself. Evidence 2. Spotlight takes the task out of the replay set.',
     ]);
   });
 
-  it('says why the search stopped or that it continued', () => {
-    const headline = (
-      result:
-        | 'continued'
-        | 'no-failures'
-        | 'did-not-run'
-        | 'ceiling-reached'
-        | 'no-config-cause',
-    ) =>
-      ReflectionNoticeWording.of(
-        { result, endedSearch: result !== 'continued', looked: 1, fixes: [] },
-        null,
+  it('lists only the fixes, one for each task, for the advice after a stall', () => {
+    expect(
+      ReflectionNoticeWording.fixesOf(
+        {
+          result: 'no-config-cause',
+          endedSearch: true,
+          looked: 2,
+          fixes: [cause(2, 'check', 'Run the linter on changed files only.')],
+        },
         TITLES,
-      ).headline;
-
-    expect(headline('continued')).toBe(
-      'The search for a better station config goes on after finding failures outside the config',
-    );
-    expect(headline('no-failures')).toBe(
-      'The search for a better station config ended with every searched task passing',
-    );
-    expect(headline('did-not-run')).toBe(
-      'The search for a better station config ended after its reflection failed',
-    );
-    expect(headline('ceiling-reached')).toBe(
-      'The search for a better station config reached its ceiling',
-    );
+      ),
+    ).toEqual([
+      'Untitled task: the cause is the check. Run the linter on changed files only. Please fix the check of the station.',
+    ]);
   });
 
   it('keeps to twenty points, counting the rest', () => {
     const many = Array.from({ length: 25 }, (_, at) => cause(at, 'infra'));
-    const { points } = ReflectionNoticeWording.of(
+    const points = ReflectionNoticeWording.pointsOf(
       {
         result: 'no-config-cause',
         endedSearch: true,
         looked: 25,
         fixes: many,
       },
-      'Build',
       TITLES,
     );
 
     expect(points).toHaveLength(20);
-    expect(points[19]).toBe('The search page shows 7 more.');
+    expect(points[19]).toBe('7 more causes are not shown.');
+  });
+
+  it('counts the causes it leaves out', () => {
+    const points = ReflectionNoticeWording.fixesOf(
+      {
+        result: 'no-config-cause',
+        endedSearch: true,
+        looked: 21,
+        fixes: Array.from({ length: 21 }, (_, at) => cause(at, 'infra')),
+      },
+      TITLES,
+    );
+
+    expect(points[19]).toBe('2 more causes are not shown.');
+  });
+
+  it('clips long evidence and keeps the fix', () => {
+    const [point] = ReflectionNoticeWording.fixesOf(
+      {
+        result: 'no-config-cause',
+        endedSearch: true,
+        looked: 1,
+        fixes: [cause(1, 'judge', 'x'.repeat(3_000))],
+      },
+      TITLES,
+    );
+
+    expect(point?.length).toBeLessThanOrEqual(1_000);
+    expect(point).toMatch(/… {1,2}Please fix the rubric of the judge\.$/);
   });
 
   it('always says what happened first, even with nothing for a person to fix', () => {
@@ -113,9 +124,8 @@ describe('ReflectionNoticeWording', () => {
       'did-not-run',
       'ceiling-reached',
     ] as const) {
-      const { points } = ReflectionNoticeWording.of(
+      const points = ReflectionNoticeWording.pointsOf(
         { result, endedSearch: result !== 'continued', looked: 1, fixes: [] },
-        'Build',
         TITLES,
       );
 
@@ -127,12 +137,8 @@ describe('ReflectionNoticeWording', () => {
 
 describe('UnreflectedStallWording', () => {
   it('says the search stalled with no budget left to look into why', () => {
-    expect(UnreflectedStallWording.of('Build')).toEqual({
-      headline:
-        'The search for a better Build config ended with no budget left to reflect',
-      points: [
-        'Two iterations in a row found nothing better. Please start a new search with more budget to find out why.',
-      ],
-    });
+    expect(UnreflectedStallWording.points).toEqual([
+      'Two iterations in a row found nothing better. No budget was left to find out why.',
+    ]);
   });
 });

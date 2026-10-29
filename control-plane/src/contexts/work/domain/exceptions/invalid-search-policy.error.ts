@@ -8,6 +8,17 @@ export type SearchPolicyField =
   | 'repeats'
   | 'objective';
 
+const TERRAFORM_NAMES: Readonly<Record<SearchPolicyField, string>> = {
+  monthlyCeiling: 'monthly_ceiling',
+  currency: 'currency',
+  ceiling: 'ceiling',
+  period: 'period',
+  cooldown: 'cooldown',
+  iterations: 'iterations',
+  repeats: 'repeats',
+  objective: 'objective',
+};
+
 export class InvalidSearchPolicyError extends Error {
   readonly kind = 'invalid' as const;
 
@@ -15,7 +26,7 @@ export class InvalidSearchPolicyError extends Error {
     readonly field: SearchPolicyField,
     reason: string,
   ) {
-    super(`Search ${field} ${reason}.`);
+    super(`Search ${TERRAFORM_NAMES[field]} ${reason}.`);
     this.name = 'InvalidSearchPolicyError';
   }
 }

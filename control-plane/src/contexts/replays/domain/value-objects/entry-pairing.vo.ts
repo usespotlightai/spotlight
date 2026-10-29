@@ -1,11 +1,11 @@
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-export const PAIR_OUTCOMES = ['win', 'loss', 'tie'] as const;
+const PAIR_OUTCOMES = ['win', 'loss', 'tie'] as const;
 
 export type PairOutcome = (typeof PAIR_OUTCOMES)[number];
 
-export const UNPAIRED_BECAUSE = [
+const UNPAIRED_BECAUSE = [
   'unavailable',
   'unreadable-rubric',
   'no-evidence',

@@ -11,29 +11,9 @@ export const stationPath = (
 export const stationShare = (place: number, count: number): number =>
   count > 1 ? place / (count - 1) : 1;
 
-export const STATION_TABS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'improve', label: 'Improve' },
-] as const;
+export const STATION_TABS = [{ id: 'overview', label: 'Overview' }] as const;
 
 export type StationTab = (typeof STATION_TABS)[number]['id'];
-
-export const stationTab = (tab: string | undefined): StationTab | null =>
-  tab === undefined
-    ? 'overview'
-    : (STATION_TABS.find((each) => each.id === tab)?.id ?? null);
-
-export const stationTabPath = (
-  slug: string,
-  teamId: string,
-  lineId: string,
-  stationId: string,
-  tab: StationTab,
-): string => {
-  const at = stationPath(slug, teamId, lineId, stationId);
-
-  return tab === 'overview' ? at : `${at}/${tab}`;
-};
 
 export const JUDGE_ANCHOR = 'judge';
 

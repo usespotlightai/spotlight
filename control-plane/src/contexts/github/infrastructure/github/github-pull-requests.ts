@@ -1,8 +1,10 @@
 import type {
   OpenedPullRequestDto,
+  PullRequestAt,
   PullRequestEditing,
   PullRequestOpening,
   PullRequestPort,
+  PullRequestStatusDto,
 } from '@github/application/ports/pull-request.port';
 import {
   REPOSITORY_ACCESS,
@@ -28,7 +30,30 @@ const MAX_CHANGED = 3_000;
 
 interface Opened {
   readonly html_url?: string;
+  readonly number?: number;
+  readonly id?: number;
+  readonly state?: string;
+  readonly merged?: boolean;
+  readonly merged_at?: string | null;
+  readonly closed_at?: string | null;
+  readonly base?: { readonly repo?: { readonly full_name?: string } };
 }
+
+const openedOf = (opened: Opened | undefined): OpenedPullRequestDto | null => {
+  const repository = opened?.base?.repo?.full_name;
+
+  return opened?.html_url && opened.number && opened.id && repository
+    ? {
+        url: opened.html_url,
+        number: opened.number,
+        id: opened.id,
+        repository,
+      }
+    : null;
+};
+
+const dateOf = (raw: string | null | undefined): Date | null =>
+  raw ? new Date(raw) : null;
 
 interface ChangedFile {
   readonly filename?: string;
@@ -78,6 +103,46 @@ export class GitHubPullRequests implements PullRequestPort {
         },
       ),
       `GitHub would not edit ${editing.pullRequest.value}`,
+    );
+  }
+
+  async statusOf(at: PullRequestAt): Promise<PullRequestStatusDto> {
+    const found = await answered<Opened>(
+      await call(
+        `${this.at(at.repository)}/pulls/${at.number}`,
+        await this.tokenFor(at.workspaceId),
+      ),
+      `GitHub would not return ${at.repository.value}#${at.number}`,
+    );
+
+    if (found.merged) {
+      return { state: 'merged', closedAt: dateOf(found.merged_at) };
+    }
+
+    return found.state === 'closed'
+      ? { state: 'closed', closedAt: dateOf(found.closed_at) }
+      : { state: 'open', closedAt: null };
+  }
+
+  async close(at: PullRequestAt): Promise<void> {
+    await answered(
+      await call(
+        `${this.at(at.repository)}/pulls/${at.number}`,
+        await this.tokenFor(at.workspaceId),
+        { ...sending({ state: 'closed' }), method: 'PATCH' },
+      ),
+      `GitHub would not close ${at.repository.value}#${at.number}`,
+    );
+  }
+
+  async comment(at: PullRequestAt, body: string): Promise<void> {
+    await answered(
+      await call(
+        `${this.at(at.repository)}/issues/${at.number}/comments`,
+        await this.tokenFor(at.workspaceId),
+        sending({ body }),
+      ),
+      `GitHub would not comment on ${at.repository.value}#${at.number}`,
     );
   }
 
@@ -168,7 +233,7 @@ export class GitHubPullRequests implements PullRequestPort {
       `GitHub would not list the open pull requests for ${opening.branch}`,
     );
 
-    return open[0]?.html_url ? { url: open[0].html_url } : null;
+    return openedOf(open[0]);
   }
 
   private async pullRequest(
@@ -196,19 +261,21 @@ export class GitHubPullRequests implements PullRequestPort {
       return already;
     }
 
-    const opened = await answered<Opened>(
-      response,
-      'GitHub would not open the pull request',
+    const opened = openedOf(
+      await answered<Opened>(
+        response,
+        'GitHub would not open the pull request',
+      ),
     );
 
-    if (!opened.html_url) {
+    if (!opened) {
       throw new UpstreamError(
         'GitHub would not open the pull request',
-        'The answer had no pull request URL',
+        'The answer had no pull request URL, number, id or repository',
       );
     }
 
-    return { url: opened.html_url };
+    return opened;
   }
 
   private async defaultBranch(

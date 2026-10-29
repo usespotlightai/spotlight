@@ -113,6 +113,11 @@ export interface InboxItemDto {
   readonly notes: readonly NoteDto[];
 }
 
+export interface NoticeExternalLinkDto {
+  readonly url: string;
+  readonly label: string;
+}
+
 export interface InboxNoticeDto {
   readonly kind: 'notice';
   readonly id: string;
@@ -122,6 +127,7 @@ export interface InboxNoticeDto {
   readonly points: readonly string[];
   readonly link: string;
   readonly linkLabel: string;
+  readonly externalLink: NoticeExternalLinkDto | null;
   readonly askedAt: string;
   readonly unread: boolean;
   readonly resolved: boolean;

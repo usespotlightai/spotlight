@@ -1,10 +1,3 @@
-import type {
-  GainEstimateResponseDto,
-  RateIntervalResponseDto,
-} from '@/lib/api';
-
-export const MIN_GAIN = 0.05;
-
 export const rounded = (value: number, places = 2): number =>
   Math.round(value * 10 ** places) / 10 ** places;
 
@@ -19,63 +12,6 @@ export const spread = (seed: string, low: number, high: number): number => {
 
 export const rateOf = (count: number, of: number): number | null =>
   of === 0 ? null : count / of;
-
-export const intervalOf = (
-  succeeded: number,
-  scored: number,
-): RateIntervalResponseDto | null => {
-  if (scored === 0) {
-    return null;
-  }
-
-  const z = 1.96;
-  const rate = succeeded / scored;
-  const centre = (rate + (z * z) / (2 * scored)) / (1 + (z * z) / scored);
-  const half =
-    (z / (1 + (z * z) / scored)) *
-    Math.sqrt((rate * (1 - rate)) / scored + (z * z) / (4 * scored * scored));
-
-  return {
-    rate: rounded(rate),
-    low: rounded(Math.max(0, centre - half)),
-    high: rounded(Math.min(1, centre + half)),
-  };
-};
-
-export const gainOf = (
-  candidate: readonly boolean[],
-  baseline: readonly boolean[],
-): GainEstimateResponseDto | null => {
-  const tasks = Math.min(candidate.length, baseline.length);
-
-  if (tasks === 0) {
-    return null;
-  }
-
-  const share = (each: readonly boolean[]) =>
-    each.filter(Boolean).length / each.length;
-  const gain = share(candidate) - share(baseline);
-  const differences = candidate.map(
-    (each, place) => Number(each) - Number(baseline[place]),
-  );
-  const mean = differences.reduce((total, each) => total + each, 0) / tasks;
-  const variance =
-    differences.reduce((total, each) => total + (each - mean) ** 2, 0) /
-    Math.max(1, tasks - 1);
-  const half = Math.max(0.1, 1.28 * Math.sqrt(variance / tasks));
-  const low = Math.max(-1, gain - half);
-  const high = Math.min(1, gain + half);
-
-  return {
-    gain: rounded(gain),
-    low: rounded(low),
-    high: rounded(high),
-    significance:
-      low > MIN_GAIN ? 'better' : high < -MIN_GAIN ? 'worse' : 'within-noise',
-    minGain: MIN_GAIN,
-    tasks,
-  };
-};
 
 export const medianOf = (values: readonly number[]): number | null => {
   if (values.length === 0) {

@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
 import { EmptyDetail } from '@/components/features/insights/EmptyDetail';
-import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TileSparkline } from '@/components/features/insights/TileSparkline';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { ShownDelta, TileDrill } from '@/lib/insights';
 import { cn } from '@/lib/utils';
 

@@ -3,7 +3,7 @@ import {
   MIN_PAIRED_TASKS,
 } from '@replays/domain/services/gain-estimate';
 
-export const OVERFIT_STATUSES = ['likely', 'too-few-held-out'] as const;
+const OVERFIT_STATUSES = ['likely', 'too-few-held-out'] as const;
 
 export type Overfit = (typeof OVERFIT_STATUSES)[number];
 

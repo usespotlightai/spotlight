@@ -1,5 +1,5 @@
 import { TabLinks } from '@/components/shared/TabLinks';
-import { STATION_TABS, type StationTab, stationTabPath } from '@/lib/station';
+import { STATION_TABS, type StationTab, stationPath } from '@/lib/station';
 
 type StationTabsProps = {
   slug: string;
@@ -25,7 +25,7 @@ export function StationTabs({
       tabs={STATION_TABS.map((tab) => ({
         id: tab.id,
         label: tab.label,
-        to: stationTabPath(slug, teamId, lineId, stationId, tab.id),
+        to: stationPath(slug, teamId, lineId, stationId),
       }))}
     />
   );

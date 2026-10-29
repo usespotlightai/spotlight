@@ -18,6 +18,16 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
+import { healthView } from '@replays/application/services/replay-views';
+import { SetHealths } from '@replays/application/services/set-healths.service';
+import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
+import { DrizzleSearchRepository } from '@replays/infrastructure/persistence/drizzle/repositories/search.repository';
+import {
+  TRANSACTION,
+  type TransactionPort,
+} from '@shared-kernel/application/ports/transaction.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -37,9 +47,11 @@ import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledg
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { autoSearched, openApp, served, TEST_USER_HEADER } from './support/app';
+import { searchStarted } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
+import { replayOf } from './support/replays';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -150,16 +162,6 @@ let team: Awaited<ReturnType<typeof createTeam>>;
 
 const http = () => served(app);
 
-const owner = () => ({
-  get: (path: string) =>
-    http().get(path).set(TEST_USER_HEADER, team.owner.value),
-  post: (path: string, body?: object) =>
-    http()
-      .post(path)
-      .set(TEST_USER_HEADER, team.owner.value)
-      .send(body ?? {}),
-});
-
 const bearing = (token: string) => ({
   post: (path: string, body?: object) =>
     http()
@@ -167,9 +169,6 @@ const bearing = (token: string) => ({
       .set('Authorization', `Bearer ${token}`)
       .send(body ?? {}),
 });
-
-const teamPath = () => `/api/teams/${team.teamId.value}`;
-const stationPath = () => `${teamPath()}/lines/${DELIVERY}/stations/${BUILD}`;
 
 const sent = (update: Record<string, unknown>): string =>
   Buffer.from(JSON.stringify({ sessionId: 'session_1', update })).toString(
@@ -530,6 +529,7 @@ const scoredAll = (entries: Awaited<ReturnType<typeof entriesOf>>) =>
 
 interface SetRead {
   id: string;
+  searchSchedule: { lastSkip: { reason: string } | null } | null;
   health: {
     noise: { repeats: number; spread: number } | null;
     saturation: { rate: number; saturated: boolean } | null;
@@ -566,16 +566,33 @@ interface SetRead {
 }
 
 const setOf = async (setId: string): Promise<SetRead> => {
-  const sets = [
-    (await owner().get(`${stationPath()}/replay-set`).expect(200)).body,
-  ] as SetRead[];
-  const found = sets.find((each) => each.id === setId);
+  const set = await app
+    .get(DrizzleReplaySetRepository)
+    .find(ReplaySetId.of(setId));
 
-  if (!found) {
+  if (!set) {
     throw new Error(`no set ${setId}`);
   }
 
-  return found;
+  const healths = app.get(SetHealths);
+  const [schedule] = await db
+    .select()
+    .from(schema.stationSearchSchedule)
+    .where(eq(schema.stationSearchSchedule.stationId, set.station.stationId));
+
+  return {
+    id: setId,
+    health: healthView(
+      await healths.ofSet(set, await healths.standardAt(set.station)),
+    ),
+    searchSchedule: schedule
+      ? {
+          lastSkip: schedule.lastSkipReason
+            ? { reason: schedule.lastSkipReason }
+            : null,
+        }
+      : null,
+  } as SetRead;
 };
 
 let originals: Original[];
@@ -702,66 +719,87 @@ afterAll(async () => {
   await app?.close();
 });
 
+const turnedOff = (id: string): Promise<void> =>
+  app.get<TransactionPort>(TRANSACTION).inTransaction(async () => {
+    const searches = app.get(DrizzleSearchRepository);
+    const search = await searches.locked(SearchId.of(id));
+
+    if (search) {
+      await searches.save(search.turnOff(new Date()));
+    }
+  });
+
+const searchSkipped = async (): Promise<string | null> => {
+  const replays = await db.select({ id: schema.replay.id }).from(schema.replay);
+  const searches = await db.select().from(schema.replaySearch);
+
+  await db
+    .update(schema.stationSearchSchedule)
+    .set({ checkAfter: new Date(0), lastStartedAt: null })
+    .where(eq(schema.stationSearchSchedule.stationId, BUILD));
+  await autoSearched(app);
+
+  const [schedule] = await db
+    .select()
+    .from(schema.stationSearchSchedule)
+    .where(eq(schema.stationSearchSchedule.stationId, BUILD));
+
+  expect(await db.select().from(schema.replaySearch)).toEqual(searches);
+  expect(
+    await db.select({ id: schema.replay.id }).from(schema.replay),
+  ).toHaveLength(replays.length);
+
+  return schedule?.lastSkipReason ?? null;
+};
+
 describe('checking a replay set’s health', () => {
-  it('checks a set with its first baseline: replays the live config three times, judges and checks every change a second time, and says how often each agreed with itself', async () => {
-    const started = (
-      await owner()
-        .post(`${teamPath()}/replay-sets/${setId}/replays`, {
-          candidate: 'live',
-          ceiling: { amount: 20, currency: 'USD' },
-        })
-        .expect(201)
-    ).body as {
-      id: string;
-      ceiling: { amount: number };
-      baseline: { id: string; status: string } | null;
-    };
-
-    calibrationId = started.id;
-    expect(started.ceiling.amount).toBe(60);
-    expect(started.baseline).toMatchObject({
-      id: calibrationId,
-      status: 'started',
+  it('checks a set with the seed of its first automatic search: replays the live config three times, judges and checks every change a second time, and says how often each agreed with itself', async () => {
+    const station = { app, db, lineId: DELIVERY, stationId: BUILD };
+    const search = await searchStarted(station, {
+      iterations: 1,
+      ceiling: 300,
     });
+    const [row] = await db
+      .select()
+      .from(schema.replaySearch)
+      .where(eq(schema.replaySearch.id, search.id));
 
+    calibrationId = search.seedReplayId;
+    expect(row?.calibrates).toBe(true);
+    expect((await replayOf(app, calibrationId)).searchId?.value).toBe(
+      search.id,
+    );
+
+    await workUntil([calibrationId], scoredAll, () => 5);
+    await eventually(async () => {
+      await processed();
+      return (await replayOf(app, calibrationId)).current === 'finished';
+    }, 30_000);
+    await turnedOff(search.id);
     await workUntil([calibrationId], recalibrated, () => 5);
 
     const runs = (await entriesOf([calibrationId])).flatMap((each) =>
       each.runId ? [each.runId] : [],
     );
 
-    const detail = (
-      await owner().get(`${teamPath()}/replays/${calibrationId}`).expect(200)
-    ).body as {
-      calibration: boolean;
-      repeats: number;
-      state: string;
-      entries: {
-        runId: string;
-        judge: { score: number };
-        secondJudge: { score: number } | null;
-        recheck: { state: string } | null;
-        result: string;
-      }[];
-    };
+    const calibration = await replayOf(app, calibrationId);
 
-    expect(detail).toMatchObject({
-      calibration: true,
-      repeats: 3,
-      state: 'finished',
-    });
+    expect(calibration.calibration).toBe(true);
+    expect(calibration.repeats).toBe(3);
+    expect(calibration.current).toBe('finished');
     expect(
-      detail.entries.filter(
-        (each) => each.secondJudge?.score !== each.judge.score,
+      calibration.entries.filter(
+        (each) =>
+          each.secondJudging?.verdict?.value !== each.judging?.verdict?.value,
       ),
     ).toHaveLength(4);
-    expect(detail.entries.every((each) => each.result === 'succeeded')).toBe(
+    expect(calibration.entries.every((each) => each.succeeded === true)).toBe(
       true,
     );
 
-    const flipped = detail.entries.filter(
-      (each) => each.recheck?.state === 'failed',
-    );
+    const flipped = calibration.entries
+      .filter((each) => each.recheck?.state === 'failed')
+      .map((each) => ({ runId: each.run?.value }));
 
     expect(flipped).toHaveLength(1);
     expect(runs).toHaveLength(15);
@@ -805,25 +843,7 @@ describe('checking a replay set’s health', () => {
       ).filter((each) => each.recheck),
     ).toHaveLength(15);
 
-    const estimate = (
-      await owner()
-        .post(`${stationPath()}/searches/estimate`, {
-          setId,
-          budget: {
-            iterations: 1,
-            perIteration: 1,
-            ceiling: { amount: 10, currency: 'USD' },
-          },
-        })
-        .expect(200)
-    ).body as { objective: string; warnings: { kind: string }[] };
-
-    expect(estimate.objective).toBe('cost');
-    expect(estimate.warnings.map((each) => each.kind)).toEqual([
-      'saturated',
-      'judge-unstable',
-      'flaky-checks',
-    ]);
+    expect(await searchSkipped()).toBe('judge-unstable');
   }, 180_000);
 
   it('replays the live config handed each run’s answer once a replay of the whole set finishes, and says how much room the set leaves', async () => {
@@ -866,19 +886,9 @@ describe('checking a replay set’s health', () => {
     expect(candidate?.kind).toBe('oracle');
     expect(candidate?.station.model).toBe('sonnet');
 
-    const estimate = (
-      await owner()
-        .post(`${stationPath()}/searches/estimate`, {
-          setId,
-          budget: {
-            iterations: 1,
-            perIteration: 1,
-            ceiling: { amount: 10, currency: 'USD' },
-          },
-        })
-        .expect(200)
-    ).body as { warnings: { kind: string }[] };
-
-    expect(estimate.warnings.map((each) => each.kind)).toContain('no-headroom');
+    expect(await searchSkipped()).toBe('judge-unstable');
+    expect((await setOf(setId)).searchSchedule?.lastSkip?.reason).toBe(
+      'judge-unstable',
+    );
   }, 180_000);
 });

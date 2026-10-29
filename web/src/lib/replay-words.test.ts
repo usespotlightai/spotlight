@@ -1,43 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { EntryReasonResponseDto } from '@/lib/api';
 import {
-  checksSetOf,
-  formatBalanceWarning,
-  formatBaselineNote,
-  formatChecks,
-  formatEndedSpan,
-  formatFailure,
-  formatFlipped,
   formatGain,
-  formatGainRange,
-  formatInterval,
-  formatMinGain,
-  formatOrigin,
-  formatPair,
-  formatPairTally,
-  formatPerRepeat,
-  formatReason,
-  formatRepeats,
-  formatRepeatsSucceeded,
-  formatReplayable,
-  formatRunOutcome,
-  formatRunState,
-  formatSpendNote,
   formatState,
-  formatUncompared,
-  formatUnpricedCalls,
-  formatUnpricedRuns,
-  formatUnreplayableReason,
   healthReadingsOf,
-  healthReplayOf,
   type SetHealth,
   stateNote,
 } from '@/lib/replay-words';
-
-const reason = (
-  code: EntryReasonResponseDto['code'],
-  detail: string | null = null,
-): EntryReasonResponseDto => ({ code, detail, steps: [], hunks: [] });
 
 const NEVER_READ: SetHealth = {
   noise: null,
@@ -48,37 +16,6 @@ const NEVER_READ: SetHealth = {
 };
 
 describe('replay words', () => {
-  it('names which change the blind judge found closer to the accepted one', () => {
-    expect(formatPair('win', 'the baseline')).toBe('This one');
-    expect(formatPair('loss', 'the baseline')).toBe('The baseline');
-    expect(formatPair('tie', 'the live config')).toBe('Neither');
-    expect(formatPair(null, 'the baseline')).toBe('–');
-    expect(formatPairTally({ wins: 2, losses: 1, ties: 1 })).toBe(
-      '2 wins, 1 loss, 1 tie',
-    );
-  });
-
-  it('counts what nobody priced in runs and model calls', () => {
-    expect(formatUnpricedRuns(1)).toBe('1 run');
-    expect(formatUnpricedRuns(2)).toBe('2 runs');
-    expect(formatUnpricedCalls(1)).toBe('1 model call');
-    expect(formatUnpricedCalls(3)).toBe('3 model calls');
-  });
-
-  it('says why a run cannot be replayed in plain words', () => {
-    expect(formatUnreplayableReason('archive-gone')).toBe(
-      'Starting workspace is no longer stored',
-    );
-    expect(formatUnreplayableReason('unchecked')).toBe(
-      'Couldn’t be checked just now',
-    );
-  });
-
-  it('says a run with no unreplayable reason can be replayed', () => {
-    expect(formatReplayable(null)).toBe('Can be replayed');
-    expect(formatReplayable('task-gone')).toBe('Task was deleted');
-  });
-
   it('names a reached ceiling as such, and says what it means', () => {
     expect(formatState('ceiling-reached')).toBe('Ceiling reached');
     expect(stateNote('ceiling-reached')).toBe(
@@ -87,76 +24,10 @@ describe('replay words', () => {
     expect(stateNote('finished')).toBeNull();
   });
 
-  it('turns an unreplayable reason named as a reason’s detail into words', () => {
-    expect(formatReason(reason('unreplayable', 'task-gone'))).toBe(
-      'Couldn’t be replayed or started: task was deleted',
-    );
-  });
-
-  it('turns a run failure code into words, and keeps a sentence it does not know', () => {
-    expect(formatReason(reason('run-failed', 'runner-lost'))).toBe(
-      'Run failed: runner lost (not scored)',
-    );
-    expect(formatFailure('The agent stopped answering')).toBe(
-      'The agent stopped answering',
-    );
-  });
-
-  it('says why checks were skipped, and where they failed', () => {
-    expect(formatReason(reason('check-skipped', 'out-of-time'))).toBe(
-      'Checks couldn’t run: checks ran out of time',
-    );
-    expect(
-      formatChecks({ state: 'failed', failedAt: ['npm test'], why: null }),
-    ).toBe('Checks failed at npm test');
-    expect(
-      formatChecks({ state: 'unchecked', failedAt: [], why: 'not-generated' }),
-    ).toBe('Unchecked: change not generated');
-  });
-
-  it('says why the judge could not judge', () => {
-    expect(formatReason(reason('unjudged', 'ungrounded'))).toBe(
-      'Judge couldn’t judge it: judge cited nothing the run did',
-    );
-  });
-
-  it('keeps what the judge said as it was said', () => {
-    expect(formatReason(reason('judged', 'Drained the queue.'))).toBe(
-      'Judge passed it: Drained the queue.',
-    );
-    expect(formatReason(reason('nothing-judges'))).toBe(
-      'No checks or judge score this station',
-    );
-  });
-
-  it('says why two scores could not be compared', () => {
-    expect(formatUncompared('other-rubric')).toBe(
-      'Judged by different rubrics',
-    );
-  });
-
-  it('names run states it knows, and capitalises those it does not', () => {
-    expect(formatRunState('claimed')).toBe('In progress');
-    expect(formatRunState('rewound')).toBe('Rewound');
-  });
-
-  it('shows a likely range and a gain in points', () => {
-    expect(formatInterval({ low: 0.48, high: 0.75 })).toBe('48–75%');
+  it('shows a gain in points', () => {
     expect(formatGain({ gain: 0.12 })).toBe('+12 pts');
     expect(formatGain({ gain: -0.031 })).toBe('−3 pts');
     expect(formatGain({ gain: 0 })).toBe('0 pts');
-    expect(formatGainRange({ low: -0.08, high: 0.15 })).toBe('−8 to +15');
-    expect(formatMinGain(0.05)).toBe('+5 pts');
-  });
-
-  it('counts repeats and the tasks that went both ways', () => {
-    expect(formatRepeatsSucceeded(2, 3)).toBe('2 of 3 repeats succeeded');
-    expect(formatRepeatsSucceeded(0, 0)).toBe('No repeat scored yet');
-    expect(formatRepeats(1)).toBe('Each run once');
-    expect(formatRepeats(3)).toBe('Each run 3 times');
-    expect(formatFlipped(0)).toBe('No task went both ways');
-    expect(formatFlipped(2)).toBe('2 tasks went both ways');
-    expect(formatPerRepeat([0.5, 0.625])).toBe('50%, 63%');
   });
 
   it('says plainly that a set’s health was never read, and how to read it', () => {
@@ -317,104 +188,5 @@ describe('replay words', () => {
       'Couldn’t measure with the answer',
     );
     expect(roomOf({ referenceState: 'gone' })?.tone).toBe('unknown');
-    expect(healthReplayOf({ ...NEVER_READ, oracle }, 'saturation')).toBe('o');
-  });
-
-  it('names how a run turned out and where its task came from', () => {
-    expect(formatRunOutcome('sent-back')).toBe('Sent back');
-    expect(formatRunOutcome('asked')).toBe('Asked a person');
-    expect(formatOrigin('person')).toBe('A person');
-    expect(formatOrigin('station')).toBe('Another station');
-    expect(formatOrigin('github')).toBe('GitHub');
-    expect(formatOrigin('slack')).toBe('Slack');
-    expect(formatOrigin('acme')).toBe('Acme');
-  });
-
-  it('warns plainly when one outcome crowds a set', () => {
-    expect(
-      formatBalanceWarning({ dominant: 'failed', count: 7, entries: 8 }),
-    ).toBe(
-      '7 of 8 runs failed. Spotlight adds runs that turned out other ways when the station has them.',
-    );
-  });
-
-  it('says when a set’s runs ended, and nothing while none has', () => {
-    const empty = {
-      outcomes: [],
-      origins: [],
-      oldest: null,
-      median: null,
-      newest: null,
-      balanceWarning: null,
-    };
-    const at = new Date(Date.now() - 30 * 60_000).toISOString();
-
-    expect(formatEndedSpan(empty)).toBeNull();
-    expect(
-      formatEndedSpan({ ...empty, oldest: at, median: at, newest: at }),
-    ).toBe('Ended 30m ago');
-    expect(
-      formatEndedSpan({
-        ...empty,
-        oldest: new Date(Date.now() - 3 * 3_600_000).toISOString(),
-        median: new Date(Date.now() - 2 * 3_600_000).toISOString(),
-        newest: at,
-      }),
-    ).toBe('Ended between 3h ago and 30m ago · Median: 2h ago');
-  });
-
-  it('says when the first baseline also checks the set, and only for a set of 5 or more runs', () => {
-    expect(formatBaselineNote(false, null, 1, true)).toBe(
-      'The set has no baseline yet. This replay of the live config becomes the baseline. The first baseline calibrates the set. It replays each run 3 times with 3 times the ceiling. It judges and checks each change twice.',
-    );
-    expect(formatBaselineNote(false, null, 1)).not.toMatch(/checks the set/);
-    expect(
-      checksSetOf({ entries: [1, 2, 3, 4, 5], health: { noise: null } }),
-    ).toBe(true);
-    expect(checksSetOf({ entries: [1, 2], health: { noise: null } })).toBe(
-      false,
-    );
-    expect(
-      checksSetOf({ entries: [1, 2, 3, 4, 5], health: { noise: {} } }),
-    ).toBe(false);
-  });
-});
-
-describe('formatSpendNote', () => {
-  const parts = {
-    runs: '$2.75',
-    generation: '$0.12',
-    judging: '$0.18',
-    pairing: null,
-    elsewhere: [],
-    unpricedRuns: 0,
-    unpricedCalls: 0,
-    over: false,
-  };
-
-  it('says what the spend went on, and nothing more when everything was priced in the ceiling’s currency', () => {
-    expect(formatSpendNote(parts)).toBe(
-      'Runs $2.75 · Generation $0.12 · Judging $0.18.',
-    );
-  });
-
-  it('counts side-by-side judging against the ceiling, not in cost per run', () => {
-    expect(formatSpendNote({ ...parts, pairing: '$0.24' })).toBe(
-      'Runs $2.75 · Generation $0.12 · Judging $0.18 · Side by side $0.24. Side-by-side judging counts against the ceiling. It doesn’t add to cost per run.',
-    );
-  });
-
-  it('names spend in other currencies, what nobody priced, and why runs went over the ceiling', () => {
-    expect(
-      formatSpendNote({
-        ...parts,
-        elsewhere: ['€1.00'],
-        unpricedRuns: 2,
-        unpricedCalls: 1,
-        over: true,
-      }),
-    ).toBe(
-      'Runs $2.75 · Generation $0.12 · Judging $0.18. Runs that are in progress at the ceiling still finish. A replay can end slightly over its ceiling. Also spent €1.00. These amounts are in another currency. They don’t count against the ceiling. Not priced: 2 runs · 1 model call.',
-    );
   });
 });

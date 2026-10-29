@@ -2,8 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { RepositoryUnreachableError } from '@github/application/errors/repository-unreachable.error';
 import {
   PULL_REQUESTS,
+  type PullRequestAt,
   type PullRequestOpening,
   type PullRequestPort,
+  type PullRequestStatusDto,
 } from '@github/application/ports/pull-request.port';
 import {
   REPOSITORY_CONTENTS,
@@ -20,6 +22,12 @@ import { AdvanceSearches } from '@replays/application/services/advance-searches.
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { DrizzleSearchRepository } from '@replays/infrastructure/persistence/drizzle/repositories/search.repository';
+import {
+  TRANSACTION,
+  type TransactionPort,
+} from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import {
@@ -37,12 +45,18 @@ import {
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, expect } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './app';
+import {
+  type SearchedStation,
+  type SearchPolicyTerms,
+  searchStarted,
+} from './auto-searches';
 import { eventually } from './eventually';
 import { keptSet } from './kept-sets';
 import * as schema from './schema';
+import { searchReadOf } from './search-read';
 import { createTeam } from './team';
 
 const HOST = `host-search-flow-${randomUUID().slice(0, 8)}`;
@@ -132,7 +146,14 @@ export const github = {
   files: new Map<string, string>(),
   commits: [] as RepositoryCommit[],
   opened: [] as PullRequestOpening[],
+  closed: [] as PullRequestAt[],
+  comments: [] as { number: number; body: string }[],
+  statuses: new Map<number, PullRequestStatusDto>(),
+  failing: null as Error | null,
+  commentFailing: null as Error | null,
 };
+
+export const GITHUB_ID_BASE = 1_000;
 
 const repositoryContents: RepositoryContentsPort = {
   fileAt: async (_workspace, repository, path) => {
@@ -171,11 +192,38 @@ const pullRequests: PullRequestPort = {
       github.opened.push(opening);
     }
 
+    const number = at < 0 ? github.opened.length : at + 1;
+
     return {
-      url: `https://github.com/${CONFIG}/pull/${at < 0 ? github.opened.length : at + 1}`,
+      url: `https://github.com/${CONFIG}/pull/${number}`,
+      number,
+      id: GITHUB_ID_BASE + number,
+      repository: CONFIG,
     };
   },
   edit: async () => {},
+  statusOf: async (at) => {
+    if (github.failing) {
+      throw github.failing;
+    }
+
+    return github.statuses.get(at.number) ?? { state: 'open', closedAt: null };
+  },
+  close: async (at) => {
+    if (github.failing) {
+      throw github.failing;
+    }
+
+    github.closed.push(at);
+    github.statuses.set(at.number, { state: 'closed', closedAt: new Date() });
+  },
+  comment: async (at, body) => {
+    if (github.commentFailing) {
+      throw github.commentFailing;
+    }
+
+    github.comments.push({ number: at.number, body });
+  },
   changedOn: async () => [],
   changedIn: async () => [],
 };
@@ -316,76 +364,20 @@ export const setRunsOf = async (setId: string): Promise<string[]> =>
       .where(eq(schema.replaySetEntry.setId, setId))
   ).map((each) => each.runId);
 
-interface Budget {
-  readonly iterations: number;
-  readonly perIteration: number;
-  readonly ceiling: number;
-  readonly concurrency?: number;
-}
-
-export const budgetOf = (budget: Budget) => ({
-  iterations: budget.iterations,
-  perIteration: budget.perIteration,
-  ceiling: { amount: budget.ceiling, currency: 'USD' },
-  concurrency: budget.concurrency ?? 10,
+export const searchedAt = (stationId = BUILD): SearchedStation => ({
+  app,
+  db,
+  lineId: DELIVERY,
+  stationId,
 });
 
-export const startSearch = async (
-  setId: string,
-  budget: Budget,
+export const startSearch = (
+  terms: SearchPolicyTerms,
   stationId = BUILD,
 ): Promise<{ id: string; seedReplayId: string }> =>
-  (
-    await owner()
-      .post(`${stationPath(stationId)}/searches`, {
-        setId,
-        agent: { harness: 'claude-code', model: null, effort: 'high' },
-        budget: budgetOf(budget),
-      })
-      .expect(201)
-  ).body as { id: string; seedReplayId: string };
+  searchStarted(searchedAt(stationId), terms);
 
-export interface SearchRead {
-  state: string;
-  stopReason: string | null;
-  spent: { amount: number };
-  split: {
-    searched: { runId: string; taskId: string }[];
-    heldOut: { runId: string; taskId: string }[];
-  };
-  iterations: {
-    number: number;
-    kind: 'propose' | 'reflect';
-    runId: string;
-    state: string;
-    reflection: {
-      tasks: { taskId: string; originalRunId: string; replayRunId: string }[];
-      causes: {
-        taskId: string;
-        cause: string;
-        replayRunId: string;
-      }[];
-      result: string | null;
-      endedSearch: boolean;
-    } | null;
-  }[];
-  seed: { candidateId: string; heldOutScore: number | null };
-  candidates: {
-    candidateId: string;
-    name: string;
-    replayId: string;
-    heldOutReplayId: string | null;
-    searchScore: number | null;
-    heldOutScore: number | null;
-    onFrontier: boolean;
-    overfit: 'likely' | 'too-few-held-out' | null;
-  }[];
-  frontier: string[];
-  best: {
-    name: string;
-    overfit: 'likely' | 'too-few-held-out' | null;
-  } | null;
-}
+export type SearchRead = Awaited<ReturnType<typeof searchReadOf>>;
 
 export type InboxEntry =
   | { kind: 'task'; id: string }
@@ -398,13 +390,52 @@ export type InboxEntry =
       points: string[];
       link: string;
       linkLabel: string;
+      externalLink: { url: string; label: string } | null;
+      askedAt: string;
       unread: boolean;
       resolved: boolean;
     };
 
-export const searchOf = async (id: string): Promise<SearchRead> =>
-  (await owner().get(`${teamPath()}/searches/${id}`).expect(200))
-    .body as SearchRead;
+export const teamNotices = async (): Promise<
+  Extract<InboxEntry, { kind: 'notice' }>[]
+> =>
+  (
+    (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200))
+      .body as InboxEntry[]
+  ).filter(
+    (each): each is Extract<InboxEntry, { kind: 'notice' }> =>
+      each.kind === 'notice',
+  );
+
+export const ADVISE_ON_STALL =
+  'replays.advise-on-search-stalled-outside-config';
+
+export const noticesSince = async (at: Date) =>
+  (await teamNotices()).filter(
+    (each) => Date.parse(each.askedAt) >= at.getTime(),
+  );
+
+export const subscriberDone = async (subscriber: string): Promise<boolean> => {
+  const rows = await db
+    .select()
+    .from(schema.eventDelivery)
+    .where(eq(schema.eventDelivery.subscriber, subscriber));
+
+  return rows.length > 0 && rows.every((each) => each.deliveredAt !== null);
+};
+
+export const searchOf = (id: string): Promise<SearchRead> =>
+  searchReadOf(app, id);
+
+export const turnedOff = (id: string): Promise<void> =>
+  app.get<TransactionPort>(TRANSACTION).inTransaction(async () => {
+    const searches = app.get(DrizzleSearchRepository);
+    const search = await searches.locked(SearchId.of(id));
+
+    if (search) {
+      await searches.save(search.turnOff(new Date()));
+    }
+  });
 
 export const searchRow = async (id: string) => {
   const [row] = await db
@@ -537,15 +568,57 @@ export const entryOf = async (runId: string) => {
   return entry;
 };
 
-type Plan = (replayId: string) => { score: number; cost: number };
+type Plan = (
+  replayId: string,
+  repeat: number,
+) => { score: number; cost: number };
+
+const SETTLE_CHECKS = 50;
+
+const SETTLE_PAUSE_MS = 200;
+
+const inFlightReplayRuns = async () =>
+  db
+    .select({ runId: schema.replayEntry.runId })
+    .from(schema.replayEntry)
+    .innerJoin(schema.replay, eq(schema.replay.id, schema.replayEntry.replayId))
+    .where(
+      and(
+        eq(schema.replay.workspaceId, team.workspaceId.value),
+        isNotNull(schema.replayEntry.runId),
+        isNull(schema.replayEntry.succeeded),
+        eq(schema.replayEntry.notRun, false),
+        inArray(schema.replay.state, ['queued', 'running']),
+      ),
+    );
+
+const settled = async (): Promise<boolean> => {
+  for (let check = 0; check < SETTLE_CHECKS; check += 1) {
+    await judged();
+    await app.get(DispatchReplayRuns).processDue();
+
+    if ((await queuedReplayRuns()).length > 0) {
+      return false;
+    }
+    if ((await inFlightReplayRuns()).length === 0) {
+      return true;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, SETTLE_PAUSE_MS));
+  }
+
+  return true;
+};
 
 export const drained = async (plan: Plan): Promise<void> => {
   for (let turn = 0; turn < 200; turn += 1) {
     await app.get(DispatchReplayRuns).processDue();
 
     if ((await queuedReplayRuns()).length === 0) {
-      await judged();
-      return;
+      if (await settled()) {
+        return;
+      }
+      continue;
     }
 
     const assignment = await claimed();
@@ -560,7 +633,7 @@ export const drained = async (plan: Plan): Promise<void> => {
       throw new Error(`claimed ${assignment.runId}, which is no replay run`);
     }
 
-    const { score, cost } = plan(entry.replayId);
+    const { score, cost } = plan(entry.replayId, entry.repeat);
 
     await finished(assignment, score, cost);
     await judged();
@@ -604,6 +677,7 @@ export const leasedSearchRun = async (
 export const endedSearchRun = async (
   { token, runId }: Claimed,
   failed = false,
+  cost = 0.05,
 ) => {
   await bearing(token)
     .post(`/api/runs/${runId}/events`, {
@@ -616,7 +690,7 @@ export const endedSearchRun = async (
             sessionUpdate: 'usage_update',
             used: 1_000,
             size: 200_000,
-            cost: { amount: 0.05, currency: 'USD' },
+            cost: { amount: cost, currency: 'USD' },
           }),
         },
       ],
@@ -681,21 +755,6 @@ export const delivered = async (event: DomainEvent): Promise<void> => {
   }
 };
 
-export const tokenWith = async (scopes: readonly string[]): Promise<string> => {
-  const issued = await http()
-    .post(`/api/resources/workspaces/${team.workspaceId.value}/tokens`)
-    .set(TEST_USER_HEADER, team.owner.value)
-    .set('Idempotency-Key', randomUUID())
-    .send({
-      name: `searches-${scopes.join('-')}-${randomUUID().slice(0, 8)}`,
-      scopes,
-    });
-
-  expect(issued.status).toBe(201);
-
-  return issued.headers['spotlight-workspace-token'] as string;
-};
-
 export let tenTasks: Original[];
 export let fiveTasks: Original[];
 
@@ -704,6 +763,11 @@ export const openSearchFlow = (): void => {
     github.files.clear();
     github.commits.length = 0;
     github.opened.length = 0;
+    github.closed.length = 0;
+    github.comments.length = 0;
+    github.statuses.clear();
+    github.failing = null;
+    github.commentFailing = null;
     app = await openApp((module) =>
       module
         .overrideProvider(WORKSPACE_ARCHIVE_STORE)

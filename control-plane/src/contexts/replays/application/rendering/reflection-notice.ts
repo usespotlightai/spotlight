@@ -9,28 +9,27 @@ const MAX_POINTS = 20;
 
 const MAX_POINT = 1_000;
 
+const MAX_TITLE = 120;
+
 export interface NoticeWords {
   readonly headline: string;
   readonly points: readonly string[];
 }
 
-const FIXES: Readonly<Record<Exclude<FailureCauseKind, 'config'>, string>> = {
-  task: 'Take the task out of the replay set, or reword it',
-  judge: 'Fix the judge’s rubric',
-  check: 'Fix the station’s check',
-  infra: 'Fix what the run needed around the work',
+type OutsideConfig = Exclude<FailureCauseKind, 'config'>;
+
+const CAUSES: Readonly<Record<OutsideConfig, string>> = {
+  task: 'the task itself',
+  judge: 'the judge',
+  check: 'the check',
+  infra: 'what the run needed around the work',
 };
 
-const HEADLINES: Readonly<
-  Record<ReflectionResult, (search: string) => string>
-> = {
-  continued: (search) =>
-    `${search} goes on after finding failures outside the config`,
-  'no-config-cause': (search) =>
-    `${search} ended with nothing the config can fix`,
-  'no-failures': (search) => `${search} ended with every searched task passing`,
-  'did-not-run': (search) => `${search} ended after its reflection failed`,
-  'ceiling-reached': (search) => `${search} reached its ceiling`,
+const FIXES: Readonly<Record<OutsideConfig, string>> = {
+  task: 'Spotlight takes the task out of the replay set.',
+  judge: 'Please fix the rubric of the judge.',
+  check: 'Please fix the check of the station.',
+  infra: 'Please fix the setup that the run needs.',
 };
 
 const tasksCounted = (count: number): string =>
@@ -45,61 +44,57 @@ const HAPPENINGS: Readonly<
     `No config change can fix the ${tasksCounted(looked)} still failing. The rest of the budget stays unspent.`,
   'no-failures': () =>
     'Two iterations in a row found nothing better. The best config already passes every searched task.',
-  'did-not-run': () =>
-    'The reflection run failed before recording any cause. The search page links to that run.',
+  'did-not-run': () => 'The reflection run failed before it recorded a cause.',
   'ceiling-reached': (looked) =>
     `A config change could fix some of the ${tasksCounted(looked)} still failing. No budget was left to try one.`,
 };
 
-const clipped = (text: string): string =>
-  text.length > MAX_POINT ? `${text.slice(0, MAX_POINT - 1)}…` : text;
+const clipped = (text: string, max: number): string =>
+  text.length > max ? `${text.slice(0, Math.max(max - 1, 0))}…` : text;
 
-const UNTITLED = 'one of the searched tasks';
-
-const searchFor = (stationName: string | null): string =>
-  `The search for ${stationName ? `a better ${stationName} config` : 'a better station config'}`;
+const UNTITLED = 'Untitled task';
 
 const pointOf =
   (titles: ReadonlyMap<string, string | null>) =>
   (cause: FailureCause): string => {
     const title = titles.get(cause.originalRunId.value)?.trim();
+    const kind = cause.cause as OutsideConfig;
+    const lead = `${title ? `“${clipped(title, MAX_TITLE)}”` : UNTITLED}: the cause is ${CAUSES[kind]}.`;
+    const fix = FIXES[kind];
+    const room = MAX_POINT - lead.length - fix.length - 2;
 
-    return clipped(
-      `${FIXES[cause.cause as Exclude<FailureCauseKind, 'config'>]}, for ${title ? `“${title}”` : UNTITLED}: ${cause.suggestion ?? cause.evidence}`,
-    );
+    return `${lead} ${clipped(cause.suggestion ?? cause.evidence, room)} ${fix}`;
   };
 
 const cappedAtMax = (points: readonly string[]): readonly string[] =>
   points.length > MAX_POINTS
     ? [
         ...points.slice(0, MAX_POINTS - 1),
-        `The search page shows ${points.length - MAX_POINTS + 1} more.`,
+        `${points.length - MAX_POINTS + 1} more causes are not shown.`,
       ]
     : points;
 
 export const ReflectionNoticeWording = {
-  of(
+  pointsOf(
     notice: ReflectionNotice,
-    stationName: string | null,
     titles: ReadonlyMap<string, string | null>,
-  ): NoticeWords {
-    return {
-      headline: HEADLINES[notice.result](searchFor(stationName)),
-      points: cappedAtMax([
-        HAPPENINGS[notice.result](notice.looked),
-        ...notice.fixes.map(pointOf(titles)),
-      ]),
-    };
+  ): readonly string[] {
+    return cappedAtMax([
+      HAPPENINGS[notice.result](notice.looked),
+      ...notice.fixes.map(pointOf(titles)),
+    ]);
+  },
+
+  fixesOf(
+    notice: ReflectionNotice,
+    titles: ReadonlyMap<string, string | null>,
+  ): readonly string[] {
+    return cappedAtMax(notice.fixes.map(pointOf(titles)));
   },
 };
 
 export const UnreflectedStallWording = {
-  of(stationName: string | null): NoticeWords {
-    return {
-      headline: `${searchFor(stationName)} ended with no budget left to reflect`,
-      points: [
-        'Two iterations in a row found nothing better. Please start a new search with more budget to find out why.',
-      ],
-    };
-  },
-};
+  points: [
+    'Two iterations in a row found nothing better. No budget was left to find out why.',
+  ],
+} as const;

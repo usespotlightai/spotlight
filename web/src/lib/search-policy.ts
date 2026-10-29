@@ -1,7 +1,13 @@
 import type { StationSearchResponseDto } from '@/lib/api';
 import { costTick } from '@/lib/chart';
-import { formatObjective } from '@/lib/search-words';
 import type { TooltipNote } from '@/lib/tooltip-note';
+
+type SearchObjective = NonNullable<StationSearchResponseDto['objective']>;
+
+const OBJECTIVES: Record<SearchObjective, string> = {
+  success: 'More success',
+  cost: 'The same success for less',
+};
 
 export type SearchPolicy = StationSearchResponseDto;
 
@@ -48,9 +54,7 @@ export const searchPolicyNote = (policy: SearchPolicy): TooltipNote => ({
     ['Repeats', policy.repeats?.toString() ?? SPOTLIGHT_PICKS],
     [
       'Objective',
-      policy.objective
-        ? formatObjective(policy.objective)
-        : 'Station health picks',
+      policy.objective ? OBJECTIVES[policy.objective] : 'Station health picks',
     ],
   ],
 });

@@ -7,17 +7,24 @@ import {
   ConfigPullRequestBody,
   type ConfigPullRequestFacts,
 } from '@replays/application/rendering/config-pull-request-body';
+import { taskRowsOf } from '@replays/application/rendering/task-rows';
+import type { SearchFindings } from '@replays/application/services/search-findings.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
+import type {
+  ConfigPullRequest,
+  OpenedPullRequest,
+} from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { overfitOf } from '@replays/domain/services/overfit';
+import { taskComparisons } from '@replays/domain/services/replay-results';
 import {
   NO_REGRESSIONS,
   regressionLimitOf,
@@ -25,18 +32,18 @@ import {
 import { scoresOf } from '@replays/domain/services/search-scores';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const CLAIM_MS = 10 * 60_000;
 
 type Opened =
-  | { readonly url: PullRequestUrl; readonly proposing: StationFingerprint }
+  | { readonly opened: OpenedPullRequest }
   | { readonly reason: ConfigPullRequestReason };
 
 const because = (error: unknown): string =>
@@ -62,12 +69,16 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
-    private readonly appUrl: string,
     private readonly healths: SetHealths,
+    private readonly sets: ReplaySetRepository,
+    private readonly findings: SearchFindings,
   ) {}
 
   async processDue(): Promise<void> {
-    for (const pullRequest of await this.pullRequests.due(this.clock.now())) {
+    for (const pullRequest of await this.pullRequests.due(
+      'opening',
+      this.clock.now(),
+    )) {
       await this.attempt(pullRequest).catch((error: unknown) =>
         this.logger.warn(
           { err: error, pullRequestId: pullRequest.id.value },
@@ -122,8 +133,8 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     }
 
     await this.saved(
-      'url' in opened
-        ? pullRequest.open(opened.url, opened.proposing, this.clock.now())
+      'opened' in opened
+        ? pullRequest.open(opened.opened, this.clock.now())
         : pullRequest.failed(opened.reason, this.clock.now()),
     );
   }
@@ -242,15 +253,26 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       }),
     );
 
+    const {
+      url,
+      number,
+      gitHubId,
+      repository: canonical,
+    } = await this.configs.opened(pullRequest.workspaceId, repository, {
+      branch: pullRequest.branch,
+      title,
+      body: ConfigPullRequestBody.of(facts),
+    });
+
     return {
-      url: PullRequestUrl.of(
-        await this.configs.opened(pullRequest.workspaceId, repository, {
-          branch: pullRequest.branch,
-          title,
-          body: ConfigPullRequestBody.of(facts),
-        }),
-      ),
-      proposing: candidate.fingerprint,
+      opened: {
+        url: PullRequestUrl.of(url),
+        number,
+        gitHubId,
+        repository: Repository.of(canonical),
+        basedOn: seed.fingerprint,
+        proposing: candidate.fingerprint,
+      },
     };
   }
 
@@ -262,29 +284,34 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     stationKey: string,
     unchecked: readonly string[],
   ): Promise<ConfigPullRequestFacts> {
-    const [replays, slug, live] = await Promise.all([
-      this.replays.ofSearch(search.id),
-      this.people.workspaceSlug(pullRequest.workspaceId),
-      this.healths.standardAt(search.station),
-    ]);
+    const replays = await this.replays.ofSearch(search.id);
+    const live = await this.healths.standardAt(search.station);
+    const set = await this.sets.find(search.setId);
+    const found = await this.findings.findingsOf(search);
     const scores = scoresOf(search, replays, live.minGain);
     const picked = scores.candidates.find((each) =>
       each.candidateId.equals(candidate.id),
     );
-    const found = (id: ReplayId | null | undefined): Replay | null =>
+    const replayOf = (id: ReplayId | null | undefined): Replay | null =>
       (id && replays.find((each) => each.id.equals(id))) || null;
     const regressions = picked?.regressions ?? NO_REGRESSIONS;
-    const { station } = pullRequest;
+    const seedReplay = replayOf(scores.seed.replayId);
+    const tasks = await this.tasksOf(
+      search,
+      seedReplay,
+      replayOf(picked?.replayId),
+      replayOf(picked?.heldOutReplayId),
+    );
+    const health = set ? await this.healths.ofSet(set, live) : null;
 
     return {
+      objective: search.objective,
       stationKey,
       lineKey,
       candidateName: pullRequest.candidateName,
       hypothesis: candidate.search?.hypothesis.value ?? null,
       unchecked,
-      changes: [
-        ...new Set(candidate.changedFrom.changes.map((each) => each.part)),
-      ],
+      changes: candidate.changedFrom.changes,
       candidate: {
         searchScore: picked?.searchScore ?? null,
         searchInterval: picked?.searchInterval ?? null,
@@ -315,16 +342,62 @@ export class OpenConfigPullRequests implements PendingJobsPort {
         !picked?.heldOutGain &&
         Boolean(picked?.heldOutReplayId) &&
         [picked?.heldOutReplayId, scores.seed.heldOutReplayId].some(
-          (id) => id && !found(id)?.endedAt,
+          (id) => id && !replayOf(id)?.endedAt,
         ),
       currency: search.budget.ceiling.currency,
       searchedTasks: search.split.searchedTasks,
       heldOutTasks: search.split.heldOutTasks,
       regressions,
       ...regressionLimitOf(regressions, live.threshold),
-      link: slug
-        ? `${this.appUrl.replace(/\/+$/, '')}/w/${slug}/team/${station.teamId.value}/lines/${station.lineId}/stations/${station.stationId}/searches/${search.id.value}`
-        : null,
+      tasks,
+      search: {
+        trigger: search.trigger,
+        iterations: search.iterations.length,
+        reflections: search.iterations.filter((each) => each.reflects).length,
+        maxIterations: search.budget.iterations,
+        perIteration: search.budget.perIteration,
+        spent: search.spent.amount,
+        ceiling: search.budget.ceiling.amount,
+        agent: search.agent && {
+          harness: search.agent.harness,
+          model: search.agent.model,
+          effort: search.agent.effort,
+        },
+        setRuns: set?.entries.length ?? 0,
+        refreshedAt: set?.refreshedAt ?? null,
+        spread: health?.noise?.spread ?? null,
+        minGain: live.minGain,
+      },
+      found,
+    };
+  }
+
+  private async tasksOf(
+    search: Search,
+    seed: Replay | null,
+    searched: Replay | null,
+    heldOut: Replay | null,
+  ): Promise<ConfigPullRequestFacts['tasks']> {
+    const titles = new Map(
+      (
+        await this.work.runSummaries(search.workspaceId, [
+          ...search.split.searchedRuns,
+          ...search.split.heldOutRuns,
+        ])
+      ).map((each) => [each.runId.value, each.title] as const),
+    );
+    const rowsOf = (replay: Replay | null, runs: readonly RunId[]) =>
+      replay
+        ? taskRowsOf(
+            taskComparisons(replay, seed, runs),
+            { candidate: replay.scoring, live: seed?.scoring ?? null },
+            titles,
+          )
+        : [];
+
+    return {
+      searched: rowsOf(searched, search.split.searchedRuns),
+      heldOut: rowsOf(heldOut, search.split.heldOutRuns),
     };
   }
 }
