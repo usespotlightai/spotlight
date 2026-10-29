@@ -5,12 +5,10 @@ import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding
 import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
-import { SearchStopRequested } from '@replays/domain/events/search-stop-requested.event';
 import { InvalidFailureCauseError } from '@replays/domain/exceptions/invalid-failure-cause.error';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
 import { ReplaySetStationGoneError } from '@replays/domain/exceptions/replay-set-station-gone.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
-import { SearchEndedError } from '@replays/domain/exceptions/search-ended.error';
 import { SearchIterationClosedError } from '@replays/domain/exceptions/search-iteration-closed.error';
 import { SearchNotReflectingError } from '@replays/domain/exceptions/search-not-reflecting.error';
 import { SearchProposalsExhaustedError } from '@replays/domain/exceptions/search-proposals-exhausted.error';
@@ -164,6 +162,7 @@ describe('Search', () => {
       });
       const started = Search.start({
         id: SEARCH_ID,
+        calibrates: false,
         set,
         agent: AGENT,
         budget: aBudget(),
@@ -200,6 +199,7 @@ describe('Search', () => {
       const set = aSet(10);
       const started = Search.start({
         id: SEARCH_ID,
+        calibrates: false,
         set,
         agent: AGENT,
         budget: aBudget({ iterations: 4, perIteration: 3, concurrency: 6 }),
@@ -238,6 +238,7 @@ describe('Search', () => {
       expect(() =>
         Search.start({
           id: SEARCH_ID,
+          calibrates: false,
           set,
           agent: AGENT,
           budget: aBudget(),
@@ -261,6 +262,7 @@ describe('Search', () => {
       expect(() =>
         Search.start({
           id: SEARCH_ID,
+          calibrates: false,
           set,
           agent: AGENT,
           budget: aBudget(),
@@ -270,7 +272,7 @@ describe('Search', () => {
             entries: set.entries,
             hash: sha256,
           }),
-          seed: { candidate: candidateOf('proposed'), replayId: SEED },
+          seed: { candidate: candidateOf('searched'), replayId: SEED },
           trigger: 'schedule',
           at: NOW,
           by: BY,
@@ -1495,12 +1497,12 @@ describe('Search', () => {
   });
 
   describe('ending early', () => {
-    it('stops on request, cancels its run and stops its replays in progress', () => {
+    it('stops when it is turned off, cancels its run and stops its replays in progress', () => {
       const search = proposing(searching(), 1, ['one']);
-      const stopped = search.stop(later(5), BY);
+      const stopped = search.turnOff(later(5));
 
       expect(stopped.current).toBe('stopped');
-      expect(stopped.stopReason).toBe('stopped');
+      expect(stopped.stopReason).toBe('turned-off');
       expect(stopped.isActive).toBe(false);
       expect(stopped.endedAt).toEqual(later(5));
       expect(stopped.pullEvents()).toEqual([
@@ -1508,35 +1510,23 @@ describe('Search', () => {
           SEARCH_ID,
           stopped.workspaceId,
           'stopped',
-          'stopped',
+          'turned-off',
           run(1),
           [ReplayId.of('replay_one')],
-        ),
-        new SearchStopRequested(
-          SEARCH_ID,
-          stopped.teamId,
-          ConfigurationChange.updated(
-            {
-              resource: 'replay-search',
-              id: SEARCH_ID.value,
-              key: SEARCH_ID.value,
-            },
-            BY,
-          ),
         ),
       ]);
     });
 
-    it('stops its seed replay when stopped while seeding', () => {
-      const stopped = aSearch().stop(NOW, BY);
+    it('stops its seed replay when turned off while seeding', () => {
+      const stopped = aSearch().turnOff(NOW);
 
       expect((stopped.pullEvents()[0] as SearchEnded).stopping).toEqual([SEED]);
     });
 
-    it('cannot be stopped once it ended', () => {
-      const stopped = searching().stop(NOW, BY);
+    it('changes nothing once it ended', () => {
+      const stopped = searching().turnOff(NOW);
 
-      expect(() => stopped.stop(NOW, BY)).toThrow(SearchEndedError);
+      expect(stopped.turnOff(later(1))).toBe(stopped);
     });
 
     it('ends when its station is gone, once', () => {
@@ -1548,10 +1538,9 @@ describe('Search', () => {
 
     it('takes no more candidates once ended, though word of its replays still arrives', () => {
       const runIds = searchRunIds();
-      const stopped = proposing(searching(aSearch(), runIds), 1, ['one']).stop(
-        NOW,
-        BY,
-      );
+      const stopped = proposing(searching(aSearch(), runIds), 1, [
+        'one',
+      ]).turnOff(NOW);
 
       expect(() => stopped.acceptProposal(run(1), proposal('two'))).toThrow(
         SearchIterationClosedError,
@@ -1587,6 +1576,7 @@ describe('Search', () => {
       budget: search.budget,
       objective: search.objective,
       split: search.split,
+      calibrates: false,
       seed: search.seed,
       state: 'searching' as const,
       stopReason: null,
@@ -1634,6 +1624,7 @@ describe('Search', () => {
         budget: search.budget,
         objective: search.objective,
         split: search.split,
+        calibrates: false,
         seed: search.seed,
         iterations: search.iterations,
         heldOut: [],
@@ -1655,6 +1646,7 @@ describe('Search', () => {
         budget: search.budget,
         objective: search.objective,
         split: search.split,
+        calibrates: false,
         seed: search.seed,
         iterations: search.iterations,
         heldOut: [],

@@ -21,6 +21,7 @@ import { dueNow, scheduleOf } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import {
+  ADVISE_ON_STALL,
   anOriginal,
   app,
   BUILD,
@@ -37,6 +38,7 @@ import {
   github,
   judged,
   leasedSearchRun,
+  noticesSince,
   openSearchFlow,
   POLISH,
   PROMPT_FILE,
@@ -47,6 +49,7 @@ import {
   searchRow,
   searchState,
   startSearch,
+  subscriberDone,
   team,
   teamNotices,
   WITHIN,
@@ -238,10 +241,11 @@ const seventeenTasks = async (stationId = BUILD) => {
   return tasks;
 };
 
-const resultNoticesOf = async (searchId: string) =>
-  (await teamNotices()).filter((each) =>
-    each.link.endsWith(`/searches/${searchId}`),
-  );
+const silentAfter = async (at: Date) => {
+  await eventually(() => subscriberDone(ADVISE_ON_STALL), WITHIN);
+
+  return noticesSince(at);
+};
 
 describe('following a config pull request after it opened', () => {
   it('remembers a config a person rejected, restarts the cooldown of the station, and does not propose that config again', async () => {
@@ -303,6 +307,7 @@ describe('following a config pull request after it opened', () => {
       .set({ lastRejectedAt: new Date(Date.now() - 2 * HOUR_MS) })
       .where(eq(schema.stationSearchSchedule.stationId, BUILD));
 
+    const secondAt = new Date();
     const second = await startSearch({
       iterations: 1,
       ceiling: 60,
@@ -321,20 +326,7 @@ describe('following a config pull request after it opened', () => {
     });
     expect(await pullRequestsOf(second.id)).toEqual([]);
     expect(github.opened).toHaveLength(1);
-    expect(
-      await eventually(async () => {
-        const found = await resultNoticesOf(second.id);
-
-        return found.length > 0 ? found : null;
-      }, WITHIN),
-    ).toEqual([
-      expect.objectContaining({
-        headline: 'The search of the Build station ended with no pull request',
-        points: [
-          'A person closed a config pull request for each passing candidate while the live config stayed the same.',
-        ],
-      }),
-    ]);
+    expect(await silentAfter(secondAt)).toEqual([]);
 
     await reopenedOnGitHub(1);
 
@@ -361,9 +353,10 @@ describe('following a config pull request after it opened', () => {
     ).toMatchObject({ rejected: [opened?.proposing] });
   }, 300_000);
 
-  it('declines the pick of a search that finishes while a config pull request of its station is open, and still tells the team', async () => {
+  it('declines the pick of a search that finishes while a config pull request of its station is open, and tells nobody', async () => {
     await createSet(await seventeenTasks(POLISH), POLISH);
 
+    const searchedFrom = new Date();
     const search = await startSearch(
       { iterations: 1, ceiling: 60, objective: 'success' },
       POLISH,
@@ -382,18 +375,7 @@ describe('following a config pull request after it opened', () => {
       await eventually(async () => (await searchOf(search.id)).pick, WITHIN),
     ).toMatchObject({ outcome: 'declined', reason: 'pull-request-open' });
     expect(await pullRequestsOf(search.id)).toEqual([]);
-    expect(
-      await eventually(async () => {
-        const found = await resultNoticesOf(search.id);
-
-        return found.length > 0 ? found : null;
-      }, WITHIN),
-    ).toEqual([
-      expect.objectContaining({
-        headline: 'The search of the Polish station ended with no pull request',
-        points: ['A config pull request for the station is already open.'],
-      }),
-    ]);
+    expect(await silentAfter(searchedFrom)).toEqual([]);
   }, 300_000);
 
   it('closes a config pull request on GitHub with a comment once the live config of its station changed, keeps it closed as stale, forgets rejected configs, and records a merge that arrives after', async () => {

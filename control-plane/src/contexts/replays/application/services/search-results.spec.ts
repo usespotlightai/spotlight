@@ -12,6 +12,7 @@ import {
   InMemoryReplays,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
+import { SearchFindings } from '@replays/application/services/search-findings.service';
 import { SearchSchedules } from '@replays/application/services/search-schedules.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
@@ -27,6 +28,7 @@ import {
   aSearch,
   aSet,
   BY,
+  candidateOf,
   later,
   NOW,
   STATION,
@@ -59,7 +61,16 @@ const notices = {
 };
 
 const noticing = () =>
-  new NoticeSearchResults(memory.searchRepository, pullRequests, work, notices);
+  new NoticeSearchResults(
+    memory.searchRepository,
+    pullRequests,
+    memory.candidateRepository,
+    memory.replayRepository,
+    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
+    new SearchFindings(work),
+    work,
+    notices,
+  );
 
 const picking = () =>
   new PickSearchCandidates(
@@ -90,7 +101,7 @@ const ended = (search: Search, state: 'finished' | 'stopped') =>
     search.id,
     search.workspaceId,
     state,
-    search.stopReason ?? 'stopped',
+    search.stopReason ?? 'turned-off',
     null,
     [],
   );
@@ -123,7 +134,7 @@ beforeEach(() => {
 });
 
 describe('PickSearchCandidates', () => {
-  it('declines a finished search with no held-out candidate, once, and says why to the team', async () => {
+  it('declines a finished search with no held-out candidate, once, and tells nobody', async () => {
     const search = finishedWithNothing();
 
     expect(search.current).toBe('finished');
@@ -145,18 +156,8 @@ describe('PickSearchCandidates', () => {
 
     await noticing().pickDeclined(declined[0] as SearchPickDeclined);
 
-    expect(noticed).toEqual([
-      {
-        workspaceId: STATION.workspaceId,
-        teamId: STATION.teamId,
-        searchId: search.id,
-        lineId: STATION.lineId,
-        stationId: STATION.stationId,
-        about: 'result',
-        headline: 'The search of the Build station ended with no pull request',
-        points: ['No candidate finished its replay on the held-out tasks.'],
-      },
-    ]);
+    expect(noticed).toEqual([]);
+    expect(advised).toEqual([]);
   });
 
   it('declines a finished search whose station is gone from its line', async () => {
@@ -173,7 +174,7 @@ describe('PickSearchCandidates', () => {
   });
 
   it('picks nothing for a stopped search', async () => {
-    const search = aSearch({ set: aSet(10) }).stop(NOW, BY);
+    const search = aSearch({ set: aSet(10) }).turnOff(NOW);
 
     await memory.searchRepository.add(search);
     memory.events.splice(0);
@@ -185,11 +186,14 @@ describe('PickSearchCandidates', () => {
 });
 
 describe('NoticeSearchResults', () => {
-  it('tells the team once the config pull request opened, with its link', async () => {
+  it('tells the team once the config pull request opened, with the change, the held-out gain and the pull request to review', async () => {
     const search = finishedWithNothing();
     const opening = pullRequestOf(search);
 
     await memory.searchRepository.add(search);
+    await memory.candidateRepository.add(
+      candidateOf('searched', 'candidate_one'),
+    );
     await pullRequests.add(opening);
 
     const url = PullRequestUrl.of('https://github.com/acme/platform/pull/7');
@@ -207,16 +211,21 @@ describe('NoticeSearchResults', () => {
     );
 
     expect(noticed).toEqual([
-      expect.objectContaining({
+      {
+        workspaceId: STATION.workspaceId,
+        teamId: STATION.teamId,
+        searchId: search.id,
+        lineId: STATION.lineId,
+        stationId: STATION.stationId,
         about: 'result',
+        pullRequest: 'https://github.com/acme/platform/pull/7',
         headline:
           'Spotlight opened a config pull request for the Build station',
         points: [
-          'Candidate one did better than the live config on the held-out tasks.',
-          'Pull request: https://github.com/acme/platform/pull/7',
-          'Please review the pull request. The station changes when you merge it.',
+          'Candidate one changes prompt.',
+          'Held-out gain: not measured',
         ],
-      }),
+      },
     ]);
   });
 
@@ -238,8 +247,9 @@ describe('NoticeSearchResults', () => {
       expect.objectContaining({
         headline:
           'Sorry, the config pull request for the Build station could not be opened',
+        pullRequest: null,
         points: [
-          'Candidate one did better than the live config on the held-out tasks.',
+          'Candidate one changes the station config.',
           'Reason: Line delivery has no Terraform source. Please add a source block with repository and path to spotlight_line.',
         ],
       }),

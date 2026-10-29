@@ -178,12 +178,16 @@ export class AutoSearches implements PendingJobsPort {
     });
     const id = SearchId.of(this.ids.generate());
     const split = this.splitOf(id, set, due);
+    const calibrates =
+      standard.fingerprint !== null &&
+      (await this.healths.calibrationWanted(set, standard.fingerprint));
     const verdict = setVerdict({
       now: this.clock.now(),
       tooSmall: split === 'too-small',
       warnings: searchWarningsOf(health, standard.minGain, budget.repeats),
       freshHeldOut: split !== 'no-fresh',
-      affordable: typeof split === 'string' || budget.affords(split),
+      affordable:
+        typeof split === 'string' || budget.affords(split, calibrates),
       agent: this.agentOf(policy, stationAgent),
     });
 
@@ -198,6 +202,7 @@ export class AutoSearches implements PendingJobsPort {
         set,
         agent: verdict.agent,
         budget,
+        calibrates,
         objective: objectiveFor(policy.objective, health),
         trigger,
         policy,

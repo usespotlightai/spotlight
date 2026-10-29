@@ -376,7 +376,6 @@ import {
   SANDBOX_HOSTS,
   type SandboxHostsPort,
 } from '@work/application/ports/sandbox-hosts.port';
-import { SEARCH_AGENTS } from '@work/application/ports/search-agents.port';
 import { SEARCH_DISPATCH } from '@work/application/ports/search-dispatch.port';
 import { SEARCH_RUNS } from '@work/application/ports/search-runs.port';
 import { SEARCH_VISIBILITY } from '@work/application/ports/search-visibility.port';
@@ -467,7 +466,6 @@ import { ReadAttachmentHandler } from '@work/application/queries/handlers/read-a
 import { ReadChatHandler } from '@work/application/queries/handlers/read-chat.handler';
 import { ReadChatJournalHandler } from '@work/application/queries/handlers/read-chat-journal.handler';
 import { ReadLineHandler } from '@work/application/queries/handlers/read-line.handler';
-import { ReadReplayRunHandler } from '@work/application/queries/handlers/read-replay-run.handler';
 import { ReadRunAttachmentHandler } from '@work/application/queries/handlers/read-run-attachment.handler';
 import { ReadRunConfigHandler } from '@work/application/queries/handlers/read-run-config.handler';
 import { ReadRunEventsHandler } from '@work/application/queries/handlers/read-run-events.handler';
@@ -475,7 +473,6 @@ import { ReadRunNetworkHandler } from '@work/application/queries/handlers/read-r
 import { ReadRunNotesHandler } from '@work/application/queries/handlers/read-run-notes.handler';
 import { ReadRunnerHistoryHandler } from '@work/application/queries/handlers/read-runner-history.handler';
 import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-runner-trace.handler';
-import { ReadSearchRunHandler } from '@work/application/queries/handlers/read-search-run.handler';
 import { ReadTaskDraftHandler } from '@work/application/queries/handlers/read-task-draft.handler';
 import { ReadTaskJournalHandler } from '@work/application/queries/handlers/read-task-journal.handler';
 import { ReadTaskTraceHandler } from '@work/application/queries/handlers/read-task-trace.handler';
@@ -501,7 +498,6 @@ import { PendingMessagesQuery } from '@work/application/queries/pending-messages
 import { PoolQueueQuery } from '@work/application/queries/pool.queries';
 import { ReadAttachmentQuery } from '@work/application/queries/read-attachment.query';
 import { ReadLineQuery } from '@work/application/queries/read-line.query';
-import { ReadReplayRunQuery } from '@work/application/queries/read-replay-run.query';
 import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attachment.query';
 import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
 import { ReadRunEventsQuery } from '@work/application/queries/read-run-events.query';
@@ -509,7 +505,6 @@ import { ReadRunNetworkQuery } from '@work/application/queries/read-run-network.
 import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
 import { ReadRunnerHistoryQuery } from '@work/application/queries/read-runner-history.query';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
-import { ReadSearchRunQuery } from '@work/application/queries/read-search-run.query';
 import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journal.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
@@ -672,7 +667,6 @@ import { LineController } from '@work/presentation/http/controllers/line.control
 import { LineResourceController } from '@work/presentation/http/controllers/line-resource.controller';
 import { OnboardingController } from '@work/presentation/http/controllers/onboarding.controller';
 import { PoolController } from '@work/presentation/http/controllers/pool.controller';
-import { ReplayRunController } from '@work/presentation/http/controllers/replay-run.controller';
 import { RunController } from '@work/presentation/http/controllers/run.controller';
 import { RunStreamController } from '@work/presentation/http/controllers/run-stream.controller';
 import { RunnerController } from '@work/presentation/http/controllers/runner.controller';
@@ -709,7 +703,6 @@ export const WORK_CONTROLLERS: readonly Type[] = [
   AttachmentController,
   GitController,
   TaskController,
-  ReplayRunController,
   ChatController,
   OnboardingController,
 ];
@@ -1808,30 +1801,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ListTeamRunsQuery, ListTeamRunsHandler, [RUN_READER]),
 
-  ...bindQueryHandler(ReadRunConfigQuery, ReadRunConfigHandler, [
-    WORKSPACE_ACCESS,
-    RUN_READER,
-  ]),
+  ...bindQueryHandler(ReadRunConfigQuery, ReadRunConfigHandler, [RUN_READER]),
 
   ...bindQueryHandler(ReadRunNetworkQuery, ReadRunNetworkHandler, [
     RUN_EVENT_READER,
     RUN_CONNECTIONS,
-  ]),
-
-  ...bindQueryHandler(ReadSearchRunQuery, ReadSearchRunHandler, [
-    WORKSPACE_ACCESS,
-    RUN_READER,
-    RUN_JOURNAL_READER,
-    RUN_USAGES,
-    RUN_SPENDS,
-    SEARCH_AGENTS,
-  ]),
-
-  ...bindQueryHandler(ReadReplayRunQuery, ReadReplayRunHandler, [
-    WORKSPACE_ACCESS,
-    RUN_READER,
-    RUN_JOURNAL_READER,
-    RUN_USAGES,
   ]),
 
   ...bindQueryHandler(ReadRunNotesQuery, ReadRunNotesHandler, [

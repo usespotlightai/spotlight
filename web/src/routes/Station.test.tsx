@@ -193,38 +193,6 @@ vi.mock('@/hooks/api/useStationJudge', () => ({
   }),
 }));
 
-const improvement = vi.fn();
-
-vi.mock('@/hooks/api/useStationImprovement', () => ({
-  useStationImprovement: () => ({
-    data: improvement(),
-    isPending: improvement() === undefined,
-    errorUpdateCount: 0,
-  }),
-}));
-
-const IMPROVEMENT = {
-  status: 'waiting',
-  searchId: null,
-  pickPhase: null,
-  pullRequestUrl: null,
-  improvedAt: null,
-  skip: null,
-  pullRequestFailure: null,
-  minimumTasks: 5,
-  setId: 'set_1',
-  lastStartedAt: null,
-  checkAfter: '2026-10-30T09:00:00.000Z',
-};
-
-vi.mock('@/hooks/api/useStationCandidates', () => ({
-  useStationCandidates: () => ({
-    path: 'core/default/spec',
-    pathFailed: false,
-    candidates: { data: [], isPending: false, errorUpdateCount: 0 },
-  }),
-}));
-
 const TALLY = {
   runs: 42,
   failed: 1,
@@ -294,8 +262,6 @@ const CALIBRATION = {
 };
 
 const INSIGHTS = '/w/acme/team/team_1/insights';
-const STATION = '/w/acme/team/team_1/lines/line_1/stations/station_2';
-
 function HandedOver() {
   const { state } = useLocation();
 
@@ -353,7 +319,6 @@ beforeEach(() => {
   judged.mockReturnValue({ calibration: CALIBRATION });
   worthImproving.mockReturnValue([]);
   judgeFailing.mockReturnValue(false);
-  improvement.mockReturnValue(IMPROVEMENT);
   localStorage.clear();
 });
 
@@ -423,21 +388,6 @@ describe('Station', () => {
     expect(overview).toHaveTextContent('What needs attention');
     expect(overview).toHaveTextContent('Config');
     expect(overview).toHaveTextContent('Latest runs on this config');
-    expect(
-      within(overview).queryByRole('status', {
-        name: 'Loading the improvement status',
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('keeps the shape of the overview until the improvement status lands', () => {
-    improvement.mockReturnValue(undefined);
-
-    renderAt('station_2');
-
-    expect(
-      screen.getByRole('status', { name: 'Loading the station overview' }),
-    ).toBeInTheDocument();
   });
 
   it('says the station could not be loaded, and tries again on request', async () => {
@@ -759,16 +709,11 @@ describe('Station', () => {
   });
 
   describe('what needs attention', () => {
-    it('says what Spotlight does to improve the station beside the signals', () => {
+    it('shows what is worth improving at the station', () => {
       renderAt('station_2');
 
       const attention = sectionTitled('What needs attention');
 
-      expect(
-        within(attention).getByRole('link', {
-          name: 'Waiting for next check',
-        }),
-      ).toHaveAttribute('href', `${STATION}/replay-sets/set_1`);
       expect(
         within(attention).getByRole('heading', { name: 'Worth improving' }),
       ).toBeInTheDocument();

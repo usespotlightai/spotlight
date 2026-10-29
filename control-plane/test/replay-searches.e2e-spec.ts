@@ -245,7 +245,7 @@ describe('DrizzleSearchRepository', () => {
       SearchInProgressError,
     );
 
-    await searches.save(first.stop(NOW, BY));
+    await searches.save(first.turnOff(NOW));
     await searches.add(searchAt('search_2'));
 
     expect((await searches.activeAtStation(STATION.stationId))?.id.value).toBe(
@@ -265,7 +265,7 @@ describe('DrizzleSearchRepository', () => {
 
     const found = (await searches.find(SEARCH_ID)) as Search;
 
-    await searches.save(found.stop(NOW, BY));
+    await searches.save(found.turnOff(NOW));
     await expect(searches.save(found.stationLeft(NOW))).rejects.toThrow(
       SearchVersionConflictError,
     );
@@ -386,12 +386,12 @@ describe('replays, candidates and sets a search stores', () => {
     await sets.save(((await sets.locked(set.id)) as ReplaySet).recordSearch());
 
     expect((await sets.find(set.id))?.version).toBe(1);
-    await expect(
-      sets.save(stale.removeEntry(RunId.of('original_0'), false)),
-    ).rejects.toThrow(ReplaySetVersionConflictError);
+    await expect(sets.save(stale.stationLeft(NOW))).rejects.toThrow(
+      ReplaySetVersionConflictError,
+    );
   });
 
-  it('stores the one set kept per station, the tasks a person removed and its last refresh, and finds it due for a refresh', async () => {
+  it('stores the one set kept per station and its last refresh, and finds it due for a refresh', async () => {
     const kept = ReplaySet.create({
       id: ReplaySetId.of('set_1'),
       station: STATION,
@@ -431,17 +431,12 @@ describe('replays, candidates and sets a search stores', () => {
         false,
       ),
     );
-    await sets.save(
-      ((await sets.locked(kept.id)) as ReplaySet).removeEntry(
-        RunId.of('original_0'),
-        false,
-      ),
-    );
-
     const found = (await sets.ofStation(STATION.stationId)) as ReplaySet;
 
-    expect(found.runs.map((each) => each.value)).toEqual(['original_1']);
-    expect(found.removedTasks.map((each) => each.value)).toEqual(['task_0']);
+    expect(found.runs.map((each) => each.value)).toEqual([
+      'original_0',
+      'original_1',
+    ]);
     expect(found.refreshedAt).toEqual(NOW);
     expect(found.lastRefresh?.at).toEqual(NOW);
     expect(found.lastRefresh?.added.map((each) => each.value)).toEqual([

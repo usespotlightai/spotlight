@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type {
   CandidatePullRequestDto,
-  ConfigPullRequestDto,
   ConfigPullRequestReasonDto,
 } from '@replays/application/dto/config-pull-requests.dto';
 import {
@@ -120,72 +119,5 @@ export class CandidatePullRequestResponseDto {
     this.reason = pullRequest.reason
       ? new ConfigPullRequestReasonResponseDto(pullRequest.reason)
       : null;
-  }
-}
-
-export class ConfigPullRequestResponseDto extends CandidatePullRequestResponseDto {
-  @ApiProperty({ example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
-  readonly teamId: string;
-
-  @ApiProperty({ example: '5d1e2f3a-4b5c-4d6e-8f70-1a2b3c4d5e6f' })
-  readonly searchId: string;
-
-  @ApiProperty({ example: '7a8b9c0d-1e2f-4a3b-9c4d-5e6f7a8b9c0d' })
-  readonly candidateId: string;
-
-  @ApiProperty({ example: 'in-order' })
-  readonly candidateName: string;
-
-  @ApiProperty({ example: '7b2c9e14-3a5d-4c8f-b6e1-9d0a2f7c5b43' })
-  readonly lineId: string;
-
-  @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
-  readonly stationId: string;
-
-  @ApiProperty({ example: 'build' })
-  readonly stationKey: string;
-
-  @ApiProperty({
-    nullable: true,
-    type: String,
-    example: 'acme/platform',
-    description:
-      'The repository that the line’s source named when it was picked; null when the line named none',
-  })
-  readonly repository: string | null;
-
-  @ApiProperty({
-    nullable: true,
-    type: String,
-    example: 'teams/core/delivery.tf',
-  })
-  readonly path: string | null;
-
-  @ApiProperty({
-    example: 'spotlight/search-5d1e2f3a-in-order',
-    description: 'The branch Spotlight commits the change to',
-  })
-  readonly branch: string;
-
-  @ApiProperty({ example: '2026-10-02T09:00:00.000Z' })
-  readonly createdAt: string;
-
-  @ApiProperty({ example: '2026-10-02T09:00:05.000Z' })
-  readonly updatedAt: string;
-
-  constructor(pullRequest: ConfigPullRequestDto) {
-    super(pullRequest);
-    this.teamId = pullRequest.teamId;
-    this.searchId = pullRequest.searchId;
-    this.candidateId = pullRequest.candidateId;
-    this.candidateName = pullRequest.candidateName;
-    this.lineId = pullRequest.lineId;
-    this.stationId = pullRequest.stationId;
-    this.stationKey = pullRequest.stationKey;
-    this.repository = pullRequest.repository;
-    this.path = pullRequest.path;
-    this.branch = pullRequest.branch;
-    this.createdAt = pullRequest.createdAt;
-    this.updatedAt = pullRequest.updatedAt;
   }
 }

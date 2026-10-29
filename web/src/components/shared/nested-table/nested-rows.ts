@@ -17,5 +17,3 @@ export const TABLE_ROW =
 
 export const LEAD_CELL =
   'col-span-full flex min-w-0 items-center gap-2 @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1';
-
-export const SELECTED_ROW = 'bg-selected hover:bg-selected';

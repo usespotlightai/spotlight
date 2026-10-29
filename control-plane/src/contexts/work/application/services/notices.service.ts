@@ -8,11 +8,15 @@ import type {
   NoticesPort,
 } from '@work/application/ports/notices.port';
 import { Notice } from '@work/domain/aggregates/notice.aggregate';
+import { InvalidNoticeExternalLinkError } from '@work/domain/exceptions/invalid-notice-external-link.error';
 import type { NoticeRepository } from '@work/domain/repositories/notice.repository';
+import { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import { noticeForm } from '@work/domain/value-objects/notice-form';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
 import { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
+
+const EXTERNAL_LINK_CHECK = 'Open';
 
 export class Notices implements NoticesPort {
   constructor(
@@ -33,6 +37,9 @@ export class Notices implements NoticesPort {
       form,
       subject: input.subject,
       link: NoticeLink.of({ path: input.link, label: input.linkLabel }),
+      externalLink: input.externalLink
+        ? NoticeExternalLink.of(input.externalLink)
+        : null,
       wording: NoticeWording.of({
         headline: input.headline,
         points: input.points,
@@ -59,6 +66,18 @@ export class Notices implements NoticesPort {
         await this.notices.add(created);
       }
     });
+  }
+
+  allowsExternalLink(url: string): boolean {
+    try {
+      NoticeExternalLink.of({ url, label: EXTERNAL_LINK_CHECK });
+      return true;
+    } catch (error) {
+      if (error instanceof InvalidNoticeExternalLinkError) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   deleteForTeam(teamId: TeamId): Promise<void> {

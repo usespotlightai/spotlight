@@ -5,13 +5,11 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { CandidateNameTakenError } from '@replays/domain/exceptions/candidate-name-taken.error';
 import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
-import type { CandidatePath } from '@replays/domain/value-objects/candidate-path.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
@@ -34,8 +32,6 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { and, asc, eq, inArray, type SQL } from 'drizzle-orm';
 
 type CandidateRow = typeof replayCandidate.$inferSelect;
-
-const ADDRESS_INDEX = 'replay_candidate_address_idx';
 
 const SEARCH_NAME_INDEX = 'replay_candidate_search_name_idx';
 
@@ -133,12 +129,6 @@ export class DrizzleCandidateRepository implements CandidateRepository {
     return found ?? null;
   }
 
-  async lockedForUse(id: CandidateId): Promise<Candidate | null> {
-    const [found] = await this.where(eq(replayCandidate.id, id.value), 'share');
-
-    return found ?? null;
-  }
-
   findMany(ids: readonly CandidateId[]): Promise<readonly Candidate[]> {
     if (ids.length === 0) {
       return Promise.resolve([]);
@@ -151,36 +141,6 @@ export class DrizzleCandidateRepository implements CandidateRepository {
 
   ofTeam(teamId: TeamId): Promise<readonly Candidate[]> {
     return this.where(eq(replayCandidate.teamId, teamId.value));
-  }
-
-  ofTeams(teamIds: readonly TeamId[]): Promise<readonly Candidate[]> {
-    if (teamIds.length === 0) {
-      return Promise.resolve([]);
-    }
-
-    return this.where(
-      inArray(
-        replayCandidate.teamId,
-        teamIds.map((each) => each.value),
-      ),
-    );
-  }
-
-  async proposedAt(
-    teamId: TeamId,
-    address: CandidatePath,
-  ): Promise<Candidate | null> {
-    const [found] = await this.where(
-      and(
-        eq(replayCandidate.teamId, teamId.value),
-        eq(replayCandidate.lineKey, address.station.lineKey),
-        eq(replayCandidate.stationKey, address.station.stationKey),
-        eq(replayCandidate.name, address.name.value),
-        eq(replayCandidate.kind, 'proposed'),
-      ) as SQL,
-    );
-
-    return found ?? null;
   }
 
   async save(saved: Candidate): Promise<void> {
@@ -245,9 +205,6 @@ export class DrizzleCandidateRepository implements CandidateRepository {
         .onConflictDoNothing({ target: replayCandidate.id })
         .returning({ id: replayCandidate.id })
         .catch((error: unknown) => {
-          if (violates(error, UNIQUE_VIOLATION, ADDRESS_INDEX)) {
-            throw new CandidateNameTakenError(added.address.toString());
-          }
           if (violates(error, UNIQUE_VIOLATION, SEARCH_NAME_INDEX)) {
             throw new SearchCandidateNameTakenError(added.name.value);
           }

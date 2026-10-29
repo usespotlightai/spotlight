@@ -22,6 +22,12 @@ import { AdvanceSearches } from '@replays/application/services/advance-searches.
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import { DrizzleSearchRepository } from '@replays/infrastructure/persistence/drizzle/repositories/search.repository';
+import {
+  TRANSACTION,
+  type TransactionPort,
+} from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import {
@@ -50,6 +56,7 @@ import {
 import { eventually } from './eventually';
 import { keptSet } from './kept-sets';
 import * as schema from './schema';
+import { searchReadOf } from './search-read';
 import { createTeam } from './team';
 
 const HOST = `host-search-flow-${randomUUID().slice(0, 8)}`;
@@ -370,54 +377,7 @@ export const startSearch = (
 ): Promise<{ id: string; seedReplayId: string }> =>
   searchStarted(searchedAt(stationId), terms);
 
-export interface SearchRead {
-  state: string;
-  stopReason: string | null;
-  spent: { amount: number };
-  split: {
-    searched: { runId: string; taskId: string }[];
-    heldOut: { runId: string; taskId: string }[];
-  };
-  iterations: {
-    number: number;
-    kind: 'propose' | 'reflect';
-    runId: string;
-    state: string;
-    reflection: {
-      tasks: { taskId: string; originalRunId: string; replayRunId: string }[];
-      causes: {
-        taskId: string;
-        cause: string;
-        replayRunId: string;
-      }[];
-      result: string | null;
-      endedSearch: boolean;
-    } | null;
-  }[];
-  seed: { candidateId: string; heldOutScore: number | null };
-  candidates: {
-    candidateId: string;
-    name: string;
-    replayId: string;
-    heldOutReplayId: string | null;
-    searchScore: number | null;
-    heldOutScore: number | null;
-    onFrontier: boolean;
-    overfit: 'likely' | 'too-few-held-out' | null;
-  }[];
-  frontier: string[];
-  trigger: string;
-  pick: {
-    outcome: string;
-    candidateId: string | null;
-    name: string | null;
-    reason: string | null;
-  } | null;
-  best: {
-    name: string;
-    overfit: 'likely' | 'too-few-held-out' | null;
-  } | null;
-}
+export type SearchRead = Awaited<ReturnType<typeof searchReadOf>>;
 
 export type InboxEntry =
   | { kind: 'task'; id: string }
@@ -430,6 +390,8 @@ export type InboxEntry =
       points: string[];
       link: string;
       linkLabel: string;
+      externalLink: { url: string; label: string } | null;
+      askedAt: string;
       unread: boolean;
       resolved: boolean;
     };
@@ -445,9 +407,35 @@ export const teamNotices = async (): Promise<
       each.kind === 'notice',
   );
 
-export const searchOf = async (id: string): Promise<SearchRead> =>
-  (await owner().get(`${teamPath()}/searches/${id}`).expect(200))
-    .body as SearchRead;
+export const ADVISE_ON_STALL =
+  'replays.advise-on-search-stalled-outside-config';
+
+export const noticesSince = async (at: Date) =>
+  (await teamNotices()).filter(
+    (each) => Date.parse(each.askedAt) >= at.getTime(),
+  );
+
+export const subscriberDone = async (subscriber: string): Promise<boolean> => {
+  const rows = await db
+    .select()
+    .from(schema.eventDelivery)
+    .where(eq(schema.eventDelivery.subscriber, subscriber));
+
+  return rows.length > 0 && rows.every((each) => each.deliveredAt !== null);
+};
+
+export const searchOf = (id: string): Promise<SearchRead> =>
+  searchReadOf(app, id);
+
+export const turnedOff = (id: string): Promise<void> =>
+  app.get<TransactionPort>(TRANSACTION).inTransaction(async () => {
+    const searches = app.get(DrizzleSearchRepository);
+    const search = await searches.locked(SearchId.of(id));
+
+    if (search) {
+      await searches.save(search.turnOff(new Date()));
+    }
+  });
 
 export const searchRow = async (id: string) => {
   const [row] = await db
@@ -761,21 +749,6 @@ export const delivered = async (event: DomainEvent): Promise<void> => {
       await delivered(raised);
     }
   }
-};
-
-export const tokenWith = async (scopes: readonly string[]): Promise<string> => {
-  const issued = await http()
-    .post(`/api/resources/workspaces/${team.workspaceId.value}/tokens`)
-    .set(TEST_USER_HEADER, team.owner.value)
-    .set('Idempotency-Key', randomUUID())
-    .send({
-      name: `searches-${scopes.join('-')}-${randomUUID().slice(0, 8)}`,
-      scopes,
-    });
-
-  expect(issued.status).toBe(201);
-
-  return issued.headers['spotlight-workspace-token'] as string;
 };
 
 export let tenTasks: Original[];

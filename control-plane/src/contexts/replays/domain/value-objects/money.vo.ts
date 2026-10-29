@@ -1,6 +1,6 @@
 import { InvalidMoneyError } from '@replays/domain/exceptions/invalid-money.error';
 
-export const MAX_CEILING = 1_000;
+const MAX_CEILING = 1_000;
 
 const countedIn = (currency: string): string => {
   const counted = currency.trim().toUpperCase();

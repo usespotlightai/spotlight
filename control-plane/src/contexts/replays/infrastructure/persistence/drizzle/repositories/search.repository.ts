@@ -7,10 +7,7 @@ import {
 import { Search } from '@replays/domain/aggregates/search.aggregate';
 import { SearchInProgressError } from '@replays/domain/exceptions/search-in-progress.error';
 import { SearchVersionConflictError } from '@replays/domain/exceptions/search-version-conflict.error';
-import type {
-  SearchPage,
-  SearchRepository,
-} from '@replays/domain/repositories/search.repository';
+import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
@@ -62,7 +59,6 @@ import {
   gte,
   inArray,
   isNull,
-  lt,
   or,
   type SQL,
   sql,
@@ -233,6 +229,7 @@ const toSearch = (
       searched: splitEntriesOf(row.split.searched),
       heldOut: splitEntriesOf(row.split.heldOut),
     }),
+    calibrates: row.calibrates,
     seed: {
       candidateId: CandidateId.of(row.seedCandidateId),
       fingerprint: StationFingerprint.of(row.seedFingerprint),
@@ -352,6 +349,12 @@ export class DrizzleSearchRepository implements SearchRepository {
     return found ?? null;
   }
 
+  activeOfLine(lineId: string): Promise<readonly Search[]> {
+    return this.withIterations(
+      and(eq(replaySearch.lineId, lineId), active) as SQL,
+    );
+  }
+
   async newestAtStation(stationId: string): Promise<Search | null> {
     const rows = await this.context.db
       .select()
@@ -408,49 +411,6 @@ export class DrizzleSearchRepository implements SearchRepository {
         ),
       ) as SQL,
     );
-  }
-
-  async pageOfTeam(
-    teamId: TeamId,
-    page: SearchPage,
-  ): Promise<readonly Search[]> {
-    const [after] = page.before
-      ? await this.context.db
-          .select({ id: replaySearch.id, startedAt: replaySearch.startedAt })
-          .from(replaySearch)
-          .where(
-            and(
-              eq(replaySearch.id, page.before.value),
-              eq(replaySearch.teamId, teamId.value),
-            ),
-          )
-      : [];
-
-    if (page.before && !after) {
-      return [];
-    }
-
-    const rows = await this.context.db
-      .select()
-      .from(replaySearch)
-      .where(
-        and(
-          eq(replaySearch.teamId, teamId.value),
-          after
-            ? or(
-                lt(replaySearch.startedAt, after.startedAt),
-                and(
-                  eq(replaySearch.startedAt, after.startedAt),
-                  lt(replaySearch.id, after.id),
-                ),
-              )
-            : undefined,
-        ),
-      )
-      .orderBy(desc(replaySearch.startedAt), desc(replaySearch.id))
-      .limit(page.limit);
-
-    return this.ofRows(rows);
   }
 
   async add(added: Search): Promise<void> {
@@ -519,6 +479,7 @@ export class DrizzleSearchRepository implements SearchRepository {
         searched: storedSplitEntries(aggregate.split.searched),
         heldOut: storedSplitEntries(aggregate.split.heldOut),
       },
+      calibrates: aggregate.calibrates,
       seedCandidateId: aggregate.seed.candidateId.value,
       seedFingerprint: aggregate.seed.fingerprint.value,
       seedReplay: storedReplay(aggregate.seed.replay),

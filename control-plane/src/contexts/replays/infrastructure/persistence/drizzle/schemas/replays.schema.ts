@@ -221,7 +221,6 @@ export const replaySet = pgTable(
     teamId: text('team_id').notNull(),
     lineId: text('line_id').notNull(),
     stationId: text('station_id').notNull(),
-    removedTasks: jsonb('removed_tasks').$type<string[]>().notNull(),
     createdAt: timestamp('created_at').notNull(),
     refreshedAt: timestamp('refreshed_at'),
     lastRefresh: jsonb('last_refresh').$type<StoredSetRefresh>(),
@@ -286,9 +285,6 @@ export const replayCandidate = pgTable(
   (table) => [
     index('replay_candidate_station_idx').on(table.stationId),
     index('replay_candidate_team_idx').on(table.teamId),
-    uniqueIndex('replay_candidate_address_idx')
-      .on(table.teamId, table.lineKey, table.stationKey, table.name)
-      .where(sql`${table.kind} = 'proposed'`),
     uniqueIndex('replay_candidate_search_name_idx')
       .on(table.searchId, table.name)
       .where(sql`${table.kind} = 'searched'`),
@@ -412,6 +408,7 @@ export const replaySearch = pgTable(
     repeats: integer('repeats').notNull(),
     objective: replaySearchObjective('objective').notNull(),
     split: jsonb('split').$type<StoredSplit>().notNull(),
+    calibrates: boolean('calibrates').notNull(),
     seedCandidateId: text('seed_candidate_id').notNull(),
     seedFingerprint: text('seed_fingerprint').notNull(),
     seedReplay: jsonb('seed_replay').$type<StoredSearchReplay>().notNull(),

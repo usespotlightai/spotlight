@@ -8,12 +8,12 @@ import {
 } from '@replays/domain/aggregates/replay-set.aggregate';
 import { Search } from '@replays/domain/aggregates/search.aggregate';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
 import { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
@@ -89,7 +89,7 @@ export const RUBRIC =
   'scores: 1-5\nDid it drain the queue without dropping a job?';
 
 export const candidateOf = (
-  kind: 'live' | 'proposed',
+  kind: 'live' | 'searched',
   id = `candidate_${kind}`,
   rubric: string | JudgeCriteria | null = null,
   check: string | null = null,
@@ -144,9 +144,9 @@ export const candidateOf = (
 
   return kind === 'live'
     ? Candidate.live(made)
-    : Candidate.propose({
+    : Candidate.fromSearch({
         ...made,
-        name: CandidateName.of('Shorter prompt'),
+        name: 'shorter-prompt',
         changedFrom: StationChanges.of(LIVE_FINGERPRINT, [
           {
             part: 'prompt',
@@ -156,7 +156,13 @@ export const candidateOf = (
             now: null,
           },
         ]),
-        by: BY,
+        search: {
+          searchId: SearchId.of('search_of_candidate'),
+          iteration: 1,
+          hypothesis: Hypothesis.of(
+            'A shorter prompt keeps the agent on task.',
+          ),
+        },
       });
 };
 
@@ -238,7 +244,7 @@ export const aReplay = (
   const started = Replay.start({
     id: ReplayId.of(input.id ?? 'replay_1'),
     set: aSet(input.count ?? 3),
-    candidate: input.candidate ?? candidateOf('proposed'),
+    candidate: input.candidate ?? candidateOf('searched'),
     baseline: input.baseline ?? false,
     ceiling: Money.ceiling(input.ceiling ?? 10, 'USD'),
     at: input.at ?? NOW,
@@ -341,6 +347,7 @@ export const aSearch = (
     budget?: SearchBudget;
     set?: ReplaySet;
     objective?: SearchObjective;
+    calibrates?: boolean;
   } = {},
 ): Search => {
   const set = input.set ?? aSet(input.count ?? 10);
@@ -350,6 +357,7 @@ export const aSearch = (
     set,
     agent: AGENT,
     budget: input.budget ?? aBudget(),
+    calibrates: input.calibrates ?? false,
     objective: input.objective ?? 'success',
     split: HeldOutSplit.drawn({
       searchId: id,
@@ -400,7 +408,7 @@ export const replayFor = (
   const started = Replay.start({
     id: ReplayId.of(id),
     set,
-    candidate: candidateOf(live ? 'live' : 'proposed', candidateId),
+    candidate: candidateOf(live ? 'live' : 'searched', candidateId),
     baseline: live,
     ceiling: Money.ceiling(100, 'USD'),
     at: NOW,

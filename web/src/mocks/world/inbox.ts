@@ -31,7 +31,7 @@ export const ALERT_REQUEST_ID = 'request_sent_back_alert';
 export const GRADE_REQUEST_ID = 'request_postgres_grade';
 export const GRADED_REQUEST_ID = 'request_search_grade';
 export const STALLED_NOTICE_ID = 'notice_search_stalled';
-export const FINISHED_NOTICE_ID = 'notice_search_finished';
+export const PULL_REQUEST_NOTICE_ID = 'notice_config_pull_request';
 export const ALERT_ID = 'alert_sent_back';
 export const COST_ALERT_REQUEST_ID = 'request_cost_alert';
 export const COST_ALERT_ID = 'alert_cost_per_run';
@@ -151,43 +151,45 @@ const inboxRequestOf = ({
   };
 };
 
-const SEARCH_LINK =
-  'lines/line_delivery/stations/station_implementation/searches';
+const STATION_LINK = 'lines/line_delivery/stations/station_implementation';
 
 const NOTICES: InboxNoticeResponseDto[] = [
   {
     kind: 'notice',
     id: STALLED_NOTICE_ID,
     teamId: PLATFORM_ID,
-    form: 'ended',
+    form: 'advice',
     headline:
-      'The search for a better Implementation config stalled: nothing left the config can fix',
+      'The search of the Implementation station stalled on causes outside the config',
     points: [
-      'Two iterations in a row found nothing better, so its agent looked into the 3 tasks the best config so far still fails, and found none a change to the config could fix. The search stopped, keeping the $14.20 it did not spend.',
-      'Fix the station’s check (Reconcile open invoices after the retry drain): the reconcile script needs the billing database, which the runner cannot reach.',
-      'Fix the judge’s rubric (Drain the stuck retry queues): it wants a test for every change, but restoring `RETRY_CONCURRENCY` is a config change with nothing to test.',
-      'Take the task out of the replay set, or reword it (Upgrade the Postgres driver): its migration rewrites 1.3M invoice rows, which no candidate finishes inside the run’s time limit.',
+      '“Reconcile open invoices after the retry drain”: the cause is the check. The reconcile script needs the billing database, which the runner cannot reach. Please fix the check of the station.',
+      '“Drain the stuck retry queues”: the cause is the judge. It wants a test for every change, but this change has nothing to test. Please fix the rubric of the judge.',
+      '“Upgrade the Postgres driver”: the cause is the task itself. Its migration rewrites 1.3M invoice rows, which no candidate finishes in time. Please reword the task.',
     ],
-    link: `${SEARCH_LINK}/search_live`,
-    linkLabel: 'Open the search',
+    link: STATION_LINK,
+    linkLabel: 'Open the station',
+    externalLink: null,
     askedAt: hoursAgo(1.2),
     unread: true,
     resolved: false,
   },
   {
     kind: 'notice',
-    id: FINISHED_NOTICE_ID,
+    id: PULL_REQUEST_NOTICE_ID,
     teamId: PLATFORM_ID,
     form: 'ended',
     headline:
-      'The search for a better Implementation config finished: writing the tests first passes 2 more tasks',
+      'Spotlight opened a config pull request for the Implementation station',
     points: [
-      'Four iterations tried 11 configs against Billing work. The best one tells the agent to write a failing test before it changes any code.',
-      'It passes 7 of 9 tasks, where the station’s config passes 5, for $0.21 more a run.',
-      'Adopt it from the search, or keep looking with a larger replay set.',
+      'Candidate tests-first changes prompt.',
+      'Held-out gain: +22 points',
     ],
-    link: `${SEARCH_LINK}/search_tests_first`,
-    linkLabel: 'Open the search',
+    link: STATION_LINK,
+    linkLabel: 'Open the station',
+    externalLink: {
+      url: 'https://github.com/acme/spotlight-config/pull/42',
+      label: 'Review the pull request',
+    },
     askedAt: daysAgo(3),
     unread: false,
     resolved: true,

@@ -1,7 +1,7 @@
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 
-export const PICK_PHASES = ['choosing', 'opening'] as const;
+const PICK_PHASES = ['choosing', 'opening'] as const;
 
 export type PickPhase = (typeof PICK_PHASES)[number];
 

@@ -1,4 +1,4 @@
-export const ENTRY_REASON_CODES = [
+const ENTRY_REASON_CODES = [
   'unreplayable',
   'not-run',
   'run-failed',

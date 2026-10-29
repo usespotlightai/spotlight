@@ -90,7 +90,7 @@ beforeEach(async () => {
 });
 
 describe('ReadReplayedCandidatesHandler', () => {
-  it('shows a team reader the searched and proposed candidates of the period', async () => {
+  it('shows a team reader the searched candidates of the period', async () => {
     const answer = await read();
 
     expect(answer.period).toEqual({
@@ -100,31 +100,28 @@ describe('ReadReplayedCandidatesHandler', () => {
     });
     expect(answer.truncated).toBe(false);
     expect(answer.stations).toHaveLength(1);
-    expect(await namesIn()).toEqual(['Shorter prompt', 'terse', 'wordy']);
+    expect(await namesIn()).toEqual(['terse', 'wordy']);
   });
 
-  it('shows a candidate only when its replay, or its search, started in the period', async () => {
+  it('shows a candidate only when its search started in the period', async () => {
     now = daysAfter(40);
+
+    expect(await namesIn('30d')).toEqual([]);
+    expect(await namesIn('90d')).toEqual(['terse', 'wordy']);
+  });
+
+  it('leaves out a candidate no search found', async () => {
     const set = (await memory.setRepository.find(
       ReplaySetId.of('set_1'),
     )) as ReplaySet;
-    const lately = candidateOf('proposed', 'candidate_lately');
+    const elsewhere = candidateOf('searched', 'candidate_elsewhere');
 
-    await memory.candidateRepository.add(lately);
+    await memory.candidateRepository.add(elsewhere);
     await memory.replayRepository.add(
-      replayOf(set, 'replay_lately', lately, daysAfter(39)),
+      replayOf(set, 'replay_elsewhere', elsewhere, NOW),
     );
 
-    expect(await namesIn('30d')).toEqual(['Shorter prompt']);
-    expect(await namesIn('90d')).toEqual([
-      'Shorter prompt',
-      'Shorter prompt',
-      'terse',
-      'wordy',
-    ]);
-    expect((await read('30d')).stations[0]?.sets[0]?.baseline?.replayId).toBe(
-      'replay_seed',
-    );
+    expect(await namesIn()).toEqual(['terse', 'wordy']);
   });
 
   it('leaves out candidates a pull-request check replayed', async () => {
@@ -141,7 +138,7 @@ describe('ReadReplayedCandidatesHandler', () => {
       replayOf(aSet(10), 'replay_planned', planned, NOW),
     );
 
-    expect(await namesIn()).toEqual(['Shorter prompt', 'terse', 'wordy']);
+    expect(await namesIn()).toEqual(['terse', 'wordy']);
   });
 
   it('shows nothing of another team', async () => {
@@ -167,13 +164,10 @@ describe('ReadReplayedCandidatesHandler', () => {
       NOW,
       false,
     );
-    const theirs = Candidate.propose({
+    const theirs = Candidate.live({
       ...made,
       station: other,
       id: CandidateId.of('candidate_theirs'),
-      name: candidateOf('proposed').name,
-      changedFrom: StationChanges.none(LIVE_FINGERPRINT),
-      by: BY,
     });
 
     await memory.setRepository.add(set);
@@ -195,28 +189,21 @@ describe('ReadReplayedCandidatesHandler', () => {
     const set = (await memory.setRepository.find(
       ReplaySetId.of('set_1'),
     )) as ReplaySet;
-    const proposed = candidateOf('proposed');
+    const elsewhere = candidateOf('searched', 'candidate_elsewhere');
 
     for (let each = 0; each < MAX_REPLAYED; each += 1) {
       await memory.replayRepository.add(
         replayOf(
           set,
           `replay_again_${each}`,
-          proposed,
+          elsewhere,
           new Date(NOW.getTime() + 10 + each),
         ),
       );
     }
 
-    const answer = await read();
-
-    expect(answer.truncated).toBe(true);
-    expect(await namesIn()).toEqual(['Shorter prompt', 'terse', 'wordy']);
-    expect(
-      answer.stations[0]?.sets[0]?.candidates.find(
-        (each) => each.kind === 'proposed',
-      )?.replayId,
-    ).toBe(`replay_again_${MAX_REPLAYED - 1}`);
+    expect((await read()).truncated).toBe(true);
+    expect(await namesIn()).toEqual(['terse', 'wordy']);
   });
 
   it('links each searched candidate to the pull request picking it opened, and no other search’s', async () => {

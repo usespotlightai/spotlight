@@ -34,6 +34,7 @@ export interface SearchBeginning {
   readonly set: ReplaySet;
   readonly agent: SearchAgent;
   readonly budget: SearchBudget;
+  readonly calibrates: boolean;
   readonly objective: SearchObjective;
   readonly trigger: SearchTrigger;
   readonly policy: SearchPolicy;
@@ -53,7 +54,7 @@ export class StartSearch {
   ) {}
 
   async begin(beginning: SearchBeginning): Promise<void> {
-    const { id, budget } = beginning;
+    const { id, budget, calibrates } = beginning;
     const seedId = ReplayId.of(this.ids.generate());
     const live = await this.snapshots.taken(beginning.set);
 
@@ -95,7 +96,7 @@ export class StartSearch {
           hash: (text) => this.hash.sha256(text),
           excluding: schedule.searchedTasks,
         });
-        const ceilingSplit = budget.splitCeiling(split);
+        const ceilingSplit = budget.splitCeiling(split, calibrates);
         const by = ChangeActor.spotlight(set.workspaceId);
 
         await this.searches.add(
@@ -106,6 +107,7 @@ export class StartSearch {
             budget,
             objective: beginning.objective,
             split,
+            calibrates,
             seed: { candidate: live, replayId: seedId },
             trigger: beginning.trigger,
             at,
@@ -122,7 +124,8 @@ export class StartSearch {
             unpricedRate: ceilingSplit.perRun,
             at,
             by,
-            repeats: budget.repeats,
+            repeats: budget.seedRepeats(calibrates),
+            calibration: calibrates,
             searchId: id,
           }),
         );

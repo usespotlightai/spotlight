@@ -26,7 +26,7 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-const proposed = candidateOf('proposed', 'candidate_proposed', RUBRIC);
+const proposed = candidateOf('searched', 'candidate_proposed', RUBRIC);
 
 const live = candidateOf('live', 'candidate_live', RUBRIC);
 

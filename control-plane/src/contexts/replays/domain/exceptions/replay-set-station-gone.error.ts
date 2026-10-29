@@ -3,7 +3,7 @@ export class ReplaySetStationGoneError extends Error {
 
   constructor(setId: string) {
     super(
-      `The station of replay set ${setId} is gone from its line. You can only remove runs from the set.`,
+      `The station of replay set ${setId} is gone from its line. Spotlight replays nothing on the set.`,
     );
     this.name = 'ReplaySetStationGoneError';
   }

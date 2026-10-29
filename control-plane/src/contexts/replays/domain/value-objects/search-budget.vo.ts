@@ -1,4 +1,5 @@
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
+import { baselineTermsOf } from '@replays/domain/services/baseline-terms';
 import type { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
@@ -22,6 +23,7 @@ const MIN_RUN = 0.01;
 export interface SearchCeilingSplit {
   readonly perRun: Money;
   readonly seed: Money;
+  readonly oracle: Money;
   readonly searchReplay: Money;
   readonly heldOutReplay: Money;
   readonly heldOutReserve: Money;
@@ -84,9 +86,13 @@ export class SearchBudget {
     });
   }
 
-  affords(split: HeldOutSplit): boolean {
+  seedRepeats(calibrates: boolean): number {
+    return baselineTermsOf(calibrates, this.repeats, this.ceiling).repeats;
+  }
+
+  affords(split: HeldOutSplit, calibrates: boolean): boolean {
     try {
-      this.splitCeiling(split);
+      this.splitCeiling(split, calibrates);
       return true;
     } catch (error) {
       if (error instanceof InvalidSearchError) {
@@ -96,8 +102,9 @@ export class SearchBudget {
     }
   }
 
-  splitCeiling(split: HeldOutSplit): SearchCeilingSplit {
-    const total = split.runs * this.repeats;
+  splitCeiling(split: HeldOutSplit, calibrates: boolean): SearchCeilingSplit {
+    const seeded = split.runs * this.seedRepeats(calibrates);
+    const answered = calibrates ? seeded : 0;
     const searched = split.searched.length * this.repeats;
     const heldOut = split.heldOut.length * this.repeats;
     const k = this.perIteration;
@@ -107,7 +114,14 @@ export class SearchBudget {
       AGENT_SLACK.of - AGENT_SLACK.parts,
       AGENT_SLACK.of,
     );
-    const units = this.unitsFor(split.searched.length, split.heldOut.length);
+    const units =
+      this.unitsFor(split.searched.length, split.heldOut.length) -
+      split.runs * this.repeats -
+      margin(split.runs * this.repeats) +
+      seeded +
+      margin(seeded) +
+      answered +
+      margin(answered);
     const perRun = pool.scaled(1, units);
 
     if (perRun.amount < MIN_RUN) {
@@ -120,7 +134,8 @@ export class SearchBudget {
 
     return {
       perRun,
-      seed: perRun.scaled(total, 1),
+      seed: perRun.scaled(seeded, 1),
+      oracle: perRun.scaled(answered, 1),
       searchReplay: perRun.scaled(searched, 1),
       heldOutReplay: perRun.scaled(heldOut, 1),
       heldOutReserve: perRun.scaled(k * (heldOut + margin(heldOut)), 1),
@@ -147,10 +162,15 @@ export class SearchBudget {
     );
   }
 
-  allowsIteration(spent: Money, split: HeldOutSplit): boolean {
-    const ceilingSplit = this.splitCeiling(split);
+  allowsIteration(
+    spent: Money,
+    split: HeldOutSplit,
+    calibrates: boolean,
+  ): boolean {
+    const ceilingSplit = this.splitCeiling(split, calibrates);
 
     return spent
+      .plus(ceilingSplit.oracle)
       .plus(ceilingSplit.heldOutReserve)
       .plus(ceilingSplit.iteration)
       .isWithin(this.ceiling);

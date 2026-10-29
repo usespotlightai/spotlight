@@ -4,17 +4,6 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const SEARCH_NOTICES = Symbol('REPLAYS_SEARCH_NOTICES');
 
-export interface SearchNotice {
-  readonly workspaceId: WorkspaceId;
-  readonly teamId: TeamId;
-  readonly searchId: SearchId;
-  readonly lineId: string;
-  readonly stationId: string;
-  readonly about: string;
-  readonly headline: string;
-  readonly points: readonly string[];
-}
-
 export interface StationNotice {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
@@ -23,6 +12,11 @@ export interface StationNotice {
   readonly about: string;
   readonly headline: string;
   readonly points: readonly string[];
+}
+
+export interface SearchNotice extends StationNotice {
+  readonly searchId: SearchId;
+  readonly pullRequest: string | null;
 }
 
 export interface SearchNoticesPort {

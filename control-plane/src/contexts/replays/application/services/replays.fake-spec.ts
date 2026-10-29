@@ -28,7 +28,6 @@ import type {
 import { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
 import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
 import { ReplaysAccess } from '@replays/application/services/replays-access.service';
-import { SetStations } from '@replays/application/services/set-stations.service';
 import { SetUsage } from '@replays/application/services/set-usage.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
@@ -205,15 +204,6 @@ export class InMemoryReplays {
   readonly candidateRepository: CandidateRepository = {
     find: async (id: CandidateId) => this.candidates.get(id.value) ?? null,
     locked: async (id: CandidateId) => this.candidates.get(id.value) ?? null,
-    lockedForUse: async (id: CandidateId) =>
-      this.candidates.get(id.value) ?? null,
-    proposedAt: async (teamId, address) =>
-      [...this.candidates.values()].find(
-        (each) =>
-          each.teamId.equals(teamId) &&
-          each.isProposed &&
-          each.address.equals(address),
-      ) ?? null,
     findMany: async (ids) =>
       ids.flatMap((id) => {
         const found = this.candidates.get(id.value);
@@ -233,10 +223,6 @@ export class InMemoryReplays {
       [...this.candidates.values()].filter((each) =>
         each.teamId.equals(teamId),
       ),
-    ofTeams: async (teamIds) =>
-      [...this.candidates.values()].filter((each) =>
-        teamIds.some((teamId) => each.teamId.equals(teamId)),
-      ),
   };
 
   readonly replayRepository: ReplayRepository = {
@@ -245,10 +231,6 @@ export class InMemoryReplays {
       [...this.replays.values()].find((each) => each.ran(run)) ?? null,
     ofSet: async (setId) =>
       [...this.replays.values()].filter((each) => each.setId.equals(setId)),
-    ofCandidate: async (candidateId) =>
-      [...this.replays.values()].filter((each) =>
-        each.candidateId.equals(candidateId),
-      ),
     pairingWith: async (replayId) =>
       [...this.replays.values()]
         .filter(
@@ -356,6 +338,10 @@ export class InMemoryReplays {
       [...this.searches.values()].find(
         (each) => each.isActive && each.station.stationId === stationId,
       ) ?? null,
+    activeOfLine: async (lineId) =>
+      [...this.searches.values()].filter(
+        (each) => each.isActive && each.station.lineId === lineId,
+      ),
     newestAtStation: async (stationId) =>
       [...this.searches.values()]
         .filter((each) => each.station.stationId === stationId)
@@ -383,24 +369,6 @@ export class InMemoryReplays {
               replay.isDispatching,
           ),
       ),
-    pageOfTeam: async (teamId, page) => {
-      const ofTeam = [...this.searches.values()]
-        .filter((each) => each.teamId.equals(teamId))
-        .sort(
-          (one, other) =>
-            other.startedAt.getTime() - one.startedAt.getTime() ||
-            (one.id.value < other.id.value ? 1 : -1),
-        );
-      const after = page.before
-        ? ofTeam.findIndex((each) => each.id.equals(page.before as SearchId))
-        : -1;
-
-      if (page.before && after < 0) {
-        return [];
-      }
-
-      return ofTeam.slice(after + 1, after + 1 + page.limit);
-    },
     add: async (search) => {
       this.events.push(...search.pullEvents());
       this.searches.set(search.id.value, search);
@@ -579,17 +547,6 @@ export const peopleWho = (mayPlan: boolean | null): PeoplePort => ({
   membershipOn: async () =>
     mayPlan === null ? null : { workspaceId: STATION.workspaceId, mayPlan },
   teamKey: async () => 'core',
-  workspaceSlug: async () => 'acme',
-  readableTeams: async () =>
-    mayPlan === null
-      ? null
-      : [
-          {
-            teamId: STATION.teamId,
-            workspaceId: STATION.workspaceId,
-            key: 'core',
-          },
-        ],
 });
 
 export const accessFor = (
@@ -706,6 +663,7 @@ export const refreshingFor = (
 ) =>
   new RefreshKeptSets(
     memory.setRepository,
+    memory.searchRepository,
     usageFor(memory),
     work,
     insights,
@@ -713,9 +671,6 @@ export const refreshingFor = (
     TRANSACTION,
     QUIET,
   );
-
-export const stationsFor = (memory: InMemoryReplays, work: FakeWork) =>
-  new SetStations(memory.setRepository, work, TRANSACTION, CLOCK);
 
 export const snapshotsFor = (
   memory: InMemoryReplays,

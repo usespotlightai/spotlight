@@ -1,6 +1,6 @@
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 
-export const SEARCH_PICK_DECLINES = [
+const SEARCH_PICK_DECLINES = [
   'no-candidate',
   'no-held-out-gain',
   'not-cheaper',

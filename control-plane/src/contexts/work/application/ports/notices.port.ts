@@ -12,10 +12,16 @@ export interface NoticeOf {
   readonly subject: string;
   readonly link: string;
   readonly linkLabel: string;
+  readonly externalLink: {
+    readonly url: string;
+    readonly label: string;
+  } | null;
   readonly headline: string;
   readonly points: readonly string[];
 }
 
 export interface NoticesPort {
   create(notice: NoticeOf): Promise<void>;
+
+  allowsExternalLink(url: string): boolean;
 }

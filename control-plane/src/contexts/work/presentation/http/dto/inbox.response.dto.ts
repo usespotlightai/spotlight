@@ -16,6 +16,7 @@ import {
   NOTE_FORMS,
   NOTE_KINDS,
   NOTE_VOICES,
+  type NoticeExternalLinkDto,
 } from '@work/application/dto/inbox.dto';
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
@@ -535,6 +536,19 @@ export class InboxItemResponseDto {
   }
 }
 
+export class NoticeExternalLinkResponseDto {
+  @ApiProperty({ example: 'https://github.com/acme/config/pull/12' })
+  readonly url: string;
+
+  @ApiProperty({ example: 'Review the pull request' })
+  readonly label: string;
+
+  constructor(link: NoticeExternalLinkDto) {
+    this.url = link.url;
+    this.label = link.label;
+  }
+}
+
 export class InboxNoticeResponseDto {
   @ApiProperty({
     enum: ['notice'],
@@ -572,16 +586,24 @@ export class InboxNoticeResponseDto {
   readonly points: readonly string[];
 
   @ApiProperty({
-    example: 'lines/line_1/stations/station_1/searches/search_1',
+    example: 'lines/line_1/stations/station_1',
     description: 'Where to look, as a path within its team',
   })
   readonly link: string;
 
   @ApiProperty({
-    example: 'Open the search',
+    example: 'Open the station',
     description: 'What to call the link, naming where it leads',
   })
   readonly linkLabel: string;
+
+  @ApiProperty({
+    type: NoticeExternalLinkResponseDto,
+    nullable: true,
+    description:
+      'Where to act outside Spotlight, such as the pull request to review; the main action when present',
+  })
+  readonly externalLink: NoticeExternalLinkResponseDto | null;
 
   @ApiProperty({ example: '2026-08-28T21:15:00.000Z' })
   readonly askedAt: string;
@@ -603,6 +625,9 @@ export class InboxNoticeResponseDto {
     this.points = [...notice.points];
     this.link = notice.link;
     this.linkLabel = notice.linkLabel;
+    this.externalLink = notice.externalLink
+      ? new NoticeExternalLinkResponseDto(notice.externalLink)
+      : null;
     this.askedAt = notice.askedAt;
     this.unread = notice.unread;
     this.resolved = notice.resolved;

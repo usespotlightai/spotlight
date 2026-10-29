@@ -36,7 +36,7 @@ export interface CheckEvaluation {
   readonly because: UndecidedBecause | null;
   readonly entries: number;
   readonly compared: number;
-  readonly regressions: readonly EntryComparison[];
+  readonly tasks: readonly EntryComparison[];
   readonly candidate: ReplayTotals | null;
   readonly baseline: ReplayTotals | null;
   readonly gain: GainEstimate | null;
@@ -81,7 +81,7 @@ export const evaluationOf = (
       because: 'replay-gone',
       entries: 0,
       compared: 0,
-      regressions: [],
+      tasks: [],
       candidate: null,
       baseline: baseline && totalsOf(baseline),
       gain: null,
@@ -95,7 +95,7 @@ export const evaluationOf = (
   const evaluation = {
     entries,
     compared: scored,
-    regressions,
+    tasks: compared,
     candidate: totalsOf(replay),
     baseline: baseline && totalsOf(baseline),
     gain: baseline && gainBetween(replay, baseline, check.threshold.minGain),

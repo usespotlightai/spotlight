@@ -12,6 +12,7 @@ import {
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import { StartSearch } from '@replays/application/services/start-search.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
@@ -22,6 +23,7 @@ import {
   LIVE_FINGERPRINT,
   LIVE_HASHES,
   NOW,
+  replayedAs,
   STATION,
   searchRunIds,
   sha256,
@@ -117,7 +119,7 @@ const searches = (): Search[] =>
 
 const stopAll = async () => {
   for (const each of searches().filter((one) => one.isActive)) {
-    await memory.searchRepository.save(each.stop(now, BY));
+    await memory.searchRepository.save(each.turnOff(now));
   }
   for (const each of memory.replays.values()) {
     if (each.isInProgress) {
@@ -182,6 +184,41 @@ describe('AutoSearches', () => {
         .searchedTasks.map((each) => each.value)
         .sort(),
     ).toEqual(search?.split.searched.map((each) => each.taskId.value).sort());
+  });
+
+  it('calibrates a new set with the seed of its first search, three repeats a run, and not again while the set and the live config stay', async () => {
+    await auto().processDue();
+
+    const [first] = searches() as [Search];
+    const seed = memory.replays.get(first.seed.replay.replayId.value) as Replay;
+
+    expect(first.calibrates).toBe(true);
+    expect(seed.calibration).toBe(true);
+    expect(seed.repeats).toBe(3);
+    expect(seed.ceiling).toEqual(first.ceilingSplit.seed);
+
+    await memory.replayRepository.save(
+      replayedAs(seed, () => 'completed', 0.001),
+    );
+    await memory.searchRepository.save(first.turnOff(now));
+    now = new Date(NOW.getTime() + 8 * DAY);
+    await auto().processDue();
+
+    const [, second] = searches();
+
+    expect(second?.calibrates).toBe(false);
+    expect(
+      memory.replays.get(second?.seed.replay.replayId.value ?? '')?.repeats,
+    ).toBe(1);
+  });
+
+  it('skips as too low a ceiling that covers a plain seed but not a calibrating one', async () => {
+    policy = policyOf({ ceiling: 1 });
+
+    await auto().processDue();
+
+    expect(searches()).toEqual([]);
+    expect(schedule().lastSkip?.reason).toBe('ceiling-too-low');
   });
 
   it('searches with the agent the policy names, over the station’s own', async () => {

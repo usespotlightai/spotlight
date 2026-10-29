@@ -79,7 +79,7 @@ const started = (
   Replay.start({
     id: ReplayId.of(id),
     set: SET,
-    candidate: candidateOf(id === SEED ? 'live' : 'proposed', candidate),
+    candidate: candidateOf(id === SEED ? 'live' : 'searched', candidate),
     baseline: id === SEED,
     ceiling,
     unpricedRate: search.ceilingSplit.perRun,

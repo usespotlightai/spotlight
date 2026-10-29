@@ -9,10 +9,8 @@ import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding
 import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
-import { SearchStopRequested } from '@replays/domain/events/search-stop-requested.event';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
-import { SearchEndedError } from '@replays/domain/exceptions/search-ended.error';
 import { SearchIterationClosedError } from '@replays/domain/exceptions/search-iteration-closed.error';
 import { SearchNotReflectingError } from '@replays/domain/exceptions/search-not-reflecting.error';
 import { SearchProposalsExhaustedError } from '@replays/domain/exceptions/search-proposals-exhausted.error';
@@ -122,6 +120,7 @@ interface State {
   readonly budget: SearchBudget;
   readonly objective: SearchObjective;
   readonly split: HeldOutSplit;
+  readonly calibrates: boolean;
   readonly seed: SearchSeed;
   readonly iterations: readonly SearchIteration[];
   readonly heldOut: readonly HeldOutReplay[];
@@ -152,6 +151,7 @@ export class Search extends EventRecorder {
     budget: SearchBudget;
     objective: SearchObjective;
     split: HeldOutSplit;
+    calibrates: boolean;
     seed: { candidate: SeedCandidate; replayId: ReplayId };
     trigger: SearchTrigger;
     at: Date;
@@ -175,7 +175,7 @@ export class Search extends EventRecorder {
       );
     }
 
-    input.budget.splitCeiling(input.split);
+    input.budget.splitCeiling(input.split, input.calibrates);
 
     const started = new Search({
       id: input.id,
@@ -185,6 +185,7 @@ export class Search extends EventRecorder {
       budget: input.budget,
       objective: input.objective,
       split: input.split,
+      calibrates: input.calibrates,
       seed: {
         candidateId: seed.candidate.id,
         fingerprint: seed.candidate.fingerprint,
@@ -313,7 +314,14 @@ export class Search extends EventRecorder {
   }
 
   get ceilingSplit(): SearchCeilingSplit {
-    return this.state.budget.splitCeiling(this.state.split);
+    return this.state.budget.splitCeiling(
+      this.state.split,
+      this.state.calibrates,
+    );
+  }
+
+  get calibrates(): boolean {
+    return this.state.calibrates;
   }
 
   get seed(): SearchSeed {
@@ -677,22 +685,8 @@ export class Search extends EventRecorder {
     }).heldOutAt(at);
   }
 
-  stop(at: Date, by: ChangeActor): Search {
-    if (!this.isActive) {
-      throw new SearchEndedError(this.id.value);
-    }
-
-    const stopped = this.cutShort('stopped', at);
-
-    stopped.record(
-      new SearchStopRequested(
-        this.id,
-        this.teamId,
-        ConfigurationChange.updated(this.whatChanged, by),
-      ),
-    );
-
-    return stopped;
+  turnOff(at: Date): Search {
+    return this.isActive ? this.cutShort('turned-off', at) : this;
   }
 
   picked(pick: SearchPick): Search {
@@ -802,7 +796,11 @@ export class Search extends EventRecorder {
   }
 
   private get affordsIteration(): boolean {
-    return this.state.budget.allowsIteration(this.spent, this.state.split);
+    return this.state.budget.allowsIteration(
+      this.spent,
+      this.state.split,
+      this.state.calibrates,
+    );
   }
 
   private advancedAt(at: Date, runIds: () => RunId): Search {
@@ -834,7 +832,11 @@ export class Search extends EventRecorder {
 
     return (
       budget.iterations - iterations.length >= REFLECTION_AND_ONE_MORE &&
-      budget.allowsIteration(this.spent.plus(this.ceilingSplit.agentRun), split)
+      budget.allowsIteration(
+        this.spent.plus(this.ceilingSplit.agentRun),
+        split,
+        this.state.calibrates,
+      )
     );
   }
 

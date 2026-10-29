@@ -47,12 +47,7 @@ export function CandidatesTab({
     <div className="flex flex-col gap-3">
       {read.truncated && <TruncatedNote text={CANDIDATES_TRUNCATED} />}
 
-      <CandidatesCard
-        slug={slug}
-        teamId={teamId}
-        stations={read.stations}
-        names={names}
-      />
+      <CandidatesCard stations={read.stations} names={names} />
     </div>
   );
 }

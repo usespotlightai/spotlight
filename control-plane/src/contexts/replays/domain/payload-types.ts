@@ -1,6 +1,4 @@
-import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
 import { CandidateDeletionRequested } from '@replays/domain/events/candidate-deletion-requested.event';
-import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
 import { ConfigPullRequestClosed } from '@replays/domain/events/config-pull-request-closed.event';
 import { ConfigPullRequestDeletionRequested } from '@replays/domain/events/config-pull-request-deletion-requested.event';
 import { ConfigPullRequestFailed } from '@replays/domain/events/config-pull-request-failed.event';
@@ -39,12 +37,10 @@ import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding
 import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
-import { SearchStopRequested } from '@replays/domain/events/search-stop-requested.event';
 import { StationSearchScheduleDeletionRequested } from '@replays/domain/events/station-search-schedule-deletion-requested.event';
 import { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
-import { CandidatePath } from '@replays/domain/value-objects/candidate-path.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { ConfigPullRequestDetail } from '@replays/domain/value-objects/config-pull-request-detail.vo';
@@ -89,7 +85,6 @@ import { StationFingerprint } from '@replays/domain/value-objects/station-finger
 import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 export const REPLAYS_PAYLOAD_TYPES = [
-  CandidatePath,
   CandidateId,
   CandidateName,
   CandidateScoring,
@@ -144,8 +139,6 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ReplaySetDeletionRequested,
   CandidateDeletionRequested,
   ReplaySetStationCheckRequested,
-  CandidateProposed,
-  CandidateDeleted,
   ReplayStarted,
   ReplayStopRequested,
   ReplayEnded,
@@ -158,7 +151,6 @@ export const REPLAYS_PAYLOAD_TYPES = [
   SearchPickDeclined,
   StationSearchSkipped,
   StationSearchScheduleDeletionRequested,
-  SearchStopRequested,
   ReplayCheckId,
   ReplayThreshold,
   SearchPolicy,

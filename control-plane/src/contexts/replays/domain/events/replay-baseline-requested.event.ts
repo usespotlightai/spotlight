@@ -18,6 +18,5 @@ export class ReplayBaselineRequested implements DomainEvent {
     readonly unpricedRate: Money | null,
     readonly repeats: number,
     readonly baselineRepeats: number,
-    readonly calibration: boolean,
   ) {}
 }

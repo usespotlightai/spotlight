@@ -1,9 +1,9 @@
 import type {
-  EntryResultDto,
   GainEstimateDto,
   MoneyDto,
   RateIntervalDto,
 } from '@replays/application/dto/replays.dto';
+import type { TaskRow } from '@replays/application/dto/task-rows.dto';
 import type {
   CheckResult,
   UndecidedBecause,
@@ -18,19 +18,6 @@ export interface CheckSideDto {
   readonly interval: RateIntervalDto | null;
   readonly tasksScored: number;
   readonly spent: MoneyDto | null;
-}
-
-export interface CheckRegressionDto {
-  readonly taskId: string;
-  readonly originalRunId: string;
-  readonly title: string | null;
-  readonly candidate: readonly EntryResultDto[];
-  readonly baseline: readonly EntryResultDto[];
-  readonly scoreDelta: number | null;
-  readonly reasons: readonly {
-    readonly code: string;
-    readonly detail: string | null;
-  }[];
 }
 
 export interface ReplayCheckDto {
@@ -61,27 +48,10 @@ export interface ReplayCheckDto {
   readonly gain: GainEstimateDto | null;
   readonly result: CheckResult;
   readonly undecidedBecause: UndecidedBecause | null;
-  readonly tasks: number;
+  readonly taskCount: number;
   readonly compared: number;
   readonly candidate: CheckSideDto;
   readonly baseline: CheckSideDto;
-  readonly regressions: readonly CheckRegressionDto[];
-  readonly replayUrl: string | null;
+  readonly tasks: readonly TaskRow[];
   readonly createdAt: string;
-}
-
-export interface ReplayCheckSummaryDto {
-  readonly id: string;
-  readonly stationId: string;
-  readonly stationKey: string;
-  readonly result: CheckResult;
-  readonly undecidedBecause: UndecidedBecause | null;
-  readonly regressions: number;
-  readonly attempt: number;
-  readonly reference: {
-    readonly commit: string | null;
-    readonly pullRequest: number | null;
-  };
-  readonly createdAt: string;
-  readonly replayUrl: string | null;
 }

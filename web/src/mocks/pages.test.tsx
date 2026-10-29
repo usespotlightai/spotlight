@@ -3,9 +3,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { INSIGHTS_TABS } from '@/lib/insights';
 import { serveMockApi } from '@/mocks/testing';
 import { GROWTH_ID, PLATFORM_ID, SLUG, world } from '@/mocks/world';
-import { replayStore } from '@/mocks/world/station-replays';
-import { searchStore } from '@/mocks/world/station-searches';
-import { setStore } from '@/mocks/world/station-sets';
 import { teamChats } from '@/mocks/world/team-chats';
 import { RUN_CHANGE_STACKS } from '@/mocks/world/work-changes';
 import { MockApplication } from '@/stories/MockApplication';
@@ -26,14 +23,6 @@ const teamPages = (teamId: string): string[] => {
   const tasks = world().tasks[teamId] ?? [];
   const station = (lineId: string, stationId: string) =>
     `${team}/lines/${lineId}/stations/${stationId}`;
-  const onTeam = (lineId: string) => lines.some((line) => line.id === lineId);
-  const stationOfSet = (setId: string) => {
-    const set = setStore().find((each) => each.id === setId);
-    return set && onTeam(set.lineId)
-      ? station(set.lineId, set.stationId)
-      : null;
-  };
-
   return [
     `${team}/agent`,
     ...(teamChats()[teamId] ?? []).map(
@@ -43,19 +32,6 @@ const teamPages = (teamId: string): string[] => {
       `${team}/lines/${line.id}`,
       ...line.stations.map((each) => station(line.id, each.id)),
     ]),
-    ...setStore()
-      .filter((set) => onTeam(set.lineId))
-      .map(
-        (set) => `${station(set.lineId, set.stationId)}/replay-sets/${set.id}`,
-      ),
-    ...replayStore().flatMap((replay) => {
-      const at = stationOfSet(replay.setId);
-      return at ? [`${at}/replays/${replay.id}`] : [];
-    }),
-    ...searchStore().flatMap((search) => {
-      const at = stationOfSet(search.setId);
-      return at ? [`${at}/searches/${search.id}`] : [];
-    }),
     ...tasks.flatMap((task) => [
       `${team}/tasks/${task.id}`,
       ...((world().runs[task.id] ?? []).length > 0
