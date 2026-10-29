@@ -1,12 +1,16 @@
-import { useId, useState } from 'react';
+import { GradeRubric } from '@/components/features/inbox/grades/GradeRubric';
 import { AgreementMeter } from '@/components/features/stations/config/AgreementMeter';
 import { ConfigCard } from '@/components/features/stations/config/ConfigCard';
 import { ConfigCardValue } from '@/components/features/stations/config/ConfigCardValue';
 import { SampleRing } from '@/components/features/stations/config/SampleRing';
 import { JudgeClaims } from '@/components/features/stations/judge/JudgeClaims';
-import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { SectionLink } from '@/components/shared/SectionLink';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
 import { formatStat } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
@@ -28,8 +32,6 @@ export function JudgeCard({
   stationId,
   judge,
 }: JudgeCardProps) {
-  const [open, setOpen] = useState(false);
-  const rubricId = useId();
   const agreement = useStationJudge(teamId, lineId, stationId);
 
   if (!judge) {
@@ -48,16 +50,16 @@ export function JudgeCard({
       id={JUDGE_ANCHOR}
       action={
         <SectionLink to={judgeAgreementPath(slug, teamId, { stationId })}>
-          How it agrees with people
+          Agreement
         </SectionLink>
       }
     >
       <div className="flex items-center gap-3">
         <SampleRing
           share={judge.sample}
-          label={`Judges ${sharePercent(judge.sample)} of runs`}
+          label={`Sample rate: ${sharePercent(judge.sample)} of runs`}
         />
-        <ConfigCardValue detail="of runs judged">
+        <ConfigCardValue detail="Sample rate">
           {sharePercent(judge.sample)}
         </ConfigCardValue>
       </div>
@@ -81,30 +83,17 @@ export function JudgeCard({
         )}
 
         {judge.rubric !== null && (
-          <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => setOpen(!open)}
-              aria-expanded={open}
-              aria-controls={rubricId}
+          <Tooltip>
+            <TooltipTrigger
+              render={<button type="button" />}
               className="-mx-1.5 w-fit rounded-md px-1.5 py-0.5 text-muted-foreground text-xs outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
             >
-              {open ? 'Hide rubric' : 'Show rubric'}
-            </button>
-
-            {open && (
-              <div id={rubricId}>
-                <MarkdownEditor
-                  key={stationId}
-                  initialValue={judge.rubric}
-                  readOnly
-                  ariaLabel="Rubric"
-                  placeholder=""
-                  className="border-0 bg-transparent p-0"
-                />
-              </div>
-            )}
-          </div>
+              Rubric
+            </TooltipTrigger>
+            <TooltipContent className="w-max max-w-[min(20rem,calc(100vw-2rem))] py-1.5">
+              <GradeRubric rubric={judge.rubric} size="xs" />
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
     </ConfigCard>

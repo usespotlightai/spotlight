@@ -1,12 +1,14 @@
+import type { ComponentProps } from 'react';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RUBRIC_LABEL, RUBRIC_TEXT_LABEL } from '@/lib/judge';
 
 type GradeRubricProps = {
   rubric: string;
+  size?: ComponentProps<typeof MarkdownEditor>['size'];
 };
 
-export function GradeRubric({ rubric }: GradeRubricProps) {
+export function GradeRubric({ rubric, size }: GradeRubricProps) {
   return (
     <ScrollArea
       className="max-h-48 rounded"
@@ -20,6 +22,7 @@ export function GradeRubric({ rubric }: GradeRubricProps) {
         <MarkdownEditor
           key={rubric}
           readOnly
+          size={size}
           initialValue={rubric}
           placeholder=""
           ariaLabel={RUBRIC_TEXT_LABEL}

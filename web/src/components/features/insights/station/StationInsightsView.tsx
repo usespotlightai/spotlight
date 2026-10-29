@@ -29,12 +29,13 @@ export function StationInsightsView({
     (each) => each.stationId === stationId,
   );
   const lineId = names.get(stationId)?.lineId ?? report?.lineId;
-  const { station } = useStation(teamId, lineId, stationId);
+  const { lines, station } = useStation(teamId, lineId, stationId);
   const judged = Boolean(station?.judge);
   const outcomes = useStationInsights(teamId, lineId, stationId);
   const judge = useStationJudge(teamId, lineId, judged ? stationId : undefined);
   const waiting =
     loading(stations) ||
+    loading(lines) ||
     (lineId !== undefined && loading(outcomes)) ||
     (judged && loading(judge));
 

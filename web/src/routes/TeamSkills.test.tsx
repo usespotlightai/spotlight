@@ -57,7 +57,7 @@ describe('TeamSkills', () => {
     expect(document.getElementById('skill-grafana-dashboards')).toHaveAttribute(
       'data-pointed',
     );
-    expect(scrolled).toHaveBeenCalledWith({ block: 'center' });
+    expect(scrolled).toHaveBeenCalledWith({ block: 'start' });
   });
 
   it('marks the skill a link points at after moving there within the app', async () => {

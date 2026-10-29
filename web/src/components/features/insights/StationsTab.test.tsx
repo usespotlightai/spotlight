@@ -45,6 +45,6 @@ describe('the Stations tab', () => {
       .filter((each) => each.dataset.slot === 'station-report');
     const triage = reports.find((each) => each.id === 'station-station_triage');
     expect(triage).toBeDefined();
-    expect(scrolled).toHaveBeenCalledWith({ block: 'center' });
+    expect(scrolled).toHaveBeenCalledWith({ block: 'start' });
   });
 });

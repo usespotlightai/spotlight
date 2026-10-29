@@ -40,7 +40,7 @@ export function StationInsightsSkeleton({
       </InsightsCardSkeleton>
 
       {judged && (
-        <StationSection title="How far to trust the judge">
+        <StationSection title="How far the judge agrees with people">
           <JudgeAgreementSkeleton />
         </StationSection>
       )}

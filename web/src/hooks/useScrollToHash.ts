@@ -16,7 +16,7 @@ export function useScrollToHash(shown: boolean) {
     const anchor = hash ? anchorOf(hash) : null;
 
     if (shown && anchor) {
-      document.getElementById(anchor)?.scrollIntoView({ block: 'center' });
+      document.getElementById(anchor)?.scrollIntoView({ block: 'start' });
     }
   }, [shown, hash]);
 }

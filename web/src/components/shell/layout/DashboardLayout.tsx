@@ -29,7 +29,7 @@ export function DashboardLayout({ sidebar, children }: DashboardLayoutProps) {
       </aside>
 
       <div className="min-w-0 flex-1 p-2 md:pl-0">
-        <section className="flex h-full flex-col overflow-hidden rounded-lg border-[0.5px] border-border bg-surface shadow-pane">
+        <section className="flex h-full flex-col overflow-clip rounded-lg border-[0.5px] border-border bg-surface shadow-pane">
           {children}
         </section>
       </div>
