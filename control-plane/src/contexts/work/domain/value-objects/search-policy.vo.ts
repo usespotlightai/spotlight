@@ -14,9 +14,9 @@ import {
   spendAmountProblem,
 } from '@work/domain/value-objects/spend-ceiling.vo';
 
-export const MAX_SEARCH_ITERATIONS = 10;
+const MAX_SEARCH_ITERATIONS = 10;
 
-export const MAX_SEARCH_REPEATS = 5;
+const MAX_SEARCH_REPEATS = 5;
 
 export const SEARCH_OBJECTIVES = ['success', 'cost'] as const;
 

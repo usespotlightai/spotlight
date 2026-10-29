@@ -12,9 +12,9 @@ export const MAX_CONCURRENCY = 10;
 
 export const SEARCH_CONCURRENCY = 4;
 
-export const AUTOMATIC_ITERATIONS = 3;
+const AUTOMATIC_ITERATIONS = 3;
 
-export const AUTOMATIC_PER_ITERATION = 2;
+const AUTOMATIC_PER_ITERATION = 2;
 
 const AGENT_SLACK = { parts: 1, of: 10 } as const;
 
