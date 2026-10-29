@@ -16,7 +16,7 @@ export function DecisionCard({
     <Card
       ref={ref as Ref<HTMLLIElement & HTMLElement>}
       className={cn(
-        'flex flex-col gap-3 rounded-xl border-[0.5px] border-border bg-card px-3 pt-2 pb-3 shadow-pane',
+        'flex w-full flex-col gap-3 rounded-xl border-[0.5px] border-border bg-card px-3 pt-2 pb-3 shadow-pane md:w-3/4',
         className,
       )}
       {...props}
