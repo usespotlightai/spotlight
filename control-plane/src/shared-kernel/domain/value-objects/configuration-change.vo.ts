@@ -15,7 +15,6 @@ export const CONFIGURED_RESOURCES = [
   'runner-pool',
   'egress',
   'workspace-runners',
-  'replay-candidate',
   'replay',
   'replay-search',
   'replay-check',

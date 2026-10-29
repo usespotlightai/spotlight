@@ -10,8 +10,6 @@ import { describe, expect, it } from 'vitest';
 const NOT_EXPORTED: Readonly<Record<string, string>> = {
   'workspace-token':
     'only a person who administers the workspace may issue, change or revoke a token, and Terraform calls with a token, which never administers',
-  'replay-candidate':
-    'a candidate is an experiment proposed to replay a station under, never configuration Terraform applies',
 };
 
 const kindsInOpenApi = (): readonly string[] => {

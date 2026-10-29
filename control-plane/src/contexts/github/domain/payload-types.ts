@@ -1,5 +1,6 @@
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
 import { PullRequestPurged } from '@github/domain/events/pull-request-purged.event';
+import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
 import { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
 import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
@@ -14,6 +15,7 @@ export const GITHUB_PAYLOAD_TYPES = [
   WorkspaceDisconnected,
   ReviewCommentReceived,
   PullRequestClosed,
+  PullRequestReopened,
   PullRequestReviewed,
   PullRequestUpdated,
   PullRequestRevertMerged,

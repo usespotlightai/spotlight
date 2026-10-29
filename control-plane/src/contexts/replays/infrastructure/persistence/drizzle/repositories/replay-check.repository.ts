@@ -6,10 +6,7 @@ import {
 } from '@platform/persistence/drizzle/violations';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import { ReplayCheckRaceError } from '@replays/domain/exceptions/replay-check-race.error';
-import type {
-  ReplayCheckPage,
-  ReplayCheckRepository,
-} from '@replays/domain/repositories/replay-check.repository';
+import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import {
   SCORING_FIELDS,
   type ScoringField,
@@ -30,7 +27,7 @@ import {
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, desc, eq, lt, or, type SQL } from 'drizzle-orm';
+import { and, asc, eq, type SQL } from 'drizzle-orm';
 
 type CheckRow = typeof replayCheck.$inferSelect;
 
@@ -137,49 +134,6 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
 
   ofSet(setId: ReplaySetId): Promise<readonly ReplayCheck[]> {
     return this.where(eq(replayCheck.setId, setId.value));
-  }
-
-  async pageOfSet(
-    setId: ReplaySetId,
-    page: ReplayCheckPage,
-  ): Promise<readonly ReplayCheck[]> {
-    const [after] = page.before
-      ? await this.context.db
-          .select({ id: replayCheck.id, createdAt: replayCheck.createdAt })
-          .from(replayCheck)
-          .where(
-            and(
-              eq(replayCheck.id, page.before.value),
-              eq(replayCheck.setId, setId.value),
-            ),
-          )
-      : [];
-
-    if (page.before && !after) {
-      return [];
-    }
-
-    return (
-      await this.context.db
-        .select()
-        .from(replayCheck)
-        .where(
-          and(
-            eq(replayCheck.setId, setId.value),
-            after
-              ? or(
-                  lt(replayCheck.createdAt, after.createdAt),
-                  and(
-                    eq(replayCheck.createdAt, after.createdAt),
-                    lt(replayCheck.id, after.id),
-                  ),
-                )
-              : undefined,
-          ),
-        )
-        .orderBy(desc(replayCheck.createdAt), desc(replayCheck.id))
-        .limit(page.limit)
-    ).map(toCheck);
   }
 
   async add(added: ReplayCheck): Promise<void> {

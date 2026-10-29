@@ -6,7 +6,6 @@ import { ReplaySetEntryTakenError } from '@replays/domain/exceptions/replay-set-
 import { ReplaySetFullError } from '@replays/domain/exceptions/replay-set-full.error';
 import { ReplaySetInUseError } from '@replays/domain/exceptions/replay-set-in-use.error';
 import { ReplaySetStationGoneError } from '@replays/domain/exceptions/replay-set-station-gone.error';
-import { ReplaySetTaskRemovedError } from '@replays/domain/exceptions/replay-set-task-removed.error';
 import { UnknownReplaySetEntryError } from '@replays/domain/exceptions/unknown-replay-set-entry.error';
 import { UnreplayableEntryError } from '@replays/domain/exceptions/unreplayable-entry.error';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
@@ -51,7 +50,6 @@ interface State {
   readonly id: ReplaySetId;
   readonly station: ReplayedStation;
   readonly entries: readonly ReplaySetEntry[];
-  readonly removedTasks: readonly TaskId[];
   readonly createdAt: Date;
   readonly refreshedAt: Date | null;
   readonly lastRefresh: ReplaySetRefresh | null;
@@ -79,7 +77,6 @@ export class ReplaySet extends EventRecorder {
         id: input.id,
         station: input.station,
         entries: [],
-        removedTasks: [],
         createdAt: input.at,
         refreshedAt: null,
         lastRefresh: null,
@@ -118,10 +115,6 @@ export class ReplaySet extends EventRecorder {
     return this.state.entries.map((each) => each.runId);
   }
 
-  get removedTasks(): readonly TaskId[] {
-    return this.state.removedTasks;
-  }
-
   get createdAt(): Date {
     return this.state.createdAt;
   }
@@ -156,10 +149,6 @@ export class ReplaySet extends EventRecorder {
 
   includes(run: RunId): boolean {
     return this.state.entries.some((each) => each.runId.equals(run));
-  }
-
-  wasRemoved(task: TaskId): boolean {
-    return this.state.removedTasks.some((each) => each.equals(task));
   }
 
   isAtStation(stationId: string): boolean {
@@ -235,27 +224,6 @@ export class ReplaySet extends EventRecorder {
     return changed;
   }
 
-  removeEntry(run: RunId, inUse: boolean): ReplaySet {
-    this.unused(inUse);
-
-    const entry = this.state.entries.find((each) => each.runId.equals(run));
-
-    if (!entry) {
-      throw new UnknownReplaySetEntryError(run.value);
-    }
-
-    const changed = this.with({
-      entries: this.state.entries.filter((each) => each !== entry),
-      removedTasks: this.wasRemoved(entry.taskId)
-        ? this.state.removedTasks
-        : [...this.state.removedTasks, entry.taskId],
-    });
-
-    changed.record(new ReplaySetEntriesChanged(this.id, this.workspaceId));
-
-    return changed;
-  }
-
   delete(): ReplaySet {
     const deleted = new ReplaySet(this.state, true);
 
@@ -285,10 +253,6 @@ export class ReplaySet extends EventRecorder {
     }
 
     const task = replayable.taskId;
-
-    if (this.wasRemoved(task)) {
-      throw new ReplaySetTaskRemovedError(task.value);
-    }
 
     if (
       entries.some((each) => each.runId.equals(run) || each.taskId.equals(task))

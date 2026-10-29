@@ -54,6 +54,7 @@ const due = (over: Partial<DueInput> = {}): DueInput => ({
   pullRequestOpen: false,
   monthSpent: Money.none('USD'),
   ...over,
+  cooldownFrom: over.cooldownFrom ?? over.lastStartedAt ?? null,
 });
 
 const set = (over: Partial<SetInput> = {}): SetInput => ({
@@ -63,6 +64,7 @@ const set = (over: Partial<SetInput> = {}): SetInput => ({
   freshHeldOut: true,
   affordable: true,
   agent: AGENT,
+  needsAgent: true,
   ...over,
 });
 
@@ -75,17 +77,13 @@ describe('dueVerdict', () => {
     });
   });
 
-  it('skips a station whose policy is off or missing, and looks again a day later', () => {
-    const skipped = {
-      kind: 'skip',
-      reason: 'disabled',
-      checkAfter: ahead(DAY),
-    };
+  it('waits a day at a station whose policy is off or missing, with no skip', () => {
+    const waiting = { kind: 'wait', checkAfter: ahead(DAY) };
 
     expect(dueVerdict(due({ policy: policyOf({ enabled: false }) }))).toEqual(
-      skipped,
+      waiting,
     );
-    expect(dueVerdict(due({ policy: null }))).toEqual(skipped);
+    expect(dueVerdict(due({ policy: null }))).toEqual(waiting);
   });
 
   it('skips a station with no judge and no check before anything else but the policy, and looks again a day later', () => {
@@ -96,7 +94,7 @@ describe('dueVerdict', () => {
     });
     expect(
       dueVerdict(due({ scores: false, policy: policyOf({ enabled: false }) })),
-    ).toMatchObject({ reason: 'disabled' });
+    ).toEqual({ kind: 'wait', checkAfter: ahead(DAY) });
   });
 
   it('waits an hour while a search of the station runs', () => {
@@ -127,6 +125,12 @@ describe('dueVerdict', () => {
       dueVerdict(
         due({ lastStartedAt: ago(DAY), alertPendingSince: ago(HOUR) }),
       ),
+    ).toEqual({ kind: 'skip', reason: 'cooldown', checkAfter: ahead(2 * DAY) });
+  });
+
+  it('skips for the cooldown after a person rejects a config pull request, even when the period has ended', () => {
+    expect(
+      dueVerdict(due({ lastStartedAt: ago(8 * DAY), cooldownFrom: ago(DAY) })),
     ).toEqual({ kind: 'skip', reason: 'cooldown', checkAfter: ahead(2 * DAY) });
   });
 

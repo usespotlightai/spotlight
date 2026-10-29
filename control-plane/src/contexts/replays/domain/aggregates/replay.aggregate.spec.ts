@@ -117,7 +117,7 @@ describe('Replay', () => {
 
     it('is a baseline only of the live config', () => {
       expect(() =>
-        aReplay({ candidate: candidateOf('proposed'), baseline: true }),
+        aReplay({ candidate: candidateOf('searched'), baseline: true }),
       ).toThrow(InvalidReplayError);
       expect(
         aReplay({ candidate: candidateOf('live'), baseline: true }).baseline,
@@ -152,7 +152,7 @@ describe('Replay', () => {
         Replay.start({
           id: ReplayId.of('replay_1'),
           set,
-          candidate: candidateOf('proposed'),
+          candidate: candidateOf('searched'),
           baseline: false,
           ceiling: Money.ceiling(1, 'USD'),
           at: NOW,
@@ -166,7 +166,7 @@ describe('Replay', () => {
         Replay.start({
           id: ReplayId.of('replay_1'),
           set: aSet(1).stationLeft(NOW),
-          candidate: candidateOf('proposed'),
+          candidate: candidateOf('searched'),
           baseline: false,
           ceiling: Money.ceiling(1, 'USD'),
           at: NOW,
@@ -243,7 +243,7 @@ describe('Replay', () => {
       const replay = Replay.start({
         id: ReplayId.of('replay_1'),
         set: aSet(1),
-        candidate: candidateOf('proposed'),
+        candidate: candidateOf('searched'),
         baseline: false,
         ceiling: Money.ceiling(3, 'USD'),
         at: NOW,
@@ -253,7 +253,6 @@ describe('Replay', () => {
           candidate: candidateOf('live'),
           ceiling: Money.ceiling(9, 'USD'),
           repeats: 3,
-          calibration: true,
         },
       });
 
@@ -266,7 +265,7 @@ describe('Replay', () => {
             BY,
             ReplayStartDetail.of({
               setId: replay.setId,
-              candidateId: candidateOf('proposed').id,
+              candidateId: candidateOf('searched').id,
               baseline: false,
               ceiling: Money.ceiling(3, 'USD'),
               repeats: 1,
@@ -284,14 +283,13 @@ describe('Replay', () => {
           null,
           1,
           3,
-          true,
         ),
       ]);
     });
 
-    it('wants no baseline of a proposed candidate, nor when it is the baseline', () => {
+    it('wants no baseline of a searched candidate, nor when it is the baseline', () => {
       for (const [baseline, wanted] of [
-        [false, candidateOf('proposed')],
+        [false, candidateOf('searched')],
         [true, candidateOf('live')],
       ] as const) {
         expect(() =>
@@ -308,7 +306,6 @@ describe('Replay', () => {
               candidate: wanted,
               ceiling: Money.ceiling(3, 'USD'),
               repeats: 1,
-              calibration: false,
             },
           }),
         ).toThrow(InvalidReplayError);
@@ -396,7 +393,7 @@ describe('Replay', () => {
             against: concludedAll(
               aReplay({
                 id: 'replay_proposed',
-                candidate: candidateOf('proposed'),
+                candidate: candidateOf('searched'),
               }),
             ),
             live: candidateOf('live'),
@@ -423,15 +420,12 @@ describe('Replay', () => {
   });
 
   it('wants no baseline on terms a baseline may not have', () => {
-    for (const terms of [
-      { repeats: 1, calibration: true },
-      { repeats: MAX_REPEATS + 1, calibration: false },
-    ]) {
+    for (const terms of [{ repeats: 0 }, { repeats: MAX_REPEATS + 1 }]) {
       expect(() =>
         Replay.start({
           id: ReplayId.of('replay_1'),
           set: aSet(1),
-          candidate: candidateOf('proposed'),
+          candidate: candidateOf('searched'),
           baseline: false,
           ceiling: Money.ceiling(3, 'USD'),
           at: NOW,
@@ -676,7 +670,7 @@ describe('Replay', () => {
       reserved(
         aReplay({
           count: 1,
-          candidate: candidateOf('proposed', 'candidate_judged', RUBRIC),
+          candidate: candidateOf('searched', 'candidate_judged', RUBRIC),
         }),
         1,
       );
@@ -789,7 +783,7 @@ describe('Replay', () => {
         aReplay({
           count: 1,
           candidate: candidateOf(
-            'proposed',
+            'searched',
             'candidate_checked',
             null,
             'npm test',
@@ -867,7 +861,7 @@ describe('Replay', () => {
         aReplay({
           count: 2,
           ceiling: 1.5,
-          candidate: candidateOf('proposed', 'candidate_judged', RUBRIC),
+          candidate: candidateOf('searched', 'candidate_judged', RUBRIC),
         }),
         1,
       )
@@ -1003,7 +997,7 @@ describe('Replay', () => {
         Replay.start({
           id: ReplayId.of('replay_1'),
           set: aSet(3),
-          candidate: candidateOf('proposed'),
+          candidate: candidateOf('searched'),
           baseline: false,
           ceiling: Money.ceiling(10, 'USD'),
           at: NOW,
@@ -1013,7 +1007,6 @@ describe('Replay', () => {
             candidate: candidateOf('live'),
             ceiling: Money.ceiling(10, 'USD'),
             repeats: 1,
-            calibration: false,
           },
           runSubset: [RunId.of('original_0')],
         }),
@@ -1101,13 +1094,13 @@ describe('Replay', () => {
       );
     };
 
-    it('replays only the live config as a calibration, every run more than once, outside any search', () => {
+    it('replays only the live config as a calibration, every run more than once, inside a search as its seed or outside one', () => {
       expect(
         aReplay({ candidate: live, repeats: 3, calibration: true }).calibration,
       ).toBe(true);
       expect(() =>
         aReplay({
-          candidate: candidateOf('proposed'),
+          candidate: candidateOf('searched'),
           repeats: 3,
           calibration: true,
         }),
@@ -1123,14 +1116,14 @@ describe('Replay', () => {
           runSubset: [RunId.of('original_0')],
         }),
       ).toThrow(InvalidReplayError);
-      expect(() =>
+      expect(
         aReplay({
           candidate: live,
           repeats: 3,
           calibration: true,
           searchId: SEARCH,
-        }),
-      ).toThrow(InvalidReplayError);
+        }).calibration,
+      ).toBe(true);
       expect(aReplay({ candidate: live, repeats: 3 }).calibration).toBe(false);
     });
 

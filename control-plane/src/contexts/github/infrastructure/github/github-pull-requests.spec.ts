@@ -49,11 +49,38 @@ const repository = (over: { open?: boolean; taken?: boolean } = {}) =>
     if (url.includes('/pulls?state=open')) {
       return answering(
         200,
-        over.open ? [{ html_url: 'https://github.com/acme/api/pull/3' }] : [],
+        over.open
+          ? [
+              {
+                html_url: 'https://github.com/acme/api/pull/3',
+                number: 3,
+                id: 303,
+                base: { repo: { full_name: 'Acme/API' } },
+              },
+            ]
+          : [],
       );
     }
     if (url.endsWith('/pulls/3')) {
-      return answering(200, { html_url: 'https://github.com/acme/api/pull/3' });
+      return answering(200, {
+        html_url: 'https://github.com/acme/api/pull/3',
+        state: 'closed',
+        merged: false,
+        closed_at: '2026-10-28T09:00:00Z',
+      });
+    }
+    if (url.endsWith('/pulls/5')) {
+      return answering(200, {
+        state: 'closed',
+        merged: true,
+        merged_at: '2026-10-28T10:00:00Z',
+      });
+    }
+    if (url.endsWith('/pulls/6')) {
+      return answering(200, { state: 'open', merged: false });
+    }
+    if (url.endsWith('/issues/3/comments')) {
+      return answering(201, { id: 1 });
     }
     if (url.endsWith('/pulls') && over.taken) {
       return answering(422, {
@@ -65,7 +92,12 @@ const repository = (over: { open?: boolean; taken?: boolean } = {}) =>
       });
     }
     if (url.endsWith('/pulls')) {
-      return answering(201, { html_url: 'https://github.com/acme/api/pull/9' });
+      return answering(201, {
+        html_url: 'https://github.com/acme/api/pull/9',
+        number: 9,
+        id: 909,
+        base: { repo: { full_name: 'Acme/API' } },
+      });
     }
 
     return answering(404, { message: `unrouted ${url}` });
@@ -94,6 +126,9 @@ describe('GitHubPullRequests', () => {
 
       expect(await new GitHubPullRequests(access).open(opening)).toEqual({
         url: 'https://github.com/acme/api/pull/9',
+        number: 9,
+        id: 909,
+        repository: 'Acme/API',
       });
 
       expect(lastly('/pulls')?.body.base).toBe('trunk');
@@ -104,6 +139,9 @@ describe('GitHubPullRequests', () => {
 
       expect(await new GitHubPullRequests(access).open(opening)).toEqual({
         url: 'https://github.com/acme/api/pull/3',
+        number: 3,
+        id: 303,
+        repository: 'Acme/API',
       });
     });
 
@@ -178,6 +216,79 @@ describe('GitHubPullRequests', () => {
           editing(null, 'https://github.com/acme/api/pull/4'),
         ),
       ).rejects.toThrow(/would not edit/);
+    });
+  });
+
+  describe('closing one', () => {
+    const at = (number = 3) => ({
+      workspaceId: WorkspaceId.of('ws_1'),
+      repository: Repository.of('acme/api'),
+      number,
+    });
+
+    it('closes it', async () => {
+      repository();
+
+      await new GitHubPullRequests(access).close(at());
+
+      expect(sent).toEqual([
+        {
+          url: 'https://api.github.com/repos/acme/api/pulls/3',
+          method: 'PATCH',
+          body: { state: 'closed' },
+        },
+      ]);
+    });
+
+    it('comments on it', async () => {
+      repository();
+
+      await new GitHubPullRequests(access).comment(
+        at(),
+        'Spotlight closed this pull request.',
+      );
+
+      expect(sent).toEqual([
+        {
+          url: 'https://api.github.com/repos/acme/api/issues/3/comments',
+          method: 'POST',
+          body: { body: 'Spotlight closed this pull request.' },
+        },
+      ]);
+    });
+
+    it('carries GitHub’s error when it would not close it', async () => {
+      repository();
+
+      await expect(new GitHubPullRequests(access).close(at(4))).rejects.toThrow(
+        /would not close acme\/api#4/,
+      );
+    });
+  });
+
+  describe('reading its status', () => {
+    const at = (number: number) => ({
+      workspaceId: WorkspaceId.of('ws_1'),
+      repository: Repository.of('acme/api'),
+      number,
+    });
+
+    it('says whether it is open, closed or merged, and when it ended', async () => {
+      repository();
+      const pullRequests = new GitHubPullRequests(access);
+
+      expect(await pullRequests.statusOf(at(6))).toEqual({
+        state: 'open',
+        closedAt: null,
+      });
+      expect(await pullRequests.statusOf(at(3))).toEqual({
+        state: 'closed',
+        closedAt: new Date('2026-10-28T09:00:00Z'),
+      });
+      expect(await pullRequests.statusOf(at(5))).toEqual({
+        state: 'merged',
+        closedAt: new Date('2026-10-28T10:00:00Z'),
+      });
     });
   });
 

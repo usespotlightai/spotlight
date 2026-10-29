@@ -2,6 +2,7 @@ import { BASELINE_STATUSES } from '@replays/domain/value-objects/baseline-status
 import { CANDIDATE_KINDS } from '@replays/domain/value-objects/candidate-kind';
 import type { WantedValue } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import {
+  CONFIG_PULL_REQUEST_CLOSE_REASONS,
   CONFIG_PULL_REQUEST_ERRORS,
   CONFIG_PULL_REQUEST_STATES,
 } from '@replays/domain/value-objects/config-pull-request-state';
@@ -186,6 +187,13 @@ export interface StoredSearchProposal {
   readonly name: string;
   readonly replay: StoredSearchReplay;
   readonly improved: boolean | null;
+  readonly requestedBy: string | null;
+}
+
+export interface StoredSearchRequest {
+  readonly candidateId: string;
+  readonly name: string;
+  readonly requestedBy: string;
 }
 
 export interface StoredReflectedTask {
@@ -220,7 +228,6 @@ export const replaySet = pgTable(
     teamId: text('team_id').notNull(),
     lineId: text('line_id').notNull(),
     stationId: text('station_id').notNull(),
-    removedTasks: jsonb('removed_tasks').$type<string[]>().notNull(),
     createdAt: timestamp('created_at').notNull(),
     refreshedAt: timestamp('refreshed_at'),
     lastRefresh: jsonb('last_refresh').$type<StoredSetRefresh>(),
@@ -285,9 +292,6 @@ export const replayCandidate = pgTable(
   (table) => [
     index('replay_candidate_station_idx').on(table.stationId),
     index('replay_candidate_team_idx').on(table.teamId),
-    uniqueIndex('replay_candidate_address_idx')
-      .on(table.teamId, table.lineKey, table.stationKey, table.name)
-      .where(sql`${table.kind} = 'proposed'`),
     uniqueIndex('replay_candidate_search_name_idx')
       .on(table.searchId, table.name)
       .where(sql`${table.kind} = 'searched'`),
@@ -400,7 +404,7 @@ export const replaySearch = pgTable(
     lineId: text('line_id').notNull(),
     stationId: text('station_id').notNull(),
     setId: text('set_id').notNull(),
-    harness: text('harness').notNull(),
+    harness: text('harness'),
     model: text('model'),
     effort: text('effort'),
     iterations: integer('iterations').notNull(),
@@ -409,11 +413,21 @@ export const replaySearch = pgTable(
     ceilingCurrency: text('ceiling_currency').notNull(),
     concurrency: integer('concurrency').notNull(),
     repeats: integer('repeats').notNull(),
+    agentRuns: boolean('agent_runs').notNull(),
     objective: replaySearchObjective('objective').notNull(),
     split: jsonb('split').$type<StoredSplit>().notNull(),
+    calibrates: boolean('calibrates').notNull(),
     seedCandidateId: text('seed_candidate_id').notNull(),
     seedFingerprint: text('seed_fingerprint').notNull(),
     seedReplay: jsonb('seed_replay').$type<StoredSearchReplay>().notNull(),
+    requests: jsonb('requests')
+      .$type<StoredSearchRequest[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    droppedRequests: jsonb('dropped_requests')
+      .$type<StoredSearchRequest[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     heldOut: jsonb('held_out')
       .$type<StoredHeldOutReplay[]>()
       .notNull()
@@ -447,7 +461,7 @@ export const replaySearchIteration = pgTable(
       .notNull()
       .references(() => replaySearch.id, { onDelete: 'cascade' }),
     number: integer('number').notNull(),
-    runId: text('run_id').notNull(),
+    runId: text('run_id'),
     kind: replaySearchIterationKind('kind').notNull(),
     state: replaySearchIterationState('state').notNull(),
     proposals: jsonb('proposals')
@@ -536,6 +550,11 @@ export const configPullRequestError = pgEnum(
   CONFIG_PULL_REQUEST_ERRORS,
 );
 
+export const configPullRequestCloseReason = pgEnum(
+  'config_pull_request_close_reason',
+  CONFIG_PULL_REQUEST_CLOSE_REASONS,
+);
+
 export const configPullRequest = pgTable(
   'config_pull_request',
   {
@@ -553,6 +572,14 @@ export const configPullRequest = pgTable(
     branch: text('branch').notNull(),
     state: configPullRequestState('state').notNull(),
     url: text('url'),
+    number: integer('number'),
+    gitHubId: bigint('github_id', { mode: 'number' }),
+    basedOn: text('based_on'),
+    proposing: text('proposing'),
+    checkedAt: timestamp('checked_at'),
+    closedBecause: configPullRequestCloseReason('closed_because'),
+    closeFailureCode: configPullRequestError('close_failure_code'),
+    closeFailureMessage: text('close_failure_message'),
     errorCode: configPullRequestError('error_code'),
     errorMessage: text('error_message'),
     errorAttribute: text('error_attribute'),
@@ -572,9 +599,24 @@ export const configPullRequest = pgTable(
     ),
     index('config_pull_request_team_idx').on(table.teamId),
     index('config_pull_request_station_idx').on(table.stationId),
+    uniqueIndex('config_pull_request_github_idx').on(
+      table.workspaceId,
+      table.gitHubId,
+    ),
+    uniqueIndex('config_pull_request_number_idx').on(
+      table.workspaceId,
+      sql`lower(${table.repository})`,
+      table.number,
+    ),
+    uniqueIndex('config_pull_request_open_station_idx')
+      .on(table.stationId)
+      .where(sql`${table.state} in ('opening', 'opened', 'closing')`),
+    index('config_pull_request_check_idx')
+      .on(table.checkedAt)
+      .where(sql`${table.state} = 'opened'`),
     index('config_pull_request_due_idx')
-      .on(table.dueAt)
-      .where(sql`${table.state} = 'opening'`),
+      .on(table.state, table.dueAt)
+      .where(sql`${table.state} in ('opening', 'closing')`),
   ],
 );
 
@@ -591,6 +633,12 @@ export const stationSearchSchedule = pgTable(
     lastSkipAt: timestamp('last_skip_at'),
     searchedTasks: jsonb('searched_tasks').$type<string[]>().notNull(),
     alertPendingSince: timestamp('alert_pending_since'),
+    rejected: jsonb('rejected').$type<string[]>().notNull(),
+    rejectedAgainst: text('rejected_against'),
+    lastRejectedAt: timestamp('last_rejected_at'),
+    lastImprovedAt: timestamp('last_improved_at'),
+    requestDay: text('request_day'),
+    requestCount: integer('request_count').notNull().default(0),
     checkAfter: timestamp('check_after').notNull(),
     version: integer('version').notNull().default(0),
   },

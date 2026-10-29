@@ -69,7 +69,7 @@ export const gradeOptions = (kind: RatedKind): readonly GradeOption[] =>
 export const valueOfGrade = (kind: RatedKind, value: GradeValue): number =>
   kind === 'yes-no' ? (value ? 1 : 0) : Number(value);
 
-export const formatClaimsMet = (marks: readonly boolean[]): string =>
+const formatClaimsMet = (marks: readonly boolean[]): string =>
   `${marks.filter(Boolean).length} of ${marks.length} claims met`;
 
 export const formatScore = (score: {

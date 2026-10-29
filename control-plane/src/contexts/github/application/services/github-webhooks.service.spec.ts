@@ -6,6 +6,7 @@ import { GitHubWebhooks } from '@github/application/services/github-webhooks.ser
 import type { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
 import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
+import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
 import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
 import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
@@ -54,6 +55,7 @@ const CLOSED: WebhookEvent = {
   kind: 'pull-request-closed',
   pullRequest: 'https://github.com/acme/api/pull/7',
   repository: 'acme/api',
+  gitHubId: 707,
   merge: null,
   closedAt: null,
 };
@@ -275,6 +277,7 @@ describe('GitHubWebhooks', () => {
             kind: 'pull-request-closed',
             pullRequest: 'https://github.com/acme/api/pull/7',
             repository: 'acme/api',
+            gitHubId: 707,
             merge: { commit: 'c'.repeat(40) },
             closedAt,
           },
@@ -288,8 +291,37 @@ describe('GitHubWebhooks', () => {
           WORKSPACE,
           'https://github.com/acme/api/pull/7',
           'acme/api',
+          707,
           { commit: 'c'.repeat(40) },
           closedAt,
+        ),
+      ]);
+    });
+
+    it('says a pull request reopened in the workspace', async () => {
+      const reopenedAt = new Date('2026-09-22T09:30:00Z');
+      const { service, events } = hooks({
+        installation: '42',
+        events: [
+          {
+            kind: 'pull-request-reopened',
+            pullRequest: 'https://github.com/acme/api/pull/7',
+            repository: 'acme/api',
+            gitHubId: 707,
+            reopenedAt,
+          },
+        ],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(events.dispatch).toHaveBeenCalledWith([
+        new PullRequestReopened(
+          WORKSPACE,
+          'https://github.com/acme/api/pull/7',
+          'acme/api',
+          707,
+          reopenedAt,
         ),
       ]);
     });

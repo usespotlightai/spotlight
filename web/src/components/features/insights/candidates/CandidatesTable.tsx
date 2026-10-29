@@ -5,20 +5,15 @@ import type { StationNames } from '@/lib/insights';
 import {
   type CandidatesStation,
   candidateHeadings,
-  candidatesAt,
 } from '@/lib/insights-candidates';
 
 type CandidatesTableProps = {
-  slug: string;
-  teamId: string;
   stations: readonly CandidatesStation[];
   names: StationNames;
   chartStatus: boolean;
 };
 
 export function CandidatesTable({
-  slug,
-  teamId,
   stations,
   names,
   chartStatus,
@@ -40,7 +35,6 @@ export function CandidatesTable({
       {stations.map((station) => (
         <CandidateStationRows
           key={station.stationId}
-          at={candidatesAt(slug, teamId, station)}
           station={station}
           names={names}
           heldOut={heldOut}

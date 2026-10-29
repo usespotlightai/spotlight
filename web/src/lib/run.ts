@@ -11,9 +11,6 @@ export type TeamRun = TeamRunResponseDto;
 
 export type Review = NonNullable<Run['review']>;
 
-export const RUNS_AUTONOMOUSLY =
-  'The agent runs autonomously. It can’t receive messages.';
-
 export const LINE_SETS_REPOSITORIES =
   'The line sets the repositories. Change them in the line’s configuration.';
 

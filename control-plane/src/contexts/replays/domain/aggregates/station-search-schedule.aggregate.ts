@@ -1,13 +1,25 @@
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
+import { RequestLimitReachedError } from '@replays/domain/exceptions/request-limit-reached.error';
 import { SearchInCooldownError } from '@replays/domain/exceptions/search-in-cooldown.error';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { SearchSkipReason } from '@replays/domain/value-objects/search-skip-reason';
+import type { SearchTrigger } from '@replays/domain/value-objects/search-trigger';
+import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+export const REQUESTS_PER_DAY = 3;
+
+export interface RequestTally {
+  readonly day: string;
+  readonly count: number;
+}
+
+const dayOf = (at: Date): string => at.toISOString().slice(0, 10);
 
 export interface SearchSkip {
   readonly reason: SearchSkipReason;
@@ -21,9 +33,17 @@ interface State {
   readonly lastSkip: SearchSkip | null;
   readonly searchedTasks: readonly TaskId[];
   readonly alertPendingSince: Date | null;
+  readonly rejected: readonly StationFingerprint[];
+  readonly rejectedAgainst: StationFingerprint | null;
+  readonly lastRejectedAt: Date | null;
+  readonly lastImprovedAt: Date | null;
+  readonly requests: RequestTally | null;
   readonly checkAfter: Date;
   readonly version: number;
 }
+
+const later = (one: Date | null, other: Date | null): Date | null =>
+  one && other ? (one > other ? one : other) : (one ?? other);
 
 export class StationSearchSchedule extends EventRecorder {
   private constructor(
@@ -45,6 +65,11 @@ export class StationSearchSchedule extends EventRecorder {
       lastSkip: null,
       searchedTasks: [],
       alertPendingSince: null,
+      rejected: [],
+      rejectedAgainst: null,
+      lastRejectedAt: null,
+      lastImprovedAt: null,
+      requests: null,
       checkAfter: input.at,
       version: 0,
     });
@@ -61,10 +86,39 @@ export class StationSearchSchedule extends EventRecorder {
         'records each searched task once',
       );
     }
+    if (
+      state.rejected.some((each, at) =>
+        state.rejected.slice(0, at).some((other) => other.equals(each)),
+      )
+    ) {
+      throw new InconsistentStateError(
+        'station search schedule',
+        'records each rejected config once',
+      );
+    }
+    if (state.rejected.length > 0 !== (state.rejectedAgainst !== null)) {
+      throw new InconsistentStateError(
+        'station search schedule',
+        'knows the live config that configs were rejected against when, and only when, one is rejected',
+      );
+    }
+
+    if (
+      state.requests &&
+      (!Number.isInteger(state.requests.count) ||
+        state.requests.count < 1 ||
+        state.requests.count > REQUESTS_PER_DAY)
+    ) {
+      throw new InconsistentStateError(
+        'station search schedule',
+        `counts from 1 to ${REQUESTS_PER_DAY} requests a day`,
+      );
+    }
 
     return new StationSearchSchedule({
       ...state,
       searchedTasks: [...state.searchedTasks],
+      rejected: [...state.rejected],
     });
   }
 
@@ -104,6 +158,60 @@ export class StationSearchSchedule extends EventRecorder {
     return this.state.alertPendingSince;
   }
 
+  get rejected(): readonly StationFingerprint[] {
+    return this.state.rejected;
+  }
+
+  get rejectedAgainst(): StationFingerprint | null {
+    return this.state.rejectedAgainst;
+  }
+
+  get lastRejectedAt(): Date | null {
+    return this.state.lastRejectedAt;
+  }
+
+  get requests(): RequestTally | null {
+    return this.state.requests;
+  }
+
+  takesRequestOn(at: Date): boolean {
+    const { requests } = this.state;
+
+    return (
+      requests === null ||
+      requests.day !== dayOf(at) ||
+      requests.count < REQUESTS_PER_DAY
+    );
+  }
+
+  requested(at: Date): StationSearchSchedule {
+    if (!this.takesRequestOn(at)) {
+      throw new RequestLimitReachedError(this.stationId, REQUESTS_PER_DAY);
+    }
+
+    const day = dayOf(at);
+    const { requests } = this.state;
+
+    return this.with({
+      requests: {
+        day,
+        count: requests?.day === day ? requests.count + 1 : 1,
+      },
+    });
+  }
+
+  get lastImprovedAt(): Date | null {
+    return this.state.lastImprovedAt;
+  }
+
+  get cooldownFrom(): Date | null {
+    return later(this.state.lastStartedAt, this.state.lastRejectedAt);
+  }
+
+  hasRejected(fingerprint: StationFingerprint): boolean {
+    return this.state.rejected.some((each) => each.equals(fingerprint));
+  }
+
   get checkAfter(): Date {
     return this.state.checkAfter;
   }
@@ -120,6 +228,49 @@ export class StationSearchSchedule extends EventRecorder {
     return this.with({
       alertPendingSince: this.state.alertPendingSince ?? at,
       checkAfter: at < this.state.checkAfter ? at : this.state.checkAfter,
+    });
+  }
+
+  configRejected(
+    fingerprint: StationFingerprint,
+    against: StationFingerprint,
+    at: Date,
+  ): StationSearchSchedule {
+    const kept = this.state.rejectedAgainst?.equals(against)
+      ? this.state.rejected
+      : [];
+
+    return this.with({
+      rejected: kept.some((each) => each.equals(fingerprint))
+        ? kept
+        : [...kept, fingerprint],
+      rejectedAgainst: against,
+      lastRejectedAt: later(this.state.lastRejectedAt, at),
+    });
+  }
+
+  configReopened(fingerprint: StationFingerprint): StationSearchSchedule {
+    const rejected = this.state.rejected.filter(
+      (each) => !each.equals(fingerprint),
+    );
+
+    return this.with({
+      rejected,
+      rejectedAgainst: rejected.length > 0 ? this.state.rejectedAgainst : null,
+    });
+  }
+
+  liveChanged(live: StationFingerprint | null): StationSearchSchedule {
+    const { rejectedAgainst } = this.state;
+
+    return rejectedAgainst && !live?.equals(rejectedAgainst)
+      ? this.with({ rejected: [], rejectedAgainst: null })
+      : this;
+  }
+
+  improved(at: Date): StationSearchSchedule {
+    return this.with({
+      lastImprovedAt: later(this.state.lastImprovedAt, at),
     });
   }
 
@@ -161,27 +312,32 @@ export class StationSearchSchedule extends EventRecorder {
     inSet: readonly TaskId[];
     at: Date;
     cooldownMilliseconds: number;
+    trigger: SearchTrigger;
   }): StationSearchSchedule {
-    const { lastStartedAt } = this.state;
-    const cooldownEnd = lastStartedAt
-      ? new Date(lastStartedAt.getTime() + input.cooldownMilliseconds)
+    const { cooldownFrom } = this;
+    const cooldownEnd = cooldownFrom
+      ? new Date(cooldownFrom.getTime() + input.cooldownMilliseconds)
       : null;
-
-    if (cooldownEnd && input.at < cooldownEnd) {
-      throw new SearchInCooldownError(this.stationId, cooldownEnd);
-    }
 
     const kept = [...this.state.searchedTasks, ...input.searched].filter(
       (task) => input.inSet.some((each) => each.equals(task)),
     );
+    const searchedTasks = kept.filter(
+      (task, at) => !kept.slice(0, at).some((each) => each.equals(task)),
+    );
+
+    if (input.trigger === 'request') {
+      return this.requested(input.at).with({ searchedTasks });
+    }
+    if (cooldownEnd && input.at < cooldownEnd) {
+      throw new SearchInCooldownError(this.stationId, cooldownEnd);
+    }
 
     return this.with({
       lastStartedAt: input.at,
       lastSkip: null,
       alertPendingSince: null,
-      searchedTasks: kept.filter(
-        (task, at) => !kept.slice(0, at).some((each) => each.equals(task)),
-      ),
+      searchedTasks,
       checkAfter: new Date(input.at.getTime() + input.cooldownMilliseconds),
     });
   }

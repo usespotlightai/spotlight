@@ -17,6 +17,7 @@ import {
   REVIEW,
   REVIEW_COMMENT,
   SETUP_PULL_REQUEST,
+  TEST_STATION_CHANGE,
 } from '@work/domain/services/built-in-tools';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -59,6 +60,7 @@ const reviewing: BuiltInToolUse<TaskToolContext>[] = [
   REVIEW_COMMENT,
   REVIEW,
   SETUP_PULL_REQUEST,
+  TEST_STATION_CHANGE,
 ].map((tool) => ({ tool, call: async () => null }));
 
 describe('BuiltInTools', () => {

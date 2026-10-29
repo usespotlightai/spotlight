@@ -86,7 +86,6 @@ const toSet = (row: SetRow, entries: readonly EntryRow[]): ReplaySet =>
           addedAt: each.addedAt,
         }),
       ),
-    removedTasks: row.removedTasks.map((each) => TaskId.of(each)),
     createdAt: row.createdAt,
     refreshedAt: row.refreshedAt,
     lastRefresh: refreshOf(row.lastRefresh),
@@ -205,7 +204,6 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
             teamId: added.teamId.value,
             lineId: added.station.lineId,
             stationId: added.station.stationId,
-            removedTasks: added.removedTasks.map((each) => each.value),
             createdAt: added.createdAt,
             refreshedAt: added.refreshedAt,
             lastRefresh: storedRefreshOf(added.lastRefresh),
@@ -237,7 +235,6 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
         : await this.context.db
             .update(replaySet)
             .set({
-              removedTasks: saved.removedTasks.map((each) => each.value),
               refreshedAt: saved.refreshedAt,
               lastRefresh: storedRefreshOf(saved.lastRefresh),
               stationGoneAt: saved.stationGoneAt,

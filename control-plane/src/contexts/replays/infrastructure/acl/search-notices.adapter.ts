@@ -5,9 +5,9 @@ import type {
 } from '@replays/application/ports/search-notices.port';
 import type { NoticesPort } from '@work/application/ports/notices.port';
 
-const OPENS_SEARCH = 'Open the search';
-
 const OPENS_STATION = 'Open the station';
+
+const REVIEWS_PULL_REQUEST = 'Review the pull request';
 
 export class SearchNotices implements SearchNoticesPort {
   constructor(private readonly notices: NoticesPort) {}
@@ -16,11 +16,16 @@ export class SearchNotices implements SearchNoticesPort {
     return this.notices.create({
       workspaceId: notice.workspaceId,
       teamId: notice.teamId,
-      addressee: null,
+      addressee: notice.addressee,
       form: 'ended',
       subject: `replay-search ${notice.searchId.value} ${notice.about}`,
-      link: `lines/${notice.lineId}/stations/${notice.stationId}/searches/${notice.searchId.value}`,
-      linkLabel: OPENS_SEARCH,
+      link: `lines/${notice.lineId}/stations/${notice.stationId}`,
+      linkLabel: OPENS_STATION,
+      externalLink:
+        notice.pullRequest &&
+        this.notices.allowsExternalLink(notice.pullRequest)
+          ? { url: notice.pullRequest, label: REVIEWS_PULL_REQUEST }
+          : null,
       headline: notice.headline,
       points: notice.points,
     });
@@ -35,6 +40,7 @@ export class SearchNotices implements SearchNoticesPort {
       subject: `station-search ${notice.stationId} ${notice.about}`,
       link: `lines/${notice.lineId}/stations/${notice.stationId}`,
       linkLabel: OPENS_STATION,
+      externalLink: null,
       headline: notice.headline,
       points: notice.points,
     });

@@ -9,7 +9,7 @@ const candidate = (
   over: Partial<SetCandidate> &
     Pick<
       SetCandidate,
-      'candidateId' | 'name' | 'kind' | 'replayId' | 'chartStatus' | 'shown'
+      'candidateId' | 'name' | 'replayId' | 'chartStatus' | 'shown'
     >,
 ): SetCandidate => ({
   hypothesis: null,
@@ -112,7 +112,6 @@ const IMPLEMENTATION_SET: CandidatesSet = {
     candidate({
       candidateId: 'candidate_opus_skill',
       name: 'opus-with-migrations-skill',
-      kind: 'searched',
       replayId: 'replay_opus_skill',
       chartStatus: 'priced',
       shown: {
@@ -180,6 +179,8 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       pullRequest: {
         id: 'config_pull_request_1',
         state: 'opened',
+        closedBecause: null,
+        closeFailure: null,
         url: 'https://github.com/acme/spotlight-config/pull/42',
         reason: null,
       },
@@ -187,7 +188,6 @@ const IMPLEMENTATION_SET: CandidatesSet = {
     candidate({
       candidateId: 'candidate_terse',
       name: 'sonnet-terse-prompt',
-      kind: 'searched',
       replayId: 'replay_terse',
       chartStatus: 'priced',
       shown: {
@@ -238,7 +238,6 @@ const IMPLEMENTATION_SET: CandidatesSet = {
     candidate({
       candidateId: 'candidate_cursor',
       name: 'cursor-careful-profile',
-      kind: 'searched',
       replayId: 'replay_cursor',
       chartStatus: 'unpriced',
       shown: {
@@ -279,7 +278,6 @@ const IMPLEMENTATION_SET: CandidatesSet = {
     candidate({
       candidateId: 'candidate_plan_first',
       name: 'sonnet-plan-first',
-      kind: 'searched',
       replayId: 'replay_plan_first',
       chartStatus: 'unfinished',
       shown: {
@@ -336,7 +334,6 @@ const REVIEW_SET: CandidatesSet = {
     candidate({
       candidateId: 'candidate_one_comment',
       name: 'one-comment-per-problem',
-      kind: 'proposed',
       replayId: 'replay_one_comment',
       chartStatus: 'priced',
       shown: {
@@ -379,7 +376,6 @@ const REVIEW_SET: CandidatesSet = {
     candidate({
       candidateId: 'candidate_spec_review',
       name: 'review-against-spec',
-      kind: 'proposed',
       replayId: 'replay_spec_review',
       chartStatus: 'priced',
       shown: {

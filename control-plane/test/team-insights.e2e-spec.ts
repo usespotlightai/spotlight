@@ -327,6 +327,7 @@ beforeAll(async () => {
         workspaceId,
         PULL,
         'acme/api',
+        null,
         { commit: 'c'.repeat(40) },
         ago(60),
       ),

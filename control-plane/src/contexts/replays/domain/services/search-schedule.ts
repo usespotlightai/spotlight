@@ -26,11 +26,23 @@ export type ScheduleVerdict =
     }
   | { readonly kind: 'wait'; readonly checkAfter: Date };
 
+export type SetSkipReason = Extract<
+  SearchSkipReason,
+  | 'set-too-small'
+  | 'noisy'
+  | 'judge-unstable'
+  | 'flaky-checks'
+  | 'no-headroom'
+  | 'no-fresh-held-out'
+  | 'ceiling-too-low'
+  | 'no-agent'
+>;
+
 export type SetVerdict =
-  | { readonly kind: 'go'; readonly agent: SearchAgent }
+  | { readonly kind: 'go'; readonly agent: SearchAgent | null }
   | {
       readonly kind: 'skip';
-      readonly reason: SearchSkipReason;
+      readonly reason: SetSkipReason;
       readonly checkAfter: Date;
     };
 
@@ -69,6 +81,7 @@ export interface DueInput {
   readonly policy: SearchPolicy | null;
   readonly scores: boolean;
   readonly lastStartedAt: Date | null;
+  readonly cooldownFrom: Date | null;
   readonly alertPendingSince: Date | null;
   readonly now: Date;
   readonly busy: boolean;
@@ -77,14 +90,10 @@ export interface DueInput {
 }
 
 export const dueVerdict = (input: DueInput): ScheduleVerdict => {
-  const { policy, lastStartedAt, now } = input;
+  const { policy, lastStartedAt, cooldownFrom, now } = input;
 
   if (!policy?.enabled) {
-    return {
-      kind: 'skip',
-      reason: 'disabled',
-      checkAfter: after(now, SET_RECHECK_MS),
-    };
+    return { kind: 'wait', checkAfter: after(now, SET_RECHECK_MS) };
   }
   if (!input.scores) {
     return {
@@ -106,8 +115,8 @@ export const dueVerdict = (input: DueInput): ScheduleVerdict => {
     return { kind: 'wait', checkAfter: periodEnd };
   }
 
-  const cooldownEnd = lastStartedAt
-    ? after(lastStartedAt, policy.cooldownMilliseconds)
+  const cooldownEnd = cooldownFrom
+    ? after(cooldownFrom, policy.cooldownMilliseconds)
     : null;
 
   if (cooldownEnd && now < cooldownEnd) {
@@ -143,6 +152,7 @@ export interface SetInput {
   readonly freshHeldOut: boolean;
   readonly affordable: boolean;
   readonly agent: SearchAgent | null;
+  readonly needsAgent: boolean;
 }
 
 const HEALTH_SKIPS = [
@@ -153,7 +163,7 @@ const HEALTH_SKIPS = [
 ] as const satisfies readonly (SearchSkipReason & SearchWarning['kind'])[];
 
 export const setVerdict = (input: SetInput): SetVerdict => {
-  const skip = (reason: SearchSkipReason): SetVerdict => ({
+  const skip = (reason: SetSkipReason): SetVerdict => ({
     kind: 'skip',
     reason,
     checkAfter: after(input.now, SET_RECHECK_MS),
@@ -174,7 +184,7 @@ export const setVerdict = (input: SetInput): SetVerdict => {
   if (!input.affordable) {
     return skip('ceiling-too-low');
   }
-  if (!input.agent) {
+  if (input.needsAgent && !input.agent) {
     return skip('no-agent');
   }
 

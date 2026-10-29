@@ -3,6 +3,7 @@ import type { WorkPort } from '@replays/application/ports/work.port';
 import type { SetUsage } from '@replays/application/services/set-usage.service';
 import { ReplaySetInUseError } from '@replays/domain/exceptions/replay-set-in-use.error';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
+import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import {
   isDueForRefresh,
   KEPT_SET_PICKED_FROM,
@@ -10,6 +11,7 @@ import {
   refreshCutoff,
   refreshOf,
 } from '@replays/domain/services/kept-set-refresh';
+import { tasksWithTaskCause } from '@replays/domain/services/reflected-tasks';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -23,6 +25,7 @@ export class RefreshKeptSets implements PendingJobsPort {
 
   constructor(
     private readonly sets: ReplaySetRepository,
+    private readonly searches: SearchRepository,
     private readonly usage: SetUsage,
     private readonly work: WorkPort,
     private readonly insights: InsightsPort,
@@ -69,6 +72,9 @@ export class RefreshKeptSets implements PendingJobsPort {
       ...seen.runs,
       ...recent.map((each) => each.runId),
     ]);
+    const taskCaused = tasksWithTaskCause(
+      await this.searches.ofStation(seen.station.stationId),
+    );
 
     try {
       return await this.transaction.inTransaction(async () => {
@@ -86,7 +92,7 @@ export class RefreshKeptSets implements PendingJobsPort {
 
         await this.sets.save(
           set.refresh(
-            refreshOf(set, recent, outcomes, at),
+            refreshOf(set, recent, outcomes, at, taskCaused),
             at,
             await this.usage.inUse(set.id),
           ),

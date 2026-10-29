@@ -5,12 +5,14 @@ import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-requ
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { autoSearched } from './support/app';
-import { dueNow, scheduleOf } from './support/auto-searches';
+import { activeSearchAt, dueNow, scheduleOf } from './support/auto-searches';
 import { eventually } from './support/eventually';
+import { startedReplay } from './support/replays';
 import * as schema from './support/schema';
 import {
   anOriginal,
@@ -21,16 +23,17 @@ import {
   CONFIG_FILE,
   CONFIG_LINE,
   createSet,
+  DELIVERY,
   db,
   delivered,
   drained,
   endedSearchRun,
+  GITHUB_ID_BASE,
   github,
   judged,
   leasedSearchRun,
   liveBlock,
   openSearchFlow,
-  owner,
   PROMPT_FILE,
   proposing,
   replayEnded,
@@ -43,7 +46,6 @@ import {
   startSearch,
   team,
   teamNotices,
-  teamPath,
   tenTasks,
   WITHIN,
 } from './support/search-flow';
@@ -53,14 +55,10 @@ openSearchFlow();
 describe('a search for a better station config, ranking and picking its candidates', () => {
   it('looks for the same success at less cost on a set its live config saturates, ranks the cheapest candidate that succeeds as often first, leaves out a cheaper one that succeeds less, and picks the cheapest', async () => {
     const setId = await createSet(tenTasks);
-    const live = (
-      await owner()
-        .post(`${teamPath()}/replay-sets/${setId}/replays`, {
-          candidate: 'live',
-          ceiling: { amount: 20, currency: 'USD' },
-        })
-        .expect(201)
-    ).body as { id: string };
+    const live = await startedReplay(app, setId, {
+      candidate: 'live',
+      amount: 20,
+    });
 
     await eventually(async () => {
       await drained(() => ({ score: 5, cost: 0.2 }));
@@ -163,7 +161,7 @@ describe('a search for a better station config, ranking and picking its candidat
     ).toMatchObject({ errorCode: 'file-missing' });
   }, 120_000);
 
-  it('opens one config pull request for a candidate that passes every gate, tells the team, and waits to search the station again while it is open', async () => {
+  it('opens one config pull request for a candidate that passes every gate, tells the team, waits to search the station again while it is open, and searches again once it merged', async () => {
     const tasks = [];
     for (let each = 0; each < 17; each += 1) {
       tasks.push(await anOriginal());
@@ -171,6 +169,9 @@ describe('a search for a better station config, ranking and picking its candidat
     await createSet(tasks);
     github.files.set(CONFIG_FILE, CONFIG_LINE);
     github.files.set(PROMPT_FILE, 'Build it.');
+    const noticedBefore = (await teamNotices()).map((each) => each.id);
+    const ownNotices = async () =>
+      (await teamNotices()).filter((each) => !noticedBefore.includes(each.id));
 
     const { id, seedReplayId } = await startSearch({
       iterations: 1,
@@ -233,9 +234,34 @@ describe('a search for a better station config, ranking and picking its candidat
       branch: `spotlight/search-${id.slice(0, 8)}-in-order`,
       title: 'build: in-order',
     });
-    expect(github.opened[0]?.body).toContain(
-      'Draining in order stops the stall.',
-    );
+    const body = github.opened[0]?.body ?? '';
+    const rows = body
+      .slice(
+        body.indexOf('## Task by task'),
+        body.indexOf('## About this search'),
+      )
+      .split('\n')
+      .filter((line) => line.startsWith('| ') && !line.startsWith('| Task |'));
+
+    expect(body).toContain('Draining in order stops the stall.');
+    expect(body).toContain('## What changes');
+    expect(body).toContain('## Task by task');
+    expect(body).toContain('### Held-out tasks');
+    expect(body).toContain('### Searched tasks');
+    expect(body).toContain('## About this search');
+    expect(rows.length).toBeGreaterThan(0);
+    for (const line of rows.filter((each) => !each.startsWith('| ---'))) {
+      const [, live, candidate] = line.split(' | ');
+
+      expect(live).toMatch(
+        /^(Succeeded|Failed|Not scored|Running|Not replayed)[^:]*: \S/,
+      );
+      expect(candidate).toMatch(
+        /^(Succeeded|Failed|Not scored|Running|Not replayed)[^:]*: \S/,
+      );
+    }
+    expect(body).not.toMatch(/https?:\/\/(?!github\.com\/)/);
+    expect(body).not.toContain(team.slug);
     expect(github.commits).toHaveLength(1);
     expect(github.commits[0]?.files).toEqual([
       {
@@ -259,9 +285,7 @@ describe('a search for a better station config, ranking and picking its candidat
     ).toEqual([['config-pull-request', 'created', 'spotlight']]);
 
     const notices = await eventually(async () => {
-      const found = (await teamNotices()).filter((each) =>
-        each.link.endsWith(`/searches/${id}`),
-      );
+      const found = await ownNotices();
 
       return found.length > 0 ? found : null;
     }, WITHIN);
@@ -272,10 +296,15 @@ describe('a search for a better station config, ranking and picking its candidat
         headline:
           'Spotlight opened a config pull request for the Build station',
         points: [
-          'Candidate in-order did better than the live config on the held-out tasks.',
-          `Pull request: https://github.com/${CONFIG}/pull/1`,
-          'Please review the pull request. The station changes when you merge it.',
+          'Candidate in-order changes prompt.',
+          expect.stringMatching(/^Held-out gain: [+−]\d+ points$/),
         ],
+        link: `lines/${DELIVERY}/stations/${BUILD}`,
+        linkLabel: 'Open the station',
+        externalLink: {
+          url: `https://github.com/${CONFIG}/pull/1`,
+          label: 'Review the pull request',
+        },
       }),
     ]);
 
@@ -303,11 +332,7 @@ describe('a search for a better station config, ranking and picking its candidat
       ),
     );
 
-    expect(
-      (await teamNotices()).filter((each) =>
-        each.link.endsWith(`/searches/${id}`),
-      ),
-    ).toEqual(notices);
+    expect(await ownNotices()).toEqual(notices);
 
     await dueNow(searchedAt(), { lastStartedAt: null });
     await autoSearched(app);
@@ -321,5 +346,37 @@ describe('a search for a better station config, ranking and picking its candidat
       ),
     ).toEqual([]);
     expect(github.opened).toHaveLength(1);
+
+    await delivered({
+      kind: PULL_REQUEST_CLOSED,
+      workspaceId: team.workspaceId.value,
+      pullRequest: `https://github.com/${CONFIG}/pull/1`,
+      repository: CONFIG,
+      gitHubId: GITHUB_ID_BASE + 1,
+      closedAt: new Date().toISOString(),
+      merged: true,
+      mergeCommit: 'merge_1',
+    } as never);
+
+    expect(
+      (
+        await db
+          .select()
+          .from(schema.configPullRequest)
+          .where(eq(schema.configPullRequest.id, pullRequestId.value))
+      )[0],
+    ).toMatchObject({ state: 'merged', number: 1, closedBecause: null });
+    expect(
+      await eventually(
+        async () => (await scheduleOf(searchedAt()))?.lastImprovedAt ?? null,
+        WITHIN,
+      ),
+    ).toBeInstanceOf(Date);
+
+    await dueNow(searchedAt(), { lastStartedAt: null });
+    await autoSearched(app);
+
+    expect(await activeSearchAt(searchedAt())).toBeDefined();
+    expect(await ownNotices()).toEqual(notices);
   }, 180_000);
 });

@@ -1,13 +1,4 @@
-import {
-  Body,
-  Get,
-  HttpStatus,
-  Param,
-  ParseIntPipe,
-  Post,
-  Query,
-  Res,
-} from '@nestjs/common';
+import { Body, Get, HttpStatus, Param, Post, Res } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiBody,
@@ -15,7 +6,6 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
-  ApiQuery,
   ApiResponse,
 } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
@@ -32,12 +22,8 @@ import {
 } from '@platform/http/resources/resource-headers';
 import { respondCreated } from '@platform/http/resources/resource-responses';
 import { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
-import type {
-  ReplayCheckDto,
-  ReplayCheckSummaryDto,
-} from '@replays/application/dto/replay-checks.dto';
+import type { ReplayCheckDto } from '@replays/application/dto/replay-checks.dto';
 import type { ReplayCheckStartedOutcome } from '@replays/application/dto/replay-outcomes.dto';
-import { ListSetReplayChecksQuery } from '@replays/application/queries/list-set-replay-checks.query';
 import { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
 import {
   referenceIn,
@@ -46,17 +32,12 @@ import {
 } from '@replays/presentation/http/controllers/requests';
 import {
   ReplayCheckResponseDto,
-  ReplayCheckSummaryResponseDto,
   StartReplayCheckRequestDto,
 } from '@replays/presentation/http/dto/replay-checks.response.dto';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 const KIND = 'replay check';
-
-const PAGE = 50;
-
-const LONGEST_PAGE = 200;
 
 interface Answerable {
   status(code: number): unknown;
@@ -181,49 +162,6 @@ export class ReplayChecksController {
     return respondCreated(KIND, started, (id) =>
       this.toResponse(teamId, id, actor.principal),
     );
-  }
-
-  @Get('replay-sets/:setId/replay-checks')
-  @ApiOperation({
-    operationId: 'listReplaySetChecks',
-    summary:
-      'The checks of planned changes replayed over a replay set, newest first, a page at a time, with the result of each',
-  })
-  @ApiParam({ name: 'setId', type: String })
-  @ApiQuery({
-    name: 'before',
-    required: false,
-    type: String,
-    description:
-      'Only checks started before this one, by its id; a check that the set does not contain answers an empty page',
-  })
-  @ApiQuery({
-    name: 'limit',
-    required: false,
-    type: Number,
-    description: `At most this many, up to ${LONGEST_PAGE}; ${PAGE} unless told`,
-  })
-  @ApiOkResponse({ type: ReplayCheckSummaryResponseDto, isArray: true })
-  async listOfSet(
-    @Param('teamId') teamId: string,
-    @Param('setId') setId: string,
-    @Query('before') before: string | undefined,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit:
-      | number
-      | undefined,
-    @CurrentPrincipal() principal: Principal,
-  ): Promise<ReplayCheckSummaryResponseDto[]> {
-    const checks = await this.queryBus.execute<
-      ListSetReplayChecksQuery,
-      readonly ReplayCheckSummaryDto[]
-    >(
-      new ListSetReplayChecksQuery(teamId, setId, principal, {
-        before: before || null,
-        limit: Math.min(Math.max(limit ?? PAGE, 1), LONGEST_PAGE),
-      }),
-    );
-
-    return checks.map((each) => new ReplayCheckSummaryResponseDto(each));
   }
 
   @Get('replay-checks/:checkId')

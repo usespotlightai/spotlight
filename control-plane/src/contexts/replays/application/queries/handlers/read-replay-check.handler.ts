@@ -2,13 +2,11 @@ import type {
   CheckSideDto,
   ReplayCheckDto,
 } from '@replays/application/dto/replay-checks.dto';
-import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
+import { taskRowsOf } from '@replays/application/rendering/task-rows';
 import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
-import { replayUrlOf } from '@replays/application/services/replay-check-views';
 import {
-  entryView,
   gainView,
   intervalView,
   moneyView,
@@ -19,7 +17,6 @@ import { UnknownReplayCheckError } from '@replays/domain/exceptions/unknown-repl
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplayTotals } from '@replays/domain/services/replay-results';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
-import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -37,27 +34,14 @@ const sideOf = (
   spent: totals ? moneyView(totals.spent) : null,
 });
 
-const reasonsOf = (repeats: readonly ReplayEntry[]) => [
-  ...new Map(
-    repeats
-      .flatMap((repeat) => repeat.reasons)
-      .map((reason) => [
-        `${reason.code}:${reason.detail}`,
-        { code: reason.code, detail: reason.detail },
-      ]),
-  ).values(),
-];
-
 export class ReadReplayCheckHandler
   implements QueryHandlerPort<ReadReplayCheckQuery, ReplayCheckDto>
 {
   constructor(
     private readonly access: ReplaysAccess,
-    private readonly people: PeoplePort,
     private readonly work: WorkPort,
     private readonly checks: ReplayCheckRepository,
     private readonly evaluations: CheckEvaluations,
-    private readonly webOrigin: string,
   ) {}
 
   async execute(query: ReadReplayCheckQuery): Promise<ReplayCheckDto> {
@@ -69,17 +53,12 @@ export class ReadReplayCheckHandler
         throw new UnknownReplayCheckError(query.checkId);
       }
 
-      const [{ evaluation, replay, baseline }, slug] = await Promise.all([
-        this.evaluations.of(check),
-        this.people.workspaceSlug(check.workspaceId),
-      ]);
+      const { evaluation, replay, baseline } = await this.evaluations.of(check);
       const titles = new Map(
         (
           await this.work.runSummaries(
             check.workspaceId,
-            evaluation.regressions.flatMap((each) =>
-              each.candidate.map((repeat) => repeat.original),
-            ),
+            replay?.originals ?? [],
           )
         ).map((each) => [each.runId.value, each.title]),
       );
@@ -114,26 +93,17 @@ export class ReadReplayCheckHandler
         gain: gainView(evaluation.gain),
         result: evaluation.result,
         undecidedBecause: evaluation.because,
-        tasks: evaluation.entries,
+        taskCount: evaluation.entries,
         compared: evaluation.compared,
         candidate: sideOf(replay, evaluation.candidate),
         baseline: sideOf(baseline, evaluation.baseline),
-        regressions: evaluation.regressions.map((each) => ({
-          taskId: each.taskId,
-          originalRunId: each.original,
-          title: titles.get(each.original) ?? null,
-          candidate: each.candidate.map(
-            (repeat) => entryView(repeat, (replay as Replay).scoring).result,
-          ),
-          baseline: baseline
-            ? each.baseline.map(
-                (repeat) => entryView(repeat, baseline.scoring).result,
-              )
-            : [],
-          scoreDelta: each.scoreDelta,
-          reasons: reasonsOf(each.candidate),
-        })),
-        replayUrl: replayUrlOf(this.webOrigin, slug, check),
+        tasks: replay
+          ? taskRowsOf(
+              evaluation.tasks,
+              { candidate: replay.scoring, live: baseline?.scoring ?? null },
+              titles,
+            )
+          : [],
         createdAt: check.createdAt.toISOString(),
       };
     } catch (error) {

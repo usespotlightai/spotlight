@@ -1,6 +1,5 @@
 export const CANDIDATE_KINDS = [
   'live',
-  'proposed',
   'searched',
   'planned',
   'oracle',

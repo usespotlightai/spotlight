@@ -35,7 +35,7 @@ const generationSpentOn = (
     : null;
 };
 
-export const CHECKS_STATES = [
+const CHECKS_STATES = [
   'absent',
   'generating',
   'checking',

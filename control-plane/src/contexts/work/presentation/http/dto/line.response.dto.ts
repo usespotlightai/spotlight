@@ -518,7 +518,7 @@ export class LineResponseDto {
     type: LineSourceResponseDto,
     nullable: true,
     description:
-      'Where the line’s Terraform lives, which Spotlight opens pull requests against when a person picks a better station config. Null when the line does not say.',
+      'Where the line’s Terraform lives, which Spotlight opens config pull requests against when a search finds a better station config. Null when the line does not say.',
   })
   readonly source: LineSourceResponseDto | null;
 
