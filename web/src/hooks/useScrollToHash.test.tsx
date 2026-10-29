@@ -35,7 +35,7 @@ describe('useScrollToHash', () => {
 
     rerender({ shown: true });
 
-    expect(scrolled).toHaveBeenCalledWith({ block: 'center' });
+    expect(scrolled).toHaveBeenCalledWith({ block: 'start' });
   });
 
   it('scrolls nowhere for a hash it cannot read', () => {

@@ -592,9 +592,7 @@ describe('Station', () => {
       expect(
         document.querySelector('[data-slot="judge-calibration"]'),
       ).toHaveTextContent('Cohen’s kappa0.71Qualified above 0.60 over 24 runs');
-      expect(
-        screen.getByRole('link', { name: 'How it agrees with people' }),
-      ).toHaveAttribute(
+      expect(screen.getByRole('link', { name: 'Agreement' })).toHaveAttribute(
         'href',
         `${INSIGHTS}?tab=stations&stationId=station_2#judge`,
       );
@@ -618,7 +616,7 @@ describe('Station', () => {
       renderAt('station_1');
 
       expect(
-        screen.queryByRole('link', { name: 'How it agrees with people' }),
+        screen.queryByRole('link', { name: 'Agreement' }),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByRole('heading', { name: /^Alert rules/ }),
@@ -891,12 +889,12 @@ describe('Station', () => {
       expect(screen.getByText('No prompt.')).toBeInTheDocument();
     });
 
-    it('shows how much of the station’s work its judge scores, and the minimum agreement it needs', () => {
+    it('shows the sample rate of the station’s judge, and the minimum agreement it needs', () => {
       renderAt('station_2');
 
       const judge = sectionTitled('Judge');
 
-      expect(judge).toHaveTextContent('20%of runs judged');
+      expect(judge).toHaveTextContent('20%Sample rate');
       expect(
         within(judge).getByRole('img', {
           name: 'Cohen’s kappa 0.71. Minimum required: 0.60',
@@ -904,23 +902,19 @@ describe('Station', () => {
       ).toBeInTheDocument();
     });
 
-    it('keeps the rubric collapsed until requested, then shows it without letting it be written', async () => {
+    it('shows the rubric read-only on hover', async () => {
       const user = userEvent.setup();
       renderAt('station_2');
 
-      const rubric = screen.getByRole('button', { name: 'Show rubric' });
+      expect(
+        screen.queryByLabelText('The judge’s rubric'),
+      ).not.toBeInTheDocument();
 
-      expect(rubric).toHaveAttribute('aria-expanded', 'false');
-      expect(screen.queryByLabelText('Rubric')).not.toBeInTheDocument();
+      await user.hover(screen.getByRole('button', { name: 'Rubric' }));
 
-      await user.click(rubric);
-
-      expect(rubric).toHaveAttribute('aria-expanded', 'true');
-      expect(rubric).toHaveTextContent('Hide rubric');
-      expect(screen.getByLabelText('Rubric')).toHaveAttribute(
-        'contenteditable',
-        'false',
-      );
+      expect(
+        await screen.findByLabelText('The judge’s rubric'),
+      ).toHaveAttribute('contenteditable', 'false');
       expect(
         screen.getByRole('heading', { name: 'A good run' }),
       ).toBeInTheDocument();

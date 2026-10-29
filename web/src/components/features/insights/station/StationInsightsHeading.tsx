@@ -12,7 +12,7 @@ export function StationInsightsHeading({
   const named = names.get(stationId);
 
   return (
-    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 pt-1 -mb-3">
       <h2 className="font-semibold text-foreground text-lg tracking-tight">
         {formatStation(names, stationId)}
       </h2>

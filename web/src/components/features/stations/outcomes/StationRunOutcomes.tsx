@@ -12,7 +12,7 @@ import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
 import { OUTCOME_HEADINGS } from '@/lib/station-insights';
 
-const BOX = 'flex justify-center rounded-xl border border-border py-10';
+const BOX = 'flex justify-center py-10';
 
 type StationRunOutcomesProps = {
   slug: string;
