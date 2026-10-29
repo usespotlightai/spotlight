@@ -5,7 +5,7 @@ export const DONUT_SIZE = 120;
 
 export const DONUT_RING = 16;
 
-export type DonutSlice = {
+type DonutSlice = {
   key: string;
   value: number;
 };

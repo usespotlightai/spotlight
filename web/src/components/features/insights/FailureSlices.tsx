@@ -5,7 +5,7 @@ import { SliceRow } from '@/components/features/insights/SliceRow';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatShare } from '@/lib/insights';
 
-export type FailureSlice = {
+type FailureSlice = {
   key: string;
   count: number;
   label: ReactNode;
