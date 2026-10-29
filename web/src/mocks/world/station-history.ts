@@ -1,9 +1,7 @@
 import type { ConfigChangeResponseDto } from '@/lib/api';
 
 export const IMPLEMENTATION_ID = 'station_implementation';
-export const STATION_ADDRESS = 'platform/delivery/implementation';
-export const TESTS_FIRST_PULL_REQUEST =
-  'https://github.com/acme/config/pull/58';
+const TESTS_FIRST_PULL_REQUEST = 'https://github.com/acme/config/pull/58';
 
 export const FINGERPRINTS = {
   tests: 'c4e19b07d2a85f3e6b1c90d7a4f2e8b5c3d1a9f7e5b3c1d9a7f5e3b1c9d7a5f3',
@@ -17,14 +15,14 @@ export const FINGERPRINTS = {
   haiku: 'a6c8e0b2d4f7a9c1e3b5d8f0a2c4e7b9d1f3a5c8e0b2d4f6a9c1e3b5d7f0a2c4',
 } as const;
 
-export const changed = (
+const changed = (
   part: ConfigChangeResponseDto['part'],
   was: string | null = null,
   now: string | null = null,
   name: string | null = null,
 ): ConfigChangeResponseDto => ({ part, name, kind: 'changed', was, now });
 
-export const added = (
+const added = (
   part: ConfigChangeResponseDto['part'],
   name: string,
 ): ConfigChangeResponseDto => ({

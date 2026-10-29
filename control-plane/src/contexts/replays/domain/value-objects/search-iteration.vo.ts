@@ -21,7 +21,11 @@ export const SEARCH_ITERATION_STATES = [
 
 export type SearchIterationState = (typeof SEARCH_ITERATION_STATES)[number];
 
-export const SEARCH_ITERATION_KINDS = ['propose', 'reflect'] as const;
+export const SEARCH_ITERATION_KINDS = [
+  'propose',
+  'reflect',
+  'request',
+] as const;
 
 export type SearchIterationKind = (typeof SEARCH_ITERATION_KINDS)[number];
 
@@ -29,7 +33,7 @@ export const ATTEMPTS_PER_PROPOSAL = 3;
 
 interface IterationState {
   readonly number: number;
-  readonly runId: RunId;
+  readonly runId: RunId | null;
   readonly kind: SearchIterationKind;
   readonly state: SearchIterationState;
   readonly proposals: readonly SearchProposal[];
@@ -64,11 +68,33 @@ export class SearchIteration {
     });
   }
 
+  static requested(number: number): SearchIteration {
+    return new SearchIteration({
+      number,
+      runId: null,
+      kind: 'request',
+      state: 'wanted',
+      proposals: [],
+      attempts: 0,
+      agentSpent: null,
+      incumbent: null,
+      reflectedOn: [],
+      causes: [],
+      result: null,
+    });
+  }
+
   static rehydrate(state: IterationState): SearchIteration {
     if (!Number.isInteger(state.number) || state.number < 1) {
       throw new InconsistentStateError(
         'search iteration',
         `is numbered ${state.number}, not from 1 up`,
+      );
+    }
+    if ((state.kind === 'request') !== (state.runId === null)) {
+      throw new InconsistentStateError(
+        'search iteration',
+        'has an agent run when, and only when, an agent proposes in it',
       );
     }
     if (state.attempts < state.proposals.length) {
@@ -121,7 +147,7 @@ export class SearchIteration {
     return this.state.number;
   }
 
-  get runId(): RunId {
+  get runId(): RunId | null {
     return this.state.runId;
   }
 
@@ -174,7 +200,14 @@ export class SearchIteration {
   }
 
   get ownsActiveRun(): boolean {
-    return this.state.state === 'wanted' || this.state.state === 'running';
+    return (
+      this.state.runId !== null &&
+      (this.state.state === 'wanted' || this.state.state === 'running')
+    );
+  }
+
+  get awaitsRequests(): boolean {
+    return this.state.kind === 'request' && this.state.state === 'wanted';
   }
 
   get isClosed(): boolean {
@@ -186,7 +219,11 @@ export class SearchIteration {
   }
 
   get awaitsAgentSpend(): boolean {
-    return !this.ownsActiveRun && this.state.agentSpent === null;
+    return (
+      this.state.runId !== null &&
+      !this.ownsActiveRun &&
+      this.state.agentSpent === null
+    );
   }
 
   agentUnpriced(ceiling: Money): boolean {
@@ -207,7 +244,7 @@ export class SearchIteration {
   }
 
   ran(run: RunId): boolean {
-    return this.state.runId.equals(run);
+    return this.state.runId?.equals(run) ?? false;
   }
 
   mayPropose(max: number): boolean {
@@ -241,6 +278,19 @@ export class SearchIteration {
     return this.with({
       proposals: [...this.state.proposals, proposal],
       attempts: this.state.attempts + 1,
+    });
+  }
+
+  taken(proposals: readonly SearchProposal[]): SearchIteration {
+    if (!this.awaitsRequests) {
+      return this;
+    }
+
+    return this.with({
+      state: 'ended',
+      proposals: [...proposals],
+      attempts: proposals.length,
+      agentSpent: ModelSpent.of([], 0),
     });
   }
 

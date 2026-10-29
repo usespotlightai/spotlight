@@ -11,24 +11,13 @@ import {
 } from '@/lib/insights-candidates';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
-const at = {
-  slug: 'acme',
-  teamId: 'team_1',
-  lineId: 'line_1',
-  stationId: 'station_impl',
-};
-
 const implementation = CANDIDATES.stations[0]?.sets[0] as CandidatesSet;
 const review = CANDIDATES.stations[1]?.sets[0] as CandidatesSet;
 const [picked, terse] = implementation.candidates as readonly SetCandidate[];
-const proposed = review.candidates.find(
-  (each) => each.candidateId === 'candidate_spec_review',
-) as SetCandidate;
 
 describe('formatSource', () => {
   it('names each kind of replayed point', () => {
     expect(formatSource('searched')).toBe('Search');
-    expect(formatSource('proposed')).toBe('Proposed');
     expect(formatSource('baseline')).toBe('Live');
   });
 });
@@ -51,11 +40,10 @@ describe('replayedPoints', () => {
     expect(labels).not.toContain('sonnet-plan-first');
   });
 
-  it('sets the whole set’s live replay only beside proposed candidates', () => {
+  it('charts no live replay for a set that no search started from', () => {
     expect(
       replayedPoints(review).map((each) => [each.label, each.value]),
     ).toEqual([
-      ['Live config, replayed (whole set)', 0.75],
       ['one-comment-per-problem', 0.75],
       ['review-against-spec', 0.67],
     ]);
@@ -130,11 +118,7 @@ describe('stationReplayedPoints', () => {
       stationReplayedPoints(CANDIDATES, 'station_review', 'USD')?.map(
         (each) => each.label,
       ),
-    ).toEqual([
-      'Live config, replayed (whole set)',
-      'one-comment-per-problem',
-      'review-against-spec',
-    ]);
+    ).toEqual(['one-comment-per-problem', 'review-against-spec']);
     expect(stationReplayedPoints(CANDIDATES, 'station_review', 'EUR')).toEqual(
       [],
     );
@@ -149,30 +133,16 @@ describe('stationReplayedPoints', () => {
 });
 
 describe('changeLinkOf', () => {
-  it('leads to the pull request once it opened', () => {
-    expect(changeLinkOf(at, picked as SetCandidate)).toEqual({
-      to: 'https://github.com/acme/spotlight-config/pull/42',
-      external: true,
-    });
+  it('leads to the config pull request', () => {
+    expect(changeLinkOf(picked as SetCandidate)).toBe(
+      'https://github.com/acme/spotlight-config/pull/42',
+    );
   });
 
-  it('leads a searched candidate without one to its place on the search', () => {
-    expect(changeLinkOf(at, terse as SetCandidate)).toEqual({
-      to: '/w/acme/team/team_1/lines/line_1/stations/station_impl/searches/search_1#candidate-candidate_terse',
-      external: false,
-    });
-  });
-
-  it('leads a proposed candidate to its replay', () => {
-    expect(changeLinkOf(at, proposed)).toEqual({
-      to: '/w/acme/team/team_1/lines/line_1/stations/station_impl/replays/replay_spec_review',
-      external: false,
-    });
-  });
-
-  it('does not lead to a pull request still opening', () => {
+  it('leads nowhere without a pull request, or before it has an address', () => {
+    expect(changeLinkOf(terse as SetCandidate)).toBeNull();
     expect(
-      changeLinkOf(at, {
+      changeLinkOf({
         ...(picked as SetCandidate),
         pullRequest: {
           id: 'pr',
@@ -182,10 +152,8 @@ describe('changeLinkOf', () => {
           url: null,
           reason: null,
         },
-      }).to,
-    ).toBe(
-      `/w/acme/team/team_1/lines/line_1/stations/station_impl/searches/search_1#candidate-${picked?.candidateId}`,
-    );
+      }),
+    ).toBeNull();
   });
 });
 

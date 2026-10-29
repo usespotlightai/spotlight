@@ -83,13 +83,25 @@ const STALLED: NoticeOf = {
   addressee: UserId.of('user_1'),
   form: 'ended',
   subject: 'replay-search search_1 iteration 3',
-  link: 'lines/line_1/stations/station_1/searches/search_1',
-  linkLabel: 'Open the search',
+  link: 'lines/line_1/stations/station_1',
+  linkLabel: 'Open the station',
+  externalLink: null,
   headline: 'The search stalled',
   points: ['Fix the rubric.'],
 };
 
 describe('Notices', () => {
+  it('allows an external link only to a GitHub address', () => {
+    const notices = noticesOver(new InMemoryNotices());
+
+    expect(
+      notices.allowsExternalLink('https://github.com/acme/config/pull/7'),
+    ).toBe(true);
+    expect(
+      notices.allowsExternalLink('https://git.example.test/acme/pull/7'),
+    ).toBe(false);
+  });
+
   beforeEach(() => {
     members.clear();
     members.add('team_1:user_1');

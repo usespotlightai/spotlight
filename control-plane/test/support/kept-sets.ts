@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { WORK, type WorkPort } from '@replays/application/ports/work.port';
-import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
 import {
   RUN_ENDED,
@@ -14,7 +13,7 @@ import {
 } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 interface KeptAt {
   readonly workspaceId: string;
@@ -23,7 +22,7 @@ interface KeptAt {
 
 const MOST_RECENT = 1_000;
 
-export const KEEP_SET_SUBSCRIBER = 'replays.keep-replay-set-of-station';
+const KEEP_SET_SUBSCRIBER = 'replays.keep-replay-set-of-station';
 
 export const runEnded = async (
   app: INestApplication,
@@ -51,7 +50,7 @@ export const runEnded = async (
   await subscriber.handle(ended as unknown as DomainEvent);
 };
 
-export const keptSetOf = async (
+const keptSetOf = async (
   app: INestApplication,
   at: KeptAt,
 ): Promise<string> => {
@@ -66,30 +65,57 @@ export const keptSetOf = async (
   return set.id.value;
 };
 
-const withRemovedTasks = (
-  set: ReplaySet,
-  removedTasks: readonly TaskId[],
-): ReplaySet =>
-  ReplaySet.rehydrate({
-    id: set.id,
-    station: set.station,
-    entries: set.entries,
-    removedTasks,
-    createdAt: set.createdAt,
-    refreshedAt: set.refreshedAt,
-    lastRefresh: set.lastRefresh,
-    stationGoneAt: set.stationGoneAt,
-    version: set.version,
-  });
+const excluded = new WeakMap<INestApplication, Map<string, Set<string>>>();
+
+const excludedIn = (app: INestApplication): Map<string, Set<string>> => {
+  const known = excluded.get(app);
+
+  if (known) {
+    return known;
+  }
+
+  const stations = new Map<string, Set<string>>();
+  const work = app.get<WorkPort>(WORK);
+  const recentAt = work.recentAt.bind(work);
+
+  work.recentAt = async (workspaceId, stationId, max) => {
+    const left = stations.get(stationId);
+    const recent = await recentAt(workspaceId, stationId, max);
+
+    return left ? recent.filter((each) => !left.has(each.runId.value)) : recent;
+  };
+  excluded.set(app, stations);
+
+  return stations;
+};
 
 export const keptSet = async (
   app: INestApplication,
   at: KeptAt,
   runs: readonly string[],
 ): Promise<string> => {
+  const stations = excludedIn(app);
+
+  stations.delete(at.stationId);
+
+  const work = app.get<WorkPort>(WORK);
+  const atStation = await work.recentAt(
+    WorkspaceId.of(at.workspaceId),
+    at.stationId,
+    MOST_RECENT,
+  );
+
+  stations.set(
+    at.stationId,
+    new Set(
+      atStation
+        .map((each) => each.runId.value)
+        .filter((each) => !runs.includes(each)),
+    ),
+  );
+
   const setId = await keptSetOf(app, at);
   const sets = app.get(DrizzleReplaySetRepository);
-  const work = app.get<WorkPort>(WORK);
   const wanted = runs.map((each) => RunId.of(each));
 
   await app.get<TransactionPort>(TRANSACTION).inTransaction(async () => {
@@ -108,16 +134,6 @@ export const keptSet = async (
     const replayable = recent.filter((each) =>
       wanted.some((run) => run.equals(each.runId) && !locked.includes(run)),
     );
-    const wantedTasks = recent.flatMap((each) =>
-      each.taskId && wanted.some((run) => run.equals(each.runId))
-        ? [each.taskId]
-        : [],
-    );
-    const unwanted = recent.flatMap(({ taskId }) =>
-      taskId && !wantedTasks.some((task) => task.equals(taskId))
-        ? [taskId]
-        : [],
-    );
     const start = Date.now();
     const ordered = [...replayable].sort(
       (one, other) =>
@@ -130,7 +146,7 @@ export const keptSet = async (
           new Date(start + index + 1),
           false,
         ),
-      withRemovedTasks(locked, unwanted).refresh(
+      locked.refresh(
         {
           add: [],
           remove: locked.runs.filter(

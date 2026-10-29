@@ -7,20 +7,13 @@ import type { CandidatesStation } from '@/lib/insights-candidates';
 import { CANDIDATES_NOTE } from '@/lib/insights-candidates';
 
 type CandidatesCardProps = {
-  slug: string;
-  teamId: string;
   stations: readonly CandidatesStation[];
   names: StationNames;
 };
 
-export function CandidatesCard({
-  slug,
-  teamId,
-  stations,
-  names,
-}: CandidatesCardProps) {
+export function CandidatesCard({ stations, names }: CandidatesCardProps) {
   const [chartStatus, setCharted] = useState(false);
-  const shown = { slug, teamId, stations, names };
+  const shown = { stations, names };
 
   return (
     <InsightsCard

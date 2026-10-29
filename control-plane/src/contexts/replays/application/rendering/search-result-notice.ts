@@ -1,119 +1,176 @@
 import type { NoticeWords } from '@replays/application/rendering/reflection-notice';
 import {
-  isTransientSkip,
-  type TRANSIENT_SKIP_REASONS,
-} from '@replays/domain/services/station-improvement';
+  type AdvisedSkipReason,
+  SKIP_ADVICE,
+} from '@replays/application/rendering/skip-advice';
+import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { SearchPickDecline } from '@replays/domain/value-objects/search-pick';
-import type { SearchSkipReason } from '@replays/domain/value-objects/search-skip-reason';
+import type { SearchCutShort } from '@replays/domain/value-objects/search-stop-reason';
 
-export type AdvisedSkipReason = Exclude<
-  SearchSkipReason,
-  (typeof TRANSIENT_SKIP_REASONS)[number]
->;
+const percent = (value: number): number => Math.round(value * 100);
 
-export const isAdvised = (
-  reason: SearchSkipReason,
-): reason is AdvisedSkipReason => !isTransientSkip(reason);
-
-const candidateLine = (name: string, objective: SearchObjective): string =>
-  objective === 'cost'
-    ? `Candidate ${name} cost less per run than the live config and did as well on the held-out tasks.`
-    : `Candidate ${name} did better than the live config on the held-out tasks.`;
+const pointsOf = (gain: number): string =>
+  `${gain >= 0 ? '+' : '−'}${Math.abs(percent(gain))} points`;
 
 const stationOf = (name: string | null): string =>
   name ? `the ${name} station` : 'a station';
 
-const DECLINES: Readonly<Record<SearchPickDecline, string>> = {
-  'no-candidate': 'No candidate finished its replay on the held-out tasks.',
-  'no-held-out-gain':
-    'No candidate did better than the live config on the held-out tasks.',
-  'not-cheaper':
-    'No candidate cost less per run than the live config and did as well on the held-out tasks.',
-  'over-regression-limit':
-    'The best candidate is over the regression limit of the line.',
-  'likely-overfit':
-    'The best candidate is likely overfit. It did better only on the searched tasks.',
-  'station-gone':
-    'The station is gone from its line. Spotlight cannot change its config.',
-  'pull-request-open': 'A config pull request for the station is already open.',
-  'rejected-before':
-    'A person closed a config pull request for each passing candidate while the live config stayed the same.',
-};
-
-const ADVICE: Readonly<Record<AdvisedSkipReason, readonly string[]>> = {
-  'no-scoring': [
-    'The station has no judge and no check. Spotlight cannot score a config without one of them.',
-    'Please add a judge or a check to the station in the Terraform of the line.',
-  ],
-  'ceiling-too-low': [
-    'The search ceiling is too low to replay each task of the set for each candidate.',
-    'Please raise the search ceiling in the search policy of the line.',
-  ],
-  'no-agent': [
-    'No runner can start the harness of the search agent.',
-    'Please set a harness for the station, or an agent in its search policy.',
-  ],
-  noisy: [
-    'Success moves too much between repeats of the same runs. Spotlight cannot tell configs apart on the replay set.',
-    'Please make the judge or the check of the station give the same result for the same work.',
-  ],
-  'judge-unstable': [
-    'The judge of the station does not give the same verdict twice for the same run.',
-    'Please make the rubric of the judge more exact.',
-  ],
-  'flaky-checks': [
-    'The check of the station gives a different result when it runs twice on the same change.',
-    'Please fix the check of the station.',
-  ],
-};
-
 export interface PickedResult {
+  readonly objective: SearchObjective;
   readonly stationName: string | null;
   readonly candidateName: string;
-  readonly objective: SearchObjective;
-  readonly stalled: readonly string[];
+  readonly changes: readonly string[];
+  readonly heldOutGain: number | null;
+  readonly costPerRun: number | null;
+  readonly liveCostPerRun: number | null;
+  readonly currency: string;
 }
 
+const changeOf = (picked: PickedResult): string =>
+  picked.changes.length > 0
+    ? `Candidate ${picked.candidateName} changes ${picked.changes.join(', ')}.`
+    : `Candidate ${picked.candidateName} changes the station config.`;
+
+const gainOf = (picked: PickedResult): string =>
+  picked.heldOutGain === null
+    ? 'Held-out gain: not measured'
+    : `Held-out gain: ${pointsOf(picked.heldOutGain)}`;
+
+const costOf = (picked: PickedResult): string =>
+  picked.costPerRun === null || picked.liveCostPerRun === null
+    ? 'Cost per run: not measured'
+    : `Cost per run: ${picked.costPerRun.toFixed(2)} ${picked.currency}, against ${picked.liveCostPerRun.toFixed(2)} ${picked.currency} for the live config`;
+
+const RESULT_OF: Readonly<
+  Record<SearchObjective, (picked: PickedResult) => string>
+> = {
+  success: gainOf,
+  cost: costOf,
+};
+
+const DECLINES: Readonly<Record<SearchPickDecline, string>> = {
+  'no-candidate':
+    'No candidate did better than the live config on the searched tasks.',
+  'no-held-out-gain':
+    'No candidate did better than the live config on the held-out tasks.',
+  'not-cheaper': 'No candidate cost less per run than the live config.',
+  'over-regression-limit':
+    'The best candidate failed more tasks than the regression limit of the line allows.',
+  'likely-overfit':
+    'The best candidate did better on the searched tasks only, not on the held-out tasks.',
+  'station-gone': 'The station is no longer on the line.',
+  'pull-request-open': 'A config pull request for the station is open.',
+  'rejected-before':
+    'A person closed a config pull request with the same config before.',
+};
+
+const STOPS: Readonly<Record<SearchCutShort, string>> = {
+  'turned-off': 'A person turned off search for the station.',
+  'station-gone': 'The station is no longer on the line.',
+  'seed-failed': 'The replay of the live config failed.',
+};
+
+export interface RequestedResult {
+  readonly objective: SearchObjective;
+  readonly candidateName: string;
+  readonly replayed: ReplayStopReason | 'unfinished' | null;
+  readonly heldOutGain: number | null;
+  readonly searchedGain: number | null;
+  readonly costPerRun: number | null;
+  readonly liveCostPerRun: number | null;
+  readonly currency: string;
+}
+
+const heldOutResultOf = (result: RequestedResult, gain: number): string =>
+  result.objective === 'cost' &&
+  result.costPerRun !== null &&
+  result.liveCostPerRun !== null
+    ? `Candidate ${result.candidateName}, cost per run: ${result.costPerRun.toFixed(2)} ${result.currency}, compared with ${result.liveCostPerRun.toFixed(2)} ${result.currency} for the live config`
+    : `Candidate ${result.candidateName}, held-out gain: ${pointsOf(gain)}`;
+
+const requestedResultOf = (result: RequestedResult): string => {
+  const name = result.candidateName;
+
+  switch (result.replayed) {
+    case null:
+      return `Spotlight did not replay ${name}: the search ended first.`;
+    case 'unfinished':
+      return `Spotlight did not finish the replay of ${name}: the search ended first.`;
+    case 'ceiling-reached':
+      return `The replay of ${name} stopped at the search ceiling.`;
+    case 'stopped':
+    case 'deleted':
+      return `The replay of ${name} failed.`;
+    case 'finished':
+      return result.heldOutGain !== null
+        ? heldOutResultOf(result, result.heldOutGain)
+        : `Candidate ${name} did not beat the live config on the searched tasks. Searched gain: ${result.searchedGain === null ? 'not measured' : pointsOf(result.searchedGain)}`;
+  }
+};
+
 export const SearchResultWording = {
-  opened(picked: PickedResult, url: string): NoticeWords {
+  opened(picked: PickedResult): NoticeWords {
     return {
       headline: `Spotlight opened a config pull request for ${stationOf(picked.stationName)}`,
-      points: [
-        candidateLine(picked.candidateName, picked.objective),
-        `Pull request: ${url}`,
-        'Please review the pull request. The station changes when you merge it.',
-        ...picked.stalled,
-      ],
+      points: [changeOf(picked), RESULT_OF[picked.objective](picked)],
     };
   },
 
   failed(picked: PickedResult, reason: string): NoticeWords {
     return {
       headline: `Sorry, the config pull request for ${stationOf(picked.stationName)} could not be opened`,
-      points: [
-        candidateLine(picked.candidateName, picked.objective),
-        `Reason: ${reason}`,
-        ...picked.stalled,
-      ],
+      points: [changeOf(picked), `Reason: ${reason}`],
     };
   },
 
   declined(
     stationName: string | null,
     reason: SearchPickDecline,
-    stalled: readonly string[],
+    results: readonly RequestedResult[],
   ): NoticeWords {
     return {
-      headline: `The search of ${stationOf(stationName)} ended with no pull request`,
-      points: [DECLINES[reason], ...stalled],
+      headline: `Spotlight did not open a config pull request for ${stationOf(stationName)}`,
+      points: [DECLINES[reason], ...results.map(requestedResultOf)],
+    };
+  },
+
+  pickedOther(
+    stationName: string | null,
+    pickedName: string,
+    results: readonly RequestedResult[],
+  ): NoticeWords {
+    return {
+      headline: `Spotlight opened a config pull request for another candidate of ${stationOf(stationName)}`,
+      points: [
+        `Candidate ${pickedName} became the config pull request.`,
+        ...results.map(requestedResultOf),
+      ],
+    };
+  },
+
+  stopped(
+    stationName: string | null,
+    reason: SearchCutShort,
+    results: readonly RequestedResult[],
+  ): NoticeWords {
+    return {
+      headline: `The search of ${stationOf(stationName)} stopped before a result`,
+      points: [STOPS[reason], ...results.map(requestedResultOf)],
+    };
+  },
+
+  stalled(stationName: string | null, fixes: readonly string[]): NoticeWords {
+    return {
+      headline: `The search of ${stationOf(stationName)} stalled on causes outside the config`,
+      points: fixes,
     };
   },
 
   skipped(stationName: string | null, reason: AdvisedSkipReason): NoticeWords {
     return {
       headline: `Spotlight cannot search ${stationOf(stationName)}`,
-      points: ADVICE[reason],
+      points: SKIP_ADVICE[reason],
     };
   },
 };

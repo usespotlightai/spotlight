@@ -6,6 +6,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Notice } from '@work/domain/aggregates/notice.aggregate';
 import { NoticeVersionConflictError } from '@work/domain/exceptions/notice-version-conflict.error';
 import type { NoticeRepository } from '@work/domain/repositories/notice.repository';
+import { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
@@ -24,6 +25,13 @@ const toNotice = (row: Row): Notice =>
     form: row.form,
     subject: row.subject,
     link: NoticeLink.of({ path: row.link, label: row.linkLabel }),
+    externalLink:
+      row.externalUrl !== null && row.externalLabel !== null
+        ? NoticeExternalLink.of({
+            url: row.externalUrl,
+            label: row.externalLabel,
+          })
+        : null,
     wording: NoticeWording.of({ headline: row.headline, points: row.points }),
     createdAt: row.createdAt,
     resolvedAt: row.resolvedAt,
@@ -44,6 +52,8 @@ export class DrizzleNoticeRepository implements NoticeRepository {
       subject: added.subject,
       link: added.link.path,
       linkLabel: added.link.label,
+      externalUrl: added.externalLink?.url ?? null,
+      externalLabel: added.externalLink?.label ?? null,
       headline: added.wording.headline,
       points: [...added.wording.points],
       createdAt: added.createdAt,

@@ -72,8 +72,6 @@ vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({ data: answer.lines }),
 }));
 
-const STATION = '/w/acme/team/team_1/lines/line_delivery/stations';
-
 const showing = (period: InsightsPeriod = '30d') =>
   render(
     <MemoryRouter>
@@ -135,7 +133,9 @@ describe('the Candidates tab', () => {
       screen.getByText('No candidates replayed in this period'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Replay a station’s past tasks under a changed config/),
+      screen.getByText(
+        /Spotlight replays the candidates of each automatic search/,
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open the line' })).toHaveAttribute(
       'href',
@@ -166,11 +166,8 @@ describe('the Candidates tab', () => {
       expect.stringMatching(/^Code ReviewDeliveryReplay set12 tasks/),
     ]);
     expect(
-      screen.getAllByRole('link', { name: 'Replay set' })[0],
-    ).toHaveAttribute(
-      'href',
-      `${STATION}/station_implementation/replay-sets/set_implementation`,
-    );
+      screen.queryByRole('link', { name: 'Replay set' }),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByLabelText('Set health')).toHaveLength(2);
   });
 
@@ -233,34 +230,22 @@ describe('the Candidates tab', () => {
     expect(row('review-against-spec')).toHaveTextContent('Held out–');
   });
 
-  it('leads Changes to the pull request, the search or the replay, whichever shows the change', () => {
+  it('leads to the config pull request where there is one, and nowhere else', () => {
     showing();
 
-    expect(
-      within(row('opus-with-migrations-skill')).getByRole('link', {
-        name: 'Changes',
-      }),
-    ).toHaveAttribute(
+    const link = within(row('opus-with-migrations-skill')).getByRole('link', {
+      name: 'Pull request',
+    });
+
+    expect(link).toHaveAttribute(
       'href',
       'https://github.com/acme/spotlight-config/pull/42',
     );
+    expect(link).toHaveAttribute('target', '_blank');
     expect(
-      within(row('sonnet-terse-prompt')).getByRole('link', {
-        name: 'Changes',
-      }),
-    ).toHaveAttribute(
-      'href',
-      `${STATION}/station_implementation/searches/search_1#candidate-candidate_terse`,
-    );
-
-    const proposed = row('review-against-spec');
-    expect(proposed).toHaveTextContent('SourceProposed');
-    expect(
-      within(proposed).getByRole('link', { name: 'Changes' }),
-    ).toHaveAttribute(
-      'href',
-      `${STATION}/station_review/replays/replay_spec_review`,
-    );
+      within(row('sonnet-terse-prompt')).queryByRole('link'),
+    ).not.toBeInTheDocument();
+    expect(row('review-against-spec')).toHaveTextContent('SourceSearch');
   });
 
   it('says a candidate was not compared with live where no task was compared', () => {

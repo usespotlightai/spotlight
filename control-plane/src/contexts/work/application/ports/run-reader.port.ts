@@ -2,7 +2,6 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { InboxNote } from '@work/application/ports/inbox-reader.port';
 import type { ReviewState } from '@work/domain/services/conversations';
@@ -76,39 +75,6 @@ export interface RunConfigView extends RanConfig {
 export interface RunConfigSummary {
   readonly ran: RanConfig | null;
   readonly before: RunConfigView | null;
-  readonly ranForTeam: RanForTeam | null;
-}
-
-interface RanForTeam {
-  readonly workspaceId: string;
-  readonly teamId: string | null;
-}
-
-interface RunAgentSummary {
-  readonly harness: string;
-  readonly model: string | null;
-  readonly effort: string | null;
-}
-
-interface ReplayedRunSummary {
-  readonly runId: string;
-  readonly taskId: string | null;
-  readonly title: string | null;
-}
-
-export interface ReplayRunSummary extends TaskRunSummary {
-  readonly original: ReplayedRunSummary;
-  readonly briefing: string;
-  readonly agent: RunAgentSummary;
-  readonly repositories: readonly string[];
-}
-
-export interface SearchRunSummary extends TaskRunSummary {
-  readonly searchId: string;
-  readonly iteration: number;
-  readonly failure: string | null;
-  readonly endedAt: Date | null;
-  readonly briefing: string;
 }
 
 export const RUN_READER = Symbol('RUN_READER');
@@ -121,16 +87,4 @@ export interface RunReaderPort {
   notesFor(runId: RunId, viewerId: UserId): Promise<RunNotesSummary | null>;
 
   configFor(runId: RunId, viewerId: UserId): Promise<RunConfigSummary | null>;
-
-  replayFor(
-    teamId: TeamId,
-    workspaceId: WorkspaceId,
-    runId: RunId,
-  ): Promise<ReplayRunSummary | null>;
-
-  searchRunFor(
-    teamId: TeamId,
-    workspaceId: WorkspaceId,
-    runId: RunId,
-  ): Promise<SearchRunSummary | null>;
 }

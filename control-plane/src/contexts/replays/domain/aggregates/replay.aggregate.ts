@@ -124,7 +124,6 @@ export interface WantedBaseline {
   readonly candidate: ReplayedCandidate;
   readonly ceiling: Money;
   readonly repeats: number;
-  readonly calibration: boolean;
 }
 
 export interface OracleTerms {
@@ -189,8 +188,7 @@ export class Replay extends EventRecorder {
       (input.baseline ||
         !wanting.candidate.isLive ||
         !wanting.candidate.isFor(set.station.stationId) ||
-        !isValidRepeatCount(wanting.repeats) ||
-        (wanting.calibration && wanting.repeats < 2))
+        !isValidRepeatCount(wanting.repeats))
     ) {
       throw new InvalidReplayError(
         'cannot both be a baseline and want one, and wants one only of the live config on terms a baseline may have',
@@ -222,7 +220,7 @@ export class Replay extends EventRecorder {
           })))
     ) {
       throw new InvalidReplayError(
-        'handed the answer must replay some runs of the set against a finished whole-set replay of it, outside a search, never side by side',
+        'handed the answer must replay some runs of the set against a finished whole-set replay of it, outside a search or after a calibrating search seed, never side by side',
       );
     }
     if (
@@ -238,15 +236,9 @@ export class Replay extends EventRecorder {
         'cannot be compared side by side as a baseline or calibration',
       );
     }
-    if (
-      calibration &&
-      (!input.candidate.isLive ||
-        runSubset ||
-        repeats < 2 ||
-        input.searchId !== undefined)
-    ) {
+    if (calibration && (!input.candidate.isLive || runSubset || repeats < 2)) {
       throw new InvalidReplayError(
-        'calibration must replay the live config, every run more than once, outside a search',
+        'calibration must replay the live config, every run more than once',
       );
     }
     if (
@@ -327,7 +319,6 @@ export class Replay extends EventRecorder {
           input.unpricedRate ?? null,
           repeats,
           wanting.repeats,
-          wanting.calibration,
         ),
       );
     }
@@ -357,7 +348,7 @@ export class Replay extends EventRecorder {
       against.setId.equals(set.id) &&
       !against.id.equals(id) &&
       against.runSubset === null &&
-      against.searchId === null &&
+      (against.searchId === null || against.calibration) &&
       against.current === 'finished'
     );
   }

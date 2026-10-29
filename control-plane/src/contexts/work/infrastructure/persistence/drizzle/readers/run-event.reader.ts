@@ -5,7 +5,6 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -19,7 +18,7 @@ import {
   run,
   runJournalEntry,
 } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import { and, asc, desc, eq, gt, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, isNull, lte } from 'drizzle-orm';
 
 const MAX_CONTROL_PLANE_ENTRIES = 200;
 
@@ -66,12 +65,15 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
         id: run.id,
         attempt: run.attempt,
         workspaceId: run.workspaceId,
-        replayOfRunId: run.replayOfRunId,
-        searchId: run.searchId,
-        ranForTeamId: run.ranForTeamId,
       })
       .from(run)
-      .where(eq(run.id, runId.value))
+      .where(
+        and(
+          eq(run.id, runId.value),
+          isNull(run.replayOfRunId),
+          isNull(run.searchId),
+        ),
+      )
       .limit(1);
 
     return found && (await this.mayWatch(found, viewerId))
@@ -79,28 +81,11 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
       : null;
   }
 
-  private async mayWatch(
-    found: {
-      workspaceId: string;
-      replayOfRunId: string | null;
-      searchId: string | null;
-      ranForTeamId: string | null;
-    },
+  private mayWatch(
+    found: { workspaceId: string },
     viewerId: UserId,
   ): Promise<boolean> {
-    if (!found.replayOfRunId && !found.searchId) {
-      return this.access.mayView(viewerId, WorkspaceId.of(found.workspaceId));
-    }
-    if (!found.ranForTeamId) {
-      return false;
-    }
-
-    const reader = await this.access.permissionsAsTeamReader(
-      found.ranForTeamId,
-      PersonPrincipal.of(viewerId),
-    );
-
-    return reader?.workspaceId.value === found.workspaceId;
+    return this.access.mayView(viewerId, WorkspaceId.of(found.workspaceId));
   }
 
   async eventsSince(

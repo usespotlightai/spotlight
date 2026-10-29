@@ -7,18 +7,15 @@ import {
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
 import type { CandidatesSet } from '@/lib/insights-candidates';
-import type { ReplayedStation } from '@/lib/replay';
 import { cn } from '@/lib/utils';
 
 type CandidateSetRowsProps = {
-  at: ReplayedStation;
   set: CandidatesSet;
   heldOut: boolean;
   chartStatus: boolean;
 };
 
 export function CandidateSetRows({
-  at,
   set,
   heldOut,
   chartStatus,
@@ -44,14 +41,13 @@ export function CandidateSetRows({
       {candidates.map((candidate) => (
         <CandidateComparisonRow
           key={candidate.candidateId}
-          at={at}
           candidate={candidate}
           heldOut={heldOut}
         />
       ))}
 
       {!chartStatus && set.baseline && (
-        <BaselineRow at={at} baseline={set.baseline} heldOut={heldOut} />
+        <BaselineRow baseline={set.baseline} heldOut={heldOut} />
       )}
     </>
   );

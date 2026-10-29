@@ -136,15 +136,16 @@ interface CheckRead {
     maxRegressions: number;
     ceiling: { amount: number; currency: string };
   };
-  tasks: number;
+  taskCount: number;
   compared: number;
-  regressions: {
+  tasks: {
     taskId: string;
-    candidate: string;
-    baseline: string | null;
-    reasons: { code: string; detail: string | null }[];
+    originalRunId: string;
+    title: string | null;
+    regressed: boolean;
+    live: { result: string; successRate: number | null; reason: string };
+    candidate: { result: string; successRate: number | null; reason: string };
   }[];
-  replayUrl: string | null;
 }
 
 const anOriginal = async (): Promise<string> => {
@@ -523,11 +524,10 @@ describe('a replay check', () => {
         maxRegressions: 0,
         ceiling: { amount: 4, currency: 'USD' },
       },
-      tasks: 3,
+      taskCount: 3,
     });
-    expect(check.replayUrl).toContain(
-      `http://localhost:3000/w/${team.slug}/team/${team.teamId.value}/lines/${DELIVERY}/stations/${BUILD}/replays/${check.replayId}`,
-    );
+    expect(check).not.toHaveProperty('replayUrl');
+    expect(check.tasks).toHaveLength(3);
 
     const [candidate] = await db
       .select()
@@ -621,12 +621,24 @@ describe('a replay check', () => {
     await endReplay(await baselineOf(passing), () => true);
     await endReplay(passing.replayId, () => true);
 
-    expect(await readCheck(passing.id)).toMatchObject({
+    const passed = await readCheck(passing.id);
+
+    expect(passed).toMatchObject({
       result: 'passed',
       undecidedBecause: null,
       compared: 3,
-      regressions: [],
     });
+    expect(passed.tasks.map((each) => each.regressed)).toEqual([
+      false,
+      false,
+      false,
+    ]);
+    for (const each of passed.tasks) {
+      expect(each.live.result).toBe('succeeded');
+      expect(each.candidate.result).toBe('succeeded');
+      expect(each.live.reason).toMatch(/^[A-Z].*\.$/);
+      expect(each.candidate.reason).toMatch(/^[A-Z].*\.$/);
+    }
 
     const failing = await startCheck(
       planned({ prompt: 'Build it, and fail.' }),
@@ -635,13 +647,16 @@ describe('a replay check', () => {
 
     const failed = await readCheck(failing.id);
     expect(failed.result).toBe('failed');
-    expect(failed.regressions).toEqual([
-      expect.objectContaining({
-        candidate: ['failed'],
-        baseline: ['succeeded'],
-        reasons: [{ code: 'check-failed', detail: 'api' }],
-      }),
-    ]);
+    expect(failed.tasks[0]).toMatchObject({
+      regressed: true,
+      live: { result: 'succeeded', successRate: 1 },
+      candidate: {
+        result: 'failed',
+        successRate: 0,
+        reason: 'Checks failed: api.',
+      },
+    });
+    expect(failed.tasks.filter((each) => each.regressed)).toHaveLength(1);
   });
 
   it('is undecided when its replay stopped, or too few tasks were scored', async () => {
@@ -699,9 +714,6 @@ describe('a replay check', () => {
     expect(
       await app.get(RefreshKeptSets).refreshBefore(ReplaySetId.of(keptSetId)),
     ).toBe(false);
-    await owner()
-      .delete(`${teamPath()}/replay-sets/${keptSetId}/entries/${originals[1]}`)
-      .expect(409);
 
     await createSet(originals.filter((each) => each !== originals[1]));
     expect((await startCheck(change)).attempt).toBe(4);
@@ -829,43 +841,9 @@ describe('a replay check', () => {
     });
   });
 
-  it('are listed per set, newest first, a page at a time, to any reader of the team, and the line shows its threshold', async () => {
-    const all = (
-      await bearing(readToken)
-        .get(`${teamPath()}/replay-sets/${keptSetId}/replay-checks?limit=200`)
-        .expect(200)
-    ).body as {
-      id: string;
-      createdAt: string;
-      result: string;
-      replayUrl: string;
-    }[];
-
-    expect(all.length).toBeGreaterThan(2);
-    expect(
-      [...all].sort((one, other) =>
-        other.createdAt.localeCompare(one.createdAt),
-      ),
-    ).toEqual(all);
-    expect(all[0]?.replayUrl).toContain(`/w/${team.slug}/team/`);
-
-    const first = (
-      await bearing(readToken)
-        .get(`${teamPath()}/replay-sets/${keptSetId}/replay-checks?limit=1`)
-        .expect(200)
-    ).body as { id: string }[];
-    const next = (
-      await bearing(readToken)
-        .get(
-          `${teamPath()}/replay-sets/${keptSetId}/replay-checks?limit=1&before=${first[0]?.id}`,
-        )
-        .expect(200)
-    ).body as { id: string }[];
-    expect([first[0]?.id, next[0]?.id]).toEqual([all[0]?.id, all[1]?.id]);
-
-    await http()
+  it('are no longer listed per set, and the line shows its threshold', async () => {
+    await bearing(readToken)
       .get(`${teamPath()}/replay-sets/${keptSetId}/replay-checks`)
-      .set(TEST_USER_HEADER, stranger)
       .expect(404);
 
     const lines = (await owner().get(`${teamPath()}/lines`).expect(200))

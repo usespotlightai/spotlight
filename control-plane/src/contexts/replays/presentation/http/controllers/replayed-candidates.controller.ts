@@ -39,7 +39,7 @@ export class ReplayedCandidatesController {
     operationId: 'readReplayedCandidates',
     summary:
       'The station configs the team replayed over past tasks in the period, by station and replay set, each beside its set’s baseline, the live config replayed',
-    description: `Searched candidates show when their search started in the period, proposed ones when their replay did; pull-request checks are left out, and the live config shows only as each set’s baseline. A candidate’s success rate is its replay’s, scored by its own checks and judge on past tasks, not how live runs went; its numbers are the ones its search and replay pages show. Each set’s health and baseline ignore the period. It covers the newest ${MAX_REPLAYED} replays of the period.`,
+    description: `Candidates show when their search started in the period; pull-request checks are left out, and the live config shows only as each set’s baseline. A candidate’s success rate is its search score: its replay’s, scored by its own checks and judge on past tasks, not how live runs went. Each set’s health and baseline ignore the period. It covers the newest ${MAX_REPLAYED} replays of the period.`,
   })
   @ApiQuery({
     name: 'period',

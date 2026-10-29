@@ -416,10 +416,6 @@ export class DrizzleReplayRepository implements ReplayRepository {
     return this.withEntries(eq(replay.setId, setId.value));
   }
 
-  ofCandidate(candidateId: CandidateId): Promise<readonly Replay[]> {
-    return this.withEntries(eq(replay.candidateId, candidateId.value));
-  }
-
   async pairingWith(replayId: ReplayId): Promise<readonly ReplayId[]> {
     const rows = await this.context.db
       .select({ id: replay.id })
@@ -494,7 +490,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
       .where(
         and(
           inArray(replay.setId, [...new Set(setIds.map((each) => each.value))]),
-          isNull(replay.searchId),
+          or(isNull(replay.searchId), eq(replay.calibration, true)),
           or(
             and(
               eq(replayCandidate.kind, 'live'),

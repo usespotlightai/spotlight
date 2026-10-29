@@ -26,6 +26,7 @@ import type { RequestReplaySideBySideJudging } from '@replays/application/servic
 import type { SearchSchedules } from '@replays/application/services/search-schedules.service';
 import type { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
 import type { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
+import type { TurnOffSearches } from '@replays/application/services/turn-off-searches.service';
 import type { CandidateDeletionRequested } from '@replays/domain/events/candidate-deletion-requested.event';
 import type { ConfigPullRequestClosed } from '@replays/domain/events/config-pull-request-closed.event';
 import type { ConfigPullRequestDeletionRequested } from '@replays/domain/events/config-pull-request-deletion-requested.event';
@@ -169,6 +170,7 @@ export interface ReplaysReactions {
   readonly noticingResults: NoticeSearchResults;
   readonly picking: PickSearchCandidates;
   readonly schedules: SearchSchedules;
+  readonly turningOff: TurnOffSearches;
   readonly following: FollowConfigPullRequests;
 }
 
@@ -543,9 +545,24 @@ export const replaysSubscribers = (
     (event) => reactions.schedules.reopened(event),
   ),
   subscribing<SearchPickDeclined>(
-    'replays.notice-search-without-pull-request',
+    'replays.advise-on-search-stalled-outside-config',
     ['replays.search-pick-declined'],
     (event) => reactions.noticingResults.pickDeclined(event),
+  ),
+  subscribing<SearchPickDeclined>(
+    'replays.notice-requesters-of-declined-search',
+    ['replays.search-pick-declined'],
+    (event) => reactions.noticingResults.requestersOfDecline(event),
+  ),
+  subscribing<SearchCandidatePicked>(
+    'replays.notice-requesters-of-other-pick',
+    ['replays.search-candidate-picked'],
+    (event) => reactions.noticingResults.requestersOfOtherPick(event),
+  ),
+  subscribing<SearchEnded>(
+    'replays.notice-requesters-of-stopped-search',
+    ['replays.search-ended'],
+    (event) => reactions.noticingResults.requestersOfStop(event),
   ),
   subscribing<StationSearchSkipped>(
     'replays.notice-skipped-station-search',
@@ -561,6 +578,11 @@ export const replaysSubscribers = (
     'replays.look-again-at-searches-of-changed-line',
     [LINE_CHANGED],
     (event) => reactions.schedules.lineChanged(event.lineId),
+  ),
+  subscribing<LineChangedIntegrationEvent>(
+    'replays.stop-searches-turned-off-in-changed-line',
+    [LINE_CHANGED],
+    (event) => reactions.turningOff.lineChanged(event.lineId),
   ),
   subscribing<ReplaySetDeleted | ReplaySetStationGone>(
     'replays.delete-search-schedule-of-gone-set',

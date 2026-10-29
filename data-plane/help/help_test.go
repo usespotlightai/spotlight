@@ -7,24 +7,24 @@ import (
 )
 
 var registry = NewRegistry([]Command{
-	{Path: "replay", Group: true, Summary: "Replay a station.", Usage: []string{"spotlight replay <command>"}},
-	{Path: "replay start", Summary: "Start a replay.", Usage: []string{"spotlight replay start --set <set>"},
-		Flags:    []Flag{{Name: "set", Value: "<set>", Usage: "The replay set."}, {Name: "f", Usage: "Follow."}},
-		Examples: []Example{{Comment: "Start one", Command: "spotlight replay start --set nightly"}},
-		Exits:    []Exit{{Code: 2, Means: "A regression."}},
-		Docs:     "replay-command#spotlight-replay-start"},
-	{Path: "replay stop", Summary: "Stop a replay.", Usage: []string{"spotlight replay stop <id>"}},
+	{Path: "tools", Group: true, Summary: "Use the tools of a station.", Usage: []string{"spotlight tools <command>"}},
+	{Path: "tools call", Summary: "Call a tool.", Usage: []string{"spotlight tools call <tool> --input <json>"},
+		Flags:    []Flag{{Name: "input", Value: "<json>", Usage: "The tool input."}, {Name: "f", Usage: "Follow."}},
+		Examples: []Example{{Comment: "Call one", Command: "spotlight tools call github.issue --input {}"}},
+		Exits:    []Exit{{Code: 2, Means: "The tool failed."}},
+		Docs:     "tools-command#spotlight-tools-call"},
+	{Path: "tools search", Summary: "Search the tools.", Usage: []string{"spotlight tools search <words>"}},
 	{Path: "host", Summary: "Run sandboxes.", Usage: []string{"spotlight host"}},
 })
 
 func TestResolvesTheLongestKnownCommand(t *testing.T) {
-	command, rest, found := registry.Resolve([]string{"replay", "start", "--set", "nightly"})
-	if !found || command.Path != "replay start" || !slices.Equal(rest, []string{"--set", "nightly"}) {
+	command, rest, found := registry.Resolve([]string{"tools", "call", "--input", "{}"})
+	if !found || command.Path != "tools call" || !slices.Equal(rest, []string{"--input", "{}"}) {
 		t.Fatalf("resolved %q, rest %q, found %v", command.Path, rest, found)
 	}
 
-	command, rest, _ = registry.Resolve([]string{"replay", "strat"})
-	if command.Path != "replay" || !slices.Equal(rest, []string{"strat"}) {
+	command, rest, _ = registry.Resolve([]string{"tools", "clal"})
+	if command.Path != "tools" || !slices.Equal(rest, []string{"clal"}) {
 		t.Fatalf("resolved %q, rest %q", command.Path, rest)
 	}
 
@@ -34,13 +34,13 @@ func TestResolvesTheLongestKnownCommand(t *testing.T) {
 }
 
 func TestSuggestsCommandsNearATypo(t *testing.T) {
-	for typed, want := range map[string]string{"hots": "host", "rpelay": "replay", "rep": "replay"} {
+	for typed, want := range map[string]string{"hots": "host", "tolos": "tools", "too": "tools"} {
 		if got := registry.Nearest("", typed); !slices.Equal(got, []string{want}) {
 			t.Errorf("Nearest(%q) = %q, want %q", typed, got, want)
 		}
 	}
-	if got := registry.Nearest("replay", "strat"); !slices.Equal(got, []string{"replay start"}) {
-		t.Errorf("Nearest(replay strat) = %q", got)
+	if got := registry.Nearest("tools", "clal"); !slices.Equal(got, []string{"tools call"}) {
+		t.Errorf("Nearest(tools clal) = %q", got)
 	}
 	if got := registry.Nearest("", "deploy"); len(got) > 0 {
 		t.Errorf("Nearest(deploy) = %q, want nothing", got)
@@ -48,7 +48,7 @@ func TestSuggestsCommandsNearATypo(t *testing.T) {
 }
 
 func TestWantsHelpOnlyBeforeTheEndOfFlags(t *testing.T) {
-	if !Wanted([]string{"replay", "start", "--help"}) || !Wanted([]string{"-h"}) {
+	if !Wanted([]string{"tools", "call", "--help"}) || !Wanted([]string{"-h"}) {
 		t.Error("missed a help flag")
 	}
 	if Wanted([]string{"tools", "call", "x", "--", "--help"}) {
@@ -57,17 +57,17 @@ func TestWantsHelpOnlyBeforeTheEndOfFlags(t *testing.T) {
 }
 
 func TestRendersACommandsFlagsExamplesAndExitCodes(t *testing.T) {
-	command, _ := registry.Command("replay start")
+	command, _ := registry.Command("tools call")
 	rendered := registry.Render(command)
 
 	for _, want := range []string{
-		"Start a replay.\n\nUsage:\n  spotlight replay start --set <set>",
-		"  --set <set>  The replay set.",
-		"  -f           Follow.",
-		"  -h, --help   Show this help.",
-		"Examples:\n  # Start one\n  spotlight replay start --set nightly",
-		"Exit codes:\n  2  A regression.",
-		"Docs: " + DocsBase + "replay-command#spotlight-replay-start",
+		"Call a tool.\n\nUsage:\n  spotlight tools call <tool> --input <json>",
+		"  --input <json>  The tool input.",
+		"  -f              Follow.",
+		"  -h, --help      Show this help.",
+		"Examples:\n  # Call one\n  spotlight tools call github.issue --input {}",
+		"Exit codes:\n  2  The tool failed.",
+		"Docs: " + DocsBase + "tools-command#spotlight-tools-call",
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Errorf("rendered\n%s\nwant it to say\n%s", rendered, want)
@@ -76,13 +76,13 @@ func TestRendersACommandsFlagsExamplesAndExitCodes(t *testing.T) {
 }
 
 func TestRendersAGroupWithItsCommands(t *testing.T) {
-	command, _ := registry.Command("replay")
+	command, _ := registry.Command("tools")
 	rendered := registry.Render(command)
 
-	if !strings.Contains(rendered, "Commands:\n  start  Start a replay.\n  stop   Stop a replay.") {
+	if !strings.Contains(rendered, "Commands:\n  call    Call a tool.\n  search  Search the tools.") {
 		t.Errorf("rendered\n%s", rendered)
 	}
-	if !strings.Contains(rendered, "Run spotlight replay <command> --help for flags and examples.") {
+	if !strings.Contains(rendered, "Run spotlight tools <command> --help for flags and examples.") {
 		t.Errorf("rendered\n%s", rendered)
 	}
 }
@@ -90,19 +90,19 @@ func TestRendersAGroupWithItsCommands(t *testing.T) {
 func TestRendersTheRootBySection(t *testing.T) {
 	rendered := registry.RenderRoot(Root{
 		Summary:  "Spotlight.",
-		Sections: []Section{{Title: "Replays", Paths: []string{"replay", "replay start"}}},
+		Sections: []Section{{Title: "Tools", Paths: []string{"tools", "tools call"}}},
 		Footer:   []string{"Run spotlight <command> --help."},
 	})
 
-	want := "Spotlight.\n\nUsage:\n  spotlight <command> [flags]\n\nReplays:\n  replay        Replay a station.\n  replay start  Start a replay.\n\nRun spotlight <command> --help."
+	want := "Spotlight.\n\nUsage:\n  spotlight <command> [flags]\n\nTools:\n  tools       Use the tools of a station.\n  tools call  Call a tool.\n\nRun spotlight <command> --help."
 	if rendered != want {
 		t.Errorf("rendered\n%s\nwant\n%s", rendered, want)
 	}
 }
 
 func TestSynopsisNamesTheHelpToRun(t *testing.T) {
-	command, _ := registry.Command("replay start")
-	if got := command.Synopsis(); got != "usage: spotlight replay start --set <set>\nRun spotlight replay start --help for flags and examples." {
+	command, _ := registry.Command("tools call")
+	if got := command.Synopsis(); got != "usage: spotlight tools call <tool> --input <json>\nRun spotlight tools call --help for flags and examples." {
 		t.Errorf("Synopsis() = %q", got)
 	}
 }

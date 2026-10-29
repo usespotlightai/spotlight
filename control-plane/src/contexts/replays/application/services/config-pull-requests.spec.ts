@@ -31,6 +31,7 @@ import {
   STATION_VIEW,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
+import { SearchFindings } from '@replays/application/services/search-findings.service';
 import { SearchSchedules } from '@replays/application/services/search-schedules.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import {
@@ -247,8 +248,9 @@ const opening = () =>
     TRANSACTION,
     clock,
     QUIET,
-    'https://app.example.com/',
     new SetHealths(work, memory.replayRepository, memory.candidateRepository),
+    memory.setRepository,
+    new SearchFindings(work),
   );
 
 const following = () =>
@@ -338,7 +340,7 @@ beforeEach(() => {
   memory.searches.set(search.id.value, search);
   for (const each of [
     candidateOf('live', search.seed.candidateId.value),
-    candidateOf('proposed', TERSE.value, null, null, PROPOSED),
+    candidateOf('searched', TERSE.value, null, null, PROPOSED),
   ]) {
     memory.candidates.set(each.id.value, each);
   }
@@ -391,9 +393,9 @@ describe('picking a search candidate', () => {
       },
     ]);
     expect(configs.openings[0]).toMatchObject({ title: 'build: terse' });
-    expect(configs.openings[0]?.body).toContain(
-      `https://app.example.com/w/acme/team/${STATION_VIEW.teamId.value}/lines/${STATION_VIEW.lineId}/stations/${STATION_VIEW.stationId}/searches/${search.id.value}`,
-    );
+    expect(configs.openings[0]?.body).not.toMatch(/https:\/\/(?!github\.com)/);
+    expect(configs.openings[0]?.body).toContain('## What changes');
+    expect(configs.openings[0]?.body).toContain('## About this search');
     expect(editor.edits[0]).toMatchObject({
       lineKey: 'delivery',
       stationKey: 'build',

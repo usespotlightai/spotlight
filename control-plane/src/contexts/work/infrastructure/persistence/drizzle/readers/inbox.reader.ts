@@ -407,6 +407,10 @@ export class DrizzleInboxReader implements InboxReaderPort {
         points: row.points,
         link: row.link,
         linkLabel: row.linkLabel,
+        externalLink:
+          row.externalUrl !== null && row.externalLabel !== null
+            ? { url: row.externalUrl, label: row.externalLabel }
+            : null,
         askedAt: row.createdAt,
         unread: row.resolvedAt === null,
         resolved: row.resolvedAt !== null,

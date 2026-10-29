@@ -12,6 +12,7 @@ import {
   InMemoryReplays,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
+import { SearchFindings } from '@replays/application/services/search-findings.service';
 import { SearchSchedules } from '@replays/application/services/search-schedules.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
@@ -19,6 +20,7 @@ import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { ConfigPullRequestFailed } from '@replays/domain/events/config-pull-request-failed.event';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
+import { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
 import { StationSearchScheduleDeletionRequested } from '@replays/domain/events/station-search-schedule-deletion-requested.event';
@@ -27,12 +29,14 @@ import {
   aSearch,
   aSet,
   BY,
+  candidateOf,
   later,
   NOW,
   STATION,
   searchRunIds,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import type { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -59,7 +63,16 @@ const notices = {
 };
 
 const noticing = () =>
-  new NoticeSearchResults(memory.searchRepository, pullRequests, work, notices);
+  new NoticeSearchResults(
+    memory.searchRepository,
+    pullRequests,
+    memory.candidateRepository,
+    memory.replayRepository,
+    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
+    new SearchFindings(work),
+    work,
+    notices,
+  );
 
 const picking = () =>
   new PickSearchCandidates(
@@ -75,8 +88,11 @@ const picking = () =>
     TRANSACTION,
   );
 
-const finishedWithNothing = (): Search =>
-  aSearch({ set: aSet(10) }).recordReplayStopReason(
+const finishedWithNothing = (requestedBy?: string): Search =>
+  aSearch({
+    set: aSet(10),
+    ...(requestedBy ? { requestedBy } : {}),
+  }).recordReplayStopReason(
     ReplayId.of('replay_seed'),
     'ceiling-reached',
     { spent: Money.of(1, 'USD'), unpriced: 0 },
@@ -85,12 +101,45 @@ const finishedWithNothing = (): Search =>
     true,
   );
 
+const withOtherCandidate = (): Search => {
+  const runIds = searchRunIds();
+  const taken = aSearch({ set: aSet(10), requestedBy: 'user_asking' })
+    .recordReplayStopReason(
+      ReplayId.of('replay_seed'),
+      'finished',
+      { spent: Money.of(1, 'USD'), unpriced: 0 },
+      NOW,
+      runIds,
+      true,
+    )
+    .requestsTaken(() => ReplayId.of('replay_asked'), NOW, runIds)
+    .recordReplayStopReason(
+      ReplayId.of('replay_asked'),
+      'finished',
+      { spent: Money.of(1, 'USD'), unpriced: 0 },
+      NOW,
+      runIds,
+      false,
+    );
+  const run = taken.activeRun;
+
+  if (!run) {
+    throw new Error('the search wants no agent iteration');
+  }
+
+  return taken.acceptProposal(run, {
+    candidateId: CandidateId.of('candidate_other'),
+    name: CandidateName.searched('other'),
+    replayId: ReplayId.of('replay_other'),
+  });
+};
+
 const ended = (search: Search, state: 'finished' | 'stopped') =>
   new SearchEnded(
     search.id,
     search.workspaceId,
     state,
-    search.stopReason ?? 'stopped',
+    search.stopReason ?? 'turned-off',
     null,
     [],
   );
@@ -123,7 +172,7 @@ beforeEach(() => {
 });
 
 describe('PickSearchCandidates', () => {
-  it('declines a finished search with no held-out candidate, once, and says why to the team', async () => {
+  it('declines a finished search with no held-out candidate, once, and tells nobody', async () => {
     const search = finishedWithNothing();
 
     expect(search.current).toBe('finished');
@@ -145,18 +194,8 @@ describe('PickSearchCandidates', () => {
 
     await noticing().pickDeclined(declined[0] as SearchPickDeclined);
 
-    expect(noticed).toEqual([
-      {
-        workspaceId: STATION.workspaceId,
-        teamId: STATION.teamId,
-        searchId: search.id,
-        lineId: STATION.lineId,
-        stationId: STATION.stationId,
-        about: 'result',
-        headline: 'The search of the Build station ended with no pull request',
-        points: ['No candidate finished its replay on the held-out tasks.'],
-      },
-    ]);
+    expect(noticed).toEqual([]);
+    expect(advised).toEqual([]);
   });
 
   it('declines a finished search whose station is gone from its line', async () => {
@@ -173,7 +212,7 @@ describe('PickSearchCandidates', () => {
   });
 
   it('picks nothing for a stopped search', async () => {
-    const search = aSearch({ set: aSet(10) }).stop(NOW, BY);
+    const search = aSearch({ set: aSet(10) }).turnOff(NOW);
 
     await memory.searchRepository.add(search);
     memory.events.splice(0);
@@ -185,11 +224,14 @@ describe('PickSearchCandidates', () => {
 });
 
 describe('NoticeSearchResults', () => {
-  it('tells the team once the config pull request opened, with its link', async () => {
+  it('tells the team once the config pull request opened, with the change, the held-out gain and the pull request to review', async () => {
     const search = finishedWithNothing();
     const opening = pullRequestOf(search);
 
     await memory.searchRepository.add(search);
+    await memory.candidateRepository.add(
+      candidateOf('searched', 'candidate_one'),
+    );
     await pullRequests.add(opening);
 
     const url = PullRequestUrl.of('https://github.com/acme/platform/pull/7');
@@ -207,16 +249,153 @@ describe('NoticeSearchResults', () => {
     );
 
     expect(noticed).toEqual([
-      expect.objectContaining({
+      {
+        workspaceId: STATION.workspaceId,
+        teamId: STATION.teamId,
+        searchId: search.id,
+        addressee: null,
+        lineId: STATION.lineId,
+        stationId: STATION.stationId,
         about: 'result',
+        pullRequest: 'https://github.com/acme/platform/pull/7',
         headline:
           'Spotlight opened a config pull request for the Build station',
         points: [
-          'Candidate one did better than the live config on the held-out tasks.',
-          'Pull request: https://github.com/acme/platform/pull/7',
-          'Please review the pull request. The station changes when you merge it.',
+          'Candidate one changes prompt.',
+          'Held-out gain: not measured',
         ],
-      }),
+      },
+    ]);
+  });
+
+  it('tells the team, and nobody in person, once the config pull request of a requested search opened', async () => {
+    const search = finishedWithNothing('user_asking');
+    const opening = pullRequestOf(search);
+
+    await memory.searchRepository.add(search);
+    await pullRequests.add(opening);
+    await noticing().pullRequestOpened(
+      new ConfigPullRequestOpened(
+        opening.id,
+        STATION.workspaceId,
+        STATION.teamId,
+        STATION.stationId,
+        StationFingerprint.of('e'.repeat(64)),
+        PullRequestUrl.of('https://github.com/acme/platform/pull/7'),
+        later(5),
+      ),
+    );
+
+    expect(noticed.map((each) => each.addressee)).toEqual([null]);
+  });
+
+  it('tells the person who asked why no config pull request opened, and that the search ended before their change', async () => {
+    const search = finishedWithNothing('user_asking');
+
+    await memory.searchRepository.add(search);
+    await noticing().requestersOfDecline(
+      new SearchPickDeclined(search.id, search.workspaceId, 'no-candidate'),
+    );
+
+    expect(noticed).toMatchObject([
+      {
+        addressee: { value: 'user_asking' },
+        about: 'result',
+        pullRequest: null,
+        headline:
+          'Spotlight did not open a config pull request for the Build station',
+        points: [
+          'No candidate did better than the live config on the searched tasks.',
+          'Spotlight did not replay asked: the search ended first.',
+        ],
+      },
+    ]);
+  });
+
+  it('gives the same notice when the decline arrives twice, so the inbox keeps one', async () => {
+    const search = finishedWithNothing('user_asking');
+    const declined = new SearchPickDeclined(
+      search.id,
+      search.workspaceId,
+      'no-candidate',
+    );
+
+    await memory.searchRepository.add(search);
+    await noticing().requestersOfDecline(declined);
+    await noticing().requestersOfDecline(declined);
+
+    expect(noticed).toHaveLength(2);
+    expect(noticed[1]).toEqual(noticed[0]);
+  });
+
+  it('tells nobody of a declined search that nobody asked for', async () => {
+    const search = finishedWithNothing();
+
+    await memory.searchRepository.add(search);
+    await noticing().requestersOfDecline(
+      new SearchPickDeclined(search.id, search.workspaceId, 'no-candidate'),
+    );
+
+    expect(noticed).toEqual([]);
+  });
+
+  it('tells the person who asked when another candidate became the pull request, with how their change did', async () => {
+    const search = withOtherCandidate();
+
+    await memory.searchRepository.add(search);
+    await noticing().requestersOfOtherPick(
+      new SearchCandidatePicked(
+        search.id,
+        search.workspaceId,
+        CandidateId.of('candidate_other'),
+      ),
+    );
+
+    expect(noticed).toMatchObject([
+      {
+        addressee: { value: 'user_asking' },
+        headline:
+          'Spotlight opened a config pull request for another candidate of the Build station',
+        points: [
+          'Candidate other became the config pull request.',
+          'Candidate asked did not beat the live config on the searched tasks. Searched gain: not measured',
+        ],
+      },
+    ]);
+  });
+
+  it('tells nobody in person when the candidate they asked for became the pull request', async () => {
+    const search = withOtherCandidate();
+
+    await memory.searchRepository.add(search);
+    await noticing().requestersOfOtherPick(
+      new SearchCandidatePicked(
+        search.id,
+        search.workspaceId,
+        CandidateId.of('candidate_asked'),
+      ),
+    );
+
+    expect(noticed).toEqual([]);
+  });
+
+  it('tells the person who asked when the search stopped before a result', async () => {
+    const search = aSearch({
+      set: aSet(10),
+      requestedBy: 'user_asking',
+    }).turnOff(NOW);
+
+    await memory.searchRepository.add(search);
+    await noticing().requestersOfStop(ended(search, 'stopped'));
+
+    expect(noticed).toMatchObject([
+      {
+        addressee: { value: 'user_asking' },
+        points: [
+          'A person turned off search for the station.',
+          'Spotlight did not replay asked: the search ended first.',
+        ],
+      },
     ]);
   });
 
@@ -238,8 +417,9 @@ describe('NoticeSearchResults', () => {
       expect.objectContaining({
         headline:
           'Sorry, the config pull request for the Build station could not be opened',
+        pullRequest: null,
         points: [
-          'Candidate one did better than the live config on the held-out tasks.',
+          'Candidate one changes the station config.',
           'Reason: Line delivery has no Terraform source. Please add a source block with repository and path to spotlight_line.',
         ],
       }),

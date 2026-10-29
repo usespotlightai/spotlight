@@ -79,7 +79,7 @@ const ran = (
       ceiling: 100,
       baseline,
       candidate: candidateOf(
-        baseline ? 'live' : 'proposed',
+        baseline ? 'live' : 'searched',
         `candidate_${id}`,
         rubric,
       ),
@@ -304,7 +304,7 @@ describe('taskComparisons', () => {
       id: 'candidate',
       count: 1,
       ceiling: 100,
-      candidate: candidateOf('proposed', 'candidate_candidate'),
+      candidate: candidateOf('searched', 'candidate_candidate'),
     })
       .reserving(1, runIds())
       .unreplayable(run(0), 'candidate-unfit', NOW);

@@ -1,5 +1,6 @@
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
+import { RequestLimitReachedError } from '@replays/domain/exceptions/request-limit-reached.error';
 import { SearchInCooldownError } from '@replays/domain/exceptions/search-in-cooldown.error';
 import {
   FINGERPRINT,
@@ -79,12 +80,14 @@ describe('StationSearchSchedule', () => {
         inSet: tasks('a', 'b', 'c', 'gone'),
         at: later(2),
         cooldownMilliseconds: 10,
+        trigger: 'schedule',
       })
       .started({
         searched: tasks('b', 'c', 'c'),
         inSet: tasks('a', 'b', 'c'),
         at: later(20),
         cooldownMilliseconds: 10,
+        trigger: 'schedule',
       });
 
     expect(started.lastSkip).toBeNull();
@@ -100,6 +103,7 @@ describe('StationSearchSchedule', () => {
       inSet: tasks('a'),
       at: NOW,
       cooldownMilliseconds: 10,
+      trigger: 'schedule',
     });
 
     expect(() =>
@@ -108,6 +112,7 @@ describe('StationSearchSchedule', () => {
         inSet: tasks('a'),
         at: later(9),
         cooldownMilliseconds: 10,
+        trigger: 'schedule',
       }),
     ).toThrow(SearchInCooldownError);
   });
@@ -118,6 +123,7 @@ describe('StationSearchSchedule', () => {
       inSet: tasks('a'),
       at: NOW,
       cooldownMilliseconds: 10,
+      trigger: 'schedule',
     });
     const rejected = started
       .configRejected(FINGERPRINT, LIVE_FINGERPRINT, later(8))
@@ -134,6 +140,7 @@ describe('StationSearchSchedule', () => {
         inSet: tasks('a'),
         at: later(18),
         cooldownMilliseconds: 10,
+        trigger: 'schedule',
       }),
     ).toThrow(SearchInCooldownError);
     expect(
@@ -142,6 +149,7 @@ describe('StationSearchSchedule', () => {
         inSet: tasks('a'),
         at: later(19),
         cooldownMilliseconds: 10,
+        trigger: 'schedule',
       }).lastStartedAt,
     ).toEqual(later(19));
   });
@@ -177,6 +185,47 @@ describe('StationSearchSchedule', () => {
     expect(reopened.hasRejected(FINGERPRINT)).toBe(false);
   });
 
+  it('leaves the automatic schedule as it is for a requested start, but counts its searched tasks', () => {
+    const before = created()
+      .started({
+        searched: tasks('a'),
+        inSet: tasks('a', 'b', 'c'),
+        at: NOW,
+        cooldownMilliseconds: 10,
+        trigger: 'schedule',
+      })
+      .alerted(later(1));
+    const after = before.started({
+      searched: tasks('b'),
+      inSet: tasks('a', 'b', 'c'),
+      at: later(2),
+      cooldownMilliseconds: 1_000,
+      trigger: 'request',
+    });
+
+    expect(after.lastStartedAt).toEqual(before.lastStartedAt);
+    expect(after.alertPendingSince).toEqual(before.alertPendingSince);
+    expect(after.checkAfter).toEqual(before.checkAfter);
+    expect(after.searchedTasks.map((each) => each.value)).toEqual(['a', 'b']);
+    expect(after.requests).toEqual({
+      day: later(2).toISOString().slice(0, 10),
+      count: 1,
+    });
+  });
+
+  it('takes 3 requests a station a day, and more the next day', () => {
+    const day = new Date('2026-10-29T08:00:00.000Z');
+    const nextDay = new Date('2026-10-30T00:00:01.000Z');
+    const full = created().requested(day).requested(day).requested(day);
+
+    expect(full.takesRequestOn(day)).toBe(false);
+    expect(() => full.requested(day)).toThrow(RequestLimitReachedError);
+    expect(full.requested(nextDay).requests).toEqual({
+      day: '2026-10-30',
+      count: 1,
+    });
+  });
+
   it('keeps the latest time a merged pull request improved the station', () => {
     expect(
       created().improved(later(9)).improved(later(5)).lastImprovedAt,
@@ -196,6 +245,7 @@ describe('StationSearchSchedule', () => {
         rejectedAgainst: null,
         lastRejectedAt: null,
         lastImprovedAt: null,
+        requests: null,
         checkAfter: NOW,
         version: 0,
       }),

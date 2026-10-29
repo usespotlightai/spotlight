@@ -1,8 +1,9 @@
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
 import { GainValue } from '@/components/features/insights/candidates/GainValue';
 import { RateTrack } from '@/components/features/insights/candidates/RateTrack';
+import { ReplayStatePill } from '@/components/features/insights/candidates/ReplayStatePill';
 import { ConfigPlan } from '@/components/features/insights/changes/ConfigPlan';
-import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
+import { ExternalPillLink } from '@/components/shared/ExternalPillLink';
 import { ClampedCell } from '@/components/shared/nested-table/ClampedCell';
 import { ExpandingRow } from '@/components/shared/nested-table/ExpandingRow';
 import { ExpandToggle } from '@/components/shared/nested-table/ExpandToggle';
@@ -12,7 +13,6 @@ import {
   OUTER_GUIDE,
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
   Tooltip,
   TooltipContent,
@@ -22,15 +22,14 @@ import { formatCount } from '@/lib/insights';
 import {
   changeLinkOf,
   costBasisNote,
-  formatOrigin,
+  formatCostPerRun,
+  formatSource,
   heldOutBrief,
   type SetCandidate,
 } from '@/lib/insights-candidates';
 import { formatPercent } from '@/lib/judge';
-import { COMPACT_PILL, pillClass } from '@/lib/pill';
-import type { ReplayedStation } from '@/lib/replay';
+import { COMPACT_PILL } from '@/lib/pill';
 import type { GainSignificanceCode } from '@/lib/replay-words';
-import { formatCostPerRun } from '@/lib/search';
 import { configChangesOf } from '@/lib/station-config';
 import { cn } from '@/lib/utils';
 
@@ -41,19 +40,17 @@ const INKS: Record<GainSignificanceCode, string> = {
 };
 
 type CandidateComparisonRowProps = {
-  at: ReplayedStation;
   candidate: SetCandidate;
   heldOut: boolean;
 };
 
 export function CandidateComparisonRow({
-  at,
   candidate,
   heldOut,
 }: CandidateComparisonRowProps) {
   const { shown } = candidate;
   const changes = configChangesOf(candidate.changes);
-  const link = changeLinkOf(at, candidate);
+  const link = changeLinkOf(candidate);
   const cost = formatCostPerRun(shown.costPerRun, candidate.currency);
   const costNote = costBasisNote(candidate);
   return (
@@ -89,7 +86,9 @@ export function CandidateComparisonRow({
           </ClampedCell>
 
           <NestedCell heading="Source" numeric={false}>
-            <span className="whitespace-nowrap">{formatOrigin(candidate)}</span>
+            <span className="whitespace-nowrap">
+              {formatSource('searched')}
+            </span>
           </NestedCell>
 
           <div className="col-span-full min-w-0 @4xl:col-span-1">
@@ -140,28 +139,15 @@ export function CandidateComparisonRow({
           )}
           <NestedCell heading="Runs">{formatCount(shown.runs)}</NestedCell>
 
-          {link.external ? (
-            <a
-              href={link.to}
-              target="_blank"
-              rel="noreferrer"
-              className={pillClass(
-                'outline',
-                'justify-self-start whitespace-nowrap @4xl:justify-self-end',
-              )}
+          {link ? (
+            <ExternalPillLink
+              href={link}
+              className="justify-self-start whitespace-nowrap @4xl:justify-self-end"
             >
-              Changes
-            </a>
+              Pull request
+            </ExternalPillLink>
           ) : (
-            <TrailLink
-              to={link.to}
-              className={pillClass(
-                'outline',
-                'justify-self-start whitespace-nowrap @4xl:justify-self-end',
-              )}
-            >
-              Changes
-            </TrailLink>
+            <span className="hidden @4xl:block" />
           )}
         </>
       )}

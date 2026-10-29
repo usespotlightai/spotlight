@@ -5,22 +5,20 @@ import {
   OUTER_GUIDE,
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { formatCount } from '@/lib/insights';
-import type { CandidatesSet } from '@/lib/insights-candidates';
+import {
+  type CandidatesSet,
+  formatCostPerRun,
+} from '@/lib/insights-candidates';
 import { formatPercent } from '@/lib/judge';
-import { pillClass } from '@/lib/pill';
-import { type ReplayedStation, replayPath } from '@/lib/replay';
-import { formatCostPerRun } from '@/lib/search';
 import { cn } from '@/lib/utils';
 
 type BaselineRowProps = {
-  at: ReplayedStation;
   baseline: NonNullable<CandidatesSet['baseline']>;
   heldOut: boolean;
 };
 
-export function BaselineRow({ at, baseline, heldOut }: BaselineRowProps) {
+export function BaselineRow({ baseline, heldOut }: BaselineRowProps) {
   return (
     <li
       data-slot="replayed-baseline"
@@ -56,15 +54,7 @@ export function BaselineRow({ at, baseline, heldOut }: BaselineRowProps) {
       </NestedCell>
       {heldOut && <span className="hidden @4xl:block" />}
       <NestedCell heading="Runs">{formatCount(baseline.scored)}</NestedCell>
-      <TrailLink
-        to={replayPath(at, baseline.replayId)}
-        className={pillClass(
-          'outline',
-          'justify-self-start whitespace-nowrap @4xl:justify-self-end',
-        )}
-      >
-        Changes
-      </TrailLink>
+      <span className="hidden @4xl:block" />
     </li>
   );
 }

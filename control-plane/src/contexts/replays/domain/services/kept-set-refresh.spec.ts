@@ -46,14 +46,12 @@ const entry = (run: string, endedAt: Date, task = `task_of_${run}`) =>
 
 const setOf = (
   entries: readonly ReplaySetEntry[] = [],
-  removedTasks: readonly string[] = [],
   refreshedAt: Date | null = null,
 ): ReplaySet =>
   ReplaySet.rehydrate({
     id: ReplaySetId.of('set_1'),
     station: STATION,
     entries,
-    removedTasks: removedTasks.map((each) => TaskId.of(each)),
     createdAt: daysAgo(200),
     refreshedAt,
     lastRefresh: null,
@@ -141,14 +139,26 @@ describe('refreshOf', () => {
     expect(added(changes)).toEqual(['run_1']);
   });
 
-  it('never takes a task a person removed, nor a task the set covers', () => {
+  it('lets go of a run whose task a reflection blamed, and never takes that task back', () => {
     const changes = refreshOf(
-      setOf([entry('run_1', NOW, 'task_kept')], ['task_removed']),
-      [
-        recent('run_3', 'task_removed'),
-        recent('run_2', 'task_kept'),
-        recent('run_4', 'task_new'),
-      ],
+      setOf([
+        entry('run_1', NOW, 'task_blamed'),
+        entry('run_2', NOW, 'task_kept'),
+      ]),
+      [recent('run_3', 'task_blamed'), recent('run_4', 'task_new')],
+      NO_OUTCOMES,
+      NOW,
+      new Set(['task_blamed']),
+    );
+
+    expect(changes.remove.map((each) => each.value)).toEqual(['run_1']);
+    expect(added(changes)).toEqual(['run_4']);
+  });
+
+  it('never takes a task the set covers', () => {
+    const changes = refreshOf(
+      setOf([entry('run_1', NOW, 'task_kept')]),
+      [recent('run_2', 'task_kept'), recent('run_4', 'task_new')],
       NO_OUTCOMES,
       NOW,
     );
@@ -245,18 +255,10 @@ describe('refreshOf', () => {
   });
 
   it('gives changes the set takes', () => {
-    const set = setOf(
-      [entry('old', daysAgo(100)), entry('kept', daysAgo(1))],
-      ['task_removed'],
-    );
+    const set = setOf([entry('old', daysAgo(100)), entry('kept', daysAgo(1))]);
     const changes = refreshOf(
       set,
-      [
-        recent('removed', 'task_removed'),
-        recent('new_1'),
-        recent('new_2'),
-        recent('kept'),
-      ],
+      [recent('new_1'), recent('new_2'), recent('kept')],
       NO_OUTCOMES,
       NOW,
     );
@@ -276,15 +278,15 @@ describe('isDueForRefresh', () => {
   });
 
   it(`makes a full set due ${KEPT_SET_REFRESH_EVERY_MS / DAY_MS} days after its last refresh`, () => {
-    expect(isDueForRefresh(setOf(full, [], daysAgo(6)), cutoff)).toBe(false);
-    expect(isDueForRefresh(setOf(full, [], daysAgo(8)), cutoff)).toBe(true);
+    expect(isDueForRefresh(setOf(full, daysAgo(6)), cutoff)).toBe(false);
+    expect(isDueForRefresh(setOf(full, daysAgo(8)), cutoff)).toBe(true);
   });
 
   it(`makes a set that is not full due ${UNFILLED_SET_REFRESH_EVERY_MS / DAY_MS} day after its last refresh`, () => {
     const unfilled = [entry('run_1', NOW)];
 
-    expect(isDueForRefresh(setOf(unfilled, [], NOW), cutoff)).toBe(false);
-    expect(isDueForRefresh(setOf(unfilled, [], daysAgo(2)), cutoff)).toBe(true);
+    expect(isDueForRefresh(setOf(unfilled, NOW), cutoff)).toBe(false);
+    expect(isDueForRefresh(setOf(unfilled, daysAgo(2)), cutoff)).toBe(true);
   });
 
   it('never makes a set at a gone station due', () => {
