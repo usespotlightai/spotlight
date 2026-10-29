@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { InfoTooltip } from '@/components/features/insights/InfoTooltip';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
 
 type TileGroupProps = {
   title: string;

@@ -1,13 +1,10 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import type {
   RanConfig,
-  RunConfigSummary,
   RunReaderPort,
 } from '@work/application/ports/run-reader.port';
 import type { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
@@ -19,10 +16,7 @@ const configOf = (run: RanConfig): StationConfig =>
 export class ReadRunConfigHandler
   implements QueryHandlerPort<ReadRunConfigQuery, RunConfigDto | null>
 {
-  constructor(
-    private readonly access: WorkspaceAccessPort,
-    private readonly runs: RunReaderPort,
-  ) {}
+  constructor(private readonly runs: RunReaderPort) {}
 
   async execute(query: ReadRunConfigQuery): Promise<RunConfigDto | null> {
     try {
@@ -31,7 +25,7 @@ export class ReadRunConfigHandler
         UserId.of(query.viewerId),
       );
 
-      if (!found || !(await this.readsAsTeam(found.ranForTeam, query))) {
+      if (!found) {
         return null;
       }
 
@@ -58,25 +52,5 @@ export class ReadRunConfigHandler
     } catch (error) {
       rethrowAsApplicationError(error);
     }
-  }
-
-  private async readsAsTeam(
-    ranForTeam: RunConfigSummary['ranForTeam'],
-    query: ReadRunConfigQuery,
-  ): Promise<boolean> {
-    if (!ranForTeam) {
-      return true;
-    }
-
-    const reader = await this.access.permissionsAsTeamReader(
-      query.teamId,
-      PersonPrincipal.of(UserId.of(query.viewerId)),
-    );
-
-    return (
-      reader !== null &&
-      reader.workspaceId.value === ranForTeam.workspaceId &&
-      reader.teamId.value === ranForTeam.teamId
-    );
   }
 }

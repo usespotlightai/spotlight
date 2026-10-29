@@ -4,6 +4,7 @@ import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { ENV } from '@platform/config/config.constants';
 import { parseEnv } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
+import { AutoSearches } from '@replays/application/services/auto-searches.service';
 import {
   type AuthenticatedUser,
   SESSION_READER,
@@ -27,6 +28,25 @@ const sessionsFromHeader: SessionReaderPort = {
   readBearer: async () => null,
 };
 
+const startingSearches = new WeakMap<INestApplication, () => Promise<void>>();
+
+const withManualAutoSearches = (app: INestApplication): void => {
+  const searches = app.get(AutoSearches);
+
+  startingSearches.set(app, searches.processDue.bind(searches));
+  searches.processDue = async () => {};
+};
+
+export const autoSearched = async (app: INestApplication): Promise<void> => {
+  const start = startingSearches.get(app);
+
+  if (!start) {
+    throw new Error('Open the app with openApp to start automatic searches');
+  }
+
+  await start();
+};
+
 export const openApp = async (
   overriding: (
     module: TestingModuleBuilder,
@@ -46,6 +66,8 @@ export const openApp = async (
     compiled.createNestApplication({ bodyParser: false }),
   );
   const closed = app.close.bind(app);
+
+  withManualAutoSearches(app);
 
   app.close = async () => {
     await closed();

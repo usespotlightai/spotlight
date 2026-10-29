@@ -1,335 +1,2308 @@
 import type {
-  ReplayEntryResponseDto,
-  ReplayedCandidateResponseDto,
   ReplayedCandidatesResponseDto,
   ReplayedPeriodResponseDto,
-  ReplayedSetResponseDto,
+  ReplayedStationResponseDto,
 } from '@/lib/api';
 import { daysAgo, hoursAgo } from '@/mocks/clock';
-import {
-  gainOf,
-  intervalOf,
-  MIN_GAIN,
-  rateOf,
-  rounded,
-} from '@/mocks/world/station-measures';
-import {
-  baselineOfSet,
-  entriesOf,
-  type ReplaySpec,
-  replayOf,
-  replaySpec,
-  replayStore,
-} from '@/mocks/world/station-replays';
-import {
-  maxRegressionsOf,
-  type SearchCandidateSpec,
-  type SearchSpec,
-  searchCandidateOf,
-  searchStore,
-} from '@/mocks/world/station-searches';
-import { PROPOSED_CHANGES } from '@/mocks/world/station-seeds';
-import {
-  runOfStation,
-  type SetSpec,
-  setStore,
-  teamOfLine,
-} from '@/mocks/world/station-sets';
+import { world } from '@/mocks/world';
 
 type Period = ReplayedPeriodResponseDto['name'];
 
 const PERIOD_DAYS: Record<Period, number> = { '7d': 7, '30d': 30, '90d': 90 };
 
-const scoredEntries = (replay: ReplaySpec): ReplayEntryResponseDto[] =>
-  entriesOf(replay).filter((each) => each.succeeded !== null);
-
-const costPerRun = (entries: readonly ReplayEntryResponseDto[]) =>
-  entries.length === 0
-    ? null
-    : rounded(
-        entries.reduce((total, each) => total + (each.cost?.amount ?? 0), 0) /
-          entries.length,
-      );
-
-const rateOfEntries = (entries: readonly ReplayEntryResponseDto[]) => {
-  const succeeded = entries.filter((each) => each.succeeded).length;
-
-  return {
-    rate: rateOf(succeeded, entries.length),
-    interval: intervalOf(succeeded, entries.length),
-  };
-};
-
-const gainOverLiveOf = (replay: ReplaySpec, live: ReplaySpec | undefined) => {
-  const mine = scoredEntries(replay);
-  const theirs = live ? scoredEntries(live) : [];
-  const pairs = mine.flatMap((entry) => {
-    const other = theirs.find(
-      (each) => each.originalRunId === entry.originalRunId,
-    );
-    return other ? [{ mine: entry, theirs: other }] : [];
-  });
-  const compared = pairs.map((each) => each.mine);
-  const liveCompared = pairs.map((each) => each.theirs);
-
-  return {
-    compared,
-    liveCompared,
-    regressions: pairs.filter(
-      (each) => each.theirs.succeeded && !each.mine.succeeded,
-    ).length,
-    gain: gainOf(
-      compared.map((each) => each.succeeded === true),
-      liveCompared.map((each) => each.succeeded === true),
-    ),
-  };
-};
-
-const searchRefOf = (search: SearchSpec) => {
-  const seed = searchCandidateOf(search.seed, maxRegressionsOf(search));
-
-  return {
-    searchId: search.id,
-    state: search.state,
-    objective: search.objective,
-    startedAt: hoursAgo(search.startedHoursAgo),
-    seed: {
-      successRate: seed.searchScore,
-      interval: seed.searchInterval,
-      costPerRun: seed.costPerRun,
-      scored: seed.searchScored,
-      chartStatus: 'priced' as const,
-    },
-  };
-};
-
-type CandidateSource = {
-  readonly spec: Pick<
-    SearchCandidateSpec,
-    | 'candidate'
-    | 'hypothesis'
-    | 'changes'
-    | 'replayId'
-    | 'heldOutReplayId'
-    | 'onFrontier'
-    | 'pullRequest'
-  >;
-  readonly kind: ReplayedCandidateResponseDto['kind'];
-  readonly search: SearchSpec | null;
-};
-
-const replayedCandidate = (
-  source: CandidateSource,
-  live: ReplaySpec | undefined,
-): ReplayedCandidateResponseDto | null => {
-  const replay = replaySpec(source.spec.replayId);
-
-  if (!replay) {
-    return null;
-  }
-
-  const heldOut = source.spec.heldOutReplayId
-    ? replaySpec(source.spec.heldOutReplayId)
-    : undefined;
-  const scored = scoredEntries(replay);
-  const overall = rateOfEntries(scored);
-  const versus = gainOverLiveOf(replay, live);
-  const onCompared = rateOfEntries(versus.compared);
-  const liveOnCompared = rateOfEntries(versus.liveCompared);
-  const finished = replay.state === 'finished';
-  const heldOutScored = heldOut ? scoredEntries(heldOut) : [];
-  const heldOutRate = rateOfEntries(heldOutScored);
-  const basis = versus.compared.length > 0 ? 'compared' : 'overall';
-
-  return {
-    candidateId: source.spec.candidate.id,
-    name: source.spec.candidate.name,
-    kind: source.kind,
-    hypothesis: source.spec.hypothesis,
-    fingerprint: source.spec.candidate.fingerprint,
-    changes: [...source.spec.changes],
-    replayId: replay.id,
-    replayState: replay.state,
-    replayedAt: hoursAgo(replay.endedHoursAgo ?? replay.startedHoursAgo),
-    tasks: replay.runs.length,
-    runs: replay.runs.length,
-    successRate: overall.rate,
-    interval: overall.interval,
-    scored: scored.length,
-    heldOut: heldOut
-      ? {
-          replayId: heldOut.id,
-          state: heldOut.state,
-          score: heldOutRate.rate,
-          interval: heldOutRate.interval,
-          tasks: heldOut.runs.length,
-          runs: heldOut.runs.length,
-        }
-      : null,
-    costPerRun: costPerRun(scored),
-    currency: 'USD',
-    live: live
-      ? {
-          successRate: liveOnCompared.rate,
-          interval: liveOnCompared.interval,
-          costPerRun: costPerRun(versus.liveCompared),
-          currency: 'USD',
-        }
-      : null,
-    successRateOnCompared: onCompared.rate,
-    intervalOnCompared: onCompared.interval,
-    costPerRunOnCompared: costPerRun(versus.compared),
-    regressions: live ? versus.regressions : null,
-    compared: versus.compared.length,
-    gainOverLive: versus.gain,
-    onFrontier: source.search ? source.spec.onFrontier : null,
-    search: source.search ? searchRefOf(source.search) : null,
-    pullRequest: source.spec.pullRequest,
-    chartStatus: finished ? 'priced' : 'unfinished',
-    shown: {
-      basis,
-      costBasis: basis,
-      successRate: basis === 'compared' ? onCompared.rate : overall.rate,
-      interval: basis === 'compared' ? onCompared.interval : overall.interval,
-      liveSuccessRate: basis === 'compared' ? liveOnCompared.rate : null,
-      runs: basis === 'compared' ? versus.compared.length : scored.length,
-      costPerRun:
-        basis === 'compared' ? costPerRun(versus.compared) : costPerRun(scored),
-      liveCostPerRun:
-        basis === 'compared' ? costPerRun(versus.liveCompared) : null,
-    },
-  };
-};
-
-const sourcesOf = (set: SetSpec, since: number): CandidateSource[] => {
-  const searched = searchStore()
-    .filter(
-      (search) =>
-        search.setId === set.id &&
-        search.state !== 'stopped' &&
-        search.startedHoursAgo <= since,
-    )
-    .flatMap((search) =>
-      search.candidates.map((spec) => ({
-        spec,
-        kind: 'searched' as const,
-        search,
-      })),
-    );
-  const proposed = replayStore()
-    .filter(
-      (replay) =>
-        replay.setId === set.id &&
-        replay.listed &&
-        replay.candidate.kind === 'proposed' &&
-        replay.startedHoursAgo <= since,
-    )
-    .map((replay) => ({
-      spec: {
-        candidate: replay.candidate,
-        hypothesis: null,
-        changes: [...(PROPOSED_CHANGES[replay.candidate.id] ?? [])],
-        replayId: replay.id,
-        heldOutReplayId: null,
-        onFrontier: false,
-        pullRequest: null,
-      },
-      kind: 'proposed' as const,
-      search: null,
-    }));
-
-  return [...searched, ...proposed];
-};
-
-const replayedSet = (
-  set: SetSpec,
-  since: number,
-): ReplayedSetResponseDto | null => {
-  const live = baselineOfSet(set.id);
-  const candidates = sourcesOf(set, since).flatMap((source) => {
-    const candidate = replayedCandidate(source, live);
-    return candidate ? [candidate] : [];
-  });
-
-  if (candidates.length === 0) {
-    return null;
-  }
-
-  const baseline = live ? replayOf(live) : null;
-  const liveScored = live ? scoredEntries(live) : [];
-  const endedAts = set.entries
-    .flatMap((each) => {
-      const run = runOfStation(each.runId);
-      return run ? [run.endedAt] : [];
-    })
-    .sort();
-  const lastAdded = Math.min(...set.entries.map((each) => each.addedHoursAgo));
-
-  return {
-    setId: set.id,
-    name: set.name,
-    stationGone: false,
-    gatesChanges: set.gatesChanges,
-    health: {
-      ...set.health,
-      tasks: set.entries.length,
-      runs: set.entries.length,
-      oldestRunEndedAt: endedAts[0] ?? null,
-      newestRunEndedAt: endedAts[endedAts.length - 1] ?? null,
-      lastAddedAt: Number.isFinite(lastAdded) ? hoursAgo(lastAdded) : null,
-      minGain: MIN_GAIN,
-    },
-    baseline:
-      baseline && live
-        ? {
-            replayId: baseline.id,
-            state: baseline.state,
-            fingerprint: live.candidate.fingerprint,
-            scored: liveScored.length,
-            successRate: baseline.totals.successRate,
-            interval: baseline.totals.interval,
-            costPerRun: costPerRun(liveScored),
+const STATIONS = (): Readonly<
+  Record<string, ReplayedStationResponseDto[]>
+> => ({
+  team_platform: [
+    {
+      lineId: 'line_delivery',
+      stationId: 'station_implementation',
+      sets: [
+        {
+          setId: 'set_billing_work',
+          stationGone: false,
+          health: {
+            noise: null,
+            saturation: {
+              replayId: 'replay_live_4',
+              rate: 0.71,
+              interval: {
+                rate: 0.71,
+                low: 0.36,
+                high: 0.92,
+              },
+              saturated: false,
+              measuredAt: hoursAgo(48.8),
+            },
+            judge: {
+              replayId: 'replay_live_4',
+              compared: 7,
+              agreed: 6,
+              pending: 0,
+              agreement: 0.86,
+              unstable: false,
+            },
+            checks: {
+              replayId: 'replay_live_4',
+              rechecked: 7,
+              pending: 0,
+              flaky: [],
+            },
+            oracle: {
+              replayId: 'replay_oracle_4',
+              candidateId: 'candidate_oracle_4',
+              repeats: 1,
+              state: 'finished',
+              referenceReplayId: 'replay_live_4',
+              referenceState: 'finished',
+              answered: 5,
+              live: 0.8,
+              withAnswer: 1,
+              gain: {
+                gain: 0.2,
+                low: 0.04,
+                high: 0.4,
+                significance: 'better',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              roomToImprove: true,
+            },
+            tasks: 7,
+            runs: 7,
+            oldestRunEndedAt: hoursAgo(530),
+            newestRunEndedAt: hoursAgo(110),
+            lastAddedAt: hoursAgo(108),
+            minGain: 0.05,
+          },
+          baseline: {
+            replayId: 'replay_live_4',
+            state: 'finished',
+            fingerprint:
+              'c4e19b07d2a85f3e6b1c90d7a4f2e8b5c3d1a9f7e5b3c1d9a7f5e3b1c9d7a5f3',
+            scored: 7,
+            successRate: 0.7142857142857143,
+            interval: {
+              rate: 0.71,
+              low: 0.36,
+              high: 0.92,
+            },
+            costPerRun: 0.87,
             currency: 'USD',
-            endedAt: baseline.endedAt,
-            chartStatus: liveScored.length > 0 ? 'priced' : 'unscored',
-          }
-        : null,
-    chartCurrency: 'USD',
-    candidates,
-  };
-};
+            endedAt: hoursAgo(48.8),
+            chartStatus: 'priced',
+          },
+          chartCurrency: 'USD',
+          candidates: [
+            {
+              candidateId: 'candidate_tests_first',
+              name: 'tests-first',
+              hypothesis:
+                'Runs fail when they change billing code before reading its tests. Telling it to read and run the tests first should lift success on the flaky-test and refund tasks.',
+              fingerprint:
+                'c4e19b07d2a85f3e6b1c90d7a4f2e8b5c3d1a9f7e5b3c1d9a7f5e3b1c9d7a5f3',
+              changes: [
+                {
+                  part: 'prompt',
+                  name: null,
+                  kind: 'changed',
+                  was: null,
+                  now: null,
+                },
+              ],
+              replayId: 'replay_tf_tests_first',
+              replayState: 'finished',
+              replayedAt: hoursAgo(97.6),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.8,
+              interval: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              scored: 5,
+              heldOut: {
+                replayId: 'replay_tf_tests_first_held_out',
+                state: 'finished',
+                score: 0.5,
+                interval: {
+                  rate: 0.5,
+                  low: 0.09,
+                  high: 0.91,
+                },
+                tasks: 2,
+                runs: 2,
+              },
+              costPerRun: 0.98,
+              currency: 'USD',
+              live: {
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                costPerRun: 0.89,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.8,
+              intervalOnCompared: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              costPerRunOnCompared: 0.98,
+              regressions: 0,
+              compared: 5,
+              gainOverLive: {
+                gain: 0,
+                low: -0.1,
+                high: 0.1,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: true,
+              search: {
+                searchId: 'search_tests_first',
+                state: 'finished',
+                objective: 'success',
+                startedAt: hoursAgo(100),
+                seed: {
+                  successRate: 0.4,
+                  interval: {
+                    rate: 0.4,
+                    low: 0.12,
+                    high: 0.77,
+                  },
+                  costPerRun: 0.77,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: {
+                id: 'config_pull_request_58',
+                state: 'opened',
+                closedBecause: null,
+                closeFailure: null,
+                url: 'https://github.com/acme/config/pull/58',
+                reason: null,
+              },
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                liveSuccessRate: 0.8,
+                runs: 5,
+                costPerRun: 0.98,
+                liveCostPerRun: 0.89,
+              },
+            },
+            {
+              candidateId: 'candidate_medium_effort',
+              name: 'medium-effort',
+              hypothesis:
+                'Most of these tasks are small. Medium effort should succeed as often for much less.',
+              fingerprint:
+                '7b2e4d6f8a0c1e3b5d7f9a1c3e5b7d9f0a2c4e6b8d0f1a3c5e7b9d2f4a6c8e0b',
+              changes: [
+                {
+                  part: 'effort',
+                  name: null,
+                  kind: 'changed',
+                  was: 'high',
+                  now: 'medium',
+                },
+              ],
+              replayId: 'replay_tf_medium_effort',
+              replayState: 'finished',
+              replayedAt: hoursAgo(97.8),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.6,
+              interval: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              scored: 5,
+              heldOut: {
+                replayId: 'replay_tf_medium_effort_held_out',
+                state: 'finished',
+                score: 0.5,
+                interval: {
+                  rate: 0.5,
+                  low: 0.09,
+                  high: 0.91,
+                },
+                tasks: 2,
+                runs: 2,
+              },
+              costPerRun: 0.42,
+              currency: 'USD',
+              live: {
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                costPerRun: 0.89,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.6,
+              intervalOnCompared: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              costPerRunOnCompared: 0.42,
+              regressions: 1,
+              compared: 5,
+              gainOverLive: {
+                gain: -0.2,
+                low: -0.46,
+                high: 0.06,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: true,
+              search: {
+                searchId: 'search_tests_first',
+                state: 'finished',
+                objective: 'success',
+                startedAt: hoursAgo(100),
+                seed: {
+                  successRate: 0.4,
+                  interval: {
+                    rate: 0.4,
+                    low: 0.12,
+                    high: 0.77,
+                  },
+                  costPerRun: 0.77,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                liveSuccessRate: 0.8,
+                runs: 5,
+                costPerRun: 0.42,
+                liveCostPerRun: 0.89,
+              },
+            },
+            {
+              candidateId: 'candidate_opus',
+              name: 'opus',
+              hypothesis:
+                'The refund and cache tasks need more context than Sonnet keeps. Opus may get them right the first time.',
+              fingerprint:
+                'e8c6a4f2d0b9e7c5a3f1d8b6e4c2a0f9d7b5e3c1a8f6d4b2e0c9a7f5d3b1e8c6',
+              changes: [
+                {
+                  part: 'model',
+                  name: null,
+                  kind: 'changed',
+                  was: 'sonnet',
+                  now: 'opus',
+                },
+              ],
+              replayId: 'replay_tf_opus',
+              replayState: 'finished',
+              replayedAt: hoursAgo(95),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.6,
+              interval: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              scored: 5,
+              heldOut: null,
+              costPerRun: 1.21,
+              currency: 'USD',
+              live: {
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                costPerRun: 0.89,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.6,
+              intervalOnCompared: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              costPerRunOnCompared: 1.21,
+              regressions: 1,
+              compared: 5,
+              gainOverLive: {
+                gain: -0.2,
+                low: -0.46,
+                high: 0.06,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: false,
+              search: {
+                searchId: 'search_tests_first',
+                state: 'finished',
+                objective: 'success',
+                startedAt: hoursAgo(100),
+                seed: {
+                  successRate: 0.4,
+                  interval: {
+                    rate: 0.4,
+                    low: 0.12,
+                    high: 0.77,
+                  },
+                  costPerRun: 0.77,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                liveSuccessRate: 0.8,
+                runs: 5,
+                costPerRun: 1.21,
+                liveCostPerRun: 0.89,
+              },
+            },
+            {
+              candidateId: 'candidate_review_skill',
+              name: 'review-skill',
+              hypothesis:
+                'Its own review pass should catch the missed edge cases.',
+              fingerprint:
+                'd1f3b5a7c9e2d4f6b8a0c3e5d7f9b1a4c6e8d0f2b5a7c9e1d3f6b8a0c2e4d7f9',
+              changes: [
+                {
+                  part: 'skill',
+                  name: 'self-review',
+                  kind: 'added',
+                  was: null,
+                  now: null,
+                },
+              ],
+              replayId: 'replay_tf_review_skill',
+              replayState: 'finished',
+              replayedAt: hoursAgo(95.1),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.6,
+              interval: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              scored: 5,
+              heldOut: null,
+              costPerRun: 1.04,
+              currency: 'USD',
+              live: {
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                costPerRun: 0.89,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.6,
+              intervalOnCompared: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              costPerRunOnCompared: 1.04,
+              regressions: 1,
+              compared: 5,
+              gainOverLive: {
+                gain: -0.2,
+                low: -0.46,
+                high: 0.06,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: false,
+              search: {
+                searchId: 'search_tests_first',
+                state: 'finished',
+                objective: 'success',
+                startedAt: hoursAgo(100),
+                seed: {
+                  successRate: 0.4,
+                  interval: {
+                    rate: 0.4,
+                    low: 0.12,
+                    high: 0.77,
+                  },
+                  costPerRun: 0.77,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                liveSuccessRate: 0.8,
+                runs: 5,
+                costPerRun: 1.04,
+                liveCostPerRun: 0.89,
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      lineId: 'line_delivery',
+      stationId: 'station_triage',
+      sets: [
+        {
+          setId: 'set_triage_billing',
+          stationGone: false,
+          health: {
+            noise: null,
+            saturation: {
+              replayId: 'replay_triage_live_1',
+              rate: 0.67,
+              interval: {
+                rate: 0.67,
+                low: 0.3,
+                high: 0.9,
+              },
+              saturated: false,
+              measuredAt: hoursAgo(127.8),
+            },
+            judge: null,
+            checks: null,
+            oracle: null,
+            tasks: 6,
+            runs: 6,
+            oldestRunEndedAt: hoursAgo(346.92),
+            newestRunEndedAt: hoursAgo(154.82),
+            lastAddedAt: hoursAgo(129.95),
+            minGain: 0.05,
+          },
+          baseline: {
+            replayId: 'replay_triage_live_1',
+            state: 'finished',
+            fingerprint:
+              '5a1d7e93c0b4f8a26e1d9c37b5f08a4e2c6d91b3f7a05e8c4d2b96a1f3e7c50d',
+            scored: 6,
+            successRate: 0.6666666666666666,
+            interval: {
+              rate: 0.67,
+              low: 0.3,
+              high: 0.9,
+            },
+            costPerRun: 0.15,
+            currency: 'USD',
+            endedAt: hoursAgo(127.8),
+            chartStatus: 'priced',
+          },
+          chartCurrency: 'USD',
+          candidates: [
+            {
+              candidateId: 'candidate_triage_repro_first',
+              name: 'repro-before-reading',
+              hypothesis:
+                'Failed triages read the code before trying the request. Reproducing the report first should stop the guessed causes.',
+              fingerprint:
+                'af3608df82962971b32ceed0e42c9ee8d9cc0cb16ca53b270f92eb53f70d3260',
+              changes: [
+                {
+                  part: 'prompt',
+                  name: null,
+                  kind: 'changed',
+                  was: null,
+                  now: null,
+                },
+              ],
+              replayId: 'replay_str_repro_first',
+              replayState: 'finished',
+              replayedAt: hoursAgo(2.1),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.8,
+              interval: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              scored: 5,
+              heldOut: null,
+              costPerRun: 0.18,
+              currency: 'USD',
+              live: {
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                costPerRun: 0.16,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.8,
+              intervalOnCompared: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              costPerRunOnCompared: 0.18,
+              regressions: 1,
+              compared: 5,
+              gainOverLive: {
+                gain: 0,
+                low: -0.4,
+                high: 0.4,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: true,
+              search: {
+                searchId: 'search_triage_repro',
+                state: 'searching',
+                objective: 'success',
+                startedAt: hoursAgo(3),
+                seed: {
+                  successRate: 0.6,
+                  interval: {
+                    rate: 0.6,
+                    low: 0.23,
+                    high: 0.88,
+                  },
+                  costPerRun: 0.15,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                liveSuccessRate: 0.8,
+                runs: 5,
+                costPerRun: 0.18,
+                liveCostPerRun: 0.16,
+              },
+            },
+            {
+              candidateId: 'candidate_triage_logs_first',
+              name: 'logs-first',
+              hypothesis:
+                'The refund reports carry a request id. Reading its logs before the code should name the failing path sooner.',
+              fingerprint:
+                '3a0925cc6313187406666299cf60df0456d1ae43984882f6dc2d99404fdf06dd',
+              changes: [
+                {
+                  part: 'prompt',
+                  name: null,
+                  kind: 'changed',
+                  was: null,
+                  now: null,
+                },
+              ],
+              replayId: 'replay_str_logs_first',
+              replayState: 'running',
+              replayedAt: hoursAgo(1.1),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.5,
+              interval: {
+                rate: 0.5,
+                low: 0.09,
+                high: 0.91,
+              },
+              scored: 2,
+              heldOut: null,
+              costPerRun: 0.21,
+              currency: 'USD',
+              live: {
+                successRate: 1,
+                interval: {
+                  rate: 1,
+                  low: 0.34,
+                  high: 1,
+                },
+                costPerRun: 0.18,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.5,
+              intervalOnCompared: {
+                rate: 0.5,
+                low: 0.09,
+                high: 0.91,
+              },
+              costPerRunOnCompared: 0.21,
+              regressions: 1,
+              compared: 2,
+              gainOverLive: {
+                gain: -0.5,
+                low: -1,
+                high: 0.14,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 2,
+              },
+              onFrontier: false,
+              search: {
+                searchId: 'search_triage_repro',
+                state: 'searching',
+                objective: 'success',
+                startedAt: hoursAgo(3),
+                seed: {
+                  successRate: 0.6,
+                  interval: {
+                    rate: 0.6,
+                    low: 0.23,
+                    high: 0.88,
+                  },
+                  costPerRun: 0.15,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'unfinished',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.5,
+                interval: {
+                  rate: 0.5,
+                  low: 0.09,
+                  high: 0.91,
+                },
+                liveSuccessRate: 1,
+                runs: 2,
+                costPerRun: 0.21,
+                liveCostPerRun: 0.18,
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      lineId: 'line_delivery',
+      stationId: 'station_spec',
+      sets: [
+        {
+          setId: 'set_spec_api',
+          stationGone: false,
+          health: {
+            noise: null,
+            saturation: {
+              replayId: 'replay_spec_live_1',
+              rate: 0.71,
+              interval: {
+                rate: 0.71,
+                low: 0.36,
+                high: 0.92,
+              },
+              saturated: false,
+              measuredAt: hoursAgo(107.6),
+            },
+            judge: null,
+            checks: null,
+            oracle: null,
+            tasks: 7,
+            runs: 7,
+            oldestRunEndedAt: hoursAgo(544.2),
+            newestRunEndedAt: hoursAgo(154.66),
+            lastAddedAt: hoursAgo(109.94),
+            minGain: 0.05,
+          },
+          baseline: {
+            replayId: 'replay_spec_live_1',
+            state: 'finished',
+            fingerprint:
+              '8c2e5b1f9d3a7c06e4b2d8f1a5c9e3b7d0f6a2c8e4b1d7f3a9c5e0b6d2f8a4c1',
+            scored: 7,
+            successRate: 0.7142857142857143,
+            interval: {
+              rate: 0.71,
+              low: 0.36,
+              high: 0.92,
+            },
+            costPerRun: 0.71,
+            currency: 'USD',
+            endedAt: hoursAgo(107.6),
+            chartStatus: 'priced',
+          },
+          chartCurrency: 'USD',
+          candidates: [
+            {
+              candidateId: 'candidate_spec_sonnet',
+              name: 'sonnet-specs',
+              hypothesis:
+                'API specs follow one shape: route, request, response, errors. Sonnet should write them as well as Opus for a third of the cost.',
+              fingerprint:
+                '00d74b08f04791c21c2c68efe6ef4b651bbb334ff2909c9c205f7670bbfc943f',
+              changes: [
+                {
+                  part: 'model',
+                  name: null,
+                  kind: 'changed',
+                  was: 'opus',
+                  now: 'sonnet',
+                },
+              ],
+              replayId: 'replay_ssp_sonnet',
+              replayState: 'finished',
+              replayedAt: hoursAgo(79),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.8,
+              interval: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              scored: 5,
+              heldOut: {
+                replayId: 'replay_ssp_sonnet_held_out',
+                state: 'finished',
+                score: 0.5,
+                interval: {
+                  rate: 0.5,
+                  low: 0.09,
+                  high: 0.91,
+                },
+                tasks: 2,
+                runs: 2,
+              },
+              costPerRun: 0.27,
+              currency: 'USD',
+              live: {
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                costPerRun: 0.7,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.8,
+              intervalOnCompared: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              costPerRunOnCompared: 0.27,
+              regressions: 0,
+              compared: 5,
+              gainOverLive: {
+                gain: 0,
+                low: -0.1,
+                high: 0.1,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: true,
+              search: {
+                searchId: 'search_spec_cost',
+                state: 'finished',
+                objective: 'cost',
+                startedAt: hoursAgo(80),
+                seed: {
+                  successRate: 0.8,
+                  interval: {
+                    rate: 0.8,
+                    low: 0.38,
+                    high: 0.96,
+                  },
+                  costPerRun: 0.63,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                liveSuccessRate: 0.8,
+                runs: 5,
+                costPerRun: 0.27,
+                liveCostPerRun: 0.7,
+              },
+            },
+            {
+              candidateId: 'candidate_spec_template',
+              name: 'spec-template',
+              hypothesis:
+                'A fixed spec template should stop it from rewriting what stays the same.',
+              fingerprint:
+                '3d26970ccf18e7a01c89f5b11a1487943d79bc3a97c6fd47e21a29fdbd772e0e',
+              changes: [
+                {
+                  part: 'prompt',
+                  name: null,
+                  kind: 'changed',
+                  was: null,
+                  now: null,
+                },
+              ],
+              replayId: 'replay_ssp_template',
+              replayState: 'finished',
+              replayedAt: hoursAgo(78.9),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.6,
+              interval: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              scored: 5,
+              heldOut: null,
+              costPerRun: 0.61,
+              currency: 'USD',
+              live: {
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                costPerRun: 0.7,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.6,
+              intervalOnCompared: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              costPerRunOnCompared: 0.61,
+              regressions: 1,
+              compared: 5,
+              gainOverLive: {
+                gain: -0.2,
+                low: -0.46,
+                high: 0.06,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: false,
+              search: {
+                searchId: 'search_spec_cost',
+                state: 'finished',
+                objective: 'cost',
+                startedAt: hoursAgo(80),
+                seed: {
+                  successRate: 0.8,
+                  interval: {
+                    rate: 0.8,
+                    low: 0.38,
+                    high: 0.96,
+                  },
+                  costPerRun: 0.63,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                liveSuccessRate: 0.8,
+                runs: 5,
+                costPerRun: 0.61,
+                liveCostPerRun: 0.7,
+              },
+            },
+            {
+              candidateId: 'candidate_spec_sonnet_high',
+              name: 'sonnet-high-effort',
+              hypothesis:
+                'Sonnet missed the error cases on one webhook spec. High effort may catch them and still cost less than Opus.',
+              fingerprint:
+                '577e2b83f9e12cf8319f6f97f7f5edada891c7b34b1cd6463d58a193adb1ec47',
+              changes: [
+                {
+                  part: 'model',
+                  name: null,
+                  kind: 'changed',
+                  was: 'opus',
+                  now: 'sonnet',
+                },
+                {
+                  part: 'effort',
+                  name: null,
+                  kind: 'changed',
+                  was: 'medium',
+                  now: 'high',
+                },
+              ],
+              replayId: 'replay_ssp_sonnet_high',
+              replayState: 'finished',
+              replayedAt: hoursAgo(76.5),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.6,
+              interval: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              scored: 5,
+              heldOut: null,
+              costPerRun: 0.43,
+              currency: 'USD',
+              live: {
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                costPerRun: 0.7,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.6,
+              intervalOnCompared: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              costPerRunOnCompared: 0.43,
+              regressions: 1,
+              compared: 5,
+              gainOverLive: {
+                gain: -0.2,
+                low: -0.46,
+                high: 0.06,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: false,
+              search: {
+                searchId: 'search_spec_cost',
+                state: 'finished',
+                objective: 'cost',
+                startedAt: hoursAgo(80),
+                seed: {
+                  successRate: 0.8,
+                  interval: {
+                    rate: 0.8,
+                    low: 0.38,
+                    high: 0.96,
+                  },
+                  costPerRun: 0.63,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                liveSuccessRate: 0.8,
+                runs: 5,
+                costPerRun: 0.43,
+                liveCostPerRun: 0.7,
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      lineId: 'line_delivery',
+      stationId: 'station_review',
+      sets: [
+        {
+          setId: 'set_review_money',
+          stationGone: false,
+          health: {
+            noise: null,
+            saturation: {
+              replayId: 'replay_review_live_2',
+              rate: 0.71,
+              interval: {
+                rate: 0.71,
+                low: 0.36,
+                high: 0.92,
+              },
+              saturated: false,
+              measuredAt: hoursAgo(97.7),
+            },
+            judge: {
+              replayId: 'replay_review_live_2',
+              compared: 7,
+              agreed: 6,
+              pending: 0,
+              agreement: 0.86,
+              unstable: false,
+            },
+            checks: null,
+            oracle: null,
+            tasks: 7,
+            runs: 7,
+            oldestRunEndedAt: hoursAgo(515.9),
+            newestRunEndedAt: hoursAgo(133.16),
+            lastAddedAt: hoursAgo(99.94),
+            minGain: 0.05,
+          },
+          baseline: {
+            replayId: 'replay_review_live_2',
+            state: 'finished',
+            fingerprint:
+              'd1f3b5a7c9e2d4f6b8a0c3e5d7f9b1a4c6e8d0f2b5a7c9e1d3f6b8a0c2e4d7f9',
+            scored: 7,
+            successRate: 0.7142857142857143,
+            interval: {
+              rate: 0.71,
+              low: 0.36,
+              high: 0.92,
+            },
+            costPerRun: 0.47,
+            currency: 'USD',
+            endedAt: hoursAgo(97.7),
+            chartStatus: 'priced',
+          },
+          chartCurrency: 'USD',
+          candidates: [
+            {
+              candidateId: 'candidate_review_risk',
+              name: 'risk-checklist',
+              hypothesis:
+                'Missed findings all touch money or a shared table. A short checklist of what to look for there should catch them.',
+              fingerprint:
+                'c3fac256f0bff6a151eda368fd5ebaa2026d1ac8b30ff36475c54d573b872e78',
+              changes: [
+                {
+                  part: 'prompt',
+                  name: null,
+                  kind: 'changed',
+                  was: null,
+                  now: null,
+                },
+              ],
+              replayId: 'replay_srv_risk',
+              replayState: 'finished',
+              replayedAt: hoursAgo(59.1),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.8,
+              interval: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              scored: 5,
+              heldOut: {
+                replayId: 'replay_srv_risk_held_out',
+                state: 'finished',
+                score: 1,
+                interval: {
+                  rate: 1,
+                  low: 0.34,
+                  high: 1,
+                },
+                tasks: 2,
+                runs: 2,
+              },
+              costPerRun: 0.47,
+              currency: 'USD',
+              live: {
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                costPerRun: 0.43,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.8,
+              intervalOnCompared: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              costPerRunOnCompared: 0.47,
+              regressions: 0,
+              compared: 5,
+              gainOverLive: {
+                gain: 0.2,
+                low: -0.06,
+                high: 0.46,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: true,
+              search: {
+                searchId: 'search_review_findings',
+                state: 'finished',
+                objective: 'success',
+                startedAt: hoursAgo(60),
+                seed: {
+                  successRate: 0.6,
+                  interval: {
+                    rate: 0.6,
+                    low: 0.23,
+                    high: 0.88,
+                  },
+                  costPerRun: 0.43,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                liveSuccessRate: 0.6,
+                runs: 5,
+                costPerRun: 0.47,
+                liveCostPerRun: 0.43,
+              },
+            },
+            {
+              candidateId: 'candidate_review_high_effort',
+              name: 'high-effort',
+              hypothesis:
+                'More effort should read the whole diff instead of the first files.',
+              fingerprint:
+                '2cba477c7a8b665832779f5277431f1a3a7640df7071e1400518c15d69b44c51',
+              changes: [
+                {
+                  part: 'effort',
+                  name: null,
+                  kind: 'changed',
+                  was: 'medium',
+                  now: 'high',
+                },
+              ],
+              replayId: 'replay_srv_high_effort',
+              replayState: 'finished',
+              replayedAt: hoursAgo(58.9),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.8,
+              interval: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              scored: 5,
+              heldOut: null,
+              costPerRun: 1.02,
+              currency: 'USD',
+              live: {
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                costPerRun: 0.43,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.8,
+              intervalOnCompared: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              costPerRunOnCompared: 1.02,
+              regressions: 0,
+              compared: 5,
+              gainOverLive: {
+                gain: 0.2,
+                low: -0.06,
+                high: 0.46,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: false,
+              search: {
+                searchId: 'search_review_findings',
+                state: 'finished',
+                objective: 'success',
+                startedAt: hoursAgo(60),
+                seed: {
+                  successRate: 0.6,
+                  interval: {
+                    rate: 0.6,
+                    low: 0.23,
+                    high: 0.88,
+                  },
+                  costPerRun: 0.43,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                liveSuccessRate: 0.6,
+                runs: 5,
+                costPerRun: 1.02,
+                liveCostPerRun: 0.43,
+              },
+            },
+            {
+              candidateId: 'candidate_review_migrations',
+              name: 'migrations-skill',
+              hypothesis:
+                'The index change locked a table in production. The team’s migrations skill says how to add one safely.',
+              fingerprint:
+                'e4d5c41f01f1f2cfe035683bb3e8e91fae590bc7289665d50343b19b78edb1d6',
+              changes: [
+                {
+                  part: 'skill',
+                  name: 'our-migrations',
+                  kind: 'added',
+                  was: null,
+                  now: null,
+                },
+              ],
+              replayId: 'replay_srv_migrations',
+              replayState: 'finished',
+              replayedAt: hoursAgo(56.9),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.6,
+              interval: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              scored: 5,
+              heldOut: null,
+              costPerRun: 0.52,
+              currency: 'USD',
+              live: {
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                costPerRun: 0.43,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.6,
+              intervalOnCompared: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              costPerRunOnCompared: 0.52,
+              regressions: 0,
+              compared: 5,
+              gainOverLive: {
+                gain: 0,
+                low: -0.1,
+                high: 0.1,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: false,
+              search: {
+                searchId: 'search_review_findings',
+                state: 'finished',
+                objective: 'success',
+                startedAt: hoursAgo(60),
+                seed: {
+                  successRate: 0.6,
+                  interval: {
+                    rate: 0.6,
+                    low: 0.23,
+                    high: 0.88,
+                  },
+                  costPerRun: 0.43,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                liveSuccessRate: 0.6,
+                runs: 5,
+                costPerRun: 0.52,
+                liveCostPerRun: 0.43,
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      lineId: 'line_incidents',
+      stationId: 'station_investigate',
+      sets: [
+        {
+          setId: 'set_incident_data',
+          stationGone: false,
+          health: {
+            noise: null,
+            saturation: {
+              replayId: 'replay_investigate_live_1',
+              rate: 0.67,
+              interval: {
+                rate: 0.67,
+                low: 0.3,
+                high: 0.9,
+              },
+              saturated: false,
+              measuredAt: hoursAgo(95.7),
+            },
+            judge: null,
+            checks: null,
+            oracle: null,
+            tasks: 6,
+            runs: 6,
+            oldestRunEndedAt: hoursAgo(472.7),
+            newestRunEndedAt: hoursAgo(105.58),
+            lastAddedAt: hoursAgo(99.95),
+            minGain: 0.05,
+          },
+          baseline: {
+            replayId: 'replay_investigate_live_1',
+            state: 'finished',
+            fingerprint:
+              '1f9b3d7a5c0e8b2d6f4a1c9e7b3d5f0a8c2e6b4d1f7a3c9e5b0d8f2a6c4e1b37',
+            scored: 6,
+            successRate: 0.6666666666666666,
+            interval: {
+              rate: 0.67,
+              low: 0.3,
+              high: 0.9,
+            },
+            costPerRun: 0.99,
+            currency: 'USD',
+            endedAt: hoursAgo(95.7),
+            chartStatus: 'priced',
+          },
+          chartCurrency: 'USD',
+          candidates: [
+            {
+              candidateId: 'candidate_investigate_logs_first',
+              name: 'logs-before-dashboards',
+              hypothesis:
+                'It opens dashboards before logs and blames the last deploy. Reading the logs first should find the real cause.',
+              fingerprint:
+                'dd40f54e422526633e9dc0825a816c85bc2297e13c12e7d1406467166a7db27a',
+              changes: [
+                {
+                  part: 'prompt',
+                  name: null,
+                  kind: 'changed',
+                  was: null,
+                  now: null,
+                },
+              ],
+              replayId: 'replay_sin_logs_first',
+              replayState: 'finished',
+              replayedAt: hoursAgo(49.1),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.6,
+              interval: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              scored: 5,
+              heldOut: null,
+              costPerRun: 0.9,
+              currency: 'USD',
+              live: {
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                costPerRun: 1.03,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.6,
+              intervalOnCompared: {
+                rate: 0.6,
+                low: 0.23,
+                high: 0.88,
+              },
+              costPerRunOnCompared: 0.9,
+              regressions: 0,
+              compared: 5,
+              gainOverLive: {
+                gain: 0,
+                low: -0.1,
+                high: 0.1,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: false,
+              search: {
+                searchId: 'search_investigate_logs',
+                state: 'finished',
+                objective: 'success',
+                startedAt: hoursAgo(50),
+                seed: {
+                  successRate: 0.6,
+                  interval: {
+                    rate: 0.6,
+                    low: 0.23,
+                    high: 0.88,
+                  },
+                  costPerRun: 0.93,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                liveSuccessRate: 0.6,
+                runs: 5,
+                costPerRun: 0.9,
+                liveCostPerRun: 1.03,
+              },
+            },
+            {
+              candidateId: 'candidate_investigate_opus',
+              name: 'opus',
+              hypothesis:
+                'The replica lag alerts need reasoning across three services. Opus may keep more of it in context at once.',
+              fingerprint:
+                '9cf5927af982659b766ff15bc836748582c5e8aa82b41612e9896dbac4773681',
+              changes: [
+                {
+                  part: 'model',
+                  name: null,
+                  kind: 'changed',
+                  was: 'sonnet',
+                  now: 'opus',
+                },
+              ],
+              replayId: 'replay_sin_opus',
+              replayState: 'finished',
+              replayedAt: hoursAgo(46.6),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.4,
+              interval: {
+                rate: 0.4,
+                low: 0.12,
+                high: 0.77,
+              },
+              scored: 5,
+              heldOut: null,
+              costPerRun: 1.57,
+              currency: 'USD',
+              live: {
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                costPerRun: 1.03,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.4,
+              intervalOnCompared: {
+                rate: 0.4,
+                low: 0.12,
+                high: 0.77,
+              },
+              costPerRunOnCompared: 1.57,
+              regressions: 1,
+              compared: 5,
+              gainOverLive: {
+                gain: -0.2,
+                low: -0.46,
+                high: 0.06,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: false,
+              search: {
+                searchId: 'search_investigate_logs',
+                state: 'finished',
+                objective: 'success',
+                startedAt: hoursAgo(50),
+                seed: {
+                  successRate: 0.6,
+                  interval: {
+                    rate: 0.6,
+                    low: 0.23,
+                    high: 0.88,
+                  },
+                  costPerRun: 0.93,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.4,
+                interval: {
+                  rate: 0.4,
+                  low: 0.12,
+                  high: 0.77,
+                },
+                liveSuccessRate: 0.6,
+                runs: 5,
+                costPerRun: 1.57,
+                liveCostPerRun: 1.03,
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  team_growth: [
+    {
+      lineId: 'line_experiments',
+      stationId: 'station_design',
+      sets: [
+        {
+          setId: 'set_experiment_pricing',
+          stationGone: false,
+          health: {
+            noise: null,
+            saturation: {
+              replayId: 'replay_design_live_1',
+              rate: 0.67,
+              interval: {
+                rate: 0.67,
+                low: 0.3,
+                high: 0.9,
+              },
+              saturated: false,
+              measuredAt: hoursAgo(67.6),
+            },
+            judge: {
+              replayId: 'replay_design_live_1',
+              compared: 6,
+              agreed: 5,
+              pending: 0,
+              agreement: 0.83,
+              unstable: false,
+            },
+            checks: null,
+            oracle: null,
+            tasks: 6,
+            runs: 6,
+            oldestRunEndedAt: hoursAgo(471.4),
+            newestRunEndedAt: hoursAgo(108.35),
+            lastAddedAt: hoursAgo(69.95),
+            minGain: 0.05,
+          },
+          baseline: {
+            replayId: 'replay_design_live_1',
+            state: 'finished',
+            fingerprint:
+              '9e7c5a3f1d0b8e6c4a2f9d7b5e3c1a0f8d6b4e2c9a7f5d3b1e0c8a6f4d2b9e15',
+            scored: 6,
+            successRate: 0.6666666666666666,
+            interval: {
+              rate: 0.67,
+              low: 0.3,
+              high: 0.9,
+            },
+            costPerRun: 0.73,
+            currency: 'USD',
+            endedAt: hoursAgo(67.6),
+            chartStatus: 'priced',
+          },
+          chartCurrency: 'USD',
+          candidates: [
+            {
+              candidateId: 'candidate_design_metric_first',
+              name: 'metric-reading-first',
+              hypothesis:
+                'Designs fail the judge when they name a metric without today’s reading. Requiring the reading first should fix that.',
+              fingerprint:
+                '5532eb5ef5b237b8e12d01424fb449bf1cb41e59cbfe6aa05044c4f8d9e11245',
+              changes: [
+                {
+                  part: 'prompt',
+                  name: null,
+                  kind: 'changed',
+                  was: null,
+                  now: null,
+                },
+              ],
+              replayId: 'replay_sde_metric_first',
+              replayState: 'finished',
+              replayedAt: hoursAgo(39.1),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.8,
+              interval: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              scored: 5,
+              heldOut: {
+                replayId: 'replay_sde_metric_first_held_out',
+                state: 'finished',
+                score: 1,
+                interval: {
+                  rate: 1,
+                  low: 0.21,
+                  high: 1,
+                },
+                tasks: 1,
+                runs: 1,
+              },
+              costPerRun: 0.72,
+              currency: 'USD',
+              live: {
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                costPerRun: 0.72,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.8,
+              intervalOnCompared: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              costPerRunOnCompared: 0.72,
+              regressions: 0,
+              compared: 5,
+              gainOverLive: {
+                gain: 0.2,
+                low: -0.06,
+                high: 0.46,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: true,
+              search: {
+                searchId: 'search_design_metrics',
+                state: 'finished',
+                objective: 'success',
+                startedAt: hoursAgo(40),
+                seed: {
+                  successRate: 0.6,
+                  interval: {
+                    rate: 0.6,
+                    low: 0.23,
+                    high: 0.88,
+                  },
+                  costPerRun: 0.74,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: {
+                id: 'config_pull_request_design_metric_first',
+                state: 'merged',
+                closedBecause: null,
+                closeFailure: null,
+                url: 'https://github.com/acme/config/pull/66',
+                reason: null,
+              },
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                liveSuccessRate: 0.6,
+                runs: 5,
+                costPerRun: 0.72,
+                liveCostPerRun: 0.72,
+              },
+            },
+            {
+              candidateId: 'candidate_design_briefs',
+              name: 'experiment-briefs-skill',
+              hypothesis:
+                'The experiment-briefs skill already says how to set a stop rule. Enabling it outright should stop the missing ones.',
+              fingerprint:
+                '4fe75c69f9c9894a78ad8523b560086c9e22cc9a3399841cf9262686e186a466',
+              changes: [
+                {
+                  part: 'skill',
+                  name: 'experiment-briefs',
+                  kind: 'added',
+                  was: null,
+                  now: null,
+                },
+              ],
+              replayId: 'replay_sde_briefs',
+              replayState: 'finished',
+              replayedAt: hoursAgo(39),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.8,
+              interval: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              scored: 5,
+              heldOut: null,
+              costPerRun: 1,
+              currency: 'USD',
+              live: {
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                costPerRun: 0.72,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.8,
+              intervalOnCompared: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              costPerRunOnCompared: 1,
+              regressions: 0,
+              compared: 5,
+              gainOverLive: {
+                gain: 0.2,
+                low: -0.06,
+                high: 0.46,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: false,
+              search: {
+                searchId: 'search_design_metrics',
+                state: 'finished',
+                objective: 'success',
+                startedAt: hoursAgo(40),
+                seed: {
+                  successRate: 0.6,
+                  interval: {
+                    rate: 0.6,
+                    low: 0.23,
+                    high: 0.88,
+                  },
+                  costPerRun: 0.74,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                liveSuccessRate: 0.6,
+                runs: 5,
+                costPerRun: 1,
+                liveCostPerRun: 0.72,
+              },
+            },
+            {
+              candidateId: 'candidate_design_sonnet',
+              name: 'sonnet',
+              hypothesis:
+                'Designs are short. Sonnet may write them as well for less.',
+              fingerprint:
+                '2f42ff1a1c20108628fc1be9ae22cfa0b4dab358a0cba8766f9f12fb8fdc4922',
+              changes: [
+                {
+                  part: 'model',
+                  name: null,
+                  kind: 'changed',
+                  was: 'opus',
+                  now: 'sonnet',
+                },
+              ],
+              replayId: 'replay_sde_sonnet',
+              replayState: 'finished',
+              replayedAt: hoursAgo(37),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.4,
+              interval: {
+                rate: 0.4,
+                low: 0.12,
+                high: 0.77,
+              },
+              scored: 5,
+              heldOut: null,
+              costPerRun: 0.27,
+              currency: 'USD',
+              live: {
+                successRate: 0.6,
+                interval: {
+                  rate: 0.6,
+                  low: 0.23,
+                  high: 0.88,
+                },
+                costPerRun: 0.72,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.4,
+              intervalOnCompared: {
+                rate: 0.4,
+                low: 0.12,
+                high: 0.77,
+              },
+              costPerRunOnCompared: 0.27,
+              regressions: 1,
+              compared: 5,
+              gainOverLive: {
+                gain: -0.2,
+                low: -0.46,
+                high: 0.06,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: true,
+              search: {
+                searchId: 'search_design_metrics',
+                state: 'finished',
+                objective: 'success',
+                startedAt: hoursAgo(40),
+                seed: {
+                  successRate: 0.6,
+                  interval: {
+                    rate: 0.6,
+                    low: 0.23,
+                    high: 0.88,
+                  },
+                  costPerRun: 0.74,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.4,
+                interval: {
+                  rate: 0.4,
+                  low: 0.12,
+                  high: 0.77,
+                },
+                liveSuccessRate: 0.6,
+                runs: 5,
+                costPerRun: 0.27,
+                liveCostPerRun: 0.72,
+              },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      lineId: 'line_experiments',
+      stationId: 'station_build',
+      sets: [
+        {
+          setId: 'set_experiment_variants',
+          stationGone: false,
+          health: {
+            noise: null,
+            saturation: {
+              replayId: 'replay_build_live_1',
+              rate: 0.83,
+              interval: {
+                rate: 0.83,
+                low: 0.44,
+                high: 0.97,
+              },
+              saturated: false,
+              measuredAt: hoursAgo(77.5),
+            },
+            judge: null,
+            checks: {
+              replayId: 'replay_build_live_1',
+              rechecked: 6,
+              pending: 0,
+              flaky: [],
+            },
+            oracle: null,
+            tasks: 6,
+            runs: 6,
+            oldestRunEndedAt: hoursAgo(446.19),
+            newestRunEndedAt: hoursAgo(105.52),
+            lastAddedAt: hoursAgo(79.95),
+            minGain: 0.05,
+          },
+          baseline: {
+            replayId: 'replay_build_live_1',
+            state: 'finished',
+            fingerprint:
+              '2b8d4f6a0c3e9b1d7f5a2c8e4b0d6f3a9c1e7b5d2f8a4c0e6b3d9f1a7c5e2b86',
+            scored: 6,
+            successRate: 0.8333333333333334,
+            interval: {
+              rate: 0.83,
+              low: 0.44,
+              high: 0.97,
+            },
+            costPerRun: 1.12,
+            currency: 'USD',
+            endedAt: hoursAgo(77.5),
+            chartStatus: 'priced',
+          },
+          chartCurrency: 'USD',
+          candidates: [
+            {
+              candidateId: 'candidate_build_medium_effort',
+              name: 'medium-effort',
+              hypothesis:
+                'Variants are small changes behind a flag. Medium effort should build them as reliably for less.',
+              fingerprint:
+                'cc1e2a48d550b2707eb37e2dca8830d58c232066a8ddc21e2755cd0da49163a2',
+              changes: [
+                {
+                  part: 'effort',
+                  name: null,
+                  kind: 'changed',
+                  was: 'high',
+                  now: 'medium',
+                },
+              ],
+              replayId: 'replay_sbu_medium_effort',
+              replayState: 'finished',
+              replayedAt: hoursAgo(29.2),
+              tasks: 5,
+              runs: 5,
+              successRate: 0.8,
+              interval: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              scored: 5,
+              heldOut: {
+                replayId: 'replay_sbu_medium_effort_held_out',
+                state: 'finished',
+                score: 1,
+                interval: {
+                  rate: 1,
+                  low: 0.21,
+                  high: 1,
+                },
+                tasks: 1,
+                runs: 1,
+              },
+              costPerRun: 0.62,
+              currency: 'USD',
+              live: {
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                costPerRun: 1.17,
+                currency: 'USD',
+              },
+              successRateOnCompared: 0.8,
+              intervalOnCompared: {
+                rate: 0.8,
+                low: 0.38,
+                high: 0.96,
+              },
+              costPerRunOnCompared: 0.62,
+              regressions: 0,
+              compared: 5,
+              gainOverLive: {
+                gain: 0,
+                low: -0.1,
+                high: 0.1,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: true,
+              search: {
+                searchId: 'search_build_cost',
+                state: 'finished',
+                objective: 'cost',
+                startedAt: hoursAgo(30),
+                seed: {
+                  successRate: 0.8,
+                  interval: {
+                    rate: 0.8,
+                    low: 0.38,
+                    high: 0.96,
+                  },
+                  costPerRun: 1.15,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                liveSuccessRate: 0.8,
+                runs: 5,
+                costPerRun: 0.62,
+                liveCostPerRun: 1.17,
+              },
+            },
+            {
+              candidateId: 'candidate_build_flag_checklist',
+              name: 'flag-checklist',
+              hypothesis:
+                'The one failure shipped a variant outside its flag. A flag checklist before the pull request should catch it.',
+              fingerprint:
+                '6c650907d2eec58d2a827cb5fc2a0c6859c8a9d6459169a23b9306572418965c',
+              changes: [
+                {
+                  part: 'prompt',
+                  name: null,
+                  kind: 'changed',
+                  was: null,
+                  now: null,
+                },
+              ],
+              replayId: 'replay_sbu_flag_checklist',
+              replayState: 'finished',
+              replayedAt: hoursAgo(28.9),
+              tasks: 5,
+              runs: 5,
+              successRate: 1,
+              interval: {
+                rate: 1,
+                low: 0.57,
+                high: 1,
+              },
+              scored: 5,
+              heldOut: null,
+              costPerRun: 1.11,
+              currency: 'USD',
+              live: {
+                successRate: 0.8,
+                interval: {
+                  rate: 0.8,
+                  low: 0.38,
+                  high: 0.96,
+                },
+                costPerRun: 1.17,
+                currency: 'USD',
+              },
+              successRateOnCompared: 1,
+              intervalOnCompared: {
+                rate: 1,
+                low: 0.57,
+                high: 1,
+              },
+              costPerRunOnCompared: 1.11,
+              regressions: 0,
+              compared: 5,
+              gainOverLive: {
+                gain: 0.2,
+                low: -0.06,
+                high: 0.46,
+                significance: 'within-noise',
+                minGain: 0.05,
+                tasks: 5,
+              },
+              onFrontier: true,
+              search: {
+                searchId: 'search_build_cost',
+                state: 'finished',
+                objective: 'cost',
+                startedAt: hoursAgo(30),
+                seed: {
+                  successRate: 0.8,
+                  interval: {
+                    rate: 0.8,
+                    low: 0.38,
+                    high: 0.96,
+                  },
+                  costPerRun: 1.15,
+                  scored: 5,
+                  chartStatus: 'priced',
+                },
+              },
+              pullRequest: null,
+              chartStatus: 'priced',
+              shown: {
+                basis: 'compared',
+                costBasis: 'compared',
+                successRate: 1,
+                interval: {
+                  rate: 1,
+                  low: 0.57,
+                  high: 1,
+                },
+                liveSuccessRate: 0.8,
+                runs: 5,
+                costPerRun: 1.11,
+                liveCostPerRun: 1.17,
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ],
+});
 
 export const replayedCandidates = (
   teamId: string,
   period: Period,
-): ReplayedCandidatesResponseDto => {
-  const days = PERIOD_DAYS[period] ?? 30;
-  const shown = setStore()
-    .filter((set) => teamOfLine(set.lineId) === teamId)
-    .flatMap((set) => {
-      const replayed = replayedSet(set, days * 24);
-      return replayed ? [{ set, replayed }] : [];
-    });
-  const places = [
-    ...new Map(
-      shown.map(({ set }) => [
-        `${set.lineId}/${set.stationId}`,
-        { lineId: set.lineId, stationId: set.stationId },
-      ]),
-    ).values(),
-  ];
-
-  return {
-    period: { name: period, from: daysAgo(days), to: hoursAgo(0) },
-    truncated: false,
-    stations: places.map((place) => ({
-      ...place,
-      sets: shown
-        .filter(
-          ({ set }) =>
-            set.lineId === place.lineId && set.stationId === place.stationId,
-        )
-        .map(({ replayed }) => replayed),
-    })),
-  };
-};
+): ReplayedCandidatesResponseDto => ({
+  period: {
+    name: period,
+    from: daysAgo(PERIOD_DAYS[period] ?? 30),
+    to: hoursAgo(0),
+  },
+  truncated: false,
+  stations: world().kind === 'empty' ? [] : (STATIONS()[teamId] ?? []),
+});

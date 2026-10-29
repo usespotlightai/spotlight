@@ -1,4 +1,5 @@
 import type { Line } from '@work/domain/aggregates/line.aggregate';
+import { TEST_STATION_CHANGE } from '@work/domain/services/built-in-tools';
 import type { TargetStation } from '@work/domain/value-objects/target-station.vo';
 
 export const ImproveStation = {
@@ -29,7 +30,14 @@ export const ImproveStation = {
         '- Prefer adding to the config (more context in the prompt, a setup step, a skill) over rewriting how the prompt tells the agent to work.',
         '- Say which outcome would show the change worked: fewer runs sent back, checks passing, lower cost, and so on.',
       ].join('\n'),
-      `You cannot change the station yourself. Your proposal is a change to the team's Terraform, which a person reviews and applies: show it as a unified diff of the station's block in the \`spotlight_line\` resource for \`${line}\` (\`prompt\`, \`harness\`, \`model\`, \`effort\`, \`profile\`, \`skills\`, \`tools\`) and of its prompt file, \`prompts/<team>/${line}/${key}.md\`. If the team's Terraform is not checked out, show the station block as it should read.`,
+      [
+        'Test your change, do not only describe it:',
+        `- Propose one change. Write the changed station block as JSON, as the \`spotlight_line\` resource for \`${line}\` contains the station (\`prompt\`, \`harness\`, \`model\`, \`effort\`, \`profile\`, \`skills\`, \`tools\`).`,
+        `- Call the tool. It replays the change against the live config, and the result arrives in the person's inbox:\n\n\`\`\`\nspotlight tools call ${TEST_STATION_CHANGE.value} --name <slug> --hypothesis "…" < station.json\n\`\`\``,
+        '- The default mode is `test`: Spotlight replays only your change. Add `--mode search` only when the person asks for a search; the search agent then refines your change.',
+        '- Tell the person what the tool answered: what happens next and that the result arrives in their inbox.',
+      ].join('\n'),
+      `You cannot change the station yourself. Show a Terraform diff only when the tool cannot start, and give its reason first. The diff is of the station's block in the \`spotlight_line\` resource for \`${line}\` and of its prompt file, \`prompts/<team>/${line}/${key}.md\`. A person reviews and applies it. If the team's Terraform is not checked out, show the station block as it should read.`,
     ].join('\n\n');
   },
 };

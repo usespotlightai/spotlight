@@ -1,5 +1,4 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -12,8 +11,6 @@ export interface ReplayRepository {
   ranAs(run: RunId): Promise<Replay | null>;
 
   ofSet(setId: ReplaySetId): Promise<readonly Replay[]>;
-
-  ofCandidate(candidateId: CandidateId): Promise<readonly Replay[]>;
 
   pairingWith(replayId: ReplayId): Promise<readonly ReplayId[]>;
 

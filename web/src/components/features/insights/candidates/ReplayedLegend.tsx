@@ -30,7 +30,6 @@ export function ReplayedLegend({
     searched: points.some(
       (each) => each.mark === 'searched' && !onFrontier(each),
     ),
-    proposed: points.some((each) => each.mark === 'proposed'),
     baseline: points.some((each) => each.mark === 'baseline'),
   };
 
@@ -49,12 +48,6 @@ export function ReplayedLegend({
         <span className="flex items-center gap-1">
           <span aria-hidden className={swatch('rounded-full', 'searched')} />
           Searched
-        </span>
-      )}
-      {shows.proposed && (
-        <span className="flex items-center gap-1">
-          <span aria-hidden className={swatch('', 'proposed')} />
-          Proposed
         </span>
       )}
       {shows.baseline && (

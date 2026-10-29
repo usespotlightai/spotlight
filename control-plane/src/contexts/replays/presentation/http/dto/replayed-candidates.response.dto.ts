@@ -22,7 +22,6 @@ import { REPLAYED_PERIODS } from '@replays/domain/value-objects/replayed-period.
 import { SEARCH_OBJECTIVES } from '@replays/domain/value-objects/search-objective';
 import { SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import { CandidatePullRequestResponseDto } from '@replays/presentation/http/dto/config-pull-requests.response.dto';
-import { StationChangeResponseDto } from '@replays/presentation/http/dto/replay-candidate-resource.response.dto';
 import {
   GainEstimateResponseDto,
   gainResponse,
@@ -30,6 +29,7 @@ import {
   RateIntervalResponseDto,
   SetHealthResponseDto,
 } from '@replays/presentation/http/dto/replays.response.dto';
+import { StationChangeResponseDto } from '@replays/presentation/http/dto/station-changes.response.dto';
 
 const RATE =
   'A success rate, 0 to 1, of the past runs it was scored on, each a replay of one past run; a task worked twice counts twice';
@@ -246,7 +246,7 @@ export class ReplayedSeedResponseDto {
     nullable: true,
     type: Number,
     description:
-      'The live config’s success rate on the searched runs, 0 to 1, as the search page shows the seed’s search score',
+      'The live config’s success rate on the searched runs, 0 to 1: the search score of the seed',
   })
   readonly successRate: number | null;
 
@@ -380,13 +380,6 @@ export class ReplayedCandidateResponseDto {
   readonly name: string;
 
   @ApiProperty({
-    enum: ['searched', 'proposed'],
-    description:
-      'Found by a search, or proposed by a person or Terraform; pull-request checks are left out',
-  })
-  readonly kind: 'searched' | 'proposed';
-
-  @ApiProperty({
     nullable: true,
     type: String,
     description:
@@ -405,8 +398,7 @@ export class ReplayedCandidateResponseDto {
   readonly changes: StationChangeResponseDto[];
 
   @ApiProperty({
-    description:
-      'Its replay: on the searched tasks when searched, of the whole set when proposed',
+    description: 'Its replay on the searched tasks',
   })
   readonly replayId: string;
 
@@ -418,7 +410,7 @@ export class ReplayedCandidateResponseDto {
     type: String,
     example: '2026-09-30T08:05:00.000Z',
     description:
-      'When the replay shown started: for a proposed candidate, its newest finished replay in the period, else its newest; null while a searched candidate’s replay cannot be found',
+      'When the replay shown started; null while the replay cannot be found',
   })
   readonly replayedAt: string | null;
 
@@ -438,7 +430,7 @@ export class ReplayedCandidateResponseDto {
     nullable: true,
     type: Number,
     description:
-      'Its replay success rate, 0 to 1, over all the runs it was scored on, scored by its own checks and judge; not how live runs went. The search score when searched, as its search page shows it; as its replay page totals it when proposed',
+      'Its search score: the replay success rate, 0 to 1, over the searched runs it was scored on, scored by its own checks and judge; not how live runs went',
   })
   readonly successRate: number | null;
 
@@ -502,7 +494,7 @@ export class ReplayedCandidateResponseDto {
     nullable: true,
     type: Number,
     description:
-      'Compared runs it did worse on than the baseline, as the replay page counts them; null without a baseline',
+      'Compared runs it did worse on than the baseline; null without a baseline',
   })
   readonly regressions: number | null;
 
@@ -539,7 +531,7 @@ export class ReplayedCandidateResponseDto {
     type: CandidatePullRequestResponseDto,
     nullable: true,
     description:
-      'The pull request Spotlight opens once a person picks it from its search; null until then',
+      'The config pull request Spotlight opens when it picks the candidate as the result of its search; null until then',
   })
   readonly pullRequest: CandidatePullRequestResponseDto | null;
 
@@ -556,7 +548,6 @@ export class ReplayedCandidateResponseDto {
   constructor(candidate: ReplayedCandidateDto) {
     this.candidateId = candidate.candidateId;
     this.name = candidate.name;
-    this.kind = candidate.kind;
     this.hypothesis = candidate.hypothesis;
     this.fingerprint = candidate.fingerprint;
     this.changes = candidate.changes.map(
@@ -600,17 +591,8 @@ export class ReplayedSetResponseDto {
   @ApiProperty()
   readonly setId: string;
 
-  @ApiProperty({ example: 'Queue fixes' })
-  readonly name: string;
-
   @ApiProperty({ description: 'Whether its station has left its line' })
   readonly stationGone: boolean;
-
-  @ApiProperty({
-    description:
-      'Whether it checks every pull request that changes its station',
-  })
-  readonly gatesChanges: boolean;
 
   @ApiProperty({
     type: ReplaySetHealthResponseDto,
@@ -639,15 +621,13 @@ export class ReplayedSetResponseDto {
     type: ReplayedCandidateResponseDto,
     isArray: true,
     description:
-      'Candidates replayed over it in the period, the largest gain against live first and those without one last, newest first among equals: searched ones whose search started in it, proposed ones whose replay did',
+      'Candidates that searches which started in the period replayed over it, the largest gain against live first and those without one last, newest first among equals',
   })
   readonly candidates: ReplayedCandidateResponseDto[];
 
   constructor(set: ReplayedSetDto) {
     this.setId = set.setId;
-    this.name = set.name;
     this.stationGone = set.stationGone;
-    this.gatesChanges = set.gatesChanges;
     this.health = new ReplaySetHealthResponseDto(set.health);
     this.baseline = set.baseline
       ? new ReplayedBaselineResponseDto(set.baseline)

@@ -2,9 +2,11 @@ import { inCodePointOrder } from '@platform/ordering/code-point-order';
 import type { LineDefinition } from '@work/application/contracts/line-definition.contract';
 import type { LineFields } from '@work/infrastructure/lines/line.schema';
 import type {
+  LineSearchRow,
   line,
   lineReaction,
   lineRepository,
+  StationSearchRow,
   station,
   stationRoute,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
@@ -41,6 +43,8 @@ type Exact<T extends LineDefinition> =
 
 type StationFields = LineFields['stations'][number];
 
+type StationSearchFields = NonNullable<StationFields['search']>;
+
 type RepositoryRow = Pick<
   typeof lineRepository.$inferSelect,
   'repository' | 'image' | 'setup'
@@ -66,6 +70,7 @@ type StationRow = Pick<
   | 'memories'
   | 'judge'
   | 'alerts'
+  | 'search'
   | 'finishes'
 >;
 
@@ -77,7 +82,14 @@ interface StationItem {
 export interface LineRows {
   readonly line: Pick<
     typeof line.$inferSelect,
-    'key' | 'name' | 'role' | 'reviews' | 'replayCheck' | 'source' | 'runners'
+    | 'key'
+    | 'name'
+    | 'role'
+    | 'reviews'
+    | 'replayCheck'
+    | 'search'
+    | 'source'
+    | 'runners'
   >;
   readonly stations: readonly StationRow[];
   readonly routes: readonly Pick<
@@ -111,6 +123,43 @@ const enabledAt = (
     .map((each) => each.name);
 
 type ReactionRow = LineRows['reactions'][number];
+
+const renderStationSearch = (
+  row: StationSearchRow,
+): Rendered<StationSearchFields> => ({
+  ...present('enabled', row.enabled),
+  ...present('ceiling', row.ceiling),
+  ...present('period', row.period),
+  ...present('onAlert', row.onAlert),
+  ...present('cooldown', row.cooldown),
+  ...present(
+    'agent',
+    row.agent && {
+      harness: row.agent.harness,
+      ...present('model', row.agent.model),
+      ...(present('effort', row.agent.effort) as Partial<
+        Pick<NonNullable<StationSearchFields['agent']>, 'effort'>
+      >),
+    },
+  ),
+  ...present('iterations', row.iterations),
+  ...present('repeats', row.repeats),
+  ...(present('objective', row.objective) as Partial<
+    Pick<StationSearchFields, 'objective'>
+  >),
+});
+
+const renderLineSearch = (
+  row: LineSearchRow,
+): Rendered<NonNullable<LineFields['search']>> => ({
+  enabled: row.enabled,
+  monthlyCeiling: row.monthlyCeiling,
+  currency: row.currency,
+  ceiling: row.ceiling,
+  period: row.period,
+  onAlert: row.onAlert,
+  cooldown: row.cooldown,
+});
 
 const inReactionOrder =
   (place: (stationId: string | null) => number) =>
@@ -168,6 +217,7 @@ export const renderLineRows = (rows: LineRows): Exact<Rendered<LineFields>> => {
       ...present('below', each.below),
       over: each.over,
     })),
+    ...present('search', row.search && renderStationSearch(row.search)),
     tools: enabledAt(rows.tools, row.id),
     skills: enabledAt(rows.skills, row.id),
     passesTo: rows.routes
@@ -219,6 +269,10 @@ export const renderLineRows = (rows: LineRows): Exact<Rendered<LineFields>> => {
           },
         }
       : {}),
+    ...present(
+      'search',
+      rows.line.search && renderLineSearch(rows.line.search),
+    ),
     ...(rows.line.source
       ? {
           source: {

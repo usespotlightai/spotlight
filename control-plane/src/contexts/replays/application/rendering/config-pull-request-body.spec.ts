@@ -1,13 +1,45 @@
+import type { TaskRow } from '@replays/application/dto/task-rows.dto';
 import { ConfigPullRequestBody } from '@replays/application/rendering/config-pull-request-body';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { describe, expect, it } from 'vitest';
 
+const row = (title: string | null, over: Partial<TaskRow> = {}): TaskRow => ({
+  taskId: `task_${title}`,
+  originalRunId: `run_${title}`,
+  title,
+  regressed: false,
+  live: { result: 'succeeded', successRate: 1, reason: 'Checks passed.' },
+  candidate: {
+    result: 'succeeded',
+    successRate: 1,
+    reason: 'Judge passed it: The queue drains in order.',
+  },
+  ...over,
+});
+
 const FACTS = {
+  objective: 'success' as SearchObjective,
   stationKey: 'build',
   lineKey: 'delivery',
   candidateName: 'in-order',
   hypothesis: 'Ask @octocat to merge.\n```\n## Injected\n```',
   unchecked: ['effort'],
-  changes: ['prompt'],
+  changes: [
+    {
+      part: 'prompt',
+      name: null,
+      kind: 'changed' as const,
+      was: 'Build it.',
+      now: 'Build it, then drain the queue.\nKeep the order.',
+    },
+    {
+      part: 'effort',
+      name: null,
+      kind: 'changed' as const,
+      was: 'low',
+      now: 'high',
+    },
+  ],
   candidate: {
     searchScore: 0.8,
     searchInterval: { low: 0.6, high: 0.95 },
@@ -49,7 +81,37 @@ const FACTS = {
   },
   overfit: null,
   heldOutPending: false,
-  link: 'https://app.example.com/w/acme/team/t/lines/l/stations/s/searches/x',
+  tasks: {
+    heldOut: [
+      row('Drain on restart'),
+      row('Keep | the order', {
+        regressed: true,
+        candidate: {
+          result: 'failed',
+          successRate: 0,
+          reason: 'Checks failed: npm test.',
+        },
+      }),
+    ],
+    searched: [row(null)],
+  },
+  search: {
+    trigger: 'alert' as const,
+    iterations: 3,
+    reflections: 1,
+    maxIterations: 3,
+    perIteration: 2,
+    spent: 1.5,
+    ceiling: 5,
+    agent: { harness: 'claude-code', model: 'opus', effort: null },
+    setRuns: 12,
+    refreshedAt: new Date('2026-10-27T08:00:00.000Z'),
+    spread: 0.06,
+    minGain: 0.05,
+  },
+  found: [
+    '“Drain on restart”: the cause is the judge. Please fix the rubric of the judge.',
+  ],
 };
 
 describe('ConfigPullRequestBody', () => {
@@ -63,7 +125,21 @@ describe('ConfigPullRequestBody', () => {
       '| Succeeded on the 7 searched tasks | 80% (60–95%) | 60% |',
     );
     expect(body).toContain('`effort`');
-    expect(body).toContain(`[See the search in Spotlight](${FACTS.link})`);
+    expect(body).not.toContain('Spotlight](');
+    expect(body).not.toMatch(/https?:\/\//);
+  });
+
+  it('says why Spotlight picked the candidate, after the objective of the search', () => {
+    const success = ConfigPullRequestBody.of(FACTS);
+    const cost = ConfigPullRequestBody.of({ ...FACTS, objective: 'cost' });
+
+    expect(success).toContain(
+      'Spotlight picked it because it did better than the live config on the held-out tasks.',
+    );
+    expect(cost).toContain(
+      'Spotlight picked it because it costs less per run than the live config and succeeds as often on the held-out tasks, within noise.',
+    );
+    expect(cost).not.toContain('did better');
   });
 
   it('says when the gain over the live config is within noise, and when it is real', () => {
@@ -193,7 +269,7 @@ describe('ConfigPullRequestBody', () => {
       "Against the live config it regressed on 3 tasks, over the line's regression limit of 2 (`max_regressions`), so weigh that before merging.",
     );
     expect(over).toContain(
-      'Against the live config it regressed on 2 searched tasks; on the held-out tasks, 1 held-out task.',
+      'Against the live config it regressed on 2 of 7 searched tasks and on 1 of 3 held-out tasks. The search never showed its agent the held-out tasks.',
     );
     expect(
       ConfigPullRequestBody.of({ ...FACTS, maxRegressions: 2 }),
@@ -208,7 +284,195 @@ describe('ConfigPullRequestBody', () => {
     });
 
     expect(body).toContain(
-      'Against the live config it could not be compared on the searched tasks; on the held-out tasks, its replay had not finished.',
+      'Spotlight could not compare it with the live config on the searched tasks. Its held-out replay had not finished. The search never showed its agent the held-out tasks.',
     );
+    expect(
+      ConfigPullRequestBody.of({
+        ...FACTS,
+        regressions: { searched: 1, heldOut: null, total: 1 },
+      }),
+    ).toContain(
+      'Against the live config it regressed on 1 of 7 searched tasks. It was not replayed on the held-out tasks.',
+    );
+  });
+
+  it('says what changes, was and now, with a long value folded away', () => {
+    const body = ConfigPullRequestBody.of(FACTS);
+
+    expect(body).toContain('## What changes');
+    expect(body).toContain(
+      '## What changes\n\n- `effort`: `low` → `high`\n\n**`prompt`**: changed\n\n<details><summary>Was and now</summary>',
+    );
+    expect(body).toContain(
+      'Now:\n\n```text\nBuild it, then drain the queue.\nKeep the order.\n```',
+    );
+    expect(body).toContain(
+      'This changes the station as the candidate has it: `prompt`, `effort`.',
+    );
+  });
+
+  it('keeps every folded change out of the list, so the list and the folds both render', () => {
+    const long = (part: string) => ({
+      part,
+      name: null,
+      kind: 'changed' as const,
+      was: `${part} was.\nOn two lines.`,
+      now: `${part} now.\nOn two lines.`,
+    });
+    const body = ConfigPullRequestBody.of({
+      ...FACTS,
+      changes: [
+        long('prompt'),
+        FACTS.changes[1] as (typeof FACTS.changes)[number],
+        long('skills'),
+        { ...long('model'), was: 'm1', now: 'm2' },
+      ],
+    });
+    const section = body.slice(
+      body.indexOf('## What changes'),
+      body.indexOf('\n## ', body.indexOf('## What changes') + 1),
+    );
+    const blocks = section.split('\n\n');
+    const lines = section.split('\n');
+
+    expect(blocks[1]).toBe(
+      '- `effort`: `low` → `high`\n- `model`: `m1` → `m2`',
+    );
+    expect(
+      blocks.filter((each) =>
+        each.split('\n').some((line) => line.startsWith('- ')),
+      ),
+    ).toEqual([blocks[1]]);
+    expect(lines.filter((each) => /^\s+(<\/?details|```)/.test(each))).toEqual(
+      [],
+    );
+    expect(
+      lines.flatMap((each, at) =>
+        each.startsWith('<details>') ? [lines[at - 1], lines[at - 2]] : [],
+      ),
+    ).toEqual(['', '**`prompt`**: changed', '', '**`skills`**: changed']);
+  });
+
+  it('lists the held-out tasks, then the searched ones, each side with its reason in one line', () => {
+    const body = ConfigPullRequestBody.of(FACTS);
+
+    expect(body).toContain('## Task by task');
+    expect(body.indexOf('### Held-out tasks')).toBeLessThan(
+      body.indexOf('### Searched tasks'),
+    );
+    expect(body).toContain(
+      '| Keep \\| the order | Succeeded: Checks passed. | Failed: Checks failed: npm test. | Yes |',
+    );
+    expect(body).toContain(
+      '| Untitled task | Succeeded: Checks passed. | Succeeded: Judge passed it: The queue drains in order. | No |',
+    );
+  });
+
+  it('caps each task table and says how many tasks it left out', () => {
+    const body = ConfigPullRequestBody.of({
+      ...FACTS,
+      tasks: {
+        heldOut: Array.from({ length: 30 }, (_, at) => row(`Task ${at}`)),
+        searched: [],
+      },
+    });
+
+    expect(body).toContain('| Task 19 |');
+    expect(body).not.toContain('| Task 20 |');
+    expect(body).toContain('+10 more tasks.');
+    expect(body).not.toContain('### Searched tasks');
+  });
+
+  it('says how the search ran, and what else Spotlight found', () => {
+    const body = ConfigPullRequestBody.of(FACTS);
+
+    expect(body).toContain('- Started by: a station alert');
+    expect(body).toContain(
+      '- Iterations: 3 of 3, with up to 2 candidates in each',
+    );
+    expect(body).toContain(
+      '- Reflections: 1 of the iterations looked into why tasks failed',
+    );
+    expect(body).toContain('- Spent: 1.50 USD of the 5.00 USD ceiling');
+    expect(body).toContain('- Search agent: claude-code · opus');
+    expect(body).toContain('- Tasks: 7 searched, 3 held out');
+    expect(body).toContain('- Replay set: 12 runs, refreshed 2026-10-27');
+    expect(body).toContain(
+      '- Noise: Success on the replay set moves by up to 6 points between repeats of the same runs. The line counts a gain of at least 5 points as real (`min_gain`).',
+    );
+    expect(body).toContain(
+      '## What else Spotlight found\n\n- “Drain on restart”: the cause is the judge. Please fix the rubric of the judge.',
+    );
+    expect(ConfigPullRequestBody.of({ ...FACTS, found: [] })).not.toContain(
+      '## What else Spotlight found',
+    );
+  });
+
+  it('stays under the size limit of GitHub by leaving out whole sections from the end', () => {
+    const body = ConfigPullRequestBody.of({
+      ...FACTS,
+      found: Array.from({ length: 80 }, (_, at) => `${at} ${'y'.repeat(990)}`),
+      tasks: {
+        heldOut: Array.from({ length: 20 }, (_, at) =>
+          row(`${at} ${'t'.repeat(300)}`, {
+            candidate: {
+              result: 'failed',
+              successRate: 0,
+              reason: 'r'.repeat(990),
+            },
+          }),
+        ),
+        searched: [],
+      },
+    });
+
+    expect(body.length).toBeLessThan(65_536);
+    expect(body).not.toContain('## What else Spotlight found');
+    expect(body).toMatch(
+      /Spotlight left out the last 1 section to keep this description under the limit of GitHub, 65536 characters\.$/,
+    );
+    expect((body.match(/```/g) ?? []).length % 2).toBe(0);
+    expect((body.match(/<details>/g) ?? []).length).toBe(
+      (body.match(/<\/details>/g) ?? []).length,
+    );
+  });
+
+  it('escapes what a run, a judge or an agent wrote, so it cannot break the table or add markup', () => {
+    const body = ConfigPullRequestBody.of({
+      ...FACTS,
+      tasks: {
+        heldOut: [
+          row('Keep | order\nnext <!-- hidden --> </details>', {
+            candidate: {
+              result: 'failed',
+              successRate: 0,
+              reason:
+                'Judge failed it: see [here](https://evil.test) and ![x](https://evil.test/x.png) @octocat.',
+            },
+          }),
+        ],
+        searched: [],
+      },
+      found: ['Fix it. <!-- ', '</details> and [a](https://evil.test)'],
+    });
+    const [line] = body.split('\n').filter((each) => each.startsWith('| Keep'));
+
+    expect(line?.split(' | ')).toHaveLength(4);
+    expect(body).not.toContain('<!--');
+    expect(body).not.toMatch(/(^|[^\\])<\/details> and/);
+    expect(body).not.toMatch(/(^|[^\\])\]\(https:/);
+    expect(body).not.toMatch(/(^|[^\\])!\[x/);
+    expect(body).toContain('@\u200boctocat');
+  });
+
+  it('caps a long task title', () => {
+    const body = ConfigPullRequestBody.of({
+      ...FACTS,
+      tasks: { heldOut: [row('x'.repeat(500))], searched: [] },
+    });
+    const [line] = body.split('\n').filter((each) => each.startsWith('| xxx'));
+
+    expect(line?.split(' | ')[0]?.length).toBeLessThanOrEqual(125);
+    expect(line).toContain('…');
   });
 });

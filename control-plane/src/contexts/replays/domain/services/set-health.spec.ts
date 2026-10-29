@@ -14,7 +14,10 @@ import {
   replayedAs,
   runIds,
 } from '@replays/domain/replays.fake-spec';
-import { setHealthOf } from '@replays/domain/services/set-health';
+import {
+  setHealthOf,
+  wantsCalibration,
+} from '@replays/domain/services/set-health';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
@@ -372,5 +375,31 @@ describe('setHealthOf', () => {
         MIN_GAIN,
       ).oracle?.referenceState,
     ).toBe('gone');
+  });
+});
+
+describe('wantsCalibration', () => {
+  const FINGER = SCORED.fingerprint;
+
+  it('wants one for a set of at least five runs with no calibration of the live config', () => {
+    expect(wantsCalibration(SET, [], [SCORED], FINGER)).toBe(true);
+    expect(wantsCalibration(aSet(4), [], [SCORED], FINGER)).toBe(false);
+  });
+
+  it('wants none while a calibration of these runs and this live config runs or finished', () => {
+    expect(
+      wantsCalibration(SET, [calibrated(() => true)], [SCORED], FINGER),
+    ).toBe(false);
+  });
+
+  it('wants one again once the live config or the runs of the set changed', () => {
+    const calibration = calibrated(() => true);
+
+    expect(
+      wantsCalibration(SET, [calibration], [SCORED], LIVE_FINGERPRINT),
+    ).toBe(true);
+    expect(wantsCalibration(aSet(7), [calibration], [SCORED], FINGER)).toBe(
+      true,
+    );
   });
 });

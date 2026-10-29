@@ -50,7 +50,7 @@ const everyBudget = function* () {
 
 const ceilingSplitOrRejected = (budget: SearchBudget, split: HeldOutSplit) => {
   try {
-    return budget.splitCeiling(split);
+    return budget.splitCeiling(split, false);
   } catch (error) {
     expect(error).toBeInstanceOf(InvalidSearchError);
     return null;
@@ -93,7 +93,7 @@ describe('SearchBudget', () => {
       iterations: 2,
       perIteration: 2,
       ceiling: 100,
-    }).splitCeiling(split);
+    }).splitCeiling(split, false);
     const units = 10 + 4 + 2 * 2 * (7 + 4) + 2 * (3 + 3);
 
     expect(ceilingSplit.agentRuns.amount).toBe(10);
@@ -122,8 +122,8 @@ describe('SearchBudget', () => {
 
   it('keeps a wider margin the more runs it runs at once', () => {
     const split = splitOf(20);
-    const narrow = aBudget({ concurrency: 1 }).splitCeiling(split);
-    const wide = aBudget({ concurrency: 10 }).splitCeiling(split);
+    const narrow = aBudget({ concurrency: 1 }).splitCeiling(split, false);
+    const wide = aBudget({ concurrency: 10 }).splitCeiling(split, false);
 
     expect(wide.perRun.amount).toBeLessThan(narrow.perRun.amount);
   });
@@ -179,7 +179,7 @@ describe('SearchBudget', () => {
       );
       let iterations = 0;
 
-      while (budget.allowsIteration(spent, split)) {
+      while (budget.allowsIteration(spent, split, false)) {
         spent = spent.plus(ceilingSplit.iteration);
         iterations += 1;
       }
@@ -194,20 +194,97 @@ describe('SearchBudget', () => {
   it('starts no more iterations once an agent run overspent its share', () => {
     const split = splitOf(10);
     const budget = aBudget({ iterations: 5, perIteration: 2, ceiling: 20 });
-    const ceilingSplit = budget.splitCeiling(split);
+    const ceilingSplit = budget.splitCeiling(split, false);
     const overspent = ceilingSplit.seed
       .plus(ceilingSplit.iteration)
       .plus(Money.of(15, 'USD'));
 
-    expect(budget.allowsIteration(ceilingSplit.seed, split)).toBe(true);
-    expect(budget.allowsIteration(overspent, split)).toBe(false);
+    expect(budget.allowsIteration(ceilingSplit.seed, split, false)).toBe(true);
+    expect(budget.allowsIteration(overspent, split, false)).toBe(false);
   });
 
   it('rejects a ceiling too low to give each replay run a cent', () => {
     expect(() =>
       aBudget({ iterations: 10, perIteration: 5, ceiling: 1 }).splitCeiling(
         splitOf(50),
+        false,
       ),
     ).toThrow(InvalidSearchError);
+  });
+
+  it('lets a calibrating seed replay every run three times, and keeps as much again for the replay handed the answer', () => {
+    const budget = aBudget({ iterations: 2, perIteration: 2, ceiling: 20 });
+    const split = splitOf(10);
+    const calibrating = budget.splitCeiling(split, true);
+
+    expect(budget.seedRepeats(true)).toBe(3);
+    expect(budget.seedRepeats(false)).toBe(1);
+    expect(calibrating.seed).toEqual(calibrating.perRun.scaled(30, 1));
+    expect(calibrating.oracle).toEqual(calibrating.seed);
+    expect(budget.splitCeiling(split, false).oracle.amount).toBe(0);
+    expect(calibrating.perRun.amount).toBeLessThan(
+      budget.splitCeiling(split, false).perRun.amount,
+    );
+  });
+
+  it('never splits more than its ceiling when its seed calibrates, the reserve for the answer included', () => {
+    let checked = 0;
+
+    for (const { budget, split } of everyBudget()) {
+      if (!budget.affords(split, true)) {
+        continue;
+      }
+
+      const ceilingSplit = budget.splitCeiling(split, true);
+      const k = budget.perIteration;
+      const margin = (runs: number) => Math.min(budget.concurrency, runs);
+      const seeded = split.runs * budget.seedRepeats(true);
+      const everything = ceilingSplit.seed
+        .plus(ceilingSplit.perRun.scaled(margin(seeded), 1))
+        .plus(ceilingSplit.oracle)
+        .plus(ceilingSplit.perRun.scaled(margin(seeded), 1))
+        .plus(
+          ceilingSplit.perRun.scaled(
+            budget.iterations *
+              k *
+              (split.searched.length + margin(split.searched.length)),
+            1,
+          ),
+        )
+        .plus(ceilingSplit.heldOutReserve)
+        .plus(ceilingSplit.agentRuns);
+
+      expect(everything.isWithin(budget.ceiling)).toBe(true);
+      checked += 1;
+    }
+
+    expect(checked).toBeGreaterThan(1000);
+  });
+
+  it('keeps the reserve for the answer out of what its iterations may spend', () => {
+    const budget = aBudget({ iterations: 1, perIteration: 1, ceiling: 10 });
+    const split = splitOf(10);
+    const { oracle, heldOutReserve, iteration } = budget.splitCeiling(
+      split,
+      true,
+    );
+    const spent = Money.of(
+      budget.ceiling.amount -
+        oracle.plus(heldOutReserve).plus(iteration).amount,
+      'USD',
+    );
+
+    expect(budget.allowsIteration(spent, split, true)).toBe(true);
+    expect(
+      budget.allowsIteration(spent.plus(Money.of(0.01, 'USD')), split, true),
+    ).toBe(false);
+  });
+
+  it('cannot afford a calibrating seed when its ceiling only covers a plain one', () => {
+    const budget = aBudget({ iterations: 10, perIteration: 5, ceiling: 8 });
+    const split = splitOf(13);
+
+    expect(budget.affords(split, false)).toBe(true);
+    expect(budget.affords(split, true)).toBe(false);
   });
 });

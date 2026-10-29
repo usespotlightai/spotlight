@@ -30,6 +30,17 @@ export const isSuccess = (
   seed: boolean,
 ): boolean => seed || (significance !== null && significance !== 'worse');
 
+export const isCheaperAtParity = (
+  significance: GainSignificance | null,
+  cost: number | null,
+  comparedCost: number | null,
+): boolean =>
+  significance !== null &&
+  significance !== 'worse' &&
+  cost !== null &&
+  comparedCost !== null &&
+  cost < comparedCost;
+
 export const rankedOf = <Point extends RankedPoint>(
   points: readonly Point[],
   objective: SearchObjective,

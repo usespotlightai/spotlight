@@ -8,6 +8,11 @@ export const REPLAY_STATES = [
 
 export type ReplayState = (typeof REPLAY_STATES)[number];
 
+export const DISPATCHING_REPLAY_STATES: readonly ReplayState[] = [
+  'queued',
+  'running',
+];
+
 export const REPLAY_STOP_REASONS = [
   'finished',
   'stopped',

@@ -3,6 +3,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { InvalidNoticeError } from '@work/domain/exceptions/invalid-notice.error';
+import type { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import type { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import type { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
@@ -18,10 +19,11 @@ interface NoticeState {
   readonly id: NoticeId;
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
-  readonly addressee: UserId;
+  readonly addressee: UserId | null;
   readonly form: NoticeForm;
   readonly subject: string;
   readonly link: NoticeLink;
+  readonly externalLink: NoticeExternalLink | null;
   readonly wording: NoticeWording;
   readonly createdAt: Date;
   readonly resolvedAt: Date | null;
@@ -35,10 +37,11 @@ export class Notice {
     id: NoticeId;
     workspaceId: WorkspaceId;
     teamId: TeamId;
-    addressee: UserId;
+    addressee: UserId | null;
     form: NoticeForm;
     subject: string;
     link: NoticeLink;
+    externalLink: NoticeExternalLink | null;
     wording: NoticeWording;
     at: Date;
   }): Notice {
@@ -86,7 +89,7 @@ export class Notice {
     return this.state.teamId;
   }
 
-  get addressee(): UserId {
+  get addressee(): UserId | null {
     return this.state.addressee;
   }
 
@@ -100,6 +103,10 @@ export class Notice {
 
   get link(): NoticeLink {
     return this.state.link;
+  }
+
+  get externalLink(): NoticeExternalLink | null {
+    return this.state.externalLink;
   }
 
   get wording(): NoticeWording {
@@ -119,7 +126,7 @@ export class Notice {
   }
 
   isFor(person: UserId): boolean {
-    return this.state.addressee.equals(person);
+    return this.state.addressee?.equals(person) ?? true;
   }
 
   resolve(at: Date): Notice {

@@ -80,9 +80,11 @@ describe('evaluationOf', () => {
       entries: 4,
       compared: 4,
     });
-    expect(evaluation.regressions.map((each) => each.taskId)).toEqual([
-      'task_1',
-    ]);
+    expect(
+      evaluation.tasks
+        .filter((each) => each.regressed)
+        .map((each) => each.taskId),
+    ).toEqual(['task_1']);
     expect(evaluation.gain).toMatchObject({
       gain: -0.25,
       minGain: 0.05,
@@ -102,7 +104,9 @@ describe('evaluationOf', () => {
       'failed',
     );
     expect(
-      evaluationOf(checkOf(0), replay, baseline(), false).regressions,
+      evaluationOf(checkOf(0), replay, baseline(), false).tasks.filter(
+        (each) => each.regressed,
+      ),
     ).toHaveLength(2);
   });
 

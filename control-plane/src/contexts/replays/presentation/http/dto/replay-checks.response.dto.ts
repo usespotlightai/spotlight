@@ -1,10 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type {
-  CheckRegressionDto,
   CheckSideDto,
   ReplayCheckDto,
-  ReplayCheckSummaryDto,
 } from '@replays/application/dto/replay-checks.dto';
+import {
+  TASK_RESULTS,
+  type TaskRow,
+  type TaskSide,
+} from '@replays/application/dto/task-rows.dto';
 import { SCORING_FIELDS } from '@replays/domain/services/live-scoring';
 import {
   CHECK_RESULTS,
@@ -19,8 +22,6 @@ import {
   MoneyResponseDto,
   RateIntervalResponseDto,
 } from '@replays/presentation/http/dto/replays.response.dto';
-
-const ENTRY_RESULTS = ['pending', 'succeeded', 'failed', 'unscored'];
 
 export class PlannedReferenceRequestDto {
   @ApiProperty({
@@ -186,20 +187,37 @@ export class ReplayCheckSideResponseDto {
   }
 }
 
-export class ReplayCheckReasonResponseDto {
-  @ApiProperty({ example: 'check-failed' })
-  readonly code: string;
+export class ReplayCheckTaskSideResponseDto {
+  @ApiProperty({
+    enum: TASK_RESULTS,
+    description:
+      'succeeded or failed when every repeat agrees; mixed when the repeats disagree; unscored when nothing scored the run; pending while the replay runs; absent when the side did not replay the task',
+  })
+  readonly result: string;
 
-  @ApiProperty({ nullable: true, type: String })
-  readonly detail: string | null;
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 1,
+    description: 'The share of the scored repeats that succeeded, from 0 to 1',
+  })
+  readonly successRate: number | null;
 
-  constructor(reason: CheckRegressionDto['reasons'][number]) {
-    this.code = reason.code;
-    this.detail = reason.detail;
+  @ApiProperty({
+    example: 'Judge failed it: The tests do not cover the new branch.',
+    description:
+      'Why the side got its result, in one line: the reason of the judge, the check that failed, or why the run failed',
+  })
+  readonly reason: string;
+
+  constructor(side: TaskSide) {
+    this.result = side.result;
+    this.successRate = side.successRate;
+    this.reason = side.reason;
   }
 }
 
-export class ReplayCheckRegressionResponseDto {
+export class ReplayCheckTaskResponseDto {
   @ApiProperty()
   readonly taskId: string;
 
@@ -210,35 +228,24 @@ export class ReplayCheckRegressionResponseDto {
   readonly title: string | null;
 
   @ApiProperty({
-    enum: ENTRY_RESULTS,
-    isArray: true,
-    description: 'The result of each repeat the candidate replayed',
+    description:
+      'True when the candidate did worse than the live config on the task',
   })
-  readonly candidate: string[];
+  readonly regressed: boolean;
 
-  @ApiProperty({
-    enum: ENTRY_RESULTS,
-    isArray: true,
-    description: 'The result of each repeat the baseline replayed',
-  })
-  readonly baseline: string[];
+  @ApiProperty({ type: ReplayCheckTaskSideResponseDto })
+  readonly live: ReplayCheckTaskSideResponseDto;
 
-  @ApiProperty({ nullable: true, type: Number })
-  readonly scoreDelta: number | null;
+  @ApiProperty({ type: ReplayCheckTaskSideResponseDto })
+  readonly candidate: ReplayCheckTaskSideResponseDto;
 
-  @ApiProperty({ type: ReplayCheckReasonResponseDto, isArray: true })
-  readonly reasons: ReplayCheckReasonResponseDto[];
-
-  constructor(regression: CheckRegressionDto) {
-    this.taskId = regression.taskId;
-    this.originalRunId = regression.originalRunId;
-    this.title = regression.title;
-    this.candidate = [...regression.candidate];
-    this.baseline = [...regression.baseline];
-    this.scoreDelta = regression.scoreDelta;
-    this.reasons = regression.reasons.map(
-      (each) => new ReplayCheckReasonResponseDto(each),
-    );
+  constructor(row: TaskRow) {
+    this.taskId = row.taskId;
+    this.originalRunId = row.originalRunId;
+    this.title = row.title;
+    this.regressed = row.regressed;
+    this.live = new ReplayCheckTaskSideResponseDto(row.live);
+    this.candidate = new ReplayCheckTaskSideResponseDto(row.candidate);
   }
 }
 
@@ -259,12 +266,9 @@ export class ReplayCheckResponseDto {
   readonly stationKey: string;
 
   @ApiProperty({
-    description: 'The replay set that gates the station’s changes',
+    description: 'The replay set Spotlight keeps for the station',
   })
   readonly setId: string;
-
-  @ApiProperty({ nullable: true, type: String, example: 'Queue fixes' })
-  readonly setName: string | null;
 
   @ApiProperty({ description: 'The planned candidate the check replays' })
   readonly candidateId: string;
@@ -334,8 +338,10 @@ export class ReplayCheckResponseDto {
   })
   readonly undecidedBecause: string | null;
 
-  @ApiProperty({ description: 'How many tasks the gating set replays' })
-  readonly tasks: number;
+  @ApiProperty({
+    description: 'How many tasks the station’s replay set replays',
+  })
+  readonly taskCount: number;
 
   @ApiProperty({ description: 'How many tasks were scored on both sides' })
   readonly compared: number;
@@ -346,17 +352,13 @@ export class ReplayCheckResponseDto {
   @ApiProperty({ type: ReplayCheckSideResponseDto })
   readonly baseline: ReplayCheckSideResponseDto;
 
-  @ApiProperty({ type: ReplayCheckRegressionResponseDto, isArray: true })
-  readonly regressions: ReplayCheckRegressionResponseDto[];
-
   @ApiProperty({
-    nullable: true,
-    type: String,
-    example:
-      'https://app.usespotlight.ai/w/acme/team/9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84/lines/3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03/stations/7b1d/replays/2e9c',
-    description: 'Where the web app shows the check’s replay',
+    type: ReplayCheckTaskResponseDto,
+    isArray: true,
+    description:
+      'Each task of the set with the result of both sides and why, the regressed tasks first',
   })
-  readonly replayUrl: string | null;
+  readonly tasks: ReplayCheckTaskResponseDto[];
 
   @ApiProperty({
     description:
@@ -374,7 +376,6 @@ export class ReplayCheckResponseDto {
     this.stationId = check.stationId;
     this.stationKey = check.stationKey;
     this.setId = check.setId;
-    this.setName = check.setName;
     this.candidateId = check.candidateId;
     this.replayId = check.replayId;
     this.baselineReplayId = check.baselineReplayId;
@@ -388,71 +389,14 @@ export class ReplayCheckResponseDto {
     this.gain = gainResponse(check.gain);
     this.result = check.result;
     this.undecidedBecause = check.undecidedBecause;
-    this.tasks = check.tasks;
+    this.taskCount = check.taskCount;
     this.compared = check.compared;
     this.candidate = new ReplayCheckSideResponseDto(check.candidate);
     this.baseline = new ReplayCheckSideResponseDto(check.baseline);
-    this.regressions = check.regressions.map(
-      (each) => new ReplayCheckRegressionResponseDto(each),
+    this.tasks = check.tasks.map(
+      (each) => new ReplayCheckTaskResponseDto(each),
     );
-    this.replayUrl = check.replayUrl;
     this.reused = reused;
     this.createdAt = check.createdAt;
-  }
-}
-
-export class ReplayCheckSummaryResponseDto {
-  @ApiProperty({ example: '6a2d9f4c-1e83-4b7a-9c5d-2f8e0b3a7d61' })
-  readonly id: string;
-
-  @ApiProperty()
-  readonly stationId: string;
-
-  @ApiProperty({ example: 'build' })
-  readonly stationKey: string;
-
-  @ApiProperty({ enum: CHECK_RESULTS })
-  readonly result: string;
-
-  @ApiProperty({
-    enum: [...UNDECIDED_BECAUSE, null],
-    nullable: true,
-    type: String,
-  })
-  readonly undecidedBecause: string | null;
-
-  @ApiProperty({ description: 'How many tasks the change regressed on' })
-  readonly regressions: number;
-
-  @ApiProperty({
-    description:
-      'Counts the checks of the same change against the same live config, from 1',
-  })
-  readonly attempt: number;
-
-  @ApiProperty({ type: ReplayCheckReferenceResponseDto })
-  readonly reference: ReplayCheckReferenceResponseDto;
-
-  @ApiProperty({ example: '2026-10-02T09:00:00.000Z' })
-  readonly createdAt: string;
-
-  @ApiProperty({
-    nullable: true,
-    type: String,
-    description: 'Where the web app shows the check’s replay',
-  })
-  readonly replayUrl: string | null;
-
-  constructor(check: ReplayCheckSummaryDto) {
-    this.id = check.id;
-    this.stationId = check.stationId;
-    this.stationKey = check.stationKey;
-    this.result = check.result;
-    this.undecidedBecause = check.undecidedBecause;
-    this.regressions = check.regressions;
-    this.attempt = check.attempt;
-    this.reference = new ReplayCheckReferenceResponseDto(check.reference);
-    this.createdAt = check.createdAt;
-    this.replayUrl = check.replayUrl;
   }
 }

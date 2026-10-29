@@ -2,7 +2,6 @@ import type { UseQueryResult } from '@tanstack/react-query';
 import { useParams } from 'react-router';
 import { RunPage } from '@/components/features/runs/RunPage';
 import { RunSkeleton } from '@/components/features/runs/RunSkeleton';
-import { UntaskedRunOf } from '@/components/features/runs/UntaskedRunOf';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { useRunNotes } from '@/hooks/api/useRunNotes';
@@ -75,7 +74,13 @@ export function Run() {
   }
 
   if (!run) {
-    return <UntaskedRunOf slug={slug} teamId={teamId} runId={runId} />;
+    return (
+      <PageNotice>
+        <p className="text-muted-foreground text-sm">
+          This team has no such run.
+        </p>
+      </PageNotice>
+    );
   }
 
   return (

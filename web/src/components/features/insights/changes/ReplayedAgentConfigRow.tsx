@@ -1,9 +1,8 @@
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
-  OUTER_DIVIDER,
-  OUTER_GUIDE,
-  OUTER_INDENT,
+  EDGE_INDENT,
+  ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { spentIn } from '@/lib/inbox';
@@ -25,14 +24,13 @@ export function ReplayedAgentConfigRow({
       data-slot="replayed-agent-config-row"
       className={cn(
         'relative col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 @4xl:grid-cols-subgrid',
-        OUTER_GUIDE,
-        OUTER_DIVIDER,
+        ROW_DIVIDER,
       )}
     >
       <div
         className={cn(
           'col-span-full flex min-w-0 items-center gap-2 @4xl:col-span-1',
-          OUTER_INDENT,
+          EDGE_INDENT,
         )}
       >
         {point.mark === 'baseline' ? (

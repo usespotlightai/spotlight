@@ -6,12 +6,13 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Notice } from '@work/domain/aggregates/notice.aggregate';
 import { NoticeVersionConflictError } from '@work/domain/exceptions/notice-version-conflict.error';
 import type { NoticeRepository } from '@work/domain/repositories/notice.repository';
+import { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
 import { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
 import { notice } from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 type Row = typeof notice.$inferSelect;
 
@@ -20,10 +21,17 @@ const toNotice = (row: Row): Notice =>
     id: NoticeId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     teamId: TeamId.of(row.teamId),
-    addressee: UserId.of(row.addresseeId),
+    addressee: row.addresseeId === null ? null : UserId.of(row.addresseeId),
     form: row.form,
     subject: row.subject,
     link: NoticeLink.of({ path: row.link, label: row.linkLabel }),
+    externalLink:
+      row.externalUrl !== null && row.externalLabel !== null
+        ? NoticeExternalLink.of({
+            url: row.externalUrl,
+            label: row.externalLabel,
+          })
+        : null,
     wording: NoticeWording.of({ headline: row.headline, points: row.points }),
     createdAt: row.createdAt,
     resolvedAt: row.resolvedAt,
@@ -39,11 +47,13 @@ export class DrizzleNoticeRepository implements NoticeRepository {
       id: added.id.value,
       workspaceId: added.workspaceId.value,
       teamId: added.teamId.value,
-      addresseeId: added.addressee.value,
+      addresseeId: added.addressee?.value ?? null,
       form: added.form,
       subject: added.subject,
       link: added.link.path,
       linkLabel: added.link.label,
+      externalUrl: added.externalLink?.url ?? null,
+      externalLabel: added.externalLink?.label ?? null,
       headline: added.wording.headline,
       points: [...added.wording.points],
       createdAt: added.createdAt,
@@ -80,7 +90,8 @@ export class DrizzleNoticeRepository implements NoticeRepository {
   }
 
   async about(
-    addressee: UserId,
+    teamId: TeamId,
+    addressee: UserId | null,
     form: NoticeForm,
     subject: string,
   ): Promise<Notice | null> {
@@ -89,7 +100,10 @@ export class DrizzleNoticeRepository implements NoticeRepository {
       .from(notice)
       .where(
         and(
-          eq(notice.addresseeId, addressee.value),
+          eq(notice.teamId, teamId.value),
+          addressee === null
+            ? isNull(notice.addresseeId)
+            : eq(notice.addresseeId, addressee.value),
           eq(notice.form, form),
           eq(notice.subject, subject),
         ),

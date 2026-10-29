@@ -253,6 +253,7 @@ describe('change review receiving a pull request close', () => {
       workspaceId: 'ws_1',
       pullRequest: 'https://github.com/acme/api/pull/7',
       repository: 'acme/api',
+      gitHubId: 707,
       merged: true,
       mergeCommit: 'c'.repeat(40),
       closedAt: '2026-09-21T09:30:00.000Z',

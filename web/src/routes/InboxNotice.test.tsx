@@ -45,8 +45,9 @@ const notice = (over: Record<string, unknown> = {}) => ({
     'Fix the judge’s rubric: it requires tests a rename never needs.',
     'Fix the station’s check: it needs a database the runner never starts.',
   ],
-  link: 'lines/line_1/stations/station_1/searches/search_1',
-  linkLabel: 'Open the reading',
+  link: 'lines/line_1/stations/station_1',
+  linkLabel: 'Open the station',
+  externalLink: null,
   askedAt: '2026-08-29T13:00:00.000Z',
   unread: true,
   resolved: false,
@@ -124,11 +125,35 @@ describe('InboxNotice', () => {
     renderNotice();
 
     expect(
-      screen.getByRole('link', { name: 'Open the reading' }),
+      screen.getByRole('link', { name: 'Open the station' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_1/searches/search_1',
+      '/w/acme/team/team_1/lines/line_1/stations/station_1',
     );
+  });
+
+  it('leads first to where to act outside Spotlight, in a new tab, then to its page in the team', () => {
+    waiting.mockReturnValue([
+      notice({
+        externalLink: {
+          url: 'https://github.com/acme/config/pull/7',
+          label: 'Review the pull request',
+        },
+      }),
+    ]);
+    renderNotice();
+
+    const card = screen.getByRole('article');
+    const [first, second] = within(card).getAllByRole('link');
+
+    expect(first).toHaveAccessibleName('Review the pull request');
+    expect(first).toHaveAttribute(
+      'href',
+      'https://github.com/acme/config/pull/7',
+    );
+    expect(first).toHaveAttribute('target', '_blank');
+    expect(first).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(second).toHaveAccessibleName('Open the station');
   });
 
   it('moves it to resolved on opening it, once, as reading an email does', () => {

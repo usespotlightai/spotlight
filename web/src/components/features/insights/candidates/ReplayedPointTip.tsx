@@ -28,7 +28,6 @@ export function ReplayedPointTip({
       </p>
       <p className="text-muted-foreground">
         {[
-          `over ${point.setName}`,
           point.heldOut ? `held out ${point.heldOut}` : null,
           point.frontier ? 'on the search’s frontier' : null,
         ]

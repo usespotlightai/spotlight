@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -16,6 +17,8 @@ import (
 
 	"usespotlight.ai/data-plane/credentials"
 )
+
+const token = "q3Vd0n8yXbT2c4kPzR7mW1sLhA9eJ5gUfN6oYiC0xEw"
 
 const (
 	deliveryLine = "3f7a2c9e-5d18-4b6a-8e2f-1c9d7b4a6e03"
@@ -200,22 +203,51 @@ func (s *checkServer) serve() *httptest.Server {
 }
 
 func checkAnswer(result string) string {
-	regressions := `[]`
+	drained := `"candidate":{"result":"succeeded","successRate":1,"reason":"Judge passed it: The queue is empty"}`
 	if result == "failed" {
-		regressions = `[{"taskId":"task_2","title":"Drain the queue","candidate":["failed"],"baseline":["succeeded"],"scoreDelta":null,"reasons":[{"code":"check-failed","detail":"npm test"}]}]`
+		drained = `"candidate":{"result":"failed","successRate":0,"reason":"Checks failed: npm test"}`
 	}
 	undecided := `null`
 	if result == "undecided" {
 		undecided = `"too-few-scored"`
 	}
 
-	return `{"id":"check_1","setName":"Queue fixes","replayId":"replay_1","scoringPinnedToLive":["check","judge"],
-  "result":"` + result + `","undecidedBecause":` + undecided + `,"tasks":3,"compared":3,
+	return `{"id":"check_1","replayId":"replay_1","scoringPinnedToLive":["check","judge"],
+  "result":"` + result + `","undecidedBecause":` + undecided + `,"taskCount":3,"compared":3,
   "threshold":{"maxRegressions":0,"minGain":0.05,"ceiling":{"amount":10,"currency":"USD"}},
   "repeats":3,"gain":{"gain":-0.3333,"low":-1,"high":0,"significance":"within-noise","minGain":0.05,"tasks":3},
   "candidate":{"state":"finished","entries":9,"scored":9,"succeeded":6,"successRate":0.6667,"interval":{"rate":0.6667,"low":0.3333,"high":1},"tasksScored":3,"spent":{"amount":1.5,"currency":"USD"}},
   "baseline":{"state":"finished","entries":3,"scored":3,"succeeded":3,"successRate":1,"interval":{"rate":1,"low":1,"high":1},"tasksScored":3,"spent":{"amount":1.2,"currency":"USD"}},
-  "regressions":` + regressions + `,"replayUrl":"https://app.example.test/w/acme/team/` + coreTeam + `/lines/` + deliveryLine + `/stations/st_build/replays/replay_1"}`
+  "tasks":[
+    {"taskId":"task_2","originalRunId":"run_2","title":"Drain the queue","regressed":` + strconv.FormatBool(result == "failed") + `,
+     "live":{"result":"succeeded","successRate":1,"reason":"Judge passed it: The queue is empty"},` + drained + `},
+    {"taskId":"5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57","originalRunId":"run_3","title":null,"regressed":false,
+     "live":{"result":"absent","successRate":null,"reason":"Not replayed"},"candidate":{"result":"mixed","successRate":0.6667,"reason":"Judge failed it: The tests do not cover\nthe new branch"}}
+  ]}`
+}
+
+func loggedIn(t *testing.T, address, token string) {
+	t.Helper()
+
+	path, err := credentials.Path(os.Getenv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := credentials.Address(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	file, err := credentials.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Put(key, credentials.Login{Token: token, User: "person@example.com"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Save(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 type ran struct {
@@ -271,9 +303,13 @@ func TestCheckPassesOnceTheCheckPassesAndSendsNoThreshold(t *testing.T) {
 	for _, want := range []string{
 		"core/delivery/build: PASSED",
 		"0 of 3 tasks regressed (at most 0 may)",
-		`set "Queue fixes"`,
+		"replaying the station's replay set",
 		"scored with the live check, judge",
-		"https://app.example.test/w/acme/team/",
+		"Drain the queue",
+		"Succeeded: Judge passed it: The queue is empty",
+		"Untitled task",
+		"Not replayed",
+		"Succeeded 67%: Judge failed it: The tests do not cover the new branch",
 		"core/delivery/review: UNDECIDED",
 		"not checked, since Terraform knows its prompt only after apply",
 		"note: spotlight_line.fresh is a new line",
@@ -283,9 +319,23 @@ func TestCheckPassesOnceTheCheckPassesAndSendsNoThreshold(t *testing.T) {
 		}
 	}
 
+	if strings.Contains(got.out, "http") {
+		t.Errorf("output links somewhere:\n%s", got.out)
+	}
+
 	written, _ := os.ReadFile(summary)
-	if !strings.Contains(string(written), "| core/delivery/build | passed |") {
-		t.Fatalf("summary:\n%s", written)
+	for _, want := range []string{
+		"| core/delivery/build | passed |",
+		"| Task | Live config | Candidate | Regressed |",
+		"| Drain the queue | Succeeded: Judge passed it: The queue is empty | Succeeded: Judge passed it: The queue is empty | No |",
+		"| Untitled task | Not replayed | Succeeded 67%: Judge failed it: The tests do not cover the new branch | No |",
+	} {
+		if !strings.Contains(string(written), want) {
+			t.Errorf("summary lacks %q:\n%s", want, written)
+		}
+	}
+	if strings.Contains(string(written), "http") || strings.Contains(string(written), "Replay |") {
+		t.Errorf("summary links somewhere:\n%s", written)
 	}
 }
 
@@ -350,7 +400,7 @@ func TestCheckExitsByTheWorstResult(t *testing.T) {
 		contains string
 	}{
 		"passed":    {results: []string{"passed"}, want: 0, contains: "PASSED"},
-		"failed":    {results: []string{"failed"}, want: regressedExit, contains: `REGRESSED task_2 "Drain the queue": failed where the baseline succeeded, check-failed: npm test`},
+		"failed":    {results: []string{"failed"}, want: regressedExit, contains: "1 of 3 tasks regressed (at most 0 may)"},
 		"undecided": {results: []string{"undecided"}, want: undecidedExit, contains: "fewer than half the tasks were scored on both sides"},
 		"timed out": {results: nil, want: undecidedExit, contains: "still running after 1m0s"},
 		"conflict": {
@@ -402,11 +452,14 @@ func TestCheckAnswersInJSON(t *testing.T) {
 		Stations []struct {
 			Station string `json:"station"`
 			Status  string `json:"status"`
-			URL     string `json:"url"`
 			Check   struct {
-				Regressions []struct {
-					TaskID string `json:"taskId"`
-				} `json:"regressions"`
+				Tasks []struct {
+					TaskID    string `json:"taskId"`
+					Regressed bool   `json:"regressed"`
+					Candidate struct {
+						Reason string `json:"reason"`
+					} `json:"candidate"`
+				} `json:"tasks"`
 			} `json:"check"`
 		} `json:"stations"`
 		Notes    []string `json:"notes"`
@@ -415,7 +468,7 @@ func TestCheckAnswersInJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(got.out), &report); err != nil {
 		t.Fatalf("not JSON: %v\n%s", err, got.out)
 	}
-	if got.code != regressedExit || report.ExitCode != regressedExit || len(report.Stations) != 1 || report.Stations[0].Status != "failed" || report.Stations[0].Check.Regressions[0].TaskID != "task_2" || len(report.Notes) == 0 {
+	if got.code != regressedExit || report.ExitCode != regressedExit || len(report.Stations) != 1 || report.Stations[0].Status != "failed" || report.Stations[0].Check.Tasks[0].TaskID != "task_2" || !report.Stations[0].Check.Tasks[0].Regressed || report.Stations[0].Check.Tasks[0].Candidate.Reason != "Checks failed: npm test" || strings.Contains(got.out, "url") || len(report.Notes) == 0 {
 		t.Fatalf("report = %+v", report)
 	}
 }
@@ -694,8 +747,10 @@ func TestStepSummaryEscapesMarkdown(t *testing.T) {
 	report := &checkReport{Stations: []*stationCheck{{
 		Station: "core/delivery/build",
 		Status:  checkFailed,
-		Check: &checkRead{Regressions: []checkRegression{{
-			TaskID: "task_1", Title: &title, Candidate: []string{"failed"},
+		Check: &checkRead{Tasks: []checkTask{{
+			TaskID: "task_1", Title: &title, Regressed: true,
+			Live:      taskSide{Result: "succeeded", Reason: "Judge passed it: | <i>"},
+			Candidate: taskSide{Result: "failed", Reason: "Checks failed:\nnpm test"},
 		}}},
 	}}}
 
@@ -704,7 +759,7 @@ func TestStepSummaryEscapesMarkdown(t *testing.T) {
 	}
 
 	written, _ := os.ReadFile(path)
-	if strings.Contains(string(written), "*all*") || strings.Contains(string(written), "[links](") || strings.Contains(string(written), "<b>") || !strings.Contains(string(written), `\*all\*`) {
+	if strings.Contains(string(written), "*all*") || strings.Contains(string(written), "[links](") || strings.Contains(string(written), "<b>") || strings.Contains(string(written), "<i>") || strings.Contains(string(written), "failed:\n") || !strings.Contains(string(written), `\*all\*`) {
 		t.Fatalf("summary:\n%s", written)
 	}
 }

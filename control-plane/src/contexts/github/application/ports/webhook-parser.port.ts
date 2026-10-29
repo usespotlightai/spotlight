@@ -57,8 +57,16 @@ export type WebhookEvent =
       readonly kind: 'pull-request-closed';
       readonly pullRequest: string;
       readonly repository: string;
+      readonly gitHubId: number | null;
       readonly merge: { readonly commit: string } | null;
       readonly closedAt: Date | null;
+    }
+  | {
+      readonly kind: 'pull-request-reopened';
+      readonly pullRequest: string;
+      readonly repository: string;
+      readonly gitHubId: number | null;
+      readonly reopenedAt: Date | null;
     }
   | {
       readonly kind: 'pull-request-reviewed';

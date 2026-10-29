@@ -8,7 +8,7 @@ import { hoursAgo } from '@/mocks/clock';
 import { PRIYA } from '@/mocks/world/people';
 import { onGitHub } from '@/mocks/world/repositories';
 import { progressOfState } from '@/mocks/world/run-progress';
-import { runStationOf, station } from '@/mocks/world/stations';
+import { LINE_SEARCH, runStationOf, station } from '@/mocks/world/stations';
 
 export const GROWTH_ID = 'team_growth';
 export const EXPERIMENTS_ID = 'line_experiments';
@@ -77,6 +77,7 @@ export const GROWTH_LINES: LineResponseDto[] = [
     repositories: [onGitHub('acme/web')],
     source: null,
     replayCheck: null,
+    search: LINE_SEARCH,
   },
 ];
 

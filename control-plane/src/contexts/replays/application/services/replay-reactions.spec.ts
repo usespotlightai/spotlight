@@ -84,7 +84,7 @@ const dispatching = () =>
 beforeEach(async () => {
   memory = new InMemoryReplays();
   work = new FakeWork();
-  await memory.candidateRepository.add(candidateOf('proposed'));
+  await memory.candidateRepository.add(candidateOf('searched'));
 });
 
 const handedTheAnswer = (oracle: Candidate) => {
@@ -192,7 +192,7 @@ describe('DispatchReplayRuns', () => {
     expect(queued('replay_team')).toBe(REPLAY_RUNS_AT_ONCE);
     expect(queued('replay_search')).toBe(3);
 
-    await memory.searchRepository.save(search.stop(NOW, BY));
+    await memory.searchRepository.save(search.turnOff(NOW));
     await memory.replayRepository.add(
       aReplay({ id: 'replay_late', count: 2, searchId: search.id }),
     );
@@ -435,7 +435,7 @@ describe('HoldSetStartingPoints', () => {
 
     await startingPointHolds.changed(set.id);
     await memory.setRepository.save(
-      (memory.sets.get('set_1') as typeof set).delete(false),
+      (memory.sets.get('set_1') as typeof set).delete(),
     );
     await startingPointHolds.changed(set.id);
     expect(work.startingPointHolds.has('replay-set:set_1')).toBe(false);
@@ -473,14 +473,13 @@ describe('DeleteReplays', () => {
 
     await deleting().replay(ReplayId.of('replay_1'));
     await deleting().set(set.id);
-    await deleting().candidate(CandidateId.of('candidate_proposed'));
+    await deleting().candidate(CandidateId.of('candidate_searched'));
     await deleting().replay(ReplayId.of('replay_1'));
 
     expect(memory.events.map((each) => each.kind)).toEqual([
       'replay.stopped',
       'replays.replay-ended',
       'replay-set.deleted',
-      'replays.candidate-deleted',
     ]);
     expect(memory.replays.size).toBe(0);
     expect(memory.sets.size).toBe(0);
@@ -552,10 +551,10 @@ describe('scoring a replayed task', () => {
   const started = async (candidate = JUDGED): Promise<string> => {
     const replay = aReplay({
       count: 1,
-      candidate: candidateOf('proposed', candidate, RUBRIC),
+      candidate: candidateOf('searched', candidate, RUBRIC),
     }).reserving(1, () => RunId.of('replay_run_0'));
     await memory.candidateRepository.add(
-      candidateOf('proposed', JUDGED, RUBRIC),
+      candidateOf('searched', JUDGED, RUBRIC),
     );
     await memory.replayRepository.add(replay);
     memory.events.length = 0;

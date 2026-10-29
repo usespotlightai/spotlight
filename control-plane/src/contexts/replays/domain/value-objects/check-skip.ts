@@ -1,4 +1,4 @@
-export const CHECK_SKIPS = [
+const CHECK_SKIPS = [
   'no-base',
   'no-checkout',
   'checkout-failed',

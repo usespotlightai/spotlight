@@ -2,13 +2,41 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { LineDto, StationDto } from '@work/application/dto/line.dto';
 import type {
   LineDetail,
+  LineSearchSummary,
   RepositorySummary,
+  SearchPolicySummary,
   StationSummary,
 } from '@work/application/ports/line-reader.port';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
+import type {
+  LineSearchPolicy,
+  SearchPolicy,
+} from '@work/domain/value-objects/search-policy.vo';
 
 export const LineMapper = {
+  lineSearchToSummary(policy: LineSearchPolicy): LineSearchSummary {
+    return policy.toPrimitives();
+  },
+
+  searchToSummary(policy: SearchPolicy | null): SearchPolicySummary | null {
+    return (
+      policy && {
+        enabled: policy.enabled,
+        monthlyCeiling: policy.monthlyCeiling.amount,
+        currency: policy.monthlyCeiling.currency,
+        ceiling: policy.ceiling.amount,
+        period: policy.period.text,
+        onAlert: policy.onAlert,
+        cooldown: policy.cooldown.text,
+        agent: policy.agent?.toPrimitives() ?? null,
+        iterations: policy.iterations,
+        repeats: policy.repeats,
+        objective: policy.objective,
+      }
+    );
+  },
+
   summaryToDto(summary: StationSummary): StationDto {
     return {
       id: summary.id,
@@ -25,12 +53,16 @@ export const LineMapper = {
         ? { ...summary.judge, claims: [...summary.judge.claims] }
         : null,
       alerts: summary.alerts.map((each) => ({ ...each })),
+      search: summary.search && {
+        ...summary.search,
+        agent: summary.search.agent && { ...summary.search.agent },
+      },
       kind: summary.kind,
       skills: summary.skills,
     };
   },
 
-  stationToDto(station: Station): StationDto {
+  stationToDto(station: Station, line: LineSearchPolicy): StationDto {
     return {
       id: station.id.value,
       key: station.key.value,
@@ -59,6 +91,7 @@ export const LineMapper = {
         below: each.below,
         over: each.over,
       })),
+      search: LineMapper.searchToSummary(line.resolvedFor(station)),
       kind: station.kind,
       skills: station.skills.map((each) => each.value),
     };
@@ -77,7 +110,9 @@ export const LineMapper = {
       id: line.id.value,
       key: line.key.value,
       name: line.name.value,
-      stations: line.stations.map(LineMapper.stationToDto),
+      stations: line.stations.map((each) =>
+        LineMapper.stationToDto(each, line.searchPolicy),
+      ),
       reactions: line.reactions.map((each) => ({
         happening: each.happening.value,
         from: each.from?.value ?? null,
@@ -95,6 +130,7 @@ export const LineMapper = {
             minGain: line.replayCheck.minGain,
           }
         : null,
+      search: LineMapper.lineSearchToSummary(line.searchPolicy),
     };
   },
 
@@ -108,6 +144,7 @@ export const LineMapper = {
       repositories: detail.repositories.map((each) => ({ ...each })),
       source: detail.source ? { ...detail.source } : null,
       replayCheck: detail.replayCheck ? { ...detail.replayCheck } : null,
+      search: { ...detail.search },
     };
   },
 };

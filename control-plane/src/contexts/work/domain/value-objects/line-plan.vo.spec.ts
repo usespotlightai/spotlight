@@ -11,6 +11,10 @@ import {
 } from '@work/domain/value-objects/line-plan.vo';
 import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import {
+  LineSearchPolicy,
+  StationSearchOverride,
+} from '@work/domain/value-objects/search-policy.vo';
 import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { StationCheck } from '@work/domain/value-objects/station-check.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
@@ -42,6 +46,7 @@ const station = (
   memories: false,
   judge: null,
   alerts: [],
+  search: null,
   tools: [],
   skills: [],
   passesTo: [],
@@ -249,6 +254,75 @@ describe('LinePlan', () => {
       of: 'station',
       station: 'backlog',
       field: 'judge',
+    });
+  });
+
+  it('rejects search settings at the backlog, where nothing runs to improve', () => {
+    const error = errorOf(() =>
+      plan({
+        stations: [
+          backlog({
+            passesTo: [StationKey.of('code-review')],
+            search: StationSearchOverride.of({ enabled: false }),
+          }),
+          station('code-review', { ends: true }),
+          completed(),
+        ],
+      }),
+    );
+
+    expect(error.message).toMatch(/no runs to improve/);
+    expect(error.part).toEqual({
+      of: 'station',
+      station: 'backlog',
+      field: 'search',
+    });
+  });
+
+  it('rejects a station search ceiling above the line’s monthly ceiling', () => {
+    const error = errorOf(() =>
+      plan({
+        search: LineSearchPolicy.of({ monthlyCeiling: 20 }),
+        stations: [
+          backlog({ passesTo: [StationKey.of('code-review')] }),
+          station('code-review', {
+            ends: true,
+            search: StationSearchOverride.of({ ceiling: 25 }),
+          }),
+          completed(),
+        ],
+      }),
+    );
+
+    expect(error.message).toMatch(/monthly_ceiling, 20 USD/);
+    expect(error.part).toEqual({
+      of: 'station',
+      station: 'code-review',
+      field: 'search',
+      within: ['ceiling'],
+    });
+  });
+
+  it('checks a station’s search settings against the default policy when the line sets none', () => {
+    const error = errorOf(() =>
+      plan({
+        stations: [
+          backlog({ passesTo: [StationKey.of('code-review')] }),
+          station('code-review', {
+            ends: true,
+            search: StationSearchOverride.of({ period: '1d' }),
+          }),
+          completed(),
+        ],
+      }),
+    );
+
+    expect(plan().search).toBeNull();
+    expect(error.part).toEqual({
+      of: 'station',
+      station: 'code-review',
+      field: 'search',
+      within: ['cooldown'],
     });
   });
 

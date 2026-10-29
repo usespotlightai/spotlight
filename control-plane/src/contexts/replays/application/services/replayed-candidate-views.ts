@@ -242,7 +242,6 @@ const searchedOf = (
       {
         candidateId: each.candidateId.value,
         name: proposal.name.value,
-        kind: 'searched',
         hypothesis: candidate?.search?.hypothesis.value ?? null,
         fingerprint: candidate?.fingerprint.value ?? null,
         changes: changesOf(candidate),
@@ -287,40 +286,6 @@ const searchedOf = (
       } satisfies CandidateWithoutChartStatus,
     ];
   });
-};
-
-const proposedOf = (
-  replay: Replay,
-  candidate: Candidate,
-  baseline: Replay | null,
-  minGain: number,
-): CandidateWithoutChartStatus => {
-  const currency = replay.ceiling.currency;
-  const scored = scoredOn(replay, null, currency);
-
-  return {
-    candidateId: candidate.id.value,
-    name: candidate.name.value,
-    kind: 'proposed',
-    hypothesis: null,
-    fingerprint: candidate.fingerprint.value,
-    changes: changesOf(candidate),
-    replayId: replay.id.value,
-    replayState: replay.current,
-    replayedAt: replay.startedAt.toISOString(),
-    tasks: tasksIn(replay.entries.map((each) => each.taskId)),
-    runs: replay.originals.length,
-    successRate: scored.score,
-    interval: intervalView(scored.interval),
-    scored: scored.scored,
-    heldOut: null,
-    costPerRun: scored.costPerRun,
-    currency,
-    ...gainOverReference(replay, baseline, minGain),
-    onFrontier: null,
-    search: null,
-    pullRequest: null,
-  };
 };
 
 const withChartStatus = (
@@ -458,42 +423,7 @@ export const replayedCandidatesView = (
         standardOf(search.setId.value).minGain,
       ).map((candidate) => ({ setId: search.setId.value, candidate })),
     );
-  const proposedReplays = grouped(
-    seen.recent.filter(
-      (replay) =>
-        seen.period.includes(replay.startedAt) &&
-        baselines.has(replay.setId.value) &&
-        seen.candidates.some(
-          (each) => each.isProposed && each.id.equals(replay.candidateId),
-        ),
-    ),
-    (replay) => `${replay.setId.value}:${replay.candidateId.value}`,
-  );
-  const proposed: Placed[] = [...proposedReplays.values()].flatMap(
-    (replays) => {
-      const replay =
-        replays.find((each) => each.current === 'finished') ?? replays[0];
-      const candidate = seen.candidates.find((each) =>
-        each.id.equals(replay?.candidateId ?? null),
-      );
-
-      return replay && candidate
-        ? [
-            {
-              setId: replay.setId.value,
-              candidate: proposedOf(
-                replay,
-                candidate,
-                baselineAt(replay.setId.value),
-                standardOf(replay.setId.value).minGain,
-              ),
-            },
-          ]
-        : [];
-    },
-  );
-
-  const bySet = grouped([...searched, ...proposed], (each) => each.setId);
+  const bySet = grouped(searched, (each) => each.setId);
   const shown = seen.sets.flatMap((set) => {
     const placed = bySet.get(set.id.value);
     const baseline = baselineAt(set.id.value);
@@ -504,9 +434,7 @@ export const replayedCandidatesView = (
             station: set.station,
             set: {
               setId: set.id.value,
-              name: set.name.value,
               stationGone: set.isAtGoneStation,
-              gatesChanges: set.gatesChanges,
               health: healthOf(set, seen.summaries, standardOf(set.id.value)),
               ...setWithChartStatus(
                 baseline ? baselineView(baseline, seen.candidates) : null,

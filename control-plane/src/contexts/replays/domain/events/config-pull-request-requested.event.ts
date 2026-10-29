@@ -9,7 +9,6 @@ export class ConfigPullRequestRequested implements ConfigurationChanged {
   constructor(
     readonly pullRequestId: ConfigPullRequestId,
     readonly teamId: TeamId,
-    readonly generation: number,
     readonly change: ConfigurationChange,
   ) {}
 }

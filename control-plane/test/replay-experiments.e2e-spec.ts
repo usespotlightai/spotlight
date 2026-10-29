@@ -1,9 +1,37 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
+import { EventDelivery } from '@platform/events/event-delivery';
+import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { WORK, type WorkPort } from '@replays/application/ports/work.port';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
+import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
+import { healthView } from '@replays/application/services/replay-views';
+import { SetHealths } from '@replays/application/services/set-healths.service';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
+import {
+  taskComparisons,
+  totalsOf,
+} from '@replays/domain/services/replay-results';
+import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { DrizzleCandidateRepository } from '@replays/infrastructure/persistence/drizzle/repositories/candidate.repository';
+import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
+import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
+import {
+  TEAM_DELETED,
+  type TeamDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-deleted.integration-event';
+import {
+  TRANSACTION,
+  type TransactionPort,
+} from '@shared-kernel/application/ports/transaction.port';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import {
   ARCHIVE_REFERENCES,
   type ArchiveReferencesPort,
@@ -26,10 +54,12 @@ import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { keptSet, runEnded } from './support/kept-sets';
+import { plannedCandidate, replayOf, startedReplay } from './support/replays';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
@@ -43,8 +73,6 @@ const SHIP = randomUUID();
 const POLISH = randomUUID();
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 const DAY = 24 * 60 * 60_000;
-const TOKEN_HEADER = 'spotlight-workspace-token';
-
 const attachmentStore = {
   received: async () => [],
   taken: async () => undefined,
@@ -65,8 +93,6 @@ const archiveStore: WorkspaceArchiveStorePort = {
 let app: INestApplication;
 let db: DrizzleDatabase;
 let team: Awaited<ReturnType<typeof createTeam>>;
-let readToken: string;
-let planToken: string;
 let stranger: string;
 
 const http = () => served(app);
@@ -84,22 +110,14 @@ const as = (who: string) => ({
   delete: (path: string) => http().delete(path).set(TEST_USER_HEADER, who),
 });
 
-const bearing = (token: string) => ({
-  get: (path: string) =>
-    http().get(path).set('Authorization', `Bearer ${token}`),
-  post: (path: string, body?: object) =>
-    http()
-      .post(path)
-      .set('Authorization', `Bearer ${token}`)
-      .send(body ?? {}),
-});
-
 const owner = () => as(team.owner.value);
 
-const teamPath = () => `/api/teams/${team.teamId.value}`;
-const stationPath = (stationId: string = BUILD) =>
-  `${teamPath()}/lines/${DELIVERY}/stations/${stationId}`;
+const at = (stationId: string) => ({
+  workspaceId: team.workspaceId.value,
+  stationId,
+});
 
+const teamPath = () => `/api/teams/${team.teamId.value}`;
 interface Original {
   readonly taskId: string;
   readonly runId: string;
@@ -112,6 +130,7 @@ const anOriginal = async (
     startedFrom?: boolean;
     openedFrom?: string;
     originStationId?: string;
+    endedAt?: Date;
   } = {},
 ): Promise<Original> => {
   const stationId = input.stationId ?? BUILD;
@@ -119,7 +138,7 @@ const anOriginal = async (
   const taskId = randomUUID();
   const runId = randomUUID();
   const archiveId = randomUUID();
-  const at = new Date();
+  const at = input.endedAt ?? new Date();
 
   await db.insert(schema.task).values({
     id: taskId,
@@ -191,54 +210,18 @@ const anOriginal = async (
   return { taskId, runId, archiveId };
 };
 
-const withDisposition = async (
-  original: Original,
-  how: {
-    ending: 'completed' | 'failed';
-    humanAction: 'accepted' | 'sent-back' | null;
-  },
-) => {
-  await db.insert(schema.runRecord).values({
-    runId: original.runId,
-    workspaceId: team.workspaceId.value,
-    teamId: team.teamId.value,
-    lineId: DELIVERY,
-    stationId: BUILD,
-    taskId: original.taskId,
-    harness: 'claude-code',
-    repositories: [],
-    skills: [],
-    endedAt: new Date(),
-    ending: how.ending,
-    visit: 1,
-    firstHumanAction: how.humanAction,
-    firstHumanActionAt: how.humanAction ? new Date() : null,
-  });
-};
+const refreshedBefore = (setId: string) =>
+  app.get(RefreshKeptSets).refreshBefore(ReplaySetId.of(setId));
 
-const createSet = async (name: string, ...originals: Original[]) =>
-  createSetAt(BUILD, name, ...originals);
+const createSet = (...originals: Original[]) =>
+  createSetAt(BUILD, ...originals);
 
-const createSetAt = async (
-  stationId: string,
-  name: string,
-  ...originals: Original[]
-) => {
-  const created = await owner()
-    .post(`${stationPath(stationId)}/replay-sets`, { name })
-    .expect(201);
-  const setId = created.body.id as string;
-
-  for (const each of originals) {
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-        runId: each.runId,
-      })
-      .expect(204);
-  }
-
-  return setId;
-};
+const createSetAt = (stationId: string, ...originals: Original[]) =>
+  keptSet(
+    app,
+    { workspaceId: team.workspaceId.value, stationId },
+    originals.map((each) => each.runId),
+  );
 
 const replayRow = async (replayId: string) => {
   const [row] = await db
@@ -344,50 +327,11 @@ const untilEnded = (runId: string) =>
     return entry?.result !== null && entry?.measured === true;
   });
 
-const startReplay = async (
-  setId: string,
-  candidate: string,
-  amount: number,
-): Promise<{ id: string; baselineId: string | null }> => {
-  const started = (
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/replays`, {
-        candidate,
-        ceiling: { amount, currency: 'USD' },
-      })
-      .expect(201)
-  ).body as {
-    id: string;
-    ceiling: { amount: number; currency: string };
-    baseline: {
-      id: string;
-      ceiling: { amount: number; currency: string };
-      status: string;
-    } | null;
-  };
+const startReplay = (setId: string, candidate: string, amount: number) =>
+  startedReplay(app, setId, { candidate, amount });
 
-  expect(started.ceiling).toEqual({ amount, currency: 'USD' });
-  if (started.baseline) {
-    expect(started.baseline.ceiling).toEqual({ amount, currency: 'USD' });
-    expect(started.baseline.status).toBe(
-      started.baseline.id === started.id ? 'started' : 'starting',
-    );
-  }
-
-  return { id: started.id, baselineId: started.baseline?.id ?? null };
-};
-
-const tokenWith = async (scopes: readonly string[]) => {
-  const issued = await http()
-    .post(`/api/resources/workspaces/${team.workspaceId.value}/tokens`)
-    .set(TEST_USER_HEADER, team.owner.value)
-    .set('Idempotency-Key', randomUUID())
-    .send({ name: `replays-${scopes.join('-')}`, scopes });
-
-  expect(issued.status).toBe(201);
-
-  return issued.headers[TOKEN_HEADER] as string;
-};
+const setOf = async (stationId: string = BUILD) =>
+  app.get(DrizzleReplaySetRepository).ofStation(stationId);
 
 beforeAll(async () => {
   app = await openApp((module) =>
@@ -498,9 +442,6 @@ beforeAll(async () => {
       ],
     })
     .expect(200);
-
-  readToken = await tokenWith(['read']);
-  planToken = await tokenWith(['plan']);
 }, 60_000);
 
 afterAll(async () => {
@@ -509,110 +450,77 @@ afterAll(async () => {
 });
 
 describe('a replay set', () => {
-  it('is built from a station’s past runs, rejecting those that cannot be replayed and those of another station', async () => {
+  it('is kept for a station once a run of it ends, filled from the station’s past runs that can be replayed', async () => {
     const first = await anOriginal();
     const second = await anOriginal();
     const unanchored = await anOriginal({ startedFrom: false });
     const elsewhere = await anOriginal({ stationId: SHIP });
 
-    const picks = (
-      await owner().get(`${stationPath()}/replayable-runs`).expect(200)
-    ).body as {
-      runId: string;
-      unreplayableReason: string | null;
-      title: string;
-    }[];
+    await runEnded(app, at(BUILD), first.runId);
+    await runEnded(app, at(BUILD), second.runId);
+    await app.get(RefreshKeptSets).processDue();
 
-    expect(
-      picks.find((each) => each.runId === first.runId)?.unreplayableReason,
-    ).toBeNull();
-    expect(
-      picks.find((each) => each.runId === unanchored.runId)?.unreplayableReason,
-    ).toBe('no-starting-point');
-    expect(picks.some((each) => each.runId === elsewhere.runId)).toBe(false);
+    const set = await setOf();
+    const runs = set?.runs.map((each) => each.value);
 
-    const setId = await createSet('Queue fixes', first, second);
-
-    const rejected = await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-        runId: unanchored.runId,
-      })
-      .expect(409);
-    expect(rejected.body.detail).toContain('never reported a starting point');
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-        runId: elsewhere.runId,
-      })
-      .expect(422);
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/entries`, {
-        runId: first.runId,
-      })
-      .expect(409);
-
-    await owner()
-      .patch(`${teamPath()}/replay-sets/${setId}`, { name: 'Hard queues' })
-      .expect(204);
-
-    const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
-      .body as {
-      id: string;
-      name: string;
-      entries: {
-        runId: string;
-        unreplayableReason: string | null;
-        title: string;
-        state: string;
-        endedAt: string | null;
-      }[];
-    }[];
-    const set = sets.find((each) => each.id === setId);
-
-    expect(set?.name).toBe('Hard queues');
-    expect(
-      set?.entries.map((each) => [
-        each.runId,
-        each.unreplayableReason,
-        each.title,
-        each.state,
-      ]),
-    ).toEqual([
-      [
-        first.runId,
-        null,
-        `Drain queue ${first.runId.slice(0, 4)}`,
-        'completed',
-      ],
-      [
-        second.runId,
-        null,
-        `Drain queue ${second.runId.slice(0, 4)}`,
-        'completed',
-      ],
-    ]);
+    expect(runs).toEqual(expect.arrayContaining([first.runId, second.runId]));
+    expect(runs).not.toContain(unanchored.runId);
+    expect(runs).not.toContain(elsewhere.runId);
     expect(set?.entries.every((each) => each.endedAt !== null)).toBe(true);
+    expect(set?.refreshedAt).not.toBeNull();
+    expect(set?.lastRefresh?.added.map((each) => each.value)).toEqual(
+      expect.arrayContaining([second.runId]),
+    );
+    expect(await setOf(SHIP)).toBeNull();
   });
 
-  it('shows a run whose task was deleted as one that can no longer be replayed', async () => {
-    const original = await anOriginal();
-    const setId = await createSet('Deleted later', original);
+  it('is kept once for a station when several of its runs end at the same time', async () => {
+    await Promise.all(Array.from({ length: 5 }, () => runEnded(app, at(SHIP))));
 
+    expect(
+      await db
+        .select()
+        .from(schema.replaySet)
+        .where(eq(schema.replaySet.stationId, SHIP)),
+    ).toHaveLength(1);
+  });
+
+  it('lets go of a run that ended more than 90 days ago, and never takes it back', async () => {
+    const retired = await anOriginal({
+      endedAt: new Date(Date.now() - 100 * DAY),
+    });
+    const kept = await anOriginal();
+    const setId = await createSet(retired, kept);
+    const runsOfSet = async () =>
+      (await setOf())?.runs.map((each) => each.value);
+
+    expect(await refreshedBefore(setId)).toBe(true);
+    expect(await runsOfSet()).not.toContain(retired.runId);
+    expect(await runsOfSet()).toContain(kept.runId);
+    expect(
+      (await setOf())?.lastRefresh?.removed.map((each) => each.value),
+    ).toEqual([retired.runId]);
+
+    expect(await refreshedBefore(setId)).toBe(true);
+    expect(await runsOfSet()).not.toContain(retired.runId);
+  });
+
+  it('takes a run whose task was deleted as one that can no longer be replayed', async () => {
+    const original = await anOriginal();
+
+    await createSet(original);
     await db.delete(schema.task).where(eq(schema.task.id, original.taskId));
 
-    const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
-      .body as {
-      id: string;
-      entries: { unreplayableReason: string | null }[];
-    }[];
+    const [summary] = await app
+      .get<WorkPort>(WORK)
+      .runSummaries(team.workspaceId, [RunId.of(original.runId)]);
 
-    expect(
-      sets.find((each) => each.id === setId)?.entries[0]?.unreplayableReason,
-    ).toBe('task-gone');
+    expect(summary?.unreplayableReason).toBe('task-gone');
   });
 
-  it('keeps the archives its runs started from while it holds them, and releases them after', async () => {
+  it('keeps the archives its runs started from while it holds them, and releases them once the set lets go of the run', async () => {
     const original = await anOriginal();
-    const setId = await createSet('Pinned', original);
+    const setId = await createSet(original);
     const references = app.get<ArchiveReferencesPort>(ARCHIVE_REFERENCES);
     const archives = app.get(DrizzleWorkspaceArchiveRepository);
     const archiveId = WorkspaceArchiveId.of(original.archiveId);
@@ -633,9 +541,7 @@ describe('a replay set', () => {
 
     expect(await due()).toBeUndefined();
 
-    await owner()
-      .delete(`${teamPath()}/replay-sets/${setId}/entries/${original.runId}`)
-      .expect(204);
+    await createSet(await anOriginal());
 
     await eventually(async () => (await due()) !== undefined);
 
@@ -644,159 +550,7 @@ describe('a replay set', () => {
     expect(
       (await archives.find(archiveId))?.removableAt(at, facts ?? never()),
     ).toBe(true);
-  });
-
-  it('shows what it is made of, warns when one outcome crowds it, and suggests recent runs that even it out without adding them', async () => {
-    const failures: Original[] = [];
-    for (let at = 0; at < 4; at += 1) {
-      const failed = await anOriginal();
-      await withDisposition(failed, { ending: 'failed', humanAction: null });
-      failures.push(failed);
-    }
-    const fromSlack = await anOriginal({ openedFrom: 'slack' });
-    await withDisposition(fromSlack, { ending: 'failed', humanAction: null });
-    const passedOn = await anOriginal({ originStationId: SHIP });
-    await withDisposition(passedOn, { ending: 'failed', humanAction: null });
-    const accepted = await anOriginal();
-    await withDisposition(accepted, {
-      ending: 'completed',
-      humanAction: 'accepted',
-    });
-    const setId = await createSet(
-      'Lopsided',
-      ...failures,
-      fromSlack,
-      passedOn,
-      accepted,
-    );
-
-    const sentBack = await anOriginal();
-    await withDisposition(sentBack, {
-      ending: 'completed',
-      humanAction: 'sent-back',
-    });
-    const alsoAccepted = await anOriginal();
-    await withDisposition(alsoAccepted, {
-      ending: 'completed',
-      humanAction: 'accepted',
-    });
-    const alsoFailed = await anOriginal();
-    await withDisposition(alsoFailed, { ending: 'failed', humanAction: null });
-
-    const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
-      .body as {
-      id: string;
-      composition: {
-        outcomes: { outcome: string; count: number }[];
-        origins: { origin: string; count: number }[];
-        oldest: string | null;
-        median: string | null;
-        newest: string | null;
-        balanceWarning: {
-          dominant: string;
-          count: number;
-          entries: number;
-        } | null;
-      };
-      entries: { runId: string; outcome: string; origin: string | null }[];
-    }[];
-    const set = sets.find((each) => each.id === setId);
-
-    expect(set?.composition.outcomes).toEqual([
-      { outcome: 'accepted', count: 1 },
-      { outcome: 'sent-back', count: 0 },
-      { outcome: 'asked', count: 0 },
-      { outcome: 'failed', count: 6 },
-      { outcome: 'other', count: 0 },
-    ]);
-    expect(set?.composition.origins).toEqual([
-      { origin: 'person', count: 5 },
-      { origin: 'slack', count: 1 },
-      { origin: 'station', count: 1 },
-    ]);
-    expect(set?.composition.balanceWarning).toEqual({
-      dominant: 'failed',
-      count: 6,
-      entries: 7,
-    });
-    expect(set?.composition.oldest).not.toBeNull();
-    expect(set?.composition.newest).not.toBeNull();
-    expect(
-      set?.entries.find((each) => each.runId === fromSlack.runId),
-    ).toMatchObject({ outcome: 'failed', origin: 'slack' });
-    expect(
-      set?.entries.find((each) => each.runId === passedOn.runId)?.origin,
-    ).toBe('station');
-
-    const suggested = (
-      await owner()
-        .get(`${teamPath()}/replay-sets/${setId}/suggestions`)
-        .expect(200)
-    ).body as {
-      runId: string;
-      outcome: string;
-      unreplayableReason: string | null;
-    }[];
-
-    expect(suggested.length).toBeLessThanOrEqual(5);
-    expect(suggested.map((each) => each.runId)).toEqual(
-      expect.arrayContaining([sentBack.runId, alsoAccepted.runId]),
-    );
-    expect(
-      suggested.every(
-        (each) =>
-          (each.outcome === 'accepted' || each.outcome === 'sent-back') &&
-          each.unreplayableReason === null,
-      ),
-    ).toBe(true);
-    expect(suggested.some((each) => each.runId === alsoFailed.runId)).toBe(
-      false,
-    );
-    expect(suggested.some((each) => each.runId === accepted.runId)).toBe(false);
-
-    const after = (
-      await owner().get(`${stationPath()}/replay-sets`).expect(200)
-    ).body as { id: string; entries: unknown[] }[];
-    expect(after.find((each) => each.id === setId)?.entries).toHaveLength(7);
-  });
-
-  it('is read by those who may read the team, changed by those who may plan, and unseen by anyone else', async () => {
-    const setId = await createSet('Access');
-
-    await as(stranger).get(`${stationPath()}/replay-sets`).expect(404);
-    await as(stranger)
-      .post(`${stationPath()}/replay-sets`, { name: 'Mine' })
-      .expect(404);
-    await bearing(readToken).get(`${stationPath()}/replay-sets`).expect(200);
-    await bearing(readToken)
-      .get(`${stationPath()}/replayable-runs`)
-      .expect(200);
-    await bearing(readToken)
-      .get(`${teamPath()}/replay-sets/${setId}/replays`)
-      .expect(200);
-    await bearing(readToken)
-      .get(`${teamPath()}/replay-sets/${setId}/suggestions`)
-      .expect(200);
-    await as(stranger)
-      .get(`${teamPath()}/replay-sets/${setId}/suggestions`)
-      .expect(404);
-
-    const forbidden = await bearing(readToken)
-      .post(`${stationPath()}/replay-sets`, { name: 'Read only' })
-      .expect(403);
-    expect(forbidden.body.permission).toBe('plan');
-
-    await bearing(planToken)
-      .post(`${stationPath()}/replay-sets`, { name: 'Planned' })
-      .expect(201);
-    await owner()
-      .post(`${stationPath()}/replay-sets`, { name: '' })
-      .expect(422);
-    await owner()
-      .get(
-        `${teamPath()}/lines/${DELIVERY}/stations/${randomUUID()}/replay-sets`,
-      )
-      .expect(404);
+    expect((await setOf())?.includes(RunId.of(original.runId))).toBe(false);
   });
 });
 
@@ -868,25 +622,18 @@ const proposed = async (prompt: string): Promise<string> => {
   const live = await app
     .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
     .live(DELIVERY, BUILD);
-  const answer = await http()
-    .post(`/api/resources/lines/${DELIVERY}/stations/build/replay-candidates`)
-    .set(TEST_USER_HEADER, team.owner.value)
-    .set('Idempotency-Key', randomUUID())
-    .send({
-      name: `Shorter prompt ${randomUUID().slice(0, 8)}`,
-      station: { ...live?.station, prompt },
-    });
 
-  expect(answer.status).toBe(201);
-
-  return answer.body.id as string;
+  return plannedCandidate(app, DELIVERY, 'build', {
+    ...live?.station,
+    prompt,
+  });
 };
 
 describe('a replay', () => {
   it('replays a set under a candidate beside a baseline of the live config, two runs of the team at a time, and compares them task by task', async () => {
     const first = await anOriginal();
     const second = await anOriginal();
-    const setId = await createSet('Compared', first, second);
+    const setId = await createSet(first, second);
     const candidate = await proposed('Build it, then drain the queue.');
 
     const { id, baselineId } = await startReplay(setId, candidate, 5);
@@ -929,70 +676,51 @@ describe('a replay', () => {
         (await replayRow(baselineId as string))?.state === 'finished',
     );
 
-    const listed = (
-      await owner()
-        .get(`${teamPath()}/replay-sets/${setId}/replays`)
-        .expect(200)
-    ).body as {
-      id: string;
-      isBaseline: boolean;
-      candidate: { kind: string; fingerprint: string };
-      totals: { completed: number; failed: number; spent: { amount: number } };
-    }[];
-    const baseline = listed.find((each) => each.id === baselineId);
-    const replayed = listed.find((each) => each.id === id);
+    const replayed = await replayOf(app, id);
+    const baseline = await replayOf(app, baselineId as string);
+    const live = await app
+      .get(DrizzleCandidateRepository)
+      .find(baseline.candidateId);
 
-    expect(baseline?.isBaseline).toBe(true);
-    expect(baseline?.candidate.kind).toBe('live');
+    expect(baseline.baseline).toBe(true);
+    expect(live?.kind).toBe('live');
     expect(
       (await runRow((await replayRunsOf([baselineId as string]))[0] ?? ''))
         ?.stationFingerprint,
-    ).toBe(baseline?.candidate.fingerprint);
-    expect(baseline?.totals.completed).toBe(2);
-    expect(replayed?.isBaseline).toBe(false);
-    expect(replayed?.totals.completed).toBe(1);
-    expect(replayed?.totals.failed).toBe(1);
-    expect(replayed?.totals.spent.amount).toBeCloseTo(0.2);
+    ).toBe(live?.fingerprint.value);
+    expect(totalsOf(baseline).endings.completed).toBe(2);
+    expect(replayed.baseline).toBe(false);
+    expect(totalsOf(replayed).endings).toMatchObject({
+      completed: 1,
+      failed: 1,
+    });
+    expect(totalsOf(replayed).spent.amount).toBeCloseTo(0.2);
+    expect(replayed.pairwiseReferenceId?.value).toBe(baselineId);
 
-    const detail = (
-      await owner().get(`${teamPath()}/replays/${id}`).expect(200)
-    ).body as {
-      baselineReplayId: string;
-      comparison: {
-        originalRunId: string;
-        regressed: boolean;
-        costDelta: number | null;
-        candidate: { result: string }[];
-        baseline: { result: string }[];
-      }[];
-    };
+    const comparison = taskComparisons(replayed, baseline);
 
-    expect(detail.baselineReplayId).toBe(baselineId);
     expect(
-      detail.comparison.map((each) => [
-        each.originalRunId,
-        each.candidate[0]?.result,
-        each.baseline[0]?.result,
+      comparison.map((each) => [
+        each.original,
+        each.candidate[0]?.succeeded,
+        each.baseline[0]?.succeeded,
         each.regressed,
       ]),
     ).toEqual([
-      [first.runId, 'unscored', 'unscored', false],
-      [second.runId, 'failed', 'unscored', false],
+      [first.runId, null, null, false],
+      [second.runId, false, null, false],
     ]);
-    expect(detail.comparison[0]?.costDelta).toBeCloseTo(-0.1);
-
-    const ran = (await owner().get(`${teamPath()}/replays/${id}`).expect(200))
-      .body as { entries: { runId: string; fingerprint: string | null }[] };
-    for (const entry of ran.entries) {
-      expect(entry.fingerprint).toBe(
-        (await runRow(entry.runId))?.stationFingerprint,
+    expect(comparison[0]?.costDelta).toBeCloseTo(-0.1);
+    for (const entry of replayed.entries) {
+      expect(entry.fingerprint?.value).toBe(
+        (await runRow(entry.run?.value ?? ''))?.stationFingerprint,
       );
     }
   });
 
-  it('tells each replay run what it replays, under which candidate, and what it did and spent', async () => {
+  it('keeps each replay run out of the runs a person reads, while it records what it replays', async () => {
     const original = await anOriginal();
-    const setId = await createSet('Read back', original);
+    const setId = await createSet(original);
     const candidate = await proposed('Build it, and say what you drained.');
     const { id, baselineId } = await startReplay(setId, candidate, 5);
     await eventually(
@@ -1006,116 +734,35 @@ describe('a replay', () => {
     }
 
     const [runId] = await replayRunsOf([id]);
-    const replayRun = (
-      await owner().get(`${teamPath()}/replay-runs/${runId}`).expect(200)
-    ).body as {
-      id: string;
-      state: string;
-      station: { id: string } | null;
-      original: { runId: string; taskId: string; title: string };
-      spend: { cost: number; currency: string } | null;
-      journals: { runId: string }[];
-      briefing: string;
-      agent: { harness: string; model: string | null; effort: string | null };
-      repositories: string[];
-    };
+    const run = await runRow(runId ?? '');
 
-    expect(replayRun.id).toBe(runId);
-    expect(replayRun.state).toBe('completed');
-    expect(replayRun.station?.id).toBe(BUILD);
-    expect(replayRun.original).toEqual({
-      runId: original.runId,
-      taskId: original.taskId,
-      title: `Drain queue ${original.runId.slice(0, 4)}`,
-    });
-    expect(replayRun.spend).toMatchObject({ cost: 0.3, currency: 'USD' });
-    expect(replayRun.journals.map((each) => each.runId)).toEqual([runId]);
+    expect(run?.state).toBe('completed');
+    expect(run?.replayOfRunId).toBe(original.runId);
+    expect(run?.taskId).toBeNull();
+    expect(
+      (run?.spec as { briefing?: string } | undefined)?.briefing,
+    ).toBeTruthy();
 
-    const [stored] = await db
-      .select({ spec: schema.run.spec })
-      .from(schema.run)
-      .where(eq(schema.run.id, runId));
-
-    expect(replayRun.briefing).toBe(
-      (stored?.spec as { briefing: string } | undefined)?.briefing,
-    );
-    expect(replayRun.agent.harness).toBe('claude-code');
-    expect(replayRun.repositories).toEqual(['acme/api']);
-
-    const ofRun = (
-      await owner().get(`${teamPath()}/replay-runs/${runId}/replay`).expect(200)
-    ).body as {
-      replayId: string;
-      setId: string;
-      setName: string;
-      candidate: { id: string };
-      isBaseline: boolean;
-      entry: { runId: string; originalRunId: string };
-    };
-
-    expect(ofRun).toMatchObject({
-      replayId: id,
-      setId,
-      setName: 'Read back',
-      candidate: { id: candidate },
-      isBaseline: false,
-      entry: { runId, originalRunId: original.runId },
-    });
-
-    const config = (
-      await owner().get(`${teamPath()}/runs/${runId}/config`).expect(200)
-    ).body as { fingerprint: string | null; changedSince: unknown };
-
-    expect(config.fingerprint).toBe(
-      (await runRow(runId ?? ''))?.stationFingerprint,
-    );
-    expect(config.changedSince).toBeNull();
-
-    const compared = (
-      await owner().get(`${teamPath()}/replays/${id}`).expect(200)
-    ).body as { comparison: { title: string | null }[] };
-
-    expect(compared.comparison.map((each) => each.title)).toEqual([
-      `Drain queue ${original.runId.slice(0, 4)}`,
-    ]);
-
-    const outsider = randomUUID();
-    await db.insert(schema.user).values({
-      id: outsider,
-      name: 'Oli',
-      email: `${outsider}@example.com`,
-    });
-    await db.insert(schema.workspaceMember).values({
-      workspaceId: team.workspaceId.value,
-      userId: outsider,
-      role: 'member',
-    });
-
-    await bearing(readToken)
-      .get(`${teamPath()}/replay-runs/${runId}`)
-      .expect(200);
-    await as(outsider).get(`${teamPath()}/runs/${runId}/config`).expect(404);
-    await owner().get(`${teamPath()}/runs/${runId}/config`).expect(200);
-    await as(outsider).get(`${teamPath()}/replay-runs/${runId}`).expect(404);
-    await as(outsider).get(`/api/runs/${runId}/stream`).expect(404);
-    await as(outsider)
-      .get(`${teamPath()}/replay-runs/${runId}/replay`)
-      .expect(404);
-    await as(stranger).get(`${teamPath()}/replay-runs/${runId}`).expect(404);
-    await as(stranger)
-      .get(`${teamPath()}/replay-runs/${runId}/replay`)
-      .expect(404);
-    await owner()
-      .get(`${teamPath()}/replay-runs/${original.runId}`)
-      .expect(404);
-    await owner()
-      .get(`${teamPath()}/replay-runs/${original.runId}/replay`)
-      .expect(404);
+    for (const path of [
+      `${teamPath()}/replay-runs/${runId}`,
+      `${teamPath()}/replay-runs/${runId}/replay`,
+      `${teamPath()}/runs/${runId}/notes`,
+      `${teamPath()}/runs/${runId}/config`,
+      `/api/runs/${runId}/stream`,
+    ]) {
+      await owner().get(path).expect(404);
+    }
+    expect(
+      (
+        (await owner().get(`${teamPath()}/runs`).expect(200)).body as {
+          id: string;
+        }[]
+      ).some((each) => each.id === runId),
+    ).toBe(false);
   });
 
   it('stops dispatching once it has spent its ceiling, cancelling what was queued while running runs finish', async () => {
     const setId = await createSet(
-      'Budget',
       await anOriginal(),
       await anOriginal(),
       await anOriginal(),
@@ -1146,78 +793,27 @@ describe('a replay', () => {
     expect(row?.state).toBe('ceiling-reached');
     expect((await runRow(third?.runId ?? ''))?.state).not.toBe('queued');
 
-    const detail = (
-      await owner().get(`${teamPath()}/replays/${id}`).expect(200)
-    ).body as {
-      state: string;
-      totals: { spent: { amount: number }; completed: number; stopped: number };
-    };
-    expect(detail.state).toBe('ceiling-reached');
-    expect(detail.totals.spent.amount).toBeCloseTo(0.8);
-    expect(detail.totals.completed).toBe(2);
-    expect(detail.totals.stopped).toBe(1);
-  });
+    const capped = await replayOf(app, id);
 
-  it('is stopped by a person: nothing more starts, its runs stop, and its set may then be deleted, which releases the archives', async () => {
-    const setId = await createSet(
-      'Stopped',
-      await anOriginal(),
-      await anOriginal(),
-      await anOriginal(),
-    );
-    const { id } = await startReplay(setId, 'live', 5);
-
-    await dispatched();
-    const running = await claimed();
-    const [, queued] = (await entriesOf(id)).map((each) => each.runId);
-
-    await owner().delete(`${teamPath()}/replay-sets/${setId}`).expect(409);
-    await bearing(readToken)
-      .post(`${teamPath()}/replays/${id}/stop`)
-      .expect(403);
-    await owner().post(`${teamPath()}/replays/${id}/stop`).expect(204);
-
-    await eventually(
-      async () =>
-        (await runRow(running.runId))?.stopRequestedAt !== null &&
-        (await runRow(queued ?? ''))?.state !== 'queued',
-    );
-    expect((await replayRow(id))?.state).toBe('stopped');
-    await owner().post(`${teamPath()}/replays/${id}/stop`).expect(409);
-
-    await finishes(running, 0.1);
-    await untilEnded(running.runId);
-    await dispatched();
-    expect(
-      (await entriesOf(id)).filter((each) => each.runId !== null),
-    ).toHaveLength(2);
-
-    await owner().delete(`${teamPath()}/replay-sets/${setId}`).expect(204);
-    await eventually(async () => {
-      const startingPointHolds = await db
-        .select()
-        .from(schema.startingPointHold)
-        .where(and(eq(schema.startingPointHold.holder, `replay-set:${setId}`)));
-      return startingPointHolds.length === 0;
+    expect(capped.current).toBe('ceiling-reached');
+    expect(totalsOf(capped).spent.amount).toBeCloseTo(0.8);
+    expect(totalsOf(capped).endings).toMatchObject({
+      completed: 2,
+      stopped: 1,
     });
-    await eventually(async () => (await replayRow(id)) === undefined);
   });
 
   it('replays each run as many times as requested, rating each task by the mean of its repeats with an interval, and measures the set’s noise', async () => {
     const first = await anOriginal();
     const second = await anOriginal();
-    const setId = await createSet('Repeated', first, second);
-    const started = (
-      await owner()
-        .post(`${teamPath()}/replay-sets/${setId}/replays`, {
-          candidate: 'live',
-          ceiling: { amount: 5, currency: 'USD' },
-          repeats: 2,
-        })
-        .expect(201)
-    ).body as { id: string; baseline: { id: string } | null };
+    const setId = await createSet(first, second);
+    const started = await startedReplay(app, setId, {
+      candidate: 'live',
+      amount: 5,
+      repeats: 2,
+    });
 
-    expect(started.baseline?.id).toBe(started.id);
+    expect(started.baselineId).toBe(started.id);
     expect(
       (await entriesOf(started.id)).map((each) => [
         each.originalRunId,
@@ -1256,27 +852,12 @@ describe('a replay', () => {
       async () => (await replayRow(started.id))?.state === 'finished',
     );
 
-    const detail = (
-      await owner().get(`${teamPath()}/replays/${started.id}`).expect(200)
-    ).body as {
-      repeats: number;
-      entries: { repeat: number }[];
-      totals: {
-        entries: number;
-        scored: number;
-        succeeded: number;
-        unscored: number;
-        tasks: number;
-        tasksScored: number;
-        successRate: number;
-        interval: { rate: number; low: number; high: number } | null;
-      };
-      gainOverReference: unknown;
-    };
+    const repeated = await replayOf(app, started.id);
+    const totals = totalsOf(repeated);
 
-    expect(detail.repeats).toBe(2);
-    expect(detail.entries.map((each) => each.repeat)).toEqual([1, 1, 2, 2]);
-    expect(detail.totals).toMatchObject({
+    expect(repeated.repeats).toBe(2);
+    expect(repeated.entries.map((each) => each.repeat)).toEqual([1, 1, 2, 2]);
+    expect(totals).toMatchObject({
       entries: 4,
       scored: 2,
       succeeded: 0,
@@ -1285,148 +866,28 @@ describe('a replay', () => {
       tasksScored: 2,
       successRate: 0,
     });
-    expect(detail.totals.interval).toEqual({ rate: 0, low: 0, high: 0 });
-    expect(detail.gainOverReference).toBeNull();
+    expect(totals.interval).toEqual({ rate: 0, low: 0, high: 0 });
 
-    const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
-      .body as {
-      id: string;
-      minGain: number;
-      health: {
-        noise: {
-          replayId: string;
-          repeats: number;
-          perRepeat: number[];
-          spread: number;
-          flippedTasks: string[];
-          noisyInOneRepeat: boolean;
-        } | null;
-      };
-    }[];
+    const set = (await setOf()) as ReplaySet;
+    const healths = app.get(SetHealths);
+    const standard = await healths.standardAt(set.station);
 
-    expect(sets.find((each) => each.id === setId)).toMatchObject({
-      minGain: 0.05,
-      health: {
-        noise: {
-          replayId: started.id,
-          repeats: 2,
-          perRepeat: [0, 0],
-          spread: 0,
-          flippedTasks: [],
-          noisyInOneRepeat: false,
-        },
-      },
+    expect(standard.minGain).toBe(0.05);
+    expect(healthView(await healths.ofSet(set, standard)).noise).toMatchObject({
+      replayId: started.id,
+      repeats: 2,
+      perRepeat: [0, 0],
+      spread: 0,
+      flippedTasks: [],
+      noisyInOneRepeat: false,
     });
-  });
-
-  it('is proposed, started, read and stopped through tokens that may plan or read, each write audited with its token', async () => {
-    const setId = await createSet('Through tokens', await anOriginal());
-    const live = await app
-      .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
-      .live(DELIVERY, BUILD);
-    const proposedBy = (token: string) =>
-      http()
-        .post(
-          `/api/resources/lines/${DELIVERY}/stations/build/replay-candidates`,
-        )
-        .set('Authorization', `Bearer ${token}`)
-        .set('Spotlight-Client', 'cli/0.4.2')
-        .set('Idempotency-Key', randomUUID())
-        .send({
-          name: `Through tokens ${randomUUID().slice(0, 8)}`,
-          station: { ...live?.station, prompt: 'Build it, through a token.' },
-        });
-
-    await proposedBy(readToken).expect(403);
-    const candidate = (await proposedBy(planToken).expect(201)).body as {
-      id: string;
-      version: number;
-      stationId: string;
-    };
-    expect(candidate.stationId).toBe(BUILD);
-
-    const atBuild = (
-      await bearing(readToken)
-        .get(`${teamPath()}/replay-sets?line=${DELIVERY}&station=build`)
-        .expect(200)
-    ).body as { id: string; stationId: string }[];
-    expect(atBuild.map((each) => each.id)).toContain(setId);
-    expect(new Set(atBuild.map((each) => each.stationId))).toEqual(
-      new Set([BUILD]),
-    );
-    expect(
-      (
-        await bearing(readToken)
-          .get(`${teamPath()}/replay-sets?line=${DELIVERY}&station=ship`)
-          .expect(200)
-      ).body.map((each: { id: string }) => each.id),
-    ).not.toContain(setId);
-    await bearing(readToken)
-      .get(`${teamPath()}/replay-sets?line=${DELIVERY}`)
-      .expect(422);
-
-    const started = (
-      await http()
-        .post(`${teamPath()}/replay-sets/${setId}/replays`)
-        .set('Authorization', `Bearer ${planToken}`)
-        .set('Spotlight-Client', 'cli/0.4.2')
-        .send({
-          candidate: candidate.id,
-          ceiling: { amount: 3, currency: 'USD' },
-        })
-        .expect(201)
-    ).body as { id: string };
-
-    await bearing(readToken)
-      .get(`${teamPath()}/replays/${started.id}`)
-      .expect(200);
-    await http()
-      .delete(`/api/resources/replay-candidates/${candidate.id}`)
-      .set('Authorization', `Bearer ${planToken}`)
-      .set('If-Match', `"${candidate.version}"`)
-      .expect(409);
-    await http()
-      .post(`${teamPath()}/replays/${started.id}/stop`)
-      .set('Authorization', `Bearer ${planToken}`)
-      .set('Spotlight-Client', 'cli/0.4.2')
-      .expect(204);
-
-    const audited = await db
-      .select()
-      .from(schema.configurationChange)
-      .where(
-        inArray(schema.configurationChange.resourceId, [
-          candidate.id,
-          started.id,
-        ]),
-      );
-
-    expect(
-      audited
-        .sort((a, b) => a.seq - b.seq)
-        .map((each) => [each.resource, each.action, each.actor, each.client]),
-    ).toEqual([
-      ['replay-candidate', 'created', 'token', 'cli/0.4.2'],
-      ['replay', 'created', 'token', 'cli/0.4.2'],
-      ['replay', 'updated', 'token', 'cli/0.4.2'],
-    ]);
-    expect(audited.find((each) => each.resource === 'replay')?.details).toEqual(
-      {
-        set: setId,
-        candidate: candidate.id,
-        baseline: false,
-        ceiling: '3 USD',
-        repeats: 1,
-        calibration: false,
-      },
-    );
   });
 });
 
 describe('a replay set whose station leaves its line', () => {
-  it('is still listed for the team, releases its archives, starts nothing, and may be deleted', async () => {
+  it('is kept, releases its archives, starts nothing and is never refreshed', async () => {
     const original = await anOriginal({ stationId: POLISH });
-    const setId = await createSetAt(POLISH, 'Reviewed', original);
+    const setId = await createSetAt(POLISH, original);
     const startingPointHoldsOf = () =>
       db
         .select()
@@ -1439,7 +900,17 @@ describe('a replay set whose station leaves its line', () => {
     await dispatched();
     const [replayRun] = await replayRunsOf([replayId]);
     expect(replayRun).toBeDefined();
-    await owner().post(`${teamPath()}/replays/${replayId}/stop`).expect(204);
+    await app.get<TransactionPort>(TRANSACTION).inTransaction(async () => {
+      const replays = app.get(DrizzleReplayRepository);
+      const replay = await replays.find(ReplayId.of(replayId));
+
+      await replays.save(
+        (replay as Replay).stop(
+          new Date(),
+          ChangeActor.spotlight(team.workspaceId),
+        ),
+      );
+    });
 
     const line = (
       await owner().get(`/api/resources/lines/${DELIVERY}`).expect(200)
@@ -1458,11 +929,11 @@ describe('a replay set whose station leaves its line', () => {
       })
       .expect(200);
 
-    await eventually(async () => {
-      const sets = (await owner().get(`${teamPath()}/replay-sets`).expect(200))
-        .body as { id: string; stationGone: boolean }[];
-      return sets.find((each) => each.id === setId)?.stationGone === true;
-    });
+    await eventually(
+      async () =>
+        (await app.get(DrizzleReplaySetRepository).find(ReplaySetId.of(setId)))
+          ?.isAtGoneStation === true,
+    );
     await eventually(async () => (await startingPointHoldsOf()).length === 0);
 
     expect((await runRow(replayRun as string))?.stationId).toBeNull();
@@ -1490,29 +961,54 @@ describe('a replay set whose station leaves its line', () => {
       .values({ teamId: otherTeam, userId: otherReader });
 
     for (const path of [
-      `/api/teams/${otherTeam}/replay-runs/${replayRun}`,
       `/api/teams/${otherTeam}/runs/${replayRun}/config`,
       `/api/runs/${replayRun}/stream`,
     ]) {
       await as(otherReader).get(path).expect(404);
     }
-    await owner().get(`${teamPath()}/replay-runs/${replayRun}`).expect(200);
-    await owner().get(`${teamPath()}/runs/${replayRun}/config`).expect(200);
+    await owner().get(`${teamPath()}/replay-runs/${replayRun}`).expect(404);
+    await owner().get(`${teamPath()}/runs/${replayRun}/config`).expect(404);
 
-    await owner()
-      .get(`${stationPath(POLISH)}/replay-sets`)
-      .expect(404);
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/replays`, {
-        candidate: 'live',
-        ceiling: { amount: 1, currency: 'USD' },
-      })
-      .expect(409);
-    await eventually(
-      async () =>
-        (await owner().delete(`${teamPath()}/replay-sets/${setId}`)).status ===
-        204,
+    await expect(startReplay(setId, 'live', 1)).rejects.toThrow();
+    expect(await refreshedBefore(setId)).toBe(false);
+  });
+});
+
+describe('a team that is deleted', () => {
+  it('loses its kept replay sets, and their archives are released', async () => {
+    const original = await anOriginal();
+    const setId = await createSet(original);
+    const holdsOf = () =>
+      db
+        .select()
+        .from(schema.startingPointHold)
+        .where(eq(schema.startingPointHold.holder, `replay-set:${setId}`));
+
+    await eventually(async () =>
+      (await holdsOf()).some((each) => each.runIds.includes(original.runId)),
     );
+
+    const deleted: TeamDeletedIntegrationEvent = {
+      kind: TEAM_DELETED,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      key: 'core',
+    };
+    await app.get(EventOutbox).record([deleted as unknown as DomainEvent]);
+
+    await eventually(async () => {
+      await app.get(EventDelivery).drain(2_000);
+
+      const sets = await db
+        .select()
+        .from(schema.replaySet)
+        .where(eq(schema.replaySet.teamId, team.teamId.value));
+      const holds = await holdsOf();
+
+      return (
+        sets.length === 0 && holds.every((each) => each.runIds.length === 0)
+      );
+    }, 60_000);
   });
 });
 
