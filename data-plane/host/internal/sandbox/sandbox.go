@@ -40,6 +40,7 @@ type Mount struct {
 	Source   string
 	Target   string
 	ReadOnly bool
+	Volume   bool
 }
 
 type File struct {
@@ -62,6 +63,7 @@ type Engine interface {
 	Destroy(ctx context.Context, id string) error
 	Labelled(ctx context.Context, key, value string) ([]string, error)
 	Read(ctx context.Context, id, path string) ([]byte, error)
+	Exec(ctx context.Context, id string, command []string, errs io.Writer) (io.ReadWriteCloser, error)
 	Network(ctx context.Context, name string, labels map[string]string) (string, error)
 	Unnetwork(ctx context.Context, id string) error
 	Networks(ctx context.Context, key, value string) ([]string, error)

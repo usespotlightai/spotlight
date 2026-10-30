@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"io"
 	"os"
 	"slices"
 	"strconv"
@@ -282,5 +283,76 @@ func TestARunningSandboxTakesAFileAndASignal(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "next run") {
 		t.Errorf("said %q", out.String())
+	}
+}
+
+func TestDemultiplexKeepsStderrApart(t *testing.T) {
+	in := bytes.NewReader(append(append(framed(1, "out\n"), framed(2, "err\n")...), framed(1, "more\n")...))
+	var out, errs bytes.Buffer
+
+	if err := demultiplexStreams(in, &out, &errs); err != nil {
+		t.Fatalf("demultiplex: %v", err)
+	}
+	if out.String() != "out\nmore\n" || errs.String() != "err\n" {
+		t.Errorf("got %q and %q", out.String(), errs.String())
+	}
+}
+
+func TestExecGivesAStreamToACommandInTheSandboxWithAVolumeMounted(t *testing.T) {
+	engine, err := Connect("")
+	if err != nil {
+		t.Skip("no container runtime: ", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	const image = "busybox:1.36"
+	if _, err := engine.Describe(ctx); err != nil || engine.Pull(ctx, image, "") != nil {
+		t.Skip("no usable container runtime")
+	}
+
+	volume := "spotlight-test-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	id, err := engine.Start(ctx, sandbox.Spec{
+		Image:  image,
+		Args:   []string{"sleep", "120"},
+		Mounts: []sandbox.Mount{{Source: volume, Target: "/cache", Volume: true}},
+	})
+	if id != "" {
+		defer func() {
+			_ = engine.Destroy(context.Background(), id)
+			_, _ = engine.call(context.Background(), "DELETE", "/volumes/"+volume, nil, nil)
+		}()
+	}
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	var errs bytes.Buffer
+	stream, err := engine.Exec(ctx, id, []string{"sh", "-c", "echo started >&2; tee /cache/kept"}, &errs)
+	if err != nil {
+		t.Fatalf("exec: %v", err)
+	}
+	if _, err := stream.Write([]byte("over ssh\n")); err != nil {
+		t.Fatal(err)
+	}
+	echoed := make([]byte, len("over ssh\n"))
+	if _, err := io.ReadFull(stream, echoed); err != nil || string(echoed) != "over ssh\n" {
+		t.Fatalf("read %q: %v", echoed, err)
+	}
+	if err := stream.Close(); err != nil {
+		t.Errorf("close: %v", err)
+	}
+
+	kept, err := engine.Read(ctx, id, "/cache/kept")
+	if err != nil || string(kept) != "over ssh\n" {
+		t.Errorf("the volume kept %q: %v", kept, err)
+	}
+	if !strings.Contains(errs.String(), "started") {
+		t.Errorf("stderr %q", errs.String())
+	}
+
+	if _, err := engine.Exec(ctx, "spotlight-no-such-sandbox", []string{"true"}, nil); !errors.Is(err, sandbox.ErrGone) {
+		t.Errorf("exec in a missing sandbox answered %v", err)
 	}
 }

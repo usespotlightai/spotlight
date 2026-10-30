@@ -28,6 +28,14 @@ import (
 )
 
 func Main(args []string, version string) int {
+	if len(args) > 0 && args[0] == "ssh" {
+		if err := serveSSH(args[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, "spotlight runner ssh:", err)
+			return 1
+		}
+		return 0
+	}
+
 	if err := cacerts.Install(protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
 		slog.Warn("could not trust the egress authority, so TLS through egress may fail", "error", err)
 	}
@@ -149,6 +157,9 @@ func (r runner) supervise(ctx context.Context, assigned protocol.Assignment, del
 	log.Info("supervising the sandbox")
 
 	archives := r.openSandbox(ctx, assigned, log)
+	if err := os.WriteFile(workspaceOpenPath, nil, 0o644); err != nil {
+		log.Warn("could not tell editors that the workspace is open; they wait for it", "error", err)
+	}
 
 	for {
 		if !assigned.StartsSandboxOnly() {

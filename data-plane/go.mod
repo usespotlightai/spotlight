@@ -7,7 +7,11 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.33.11
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.50.6
 	github.com/aws/smithy-go v1.28.6
+	github.com/coder/websocket v1.8.15
+	github.com/creack/pty v1.1.24
 	github.com/getsentry/sentry-go v0.50.0
+	github.com/pkg/sftp v1.13.12
+	golang.org/x/crypto v0.58.0
 	golang.org/x/term v0.47.0
 )
 
@@ -23,6 +27,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.38.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.5 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.51.5 // indirect
+	github.com/kr/fs v0.1.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 )

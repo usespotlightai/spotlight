@@ -117,18 +117,17 @@ export class Sandbox extends EventRecorder {
       );
     }
 
+    const holdsARun = state.leases.some((each) => each.kind === 'run');
+
     if (
       state.hostId === null &&
-      (state.leases.length > 0 ||
-        (state.state !== 'starting' && state.state !== 'gone'))
+      (holdsARun || (state.state !== 'starting' && state.state !== 'gone'))
     ) {
       throw new InconsistentStateError(
         'sandbox',
-        `is ${state.state} or held while no host started it`,
+        `is ${state.state} or held by a run while no host started it`,
       );
     }
-
-    const holdsARun = state.leases.some((each) => each.kind === 'run');
 
     if (holdsARun === (state.idleSince !== null)) {
       throw new InconsistentStateError(
@@ -212,6 +211,10 @@ export class Sandbox extends EventRecorder {
     return this.state.leases.some((each) => each.isHeldBy('run', runId));
   }
 
+  holdsEditor(holder: string): boolean {
+    return this.state.leases.some((each) => each.isHeldBy('editor', holder));
+  }
+
   get isReady(): boolean {
     return this.state.state === 'ready';
   }
@@ -272,6 +275,41 @@ export class Sandbox extends EventRecorder {
     });
   }
 
+  holdEditor(holder: string, at: Date): Sandbox {
+    if (!this.isOpen) {
+      throw new InconsistentStateError(
+        'sandbox',
+        `is ${this.state.state}, and no editor can hold it`,
+      );
+    }
+
+    return this.with({
+      leases: [
+        ...this.state.leases.filter((each) => !each.isHeldBy('editor', holder)),
+        SandboxLease.forEditor(holder, at),
+      ],
+    });
+  }
+
+  releaseEditor(holder: string, at: Date): Sandbox {
+    if (!this.holdsEditor(holder)) {
+      return this;
+    }
+
+    return this.withLeases(
+      this.state.leases.filter((each) => !each.isHeldBy('editor', holder)),
+      at,
+    );
+  }
+
+  withoutExpiredEditors(now: Date): Sandbox {
+    const leases = this.state.leases.filter((each) => !each.expiredAt(now));
+
+    return leases.length === this.state.leases.length
+      ? this
+      : this.withLeases(leases, now);
+  }
+
   reported(): Sandbox {
     return this.state.state === 'starting'
       ? this.with({ state: 'ready' })
@@ -323,11 +361,22 @@ export class Sandbox extends EventRecorder {
   }
 
   drainedWhenDue(policy: SandboxDrainPolicy, now: Date): Sandbox {
-    if (!this.drainDue(policy, now)) {
-      return this;
+    const held = this.withoutExpiredEditors(now);
+
+    if (!held.drainDue(policy, now)) {
+      return held;
     }
 
-    return this.isPlaced ? this.drain() : this.lost(now);
+    return held.isPlaced ? held.drain() : held.lost(now);
+  }
+
+  private withLeases(leases: readonly SandboxLease[], at: Date): Sandbox {
+    const idle = !leases.some((each) => each.kind === 'run');
+
+    return this.with({
+      leases,
+      idleSince: idle && leases.length === 0 ? at : this.state.idleSince,
+    });
   }
 
   private with(changes: Partial<State>): Sandbox {

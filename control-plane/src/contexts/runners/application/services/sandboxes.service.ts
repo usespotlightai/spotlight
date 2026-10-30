@@ -1,3 +1,4 @@
+import type { EditorSandboxesPort } from '@runners/application/ports/editor-sandboxes.port';
 import type {
   AuthenticatedSandbox,
   OpenedSandbox,
@@ -9,7 +10,10 @@ import type {
 } from '@runners/application/ports/sandboxes.port';
 import { reviseSandbox } from '@runners/application/services/sandbox-revisions';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
-import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
+import {
+  Sandbox,
+  type SandboxState,
+} from '@runners/domain/aggregates/sandbox.aggregate';
 import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
@@ -27,7 +31,7 @@ const ATTEMPTS = 3;
 
 const REQUESTS_PER_CLAIM = 20;
 
-export class Sandboxes implements SandboxesPort {
+export class Sandboxes implements SandboxesPort, EditorSandboxesPort {
   readonly name = 'Draining idle sandboxes';
 
   constructor(
@@ -247,6 +251,50 @@ export class Sandboxes implements SandboxesPort {
         'Draining a sandbox that cannot take its queued run',
       );
     }
+  }
+
+  async holdForEditor(
+    sandboxId: string,
+    holder: string,
+    at: Date,
+  ): Promise<SandboxState | null> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    if (!found?.isOpen) {
+      return null;
+    }
+
+    const held = await reviseSandbox(this.sandboxes, found, (sandbox) =>
+      sandbox.isOpen ? sandbox.holdEditor(holder, at) : sandbox,
+    );
+
+    return held?.holdsEditor(holder) ? held.current : null;
+  }
+
+  async releaseEditor(
+    sandboxId: string,
+    holder: string,
+    at: Date,
+  ): Promise<void> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    if (found) {
+      await reviseSandbox(this.sandboxes, found, (sandbox) =>
+        sandbox.releaseEditor(holder, at),
+      );
+    }
+  }
+
+  async stateOf(sandboxId: string): Promise<SandboxState | null> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    return found?.current ?? null;
+  }
+
+  async readyOn(sandboxId: string): Promise<string | null> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    return found?.isReady && found.hostId ? found.hostId.value : null;
   }
 
   async authenticate(
