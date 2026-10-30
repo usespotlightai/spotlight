@@ -37,7 +37,7 @@ export type Place = {
 export const activeTabOf = (tabs: AppTabs): AppTab =>
   tabs.tabs.find((tab) => tab.id === tabs.activeId) ?? (tabs.tabs[0] as AppTab);
 
-export const firstTabs = (id: string, place: Place): AppTabs => ({
+const firstTabs = (id: string, place: Place): AppTabs => ({
   tabs: [{ id, title: null, ...place }],
   activeId: id,
 });
