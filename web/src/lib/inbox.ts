@@ -43,12 +43,18 @@ export type RunJournal = RunJournalResponseDto;
 export const decisionPending = (notes: readonly Note[]): boolean =>
   notes.findLast((note) => note.kind === 'asked')?.form === 'approval';
 
+const closesOrReopens = (note: Note): boolean =>
+  note.form === 'resolved' || note.kind === 'reopened';
+
 const answersTo = (notes: readonly Note[], runId: string): number[] => {
   const answers: number[] = [];
   let asked = false;
 
   for (const note of notes) {
-    if (note.kind === 'answered' || note.voice === 'person') {
+    if (
+      note.kind === 'answered' ||
+      (note.voice === 'person' && !closesOrReopens(note))
+    ) {
       if (asked) {
         answers.push(Date.parse(note.at));
       }
@@ -276,6 +282,24 @@ export const noticeOf = (
   entries?.find(
     (each): each is InboxNotice => each.kind === 'notice' && each.id === id,
   );
+
+export const resolvable = (entry: InboxEntry): boolean => !entry.resolved;
+
+export const reopenable = (entry: InboxEntry): boolean => {
+  if (!entry.resolved) {
+    return false;
+  }
+  if (entry.kind === 'notice' || entry.inboxRequest) {
+    return true;
+  }
+
+  const closing = entry.notes[entry.notes.length - 1];
+
+  return closing?.form === 'resolved' && closing.voice === 'person';
+};
+
+export const entryKey = (entry: InboxEntry): string =>
+  `${entry.kind}:${entry.id}`;
 
 export const NOTICE_POINTS_LABEL = 'Details';
 

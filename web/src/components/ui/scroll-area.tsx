@@ -4,8 +4,11 @@ import { cn } from '@/lib/utils';
 
 type Orientation = 'vertical' | 'horizontal' | 'both';
 
+type ScrollbarShown = 'on-hover' | 'while-scrolling' | 'hidden';
+
 type ScrollAreaProps = Omit<ScrollAreaPrimitive.Root.Props, 'onScroll'> & {
   orientation?: Orientation;
+  scrollbar?: ScrollbarShown;
   viewportRef?: Ref<HTMLDivElement>;
   viewportClassName?: string;
   contentClassName?: string;
@@ -21,6 +24,7 @@ const VIEWPORT_OVERFLOW = {
 function ScrollArea({
   className,
   orientation = 'vertical',
+  scrollbar = 'on-hover',
   viewportRef,
   viewportClassName,
   contentClassName,
@@ -52,8 +56,12 @@ function ScrollArea({
           {children}
         </ScrollAreaPrimitive.Content>
       </ScrollAreaPrimitive.Viewport>
-      {orientation !== 'horizontal' && <ScrollBar orientation="vertical" />}
-      {orientation !== 'vertical' && <ScrollBar orientation="horizontal" />}
+      {scrollbar !== 'hidden' && orientation !== 'horizontal' && (
+        <ScrollBar orientation="vertical" shown={scrollbar} />
+      )}
+      {scrollbar !== 'hidden' && orientation !== 'vertical' && (
+        <ScrollBar orientation="horizontal" shown={scrollbar} />
+      )}
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   );
@@ -62,14 +70,16 @@ function ScrollArea({
 function ScrollBar({
   className,
   orientation = 'vertical',
+  shown = 'on-hover',
   ...props
-}: ScrollAreaPrimitive.Scrollbar.Props) {
+}: ScrollAreaPrimitive.Scrollbar.Props & { shown?: ScrollbarShown }) {
   return (
     <ScrollAreaPrimitive.Scrollbar
       data-slot="scroll-area-scrollbar"
       orientation={orientation}
       className={cn(
-        'z-30 flex touch-none select-none p-0.5 opacity-0 transition-opacity duration-150 data-hovering:opacity-100 data-scrolling:opacity-100 data-[orientation=horizontal]:h-2.5 data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col',
+        'z-30 flex touch-none select-none p-0.5 opacity-0 transition-opacity duration-150 data-scrolling:opacity-100 data-[orientation=horizontal]:h-2.5 data-[orientation=vertical]:w-2.5 data-[orientation=horizontal]:flex-col',
+        shown === 'on-hover' && 'data-hovering:opacity-100',
         className,
       )}
       {...props}

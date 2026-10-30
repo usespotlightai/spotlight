@@ -25,6 +25,11 @@ import type { AuthenticatedUser } from '@shared-kernel/application/ports/session
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
 import { MarkInboxItemReadCommand } from '@work/application/commands/mark-inbox-item-read.command';
 import { MarkInboxRequestReadCommand } from '@work/application/commands/mark-inbox-request-read.command';
+import { ReopenInboxItemCommand } from '@work/application/commands/reopen-inbox-item.command';
+import { ReopenInboxRequestCommand } from '@work/application/commands/reopen-inbox-request.command';
+import { ReopenNoticeCommand } from '@work/application/commands/reopen-notice.command';
+import { ResolveInboxItemCommand } from '@work/application/commands/resolve-inbox-item.command';
+import { ResolveInboxRequestCommand } from '@work/application/commands/resolve-inbox-request.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import type {
   InboxEntryDto,
@@ -213,6 +218,84 @@ export class InboxController {
     );
   }
 
+  @Post(':itemId/resolve')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'resolveInboxItem',
+    summary:
+      'Close a conversation without an answer, stopping any run of its task',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
+  @ApiNoContentResponse({ description: 'It is resolved' })
+  @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
+  @ApiConflictResponse({ description: 'The conversation is already closed' })
+  async resolveInboxItem(
+    @Param('itemId') itemId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(new ResolveInboxItemCommand(itemId, user.id));
+  }
+
+  @Post('requests/:requestId/resolve')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'resolveInboxRequest',
+    summary: 'Resolve an inbox request without acting on it',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'requestId', type: String, example: 'request_1' })
+  @ApiNoContentResponse({ description: 'It is resolved' })
+  @ApiNotFoundResponse({ description: 'No such inbox request for this caller' })
+  async resolveInboxRequest(
+    @Param('requestId') requestId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new ResolveInboxRequestCommand(requestId, user.id),
+    );
+  }
+
+  @Post(':itemId/reopen')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'reopenInboxItem',
+    summary: 'Reopen a conversation a person resolved without an answer',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'itemId', type: String, example: 'task_1:0' })
+  @ApiNoContentResponse({ description: 'It is open again' })
+  @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
+  @ApiConflictResponse({
+    description:
+      'The conversation is not the last one, or a person did not resolve it',
+  })
+  async reopenInboxItem(
+    @Param('itemId') itemId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(new ReopenInboxItemCommand(itemId, user.id));
+  }
+
+  @Post('requests/:requestId/reopen')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'reopenInboxRequest',
+    summary: 'Reopen a resolved inbox request',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'requestId', type: String, example: 'request_1' })
+  @ApiNoContentResponse({ description: 'It is open again' })
+  @ApiNotFoundResponse({ description: 'No such inbox request for this caller' })
+  async reopenInboxRequest(
+    @Param('requestId') requestId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new ReopenInboxRequestCommand(requestId, user.id),
+    );
+  }
+
   @Post('requests/:requestId/read')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
@@ -249,6 +332,26 @@ export class InboxController {
   ): Promise<void> {
     await this.commandBus.execute(
       new ResolveNoticeCommand(noticeId, slug, user.id),
+    );
+  }
+
+  @Post('notices/:noticeId/reopen')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    operationId: 'reopenInboxNotice',
+    summary: 'Reopen a resolved notice',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'noticeId', type: String })
+  @ApiNoContentResponse({ description: 'It is open again' })
+  @ApiNotFoundResponse({ description: 'No such notice for this caller' })
+  async reopenNotice(
+    @Param('slug') slug: string,
+    @Param('noticeId') noticeId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<void> {
+    await this.commandBus.execute(
+      new ReopenNoticeCommand(noticeId, slug, user.id),
     );
   }
 

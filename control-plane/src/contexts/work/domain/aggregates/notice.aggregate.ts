@@ -134,4 +134,10 @@ export class Notice {
       ? this
       : new Notice({ ...this.state, resolvedAt: at });
   }
+
+  reopen(): Notice {
+    return this.state.resolvedAt
+      ? new Notice({ ...this.state, resolvedAt: null })
+      : this;
+  }
 }

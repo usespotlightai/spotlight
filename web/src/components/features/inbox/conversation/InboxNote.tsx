@@ -48,7 +48,7 @@ export function InboxNote({
   const arriving = arrived ? ARRIVING : undefined;
   useInAppLinks(written);
 
-  if (note.form === 'resolved') {
+  if (note.form === 'resolved' || note.kind === 'reopened') {
     return null;
   }
 

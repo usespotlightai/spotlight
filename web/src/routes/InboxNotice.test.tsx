@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
+import { act } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GONE_FROM_INBOX } from '@/lib/inbox';
 import { InboxNotice } from '@/routes/InboxNotice';
 
@@ -54,17 +55,18 @@ const notice = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const renderNotice = (noticeId = 'notice_1') =>
-  render(
-    <MemoryRouter initialEntries={[`/w/acme/inbox/notices/${noticeId}`]}>
-      <Routes>
-        <Route
-          path="/w/:slug/inbox/notices/:noticeId"
-          element={<InboxNotice />}
-        />
-      </Routes>
-    </MemoryRouter>,
-  );
+const noticeAt = (noticeId = 'notice_1') => (
+  <MemoryRouter initialEntries={[`/w/acme/inbox/notices/${noticeId}`]}>
+    <Routes>
+      <Route
+        path="/w/:slug/inbox/notices/:noticeId"
+        element={<InboxNotice />}
+      />
+    </Routes>
+  </MemoryRouter>
+);
+
+const renderNotice = (noticeId = 'notice_1') => render(noticeAt(noticeId));
 
 describe('InboxNotice', () => {
   beforeEach(() => {
@@ -156,20 +158,54 @@ describe('InboxNotice', () => {
     expect(second).toHaveAccessibleName('Open the station');
   });
 
-  it('moves it to resolved on opening it, once, as reading an email does', () => {
-    renderNotice();
+  describe('resolving it on opening', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
 
-    expect(resolve).toHaveBeenCalledTimes(1);
-    expect(resolve).toHaveBeenCalledWith({
-      slug: 'acme',
-      noticeId: 'notice_1',
+    it('moves it to resolved a few seconds after opening it, once, as reading an email does', () => {
+      renderNotice();
+
+      expect(resolve).not.toHaveBeenCalled();
+
+      act(() => vi.advanceTimersByTime(3000));
+
+      expect(resolve).toHaveBeenCalledTimes(1);
+      expect(resolve).toHaveBeenCalledWith({
+        slug: 'acme',
+        noticeId: 'notice_1',
+      });
     });
-  });
 
-  it('leaves a notice already resolved alone', () => {
-    waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
-    renderNotice();
+    it('leaves it open once you unresolve it while you read it', () => {
+      const { rerender } = renderNotice();
 
-    expect(resolve).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(3000));
+      waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
+      rerender(noticeAt());
+      waiting.mockReturnValue([notice({ unread: false })]);
+      rerender(noticeAt());
+      act(() => vi.advanceTimersByTime(5000));
+
+      expect(resolve).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves it open when you leave it within a few seconds', () => {
+      const { unmount } = renderNotice();
+
+      act(() => vi.advanceTimersByTime(2000));
+      unmount();
+      act(() => vi.advanceTimersByTime(5000));
+
+      expect(resolve).not.toHaveBeenCalled();
+    });
+
+    it('leaves a notice already resolved alone', () => {
+      waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
+      renderNotice();
+
+      act(() => vi.advanceTimersByTime(5000));
+
+      expect(resolve).not.toHaveBeenCalled();
+    });
   });
 });

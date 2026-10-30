@@ -32,6 +32,11 @@ export const conversationsOf = (
     if (kind === 'passed' && open !== null) {
       cut.push({ from: open, to: at });
       open = null;
+      return;
+    }
+
+    if (kind === 'reopened' && open === null) {
+      open = cut.pop()?.from ?? null;
     }
   });
 
@@ -49,13 +54,21 @@ export interface Review {
   readonly state: ReviewState;
 }
 
+const sinceReopened = <T extends { kind: TaskNoteKind }>(
+  notes: readonly T[],
+): readonly T[] => {
+  const reopened = notes.map((each) => each.kind).lastIndexOf('reopened');
+
+  return notes.slice(reopened + 1);
+};
+
 const answeredAfter = <T extends { kind: TaskNoteKind }>(
   notes: readonly T[],
   at: number,
 ): boolean =>
-  notes
-    .slice(at + 1)
-    .some((later) => later.kind === 'answered' || later.kind === 'passed');
+  sinceReopened(notes.slice(at + 1)).some(
+    (later) => later.kind === 'answered' || later.kind === 'passed',
+  );
 
 const containing = (cut: readonly Conversation[], at: number) =>
   cut.find((each) => each.from <= at && (each.to === null || at <= each.to));

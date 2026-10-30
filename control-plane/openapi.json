@@ -2659,6 +2659,172 @@
         ]
       }
     },
+    "/workspaces/{slug}/inbox/{itemId}/resolve": {
+      "post": {
+        "operationId": "resolveInboxItem",
+        "parameters": [
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "task_1:0",
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is resolved"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such conversation for this caller"
+          },
+          "409": {
+            "description": "The conversation is already closed"
+          }
+        },
+        "summary": "Close a conversation without an answer, stopping any run of its task",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/requests/{requestId}/resolve": {
+      "post": {
+        "operationId": "resolveInboxRequest",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "request_1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is resolved"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such inbox request for this caller"
+          }
+        },
+        "summary": "Resolve an inbox request without acting on it",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/{itemId}/reopen": {
+      "post": {
+        "operationId": "reopenInboxItem",
+        "parameters": [
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "task_1:0",
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is open again"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such conversation for this caller"
+          },
+          "409": {
+            "description": "The conversation is not the last one, or a person did not resolve it"
+          }
+        },
+        "summary": "Reopen a conversation a person resolved without an answer",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/requests/{requestId}/reopen": {
+      "post": {
+        "operationId": "reopenInboxRequest",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "request_1",
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is open again"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such inbox request for this caller"
+          }
+        },
+        "summary": "Reopen a resolved inbox request",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
     "/workspaces/{slug}/inbox/requests/{requestId}/read": {
       "post": {
         "operationId": "markInboxRequestRead",
@@ -2733,6 +2899,45 @@
           }
         },
         "summary": "Resolve a notice, once its person has dealt with it",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/notices/{noticeId}/reopen": {
+      "post": {
+        "operationId": "reopenInboxNotice",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          },
+          {
+            "name": "noticeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is open again"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such notice for this caller"
+          }
+        },
+        "summary": "Reopen a resolved notice",
         "tags": [
           "inbox"
         ]
@@ -23764,7 +23969,8 @@
               "asked",
               "passed",
               "answered",
-              "message"
+              "message",
+              "reopened"
             ]
           },
           "form": {

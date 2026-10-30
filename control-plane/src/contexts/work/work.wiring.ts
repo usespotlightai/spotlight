@@ -171,7 +171,12 @@ import { RecordRunImageHandler } from '@work/application/commands/handlers/recor
 import { RecordStartingPointHandler } from '@work/application/commands/handlers/record-starting-point.handler';
 import { RenewCheckLeaseHandler } from '@work/application/commands/handlers/renew-check-lease.handler';
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
+import { ReopenInboxItemHandler } from '@work/application/commands/handlers/reopen-inbox-item.handler';
+import { ReopenInboxRequestHandler } from '@work/application/commands/handlers/reopen-inbox-request.handler';
+import { ReopenNoticeHandler } from '@work/application/commands/handlers/reopen-notice.handler';
 import { ReplyToReviewCommentHandler } from '@work/application/commands/handlers/reply-to-review-comment.handler';
+import { ResolveInboxItemHandler } from '@work/application/commands/handlers/resolve-inbox-item.handler';
+import { ResolveInboxRequestHandler } from '@work/application/commands/handlers/resolve-inbox-request.handler';
 import { ResolveNoticeHandler } from '@work/application/commands/handlers/resolve-notice.handler';
 import { SendChatMessageHandler } from '@work/application/commands/handlers/send-chat-message.handler';
 import { SendMessageHandler } from '@work/application/commands/handlers/send-message.handler';
@@ -189,7 +194,12 @@ import { KeepTaskDraftCommand } from '@work/application/commands/keep-task-draft
 import { MarkInboxItemReadCommand } from '@work/application/commands/mark-inbox-item-read.command';
 import { MarkInboxRequestReadCommand } from '@work/application/commands/mark-inbox-request-read.command';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
+import { ReopenInboxItemCommand } from '@work/application/commands/reopen-inbox-item.command';
+import { ReopenInboxRequestCommand } from '@work/application/commands/reopen-inbox-request.command';
+import { ReopenNoticeCommand } from '@work/application/commands/reopen-notice.command';
 import { ReplyToReviewCommentCommand } from '@work/application/commands/reply-to-review-comment.command';
+import { ResolveInboxItemCommand } from '@work/application/commands/resolve-inbox-item.command';
+import { ResolveInboxRequestCommand } from '@work/application/commands/resolve-inbox-request.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import {
   AppendRunJournalCommand,
@@ -2165,6 +2175,30 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ConversationLoader,
     DrizzleTaskRepository,
     CLOCK,
+  ]),
+  ...bindCommandHandler(ResolveInboxItemCommand, ResolveInboxItemHandler, [
+    ConversationLoader,
+    DrizzleTaskRepository,
+    CLOCK,
+  ]),
+  ...bindCommandHandler(
+    ResolveInboxRequestCommand,
+    ResolveInboxRequestHandler,
+    [InboxRequestLoader, DrizzleInboxRequestRepository, CLOCK],
+  ),
+  ...bindCommandHandler(ReopenInboxItemCommand, ReopenInboxItemHandler, [
+    ConversationLoader,
+    DrizzleTaskRepository,
+    CLOCK,
+  ]),
+  ...bindCommandHandler(ReopenInboxRequestCommand, ReopenInboxRequestHandler, [
+    InboxRequestLoader,
+    DrizzleInboxRequestRepository,
+    CLOCK,
+  ]),
+  ...bindCommandHandler(ReopenNoticeCommand, ReopenNoticeHandler, [
+    NoticeLoader,
+    DrizzleNoticeRepository,
   ]),
 
   {

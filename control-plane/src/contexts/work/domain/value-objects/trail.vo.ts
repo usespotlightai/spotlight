@@ -31,6 +31,13 @@ export class Trail {
     return last && stillOpen(last) ? last : null;
   }
 
+  get lastClosed(): Conversation | null {
+    const cut = conversationsOf(this.notes.map((each) => each.kind));
+    const last = cut[cut.length - 1];
+
+    return last && !stillOpen(last) ? last : null;
+  }
+
   within(from: NotePosition): readonly TaskNote[] | null {
     const conversation = conversationsOf(
       this.notes.map((each) => each.kind),

@@ -1502,7 +1502,7 @@ export type InboxConnectionResponseDto = {
 
 export type NoteResponseDto = {
   position: number;
-  kind: 'asked' | 'passed' | 'answered' | 'message';
+  kind: 'asked' | 'passed' | 'answered' | 'message' | 'reopened';
   /**
    * What it shows, which is not what it did
    */
@@ -9484,6 +9484,134 @@ export type MarkInboxItemReadResponses = {
 
 export type MarkInboxItemReadResponse = MarkInboxItemReadResponses[keyof MarkInboxItemReadResponses];
 
+export type ResolveInboxItemData = {
+  body?: never;
+  path: {
+    itemId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}/resolve';
+};
+
+export type ResolveInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such conversation for this caller
+   */
+  404: unknown;
+  /**
+   * The conversation is already closed
+   */
+  409: unknown;
+};
+
+export type ResolveInboxItemResponses = {
+  /**
+   * It is resolved
+   */
+  204: void;
+};
+
+export type ResolveInboxItemResponse = ResolveInboxItemResponses[keyof ResolveInboxItemResponses];
+
+export type ResolveInboxRequestData = {
+  body?: never;
+  path: {
+    requestId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/requests/{requestId}/resolve';
+};
+
+export type ResolveInboxRequestErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such inbox request for this caller
+   */
+  404: unknown;
+};
+
+export type ResolveInboxRequestResponses = {
+  /**
+   * It is resolved
+   */
+  204: void;
+};
+
+export type ResolveInboxRequestResponse = ResolveInboxRequestResponses[keyof ResolveInboxRequestResponses];
+
+export type ReopenInboxItemData = {
+  body?: never;
+  path: {
+    itemId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}/reopen';
+};
+
+export type ReopenInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such conversation for this caller
+   */
+  404: unknown;
+  /**
+   * The conversation is not the last one, or a person did not resolve it
+   */
+  409: unknown;
+};
+
+export type ReopenInboxItemResponses = {
+  /**
+   * It is open again
+   */
+  204: void;
+};
+
+export type ReopenInboxItemResponse = ReopenInboxItemResponses[keyof ReopenInboxItemResponses];
+
+export type ReopenInboxRequestData = {
+  body?: never;
+  path: {
+    requestId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/requests/{requestId}/reopen';
+};
+
+export type ReopenInboxRequestErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such inbox request for this caller
+   */
+  404: unknown;
+};
+
+export type ReopenInboxRequestResponses = {
+  /**
+   * It is open again
+   */
+  204: void;
+};
+
+export type ReopenInboxRequestResponse = ReopenInboxRequestResponses[keyof ReopenInboxRequestResponses];
+
 export type MarkInboxRequestReadData = {
   body?: never;
   path: {
@@ -9543,6 +9671,36 @@ export type ResolveInboxNoticeResponses = {
 };
 
 export type ResolveInboxNoticeResponse = ResolveInboxNoticeResponses[keyof ResolveInboxNoticeResponses];
+
+export type ReopenInboxNoticeData = {
+  body?: never;
+  path: {
+    slug: string;
+    noticeId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/notices/{noticeId}/reopen';
+};
+
+export type ReopenInboxNoticeErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such notice for this caller
+   */
+  404: unknown;
+};
+
+export type ReopenInboxNoticeResponses = {
+  /**
+   * It is open again
+   */
+  204: void;
+};
+
+export type ReopenInboxNoticeResponse = ReopenInboxNoticeResponses[keyof ReopenInboxNoticeResponses];
 
 export type ReadTaskJournalData = {
   body?: never;
