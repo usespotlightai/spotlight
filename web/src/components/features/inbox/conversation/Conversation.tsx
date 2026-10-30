@@ -12,6 +12,7 @@ import {
   ARRIVING,
   authorsOf,
   type ConversationItem,
+  closesOrReopens,
   type Note,
   openedAt,
   type RunJournal,
@@ -27,10 +28,12 @@ interface Turn {
   readonly notes: Note[];
 }
 
+const shown = (note: Note): boolean => !closesOrReopens(note);
+
 const turnsOf = (item: ConversationItem): Turn[] => {
   const cut: Turn[] = [{ prompt: null, notes: [] }];
 
-  for (const note of item.notes) {
+  for (const note of item.notes.filter(shown)) {
     if (note.voice === 'person') {
       cut.push({ prompt: note, notes: [] });
     } else {
@@ -45,7 +48,7 @@ const marksIn = (item: ConversationItem): Set<number> => {
   let current = openedAt(item.createdAt);
   const marked = new Set<number>();
 
-  for (const note of item.notes) {
+  for (const note of item.notes.filter(shown)) {
     const reads = openedAt(note.at);
 
     if (reads !== current) {

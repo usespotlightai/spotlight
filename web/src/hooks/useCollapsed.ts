@@ -1,13 +1,20 @@
 import { useCallback, useState } from 'react';
 
-const readStored = (storageKey: string): string[] => {
+const readStored = (
+  storageKey: string,
+  collapsedByDefault: readonly string[],
+): readonly string[] => {
   try {
-    const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? '[]');
+    const stored = localStorage.getItem(storageKey);
+    if (stored === null) {
+      return collapsedByDefault;
+    }
+    const saved: unknown = JSON.parse(stored);
     return Array.isArray(saved)
       ? saved.filter((id): id is string => typeof id === 'string')
-      : [];
+      : collapsedByDefault;
   } catch {
-    return [];
+    return collapsedByDefault;
   }
 };
 
@@ -17,9 +24,12 @@ const store = (storageKey: string, ids: readonly string[]) => {
   } catch {}
 };
 
-export function useCollapsed(storageKey: string) {
+export function useCollapsed(
+  storageKey: string,
+  collapsedByDefault: readonly string[] = [],
+) {
   const [collapsed, setCollapsed] = useState<readonly string[]>(() =>
-    readStored(storageKey),
+    readStored(storageKey, collapsedByDefault),
   );
 
   const toggle = useCallback(

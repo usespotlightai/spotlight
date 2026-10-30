@@ -19,6 +19,10 @@ vi.mock('@/hooks/api/useOnboarding', () => ({
   useOnboarding: () => onboardingState,
 }));
 
+vi.mock('@/hooks/api/useGitHub', () => ({
+  useGitHub: () => ({ data: undefined }),
+}));
+
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [] }),
 }));
@@ -88,6 +92,19 @@ describe('Conversation', () => {
     showing([note(0, AT)]);
 
     expect(screen.getAllByText(openedAt(AT))).toHaveLength(1);
+  });
+
+  it('shows nothing for resolving and reopening', () => {
+    const person = { voice: 'person' as const, kind: 'passed' as const };
+    showing([
+      note(0, AT),
+      { ...note(1, LATER), ...person, form: 'resolved', body: 'Resolved.' },
+      { ...note(2, LATER), ...person, kind: 'reopened', body: 'Reopened.' },
+    ]);
+
+    expect(screen.queryByText('Resolved.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Reopened.')).not.toBeInTheDocument();
+    expect(screen.queryByText(openedAt(LATER))).not.toBeInTheDocument();
   });
 
   it('names no station over a note that shows itself', () => {

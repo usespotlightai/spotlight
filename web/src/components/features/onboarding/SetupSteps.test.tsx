@@ -21,6 +21,8 @@ vi.mock('@/hooks/api/useOnboarding', () => ({
 const INSTALL = 'https://github.com/apps/spotlight/installations/new';
 const githubState = {
   data: { connected: false, installUrl: INSTALL as string | null },
+  isPending: false,
+  errorUpdateCount: 0,
 };
 
 vi.mock('@/hooks/api/useGitHub', () => ({
@@ -99,6 +101,7 @@ beforeEach(() => {
   onboardingState.errorUpdateCount = 0;
   refetch.mockReset();
   githubState.data = { connected: false, installUrl: INSTALL };
+  githubState.isPending = false;
 });
 
 describe('SetupSteps', () => {
@@ -112,6 +115,19 @@ describe('SetupSteps', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Set up your team')).toBeInTheDocument();
     expect(screen.queryByText(BODY)).not.toBeInTheDocument();
+  });
+
+  it('keeps the steps’ place until it knows how to reach GitHub', () => {
+    onboardingState.data = onboarding();
+    githubState.isPending = true;
+    showing();
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the setup steps' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Install on GitHub' }),
+    ).not.toBeInTheDocument();
   });
 
   it('gives each step still to do a control of its own', () => {
@@ -248,17 +264,7 @@ describe('SetupSteps', () => {
     expect(screen.getByText('Choose the config folder')).toBeInTheDocument();
   });
 
-  it('says what setting up configuration waits on', () => {
-    onboardingState.data = onboarding({}, ['github']);
-    showing();
-
-    expect(screen.queryByText('Choose the config folder')).toBeNull();
-    expect(
-      screen.getByText(/The setup chat needs the GitHub App and egress\./),
-    ).toBeInTheDocument();
-  });
-
-  it('waits on egress where no host or push pool with egress runs', () => {
+  it('offers nothing for configuration until GitHub and egress are ready', () => {
     onboardingState.data = onboarding({ canSetUp: false }, [
       'github',
       'harness',
@@ -266,9 +272,7 @@ describe('SetupSteps', () => {
     showing();
 
     expect(screen.queryByText('Choose the config folder')).toBeNull();
-    expect(
-      screen.getByText(/name an egress in a push pool\./),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/egress/)).toBeNull();
   });
 
   it('names who is setting the team up in a chat only they can open', () => {

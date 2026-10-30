@@ -13,6 +13,7 @@ import {
   setupLinkClass,
 } from '@/components/features/onboarding/setup-control';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { useGitHub } from '@/hooks/api/useGitHub';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
 import type { SetupStepResponseDto } from '@/lib/api/types.gen';
 import { chatPath } from '@/lib/chat';
@@ -122,8 +123,9 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
   const { slug } = useParams();
   const query = useOnboarding(teamId);
   const onboarding = query.data;
+  const github = useGitHub(slug);
 
-  if (slug && loading(query)) {
+  if (slug && (loading(query) || loading(github))) {
     return <SetupStepsSkeleton about={about} />;
   }
 
@@ -194,12 +196,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
 
     return onboarding.canSetUp ? (
       <ConfigFolderForm slug={slug} teamId={teamId} />
-    ) : (
-      <p className="text-muted-foreground text-sm leading-6">
-        The setup chat needs the GitHub App and egress. Connect a host, or name
-        an egress in a push pool.
-      </p>
-    );
+    ) : null;
   };
 
   const goAndDoIt = (step: SetupStepResponseDto): ReactNode => {
