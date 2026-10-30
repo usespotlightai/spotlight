@@ -687,7 +687,10 @@ describe('runner pools (e2e)', () => {
       const first = await heartbeat(token).expect(200);
       const created = await hostRow();
 
-      expect(first.body).toEqual({ workspace: pool.body.workspaceId });
+      expect(first.body).toEqual({
+        workspace: pool.body.workspaceId,
+        drain: [],
+      });
       expect(created).toMatchObject({
         workspaceId: pool.body.workspaceId,
         poolId: pool.body.id,

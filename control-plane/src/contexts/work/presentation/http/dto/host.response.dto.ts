@@ -20,6 +20,15 @@ export class HostClaimResponseDto {
   })
   readonly egressToken: string;
 
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: '5d2e8f1a-7c4b-4e9a-b3f6-1a8d0c7e2b95',
+    description:
+      'The sandbox Spotlight started for a run; the host labels its container with it and reports it in each heartbeat. Null for a check.',
+  })
+  readonly sandboxId: string | null;
+
   @ApiProperty({ type: ClaimedWorkResponseDto })
   readonly work: ClaimedWorkResponseDto;
 
@@ -27,11 +36,13 @@ export class HostClaimResponseDto {
     runnerId: string,
     token: string,
     egressToken: string,
+    sandboxId: string | null,
     work: ClaimedWorkResponseDto,
   ) {
     this.runnerId = runnerId;
     this.token = token;
     this.egressToken = egressToken;
+    this.sandboxId = sandboxId;
     this.work = work;
   }
 }

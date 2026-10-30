@@ -1170,7 +1170,7 @@ export const deregisterHost = <ThrowOnError extends boolean = false>(options: Op
 });
 
 /**
- * A host sends a heartbeat with what it has and what it runs, so the Runners page can show it
+ * A host sends a heartbeat with what it has and what it runs, and learns which of its sandboxes to drain
  */
 export const hostHeartbeat = <ThrowOnError extends boolean = false>(options: Options<HostHeartbeatData, ThrowOnError>): RequestResult<HostHeartbeatResponses, HostHeartbeatErrors, ThrowOnError> => (options.client ?? client).put<HostHeartbeatResponses, HostHeartbeatErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],

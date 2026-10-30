@@ -358,6 +358,7 @@ type Assignment struct {
 	RunnerID    string        `json:"runnerId"`
 	Token       string        `json:"token"`
 	EgressToken string        `json:"egressToken,omitempty"`
+	SandboxID   string        `json:"sandboxId,omitempty"`
 	Work        ClaimResponse `json:"work"`
 }
 

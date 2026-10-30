@@ -42,6 +42,14 @@ export class HostImageRequestDto {
   readonly unavailableReason?: string;
 }
 
+export class HostSandboxRequestDto {
+  @ApiProperty({
+    example: '5d2e8f1a-7c4b-4e9a-b3f6-1a8d0c7e2b95',
+    description: 'The sandbox Spotlight named when it assigned the run',
+  })
+  readonly id!: string;
+}
+
 export class HostHeartbeatRequestDto {
   @ApiProperty({
     example: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
@@ -80,6 +88,13 @@ export class HostHeartbeatRequestDto {
     description: 'The one-run runners in its sandboxes now',
   })
   readonly running?: string[];
+
+  @ApiPropertyOptional({
+    type: [HostSandboxRequestDto],
+    isArray: true,
+    description: 'The sandboxes whose containers it has now',
+  })
+  readonly sandboxes?: HostSandboxRequestDto[];
 
   @ApiPropertyOptional({
     type: [HostImageRequestDto],

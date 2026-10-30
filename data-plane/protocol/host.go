@@ -34,18 +34,24 @@ type HostImage struct {
 	UnavailableReason string          `json:"unavailableReason,omitempty"`
 }
 
+type HostSandbox struct {
+	ID string `json:"id"`
+}
+
 type HostHeartbeat struct {
-	BootID           string      `json:"bootId"`
-	Name             string      `json:"name"`
-	Release          string      `json:"release"`
-	ContainerRuntime string      `json:"containerRuntime"`
-	Capacity         int         `json:"capacity"`
-	Running          []string    `json:"running"`
-	Images           []HostImage `json:"images"`
+	BootID           string        `json:"bootId"`
+	Name             string        `json:"name"`
+	Release          string        `json:"release"`
+	ContainerRuntime string        `json:"containerRuntime"`
+	Capacity         int           `json:"capacity"`
+	Running          []string      `json:"running"`
+	Sandboxes        []HostSandbox `json:"sandboxes"`
+	Images           []HostImage   `json:"images"`
 }
 
 type HeartbeatResponse struct {
-	Workspace string `json:"workspace"`
+	Workspace string   `json:"workspace"`
+	Drain     []string `json:"drain,omitempty"`
 }
 
 type RunImage struct {

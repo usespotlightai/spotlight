@@ -24,9 +24,10 @@ import (
 )
 
 const (
-	LabelHost   = "ai.usespotlight.host"
-	LabelRunner = "ai.usespotlight.runner"
-	LabelCall   = "ai.usespotlight.call"
+	LabelHost    = "ai.usespotlight.host"
+	LabelRunner  = "ai.usespotlight.runner"
+	LabelSandbox = "ai.usespotlight.sandbox"
+	LabelCall    = "ai.usespotlight.call"
 
 	AssignmentPath = "/run/spotlight/assignment.json"
 	MirrorRoot     = "/spotlight/mirrors"
@@ -139,6 +140,7 @@ type Host struct {
 	disallowed   []string
 	required     protocol.HostRequirements
 	running      map[string]string
+	held         map[string]*held
 	claimBackoff map[string]time.Time
 	failures     map[string]int
 	egressIs     string
@@ -161,6 +163,7 @@ func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors
 		bootID:       crand.Text(),
 		served:       map[string]*served{},
 		running:      map[string]string{},
+		held:         map[string]*held{},
 		claimBackoff: map[string]time.Time{},
 		failures:     map[string]int{},
 	}
@@ -398,6 +401,7 @@ func (h *Host) sendHeartbeat(ctx context.Context) (protocol.HeartbeatResponse, e
 	response, err := h.pool.Heartbeat(ctx, h.heartbeat())
 	if err == nil {
 		h.beat.Store(time.Now().UnixNano())
+		h.drainAll(response.Drain)
 	}
 	return response, err
 }
@@ -423,8 +427,13 @@ func (h *Host) heartbeat() protocol.HostHeartbeat {
 	for runner := range h.running {
 		running = append(running, runner)
 	}
+	sandboxes := make([]protocol.HostSandbox, 0, len(h.held))
+	for id := range h.held {
+		sandboxes = append(sandboxes, protocol.HostSandbox{ID: id})
+	}
 	h.mu.Unlock()
 	slices.Sort(running)
+	slices.SortFunc(sandboxes, func(a, b protocol.HostSandbox) int { return strings.Compare(a.ID, b.ID) })
 
 	return protocol.HostHeartbeat{
 		BootID:           h.bootID,
@@ -433,6 +442,7 @@ func (h *Host) heartbeat() protocol.HostHeartbeat {
 		ContainerRuntime: h.containerRuntime,
 		Capacity:         h.slots.size(),
 		Running:          running,
+		Sandboxes:        sandboxes,
 		Images:           h.reportedImages(),
 	}
 }
@@ -544,6 +554,12 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 	if assignment.Work.Check != nil {
 		log = log.With("stack", assignment.Work.Check.StackID)
 	}
+	if assignment.SandboxID != "" {
+		log = log.With("sandboxId", assignment.SandboxID)
+	}
+
+	draining := h.hold(assignment.SandboxID)
+	defer h.release(assignment.SandboxID)
 
 	if ctx.Err() != nil {
 		log.Info("the host is stopping, so the work is left to be claimed again")
@@ -616,11 +632,16 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 		env = append(env, telemetry.TraceparentVar+"="+trace.Traceparent())
 	}
 
+	labels := map[string]string{LabelHost: h.opts.HostID, LabelRunner: assignment.RunnerID}
+	if assignment.SandboxID != "" {
+		labels[LabelSandbox] = assignment.SandboxID
+	}
+
 	id, err := h.engine.Start(starting, sandbox.Spec{
 		Name:    "spotlight-" + assignment.RunnerID,
 		Image:   ready.id,
 		Env:     env,
-		Labels:  map[string]string{LabelHost: h.opts.HostID, LabelRunner: assignment.RunnerID},
+		Labels:  labels,
 		Mounts:  mounts,
 		Files:   append([]sandbox.File{{Path: AssignmentPath, Mode: 0o400, Body: body}}, sidecar.files()...),
 		Network: sidecar.network,
@@ -673,6 +694,8 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 	case <-timeout.C:
 		log.Warn("the sandbox ran past its time", "timeout", h.now().RunTimeout)
 		ranOut = true
+	case <-draining:
+		log.Info("the control plane drains the sandbox")
 	case <-ctx.Done():
 		log.Info("the host is stopping, so is the sandbox")
 	}
@@ -983,6 +1006,45 @@ func (h *Host) untrack(runner string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	delete(h.running, runner)
+}
+
+type held struct {
+	drain   chan struct{}
+	drained bool
+}
+
+func (h *Host) hold(sandboxID string) <-chan struct{} {
+	if sandboxID == "" {
+		return nil
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	each := &held{drain: make(chan struct{})}
+	h.held[sandboxID] = each
+	return each.drain
+}
+
+func (h *Host) release(sandboxID string) {
+	if sandboxID == "" {
+		return
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.held, sandboxID)
+}
+
+func (h *Host) drainAll(sandboxIDs []string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	for _, id := range sandboxIDs {
+		if each, ok := h.held[id]; ok && !each.drained {
+			each.drained = true
+			close(each.drain)
+		}
+	}
 }
 
 func retried(ctx context.Context, log *slog.Logger, failed string, try func() error) error {

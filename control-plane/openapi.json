@@ -9442,7 +9442,7 @@
             "bearer": []
           }
         ],
-        "summary": "A host sends a heartbeat with what it has and what it runs, so the Runners page can show it",
+        "summary": "A host sends a heartbeat with what it has and what it runs, and learns which of its sandboxes to drain",
         "tags": [
           "runners"
         ]
@@ -23094,6 +23094,12 @@
             "type": "string",
             "description": "The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox"
           },
+          "sandboxId": {
+            "type": "string",
+            "nullable": true,
+            "example": "5d2e8f1a-7c4b-4e9a-b3f6-1a8d0c7e2b95",
+            "description": "The sandbox Spotlight started for a run; the host labels its container with it and reports it in each heartbeat. Null for a check."
+          },
           "work": {
             "$ref": "#/components/schemas/ClaimedWorkResponseDto"
           }
@@ -23102,6 +23108,7 @@
           "runnerId",
           "token",
           "egressToken",
+          "sandboxId",
           "work"
         ]
       },
@@ -27914,6 +27921,16 @@
               "type": "string"
             }
           },
+          "sandboxes": {
+            "description": "The sandboxes whose containers it has now",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "hostSandboxRequestDto"
+              }
+            },
+            "type": "array"
+          },
           "images": {
             "description": "The runner images it supports or cannot use, each with what it found inside",
             "items": {
@@ -27940,10 +27957,21 @@
             "type": "string",
             "example": "9b1d4c7e-2a3f-4e5d-8c6b-7a8f9e0d1c2b",
             "description": "The workspace the host serves, which it keeps its mirrors under"
+          },
+          "drain": {
+            "example": [
+              "5d2e8f1a-7c4b-4e9a-b3f6-1a8d0c7e2b95"
+            ],
+            "description": "The reported sandboxes to drain: the host stops each one with a grace period, then destroys it",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
-          "workspace"
+          "workspace",
+          "drain"
         ]
       },
       "CredentialSourceResponseDto": {

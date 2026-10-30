@@ -166,6 +166,32 @@ describe('workSubscribers', () => {
     expect(runners.reservationDropped).toHaveBeenCalledWith('runner_1');
   });
 
+  it('releases the sandbox lease of a run once the run ends, its lease expires, or it is suspended', async () => {
+    const sandboxes = { runLeft: vi.fn(async () => {}) };
+    const releasing = workSubscribers({
+      sandboxes,
+    } as unknown as Parameters<typeof workSubscribers>[0]).find(
+      (each) => each.name === 'work.release-sandbox-of-left-run',
+    );
+    const run = RunId.of('run_1');
+    const workspace = WorkspaceId.of('ws_1');
+    const at = new Date('2026-10-30T09:00:00.000Z');
+
+    await releasing?.handle(
+      new RunLeaseExpired(run, workspace, RunnerId.of('runner_1'), at, 1),
+    );
+    await releasing?.handle(new RunCancelled(run, workspace, null, 2));
+
+    expect(releasing?.kinds).toEqual([
+      'run.completed',
+      'run.exhausted',
+      'run.cancelled',
+      'run.lease-expired',
+      'run.suspended',
+    ]);
+    expect(sandboxes.runLeft.mock.calls).toEqual([[run], [run]]);
+  });
+
   it('takes up the run a person answered, whichever way the answer came', async () => {
     const pausedRuns = { onTaskAnswered: vi.fn(async () => {}) };
     const taking = workSubscribers({

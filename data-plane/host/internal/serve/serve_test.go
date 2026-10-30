@@ -421,6 +421,7 @@ type pool struct {
 	runClient    *runClient
 	mu           sync.Mutex
 	heartbeats   []protocol.HostHeartbeat
+	drain        []string
 	deregistered bool
 
 	calls       chan protocol.HostCall
@@ -552,7 +553,21 @@ func (p *pool) Heartbeat(_ context.Context, heartbeat protocol.HostHeartbeat) (p
 			&control.ResponseError{Status: 409, Reason: "host-in-use", Err: errors.New("in use")})
 	}
 	p.heartbeats = append(p.heartbeats, heartbeat)
-	return protocol.HeartbeatResponse{Workspace: "workspace_1"}, nil
+	return protocol.HeartbeatResponse{Workspace: "workspace_1", Drain: slices.Clone(p.drain)}, nil
+}
+
+func (p *pool) drainSandboxes(ids ...string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.drain = ids
+}
+
+func (p *pool) reportedSandboxes() []string {
+	var ids []string
+	for _, each := range p.lastHeartbeat().Sandboxes {
+		ids = append(ids, each.ID)
+	}
+	return ids
 }
 
 func (p *pool) Deregister(context.Context) error {
@@ -875,6 +890,96 @@ func TestARunWhoseSandboxFinishesInTimeIsLeftToItsRunnerToReport(t *testing.T) {
 	eventually(t, "destroyed once finished", func() bool { return engine.wasDestroyed(id) })
 	if done, ok := pool.runClient.completion("run-runner_1"); ok {
 		t.Errorf("the host reported the run itself: %+v", done)
+	}
+}
+
+func inSandbox(runner, sandboxID string) protocol.Assignment {
+	each := assignment(runner)
+	each.SandboxID = sandboxID
+	return each
+}
+
+func TestLabelsAndReportsEachRunsSandboxUntilItsContainerIsGone(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.Capacity = 2
+	serving(t, opts, engine, pool)
+
+	pool.work <- inSandbox("runner_1", "sandbox_a")
+	pool.work <- inSandbox("runner_2", "sandbox_b")
+	eventually(t, "two sandboxes", func() bool { return len(engine.workSandboxes()) == 2 })
+	eventually(t, "both sandboxes reported", func() bool {
+		return slices.Equal(pool.reportedSandboxes(), []string{"sandbox_a", "sandbox_b"})
+	})
+
+	labelled := map[string]string{}
+	for _, id := range engine.workSandboxes() {
+		labelled[engine.sandbox(id).Labels[serve.LabelSandbox]] = id
+	}
+	if labelled["sandbox_a"] == "" || labelled["sandbox_b"] == "" {
+		t.Fatalf("containers are not labelled with their sandboxes: %v", labelled)
+	}
+
+	engine.finish(labelled["sandbox_a"])
+	eventually(t, "the finished sandbox no longer reported", func() bool {
+		return engine.wasDestroyed(labelled["sandbox_a"]) &&
+			slices.Equal(pool.reportedSandboxes(), []string{"sandbox_b"})
+	})
+}
+
+func TestReportsNoSandboxForWorkThatHasNone(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	serving(t, options(t), engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	id := engine.workSandboxes()[0]
+	eventually(t, "a report after it started", func() bool { return len(pool.lastHeartbeat().Running) == 1 })
+
+	if reported := pool.reportedSandboxes(); len(reported) != 0 {
+		t.Errorf("reported %v for work with no sandbox", reported)
+	}
+	if label, ok := engine.sandbox(id).Labels[serve.LabelSandbox]; ok {
+		t.Errorf("labelled work with no sandbox as sandbox %q", label)
+	}
+}
+
+func TestStopsAndDestroysASandboxTheControlPlaneDrains(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.Capacity = 2
+	serving(t, opts, engine, pool)
+
+	pool.work <- inSandbox("runner_1", "sandbox_a")
+	pool.work <- inSandbox("runner_2", "sandbox_b")
+	eventually(t, "both sandboxes reported", func() bool {
+		return slices.Equal(pool.reportedSandboxes(), []string{"sandbox_a", "sandbox_b"})
+	})
+	labelled := map[string]string{}
+	for _, id := range engine.workSandboxes() {
+		labelled[engine.sandbox(id).Labels[serve.LabelSandbox]] = id
+	}
+
+	pool.drainSandboxes("sandbox_a", "sandbox_unknown")
+
+	eventually(t, "the drained sandbox stopped and destroyed", func() bool {
+		return engine.wasDestroyed(labelled["sandbox_a"])
+	})
+	engine.mu.Lock()
+	stopped := slices.Contains(engine.stopped, labelled["sandbox_a"])
+	keptOther := !slices.Contains(engine.stopped, labelled["sandbox_b"])
+	engine.mu.Unlock()
+	if !stopped {
+		t.Error("destroyed the drained sandbox without stopping it first")
+	}
+	if !keptOther || engine.wasDestroyed(labelled["sandbox_b"]) {
+		t.Error("drained a sandbox the control plane did not name")
+	}
+	eventually(t, "the drained sandbox no longer reported", func() bool {
+		return slices.Equal(pool.reportedSandboxes(), []string{"sandbox_b"})
+	})
+	if _, ok := pool.runClient.completion("run-runner_1"); ok {
+		t.Error("the host reported the run of a drained sandbox itself")
 	}
 }
 

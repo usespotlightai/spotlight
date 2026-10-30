@@ -184,6 +184,7 @@ export class HostWorkController {
       claimed.runnerId,
       claimed.token,
       claimed.egressToken,
+      claimed.sandboxId,
       ClaimedWorkHttpMapper.toResponse(claimed.work),
     );
   }

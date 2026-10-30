@@ -8,6 +8,7 @@ import type {
   HostCredentials,
   RunnerAuthenticatorPort,
 } from '@runners/application/ports/runner-authenticator.port';
+import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
   aHost,
@@ -20,12 +21,23 @@ import {
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
+import type { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
+import {
+  aSandbox,
+  DRAIN_POLICY,
+  storedSandboxes,
+} from '@runners/domain/aggregates/sandbox.fake-spec';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const HOST = HOST_ID.value;
+
+const WORKSPACE = WorkspaceId.of('ws_1');
 
 const later = (ms: number): Date => new Date(STARTED_AT.getTime() + ms);
 
@@ -57,8 +69,10 @@ const reporting = (
   input: {
     authenticated?: RunnerPool | RunnerTrust | null;
     known?: ReturnType<typeof aHost>;
+    sandboxes?: Sandbox[];
   } = {},
 ) => {
+  const placed = storedSandboxes({}, ...(input.sandboxes ?? []));
   const { stored, hosts } = input.known
     ? storedHosts(input.known)
     : storedHosts();
@@ -72,12 +86,22 @@ const reporting = (
   const handler = new HostHeartbeatHandler(
     { authenticate } satisfies RunnerAuthenticatorPort,
     hosts,
+    new Sandboxes(
+      placed.sandboxes,
+      DRAIN_POLICY,
+      { generate: () => 'sandbox_new' },
+      {
+        inTransaction: (work: () => Promise<unknown>) => work(),
+      } as TransactionPort,
+      { info: vi.fn() } as unknown as LoggerPort,
+    ),
     { now: () => now } as ClockPort,
   );
 
   return {
     stored,
     hosts,
+    placed: placed.stored,
     authenticate,
     at: (ms: number) => {
       now = later(ms);
@@ -89,12 +113,16 @@ const reporting = (
       report: Partial<ReportedHost> = {},
       credential = CREDENTIAL,
       bootId = 'boot_1',
+      sandboxes: string[] = [],
     ) =>
       handler.execute(
-        new HostHeartbeatCommand(credential, HOST, bootId, {
-          ...REPORT,
-          ...report,
-        }),
+        new HostHeartbeatCommand(
+          credential,
+          HOST,
+          bootId,
+          { ...REPORT, ...report },
+          sandboxes,
+        ),
       ),
   };
 };
@@ -122,6 +150,7 @@ describe('HostHeartbeatHandler', () => {
     await expect(report()).resolves.toEqual({
       outcome: 'accepted',
       workspaceId: 'ws_1',
+      drain: [],
     });
 
     const host = stored.get(HOST);
@@ -192,6 +221,7 @@ describe('HostHeartbeatHandler', () => {
     await expect(report()).resolves.toEqual({
       outcome: 'accepted',
       workspaceId: 'ws_1',
+      drain: [],
     });
 
     const host = stored.get(HOST);
@@ -199,6 +229,62 @@ describe('HostHeartbeatHandler', () => {
     expect(host?.source.equals(CredentialSource.ofId(TRUST_ID))).toBe(true);
     expect(host?.firstHeartbeatAt).toEqual(later(90_000));
     expect(host?.lastHeartbeatAt).toEqual(later(90_000));
+  });
+
+  it('answers which reported sandboxes to drain, and keeps the state of those it reports', async () => {
+    const { report, placed, at } = reporting({
+      sandboxes: [
+        aSandbox({
+          id: 'sandbox_1',
+          workspaceId: WORKSPACE,
+          hostId: HOST_ID,
+          at: STARTED_AT,
+        }),
+        aSandbox({
+          id: 'sandbox_2',
+          key: 'chat-chat_1',
+          workspaceId: WORKSPACE,
+          hostId: HOST_ID,
+          at: STARTED_AT,
+        })
+          .reported()
+          .drain(),
+      ],
+    });
+
+    at(20_000);
+
+    await expect(
+      report({}, CREDENTIAL, 'boot_1', ['sandbox_1', 'sandbox_2', 'sandbox_9']),
+    ).resolves.toEqual({
+      outcome: 'accepted',
+      workspaceId: 'ws_1',
+      drain: ['sandbox_2', 'sandbox_9'],
+    });
+    expect(placed.get('sandbox_1')?.current).toBe('ready');
+
+    at(40_000);
+    await report({}, CREDENTIAL, 'boot_1', ['sandbox_1']);
+
+    expect(placed.get('sandbox_2')?.current).toBe('gone');
+  });
+
+  it('does not touch sandboxes when it does not accept the host', async () => {
+    const { report, placed } = reporting({
+      authenticated: null,
+      sandboxes: [
+        aSandbox({
+          id: 'sandbox_1',
+          workspaceId: WORKSPACE,
+          hostId: HOST_ID,
+          at: STARTED_AT,
+        }).reported(),
+      ],
+    });
+
+    await report();
+
+    expect(placed.get('sandbox_1')?.current).toBe('ready');
   });
 
   it('rejects a heartbeat it cannot read, or one with no boot id, as invalid', async () => {

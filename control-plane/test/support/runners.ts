@@ -14,6 +14,9 @@ export const deleteRunnersOf = async (
     .delete(schema.changeStack)
     .where(eq(schema.changeStack.workspaceId, workspaceId));
   await db
+    .delete(schema.sandbox)
+    .where(eq(schema.sandbox.workspaceId, workspaceId));
+  await db
     .delete(schema.runnerHost)
     .where(eq(schema.runnerHost.workspaceId, workspaceId));
   await db

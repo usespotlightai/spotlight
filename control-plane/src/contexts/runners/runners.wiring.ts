@@ -78,6 +78,7 @@ import {
   type RunnerResourcesPort,
 } from '@runners/application/ports/runner-resources.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
+import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
 import { ImportEgressHandler } from '@runners/application/queries/handlers/import-egress.handler';
 import { ImportRunnerPoolHandler } from '@runners/application/queries/handlers/import-runner-pool.handler';
 import { ImportRunnerTrustHandler } from '@runners/application/queries/handlers/import-runner-trust.handler';
@@ -115,8 +116,10 @@ import { RunnerEgress } from '@runners/application/services/runner-egress.servic
 import { RunnerHeartbeats } from '@runners/application/services/runner-heartbeats.service';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
 import { Runners } from '@runners/application/services/runners.service';
+import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import { RUNNERS_PAYLOAD_TYPES } from '@runners/domain/payload-types';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
+import { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
 import { RunnerTokenAuth } from '@runners/infrastructure/auth/runner-token.auth';
 import { RunnerDefinitions } from '@runners/infrastructure/definitions/runner-definitions';
 import { InstallerAssets } from '@runners/infrastructure/installer/installer-assets';
@@ -127,6 +130,7 @@ import { DrizzleRunnerRepository } from '@runners/infrastructure/persistence/dri
 import { DrizzleRunnerHostRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-host.repository';
 import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-pool.repository';
 import { DrizzleRunnerTrustRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-trust.repository';
+import { DrizzleSandboxRepository } from '@runners/infrastructure/persistence/drizzle/repositories/sandbox.repository';
 import { DrizzleUsedEgressTokensRepository } from '@runners/infrastructure/persistence/drizzle/repositories/used-egress-tokens.repository';
 import { DrizzleUsedPoolTokensRepository } from '@runners/infrastructure/persistence/drizzle/repositories/used-pool-tokens.repository';
 import { DrizzleWorkspaceRunnersRepository } from '@runners/infrastructure/persistence/drizzle/repositories/workspace-runners.repository';
@@ -142,6 +146,7 @@ import { RunnerPoolResourceController } from '@runners/presentation/http/control
 import { RunnerRegistrationController } from '@runners/presentation/http/controllers/runner-registration.controller';
 import { RunnerTrustResourceController } from '@runners/presentation/http/controllers/runner-trust-resource.controller';
 import { WorkspaceRunnersResourceController } from '@runners/presentation/http/controllers/workspace-runners-resource.controller';
+import { SandboxesWorker } from '@runners/presentation/workers/sandboxes.worker';
 import { StaleHostsWorker } from '@runners/presentation/workers/stale-hosts.worker';
 import {
   CLOCK,
@@ -306,6 +311,34 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       new StaleHostsWorker(purging, logger),
   },
   {
+    provide: Sandboxes,
+    inject: [DrizzleSandboxRepository, ENV, ID_GENERATOR, TRANSACTION, LOGGER],
+    useFactory: (
+      sandboxes: DrizzleSandboxRepository,
+      env: Env,
+      ids: IdGeneratorPort,
+      transaction: TransactionPort,
+      logger: LoggerPort,
+    ) =>
+      new Sandboxes(
+        sandboxes,
+        SandboxDrainPolicy.of({
+          graceMs: env.SPOTLIGHT_SANDBOX_GRACE,
+          editorLimitMs: env.SPOTLIGHT_EDITOR_LIMIT,
+        }),
+        ids,
+        transaction,
+        logger,
+      ),
+  },
+  { provide: SANDBOXES, useExisting: Sandboxes },
+  {
+    provide: SandboxesWorker,
+    inject: [Sandboxes, CLOCK, LOGGER],
+    useFactory: (sandboxes: Sandboxes, clock: ClockPort, logger: LoggerPort) =>
+      new SandboxesWorker(sandboxes, clock, logger),
+  },
+  {
     provide: RUNNER_EGRESS,
     inject: [
       DrizzleRunnerRepository,
@@ -440,6 +473,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   DrizzleUsedEgressTokensRepository,
   DrizzleRunnerRepository,
   DrizzleRunnerHostRepository,
+  DrizzleSandboxRepository,
 
   {
     provide: RUNNER_READER,
@@ -469,6 +503,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(HostHeartbeatCommand, HostHeartbeatHandler, [
     RUNNER_AUTHENTICATOR,
     DrizzleRunnerHostRepository,
+    Sandboxes,
     CLOCK,
   ]),
   ...bindCommandHandler(DeregisterHostCommand, DeregisterHostHandler, [

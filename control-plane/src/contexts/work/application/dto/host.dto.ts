@@ -15,5 +15,6 @@ export type HostClaimDto =
       readonly runnerId: string;
       readonly token: string;
       readonly egressToken: string;
+      readonly sandboxId: string | null;
       readonly work: ClaimedWorkDto;
     };

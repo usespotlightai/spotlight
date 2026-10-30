@@ -1132,6 +1132,10 @@ export type HostClaimResponseDto = {
    * The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox
    */
   egressToken: string;
+  /**
+   * The sandbox Spotlight started for a run; the host labels its container with it and reports it in each heartbeat. Null for a check.
+   */
+  sandboxId: string | null;
   work: ClaimedWorkResponseDto;
 };
 
@@ -3074,6 +3078,10 @@ export type HostHeartbeatRequestDto = {
    */
   running?: Array<string>;
   /**
+   * The sandboxes whose containers it has now
+   */
+  sandboxes?: Array<Array<unknown>>;
+  /**
    * The runner images it supports or cannot use, each with what it found inside
    */
   images?: Array<Array<unknown>>;
@@ -3084,6 +3092,10 @@ export type HostHeartbeatResponseDto = {
    * The workspace the host serves, which it keeps its mirrors under
    */
   workspace: string;
+  /**
+   * The reported sandboxes to drain: the host stops each one with a grace period, then destroys it
+   */
+  drain: Array<string>;
 };
 
 export type CredentialSourceResponseDto = {

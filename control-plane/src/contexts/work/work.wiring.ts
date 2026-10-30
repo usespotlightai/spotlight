@@ -82,6 +82,10 @@ import {
   type RunnersPort,
 } from '@runners/application/ports/runners.port';
 import {
+  SANDBOXES,
+  type SandboxesPort,
+} from '@runners/application/ports/sandboxes.port';
+import {
   RUN_GRANTS,
   type RunGrantsPort,
 } from '@secrets/application/ports/run-grants.port';
@@ -588,6 +592,7 @@ import { RunLoader } from '@work/application/services/run-loader.service';
 import { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import { RunWorks } from '@work/application/services/run-works.service';
 import { RunnerLeases } from '@work/application/services/runner-leases.service';
+import { SandboxLeases } from '@work/application/services/sandbox-leases.service';
 import { SearchRuns } from '@work/application/services/search-runs.service';
 import { SetupPullRequestToolUse } from '@work/application/services/setup-pull-request.tool-use';
 import { SetupStatus } from '@work/application/services/setup-status.service';
@@ -692,6 +697,7 @@ import { NetworkCallsWorker } from '@work/presentation/workers/network-calls.wor
 import { ProcessedEventsWorker } from '@work/presentation/workers/processed-events.worker';
 import { ProvisionWorkWorker } from '@work/presentation/workers/provision-work.worker';
 import { RunConnectionsWorker } from '@work/presentation/workers/run-connections.worker';
+import { RunLeasesWorker } from '@work/presentation/workers/run-leases.worker';
 import { WorkspaceArchivesWorker } from '@work/presentation/workers/workspace-archives.worker';
 
 const WORK_EVENTS = Symbol('WORK_EVENTS');
@@ -1096,6 +1102,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     provide: RunLeases,
     inject: [DrizzleRunRepository],
     useFactory: (runs: DrizzleRunRepository) => new RunLeases(runs),
+  },
+
+  {
+    provide: RunLeasesWorker,
+    inject: [RunLeases, CLOCK, LOGGER],
+    useFactory: (leases: RunLeases, clock: ClockPort, logger: LoggerPort) =>
+      new RunLeasesWorker(leases, clock, logger),
   },
 
   DrizzleRunJournal,
@@ -1727,6 +1740,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       LOGGER,
       RUN_GRANTS,
       RunnerLeases,
+      SandboxLeases,
       ToolUsedHooks,
       RUN_JOURNAL,
       RUN_USAGES,
@@ -1758,6 +1772,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       logger: LoggerPort,
       runGrants: RunGrantsPort,
       ending: RunnerLeases,
+      sandboxLeases: SandboxLeases,
       toolUsedHooks: ToolUsedHooks,
       journal: RunJournalPort,
       usages: RunUsageReaderPort,
@@ -1799,6 +1814,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           runGrants,
           runTokens,
           runners: ending,
+          sandboxes: sandboxLeases,
           toolUsedHooks,
           notices,
           connections: new ConnectionsMade(tasks, clock),
@@ -1975,6 +1991,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   { provide: CHECK_ENDINGS, useExisting: RunnerLeases },
+
+  {
+    provide: SandboxLeases,
+    inject: [SANDBOXES, CLOCK],
+    useFactory: (sandboxes: SandboxesPort, clock: ClockPort) =>
+      new SandboxLeases(sandboxes, clock),
+  },
 
   {
     provide: ProvisionFailures,
@@ -2429,6 +2452,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RunStartHooks,
     ClaimsTaken,
     LongPoll,
+    SANDBOXES,
   ]),
 
   ...bindCommandHandler(ClaimHostCallCommand, ClaimHostCallHandler, [

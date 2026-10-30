@@ -71,7 +71,7 @@ const injectsNoSecrets = sql`coalesce(jsonb_array_length(${run.spec} -> 'injecte
 
 const noEarlierRunStillLeased = sql`NOT EXISTS (
   SELECT 1 FROM ${run} AS earlier
-  WHERE earlier.task_id = ${run.taskId}
+  WHERE (earlier.task_id = ${run.taskId} OR earlier.chat_id = ${run.chatId})
     AND earlier.id <> ${run.id}
     AND earlier.state IN (${sql.join(
       LEASED_RUN_STATES.map((each) => sql`${each}`),

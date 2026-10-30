@@ -1420,6 +1420,20 @@ CREATE TABLE "runner_trust" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "sandbox" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"key" text,
+	"host_id" text NOT NULL,
+	"state" text NOT NULL,
+	"leases" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"idle_since" timestamp,
+	"started_at" timestamp NOT NULL,
+	"gone_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "sandbox_gone_at_matches_state" CHECK (("sandbox"."state" = 'gone') = ("sandbox"."gone_at" is not null))
+);
+--> statement-breakpoint
 CREATE TABLE "workspace_runners" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -2081,6 +2095,10 @@ CREATE INDEX "runner_host_last_heartbeat_idx" ON "runner_host" USING btree ("las
 CREATE UNIQUE INDEX "runner_pool_workspace_key_idx" ON "runner_pool" USING btree ("workspace_id","key");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_pool_token_hash_idx" ON "runner_pool" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_trust_workspace_key_idx" ON "runner_trust" USING btree ("workspace_id","key");--> statement-breakpoint
+CREATE UNIQUE INDEX "sandbox_open_key_idx" ON "sandbox" USING btree ("workspace_id","key") WHERE "sandbox"."key" is not null and "sandbox"."state" in ('starting', 'ready');--> statement-breakpoint
+CREATE INDEX "sandbox_host_live_idx" ON "sandbox" USING btree ("host_id") WHERE "sandbox"."state" <> 'gone';--> statement-breakpoint
+CREATE INDEX "sandbox_idle_idx" ON "sandbox" USING btree ("idle_since") WHERE "sandbox"."state" in ('starting', 'ready');--> statement-breakpoint
+CREATE INDEX "sandbox_gone_idx" ON "sandbox" USING btree ("gone_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "workspace_runners_workspace_idx" ON "workspace_runners" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "run_grants_workspace_idx" ON "run_grants" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "run_grants_ended_idx" ON "run_grants" USING btree ("ended_at");--> statement-breakpoint

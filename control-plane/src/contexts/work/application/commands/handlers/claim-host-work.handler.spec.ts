@@ -7,6 +7,7 @@ import type {
   RunnersPort,
   StartedRunner,
 } from '@runners/application/ports/runners.port';
+import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -133,6 +134,10 @@ const pulling = (
     renewLease: vi.fn(async () => 'renewed' as const),
     waitingPlacements: vi.fn(async () => []),
   };
+  const sandboxes = {
+    holdForRun: vi.fn(async () => 'sandbox_1'),
+    releaseRun: vi.fn(async () => {}),
+  } satisfies SandboxesPort;
   const handler = new ClaimHostWorkHandler(
     authenticator as RunnerAuthenticatorPort,
     runners as unknown as RunnersPort,
@@ -149,10 +154,12 @@ const pulling = (
       error: () => {},
     }),
     new LongPoll(clock),
+    sandboxes,
   );
 
   return {
     handler,
+    sandboxes,
     authenticator,
     runners,
     claimNext,
@@ -294,6 +301,7 @@ describe('ClaimHostWorkHandler', () => {
       runnerId: 'pooled_1',
       token: 'one-run-token',
       egressToken: 'egress-token',
+      sandboxId: 'sandbox_1',
       work: { kind: 'run', run: { id: 'run_1', harness: 'claude-code' } },
     });
     expect(claimNext).toHaveBeenCalledWith(
@@ -307,16 +315,29 @@ describe('ClaimHostWorkHandler', () => {
     );
   });
 
-  it('hands over a check once no run wants the runner', async () => {
-    const { handler, runners } = pulling({ check: aCheck });
+  it('starts a sandbox for a claimed run, on the claiming host, under the run’s resume key and held by the run', async () => {
+    const { handler, sandboxes } = pulling({ run: taken() });
+
+    await handler.execute(pull());
+
+    expect(sandboxes.holdForRun).toHaveBeenCalledWith(
+      { workspaceId: 'ws_1', key: 'task-task_1', hostId: HOST, runId: 'run_1' },
+      NOW,
+    );
+  });
+
+  it('hands over a check once no run wants the runner, with no sandbox', async () => {
+    const { handler, runners, sandboxes } = pulling({ check: aCheck });
 
     const claimed = await handler.execute(pull());
 
     expect(claimed).toMatchObject({
       outcome: 'claimed',
       runnerId: 'pooled_1',
+      sandboxId: null,
       work: { kind: 'check', check: aCheck },
     });
+    expect(sandboxes.holdForRun).not.toHaveBeenCalled();
     expect(runners.claim).toHaveBeenCalledWith(
       POOLED,
       { kind: 'check', id: 'stack_1' },

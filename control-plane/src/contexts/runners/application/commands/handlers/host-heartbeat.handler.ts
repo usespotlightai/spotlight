@@ -2,6 +2,7 @@ import type { HostHeartbeatCommand } from '@runners/application/commands/host.co
 import type { HostHeartbeatDto } from '@runners/application/dto/host-heartbeat.dto';
 import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import { reviseHost } from '@runners/application/services/runner-host-revisions';
+import type { Sandboxes } from '@runners/application/services/sandboxes.service';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { HostInUseError } from '@runners/domain/exceptions/host-in-use.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
@@ -19,6 +20,7 @@ export class HostHeartbeatHandler
   constructor(
     private readonly authenticator: RunnerAuthenticatorPort,
     private readonly hosts: RunnerHostRepository,
+    private readonly sandboxes: Sandboxes,
     private readonly clock: ClockPort,
   ) {}
 
@@ -63,6 +65,7 @@ export class HostHeartbeatHandler
       return {
         outcome: 'accepted',
         workspaceId: authenticated.workspaceId.value,
+        drain: await this.sandboxes.reconcile(id.value, command.sandboxes, at),
       };
     } catch (error) {
       if (error instanceof HostInUseError) {

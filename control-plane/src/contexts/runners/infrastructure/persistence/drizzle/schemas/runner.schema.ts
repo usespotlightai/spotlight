@@ -211,3 +211,43 @@ export const runnerHost = pgTable(
     ),
   ],
 );
+
+export interface SandboxLeaseRecord {
+  readonly kind: string;
+  readonly holder: string;
+  readonly renewedAt: string;
+}
+
+export const sandbox = pgTable(
+  'sandbox',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    key: text('key'),
+    hostId: text('host_id').notNull(),
+    state: text('state').notNull(),
+    leases: jsonb('leases').$type<SandboxLeaseRecord[]>().notNull().default([]),
+    idleSince: timestamp('idle_since'),
+    startedAt: timestamp('started_at').notNull(),
+    goneAt: timestamp('gone_at'),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('sandbox_open_key_idx')
+      .on(table.workspaceId, table.key)
+      .where(
+        sql`${table.key} is not null and ${table.state} in ('starting', 'ready')`,
+      ),
+    index('sandbox_host_live_idx')
+      .on(table.hostId)
+      .where(sql`${table.state} <> 'gone'`),
+    index('sandbox_idle_idx')
+      .on(table.idleSince)
+      .where(sql`${table.state} in ('starting', 'ready')`),
+    index('sandbox_gone_idx').on(table.goneAt),
+    check(
+      'sandbox_gone_at_matches_state',
+      sql`(${table.state} = 'gone') = (${table.goneAt} is not null)`,
+    ),
+  ],
+);

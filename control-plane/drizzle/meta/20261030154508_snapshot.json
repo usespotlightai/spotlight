@@ -1,5 +1,5 @@
 {
-  "id": "a6c1c6bf-bd3c-4935-a068-cbd260d17e52",
+  "id": "5256da93-b9a7-4eff-8f76-7292f7af2b39",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -11656,6 +11656,156 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sandbox": {
+      "name": "sandbox",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "host_id": {
+          "name": "host_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "leases": {
+          "name": "leases",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "idle_since": {
+          "name": "idle_since",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "gone_at": {
+          "name": "gone_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "sandbox_open_key_idx": {
+          "name": "sandbox_open_key_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"sandbox\".\"key\" is not null and \"sandbox\".\"state\" in ('starting', 'ready')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sandbox_host_live_idx": {
+          "name": "sandbox_host_live_idx",
+          "columns": [
+            {
+              "expression": "host_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"sandbox\".\"state\" <> 'gone'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sandbox_idle_idx": {
+          "name": "sandbox_idle_idx",
+          "columns": [
+            {
+              "expression": "idle_since",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"sandbox\".\"state\" in ('starting', 'ready')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sandbox_gone_idx": {
+          "name": "sandbox_gone_idx",
+          "columns": [
+            {
+              "expression": "gone_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "sandbox_gone_at_matches_state": {
+          "name": "sandbox_gone_at_matches_state",
+          "value": "(\"sandbox\".\"state\" = 'gone') = (\"sandbox\".\"gone_at\" is not null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.workspace_runners": {

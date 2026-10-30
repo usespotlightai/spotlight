@@ -8,6 +8,7 @@ import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
+import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
 import {
   RUNNERS_CONTROLLERS,
   RUNNERS_PROVIDERS,
@@ -27,6 +28,7 @@ import { RUNNER_IDENTITY } from '@shared-kernel/application/ports/runner-identit
     RUNNER_CONFIGURATION,
     RUNNER_POOLS,
     RUNNERS,
+    SANDBOXES,
     RUNNER_AUTHENTICATOR,
     RUNNER_EGRESS,
   ],
