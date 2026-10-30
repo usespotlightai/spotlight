@@ -21,7 +21,7 @@ export function Station() {
   const overviewLoading = useStationOverviewLoading({
     teamId,
     lineId,
-    stationId: station?.kind === 'work' ? station.id : undefined,
+    stationId,
   });
   const crumbs = useStationTrail({ slug, teamId, lineId, stationId }).slice(
     0,
