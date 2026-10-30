@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react';
 import { AppTabItem } from '@/components/shell/tabs/AppTabItem';
 import { Button } from '@/components/ui/button';
-import type { AppTab } from '@/lib/app-tabs';
+import { type AppTab, tabIconOf } from '@/lib/app-tabs';
 
 type AppTabStripProps = {
   tabs: readonly AppTab[];
@@ -29,6 +29,7 @@ export function AppTabStrip({
           <AppTabItem
             key={tab.id}
             tab={tab}
+            icon={tabIconOf(tab.path)}
             active={tab.id === activeId}
             closable={tabs.length > 1}
             onSelect={() => onSelect(tab.id)}

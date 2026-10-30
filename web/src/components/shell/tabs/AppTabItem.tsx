@@ -1,11 +1,12 @@
-import { X } from 'lucide-react';
-import { type AppTab, NEW_TAB_TITLE, tabIconOf } from '@/lib/app-tabs';
+import { type LucideIcon, X } from 'lucide-react';
+import { type AppTab, NEW_TAB_TITLE } from '@/lib/app-tabs';
 import { cn } from '@/lib/utils';
 
 const MIDDLE_BUTTON = 1;
 
 type AppTabItemProps = {
   tab: AppTab;
+  icon: LucideIcon;
   active: boolean;
   closable: boolean;
   onSelect: () => void;
@@ -14,12 +15,12 @@ type AppTabItemProps = {
 
 export function AppTabItem({
   tab,
+  icon: Icon,
   active,
   closable,
   onSelect,
   onClose,
 }: AppTabItemProps) {
-  const Icon = tabIconOf(tab.path);
   const title = tab.title ?? NEW_TAB_TITLE;
 
   return (

@@ -22,7 +22,7 @@ const readTabs = (storageKey: string, here: Place): AppTabs => {
   try {
     stored = localStorage.getItem(storageKey);
   } catch {}
-  return storedTabs(stored, crypto.randomUUID(), here);
+  return visited(storedTabs(stored, crypto.randomUUID(), here), here);
 };
 
 const placeOf = (
@@ -40,16 +40,22 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
   const { pathname, search, hash, state } = useLocation();
   const navigate = useNavigate();
   const storageKey = `${APP_TABS_KEY}.${slug}`;
+  const here = placeOf(pathname, search, hash, state);
   const [shown, setShown] = useState(() => ({
     storageKey,
-    tabs: readTabs(storageKey, placeOf(pathname, search, hash, state)),
+    path: here.path,
+    state,
+    tabs: readTabs(storageKey, here),
   }));
   const titles = useRef<{ title: string }[]>([]);
 
   let tabs = shown.tabs;
   if (shown.storageKey !== storageKey) {
-    tabs = readTabs(storageKey, placeOf(pathname, search, hash, state));
-    setShown({ storageKey, tabs });
+    tabs = readTabs(storageKey, here);
+    setShown({ storageKey, path: here.path, state, tabs });
+  } else if (shown.path !== here.path || shown.state !== state) {
+    tabs = visited(tabs, here);
+    setShown({ ...shown, path: here.path, state, tabs });
   }
 
   const change = useCallback(
@@ -63,12 +69,6 @@ export function useAppTabs(slug: string, teams: readonly Team[]) {
       localStorage.setItem(shown.storageKey, JSON.stringify(shown.tabs));
     } catch {}
   }, [shown]);
-
-  useEffect(() => {
-    change((current) =>
-      visited(current, placeOf(pathname, search, hash, state)),
-    );
-  }, [change, pathname, search, hash, state]);
 
   const report = useCallback<ReportTitle>(
     (title) => {
