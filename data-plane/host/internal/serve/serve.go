@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/rand/v2"
 	"net/url"
@@ -53,6 +54,8 @@ const (
 	probeLongest    = 2 * time.Minute
 	cleanupBudget   = time.Minute
 	deliverWait     = 5 * time.Minute
+	placeWait       = 10 * time.Minute
+	placePoll       = 500 * time.Millisecond
 	retryFloor      = 2 * time.Second
 	retryCeiling    = 30 * time.Second
 	updateRetry     = 10 * time.Minute
@@ -87,6 +90,14 @@ type Registry interface {
 	For(image string) (string, error)
 }
 
+type Tunnel interface {
+	Serve(ctx context.Context, open func(ctx context.Context, sandboxID string) (io.ReadWriteCloser, error))
+}
+
+var ErrNoSandbox = errors.New("no such sandbox on this host")
+
+var sshCommand = []string{"spotlight", "runner", "ssh"}
+
 type Options struct {
 	HostID         string
 	Name           string
@@ -107,6 +118,7 @@ type Options struct {
 	Egress         Egress
 	Network        string
 	ExtraHosts     []string
+	Tunnel         Tunnel
 }
 
 type Egress struct {
@@ -216,6 +228,16 @@ func (h *Host) Serve(ctx context.Context) error {
 	}
 
 	h.reap(ctx)
+
+	tunneling, stopTunneling := context.WithCancel(ctx)
+	var tunnel sync.WaitGroup
+	defer func() {
+		stopTunneling()
+		tunnel.Wait()
+	}()
+	if h.opts.Tunnel != nil {
+		tunnel.Go(func() { h.opts.Tunnel.Serve(tunneling, h.openSSH) })
+	}
 
 	beating, stopBeating := context.WithCancel(ctx)
 	var reporting sync.WaitGroup
@@ -584,7 +606,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	}
 
 	inSandbox := assignment
-	inSandbox.EgressToken = ""
+	inSandbox.EgressToken, inSandbox.AllowedHosts = "", nil
 	body, err := json.Marshal(inSandbox)
 	if err != nil {
 		log.Error("could not encode the assignment", "error", err)
@@ -592,11 +614,13 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		return
 	}
 
-	client, err := h.pool.ForRun(assignment)
-	if err != nil {
-		log.Error("could not act for the runner of its assignment", "error", err)
-		h.reported(err, assignment)
-		return
+	var client RunClient
+	if !assignment.StartsSandboxOnly() {
+		if client, err = h.pool.ForRun(assignment); err != nil {
+			log.Error("could not act for the runner of its assignment", "error", err)
+			h.reported(err, assignment)
+			return
+		}
 	}
 
 	stopRenewing, stopRequested := h.renewingLease(ctx, assignment, client, log)
@@ -612,6 +636,9 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	}
 
 	mounts := h.mountMirrors(ctx, assignment, log)
+	if volume, ok := h.editorServers(); ok && assignment.SandboxID != "" {
+		mounts = append(mounts, sandbox.Mount{Source: volume, Target: protocol.SandboxEditorServers, Volume: true})
+	}
 	if ctx.Err() != nil {
 		log.Info("the host is stopping, so the work is left to be claimed again")
 		return
@@ -649,13 +676,16 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		env = append(env, telemetry.TraceparentVar+"="+trace.Traceparent())
 	}
 
-	labels := map[string]string{LabelHost: h.opts.HostID, LabelRunner: assignment.RunnerID}
+	labels := map[string]string{LabelHost: h.opts.HostID}
+	if assignment.RunnerID != "" {
+		labels[LabelRunner] = assignment.RunnerID
+	}
 	if assignment.SandboxID != "" {
 		labels[LabelSandbox] = assignment.SandboxID
 	}
 
 	id, err := h.engine.Start(starting, sandbox.Spec{
-		Name:    "spotlight-" + assignment.RunnerID,
+		Name:    "spotlight-" + nameOf(assignment),
 		Image:   ready.id,
 		Env:     env,
 		Labels:  labels,
@@ -672,9 +702,16 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	}
 
 	stopRenewing()
-	h.track(id, assignment.RunnerID)
-	defer h.untrack(id)
-	log.Info("started a sandbox", "sandbox", id)
+	h.placed(assignment.SandboxID, id)
+	if assignment.RunnerID != "" {
+		h.track(id, assignment.RunnerID)
+		defer h.untrack(id)
+	}
+	if assignment.StartsSandboxOnly() {
+		log.Info("started a sandbox with no run; it restores its workspace and waits for runs", "sandbox", id)
+	} else {
+		log.Info("started a sandbox", "sandbox", id)
+	}
 
 	watching, stopWatching := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopWatching()
@@ -748,6 +785,13 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		log.Warn("could not stop the sandbox", "error", err)
 	}
 	drain()
+}
+
+func nameOf(assignment protocol.Assignment) string {
+	if assignment.RunnerID != "" {
+		return assignment.RunnerID
+	}
+	return "sandbox-" + assignment.SandboxID
 }
 
 type liveSandbox struct {
@@ -1160,8 +1204,9 @@ func (h *Host) untrack(id string) {
 }
 
 type held struct {
-	drain   chan struct{}
-	drained bool
+	drain     chan struct{}
+	drained   bool
+	container string
 }
 
 func (h *Host) hold(sandboxID string) <-chan struct{} {
@@ -1178,6 +1223,66 @@ func (h *Host) hold(sandboxID string) <-chan struct{} {
 		close(each.drain)
 	}
 	return each.drain
+}
+
+func (h *Host) placed(sandboxID, container string) {
+	if sandboxID == "" {
+		return
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if each, ok := h.held[sandboxID]; ok {
+		each.container = container
+	}
+}
+
+func (h *Host) openSSH(ctx context.Context, sandboxID string) (io.ReadWriteCloser, error) {
+	waiting, cancel := context.WithTimeout(ctx, placeWait)
+	defer cancel()
+
+	for {
+		container, held := h.containerOf(sandboxID)
+		switch {
+		case !held:
+			return nil, fmt.Errorf("%w: %s", ErrNoSandbox, sandboxID)
+		case container != "":
+			return h.engine.Exec(ctx, container, sshCommand, &echo{log: h.log.With("sandboxId", sandboxID, "editor", true)})
+		}
+
+		if !sleep(waiting, placePoll) {
+			return nil, fmt.Errorf("%w: %s did not start in time", ErrNoSandbox, sandboxID)
+		}
+	}
+}
+
+func (h *Host) containerOf(sandboxID string) (string, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	each, ok := h.held[sandboxID]
+	if !ok || each.drained {
+		return "", false
+	}
+	return each.container, true
+}
+
+// Each sandbox can write to this volume, so sandboxes of other workspaces must not mount it.
+func (h *Host) editorServers() (string, bool) {
+	if h.workspace == "" {
+		return "", false
+	}
+
+	return "spotlight-editor-servers-" + volumeName(h.opts.HostID) + "-" + volumeName(h.workspace), true
+}
+
+func volumeName(part string) string {
+	return strings.ToLower(strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' || r == '.' {
+			return r
+		}
+		return -1
+	}, part))
 }
 
 func (h *Host) release(sandboxID string) {

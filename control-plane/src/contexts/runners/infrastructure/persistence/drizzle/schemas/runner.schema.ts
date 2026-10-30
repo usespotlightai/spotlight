@@ -224,7 +224,8 @@ export const sandbox = pgTable(
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     key: text('key'),
-    hostId: text('host_id').notNull(),
+    hostId: text('host_id'),
+    tokenHash: text('token_hash'),
     state: text('state').notNull(),
     leases: jsonb('leases').$type<SandboxLeaseRecord[]>().notNull().default([]),
     idleSince: timestamp('idle_since'),
@@ -245,6 +246,14 @@ export const sandbox = pgTable(
       .on(table.idleSince)
       .where(sql`${table.state} in ('starting', 'ready')`),
     index('sandbox_gone_idx').on(table.goneAt),
+    uniqueIndex('sandbox_token_hash_idx').on(table.tokenHash),
+    index('sandbox_requested_idx')
+      .on(table.workspaceId, table.startedAt)
+      .where(sql`${table.hostId} is null and ${table.state} = 'starting'`),
+    check(
+      'sandbox_host_has_token',
+      sql`(${table.hostId} is null) = (${table.tokenHash} is null)`,
+    ),
     check(
       'sandbox_gone_at_matches_state',
       sql`(${table.state} = 'gone') = (${table.goneAt} is not null)`,

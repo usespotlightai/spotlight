@@ -2,6 +2,7 @@ package account
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,9 @@ import (
 	"syscall"
 	"time"
 )
+
+// Do not stop the processes of a person's editor between runs.
+const EditorSession = "SPOTLIGHT_EDITOR_SESSION=1"
 
 const (
 	procRoot   = "/proc"
@@ -69,12 +73,26 @@ func ownedBy(root string, uid uint32) ([]int, error) {
 		}
 
 		live, ownerUID, ok := statusOf(filepath.Join(root, entry.Name(), "status"))
-		if ok && live && ownerUID == uid {
+		if ok && live && ownerUID == uid && !ofAnEditor(filepath.Join(root, entry.Name(), "environ")) {
 			owned = append(owned, pid)
 		}
 	}
 
 	return owned, nil
+}
+
+func ofAnEditor(path string) bool {
+	environ, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+
+	for _, entry := range bytes.Split(environ, []byte{0}) {
+		if string(entry) == EditorSession {
+			return true
+		}
+	}
+	return false
 }
 
 func statusOf(path string) (live bool, uid uint32, ok bool) {

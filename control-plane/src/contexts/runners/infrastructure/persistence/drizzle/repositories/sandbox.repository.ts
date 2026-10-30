@@ -30,6 +30,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   and,
@@ -38,6 +39,7 @@ import {
   gt,
   inArray,
   isNotNull,
+  isNull,
   lte,
   ne,
   or,
@@ -77,7 +79,8 @@ const toSandbox = (row: Row): Sandbox =>
     id: SandboxId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     key: row.key === null ? null : SandboxKey.of(row.key),
-    hostId: HostId.of(row.hostId),
+    hostId: row.hostId === null ? null : HostId.of(row.hostId),
+    tokenHash: row.tokenHash === null ? null : TokenHash.of(row.tokenHash),
     state: stateOf(row),
     leases: row.leases.map(leaseOf),
     idleSince: row.idleSince,
@@ -87,6 +90,9 @@ const toSandbox = (row: Row): Sandbox =>
   });
 
 const columnsOf = (saved: Sandbox) => ({
+  hostId: saved.hostId?.value ?? null,
+  tokenHash: saved.tokenHash?.value ?? null,
+  startedAt: saved.startedAt,
   state: saved.current,
   leases: saved.leases.map(
     (each): SandboxLeaseRecord => ({
@@ -114,8 +120,6 @@ export class DrizzleSandboxRepository implements SandboxRepository {
           id: added.id.value,
           workspaceId: added.workspaceId.value,
           key: added.key?.value ?? null,
-          hostId: added.hostId.value,
-          startedAt: added.startedAt,
           ...columnsOf(added),
           version: added.version,
         });
@@ -182,6 +186,36 @@ export class DrizzleSandboxRepository implements SandboxRepository {
       .limit(1);
 
     return found ? toSandbox(found) : null;
+  }
+
+  async liveByTokenHash(hash: TokenHash): Promise<Sandbox | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(sandbox)
+      .where(and(eq(sandbox.tokenHash, hash.value), ne(sandbox.state, 'gone')))
+      .limit(1);
+
+    return found ? toSandbox(found) : null;
+  }
+
+  async requestedIn(
+    workspaceId: WorkspaceId,
+    limit: number,
+  ): Promise<readonly Sandbox[]> {
+    const rows = await this.context.db
+      .select()
+      .from(sandbox)
+      .where(
+        and(
+          eq(sandbox.workspaceId, workspaceId.value),
+          isNull(sandbox.hostId),
+          eq(sandbox.state, 'starting'),
+        ),
+      )
+      .orderBy(sandbox.startedAt, sandbox.id)
+      .limit(limit);
+
+    return rows.map(toSandbox);
   }
 
   async liveOn(hostId: HostId): Promise<readonly Sandbox[]> {
@@ -266,6 +300,7 @@ export class DrizzleSandboxRepository implements SandboxRepository {
       .where(
         and(
           inArray(sandbox.state, [...LIVE_SANDBOX_STATES]),
+          isNotNull(sandbox.hostId),
           or(
             sql`${runnerHost.id} is null`,
             lte(runnerHost.lastHeartbeatAt, cutoff),

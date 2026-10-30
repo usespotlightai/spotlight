@@ -156,6 +156,8 @@ describe('a host claiming through a runner trust, as a platform workload with no
       token: expect.any(String),
       egressToken: expect.any(String),
       sandboxId: expect.any(String),
+      sandboxToken: expect.any(String),
+      allowedHosts: [],
       reused: false,
       work: expect.objectContaining({ kind: 'run', run: expect.anything() }),
     });

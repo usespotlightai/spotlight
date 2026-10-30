@@ -2,6 +2,7 @@ import { AssigneePicker } from '@/components/features/board/task/AssigneePicker'
 import { StationSelect } from '@/components/features/board/task/StationSelect';
 import { TaskPullRequestLink } from '@/components/features/board/task/TaskPullRequestLink';
 import { TaskChangesLink } from '@/components/features/changes/TaskChangesLink';
+import { OpenInEditorRow } from '@/components/features/editor/OpenInEditorRow';
 import { TaskTraceLink } from '@/components/features/trace/TaskTraceLink';
 import { useMoveTask } from '@/hooks/api/useMoveTask';
 import type { LineResponseDto } from '@/lib/api';
@@ -64,6 +65,13 @@ export function TaskProperties({
             slug={linked.slug}
             teamId={linked.teamId}
             taskId={task.id}
+          />
+        )}
+
+        {linked && (
+          <OpenInEditorRow
+            slug={linked.slug}
+            target={{ kind: 'task', id: task.id }}
           />
         )}
 

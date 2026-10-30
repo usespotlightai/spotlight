@@ -223,6 +223,7 @@ const awaitingProvision = async () =>
       skip: 0,
       max: 1_000,
       withSecrets: false,
+      avoiding: [],
     })
   ).map((each) => each.id.value);
 

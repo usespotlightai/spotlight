@@ -17,6 +17,7 @@ import { InvalidWorkspaceArchiveError } from '@work/domain/exceptions/invalid-wo
 import { InvalidWorkspaceArchiveTransitionError } from '@work/domain/exceptions/invalid-workspace-archive-transition.error';
 import { WorkspaceArchiveNotUploadedError } from '@work/domain/exceptions/workspace-archive-not-uploaded.error';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
+import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
 import type { HolderState } from '@work/domain/value-objects/archive-holder.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -83,7 +84,7 @@ describe('WorkspaceArchive', () => {
         workspaceId: WorkspaceId.of('ws_1'),
         resumeKey: ResumeKey.forChat('chat_1'),
         holder: { kind: 'chat', chatId: ChatId.of('chat_1') },
-        run: RunId.of('run_1'),
+        grantee: ArchiveGrantee.run(RunId.of('run_1')),
         size: ArchiveSize.of(1_024),
         digest: ArchiveDigest.of(SHA256),
         at: later(0),

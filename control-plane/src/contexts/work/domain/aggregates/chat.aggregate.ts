@@ -517,8 +517,12 @@ export class Chat extends EventRecorder {
     }
   }
 
+  isStartedBy(by: UserId): boolean {
+    return this.startedBy.equals(by);
+  }
+
   private assertStarter(by: UserId): void {
-    if (!this.startedBy.equals(by)) {
+    if (!this.isStartedBy(by)) {
       throw new NotTheChatStarterError(this.id.value);
     }
   }

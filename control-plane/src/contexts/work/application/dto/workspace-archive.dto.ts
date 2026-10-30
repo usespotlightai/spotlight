@@ -14,3 +14,7 @@ interface StoredArchiveDto {
 export type WorkspaceArchiveAnswer =
   | { readonly leased: false }
   | { readonly leased: true; readonly archive: StoredArchiveDto | null };
+
+export type SandboxArchiveAnswer =
+  | { readonly known: false }
+  | { readonly known: true; readonly archive: StoredArchiveDto | null };

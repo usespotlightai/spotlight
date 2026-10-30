@@ -25,6 +25,7 @@ import type { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import {
   aSandbox,
   DRAIN_POLICY,
+  sandboxTokens,
   storedSandboxes,
 } from '@runners/domain/aggregates/sandbox.fake-spec';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
@@ -90,6 +91,7 @@ const reporting = (
       placed.sandboxes,
       DRAIN_POLICY,
       { generate: () => 'sandbox_new' },
+      sandboxTokens(),
       {
         inTransaction: (work: () => Promise<unknown>) => work(),
       } as TransactionPort,

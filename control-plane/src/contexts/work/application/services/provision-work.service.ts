@@ -7,6 +7,7 @@ import type {
   ProvisionedRunner,
   RunnersPort,
 } from '@runners/application/ports/runners.port';
+import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -29,6 +30,7 @@ import {
   poolChoiceFor,
 } from '@work/domain/services/pool-choice';
 import { poolCouldTake } from '@work/domain/services/pool-fit';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 
 const MAX_AT_ONCE = 20;
 
@@ -105,6 +107,7 @@ export class ProvisionWork {
     private readonly checks: CheckProvisioningPort,
     private readonly pools: RunnerPoolsPort,
     private readonly runners: RunnersPort,
+    private readonly sandboxes: SandboxesPort,
     private readonly failures: ProvisionFailures,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -167,6 +170,11 @@ export class ProvisionWork {
       }
     };
 
+    const held = await this.sandboxes.liveKeysIn(
+      first.workspaceId.value,
+      this.clock.now(),
+    );
+
     for (const page of [
       (skip: number) =>
         this.runs
@@ -174,6 +182,7 @@ export class ProvisionWork {
             skip,
             max: PAGE,
             withSecrets: pools.some((offered) => offered.egress),
+            avoiding: held.map((each) => ResumeKey.of(each)),
           })
           .then((runs) => runs.map((run) => this.provisionableRun(run))),
       (skip: number) =>

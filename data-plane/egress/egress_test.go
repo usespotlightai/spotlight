@@ -109,10 +109,10 @@ func TestAllowsTheControlPlaneAndItsStorageButNoHostASecretIsBoundTo(t *testing.
 	allowed := withRunHosts(listed, "control-plane", protocol.EgressSecrets{
 		ExtraAllowedHosts: []string{"storage"},
 		Secrets:           []protocol.FetchedSecret{{Secret: "PRIVATE", Host: "private-api.acme.internal"}},
-	})
+	}, []string{"archives"})
 
 	for host, want := range map[string]bool{
-		"control-plane": true, "storage": true, "api.anthropic.com": true, "private-api.acme.internal": false,
+		"control-plane": true, "storage": true, "archives": true, "api.anthropic.com": true, "private-api.acme.internal": false,
 	} {
 		if allowed.ExplicitlyListed(host) != want {
 			t.Errorf("%s named: %v", host, !want)

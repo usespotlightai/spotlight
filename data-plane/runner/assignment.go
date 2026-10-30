@@ -47,6 +47,12 @@ func readAssignment(path string) (*protocol.Assignment, error) {
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("remove its assignment: %w", err)
 	}
+	if assigned.StartsSandboxOnly() {
+		if assigned.SandboxID == "" || assigned.SandboxToken == "" {
+			return nil, fmt.Errorf("its assignment has no sandbox credential")
+		}
+		return &assigned, nil
+	}
 	if assigned.Token == "" || assigned.RunnerID == "" {
 		return nil, fmt.Errorf("its assignment has no one-run credential")
 	}

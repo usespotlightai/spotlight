@@ -118,7 +118,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 
 	archiver := newArchiver(run, space, journal, opts.Journal, opts.Transport, log)
 	defer func() { s.kept = new(archiver.keep()) }()
-	if s.kept == nil {
+	if s.kept == nil || archiver.replays() {
 		if err := archiver.restore(ctx); err != nil {
 			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}

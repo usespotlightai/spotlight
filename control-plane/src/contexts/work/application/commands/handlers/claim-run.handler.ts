@@ -1,4 +1,5 @@
 import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
+import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -17,6 +18,7 @@ import type {
   Claimant,
   RunRepository,
 } from '@work/domain/repositories/run.repository';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 
 export class ClaimRunHandler
   implements CommandHandlerPort<ClaimRunCommand, ClaimedWorkDto | null>
@@ -31,6 +33,7 @@ export class ClaimRunHandler
     private readonly failures: ProvisionFailures,
     private readonly starting: RunStartHooks,
     private readonly polls: LongPoll,
+    private readonly sandboxes: SandboxesPort,
   ) {}
 
   async execute(command: ClaimRunCommand): Promise<ClaimedWorkDto | null> {
@@ -87,7 +90,17 @@ export class ClaimRunHandler
 
     const found = await this.polls.polled<ClaimedWorkDto | 'requeued'>(
       async () => {
-        const claimed = await this.runs.claimNext(claimant, this.clock.now());
+        const held = await this.sandboxes.liveKeysIn(
+          claimant.workspaceId.value,
+          this.clock.now(),
+        );
+        const claimed = await this.runs.claimNext(
+          {
+            ...claimant,
+            sandbox: { avoiding: held.map((each) => ResumeKey.of(each)) },
+          },
+          this.clock.now(),
+        );
         const start = claimed
           ? await this.starting.mayStart(claimed, claimant.runner, until)
           : null;

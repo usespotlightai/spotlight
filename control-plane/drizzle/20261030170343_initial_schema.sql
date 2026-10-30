@@ -1424,13 +1424,15 @@ CREATE TABLE "sandbox" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
 	"key" text,
-	"host_id" text NOT NULL,
+	"host_id" text,
+	"token_hash" text,
 	"state" text NOT NULL,
 	"leases" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"idle_since" timestamp,
 	"started_at" timestamp NOT NULL,
 	"gone_at" timestamp,
 	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "sandbox_host_has_token" CHECK (("sandbox"."host_id" is null) = ("sandbox"."token_hash" is null)),
 	CONSTRAINT "sandbox_gone_at_matches_state" CHECK (("sandbox"."state" = 'gone') = ("sandbox"."gone_at" is not null))
 );
 --> statement-breakpoint
@@ -1883,12 +1885,14 @@ CREATE TABLE "workspace_archive" (
 	"resume_key" text NOT NULL,
 	"task_id" text,
 	"chat_id" text,
-	"granted_to_run_id" text NOT NULL,
+	"granted_to_run_id" text,
+	"granted_to_sandbox_id" text,
 	"size" bigint NOT NULL,
 	"sha256" text NOT NULL,
 	"granted_at" timestamp NOT NULL,
 	"completed_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "workspace_archive_granted_to_one" CHECK (("workspace_archive"."granted_to_run_id" is null) <> ("workspace_archive"."granted_to_sandbox_id" is null))
 );
 --> statement-breakpoint
 DROP INDEX "account_issuer_accountId_uidx";--> statement-breakpoint
@@ -2099,6 +2103,8 @@ CREATE UNIQUE INDEX "sandbox_open_key_idx" ON "sandbox" USING btree ("workspace_
 CREATE INDEX "sandbox_host_live_idx" ON "sandbox" USING btree ("host_id") WHERE "sandbox"."state" <> 'gone';--> statement-breakpoint
 CREATE INDEX "sandbox_idle_idx" ON "sandbox" USING btree ("idle_since") WHERE "sandbox"."state" in ('starting', 'ready');--> statement-breakpoint
 CREATE INDEX "sandbox_gone_idx" ON "sandbox" USING btree ("gone_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "sandbox_token_hash_idx" ON "sandbox" USING btree ("token_hash");--> statement-breakpoint
+CREATE INDEX "sandbox_requested_idx" ON "sandbox" USING btree ("workspace_id","started_at") WHERE "sandbox"."host_id" is null and "sandbox"."state" = 'starting';--> statement-breakpoint
 CREATE UNIQUE INDEX "workspace_runners_workspace_idx" ON "workspace_runners" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "run_grants_workspace_idx" ON "run_grants" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "run_grants_ended_idx" ON "run_grants" USING btree ("ended_at");--> statement-breakpoint

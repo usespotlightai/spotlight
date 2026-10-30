@@ -12,3 +12,5 @@ export const TEAM_DELIVERIES = 'w/:slug/t/:teamKey/:integration';
 export const HOOK_CALLBACKS = 'hook-callbacks';
 
 export const COLLAB = 'collab';
+
+export const SANDBOX_CONNECT = 'sandboxes/connect';

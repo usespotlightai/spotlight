@@ -16,6 +16,13 @@ export type HostClaimDto =
       readonly token: string;
       readonly egressToken: string;
       readonly sandboxId: string | null;
+      readonly sandboxToken: string | null;
       readonly reused: boolean;
       readonly work: ClaimedWorkDto;
+    }
+  | {
+      readonly outcome: 'sandbox';
+      readonly sandboxId: string;
+      readonly sandboxToken: string;
+      readonly allowedHosts: readonly string[];
     };

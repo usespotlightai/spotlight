@@ -110,7 +110,7 @@ func run() error {
 		return err
 	}
 
-	allowed = withRunHosts(allowed, controlPlane.Hostname(), fetched)
+	allowed = withRunHosts(allowed, controlPlane.Hostname(), fetched, config.SandboxHosts)
 
 	listener, err := net.Listen("tcp", ":"+strconv.Itoa(protocol.EgressPort))
 	if err != nil {
@@ -221,8 +221,10 @@ func fetchSecretsFor(
 	return fetchedBy(ctx, fetcher, recipient, log), nil
 }
 
-func withRunHosts(allowed allowlist.List, controlPlane string, fetched protocol.EgressSecrets) allowlist.List {
-	return allowed.With(append([]string{controlPlane}, fetched.ExtraAllowedHosts...)...)
+func withRunHosts(
+	allowed allowlist.List, controlPlane string, fetched protocol.EgressSecrets, sandboxHosts []string,
+) allowlist.List {
+	return allowed.With(append(append([]string{controlPlane}, fetched.ExtraAllowedHosts...), sandboxHosts...)...)
 }
 
 func fetchedBy(ctx context.Context, fetcher SecretFetcher, recipient string, log *slog.Logger) protocol.EgressSecrets {

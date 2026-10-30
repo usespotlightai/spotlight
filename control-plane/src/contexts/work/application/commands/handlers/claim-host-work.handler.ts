@@ -1,9 +1,13 @@
 import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
-import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
+import type {
+  RunnerHeartbeat,
+  RunnerHeartbeatsPort,
+} from '@runners/application/ports/runner-heartbeats.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import type {
   SandboxesPort,
   SandboxTakingRuns,
+  StartedSandbox,
 } from '@runners/application/ports/sandboxes.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -13,6 +17,7 @@ import type { ClaimHostWorkCommand } from '@work/application/commands/runner.com
 import type { HostClaimDto } from '@work/application/dto/host.dto';
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { CheckWorkPort } from '@work/application/ports/check-work.port';
+import type { SandboxHostsPort } from '@work/application/ports/sandbox-hosts.port';
 import { claimedRun } from '@work/application/services/claimed-work';
 import type { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import type { LongPoll } from '@work/application/services/long-poll';
@@ -23,15 +28,20 @@ import type {
   Claimant,
   RunRepository,
 } from '@work/domain/repositories/run.repository';
+import { ClaimOrder } from '@work/domain/services/claim-order';
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 
 const CLAIM_WINDOW_MS = 60_000;
 
-interface Claimed {
-  readonly work: ClaimedWorkDto;
-  readonly sandboxId: string | null;
-  readonly reused: boolean;
-}
+type Claimed =
+  | {
+      readonly kind: 'work';
+      readonly work: ClaimedWorkDto;
+      readonly sandboxId: string | null;
+      readonly sandboxToken: string | null;
+      readonly reused: boolean;
+    }
+  | { readonly kind: 'sandbox'; readonly sandbox: StartedSandbox };
 
 export class ClaimHostWorkHandler
   implements CommandHandlerPort<ClaimHostWorkCommand, HostClaimDto>
@@ -48,6 +58,7 @@ export class ClaimHostWorkHandler
     private readonly taken: ClaimsTaken,
     private readonly polls: LongPoll,
     private readonly sandboxes: SandboxesPort,
+    private readonly sandboxHosts: SandboxHostsPort,
   ) {}
 
   async execute(command: ClaimHostWorkCommand): Promise<HostClaimDto> {
@@ -108,7 +119,7 @@ export class ClaimHostWorkHandler
           ? await this.claimedInto(started.runnerId, command.host, into, until)
           : await this.claimed(started.runnerId, command.host, until);
       } finally {
-        if (!claimed) {
+        if (claimed?.kind !== 'work') {
           await this.runners.release(started.runnerId, this.clock.now());
         }
       }
@@ -117,12 +128,22 @@ export class ClaimHostWorkHandler
         return { outcome: 'nothing' };
       }
 
+      if (claimed.kind === 'sandbox') {
+        return {
+          outcome: 'sandbox',
+          sandboxId: claimed.sandbox.id,
+          sandboxToken: claimed.sandbox.token,
+          allowedHosts: this.sandboxHosts.hosts(),
+        };
+      }
+
       return {
         outcome: 'claimed',
         runnerId: started.runnerId.value,
         token: started.token,
         egressToken: started.egressToken,
         sandboxId: claimed.sandboxId,
+        sandboxToken: claimed.sandboxToken,
         reused: claimed.reused,
         work: claimed.work,
       };
@@ -169,7 +190,7 @@ export class ClaimHostWorkHandler
       if (run && start === 'starts') {
         await this.taken.run(run, runner);
 
-        const sandboxId = await this.sandboxes.holdForRun(
+        const sandbox = await this.sandboxes.holdForRun(
           {
             workspaceId: run.workspaceId.value,
             key: run.resumeKey?.value ?? null,
@@ -179,7 +200,19 @@ export class ClaimHostWorkHandler
           this.clock.now(),
         );
 
-        return { work: claimedRun(run), sandboxId, reused: false };
+        return {
+          kind: 'work',
+          work: claimedRun(run),
+          sandboxId: sandbox.id,
+          sandboxToken: sandbox.token,
+          reused: false,
+        };
+      }
+
+      const requested = await this.requestedSandbox(heartbeat, host);
+
+      if (requested) {
+        return { kind: 'sandbox', sandbox: requested };
       }
 
       const check = await this.checks.claimNext(
@@ -195,10 +228,46 @@ export class ClaimHostWorkHandler
 
       await this.taken.check(check, runner);
 
-      return { work: { kind: 'check', check }, sandboxId: null, reused: false };
+      return {
+        kind: 'work',
+        work: { kind: 'check', check },
+        sandboxId: null,
+        sandboxToken: null,
+        reused: false,
+      };
     }, until);
 
     return found === 'requeued' ? null : found;
+  }
+
+  private async requestedSandbox(
+    heartbeat: RunnerHeartbeat,
+    host: string,
+  ): Promise<StartedSandbox | null> {
+    for (const requested of await this.sandboxes.requestedIn(
+      heartbeat.workspaceId.value,
+    )) {
+      const newest = await this.runs.newestWithKey(
+        heartbeat.workspaceId,
+        ResumeKey.of(requested.key),
+      );
+
+      if (newest && !ClaimOrder.fits(newest, heartbeat)) {
+        continue;
+      }
+
+      const started = await this.sandboxes.startRequested(
+        requested.id,
+        host,
+        this.clock.now(),
+      );
+
+      if (started) {
+        return started;
+      }
+    }
+
+    return null;
   }
 
   private async claimedInto(
@@ -223,6 +292,16 @@ export class ClaimHostWorkHandler
       claims: 'any',
       sandbox: { into: ResumeKey.of(into.key) },
     };
+
+    const queued = await this.runs.queuedWithKey(
+      heartbeat.workspaceId,
+      ResumeKey.of(into.key),
+    );
+
+    if (queued.some((each) => !ClaimOrder.fits(each, claimant))) {
+      await this.sandboxes.drain(into.id);
+      return null;
+    }
 
     const found = await this.polls.polled<Run | 'requeued'>(async () => {
       const run = await this.runs.claimNext(claimant, this.clock.now());
@@ -255,6 +334,12 @@ export class ClaimHostWorkHandler
       return null;
     }
 
-    return { work: claimedRun(found), sandboxId: into.id, reused: true };
+    return {
+      kind: 'work',
+      work: claimedRun(found),
+      sandboxId: into.id,
+      sandboxToken: null,
+      reused: true,
+    };
   }
 }

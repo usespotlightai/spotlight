@@ -28,6 +28,14 @@ import (
 )
 
 func Main(args []string, version string) int {
+	if len(args) > 0 && args[0] == "ssh" {
+		if err := serveSSH(args[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, "spotlight runner ssh:", err)
+			return 1
+		}
+		return 0
+	}
+
 	if err := cacerts.Install(protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
 		slog.Warn("could not trust the egress authority, so TLS through egress may fail", "error", err)
 	}
@@ -134,31 +142,41 @@ func run(args []string, version string) error {
 }
 
 type runner struct {
-	cfg       config.Config
-	agentUser *account.User
-	log       *slog.Logger
-	sandbox   *session.Sandbox
-	transport http.RoundTripper
-	proxyEnv  map[string]string
-	unready   error
+	cfg        config.Config
+	agentUser  *account.User
+	log        *slog.Logger
+	sandbox    *session.Sandbox
+	transport  http.RoundTripper
+	proxyEnv   map[string]string
+	unready    error
+	supervised bool
 }
 
 func (r runner) supervise(ctx context.Context, assigned protocol.Assignment, delivered <-chan os.Signal) {
 	log := r.log.With("sandboxId", assigned.SandboxID)
 	log.Info("supervising the sandbox")
 
-	for {
-		each := r
-		each.transport = trustingTheSandbox(log)
-		each.serve(ctx, assigned)
-		if ctx.Err() != nil {
-			return
-		}
+	archives := r.openSandbox(ctx, assigned, log)
+	if err := os.WriteFile(workspaceOpenPath, nil, 0o644); err != nil {
+		log.Warn("could not tell editors that the workspace is open; they wait for it", "error", err)
+	}
 
-		r.stopLeftovers(log)
+	for {
+		if !assigned.StartsSandboxOnly() {
+			each := r
+			each.transport = trustingTheSandbox(log)
+			each.supervised = true
+			each.serve(ctx, assigned)
+			if ctx.Err() != nil {
+				return
+			}
+
+			r.stopLeftovers(log)
+		}
 
 		next, ok := r.nextAssignment(ctx, delivered, log)
 		if !ok {
+			r.archiveSandbox(ctx, archives, log)
 			return
 		}
 		assigned = next
@@ -166,6 +184,44 @@ func (r runner) supervise(ctx context.Context, assigned protocol.Assignment, del
 		if err := cacerts.Install(protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
 			log.Warn("could not trust the egress authority of the next run, so TLS through egress may fail", "error", err)
 		}
+	}
+}
+
+func (r runner) openSandbox(ctx context.Context, assigned protocol.Assignment, log *slog.Logger) *control.Sandbox {
+	archives, err := control.ForSandbox(r.cfg.URL, assigned.SandboxID, assigned.SandboxToken)
+	if err != nil {
+		log.Warn("could not act for the sandbox; each run restores the workspace on its own", "error", err)
+		return nil
+	}
+
+	if err := r.sandbox.Open(ctx, r.sandboxOptions(archives, log)); err != nil {
+		log.Warn("could not open the sandbox's workspace", "error", err)
+	}
+
+	return archives
+}
+
+func (r runner) archiveSandbox(ctx context.Context, archives *control.Sandbox, log *slog.Logger) {
+	if archives == nil {
+		return
+	}
+
+	log.Info("the sandbox drains between runs, so it archives the workspace")
+	r.sandbox.Archive(ctx, r.sandboxOptions(archives, log))
+}
+
+func (r runner) sandboxOptions(archives *control.Sandbox, log *slog.Logger) session.SandboxOptions {
+	transport := trustingTheSandbox(log)
+	if transport != nil {
+		archives.Through(transport)
+	}
+
+	return session.SandboxOptions{
+		Workspace: r.cfg.Workspace,
+		Archives:  archives,
+		Transport: transport,
+		AgentUser: r.agentUser,
+		Log:       log,
 	}
 }
 
@@ -251,9 +307,14 @@ func (r runner) execute(ctx context.Context, client *control.Client, run protoco
 	}
 	defer cancel()
 
+	var journal session.Journal = client
+	if r.supervised {
+		journal = stoppingFirst{Journal: client, stop: func() { r.stopLeftovers(r.log) }}
+	}
+
 	err := r.sandbox.Execute(running, run, session.Options{
 		Workspace:    r.cfg.Workspace,
-		Journal:      client,
+		Journal:      journal,
 		Log:          r.log,
 		AgentUser:    r.agentUser,
 		Author:       r.cfg.Author,
@@ -271,11 +332,22 @@ func (r runner) execute(ctx context.Context, client *control.Client, run protoco
 
 	r.log.Error("run failed", "run", run.ID, "error", err)
 	if errors.Is(running.Err(), context.DeadlineExceeded) && ctx.Err() == nil {
-		r.timedOut(ctx, client, run.ID)
+		r.timedOut(ctx, journal, run.ID)
 	}
 }
 
-func (r runner) timedOut(ctx context.Context, client *control.Client, runID string) {
+// Stop the agent's processes before Complete: the host re-keys egress for the next run once the control plane has the completion.
+type stoppingFirst struct {
+	session.Journal
+	stop func()
+}
+
+func (s stoppingFirst) Complete(ctx context.Context, runID string, done protocol.Completion) error {
+	s.stop()
+	return s.Journal.Complete(ctx, runID, done)
+}
+
+func (r runner) timedOut(ctx context.Context, client session.Journal, runID string) {
 	r.log.Warn("the run ran past its time", "run", runID, "timeout", r.cfg.RunTimeout)
 
 	if err := client.Complete(ctx, runID, protocol.Completion{

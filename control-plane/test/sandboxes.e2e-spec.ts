@@ -1,8 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
+import { CommandBus } from '@nestjs/cqrs';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { OpenSandboxCommand } from '@runners/application/commands/sandbox.commands';
+import type { OpenedSandbox } from '@runners/application/ports/sandboxes.port';
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
+import {
+  WORKSPACE_ARCHIVE_STORE,
+  type WorkspaceArchiveStorePort,
+} from '@work/application/ports/workspace-archive-store.port';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -23,6 +30,19 @@ const IMAGE = 'ghcr.io/acme/runner:main';
 
 const HOST = 'host-sandboxes-1';
 
+const SHA256 = 'd'.repeat(64);
+
+const archiveStore: WorkspaceArchiveStorePort = {
+  grantUpload: async (archive) => ({
+    url: `https://archives.test/${archive.id.value}`,
+    headers: {},
+  }),
+  stored: async (archive) => ({ size: archive.size, digest: archive.digest }),
+  grantDownload: async (archive) =>
+    `https://archives.test/${archive.id.value}?download`,
+  remove: async () => {},
+};
+
 const tokenOf = (seed: string): string =>
   `${seed.repeat(8)}${randomUUID().replaceAll('-', '')}`;
 
@@ -37,14 +57,14 @@ describe('sandboxes (e2e)', () => {
   const http = () => served(app);
 
   const queue = async (
-    input: { key?: string; chatId?: string | null } = {},
+    input: { key?: string; chatId?: string | null; harness?: string } = {},
   ) => {
     const id = randomUUID();
 
     await db.insert(schema.run).values({
       id,
       workspaceId,
-      harness: 'dev',
+      harness: input.harness ?? 'dev',
       state: 'queued',
       chatId: input.chatId ?? null,
       spec: {
@@ -113,8 +133,35 @@ describe('sandboxes (e2e)', () => {
     return row ?? null;
   };
 
+  const open = (key: string) =>
+    app
+      .get(CommandBus)
+      .execute<OpenSandboxCommand, OpenedSandbox>(
+        new OpenSandboxCommand(workspaceId, key),
+      );
+
+  const archive = (sandboxId: string, sandboxToken: string) => ({
+    read: () =>
+      http()
+        .get(`/api/sandboxes/${sandboxId}/workspace-archive`)
+        .set('Authorization', `Bearer ${sandboxToken}`),
+    grant: () =>
+      http()
+        .post(`/api/sandboxes/${sandboxId}/workspace-archive`)
+        .set('Authorization', `Bearer ${sandboxToken}`)
+        .send({ size: 2_048, sha256: SHA256 }),
+    complete: (archiveId: string) =>
+      http()
+        .post(
+          `/api/sandboxes/${sandboxId}/workspace-archive/${archiveId}/complete`,
+        )
+        .set('Authorization', `Bearer ${sandboxToken}`),
+  });
+
   beforeAll(async () => {
-    app = await openApp();
+    app = await openApp((module) =>
+      module.overrideProvider(WORKSPACE_ARCHIVE_STORE).useValue(archiveStore),
+    );
     db = app.get<DrizzleDatabase>(DRIZZLE);
   });
 
@@ -273,5 +320,144 @@ describe('sandboxes (e2e)', () => {
     await queue({ key: `chat-${chatId}`, chatId });
 
     await claim().expect(204);
+  });
+  describe('a sandbox with no run', () => {
+    it('is requested on no host, started by the next host claim with a token of its own, and then takes the runs of its key', async () => {
+      const opened = await open('task-task_7');
+      expect(opened.state).toBe('starting');
+      expect(await sandboxRow(opened.id)).toMatchObject({
+        hostId: null,
+        tokenHash: null,
+        leases: [],
+      });
+      await expect(open('task-task_7')).resolves.toEqual(opened);
+
+      const started = await claim().expect(200);
+
+      expect(started.body).toMatchObject({
+        runnerId: null,
+        token: null,
+        egressToken: null,
+        sandboxId: opened.id,
+        sandboxToken: expect.any(String),
+        allowedHosts: expect.any(Array),
+        work: { kind: 'sandbox', run: null, check: null },
+      });
+      expect(await sandboxRow(opened.id)).toMatchObject({
+        hostId: HOST,
+        state: 'starting',
+        tokenHash: expect.any(String),
+        idleSince: expect.any(Date),
+      });
+
+      await heartbeat([opened.id]).expect(200);
+      const next = await queue({ key: 'task-task_7' });
+      await claim().expect(204);
+
+      const into = await claim(opened.id).expect(200);
+      expect(into.body).toMatchObject({
+        sandboxId: opened.id,
+        sandboxToken: null,
+        reused: true,
+        work: { kind: 'run', run: { id: next } },
+      });
+    });
+
+    it('is the sandbox a queued run of its key starts in', async () => {
+      const opened = await open('task-task_8');
+      const runId = await queue({ key: 'task-task_8' });
+
+      const claimed = await claim().expect(200);
+
+      expect(claimed.body).toMatchObject({
+        sandboxId: opened.id,
+        sandboxToken: expect.any(String),
+        reused: false,
+        work: { kind: 'run', run: { id: runId } },
+      });
+      expect(await sandboxRow(opened.id)).toMatchObject({
+        hostId: HOST,
+        leases: [{ kind: 'run', holder: runId, renewedAt: expect.any(String) }],
+      });
+    });
+  });
+
+  it('drains a ready sandbox whose image lacks the harness of the next run of its key, and the run starts afresh', async () => {
+    const sandboxId = await idleAndReady('task-task_9');
+    const next = await queue({ key: 'task-task_9', harness: 'other' });
+
+    await claim(sandboxId).expect(204);
+
+    expect((await sandboxRow(sandboxId))?.state).toBe('draining');
+    await expect(heartbeat([sandboxId]).expect(200)).resolves.toMatchObject({
+      body: { drain: [sandboxId] },
+    });
+    expect(
+      (
+        await db
+          .select({ state: schema.run.state })
+          .from(schema.run)
+          .where(eq(schema.run.id, next))
+      )[0]?.state,
+    ).toBe('queued');
+  });
+
+  describe('the sandbox’s own workspace archive', () => {
+    it('restores the newest archive of its key and archives with the sandbox token alone', async () => {
+      const runId = await queue({ key: 'task-task_10' });
+      const claimed = await claim().expect(200);
+      const sandboxId: string = claimed.body.sandboxId;
+      const own = archive(sandboxId, claimed.body.sandboxToken);
+
+      await own.read().expect(204);
+
+      const granted = await own.grant().expect(201);
+      await own.complete(granted.body.id).expect(204);
+      await complete(runId, claimed.body.token);
+
+      await expect(own.read().expect(200)).resolves.toMatchObject({
+        body: {
+          id: granted.body.id,
+          url: `https://archives.test/${granted.body.id}?download`,
+          size: 2_048,
+          sha256: SHA256,
+        },
+      });
+      const [stored] = await db
+        .select()
+        .from(schema.workspaceArchive)
+        .where(eq(schema.workspaceArchive.id, granted.body.id));
+      expect(stored).toMatchObject({
+        resumeKey: 'task-task_10',
+        taskId: 'task_10',
+        grantedToRunId: null,
+        grantedToSandboxId: sandboxId,
+      });
+    });
+
+    it('answers a wrong token, a run token, or another sandbox with not found', async () => {
+      await queue({ key: 'task-task_11' });
+      const claimed = await claim().expect(200);
+      const sandboxId: string = claimed.body.sandboxId;
+
+      await archive(sandboxId, 'stolen').read().expect(404);
+      await archive(sandboxId, claimed.body.token).grant().expect(404);
+      await archive('sandbox-other', claimed.body.sandboxToken)
+        .read()
+        .expect(404);
+    });
+
+    it('stops answering once the sandbox is gone', async () => {
+      await queue({ key: 'task-task_12' });
+      const claimed = await claim().expect(200);
+      await db
+        .update(schema.sandbox)
+        .set({ state: 'gone', goneAt: new Date() })
+        .where(eq(schema.sandbox.id, claimed.body.sandboxId));
+
+      await archive(claimed.body.sandboxId, claimed.body.sandboxToken)
+        .read()
+        .expect(404);
+    });
   });
 });

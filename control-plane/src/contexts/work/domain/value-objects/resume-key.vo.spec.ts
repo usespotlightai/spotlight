@@ -21,4 +21,20 @@ describe('ResumeKey', () => {
   it('rejects a key that names nothing', () => {
     expect(() => ResumeKey.of('  ')).toThrow();
   });
+  it('names the task or chat whose workspace it keeps', () => {
+    expect(ResumeKey.forTask('task_1').archiveHolder).toMatchObject({
+      kind: 'task',
+      taskId: { value: 'task_1' },
+    });
+    expect(ResumeKey.forChat('chat-7').archiveHolder).toMatchObject({
+      kind: 'chat',
+      chatId: { value: 'chat-7' },
+    });
+  });
+
+  it('names no holder for a replay or a key of nothing', () => {
+    expect(ResumeKey.forReplay('run_1').archiveHolder).toBeNull();
+    expect(ResumeKey.of('task-').archiveHolder).toBeNull();
+    expect(ResumeKey.of('workspace').archiveHolder).toBeNull();
+  });
 });

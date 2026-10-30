@@ -2,6 +2,7 @@ import { useParams } from 'react-router';
 import { AgentChatSkeleton } from '@/components/features/agent/AgentChatSkeleton';
 import { ChatComposer } from '@/components/features/agent/ChatComposer';
 import { ChatThread } from '@/components/features/agent/ChatThread';
+import { OpenInEditor } from '@/components/features/editor/OpenInEditor';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
@@ -57,10 +58,15 @@ export function AgentChat() {
     return null;
   }
 
+  const editing = { kind: 'chat', id: chat.id } as const;
+
   return (
     <TrailContext value={forward}>
       <div className="flex min-h-0 flex-1 flex-col">
-        <PageHeader title={<Breadcrumbs segments={trail} />} />
+        <PageHeader
+          title={<Breadcrumbs segments={trail} />}
+          actions={<OpenInEditor slug={slug} target={editing} />}
+        />
 
         <ChatThread
           slug={slug}

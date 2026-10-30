@@ -7,6 +7,7 @@ import { InvalidWorkspaceArchiveError } from '@work/domain/exceptions/invalid-wo
 import { InvalidWorkspaceArchiveTransitionError } from '@work/domain/exceptions/invalid-workspace-archive-transition.error';
 import { WorkspaceArchiveNotUploadedError } from '@work/domain/exceptions/workspace-archive-not-uploaded.error';
 import type { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
+import type { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
 import type {
   ArchiveHolder,
   HolderState,
@@ -45,7 +46,7 @@ interface State {
   readonly workspaceId: WorkspaceId;
   readonly resumeKey: ResumeKey;
   readonly holder: ArchiveHolder;
-  readonly grantedTo: RunId;
+  readonly grantedTo: ArchiveGrantee;
   readonly size: ArchiveSize;
   readonly digest: ArchiveDigest;
   readonly grantedAt: Date;
@@ -68,7 +69,7 @@ export class WorkspaceArchive extends EventRecorder {
     workspaceId: WorkspaceId;
     resumeKey: ResumeKey | null;
     holder: ArchiveHolder | null;
-    run: RunId;
+    grantee: ArchiveGrantee;
     size: ArchiveSize;
     digest: ArchiveDigest;
     at: Date;
@@ -87,7 +88,7 @@ export class WorkspaceArchive extends EventRecorder {
         workspaceId: input.workspaceId,
         resumeKey,
         holder,
-        grantedTo: input.run,
+        grantedTo: input.grantee,
         size: input.size,
         digest: input.digest,
         grantedAt: input.at,
@@ -143,7 +144,7 @@ export class WorkspaceArchive extends EventRecorder {
     return this.state.holder;
   }
 
-  get grantedTo(): RunId {
+  get grantedTo(): ArchiveGrantee {
     return this.state.grantedTo;
   }
 
@@ -199,7 +200,11 @@ export class WorkspaceArchive extends EventRecorder {
   }
 
   grantedFor(run: RunId): boolean {
-    return this.state.grantedTo.equals(run);
+    return this.state.grantedTo.isRun(run);
+  }
+
+  grantedForSandbox(sandboxId: string): boolean {
+    return this.state.grantedTo.isSandbox(sandboxId);
   }
 
   complete(stored: StoredArchive | null, at: Date): WorkspaceArchive {

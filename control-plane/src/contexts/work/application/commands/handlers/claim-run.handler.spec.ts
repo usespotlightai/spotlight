@@ -3,6 +3,7 @@ import type {
   RunnerHeartbeat,
 } from '@runners/application/ports/runner-heartbeats.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
+import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
@@ -25,6 +26,7 @@ import type {
 } from '@work/application/services/run-start-hooks.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -86,6 +88,7 @@ const claiming = (
     reservedCheck?: ClaimedCheck | null;
     starts?: RunStart;
     tookFails?: boolean;
+    liveKeys?: readonly string[];
   } = {},
 ) => {
   const mayStart = vi.fn(
@@ -146,6 +149,9 @@ const claiming = (
     { failed } as unknown as ProvisionFailures,
     { mayStart } as unknown as RunStartHooks,
     new LongPoll(clock),
+    {
+      liveKeysIn: vi.fn(async () => over.liveKeys ?? []),
+    } as unknown as SandboxesPort,
   );
 
   return {
@@ -205,6 +211,21 @@ describe('ClaimRunHandler', () => {
     };
 
     expect(overTheWire.run.spec.command.executable).toBe('claude-agent-acp');
+  });
+
+  it('leaves the runs of keys that ready host sandboxes keep to those sandboxes', async () => {
+    const claimNext = vi.fn(async () => queued());
+
+    await claiming(claimNext, undefined, {
+      liveKeys: ['task-task_1'],
+    }).execute(new ClaimRunCommand('runner_1'));
+
+    expect(claimNext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sandbox: { avoiding: [ResumeKey.of('task-task_1')] },
+      }),
+      NOW,
+    );
   });
 
   it('rejects a runner that is not alive', async () => {

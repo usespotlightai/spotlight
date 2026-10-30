@@ -475,7 +475,10 @@ export type ClaimedCheckResponseDto = {
 };
 
 export type ClaimedWorkResponseDto = {
-  kind: 'run' | 'check';
+  /**
+   * `sandbox` is only for a host claim: start a sandbox with no run in it
+   */
+  kind: 'run' | 'check' | 'sandbox';
   run: ClaimedRunResponseDto | null;
   check: ClaimedCheckResponseDto | null;
 };
@@ -1093,21 +1096,29 @@ export type ClaimHostWorkRequestDto = {
 
 export type HostClaimResponseDto = {
   /**
-   * The one-run runner Spotlight started for this work
+   * The one-run runner Spotlight started for this work. Null for a sandbox with no run.
    */
-  runnerId: string;
+  runnerId: string | null;
   /**
-   * The one-run credential, good only for this work and only until it ends; every later call carries it instead of the host’s own credential
+   * The one-run credential, good only for this work and only until it ends; every later call carries it instead of the host’s own credential. Null for a sandbox with no run.
    */
-  token: string;
+  token: string | null;
   /**
-   * The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox
+   * The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox. Null for a sandbox with no run: its egress starts with no secrets.
    */
-  egressToken: string;
+  egressToken: string | null;
   /**
    * The sandbox Spotlight started for a run; the host labels its container with it and reports it in each heartbeat. Null for a check.
    */
   sandboxId: string | null;
+  /**
+   * The credential of a new sandbox, for its own calls only: restore and archive its workspace. The host hands it into the sandbox with the first assignment. Null when the run reuses a live sandbox, and for a check.
+   */
+  sandboxToken: string | null;
+  /**
+   * Hosts the egress of a sandbox with no run lets through: where the sandbox restores and stores its workspace archives. Empty for a run: its egress reads them with the run’s secrets.
+   */
+  allowedHosts: Array<string>;
   /**
    * The run goes into the live sandbox the claim named, not into a new one. The host delivers its assignment into that container.
    */
@@ -9073,6 +9084,85 @@ export type CompleteWorkspaceArchiveResponses = {
 };
 
 export type CompleteWorkspaceArchiveResponse = CompleteWorkspaceArchiveResponses[keyof CompleteWorkspaceArchiveResponses];
+
+export type ReadSandboxArchiveData = {
+  body?: never;
+  path: {
+    sandboxId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/workspace-archive';
+};
+
+export type ReadSandboxArchiveErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox
+   */
+  404: unknown;
+};
+
+export type ReadSandboxArchiveResponses = {
+  200: StoredArchiveResponseDto;
+  /**
+   * Nothing to restore: the sandbox starts with an empty workspace
+   */
+  204: void;
+};
+
+export type ReadSandboxArchiveResponse = ReadSandboxArchiveResponses[keyof ReadSandboxArchiveResponses];
+
+export type GrantSandboxArchiveData = {
+  body: GrantWorkspaceArchiveRequestDto;
+  path: {
+    sandboxId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/workspace-archive';
+};
+
+export type GrantSandboxArchiveErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox
+   */
+  404: unknown;
+  /**
+   * Too large, not a SHA-256, a sandbox of no task or chat, or nowhere to store it
+   */
+  422: unknown;
+};
+
+export type GrantSandboxArchiveResponses = {
+  201: ArchiveGrantResponseDto;
+};
+
+export type GrantSandboxArchiveResponse = GrantSandboxArchiveResponses[keyof GrantSandboxArchiveResponses];
+
+export type CompleteSandboxArchiveData = {
+  body?: never;
+  path: {
+    sandboxId: string;
+    archiveId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/workspace-archive/{archiveId}/complete';
+};
+
+export type CompleteSandboxArchiveErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox
+   */
+  404: unknown;
+  /**
+   * Not uploaded, or uploaded other than as granted
+   */
+  409: unknown;
+};
+
+export type CompleteSandboxArchiveResponses = {
+  204: void;
+};
+
+export type CompleteSandboxArchiveResponse = CompleteSandboxArchiveResponses[keyof CompleteSandboxArchiveResponses];
 
 export type PoolQueueData = {
   body?: never;

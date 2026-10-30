@@ -212,8 +212,12 @@ func (e *Engine) Start(ctx context.Context, spec sandbox.Spec) (string, error) {
 		},
 	}
 	for _, each := range spec.Mounts {
+		kind := "bind"
+		if each.Volume {
+			kind = "volume"
+		}
 		config.HostConfig.Mounts = append(config.HostConfig.Mounts, mount{
-			Type: "bind", Source: each.Source, Target: each.Target, ReadOnly: each.ReadOnly,
+			Type: kind, Source: each.Source, Target: each.Target, ReadOnly: each.ReadOnly,
 		})
 	}
 
@@ -343,6 +347,10 @@ func (e *Engine) Follow(ctx context.Context, id string, out io.Writer) error {
 }
 
 func demultiplex(in io.Reader, out io.Writer) error {
+	return demultiplexStreams(in, out, out)
+}
+
+func demultiplexStreams(in io.Reader, stdout, stderr io.Writer) error {
 	reader := bufio.NewReader(in)
 	header := make([]byte, 8)
 
@@ -354,12 +362,72 @@ func demultiplex(in io.Reader, out io.Writer) error {
 			return err
 		}
 
+		out := stdout
+		if header[0] == stderrStream {
+			out = stderr
+		}
 		size := int64(binary.BigEndian.Uint32(header[4:]))
 		if _, err := io.CopyN(out, reader, size); err != nil {
 			return err
 		}
 	}
 }
+
+const stderrStream = 2
+
+func (e *Engine) Exec(ctx context.Context, id string, command []string, errs io.Writer) (io.ReadWriteCloser, error) {
+	var created struct{ Id string }
+	status, err := e.call(ctx, http.MethodPost, "/containers/"+id+"/exec", map[string]any{
+		"AttachStdin": true, "AttachStdout": true, "AttachStderr": true, "Tty": false, "Cmd": command,
+	}, &created)
+	if status == http.StatusNotFound || status == http.StatusConflict {
+		return nil, fmt.Errorf("exec in a sandbox: %w: %w", sandbox.ErrGone, err)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("exec in a sandbox: %w", err)
+	}
+
+	body, _ := json.Marshal(map[string]any{"Detach": false, "Tty": false})
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, e.base+"/exec/"+created.Id+"/start", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Connection", "Upgrade")
+	request.Header.Set("Upgrade", "tcp")
+
+	response, err := e.http.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("exec in a sandbox: %w", err)
+	}
+	if response.StatusCode >= 300 && response.StatusCode != http.StatusSwitchingProtocols {
+		defer response.Body.Close()
+		return nil, fmt.Errorf("exec in a sandbox: %w", failure(response))
+	}
+
+	conn, ok := response.Body.(io.ReadWriteCloser)
+	if !ok {
+		response.Body.Close()
+		return nil, errors.New("exec in a sandbox: the engine did not hand over the connection")
+	}
+
+	if errs == nil {
+		errs = io.Discard
+	}
+	reader, writer := io.Pipe()
+	go func() { writer.CloseWithError(demultiplexStreams(conn, writer, errs)) }()
+
+	return &execStream{Reader: reader, conn: conn}, nil
+}
+
+type execStream struct {
+	io.Reader
+	conn io.ReadWriteCloser
+}
+
+func (s *execStream) Write(p []byte) (int, error) { return s.conn.Write(p) }
+
+func (s *execStream) Close() error { return s.conn.Close() }
 
 func (e *Engine) Wait(ctx context.Context, id string) (int, error) {
 	var answer struct {

@@ -34,6 +34,13 @@ export interface RunRepository {
 
   findById(id: RunId): Promise<Run | null>;
 
+  newestWithKey(workspaceId: WorkspaceId, key: ResumeKey): Promise<Run | null>;
+
+  queuedWithKey(
+    workspaceId: WorkspaceId,
+    key: ResumeKey,
+  ): Promise<readonly Run[]>;
+
   expiredLeases(now: Date): Promise<readonly Run[]>;
 
   claimedBy(runner: RunnerId): Promise<readonly Run[]>;
@@ -47,6 +54,7 @@ export interface RunRepository {
       readonly skip: number;
       readonly max: number;
       readonly withSecrets: boolean;
+      readonly avoiding: readonly ResumeKey[];
     },
   ): Promise<readonly Run[]>;
 
