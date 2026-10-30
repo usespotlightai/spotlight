@@ -1,14 +1,14 @@
-import { Play } from 'lucide-react';
+import { InsightsCard } from '@/components/features/insights/InsightsCard';
+import { NoStationRuns } from '@/components/features/stations/outcomes/NoStationRuns';
 import { OutcomeGroup } from '@/components/features/stations/outcomes/OutcomeGroup';
 import { StationRunOutcomesSkeleton } from '@/components/features/stations/outcomes/StationRunOutcomesSkeleton';
-import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { MembersOnly } from '@/components/features/team/MembersOnly';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
-import { EmptyState } from '@/components/shared/EmptyState';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { useStationInsights } from '@/hooks/api/useStationInsights';
 import { useCollapsibles } from '@/hooks/useCollapsibles';
 import { notFound } from '@/lib/error';
+import { RUNS_BY_CONFIG_NOTE } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 import { OUTCOME_HEADINGS } from '@/lib/station-insights';
 
@@ -31,8 +31,16 @@ export function StationRunOutcomes({
   const groups = outcomes.data?.groups ?? [];
   const collapsibles = useCollapsibles();
 
+  if (outcomes.data && groups.length === 0) {
+    return <NoStationRuns slug={slug} teamId={teamId} />;
+  }
+
   return (
-    <>
+    <InsightsCard
+      scrolls
+      title="Runs by config"
+      description={RUNS_BY_CONFIG_NOTE}
+    >
       {loading(outcomes) ? (
         <StationRunOutcomesSkeleton />
       ) : failed(outcomes) && notFound(outcomes.error) ? (
@@ -46,16 +54,6 @@ export function StationRunOutcomes({
             retrying={outcomes.isFetching}
             onRetry={() => void outcomes.refetch()}
           />
-        </div>
-      ) : groups.length === 0 ? (
-        <div className={BOX}>
-          <EmptyState
-            icon={Play}
-            title="No runs yet"
-            action={<CreateTaskLink slug={slug} teamId={teamId} />}
-          >
-            Runs show here by config once tasks reach this station.
-          </EmptyState>
         </div>
       ) : (
         <NestedTable
@@ -75,6 +73,6 @@ export function StationRunOutcomes({
           ))}
         </NestedTable>
       )}
-    </>
+    </InsightsCard>
   );
 }
