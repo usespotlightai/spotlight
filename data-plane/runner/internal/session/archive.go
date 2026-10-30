@@ -18,6 +18,8 @@ const (
 	archiveStep = "archive"
 )
 
+const settleFor = 25 * time.Second
+
 type archiver struct {
 	run     protocol.Run
 	space   *workspace.Workspace
@@ -158,6 +160,9 @@ func (a *archiver) archive(ctx context.Context) bool {
 		return false
 	}
 
+	ctx, cancel := settling(ctx)
+	defer cancel()
+
 	var completed bool
 	a.leased(ctx, func(ctx context.Context) {
 		var summary string
@@ -228,6 +233,13 @@ func (a *archiver) leased(ctx context.Context, do func(context.Context)) {
 	}()
 
 	do(ctx)
+}
+
+func settling(ctx context.Context) (context.Context, context.CancelFunc) {
+	if ctx.Err() == nil {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(context.WithoutCancel(ctx), settleFor)
 }
 
 func (a *archiver) emptied() {
