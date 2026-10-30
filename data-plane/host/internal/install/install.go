@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"usespotlight.ai/data-plane/console"
 )
 
 const (
@@ -54,7 +56,7 @@ func (s Service) systemd(out io.Writer) error {
 		}
 	}
 
-	Step(out, fmt.Sprintf("Started the systemd service %s (%s)", unitName, path))
+	console.Step(out, fmt.Sprintf("Started the systemd service %s (%s)", unitName, path))
 	if !system && !lingers() {
 		fmt.Fprintf(out, "\nTo keep the host running after you log out, run:\n  loginctl enable-linger %s\n", os.Getenv("USER"))
 	}
@@ -77,7 +79,7 @@ func (s Service) launchd(out io.Writer) error {
 		return err
 	}
 
-	Step(out, fmt.Sprintf("Started the launchd agent %s (logs in %s)", label, logs))
+	console.Step(out, fmt.Sprintf("Started the launchd agent %s (logs in %s)", label, logs))
 	return nil
 }
 
@@ -128,7 +130,7 @@ func Start(out io.Writer) error {
 		return err
 	}
 
-	Step(out, "Started the host")
+	console.Step(out, "Started the host")
 	return nil
 }
 
@@ -147,7 +149,7 @@ func Stop(out io.Writer) error {
 		return err
 	}
 
-	Step(out, "Stopped the host")
+	console.Step(out, "Stopped the host")
 	return nil
 }
 
@@ -169,7 +171,7 @@ func Restart(out io.Writer) error {
 		return err
 	}
 
-	Step(out, "Restarted the host")
+	console.Step(out, "Restarted the host")
 	return nil
 }
 
@@ -198,7 +200,7 @@ func Uninstall(out io.Writer) error {
 		}
 	}
 
-	Step(out, fmt.Sprintf("Removed the service (%s)", path))
+	console.Step(out, fmt.Sprintf("Removed the service (%s)", path))
 	return nil
 }
 
@@ -352,16 +354,6 @@ func command(name string, args ...string) error {
 		return fmt.Errorf("%s %s: %w\n%s", name, strings.Join(args, " "), err, strings.TrimSpace(string(output)))
 	}
 	return nil
-}
-
-func Step(out io.Writer, text string) {
-	mark := "✓"
-	if file, ok := out.(*os.File); ok && os.Getenv("NO_COLOR") == "" {
-		if info, err := file.Stat(); err == nil && info.Mode()&os.ModeCharDevice != 0 {
-			mark = "\033[32m✓\033[0m"
-		}
-	}
-	fmt.Fprintf(out, "  %s %s\n", mark, text)
 }
 
 func lingers() bool {

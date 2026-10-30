@@ -58,6 +58,12 @@ describe.each(presentations)('%s', (_, renderControl) => {
     expect(
       screen.getByText(`spotlight ssh setup --url ${window.location.origin}`),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Copy: Add to the VS Code settings' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('"remote.SSH.connectTimeout": 600'),
+    ).toBeInTheDocument();
   });
 
   it('shows no setup once the editor takes the focus', () => {

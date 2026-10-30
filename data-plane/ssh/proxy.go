@@ -93,12 +93,18 @@ func (c cli) pipe(ctx context.Context, conn *websocket.Conn, address string) err
 	}()
 
 	received := make(chan error, 1)
+	answered := make(chan struct{})
 	go func() {
+		first := true
 		for {
 			_, reader, err := conn.Reader(piping)
 			if err != nil {
 				received <- err
 				return
+			}
+			if first {
+				close(answered)
+				first = false
 			}
 			if _, err := io.Copy(c.out, reader); err != nil {
 				received <- nil
@@ -107,25 +113,39 @@ func (c cli) pipe(ctx context.Context, conn *websocket.Conn, address string) err
 		}
 	}()
 
-	select {
-	case err := <-received:
-		if ctx.Err() != nil {
+	var hint <-chan time.Time
+	if c.waitHint > 0 {
+		timer := time.NewTimer(c.waitHint)
+		defer timer.Stop()
+		hint = timer.C
+	}
+
+	for {
+		select {
+		case <-hint:
+			fmt.Fprintln(c.errs, "Starting the sandbox. This can take some minutes.")
+			hint = nil
+		case <-answered:
+			hint, answered = nil, nil
+		case err := <-received:
+			if ctx.Err() != nil {
+				return errStopped
+			}
+			return closed(address, err)
+		case err := <-sent:
+			if errors.Is(err, io.EOF) {
+				_ = conn.Close(websocket.StatusNormalClosure, "")
+				return nil
+			}
+			select {
+			case err := <-received:
+				return closed(address, err)
+			case <-time.After(closeWait):
+				return fmt.Errorf("Sorry, the connection to Spotlight at %s broke: %w", address, err)
+			}
+		case <-ctx.Done():
 			return errStopped
 		}
-		return closed(address, err)
-	case err := <-sent:
-		if errors.Is(err, io.EOF) {
-			_ = conn.Close(websocket.StatusNormalClosure, "")
-			return nil
-		}
-		select {
-		case err := <-received:
-			return closed(address, err)
-		case <-time.After(closeWait):
-			return fmt.Errorf("Sorry, the connection to Spotlight at %s broke: %w", address, err)
-		}
-	case <-ctx.Done():
-		return errStopped
 	}
 }
 

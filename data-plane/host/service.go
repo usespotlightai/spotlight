@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/install"
 )
@@ -55,7 +56,7 @@ func reload(version string, args []string) error {
 		return fmt.Errorf("tell the host (process %d) to reload: %w", pid, err)
 	}
 
-	install.Step(os.Stdout, "The running host reloaded its settings, sandbox.env and egress.env")
+	console.Step(os.Stdout, "The running host reloaded its settings, sandbox.env and egress.env")
 	return nil
 }
 
@@ -101,8 +102,8 @@ func uninstall(version string, args []string) error {
 	}
 
 	if !*purge && !*yes {
-		if tty := openTerminal(); tty != nil {
-			*purge = tty.confirm(fmt.Sprintf("Also delete the settings %s and the state %s?", config.Path(), cfg.State))
+		if tty := console.Open(); tty != nil {
+			*purge = tty.Confirm(fmt.Sprintf("Also delete the settings %s and the state %s?", config.Path(), cfg.State))
 			tty.Close()
 		}
 	}
@@ -110,7 +111,7 @@ func uninstall(version string, args []string) error {
 		if err := os.Remove(config.Path()); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
-		install.Step(os.Stdout, "Deleted "+config.Path())
+		console.Step(os.Stdout, "Deleted "+config.Path())
 		if err := purgeState(cfg.State); err != nil {
 			return err
 		}
@@ -133,6 +134,6 @@ func purgeState(state string) error {
 	if err := os.RemoveAll(state); err != nil {
 		return err
 	}
-	install.Step(os.Stdout, "Deleted "+state)
+	console.Step(os.Stdout, "Deleted "+state)
 	return nil
 }

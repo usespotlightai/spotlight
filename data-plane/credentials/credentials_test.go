@@ -204,3 +204,44 @@ func TestStoredFindsTheLoginByTheNormalisedAddress(t *testing.T) {
 		t.Errorf("Stored with no home = %q, %v", got, err)
 	}
 }
+
+func TestChooseTakesTheFlagThenTheEnvironmentThenTheOneLogin(t *testing.T) {
+	dir := t.TempDir()
+	file, _ := Load(filepath.Join(dir, "credentials.json"))
+	_ = file.Put("https://staging.example.com", Login{Token: "tok_1"})
+	if err := file.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, each := range []struct {
+		env   map[string]string
+		given string
+		want  string
+	}{
+		{map[string]string{DirVar: dir}, "", "https://staging.example.com"},
+		{map[string]string{DirVar: dir, URLVar: "http://localhost:3000/"}, "", "http://localhost:3000"},
+		{map[string]string{DirVar: dir, URLVar: "http://localhost:3000"}, "https://flag.example.com/", "https://flag.example.com"},
+		{map[string]string{DirVar: t.TempDir()}, "", DefaultAddress},
+		{nil, "", DefaultAddress},
+	} {
+		if got, err := Choose(envOf(each.env), each.given); err != nil || got != each.want {
+			t.Errorf("Choose(%v, %q) = %q, %v, want %q", each.env, each.given, got, err, each.want)
+		}
+	}
+}
+
+func TestChooseNamesTheLoginsWhenThereAreSeveral(t *testing.T) {
+	dir := t.TempDir()
+	file, _ := Load(filepath.Join(dir, "credentials.json"))
+	_ = file.Put("https://staging.example.com", Login{Token: "tok_1"})
+	_ = file.Put("https://app.usespotlight.ai", Login{Token: "tok_2"})
+	_ = file.Put("https://gone.example.com", Login{})
+	if err := file.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Choose(envOf(map[string]string{DirVar: dir}), "")
+	if err == nil || !strings.Contains(err.Error(), "https://app.usespotlight.ai, https://staging.example.com.") {
+		t.Errorf("err = %v, want both logins named", err)
+	}
+}

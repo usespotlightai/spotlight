@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -126,6 +127,44 @@ func Stored(env func(string) string, address string) (string, error) {
 
 	login, _ := file.Login(key)
 	return login.Token, nil
+}
+
+func Choose(env func(string) string, given string) (string, error) {
+	for _, raw := range []string{given, env(URLVar)} {
+		if raw != "" {
+			return Address(raw)
+		}
+	}
+
+	path, err := Path(env)
+	if err != nil {
+		return DefaultAddress, nil
+	}
+	file, err := Load(path)
+	if err != nil {
+		return "", err
+	}
+
+	switch addresses := file.Addresses(); len(addresses) {
+	case 0:
+		return DefaultAddress, nil
+	case 1:
+		return addresses[0], nil
+	default:
+		return "", fmt.Errorf("there are logins for %s. Say which one with --url, or set %s", strings.Join(addresses, ", "), URLVar)
+	}
+}
+
+func (f *File) Addresses() []string {
+	var addresses []string
+	for address := range f.logins {
+		if _, found := f.Login(address); found {
+			addresses = append(addresses, address)
+		}
+	}
+	slices.Sort(addresses)
+
+	return addresses
 }
 
 func (f *File) Login(address string) (Login, bool) {

@@ -137,6 +137,7 @@ func TestProxyPipesBytesBothWaysWithTheLogin(t *testing.T) {
 
 	in, typed := io.Pipe()
 	run := newProxy(t, fake.server.URL, true, in)
+	run.cli.waitHint = time.Second
 	done := make(chan int, 1)
 	go func() { done <- run.proxy(t, within(t), "task-abc.acme.spotlight") }()
 
@@ -180,6 +181,7 @@ func TestProxyBlocksWhileTheSandboxStarts(t *testing.T) {
 	in, typed := io.Pipe()
 	defer typed.Close()
 	run := newProxy(t, fake.server.URL, true, in)
+	run.cli.waitHint = 100 * time.Millisecond
 	done := make(chan int, 1)
 	go func() { done <- run.proxy(t, within(t), "chat-c1.acme.spotlight") }()
 
@@ -192,6 +194,9 @@ func TestProxyBlocksWhileTheSandboxStarts(t *testing.T) {
 
 	if code := <-done; code != 0 || run.out.String() != "hello" {
 		t.Fatalf("exit %d, stdout %q, stderr %q", code, run.out.String(), run.errs.String())
+	}
+	if got := run.errs.String(); got != "Starting the sandbox. This can take some minutes.\n" {
+		t.Errorf("stderr = %q, want one start hint", got)
 	}
 }
 

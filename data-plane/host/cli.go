@@ -1,7 +1,6 @@
 package host
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"flag"
@@ -14,8 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/term"
-
+	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/help"
 	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/install"
@@ -54,91 +52,23 @@ func parse(flags *flag.FlagSet, args []string) ([]string, error) {
 	}
 }
 
-// terminal asks questions on the controlling terminal, so they work after `curl | sh` too.
-type terminal struct {
-	tty    *os.File
-	reader *bufio.Reader
-}
-
-func openTerminal() *terminal {
-	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-	if err != nil {
-		return nil
-	}
-	if !term.IsTerminal(int(tty.Fd())) {
-		tty.Close()
-		return nil
-	}
-	return &terminal{tty: tty, reader: bufio.NewReader(tty)}
-}
-
-func (t *terminal) Close() {
-	t.tty.Close()
-}
-
-func (t *terminal) ask(question, shown string) (string, error) {
-	if shown != "" {
-		fmt.Fprintf(t.tty, "%s [%s]: ", question, shown)
-	} else {
-		fmt.Fprintf(t.tty, "%s: ", question)
-	}
-	line, err := t.reader.ReadString('\n')
-	if err != nil && line == "" {
-		return "", err
-	}
-	return strings.TrimSpace(line), nil
-}
-
-func (t *terminal) secret(question, shown string) (string, error) {
-	if shown != "" {
-		fmt.Fprintf(t.tty, "%s [%s]: ", question, shown)
-	} else {
-		fmt.Fprintf(t.tty, "%s: ", question)
-	}
-	raw, err := term.ReadPassword(int(t.tty.Fd()))
-	fmt.Fprintln(t.tty)
-	return strings.TrimSpace(string(raw)), err
-}
-
-func (t *terminal) confirm(question string) bool {
-	answer, err := t.ask(question+" (y/N)", "")
-	answer = strings.ToLower(answer)
-	return err == nil && (answer == "y" || answer == "yes")
-}
-
 const (
-	passed  = "✓"
-	warned  = "!"
-	failed  = "✗"
-	green   = "\033[32m"
-	yellow  = "\033[33m"
-	red     = "\033[31m"
-	bold    = "\033[1m"
-	reset   = "\033[0m"
+	passed  = console.Passed
+	warned  = console.Warned
+	failed  = console.Failed
+	green   = console.Green
+	yellow  = console.Yellow
+	red     = console.Red
+	bold    = console.Bold
 	timeout = 10 * time.Second
 )
 
-func colored() bool {
-	info, err := os.Stdout.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0 && os.Getenv("NO_COLOR") == ""
-}
-
 func paint(color, text string) string {
-	if !colored() {
-		return text
-	}
-	return color + text + reset
+	return console.Paint(os.Stdout, color, text)
 }
 
 func mark(level string) string {
-	switch level {
-	case passed:
-		return paint(green, passed)
-	case warned:
-		return paint(yellow, warned)
-	default:
-		return paint(red, failed)
-	}
+	return console.Mark(os.Stdout, level)
 }
 
 func readHostID(state string) string {
@@ -189,7 +119,7 @@ func apply(out io.Writer, version string, changed []config.Setting, now bool) er
 		if err := syscall.Kill(pid, syscall.SIGHUP); err != nil {
 			return fmt.Errorf("tell the host (process %d) to reload: %w", pid, err)
 		}
-		install.Step(out, "The running host applied the change")
+		console.Step(out, "The running host applied the change")
 		return nil
 	}
 
@@ -217,11 +147,11 @@ func restartHost(out io.Writer, cfg config.Config, pid int, now bool) error {
 	running, err := runningSandboxes(ctx, cfg)
 	switch {
 	case err != nil || running == 0:
-		install.Step(out, "The host restarts with the change")
+		console.Step(out, "The host restarts with the change")
 	case running == 1:
-		install.Step(out, "The host restarts with the change when its running sandbox finishes. To restart at once and stop it: spotlight host restart --now")
+		console.Step(out, "The host restarts with the change when its running sandbox finishes. To restart at once and stop it: spotlight host restart --now")
 	default:
-		install.Step(out, fmt.Sprintf("The host restarts with the change when its %d running sandboxes finish. To restart at once and stop them: spotlight host restart --now", running))
+		console.Step(out, fmt.Sprintf("The host restarts with the change when its %d running sandboxes finish. To restart at once and stop them: spotlight host restart --now", running))
 	}
 	return nil
 }
