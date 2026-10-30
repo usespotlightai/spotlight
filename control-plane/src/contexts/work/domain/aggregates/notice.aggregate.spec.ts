@@ -51,6 +51,13 @@ describe('Notice', () => {
     expect(notice.isFor(UserId.of('user_2'))).toBe(false);
   });
 
+  it('reopens once resolved, and leaves an open notice as it is', () => {
+    const open = created();
+
+    expect(open.resolve(later(3)).reopen().resolvedAt).toBeNull();
+    expect(open.reopen()).toBe(open);
+  });
+
   it('resolves once', () => {
     const resolved = created().resolve(later(3));
 

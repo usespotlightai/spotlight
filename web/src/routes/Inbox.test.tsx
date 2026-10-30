@@ -7,6 +7,8 @@ import { Inbox } from '@/routes/Inbox';
 const waiting = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
+const resolve = vi.fn();
+const reopen = vi.fn();
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
@@ -17,6 +19,14 @@ vi.mock('@/hooks/api/useInbox', () => ({
     isFetching: false,
     refetch,
   }),
+}));
+
+vi.mock('@/hooks/api/useResolveInboxEntry', () => ({
+  useResolveInboxEntry: () => ({ mutate: resolve, isPending: false }),
+}));
+
+vi.mock('@/hooks/api/useReopenInboxEntry', () => ({
+  useReopenInboxEntry: () => ({ mutate: reopen, isPending: false }),
 }));
 
 const item = (over: Record<string, unknown> = {}) => ({
@@ -38,6 +48,8 @@ const item = (over: Record<string, unknown> = {}) => ({
   askedAt: '2026-08-29T12:00:00.000Z',
   resolved: false,
   progress: null,
+  runId: null,
+  inboxRequest: null,
   unread: false,
   notes: [
     {
@@ -88,6 +100,42 @@ describe('Inbox', () => {
     waiting.mockReturnValue([item()]);
     failing.mockReturnValue(false);
     refetch.mockClear();
+    resolve.mockClear();
+    reopen.mockClear();
+  });
+
+  describe('resolving', () => {
+    it('resolves what is open on request', async () => {
+      renderAt('/w/acme/inbox');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Resolve' }));
+
+      expect(resolve).toHaveBeenCalledWith({
+        slug: 'acme',
+        entry: expect.objectContaining({ id: 'task_1:0' }),
+      });
+    });
+
+    it('unresolves what is resolved on request', async () => {
+      waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
+      renderAt('/w/acme/inbox');
+
+      await userEvent.click(screen.getByRole('button', { name: 'Unresolve' }));
+
+      expect(reopen).toHaveBeenCalledWith({
+        slug: 'acme',
+        entry: expect.objectContaining({ id: 'notice_1' }),
+      });
+    });
+
+    it('does not offer to unresolve a conversation that moved on by itself', () => {
+      waiting.mockReturnValue([item({ resolved: true })]);
+      renderAt('/w/acme/inbox');
+
+      expect(
+        screen.queryByRole('button', { name: 'Unresolve' }),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it('leaves the list blank when the inbox could not be loaded, even while it tries again', () => {
@@ -97,7 +145,9 @@ describe('Inbox', () => {
 
     expect(screen.getByRole('heading')).toHaveTextContent('Inbox');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('status', { name: 'Loading the inbox' }),
+    ).not.toBeInTheDocument();
   });
 
   it('leaves the list blank when nothing is waiting', () => {
@@ -106,7 +156,9 @@ describe('Inbox', () => {
 
     expect(screen.getByRole('heading')).toHaveTextContent('Inbox');
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('status', { name: 'Loading the inbox' }),
+    ).not.toBeInTheDocument();
   });
 
   it('names the list, leaving the trail to the message beside it', () => {

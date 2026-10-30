@@ -498,6 +498,51 @@ describe('Task, what it is doing', () => {
     });
   });
 
+  describe('resolving what was put to a person without an answer', () => {
+    const personNote = { ...newNote, voice: Voice.person(UserId.of('user_1')) };
+
+    it('waits for nothing once they resolve it, and notes that they did', () => {
+      const resolved = added()
+        .askedAbout(newNote, null)
+        .resolveAt(NotePosition.of(0), newNote);
+
+      expect(resolved.openConversation).toBeNull();
+      expect(resolved.awaitingReview).toBe(false);
+      expect(resolved.notes[resolved.notes.length - 1]).toMatchObject({
+        kind: 'passed',
+        form: 'resolved',
+      });
+    });
+
+    it('opens the same conversation again on reopening, waiting on a person', () => {
+      const reopened = added()
+        .askedAbout(newNote, null)
+        .resolveAt(NotePosition.of(0), personNote)
+        .reopenAt(NotePosition.of(0), personNote);
+
+      expect(reopened.openConversation).toEqual({ from: 0, to: null });
+      expect(reopened.awaitingReview).toBe(true);
+    });
+
+    it('rejects reopening a conversation that nobody resolved', () => {
+      const passed = added()
+        .askedAbout(newNote, null)
+        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote);
+
+      expect(() => passed.reopenAt(NotePosition.of(0), personNote)).toThrow(
+        InvalidTaskTransitionError,
+      );
+    });
+
+    it('rejects resolving a conversation that starts somewhere else', () => {
+      const asked = added().askedAbout(newNote, null);
+
+      expect(() => asked.resolveAt(NotePosition.of(1), newNote)).toThrow(
+        InvalidTaskTransitionError,
+      );
+    });
+  });
+
   describe('who it belongs to', () => {
     it('comes back to whoever created it', () => {
       expect(added().createdByThem(UserId.of('user_1'))).toBe(true);
@@ -1803,6 +1848,30 @@ describe('Task and the happenings received while it has a current run', () => {
         ending(ResolvedHandover.done(TaskNoteBody.of('Done.'))),
       ).stationId,
     ).toEqual(SPEC);
+  });
+
+  it('stops the run waiting on a tool approval when the approval is resolved', () => {
+    const asking = assigned().clearFor(
+      ApprovalSubject.toolCall(
+        ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
+      ),
+      ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
+      { ...newNote, voice: Voice.station(RUN) },
+      RUN,
+      null,
+    ).task;
+
+    asking.pullEvents();
+
+    const resolved = asking.resolveAt(NotePosition.of(0), newNote);
+
+    expect(resolved.currentRunId).toBeNull();
+    expect(detached(resolved)).toEqual([RUN]);
+    expect(resolved.openConversation).toBeNull();
+    expect(resolved.notes[resolved.notes.length - 1]).toMatchObject({
+      kind: 'passed',
+      form: 'resolved',
+    });
   });
 
   it('stops its run and asks over a pending tool approval when interrupted, since the run would work on once approved', () => {

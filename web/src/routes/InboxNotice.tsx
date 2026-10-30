@@ -16,22 +16,29 @@ import { failed, loading } from '@/lib/query';
 import { teamPath } from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
 
+const RESOLVE_AFTER_MS = 3000;
+
 export function InboxNotice() {
   const { slug, noticeId } = useParams();
   const inbox = useInbox(slug);
   const notice = noticeOf(inbox.data, noticeId);
   const { data: workspace } = useWorkspace(slug);
   const resolve = useResolveInboxNotice();
-  const seen = useRef<string | null>(null);
+  const pending = notice && !notice.resolved ? notice.id : null;
+  const resolvedOnOpening = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!slug || !notice || notice.resolved || seen.current === notice.id) {
+    if (!slug || !pending || resolvedOnOpening.current === pending) {
       return;
     }
 
-    seen.current = notice.id;
-    resolve.mutate({ slug, noticeId: notice.id });
-  }, [slug, notice, resolve.mutate]);
+    const timer = setTimeout(() => {
+      resolvedOnOpening.current = pending;
+      resolve.mutate({ slug, noticeId: pending });
+    }, RESOLVE_AFTER_MS);
+
+    return () => clearTimeout(timer);
+  }, [slug, pending, resolve.mutate]);
 
   const team = workspace?.teams.find(
     (candidate) => candidate.id === notice?.teamId,

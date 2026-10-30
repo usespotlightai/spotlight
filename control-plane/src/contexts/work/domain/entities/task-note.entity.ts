@@ -22,6 +22,7 @@ export const TASK_NOTE_KINDS = [
   'passed',
   'answered',
   'message',
+  'reopened',
 ] as const;
 
 export type TaskNoteKind = (typeof TASK_NOTE_KINDS)[number];

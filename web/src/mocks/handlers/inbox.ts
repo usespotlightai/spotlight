@@ -128,6 +128,30 @@ const answer = (
   answerReviewOf(item);
 };
 
+const notedBySam = (
+  item: InboxItemResponseDto,
+  kind: 'passed' | 'reopened',
+  body: string,
+) =>
+  item.notes.push({
+    position: item.notes.length,
+    kind,
+    form: kind === 'passed' ? 'resolved' : 'words',
+    voice: 'person',
+    station: item.station,
+    stationColor: item.stationColor,
+    stationPosition: item.stationPosition,
+    runId: null,
+    body,
+    attachments: [],
+    at: now(),
+    author: SAM,
+    coAuthors: [],
+    approval: null,
+    failure: null,
+    connection: null,
+  });
+
 const conversationHandlers = [
   api.get('/workspaces/:slug/inbox', ({ params }) =>
     isOurs(params)
@@ -187,6 +211,82 @@ const conversationHandlers = [
 
     return noContent();
   }),
+
+  api.post('/workspaces/:slug/inbox/:itemId/resolve', ({ params }) => {
+    const item = itemOf(param(params, 'itemId'));
+
+    if (!isOurs(params) || !item || item.inboxRequest) {
+      return notFound();
+    }
+    if (item.resolved) {
+      return problem(409, 'Nothing here waits for an answer.');
+    }
+    notedBySam(item, 'passed', 'Resolved without an answer.');
+    item.resolved = true;
+    item.unread = false;
+    item.runId = null;
+    item.progress = null;
+
+    return noContent();
+  }),
+
+  api.post('/workspaces/:slug/inbox/:itemId/reopen', ({ params }) => {
+    const item = itemOf(param(params, 'itemId'));
+
+    if (!isOurs(params) || !item || item.inboxRequest) {
+      return notFound();
+    }
+    if (item.notes[item.notes.length - 1]?.form !== 'resolved') {
+      return problem(409, 'Nobody resolved this conversation.');
+    }
+    notedBySam(item, 'reopened', 'Reopened.');
+    item.resolved = false;
+
+    return noContent();
+  }),
+
+  api.post(
+    '/workspaces/:slug/inbox/requests/:requestId/reopen',
+    ({ params }) => {
+      const item = itemOf(param(params, 'requestId'));
+
+      if (!isOurs(params) || !item?.inboxRequest) {
+        return notFound();
+      }
+      item.resolved = false;
+
+      return noContent();
+    },
+  ),
+
+  api.post('/workspaces/:slug/inbox/notices/:noticeId/reopen', ({ params }) => {
+    const notice = inboxStore().entries.find(
+      (entry) =>
+        entry.kind === 'notice' && entry.id === param(params, 'noticeId'),
+    );
+
+    if (!isOurs(params) || !notice) {
+      return notFound();
+    }
+    notice.resolved = false;
+
+    return noContent();
+  }),
+
+  api.post(
+    '/workspaces/:slug/inbox/requests/:requestId/resolve',
+    ({ params }) => {
+      const item = itemOf(param(params, 'requestId'));
+
+      if (!isOurs(params) || !item?.inboxRequest) {
+        return notFound();
+      }
+      item.resolved = true;
+      item.unread = false;
+
+      return noContent();
+    },
+  ),
 
   api.post(
     '/workspaces/:slug/inbox/notices/:noticeId/resolve',

@@ -700,6 +700,35 @@ export class Task extends EventRecorder {
     return this.with(this.appendNote(newNote, 'passed'));
   }
 
+  resolveAt(from: NotePosition, newNote: NewNote): Task {
+    if (this.openConversation?.from !== from.value) {
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} is not waiting on anyone at that note.`,
+      );
+    }
+
+    return this.stopped(newNote.at)
+      .closeConversation({ ...newNote, form: 'resolved' })
+      .acknowledgeNotesAt(newNote.at);
+  }
+
+  reopenAt(from: NotePosition, newNote: NewNote): Task {
+    const last = this.trail.lastClosed;
+    const closing = last?.to != null ? this.notes[last.to] : undefined;
+
+    if (
+      last?.from !== from.value ||
+      closing?.form !== 'resolved' ||
+      !closing.voice.isPerson
+    ) {
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} has no conversation resolved by a person at that note.`,
+      );
+    }
+
+    return this.with(this.appendNote(newNote, 'reopened'));
+  }
+
   passedOn(
     by: RunId,
     line: Line,
