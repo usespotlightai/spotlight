@@ -26,7 +26,7 @@ export class ListInboxHandler
       return (
         waiting?.map(
           (item): InboxEntryDto =>
-            item.kind === 'notice'
+            item.kind !== 'task'
               ? { ...item, askedAt: item.askedAt.toISOString() }
               : {
                   ...item,

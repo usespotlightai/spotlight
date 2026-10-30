@@ -1661,6 +1661,49 @@ export type InboxNoticeResponseDto = {
   resolved: boolean;
 };
 
+export type InboxRunResponseDto = {
+  /**
+   * A run on a task the person owns, working with nothing to ask them yet
+   */
+  kind: 'run';
+  /**
+   * The run
+   */
+  id: string;
+  taskId: string;
+  teamId: string;
+  title: string;
+  /**
+   * The station the run works at
+   */
+  station: string;
+  stationColor: string;
+  /**
+   * Its place in the line, from zero
+   */
+  stationPosition: number;
+  /**
+   * How many stations the line has
+   */
+  stationCount: number;
+  /**
+   * Queued until a runner takes it, then in progress, and stopping once someone asked it to stop
+   */
+  progress: 'queued' | 'in-progress' | 'stopping';
+  /**
+   * When the run was queued
+   */
+  askedAt: string;
+  /**
+   * Never unread
+   */
+  unread: false;
+  /**
+   * Never resolved
+   */
+  resolved: false;
+};
+
 export type AnswerInboxItemInputRequestDto = {
   name: string;
   value: string;
@@ -9415,7 +9458,7 @@ export type ListInboxErrors = {
 };
 
 export type ListInboxResponses = {
-  200: Array<InboxItemResponseDto | InboxNoticeResponseDto>;
+  200: Array<InboxItemResponseDto | InboxNoticeResponseDto | InboxRunResponseDto>;
 };
 
 export type ListInboxResponse = ListInboxResponses[keyof ListInboxResponses];

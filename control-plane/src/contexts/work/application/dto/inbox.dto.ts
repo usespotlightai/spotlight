@@ -133,4 +133,20 @@ export interface InboxNoticeDto {
   readonly resolved: boolean;
 }
 
-export type InboxEntryDto = InboxItemDto | InboxNoticeDto;
+export interface InboxRunDto {
+  readonly kind: 'run';
+  readonly id: string;
+  readonly taskId: string;
+  readonly teamId: string;
+  readonly title: string;
+  readonly station: string;
+  readonly stationColor: string;
+  readonly stationPosition: number;
+  readonly stationCount: number;
+  readonly progress: Progress;
+  readonly askedAt: string;
+  readonly unread: false;
+  readonly resolved: false;
+}
+
+export type InboxEntryDto = InboxItemDto | InboxNoticeDto | InboxRunDto;

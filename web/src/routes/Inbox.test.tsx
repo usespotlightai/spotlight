@@ -315,6 +315,40 @@ describe('Inbox', () => {
       );
     });
 
+    it('holds a run on your task that has nothing to ask, and opens it here', async () => {
+      const person = userEvent.setup();
+      waiting.mockReturnValue([
+        {
+          kind: 'run',
+          id: 'run_9',
+          taskId: 'task_9',
+          teamId: 'team_1',
+          title: 'Drain the retry queue',
+          station: 'Implementation',
+          stationColor: '#5c66d9',
+          stationPosition: 2,
+          stationCount: 4,
+          progress: 'in-progress',
+          askedAt: '2026-08-29T12:00:00.000Z',
+          unread: false,
+          resolved: false,
+        },
+      ]);
+      renderAt('/w/acme/inbox');
+
+      await person.click(screen.getByRole('button', { name: /Running/ }));
+
+      const link = screen.getByRole('link', { name: /Drain the retry queue/ });
+      expect(link).toHaveAttribute(
+        'href',
+        '/w/acme/inbox/teams/team_1/runs/run_9',
+      );
+      expect(link).toHaveTextContent('Implementation is working…');
+      expect(
+        screen.queryByRole('button', { name: 'Resolve' }),
+      ).not.toBeInTheDocument();
+    });
+
     it('leaves what is resolved where it is', () => {
       waiting.mockReturnValue([
         item({ resolved: true, progress: 'in-progress' }),

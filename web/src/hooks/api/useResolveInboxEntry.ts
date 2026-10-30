@@ -5,11 +5,16 @@ import {
   resolveInboxNotice,
   resolveInboxRequest,
 } from '@/lib/api';
-import { entryKey, type InboxEntry } from '@/lib/inbox';
+import {
+  entryKey,
+  type InboxEntry,
+  type InboxItem,
+  type InboxNotice,
+} from '@/lib/inbox';
 
 type ResolveInboxEntryInput = {
   slug: string;
-  entry: InboxEntry;
+  entry: InboxItem | InboxNotice;
 };
 
 const resolving = ({ slug, entry }: ResolveInboxEntryInput) => {

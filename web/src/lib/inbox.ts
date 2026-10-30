@@ -1,6 +1,7 @@
 import type {
   InboxItemResponseDto,
   InboxNoticeResponseDto,
+  InboxRunResponseDto,
   NoteResponseDto,
   RunJournalResponseDto,
 } from '@/lib/api';
@@ -12,7 +13,9 @@ export type InboxItem = InboxItemResponseDto;
 
 export type InboxNotice = InboxNoticeResponseDto;
 
-export type InboxEntry = InboxItem | InboxNotice;
+export type InboxRun = InboxRunResponseDto;
+
+export type InboxEntry = InboxItem | InboxNotice | InboxRun;
 
 export type Note = NoteResponseDto;
 
@@ -261,6 +264,25 @@ export const inboxItemPath = (slug: string, id: string, runId?: string) =>
     runId ? `?run=${encodeURIComponent(runId)}` : ''
   }`;
 
+export const inboxRunPath = (slug: string, teamId: string, runId: string) =>
+  `${inboxPath(slug)}/teams/${encodeURIComponent(teamId)}/runs/${encodeURIComponent(runId)}`;
+
+export const workingWordsOf = (
+  progress: ShownProgress,
+  station: string,
+): string => {
+  if (progress === 'queued') {
+    return `Queued. ${station} starts when a runner is free.`;
+  }
+  if (progress === 'in-progress') {
+    return `${station} is working…`;
+  }
+
+  return progress === 'finishing'
+    ? 'Agent stopped. Finishing the run…'
+    : 'Stopping…';
+};
+
 export const noticePath = (slug: string, id: string) =>
   `${inboxPath(slug)}/notices/${encodeURIComponent(id)}`;
 
@@ -283,13 +305,18 @@ export const noticeOf = (
     (each): each is InboxNotice => each.kind === 'notice' && each.id === id,
   );
 
-export const resolvable = (entry: InboxEntry): boolean => !entry.resolved;
+export const resolvable = (
+  entry: InboxEntry,
+): entry is InboxItem | InboxNotice => entry.kind !== 'run' && !entry.resolved;
 
 export const running = (entry: InboxEntry): boolean =>
-  entry.kind === 'task' && !entry.resolved && entry.progress !== null;
+  entry.kind === 'run' ||
+  (entry.kind === 'task' && !entry.resolved && entry.progress !== null);
 
-export const reopenable = (entry: InboxEntry): boolean => {
-  if (!entry.resolved) {
+export const reopenable = (
+  entry: InboxEntry,
+): entry is InboxItem | InboxNotice => {
+  if (entry.kind === 'run' || !entry.resolved) {
     return false;
   }
   if (entry.kind === 'notice' || entry.inboxRequest) {

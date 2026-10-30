@@ -13,6 +13,7 @@ import {
   type InboxFailureDto,
   type InboxNoticeDto,
   type InboxRequestDto,
+  type InboxRunDto,
   NOTE_FORMS,
   NOTE_KINDS,
   NOTE_VOICES,
@@ -634,18 +635,92 @@ export class InboxNoticeResponseDto {
   }
 }
 
+export class InboxRunResponseDto {
+  @ApiProperty({
+    enum: ['run'],
+    description:
+      'A run on a task the person owns, working with nothing to ask them yet',
+  })
+  readonly kind = 'run' as const;
+
+  @ApiProperty({
+    example: 'e4b8a1c7-2d3f-4a96-8b05-7f1c9d2e6a48',
+    description: 'The run',
+  })
+  readonly id: string;
+
+  @ApiProperty({ example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13' })
+  readonly taskId: string;
+
+  @ApiProperty({ example: '9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84' })
+  readonly teamId: string;
+
+  @ApiProperty({ example: 'Fix the queue' })
+  readonly title: string;
+
+  @ApiProperty({
+    example: 'Implementation',
+    description: 'The station the run works at',
+  })
+  readonly station: string;
+
+  @ApiProperty({ example: '#edc12b' })
+  readonly stationColor: string;
+
+  @ApiProperty({ example: 2, description: 'Its place in the line, from zero' })
+  readonly stationPosition: number;
+
+  @ApiProperty({ example: 4, description: 'How many stations the line has' })
+  readonly stationCount: number;
+
+  @ApiProperty({
+    enum: PROGRESS_NAMES,
+    example: 'in-progress',
+    description:
+      'Queued until a runner takes it, then in progress, and stopping once someone asked it to stop',
+  })
+  readonly progress: (typeof PROGRESS_NAMES)[number];
+
+  @ApiProperty({
+    example: '2026-08-28T21:15:00.000Z',
+    description: 'When the run was queued',
+  })
+  readonly askedAt: string;
+
+  @ApiProperty({ enum: [false], description: 'Never unread' })
+  readonly unread = false as const;
+
+  @ApiProperty({ enum: [false], description: 'Never resolved' })
+  readonly resolved = false as const;
+
+  constructor(entry: InboxRunDto) {
+    this.id = entry.id;
+    this.taskId = entry.taskId;
+    this.teamId = entry.teamId;
+    this.title = entry.title;
+    this.station = entry.station;
+    this.stationColor = entry.stationColor;
+    this.stationPosition = entry.stationPosition;
+    this.stationCount = entry.stationCount;
+    this.progress = entry.progress;
+    this.askedAt = entry.askedAt;
+  }
+}
+
 export const INBOX_ENTRY_SCHEMA = {
   type: 'array' as const,
   items: {
     oneOf: [
       { $ref: getSchemaPath(InboxItemResponseDto) },
       { $ref: getSchemaPath(InboxNoticeResponseDto) },
+      { $ref: getSchemaPath(InboxRunResponseDto) },
     ],
     discriminator: {
       propertyName: 'kind',
       mapping: {
         task: getSchemaPath(InboxItemResponseDto),
         notice: getSchemaPath(InboxNoticeResponseDto),
+        run: getSchemaPath(InboxRunResponseDto),
       },
     },
   },

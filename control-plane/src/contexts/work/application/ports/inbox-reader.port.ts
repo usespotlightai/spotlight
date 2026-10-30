@@ -128,7 +128,26 @@ export interface InboxNoticeSummary {
   readonly resolved: boolean;
 }
 
-export type InboxEntrySummary = InboxItemSummary | InboxNoticeSummary;
+export interface InboxRunSummary {
+  readonly kind: 'run';
+  readonly id: string;
+  readonly taskId: string;
+  readonly teamId: string;
+  readonly title: string;
+  readonly station: string;
+  readonly stationColor: string;
+  readonly stationPosition: number;
+  readonly stationCount: number;
+  readonly progress: Progress;
+  readonly askedAt: Date;
+  readonly unread: false;
+  readonly resolved: false;
+}
+
+export type InboxEntrySummary =
+  | InboxItemSummary
+  | InboxNoticeSummary
+  | InboxRunSummary;
 
 export const INBOX_READER = Symbol('INBOX_READER');
 

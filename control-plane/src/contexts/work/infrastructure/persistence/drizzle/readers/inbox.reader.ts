@@ -22,6 +22,7 @@ import type {
   InboxItemSummary,
   InboxNoticeSummary,
   InboxReaderPort,
+  InboxRunSummary,
 } from '@work/application/ports/inbox-reader.port';
 import {
   InboxRequest,
@@ -36,7 +37,10 @@ import {
 import { anyUnread } from '@work/domain/services/unread';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
-import { progressOfCurrentRun } from '@work/domain/value-objects/run-state';
+import {
+  progressOfCurrentRun,
+  type RunState,
+} from '@work/domain/value-objects/run-state';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -58,6 +62,17 @@ import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { and, eq, gte, inArray, isNull, or } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+
+const workingOf = (row: {
+  readonly workingState: RunState | null;
+  readonly workingStopRequestedAt: Date | null;
+}) =>
+  row.workingState
+    ? {
+        state: row.workingState,
+        stopRequested: row.workingStopRequestedAt !== null,
+      }
+    : null;
 
 const FORMS_FOR_TEAM_READERS = INBOX_REQUEST_FORMS.filter(
   (form) => InboxRequest.requiredAccess(form) === 'readsTeamInsights',
@@ -86,7 +101,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       return null;
     }
 
-    const items: InboxEntrySummary[] = await this.conversationsIn(
+    const items: InboxEntrySummary[] = await this.tasksIn(
       await this.assignedTo(visible, userId),
     );
 
@@ -118,6 +133,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
         working: task.currentRunId,
         workingState: run.state,
         workingStopRequestedAt: run.stopRequestedAt,
+        workingSince: run.queuedAt,
       })
       .from(task)
       .innerJoin(station, eq(station.id, task.stationId))
@@ -132,9 +148,9 @@ export class DrizzleInboxReader implements InboxReaderPort {
       );
   }
 
-  private async conversationsIn(
+  private async tasksIn(
     rows: Awaited<ReturnType<DrizzleInboxReader['assignedTo']>>,
-  ): Promise<InboxItemSummary[]> {
+  ): Promise<(InboxItemSummary | InboxRunSummary)[]> {
     if (rows.length === 0) {
       return [];
     }
@@ -160,14 +176,34 @@ export class DrizzleInboxReader implements InboxReaderPort {
       ),
     );
 
-    const items: InboxItemSummary[] = [];
+    const items: (InboxItemSummary | InboxRunSummary)[] = [];
 
     for (const row of rows) {
       const taskNotes = trail.get(row.taskId) ?? [];
+      const conversations = conversationsOf(taskNotes.map((each) => each.kind));
+      const running = row.working
+        ? progressOfCurrentRun(workingOf(row), true)
+        : null;
 
-      for (const conversation of conversationsOf(
-        taskNotes.map((each) => each.kind),
-      )) {
+      if (running && row.working && !conversations.some(stillOpen)) {
+        items.push({
+          kind: 'run',
+          id: row.working,
+          taskId: row.taskId,
+          teamId: row.teamId,
+          title: row.title,
+          station: row.currentStationName,
+          stationColor: row.currentStationColor,
+          stationPosition: row.currentStationPosition,
+          stationCount: stationCounts.get(row.lineId) ?? 1,
+          progress: running,
+          askedAt: row.workingSince ?? row.createdAt,
+          unread: false,
+          resolved: false,
+        });
+      }
+
+      for (const conversation of conversations) {
         const note = taskNotes[conversation.from];
 
         if (!note) {
@@ -207,15 +243,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           resolved: !stillOpen(conversation),
           progress:
             stillOpen(conversation) && worksOn(row.working !== null, notes)
-              ? progressOfCurrentRun(
-                  row.workingState
-                    ? {
-                        state: row.workingState,
-                        stopRequested: row.workingStopRequestedAt !== null,
-                      }
-                    : null,
-                  true,
-                )
+              ? progressOfCurrentRun(workingOf(row), true)
               : null,
           runId: stillOpen(conversation) ? row.working : null,
           unread: anyUnread(notes),
