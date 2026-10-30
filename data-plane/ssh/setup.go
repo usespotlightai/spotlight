@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/tabwriter"
 
+	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/credentials"
 )
 
@@ -19,15 +21,23 @@ const (
 	sshUser      = "spotlight"
 )
 
+type check struct {
+	level string
+	text  string
+	fix   string
+}
+
 func (c cli) setup(args []string) error {
-	var printed bool
+	var printed, setTimeout, keepTimeout bool
 	address, positional, err := c.parse(setupHelp, args, func(set *flag.FlagSet) {
 		set.BoolVar(&printed, "print", false, "show the configuration")
+		set.BoolVar(&setTimeout, "editor-timeout", false, "set the editor connect timeout")
+		set.BoolVar(&keepTimeout, "no-editor-timeout", false, "keep the editor connect timeout")
 	})
 	if err != nil {
 		return err
 	}
-	if len(positional) > 0 {
+	if len(positional) > 0 || (setTimeout && keepTimeout) {
 		return fmt.Errorf("%s", setupHelp.Synopsis())
 	}
 
@@ -38,7 +48,7 @@ func (c cli) setup(args []string) error {
 	managed := managedConfig(binary, address)
 
 	if printed {
-		_, err := fmt.Fprintf(c.out, "# %s\n%s\n# Add to the top of %s\n%s\n", managedShown, managed, userShown, includeLine)
+		_, err := fmt.Fprintf(c.out, "# %s\n%s\n# Add to the top of %s\n%s\n\n# Add to the VS Code or Cursor settings\n%s\n", managedShown, managed, userShown, includeLine, timeoutSetting)
 		return err
 	}
 
@@ -48,14 +58,15 @@ func (c cli) setup(args []string) error {
 	}
 	dir := filepath.Join(home, ".ssh")
 
+	var checks []check
 	wrote, err := writeManaged(filepath.Join(dir, "spotlight", "config"), managed)
 	if err != nil {
 		return err
 	}
 	if wrote {
-		fmt.Fprintf(c.out, "Wrote %s.\n", managedShown)
+		checks = append(checks, check{level: console.Passed, text: "Wrote " + managedShown + "."})
 	} else {
-		fmt.Fprintf(c.out, "%s is current.\n", managedShown)
+		checks = append(checks, check{level: console.Passed, text: managedShown + " is current."})
 	}
 
 	added, err := addInclude(dir, home)
@@ -63,17 +74,116 @@ func (c cli) setup(args []string) error {
 		return err
 	}
 	if added {
-		fmt.Fprintf(c.out, "Added %q to the top of %s.\n", includeLine, userShown)
+		checks = append(checks, check{level: console.Passed, text: "Added " + includeLine + " to the top of " + userShown + "."})
 	} else {
-		fmt.Fprintf(c.out, "%s includes %s.\n", userShown, managedShown)
+		checks = append(checks, check{level: console.Passed, text: userShown + " includes " + managedShown + "."})
 	}
 
-	if token, _ := credentials.Stored(c.env, address); token == "" {
-		fmt.Fprintf(c.out, "There is no login for %s. Run: %s\n", address, loginCommand(address))
+	checks = append(checks, c.loginCheck(address))
+	checks = append(checks, c.editorChecks(home, setTimeout, keepTimeout)...)
+
+	c.report(address, binary, checks)
+	return nil
+}
+
+func (c cli) loginCheck(address string) check {
+	path, err := credentials.Path(c.env)
+	if err != nil {
+		return check{level: console.Warned, text: "There is no login for " + address + ".", fix: loginCommand(address)}
+	}
+	file, err := credentials.Load(path)
+	if err != nil {
+		return check{level: console.Failed, text: "Sorry, the logins cannot be read: " + err.Error()}
+	}
+	login, found := file.Login(address)
+	switch {
+	case !found:
+		return check{level: console.Warned, text: "There is no login for " + address + ".", fix: loginCommand(address)}
+	case login.User != "":
+		return check{level: console.Passed, text: "Logged in to " + address + " as " + login.User + "."}
+	default:
+		return check{level: console.Passed, text: "Logged in to " + address + "."}
+	}
+}
+
+func (c cli) editorChecks(home string, setTimeout, keepTimeout bool) []check {
+	var tty *console.Terminal
+	defer func() {
+		if tty != nil {
+			tty.Close()
+		}
+	}()
+
+	var checks []check
+	for _, each := range editors(c.system, c.env) {
+		state := readEditorTimeout(each)
+		shown := homeShown(each.settings, home)
+		if state.err != nil {
+			checks = append(checks, check{level: console.Failed, text: fmt.Sprintf("Sorry, %s cannot be read: %v.", shown, state.err), fix: "add " + timeoutSetting + " to " + shown})
+			continue
+		}
+		if state.enough() {
+			checks = append(checks, check{level: console.Passed, text: state.described()})
+			continue
+		}
+
+		change := setTimeout
+		if !setTimeout && !keepTimeout && c.terminal != nil {
+			if tty == nil {
+				tty = c.terminal()
+			}
+			if tty != nil {
+				change = tty.Confirm(fmt.Sprintf("%s A stopped sandbox can take minutes to start. Set %s to %d in %s?", state.described(), timeoutKey, editorTimeout, shown))
+			}
+		}
+
+		if change {
+			if err := writeEditorTimeout(each); err != nil {
+				checks = append(checks, check{level: console.Failed, text: fmt.Sprintf("Sorry, %s cannot be changed: %v.", shown, err), fix: "add " + timeoutSetting + " to " + shown})
+				continue
+			}
+			checks = append(checks, check{level: console.Passed, text: fmt.Sprintf("Set %s to %d in %s.", timeoutKey, editorTimeout, shown)})
+			continue
+		}
+
+		checks = append(checks, check{
+			level: console.Warned,
+			text:  state.described() + " A stopped sandbox can take minutes to start, so the first connection can fail.",
+			fix:   "add " + timeoutSetting + " to " + shown + ", or run: spotlight ssh setup --editor-timeout",
+		})
 	}
 
-	_, err = fmt.Fprintln(c.out, "Open a task in VS Code from Spotlight, or run: ssh task-<id>.<workspace>.spotlight")
-	return err
+	return checks
+}
+
+func (c cli) report(address, binary string, checks []check) {
+	table := tabwriter.NewWriter(c.out, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(table, console.Paint(c.out, console.Bold, "Spotlight SSH"))
+	fmt.Fprintf(table, "  Address\t%s\n", address)
+	fmt.Fprintf(table, "  Binary\t%s\n", binary)
+	fmt.Fprintf(table, "  Hosts\t*%s\n", domain)
+	table.Flush()
+
+	fmt.Fprintln(c.out)
+	fmt.Fprintln(c.out, console.Paint(c.out, console.Bold, "Checks"))
+	for _, each := range checks {
+		fmt.Fprintf(c.out, "  %s %s\n", console.Mark(c.out, each.level), each.text)
+		if each.fix != "" {
+			fmt.Fprintf(c.out, "      %s\n", each.fix)
+		}
+	}
+
+	fmt.Fprintln(c.out)
+	fmt.Fprintln(c.out, console.Paint(c.out, console.Bold, "Next"))
+	fmt.Fprintln(c.out, "  Open a task in VS Code or Cursor from Spotlight, or run: ssh task-<id>.<workspace>.spotlight")
+}
+
+func homeShown(path, home string) string {
+	if rest, err := filepath.Rel(home, path); err == nil && !strings.HasPrefix(rest, "..") {
+		return filepath.Join("~", rest)
+	}
+
+	return path
 }
 
 func managedConfig(binary, address string) string {

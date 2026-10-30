@@ -16,13 +16,13 @@ export function EditorSetup({ app, origin }: EditorSetupProps) {
           Set up this computer once
         </p>
         <p className="text-muted-foreground text-xs leading-5">
-          If {name} did not open, this computer needs the Spotlight CLI and an
-          SSH configuration.
+          If {name} did not open, this computer needs the Spotlight CLI, an SSH
+          configuration and a longer connect timeout.
         </p>
       </div>
 
       <ol className="flex flex-col gap-2.5">
-        {editorSetupSteps(origin).map((step, at) => (
+        {editorSetupSteps(origin, app).map((step, at) => (
           <li key={step.title} className="flex items-start gap-2">
             <span className="w-3 shrink-0 pt-px text-muted-foreground text-xs tabular-nums">
               {at + 1}
@@ -34,6 +34,11 @@ export function EditorSetup({ app, origin }: EditorSetupProps) {
               <span className="select-text break-all text-foreground text-sm">
                 {step.command}
               </span>
+              {step.note && (
+                <span className="text-muted-foreground text-xs leading-5">
+                  {step.note}
+                </span>
+              )}
             </div>
             <CopyIconAction text={step.command} label={`Copy: ${step.title}`} />
           </li>

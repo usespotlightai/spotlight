@@ -29,9 +29,15 @@ const atAddress = (command: string, origin: string): string =>
 export type SetupStep = {
   readonly title: string;
   readonly command: string;
+  readonly note?: string;
 };
 
-export const editorSetupSteps = (origin: string): readonly SetupStep[] => [
+const EDITOR_TIMEOUT_SETTING = '"remote.SSH.connectTimeout": 600';
+
+export const editorSetupSteps = (
+  origin: string,
+  app: EditorApp,
+): readonly SetupStep[] => [
   {
     title: 'Install the Spotlight CLI',
     command: `curl -fsSL ${origin}/api/install.sh | sh`,
@@ -40,5 +46,10 @@ export const editorSetupSteps = (origin: string): readonly SetupStep[] => [
   {
     title: 'Configure SSH',
     command: atAddress('spotlight ssh setup', origin),
+  },
+  {
+    title: `Add to the ${EDITOR_NAMES[app]} settings`,
+    command: EDITOR_TIMEOUT_SETTING,
+    note: 'A stopped sandbox can take minutes to start. spotlight ssh setup can set this.',
   },
 ];

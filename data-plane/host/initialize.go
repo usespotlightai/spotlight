@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"usespotlight.ai/data-plane/console"
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/host/internal/config"
 	"usespotlight.ai/data-plane/host/internal/install"
@@ -51,9 +52,9 @@ func initialize(version string, args []string) error {
 	f.given = map[string]bool{}
 	flags.Visit(func(each *flag.Flag) { f.given[each.Name] = true })
 
-	var tty *terminal
+	var tty *console.Terminal
 	if !f.yes {
-		if tty = openTerminal(); tty != nil {
+		if tty = console.Open(); tty != nil {
 			defer tty.Close()
 		}
 	}
@@ -83,7 +84,7 @@ func initialize(version string, args []string) error {
 	if err := file.Save(); err != nil {
 		return err
 	}
-	install.Step(os.Stdout, "Saved the settings in "+file.Path)
+	console.Step(os.Stdout, "Saved the settings in "+file.Path)
 
 	if err := pull(os.Stdout, cfg); err != nil {
 		return err
@@ -106,7 +107,7 @@ func initialize(version string, args []string) error {
 }
 
 // settle puts each value in the file: from its flag, else from the person's answer, else the saved value or default.
-func settle(file *config.File, f initFlags, tty *terminal, version string) error {
+func settle(file *config.File, f initFlags, tty *console.Terminal, version string) error {
 	saved := file.Values()
 	value := func(question, flagName, flagValue, env, fallback string) (string, error) {
 		current := saved[env]
@@ -119,7 +120,7 @@ func settle(file *config.File, f initFlags, tty *terminal, version string) error
 		if tty == nil {
 			return current, nil
 		}
-		answer, err := tty.ask(question, current)
+		answer, err := tty.Ask(question, current)
 		if answer == "" {
 			answer = current
 		}
@@ -162,7 +163,7 @@ func settle(file *config.File, f initFlags, tty *terminal, version string) error
 	return nil
 }
 
-func credential(file *config.File, f initFlags, tty *terminal, saved map[string]string) error {
+func credential(file *config.File, f initFlags, tty *console.Terminal, saved map[string]string) error {
 	switch {
 	case f.given["trust"] || f.given["oidc-token-file"]:
 		file.Unset("SPOTLIGHT_POOL_TOKEN")
@@ -191,7 +192,7 @@ func credential(file *config.File, f initFlags, tty *terminal, saved map[string]
 		shown = "Enter keeps " + config.Mask(saved["SPOTLIGHT_POOL_TOKEN"])
 	}
 	for range 3 {
-		token, err := tty.secret("Pool token (from Settings → Runners → Add a host)", shown)
+		token, err := tty.Secret("Pool token (from Settings → Runners → Add a host)", shown)
 		if err != nil {
 			return err
 		}
@@ -236,7 +237,7 @@ func reach(ctx context.Context, out io.Writer, cfg config.Config) error {
 	case err != nil:
 		fmt.Fprintf(out, "  %s Spotlight at %s does not answer, so the credential is not checked: %v\n", mark(warned), cfg.URL, err)
 	default:
-		install.Step(out, "Spotlight at "+cfg.URL+" accepts the credential")
+		console.Step(out, "Spotlight at "+cfg.URL+" accepts the credential")
 	}
 	return nil
 }
@@ -266,7 +267,7 @@ func pull(out io.Writer, cfg config.Config) error {
 		fmt.Fprintf(out, "  %s Could not pull %s, so the host uses the copy on this machine: %v\n", mark(warned), image, err)
 		return nil
 	}
-	install.Step(out, "Pulled "+image)
+	console.Step(out, "Pulled "+image)
 	return nil
 }
 
