@@ -15,7 +15,6 @@ import {
   ARRIVING,
   authorsOf,
   type ConversationItem,
-  closesOrReopens,
   type Note,
   type RunJournal,
   STICKY_AT_TOP,
@@ -48,10 +47,6 @@ export function InboxNote({
   const written = useRef<HTMLDivElement>(null);
   const arriving = arrived ? ARRIVING : undefined;
   useInAppLinks(written);
-
-  if (closesOrReopens(note)) {
-    return null;
-  }
 
   if (note.voice === 'world') {
     return (

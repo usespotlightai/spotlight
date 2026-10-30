@@ -120,6 +120,7 @@ describe('Inbox', () => {
       waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
       renderAt('/w/acme/inbox');
 
+      await userEvent.click(screen.getByRole('button', { name: /Resolved/ }));
       await userEvent.click(screen.getByRole('button', { name: 'Unresolve' }));
 
       expect(reopen).toHaveBeenCalledWith({
@@ -150,12 +151,15 @@ describe('Inbox', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('leaves the list blank when nothing is waiting', () => {
+  it('keeps both sections, empty, when nothing is waiting', () => {
     waiting.mockReturnValue([]);
     renderAt('/w/acme/inbox');
 
     expect(screen.getByRole('heading')).toHaveTextContent('Inbox');
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent('0');
+    expect(screen.getByRole('button', { name: /Resolved/ })).toHaveTextContent(
+      '0',
+    );
     expect(
       screen.queryByRole('status', { name: 'Loading the inbox' }),
     ).not.toBeInTheDocument();
@@ -208,7 +212,7 @@ describe('Inbox', () => {
       );
       expect(screen.getByRole('button', { name: /Resolved/ })).toHaveAttribute(
         'aria-expanded',
-        'true',
+        'false',
       );
     });
 
@@ -230,13 +234,13 @@ describe('Inbox', () => {
       expect(screen.queryByText(/Failed/)).not.toBeInTheDocument();
     });
 
-    it('says nothing about open when nothing is', () => {
+    it('stays, counting none, when nothing is open', () => {
       waiting.mockReturnValue([item({ resolved: true })]);
       renderAt('/w/acme/inbox');
 
-      expect(
-        screen.queryByRole('button', { name: /Open/ }),
-      ).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
+        '0',
+      );
     });
   });
 
@@ -262,20 +266,8 @@ describe('Inbox', () => {
       expect(section).toHaveTextContent('1');
     });
 
-    it('opens to begin with', () => {
+    it('is collapsed to begin with', () => {
       renderAt('/w/acme/inbox');
-
-      expect(screen.getByRole('button', { name: /Resolved/ })).toHaveAttribute(
-        'aria-expanded',
-        'true',
-      );
-    });
-
-    it('collapses on request', async () => {
-      const person = userEvent.setup();
-      renderAt('/w/acme/inbox');
-
-      await person.click(screen.getByRole('button', { name: /Resolved/ }));
 
       expect(screen.getByRole('button', { name: /Resolved/ })).toHaveAttribute(
         'aria-expanded',
@@ -283,13 +275,25 @@ describe('Inbox', () => {
       );
     });
 
-    it('says nothing about resolved when nothing is', () => {
+    it('opens on request', async () => {
+      const person = userEvent.setup();
+      renderAt('/w/acme/inbox');
+
+      await person.click(screen.getByRole('button', { name: /Resolved/ }));
+
+      expect(screen.getByRole('button', { name: /Resolved/ })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+    });
+
+    it('stays, counting none, when nothing is resolved', () => {
       waiting.mockReturnValue([item()]);
       renderAt('/w/acme/inbox');
 
       expect(
-        screen.queryByRole('button', { name: /Resolved/ }),
-      ).not.toBeInTheDocument();
+        screen.getByRole('button', { name: /Resolved/ }),
+      ).toHaveTextContent('0');
     });
   });
 

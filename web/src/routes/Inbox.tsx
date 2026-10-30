@@ -24,7 +24,7 @@ import { loading } from '@/lib/query';
 import { TrailContext } from '@/lib/trail';
 import { cn } from '@/lib/utils';
 
-const SECTIONS_STORAGE_KEY = 'spotlight.collapsed-inbox-sections';
+const SECTIONS_STORAGE_KEY = 'spotlight.inbox-collapsed-sections';
 const OPEN = 'open';
 const RESOLVED = 'resolved';
 
@@ -45,7 +45,7 @@ export function Inbox() {
     paneRef: listRef,
     handleProps: listHandle,
   } = usePaneWidth<HTMLDivElement>(LIST_PANE);
-  const sections = useCollapsed(SECTIONS_STORAGE_KEY);
+  const sections = useCollapsed(SECTIONS_STORAGE_KEY, [RESOLVED]);
   const animating = useTimedFlag(DISCLOSURE_MS);
   const toggle = (section: string) => {
     animating.raise();
@@ -85,11 +85,13 @@ export function Inbox() {
               {loading(inbox) && (
                 <InboxListSkeleton
                   open={sections.isExpanded(OPEN)}
-                  onToggle={() => toggle(OPEN)}
+                  onToggleOpen={() => toggle(OPEN)}
+                  resolved={sections.isExpanded(RESOLVED)}
+                  onToggleResolved={() => toggle(RESOLVED)}
                 />
               )}
 
-              {(unresolved.length > 0 || drag.dragged) && (
+              {inbox.data && (
                 <InboxDropZone id={OPEN_DROP}>
                   <DisclosureRow
                     label="Open"
@@ -111,13 +113,8 @@ export function Inbox() {
                 </InboxDropZone>
               )}
 
-              {(done.length > 0 || drag.dragged) && (
-                <div
-                  className={cn(
-                    'mt-auto',
-                    (unresolved.length > 0 || drag.dragged) && 'pt-4',
-                  )}
-                >
+              {inbox.data && (
+                <div className="mt-auto pt-4">
                   <InboxDropZone id={RESOLVED_DROP}>
                     <DisclosureRow
                       label="Resolved"
