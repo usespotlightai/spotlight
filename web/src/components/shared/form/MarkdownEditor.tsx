@@ -1,11 +1,16 @@
 import { CodeHighlightNode, CodeNode } from '@lexical/code';
-import { LinkNode } from '@lexical/link';
+import { AutoLinkNode, LinkNode } from '@lexical/link';
 import { ListItemNode, ListNode } from '@lexical/list';
 import {
   $convertFromMarkdownString,
   $convertToMarkdownString,
   TRANSFORMERS,
 } from '@lexical/markdown';
+import {
+  AutoLinkPlugin,
+  createLinkMatcherWithRegExp,
+} from '@lexical/react/LexicalAutoLinkPlugin';
+import { ClickableLinkPlugin } from '@lexical/react/LexicalClickableLinkPlugin';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
@@ -27,6 +32,11 @@ const NODES = [
   CodeNode,
   CodeHighlightNode,
   LinkNode,
+  AutoLinkNode,
+];
+
+const URL_MATCHERS = [
+  createLinkMatcherWithRegExp(/https?:\/\/[^\s<>()]+[^\s<>().,;:!?'"]/),
 ];
 
 const TEXT = {
@@ -149,6 +159,8 @@ export function MarkdownEditor({
         <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
         <ListPlugin />
         <LinkPlugin />
+        <AutoLinkPlugin matchers={URL_MATCHERS} />
+        <ClickableLinkPlugin />
         <HistoryPlugin />
 
         {onChange && (
