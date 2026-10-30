@@ -40,7 +40,7 @@ export function StationInsights({
     <div data-slot="station-insights" className="flex flex-col gap-6">
       <StationInsightsHeading stationId={stationId} names={names} />
 
-      {report ? (
+      {report && (
         <>
           <InsightsTiles label="Over this period" topAligned>
             {tallyTiles(
@@ -68,10 +68,6 @@ export function StationInsights({
             </InsightsCard>
           )}
         </>
-      ) : (
-        <p className="text-muted-foreground text-sm">
-          No runs at this station in this period.
-        </p>
       )}
 
       {lineId && (
