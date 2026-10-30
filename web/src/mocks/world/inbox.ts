@@ -247,7 +247,7 @@ const OPEN_CONVERSATIONS = (): InboxItemResponseDto[] => [
     teamId: PLATFORM_ID,
     askedIn: 'station_implementation',
     originIn: 'station_implementation',
-    failure: { source: 'run', code: 'exited', occurrences: 1 },
+    progress: 'queued',
   }),
   conversation({
     taskId: 'task_postgres',

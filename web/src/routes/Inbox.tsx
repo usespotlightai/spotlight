@@ -1,15 +1,11 @@
 import { DndContext } from '@dnd-kit/core';
 import { useParams } from 'react-router';
-import { DraggableInboxEntry } from '@/components/features/inbox/DraggableInboxEntry';
 import { InboxDragOverlay } from '@/components/features/inbox/InboxDragOverlay';
 import { InboxDropZone } from '@/components/features/inbox/InboxDropZone';
 import { InboxListSkeleton } from '@/components/features/inbox/InboxListSkeleton';
+import { InboxSection } from '@/components/features/inbox/InboxSection';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
-import {
-  DISCLOSURE_MS,
-  Disclosure,
-} from '@/components/shell/layout/Disclosure';
-import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
+import { DISCLOSURE_MS } from '@/components/shell/layout/Disclosure';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { PageOutlet } from '@/components/shell/layout/PageOutlet';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
@@ -19,13 +15,14 @@ import { useCollapsed } from '@/hooks/useCollapsed';
 import { OPEN_DROP, RESOLVED_DROP, useInboxDrag } from '@/hooks/useInboxDrag';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { useTimedFlag } from '@/hooks/useTimedFlag';
-import { entryKey, inboxPath } from '@/lib/inbox';
+import { inboxPath, running } from '@/lib/inbox';
 import { loading } from '@/lib/query';
 import { TrailContext } from '@/lib/trail';
 import { cn } from '@/lib/utils';
 
-const SECTIONS_STORAGE_KEY = 'spotlight.inbox-collapsed-sections';
+const SECTIONS_STORAGE_KEY = 'spotlight.inbox-sections-collapsed';
 const OPEN = 'open';
+const RUNNING = 'running';
 const RESOLVED = 'resolved';
 
 const LIST_PANE = {
@@ -45,12 +42,16 @@ export function Inbox() {
     paneRef: listRef,
     handleProps: listHandle,
   } = usePaneWidth<HTMLDivElement>(LIST_PANE);
-  const sections = useCollapsed(SECTIONS_STORAGE_KEY, [RESOLVED]);
+  const sections = useCollapsed(SECTIONS_STORAGE_KEY, [RUNNING, RESOLVED]);
   const animating = useTimedFlag(DISCLOSURE_MS);
   const toggle = (section: string) => {
     animating.raise();
     sections.toggle(section);
   };
+  const section = (id: string) => ({
+    open: sections.isExpanded(id),
+    onToggle: () => toggle(id),
+  });
   const entries = inbox.data ?? [];
   const drag = useInboxDrag(slug, entries);
 
@@ -58,7 +59,8 @@ export function Inbox() {
     return null;
   }
 
-  const unresolved = entries.filter((each) => !each.resolved);
+  const waiting = entries.filter((each) => !each.resolved && !running(each));
+  const working = entries.filter(running);
   const done = entries.filter((each) => each.resolved);
 
   return (
@@ -84,55 +86,39 @@ export function Inbox() {
             >
               {loading(inbox) && (
                 <InboxListSkeleton
-                  open={sections.isExpanded(OPEN)}
-                  onToggleOpen={() => toggle(OPEN)}
-                  resolved={sections.isExpanded(RESOLVED)}
-                  onToggleResolved={() => toggle(RESOLVED)}
+                  open={section(OPEN)}
+                  running={section(RUNNING)}
+                  resolved={section(RESOLVED)}
                 />
               )}
 
               {inbox.data && (
                 <InboxDropZone id={OPEN_DROP}>
-                  <DisclosureRow
+                  <InboxSection
+                    slug={slug}
                     label="Open"
-                    count={unresolved.length}
-                    open={sections.isExpanded(OPEN)}
-                    onToggle={() => toggle(OPEN)}
-                    className="pl-2 font-medium text-xs"
+                    entries={waiting}
+                    {...section(OPEN)}
                   />
-
-                  <Disclosure open={sections.isExpanded(OPEN)}>
-                    {unresolved.map((entry) => (
-                      <DraggableInboxEntry
-                        key={entryKey(entry)}
-                        slug={slug}
-                        entry={entry}
-                      />
-                    ))}
-                  </Disclosure>
                 </InboxDropZone>
               )}
 
               {inbox.data && (
                 <div className="mt-auto pt-4">
-                  <InboxDropZone id={RESOLVED_DROP}>
-                    <DisclosureRow
-                      label="Resolved"
-                      count={done.length}
-                      open={sections.isExpanded(RESOLVED)}
-                      onToggle={() => toggle(RESOLVED)}
-                      className="pl-2 font-medium text-xs"
-                    />
+                  <InboxSection
+                    slug={slug}
+                    label="Running"
+                    entries={working}
+                    {...section(RUNNING)}
+                  />
 
-                    <Disclosure open={sections.isExpanded(RESOLVED)}>
-                      {done.map((entry) => (
-                        <DraggableInboxEntry
-                          key={entryKey(entry)}
-                          slug={slug}
-                          entry={entry}
-                        />
-                      ))}
-                    </Disclosure>
+                  <InboxDropZone id={RESOLVED_DROP}>
+                    <InboxSection
+                      slug={slug}
+                      label="Resolved"
+                      entries={done}
+                      {...section(RESOLVED)}
+                    />
                   </InboxDropZone>
                 </div>
               )}

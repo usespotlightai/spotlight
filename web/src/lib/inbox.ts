@@ -285,6 +285,9 @@ export const noticeOf = (
 
 export const resolvable = (entry: InboxEntry): boolean => !entry.resolved;
 
+export const running = (entry: InboxEntry): boolean =>
+  entry.kind === 'task' && !entry.resolved && entry.progress !== null;
+
 export const reopenable = (entry: InboxEntry): boolean => {
   if (!entry.resolved) {
     return false;
