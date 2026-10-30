@@ -103,6 +103,7 @@ export function useSharedDraft(taskId: string | undefined): SharedDraft | null {
     meta.observe(showGeneration);
     attachments.observe(showAttachments);
 
+    // react-doctor-disable-next-line react-hooks-js/set-state-in-effect
     setConnection({
       name: documentName,
       doc,

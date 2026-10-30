@@ -1,3 +1,4 @@
+import type { ClipboardEvent, DragEvent } from 'react';
 import type { AttachmentResponseDto } from '@/lib/api';
 
 export type Attachment = AttachmentResponseDto;
@@ -71,3 +72,32 @@ export const filesIn = (carried: DataTransfer | null): File[] => {
     return file ? [file] : [];
   });
 };
+
+type Take = (files: readonly File[]) => void;
+
+const took = (event: ClipboardEvent | DragEvent, files: File[], take: Take) => {
+  if (files.length === 0) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  take(files);
+};
+
+export const allowFileDrop = (event: DragEvent) => {
+  if (carriesFiles(event.dataTransfer)) {
+    event.preventDefault();
+  }
+};
+
+export const dropFiles = (event: DragEvent, take: Take) => {
+  if (carriesFiles(event.dataTransfer)) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  took(event, filesIn(event.dataTransfer), take);
+};
+
+export const pasteFiles = (event: ClipboardEvent, take: Take) =>
+  took(event, filesIn(event.clipboardData), take);

@@ -10,6 +10,7 @@ export function useElementWidth(element: RefObject<HTMLElement | null>) {
       return;
     }
 
+    // react-doctor-disable-next-line react-hooks-js/set-state-in-effect
     setWidth(Math.round(target.clientWidth));
     const observer = new ResizeObserver(([entry]) => {
       if (entry) {

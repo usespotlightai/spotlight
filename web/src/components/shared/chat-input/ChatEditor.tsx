@@ -115,7 +115,7 @@ export function ChatEditor({
         ) : (
           <HistoryPlugin />
         )}
-        <EditorHandle handle={handle} editable={editable} />
+        <EditorHandle editorRef={handle} editable={editable} />
         <SendOnEnter send={onEnter} />
         <WatchMessage onChange={onWritten} />
       </LexicalComposer>

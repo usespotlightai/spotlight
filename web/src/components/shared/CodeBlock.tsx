@@ -14,16 +14,19 @@ export function CodeBlock({
   output?: string;
   className?: string;
 }) {
-  const [commandHtml, setCommandHtml] = useState<string | null>(null);
+  const [highlighted, setHighlighted] = useState<{
+    command: string;
+    html: string;
+  } | null>(null);
+  const commandHtml =
+    command && highlighted?.command === command ? highlighted.html : null;
 
   useEffect(() => {
     if (!command) {
-      setCommandHtml(null);
       return;
     }
 
     let alive = true;
-    setCommandHtml(null);
 
     void getSharedHighlighter({
       themes: [THEME.light, THEME.dark],
@@ -31,13 +34,14 @@ export function CodeBlock({
     })
       .then((hl) => {
         if (alive) {
-          setCommandHtml(
-            hl.codeToHtml(command, {
+          setHighlighted({
+            command,
+            html: hl.codeToHtml(command, {
               lang: 'shellscript',
               themes: THEME,
               defaultColor: false,
             }),
-          );
+          });
         }
       })
       .catch(() => {});

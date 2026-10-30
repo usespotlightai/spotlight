@@ -13,7 +13,7 @@ type AttachmentChipProps = {
 export function AttachmentChip({
   name,
   detail,
-  lead = <FileIcon className="size-4" aria-hidden />,
+  lead,
   trailing,
   className,
 }: AttachmentChipProps) {
@@ -25,7 +25,7 @@ export function AttachmentChip({
       )}
     >
       <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-muted-foreground">
-        {lead}
+        {lead ?? <FileIcon className="size-4" aria-hidden />}
       </span>
 
       <span className="flex min-w-0 flex-1 flex-col leading-4">

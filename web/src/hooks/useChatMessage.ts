@@ -6,12 +6,25 @@ import {
   $isRangeSelection,
   type LexicalEditor,
 } from 'lexical';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ClipboardEvent,
+  type DragEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { $spacedReferences } from '@/components/shared/chat-input/ReferenceNode';
 import { DRAFT_SENT } from '@/components/shared/chat-input/SharedWriting';
 import { useAttachments } from '@/hooks/useAttachments';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
-import type { PendingAttachment } from '@/lib/attachment';
+import {
+  allowFileDrop,
+  dropFiles,
+  type PendingAttachment,
+  pasteFiles,
+} from '@/lib/attachment';
 import {
   type Outgoing,
   type Reference,
@@ -41,6 +54,9 @@ export function useChatMessage(
   initialText = '',
   shared: SharedDraft | null = null,
 ) {
+  const [handedOver, setHandedOver] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const draft = useAttachments(slug, (ready) => {
     if (!shared) {
       return;
@@ -60,9 +76,6 @@ export function useChatMessage(
     text: initialText,
     references: initialReferences,
   }));
-  const [handedOver, setHandedOver] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
   const sharedAttachments = shared?.attachments;
   const generation = shared?.generation;
   const synced = shared?.synced;
@@ -193,6 +206,10 @@ export function useChatMessage(
       }
       draft.remove(key);
     },
-    handlers: draft.handlersFor(attach),
+    handlers: {
+      onDragOver: allowFileDrop,
+      onDropCapture: (event: DragEvent) => dropFiles(event, attach),
+      onPasteCapture: (event: ClipboardEvent) => pasteFiles(event, attach),
+    },
   };
 }

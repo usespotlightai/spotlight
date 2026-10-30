@@ -3,13 +3,12 @@ import { useEffect, useState } from 'react';
 export function useDelayedValue<T>(current: T | null, ms: number): T | null {
   const [delayed, setDelayed] = useState<T | null>(current);
 
-  useEffect(() => {
-    if (current !== null) {
-      setDelayed(current);
-      return;
-    }
+  if (current !== null && current !== delayed) {
+    setDelayed(current);
+  }
 
-    if (delayed === null) {
+  useEffect(() => {
+    if (current !== null || delayed === null) {
       return;
     }
 
