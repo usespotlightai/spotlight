@@ -10,3 +10,11 @@ type TunnelStream struct {
 }
 
 const TunnelNoSandbox = 4404
+
+const EditorConnectPath = "/api/sandboxes/connect"
+
+const (
+	EditorStartTimedOut  = 4408
+	EditorSandboxStopped = 4410
+	EditorHostOffline    = 4502
+)
