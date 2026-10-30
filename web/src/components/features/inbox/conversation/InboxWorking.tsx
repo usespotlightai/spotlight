@@ -1,5 +1,5 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
-import { ARRIVING } from '@/lib/inbox';
+import { ARRIVING, workingWordsOf } from '@/lib/inbox';
 import type { ShownProgress } from '@/lib/run';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
@@ -30,19 +30,14 @@ export function InboxWorking({
         share={stationShare(stationPosition, stationCount)}
         color={stationColor}
       />
-      {progress === 'queued' ? (
-        <span className="text-muted-foreground">
-          Queued. {station} starts when a runner is free.
-        </span>
-      ) : progress === 'in-progress' ? (
-        <span className="animate-pulse">{station} is working…</span>
-      ) : (
-        <span className="animate-pulse text-muted-foreground">
-          {progress === 'finishing'
-            ? 'Agent stopped. Finishing the run…'
-            : 'Stopping…'}
-        </span>
-      )}
+      <span
+        className={cn(
+          progress !== 'in-progress' && 'text-muted-foreground',
+          progress !== 'queued' && 'animate-pulse',
+        )}
+      >
+        {workingWordsOf(progress, station)}
+      </span>
     </li>
   );
 }

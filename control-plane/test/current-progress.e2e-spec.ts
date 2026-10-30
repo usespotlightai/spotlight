@@ -4,7 +4,10 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { InboxItemSummary } from '@work/application/ports/inbox-reader.port';
+import type {
+  InboxItemSummary,
+  InboxRunSummary,
+} from '@work/application/ports/inbox-reader.port';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
@@ -28,7 +31,7 @@ type RunState = (typeof schema.run.$inferInsert)['state'];
 
 const inboxWith = async (
   state: RunState | null,
-  { stopRequestedAt = null as Date | null, answered = true } = {},
+  { stopRequestedAt = null as Date | null, answered = true, asked = true } = {},
 ) => {
   const workspaceId = randomUUID();
   const lineId = randomUUID();
@@ -72,7 +75,7 @@ const inboxWith = async (
       spec: {},
     });
   }
-  await db.insert(schema.taskNote).values([
+  const notes: (typeof schema.taskNote.$inferInsert)[] = [
     {
       taskId,
       position: 0,
@@ -99,7 +102,10 @@ const inboxWith = async (
           },
         ]
       : []),
-  ]);
+  ];
+  if (asked) {
+    await db.insert(schema.taskNote).values(notes);
+  }
 
   const tasks = new DrizzleTaskReader(
     db,
@@ -133,6 +139,9 @@ const inboxWith = async (
       (each): each is InboxItemSummary => each.kind === 'task',
     ),
     board: onBoard,
+    running: entries?.find(
+      (each): each is InboxRunSummary => each.kind === 'run',
+    ),
   };
 };
 
@@ -199,6 +208,39 @@ describe('the progress of a task whose run paused for a person', () => {
 
     expect(inbox?.progress).toBe('queued');
     expect(board?.progress).toBe('queued');
+  });
+});
+
+describe('a run on a task with nothing to ask its person', () => {
+  it('stands in the inbox on its own while it works', async () => {
+    const { inbox, running } = await inboxWith('claimed', { asked: false });
+
+    expect(inbox).toBeUndefined();
+    expect(running).toMatchObject({
+      kind: 'run',
+      title: 'Fix the queue',
+      station: 'Implementation',
+      progress: 'in-progress',
+    });
+  });
+
+  it('is queued while it waits for a runner', async () => {
+    const { running } = await inboxWith('queued', { asked: false });
+
+    expect(running?.progress).toBe('queued');
+  });
+
+  it('leaves the inbox once it has ended', async () => {
+    const { running } = await inboxWith('completed', { asked: false });
+
+    expect(running).toBeUndefined();
+  });
+
+  it('stays out where the run has a conversation open', async () => {
+    const { inbox, running } = await inboxWith('waiting');
+
+    expect(inbox?.progress).toBe('in-progress');
+    expect(running).toBeUndefined();
   });
 });
 

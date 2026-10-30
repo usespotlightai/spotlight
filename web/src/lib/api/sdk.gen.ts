@@ -455,7 +455,7 @@ export const listRunnerActivity = <ThrowOnError extends boolean = false>(options
 export const listHarnesses = <ThrowOnError extends boolean = false>(options: Options<ListHarnessesData, ThrowOnError>): RequestResult<ListHarnessesResponses, ListHarnessesErrors, ThrowOnError> => (options.client ?? client).get<ListHarnessesResponses, ListHarnessesErrors, ThrowOnError>({ url: '/workspaces/{slug}/harnesses', ...options });
 
 /**
- * What waits on a person, newest first: the tasks put to them, and notices about their team’s work
+ * What waits on a person, newest first: the tasks put to them, the runs working on their tasks, and notices about their team’s work
  */
 export const listInbox = <ThrowOnError extends boolean = false>(options: Options<ListInboxData, ThrowOnError>): RequestResult<ListInboxResponses, ListInboxErrors, ThrowOnError> => (options.client ?? client).get<ListInboxResponses, ListInboxErrors, ThrowOnError>({ url: '/workspaces/{slug}/inbox', ...options });
 

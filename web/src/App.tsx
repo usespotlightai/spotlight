@@ -199,6 +199,7 @@ export default function App() {
                 <Route index element={<InboxIndex />} />
                 <Route path=":itemId" element={<InboxItem />} />
                 <Route path="notices/:noticeId" element={<InboxNotice />} />
+                <Route path="teams/:teamId/runs/:runId" element={<Run />} />
               </Route>
 
               <Route path="settings">

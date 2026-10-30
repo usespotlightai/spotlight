@@ -1,6 +1,7 @@
 import type {
   InboxItemResponseDto,
   InboxNoticeResponseDto,
+  InboxRunResponseDto,
   ListInboxResponse,
   NoteResponseDto,
 } from '@/lib/api';
@@ -445,6 +446,36 @@ const setupItem = (
   };
 };
 
+const runningOn = (
+  taskId: string,
+  teamId: string,
+  runId: string,
+): InboxRunResponseDto => {
+  const task = seededTask(taskId);
+  const at = placeOf(task.stationId);
+  const run = runsOfTask(taskId).find((each) => each.id === runId);
+
+  return {
+    kind: 'run',
+    id: runId,
+    taskId,
+    teamId,
+    title: task.title,
+    station: at.name,
+    stationColor: at.color,
+    stationPosition: at.position,
+    stationCount: at.count,
+    progress: 'in-progress',
+    askedAt: run?.startedAt ?? task.createdAt,
+    unread: false,
+    resolved: false,
+  };
+};
+
+const RUNNING = (): InboxRunResponseDto[] => [
+  runningOn('task_retries', PLATFORM_ID, 'run_retries_3'),
+];
+
 export const freshInbox = (): InboxEntry[] => [setupItem(hoursAgo(0.1), false)];
 
 export const seedInbox = (): InboxEntry[] => [
@@ -452,5 +483,6 @@ export const seedInbox = (): InboxEntry[] => [
   ...OPEN_CONVERSATIONS(),
   ...INBOX_REQUESTS(),
   ...RESOLVED_CONVERSATIONS(),
+  ...RUNNING(),
   setupItem(daysAgo(190), true),
 ];

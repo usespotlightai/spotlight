@@ -5,11 +5,16 @@ import {
   reopenInboxNotice,
   reopenInboxRequest,
 } from '@/lib/api';
-import { entryKey, type InboxEntry } from '@/lib/inbox';
+import {
+  entryKey,
+  type InboxEntry,
+  type InboxItem,
+  type InboxNotice,
+} from '@/lib/inbox';
 
 type ReopenInboxEntryInput = {
   slug: string;
-  entry: InboxEntry;
+  entry: InboxItem | InboxNotice;
 };
 
 const reopening = ({ slug, entry }: ReopenInboxEntryInput) => {

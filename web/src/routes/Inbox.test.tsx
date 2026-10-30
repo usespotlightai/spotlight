@@ -30,6 +30,7 @@ vi.mock('@/hooks/api/useReopenInboxEntry', () => ({
 }));
 
 const item = (over: Record<string, unknown> = {}) => ({
+  kind: 'task',
   id: 'task_1:0',
   taskId: 'task_1',
   teamId: 'team_1',
@@ -83,16 +84,17 @@ const notice = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const renderAt = (path: string) =>
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/w/:slug/inbox" element={<Inbox />}>
-          <Route path=":itemId" element={<p>the conversation</p>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
-  );
+const tree = (path: string) => (
+  <MemoryRouter initialEntries={[path]}>
+    <Routes>
+      <Route path="/w/:slug/inbox" element={<Inbox />}>
+        <Route path=":itemId" element={<p>the conversation</p>} />
+      </Route>
+    </Routes>
+  </MemoryRouter>
+);
+
+const renderAt = (path: string) => render(tree(path));
 
 describe('Inbox', () => {
   beforeEach(() => {
@@ -151,12 +153,15 @@ describe('Inbox', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('keeps both sections, empty, when nothing is waiting', () => {
+  it('keeps every section, empty, when nothing is waiting', () => {
     waiting.mockReturnValue([]);
     renderAt('/w/acme/inbox');
 
     expect(screen.getByRole('heading')).toHaveTextContent('Inbox');
     expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent('0');
+    expect(screen.getByRole('button', { name: /Running/ })).toHaveTextContent(
+      '0',
+    );
     expect(screen.getByRole('button', { name: /Resolved/ })).toHaveTextContent(
       '0',
     );
@@ -241,6 +246,121 @@ describe('Inbox', () => {
       expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
         '0',
       );
+    });
+  });
+
+  describe('what is running', () => {
+    beforeEach(() => {
+      waiting.mockReturnValue([
+        item(),
+        item({
+          id: 'task_2:0',
+          taskId: 'task_2',
+          title: 'Cap the retries',
+          progress: 'in-progress',
+          runId: 'run_2',
+        }),
+      ]);
+    });
+
+    it('holds what an agent works on, apart from what is open', () => {
+      renderAt('/w/acme/inbox');
+
+      expect(screen.getByRole('button', { name: /Running/ })).toHaveTextContent(
+        '1',
+      );
+      expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
+        '1',
+      );
+    });
+
+    it('is collapsed to begin with', () => {
+      renderAt('/w/acme/inbox');
+
+      expect(screen.getByRole('button', { name: /Running/ })).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      );
+    });
+
+    it('opens on request', async () => {
+      const person = userEvent.setup();
+      renderAt('/w/acme/inbox');
+
+      await person.click(screen.getByRole('button', { name: /Running/ }));
+
+      expect(screen.getByRole('button', { name: /Running/ })).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+      expect(
+        screen.getByRole('link', { name: /Cap the retries/ }),
+      ).toBeInTheDocument();
+    });
+
+    it('moves to open once it waits on a person', () => {
+      const { rerender } = renderAt('/w/acme/inbox');
+
+      waiting.mockReturnValue([
+        item(),
+        item({ id: 'task_2:0', taskId: 'task_2', title: 'Cap the retries' }),
+      ]);
+      rerender(tree('/w/acme/inbox'));
+
+      expect(screen.getByRole('button', { name: /Running/ })).toHaveTextContent(
+        '0',
+      );
+      expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
+        '2',
+      );
+    });
+
+    it('holds a run on your task that has nothing to ask, and opens it here', async () => {
+      const person = userEvent.setup();
+      waiting.mockReturnValue([
+        {
+          kind: 'run',
+          id: 'run_9',
+          taskId: 'task_9',
+          teamId: 'team_1',
+          title: 'Drain the retry queue',
+          station: 'Implementation',
+          stationColor: '#5c66d9',
+          stationPosition: 2,
+          stationCount: 4,
+          progress: 'in-progress',
+          askedAt: '2026-08-29T12:00:00.000Z',
+          unread: false,
+          resolved: false,
+        },
+      ]);
+      renderAt('/w/acme/inbox');
+
+      await person.click(screen.getByRole('button', { name: /Running/ }));
+
+      const link = screen.getByRole('link', { name: /Drain the retry queue/ });
+      expect(link).toHaveAttribute(
+        'href',
+        '/w/acme/inbox/teams/team_1/runs/run_9',
+      );
+      expect(link).toHaveTextContent('Implementation is working…');
+      expect(
+        screen.queryByRole('button', { name: 'Resolve' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('leaves what is resolved where it is', () => {
+      waiting.mockReturnValue([
+        item({ resolved: true, progress: 'in-progress' }),
+      ]);
+      renderAt('/w/acme/inbox');
+
+      expect(screen.getByRole('button', { name: /Running/ })).toHaveTextContent(
+        '0',
+      );
+      expect(
+        screen.getByRole('button', { name: /Resolved/ }),
+      ).toHaveTextContent('1');
     });
   });
 

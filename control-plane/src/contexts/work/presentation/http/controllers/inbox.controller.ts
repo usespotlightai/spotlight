@@ -48,6 +48,7 @@ import {
   InboxItemResponseDto,
   InboxNoticeResponseDto,
   InboxRequestResponseDto,
+  InboxRunResponseDto,
   InboxStationResponseDto,
   NoteResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
@@ -124,7 +125,11 @@ const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
   );
 
 @ApiTags('inbox')
-@ApiExtraModels(InboxItemResponseDto, InboxNoticeResponseDto)
+@ApiExtraModels(
+  InboxItemResponseDto,
+  InboxNoticeResponseDto,
+  InboxRunResponseDto,
+)
 @ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('workspaces/:slug/inbox')
 export class InboxController {
@@ -137,7 +142,7 @@ export class InboxController {
   @ApiOperation({
     operationId: 'listInbox',
     summary:
-      'What waits on a person, newest first: the tasks put to them, and notices about their team’s work',
+      'What waits on a person, newest first: the tasks put to them, the runs working on their tasks, and notices about their team’s work',
   })
   @ApiParam({ name: 'slug', example: 'acme' })
   @ApiOkResponse({ schema: INBOX_ENTRY_SCHEMA })
@@ -145,7 +150,9 @@ export class InboxController {
   async list(
     @Param('slug') slug: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<(InboxItemResponseDto | InboxNoticeResponseDto)[]> {
+  ): Promise<
+    (InboxItemResponseDto | InboxNoticeResponseDto | InboxRunResponseDto)[]
+  > {
     const waiting = await this.queryBus.execute<
       ListInboxQuery,
       InboxEntryDto[] | null
@@ -155,11 +162,15 @@ export class InboxController {
       throw new NotFoundException();
     }
 
-    return waiting.map((entry) =>
-      entry.kind === 'notice'
-        ? new InboxNoticeResponseDto(entry)
-        : taskItemResponse(entry),
-    );
+    return waiting.map((entry) => {
+      if (entry.kind === 'notice') {
+        return new InboxNoticeResponseDto(entry);
+      }
+
+      return entry.kind === 'run'
+        ? new InboxRunResponseDto(entry)
+        : taskItemResponse(entry);
+    });
   }
 
   @Post(':itemId/answer')
