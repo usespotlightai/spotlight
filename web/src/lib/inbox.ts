@@ -43,7 +43,7 @@ export type RunJournal = RunJournalResponseDto;
 export const decisionPending = (notes: readonly Note[]): boolean =>
   notes.findLast((note) => note.kind === 'asked')?.form === 'approval';
 
-const closesOrReopens = (note: Note): boolean =>
+export const closesOrReopens = (note: Note): boolean =>
   note.form === 'resolved' || note.kind === 'reopened';
 
 const answersTo = (notes: readonly Note[], runId: string): number[] => {
