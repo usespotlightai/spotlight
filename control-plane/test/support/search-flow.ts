@@ -45,7 +45,7 @@ import {
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { and, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, expect } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './app';
 import {
@@ -420,6 +420,28 @@ export const subscriberDone = async (subscriber: string): Promise<boolean> => {
     .select()
     .from(schema.eventDelivery)
     .where(eq(schema.eventDelivery.subscriber, subscriber));
+
+  return rows.length > 0 && rows.every((each) => each.deliveredAt !== null);
+};
+
+export const deliveredTo = async (
+  subscriber: string,
+  about: 'runId' | 'replayId',
+  id: string,
+): Promise<boolean> => {
+  const rows = await db
+    .select({ deliveredAt: schema.eventDelivery.deliveredAt })
+    .from(schema.eventDelivery)
+    .innerJoin(
+      schema.eventOutbox,
+      eq(schema.eventOutbox.id, schema.eventDelivery.eventId),
+    )
+    .where(
+      and(
+        eq(schema.eventDelivery.subscriber, subscriber),
+        sql`${schema.eventOutbox.payload} -> ${about} ->> 'value' = ${id}`,
+      ),
+    );
 
   return rows.length > 0 && rows.every((each) => each.deliveredAt !== null);
 };

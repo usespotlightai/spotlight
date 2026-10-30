@@ -22,6 +22,7 @@ import {
   DELIVERY,
   db,
   delivered,
+  deliveredTo,
   drained,
   endedSearchRun,
   entryOf,
@@ -322,6 +323,10 @@ describe('a search for a better station config', () => {
     expect(await originalsOf(weak.replayId)).toEqual(searchedRuns);
 
     await endedSearchRun(agent);
+    await eventually(
+      () => deliveredTo('work.end-runner-of-ended-run', 'runId', agent.runId),
+      WITHIN,
+    );
     for (const path of [
       `${teamPath()}/runs/${agent.runId}/config`,
       `${teamPath()}/runs/${agent.runId}/notes`,
@@ -333,7 +338,7 @@ describe('a search for a better station config', () => {
       name: 'late',
       hypothesis: 'Too late.',
       station: block,
-    }).expect(404);
+    }).expect(401);
 
     expect((await replayRow(seedReplayId))?.searchId).toBe(id);
 
