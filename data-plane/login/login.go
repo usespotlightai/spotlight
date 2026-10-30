@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	defaultAddress = "https://app.usespotlight.ai"
-	urlVar         = "SPOTLIGHT_URL"
+	defaultAddress = credentials.DefaultAddress
+	urlVar         = credentials.URLVar
 	clientID       = "spotlight-cli"
 	deviceGrant    = "urn:ietf:params:oauth:grant-type:device_code"
 	clientHeader   = "Spotlight-Client"

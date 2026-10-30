@@ -14,6 +14,7 @@ import (
 	"io"
 	"log/slog"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"slices"
@@ -67,6 +68,7 @@ type fakeEngine struct {
 	put       map[string]map[string]sandbox.File
 	signals   map[string][]string
 	keepsFile bool
+	execs     map[string][][]string
 }
 
 func newEngine() *fakeEngine {
@@ -81,7 +83,26 @@ func newEngine() *fakeEngine {
 		networks: map[string]map[string]string{},
 		put:      map[string]map[string]sandbox.File{},
 		signals:  map[string][]string{},
+		execs:    map[string][][]string{},
 	}
+}
+
+func (e *fakeEngine) Exec(_ context.Context, id string, command []string, _ io.Writer) (io.ReadWriteCloser, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if _, ok := e.started[id]; !ok || slices.Contains(e.destroyed, id) {
+		return nil, sandbox.ErrGone
+	}
+	e.execs[id] = append(e.execs[id], command)
+	ours, _ := net.Pipe()
+	return ours, nil
+}
+
+func (e *fakeEngine) execsIn(id string) [][]string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Clone(e.execs[id])
 }
 
 func (e *fakeEngine) Put(_ context.Context, id string, file sandbox.File) error {
@@ -1117,6 +1138,44 @@ func TestStopsTheSandboxAndFailsTheRunAssignedToAnotherSandbox(t *testing.T) {
 		return ok && done.Failed && done.SetupFailed
 	})
 	eventually(t, "the sandbox stopped", func() bool { return engine.wasDestroyed(id) })
+}
+
+type fakeTunnel struct {
+	open chan func(ctx context.Context, sandboxID string) (io.ReadWriteCloser, error)
+}
+
+func (f fakeTunnel) Serve(ctx context.Context, open func(ctx context.Context, sandboxID string) (io.ReadWriteCloser, error)) {
+	f.open <- open
+	<-ctx.Done()
+}
+
+func TestOpensSSHInALiveSandboxForTheTunnelAndKeepsEditorServersOnAVolumeOfItsWorkspace(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	tunnel := fakeTunnel{open: make(chan func(context.Context, string) (io.ReadWriteCloser, error), 1)}
+	opts.Tunnel = tunnel
+	id := liveSandbox(t, engine, pool, opts)
+	open := <-tunnel.open
+
+	started := engine.sandbox(id)
+	if !slices.Contains(started.Mounts, sandbox.Mount{
+		Source: "spotlight-editor-servers-host_1-workspace_1", Target: protocol.SandboxEditorServers, Volume: true,
+	}) {
+		t.Errorf("mounted %+v", started.Mounts)
+	}
+
+	stream, err := open(context.Background(), "sandbox_a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream.Close()
+	if execs := engine.execsIn(id); len(execs) != 1 || !slices.Equal(execs[0], []string{"spotlight", "runner", "ssh"}) {
+		t.Errorf("ran %v", execs)
+	}
+
+	if _, err := open(context.Background(), "sandbox_other"); !errors.Is(err, serve.ErrNoSandbox) {
+		t.Errorf("opened a sandbox of another host: %v", err)
+	}
 }
 
 func TestALiveSandboxOutlivesTheRunTimeLimit(t *testing.T) {

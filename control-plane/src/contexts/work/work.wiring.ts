@@ -66,6 +66,7 @@ import { AuthenticatedGuard } from '@platform/http/guards/authenticated.guard';
 import { RunnerGuard } from '@platform/http/guards/runner.guard';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { s3ClientsOf } from '@platform/storage/s3-clients';
+import { EDITOR_ACCESS } from '@runners/application/ports/editor-access.port';
 import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
 import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.port';
@@ -432,7 +433,10 @@ import {
   TASK_VIEWS,
   type TaskViewsPort,
 } from '@work/application/ports/task-views.port';
-import { TASK_WORKSPACES } from '@work/application/ports/task-workspaces.port';
+import {
+  TASK_WORKSPACES,
+  type TaskWorkspacesPort,
+} from '@work/application/ports/task-workspaces.port';
 import {
   TEAM_INTEGRATIONS,
   type TeamIntegrationsPort,
@@ -557,6 +561,7 @@ import { DispatchReplay } from '@work/application/services/dispatch-replay.servi
 import { DispatchSearch } from '@work/application/services/dispatch-search.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { DraftSending } from '@work/application/services/draft-sending.service';
+import { EditorAccess } from '@work/application/services/editor-access.service';
 import { EgressSecretFetches } from '@work/application/services/egress-secret-fetches.service';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { HoldStartingPoints } from '@work/application/services/hold-starting-points.service';
@@ -2205,6 +2210,18 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TASK_WORKSPACES,
     WORKSPACE_ACCESS,
   ]),
+
+  {
+    provide: EditorAccess,
+    inject: [TASK_WORKSPACES, DrizzleChatRepository, WORKSPACE_ACCESS],
+    useFactory: (
+      tasks: TaskWorkspacesPort,
+      chats: DrizzleChatRepository,
+      access: WorkspaceAccessPort,
+    ) => new EditorAccess(tasks, chats, access),
+  },
+
+  { provide: EDITOR_ACCESS, useExisting: EditorAccess },
 
   ...bindQueryHandler(ReadTaskDraftQuery, ReadTaskDraftHandler, [
     TASK_DRAFT_STATES,

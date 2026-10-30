@@ -51,6 +51,28 @@ func TestStopsEveryLiveProcessOfTheAgentAndNothingElse(t *testing.T) {
 	}
 }
 
+func TestLeavesTheProcessesOfAnEditorRunning(t *testing.T) {
+	root := t.TempDir()
+	process(t, root, "40", "S", "1000")
+	process(t, root, "41", "S", "1000")
+	environ := "HOME=/home/agent\x00" + EditorSession + "\x00PATH=/usr/bin\x00"
+	if err := os.WriteFile(filepath.Join(root, "41", "environ"), []byte(environ), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var killed []int
+	if _, err := stopOwned(root, 1000, func(pid int, _ syscall.Signal) error {
+		killed = append(killed, pid)
+		return os.RemoveAll(filepath.Join(root, strconv.Itoa(pid)))
+	}, 0); err != nil {
+		t.Fatal(err)
+	}
+
+	if !slices.Equal(killed, []int{40}) {
+		t.Errorf("stopped %v", killed)
+	}
+}
+
 func TestSaysWhenAProcessOutlivesEveryRound(t *testing.T) {
 	root := t.TempDir()
 	process(t, root, "40", "S", "1000")

@@ -17,6 +17,7 @@ import (
 	"usespotlight.ai/data-plane/host/internal/registry"
 	"usespotlight.ai/data-plane/host/internal/sandbox/docker"
 	"usespotlight.ai/data-plane/host/internal/serve"
+	"usespotlight.ai/data-plane/host/internal/tunnel"
 	"usespotlight.ai/data-plane/host/internal/update"
 	"usespotlight.ai/data-plane/telemetry"
 )
@@ -117,6 +118,11 @@ func run(version string) error {
 		return err
 	}
 
+	editors, err := tunnel.New(cfg.URL, id, cfg.Credential(), log.With("host", id))
+	if err != nil {
+		return err
+	}
+
 	mirrors := mirror.At(filepath.Join(cfg.State, "mirrors"))
 	if err := mirrors.Prune(); err != nil {
 		log.Warn("could not prune the mirrors a stopped host left", "error", err)
@@ -139,6 +145,7 @@ func run(version string) error {
 		Egress:     live.Egress,
 		Network:    live.Network,
 		ExtraHosts: live.ExtraHosts,
+		Tunnel:     editors,
 	}, claims, engine, mirrors, log.With("host", id))
 
 	if err := telemetry.ServeHealth(ctx, cfg.HealthAddr, host.Ready, log); err != nil {

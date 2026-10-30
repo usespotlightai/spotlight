@@ -141,3 +141,15 @@ func directFrom(traffic string) (bool, error) {
 		return false, fmt.Errorf("%s: %q is not %s or %s", envTraffic, traffic, protocol.EgressTrafficAll, protocol.EgressTrafficBound)
 	}
 }
+
+type Editor struct {
+	Workspace string
+	AgentUser string
+}
+
+func LoadEditor() Editor {
+	return Editor{
+		Workspace: or(strings.TrimSpace(os.Getenv(envWorkspace)), DefaultWorkspace),
+		AgentUser: strings.TrimSpace(os.Getenv(envAgentUser)),
+	}
+}

@@ -459,4 +459,69 @@ describe('Sandboxes', () => {
 
     expect(stored.get('sandbox_1')?.current).toBe('draining');
   });
+
+  describe('an editor connection', () => {
+    const idleReady = () =>
+      placed('sandbox_e').reported().releaseRun('run_1', later(0));
+
+    it('holds an open sandbox and renews its lease, and says what state the sandbox is in', async () => {
+      const { stored, service } = serving({ known: [idleReady()] });
+
+      expect(
+        await service.holdForEditor('sandbox_e', 'conn_1', later(1_000)),
+      ).toBe('ready');
+      expect(
+        await service.holdForEditor('sandbox_e', 'conn_1', later(31_000)),
+      ).toBe('ready');
+
+      const held = stored.get('sandbox_e');
+      expect(held?.leases.map((each) => [each.kind, each.holder])).toEqual([
+        ['editor', 'conn_1'],
+      ]);
+      expect(held?.leases[0]?.renewedAt).toEqual(later(31_000));
+      expect(await service.stateOf('sandbox_e')).toBe('ready');
+    });
+
+    it('holds no sandbox that drains, is gone or unknown', async () => {
+      const { service } = serving({ known: [idleReady().drain()] });
+
+      expect(
+        await service.holdForEditor('sandbox_e', 'conn_1', later(1)),
+      ).toBeNull();
+      expect(
+        await service.holdForEditor('sandbox_none', 'conn_1', later(1)),
+      ).toBeNull();
+      expect(await service.stateOf('sandbox_none')).toBeNull();
+    });
+
+    it('keeps the sandbox past the grace while it holds it, and the grace starts again once it leaves', async () => {
+      const { stored, service } = serving({ known: [idleReady()] });
+      await service.holdForEditor('sandbox_e', 'conn_1', later(1_000));
+
+      await service.holdForEditor('sandbox_e', 'conn_1', later(GRACE_MS * 2));
+      await service.drainIdle(later(GRACE_MS * 2));
+      expect(stored.get('sandbox_e')?.current).toBe('ready');
+
+      await service.releaseEditor('sandbox_e', 'conn_1', later(GRACE_MS * 2));
+      await service.drainIdle(later(GRACE_MS * 3 - 1));
+      expect(stored.get('sandbox_e')?.current).toBe('ready');
+      await service.drainIdle(later(GRACE_MS * 3));
+      expect(stored.get('sandbox_e')?.current).toBe('draining');
+    });
+
+    it('names the host of a ready sandbox only, so an editor joins its stream there', async () => {
+      const { service } = serving({
+        known: [
+          idleReady(),
+          placed('sandbox_s', { key: 'chat-chat_1' }),
+          placed('sandbox_d', { key: 'chat-chat_2' }).reported().drain(),
+        ],
+      });
+
+      expect(await service.readyOn('sandbox_e')).toBe(HOST);
+      expect(await service.readyOn('sandbox_s')).toBeNull();
+      expect(await service.readyOn('sandbox_d')).toBeNull();
+      expect(await service.readyOn('sandbox_none')).toBeNull();
+    });
+  });
 });
