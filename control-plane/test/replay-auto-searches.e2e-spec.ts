@@ -12,6 +12,7 @@ import {
   policyAt,
   scheduleOf,
 } from './support/auto-searches';
+import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import {
   anOriginal,
@@ -20,6 +21,7 @@ import {
   createSet,
   db,
   delivered,
+  deliveredTo,
   drained,
   fiveTasks,
   openSearchFlow,
@@ -31,6 +33,7 @@ import {
   team,
   tenTasks,
   turnedOff,
+  WITHIN,
 } from './support/search-flow';
 
 openSearchFlow();
@@ -207,6 +210,15 @@ describe('searches Spotlight starts on its own', () => {
 
     await drained(() => ({ score: 4, cost: 0.1 }));
     expect(await replayEnded(spending.seedReplayId)).toBe('finished');
+    await eventually(
+      () =>
+        deliveredTo(
+          'replays.record-search-replay-ended',
+          'replayId',
+          spending.seedReplayId,
+        ),
+      WITHIN,
+    );
     await turnedOff(spending.id);
 
     await policyAt(
