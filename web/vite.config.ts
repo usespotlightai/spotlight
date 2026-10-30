@@ -7,10 +7,16 @@ import { defineConfig } from 'vitest/config';
 
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     react(),
-    babel({ presets: [reactCompilerPreset()] }),
+    babel({
+      presets: [
+        reactCompilerPreset({
+          panicThreshold: command === 'build' ? 'all_errors' : 'none',
+        }),
+      ],
+    }),
     tailwindcss(),
     sentryVitePlugin({
       org: process.env.SENTRY_ORG,
@@ -44,4 +50,4 @@ export default defineConfig({
     css: false,
     restoreMocks: true,
   },
-});
+}));
