@@ -1,5 +1,6 @@
 import { Lightbulb } from 'lucide-react';
 import { InboxRowFrame } from '@/components/features/inbox/InboxRowFrame';
+import { ResolveToggle } from '@/components/features/inbox/ResolveToggle';
 import { type InboxNotice, noticePath, noticePreviewOf } from '@/lib/inbox';
 
 type NoticeRowProps = {
@@ -22,6 +23,7 @@ export function NoticeRow({ slug, notice }: NoticeRowProps) {
       unread={notice.unread}
       at={notice.askedAt}
       preview={noticePreviewOf(notice)}
+      action={<ResolveToggle slug={slug} entry={notice} />}
     />
   );
 }

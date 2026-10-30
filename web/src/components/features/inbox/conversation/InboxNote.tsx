@@ -15,6 +15,7 @@ import {
   ARRIVING,
   authorsOf,
   type ConversationItem,
+  closesOrReopens,
   type Note,
   type RunJournal,
   STICKY_AT_TOP,
@@ -48,7 +49,7 @@ export function InboxNote({
   const arriving = arrived ? ARRIVING : undefined;
   useInAppLinks(written);
 
-  if (note.form === 'resolved') {
+  if (closesOrReopens(note)) {
     return null;
   }
 

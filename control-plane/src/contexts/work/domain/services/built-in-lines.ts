@@ -13,6 +13,7 @@ import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
+import { StationDescription } from '@work/domain/value-objects/station-description.vo';
 import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -22,6 +23,7 @@ interface StationOpening {
   readonly key: StationKey;
   readonly name: StationName;
   readonly color: StationColor;
+  readonly description: StationDescription | null;
   readonly kind: StationKind;
   readonly agentPrompt: AgentPrompt | null;
   readonly passesTo: readonly StationKey[];
@@ -56,6 +58,7 @@ const opening = (input: {
   key: string;
   name: string;
   color: string;
+  description?: string;
   prompt?: string;
   kind?: StationKind;
   passesTo?: readonly string[];
@@ -69,6 +72,9 @@ const opening = (input: {
   key: StationKey.of(input.key),
   name: StationName.of(input.name),
   color: StationColor.of(input.color),
+  description: input.description
+    ? StationDescription.of(input.description)
+    : null,
   kind: input.kind ?? 'work',
   agentPrompt: input.prompt ? AgentPrompt.of(input.prompt) : null,
   passesTo: (input.passesTo ?? []).map((each) => StationKey.of(each)),
@@ -304,6 +310,7 @@ const REVIEW_STATIONS: readonly StationOpening[] = [
     key: 'code-review',
     name: 'Review',
     color: '#56b98d',
+    description: 'Reviews a pull request and comments on the lines it changes.',
     prompt: PULL_REQUEST_REVIEW,
     rubric: PULL_REQUEST_REVIEW_RUBRIC,
     ends: true,
@@ -330,6 +337,8 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     key: 'triage',
     name: 'Triage',
     color: '#93a1b5',
+    description:
+      'Decides what the request wants and if it is clear enough to plan.',
     prompt: TRIAGE,
     rubric: TRIAGE_RUBRIC,
     passesTo: ['spec', 'implementation'],
@@ -338,6 +347,8 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     key: 'spec',
     name: 'Spec',
     color: '#5c66d9',
+    description:
+      'Turns the triaged request into a plan someone can build from.',
     prompt: SPEC,
     rubric: SPEC_RUBRIC,
     passesTo: ['implementation'],
@@ -346,6 +357,8 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     key: 'implementation',
     name: 'Implementation',
     color: '#edc12b',
+    description:
+      'Makes the change the spec describes, with tests, and pushes it.',
     prompt: IMPLEMENTATION,
     rubric: IMPLEMENTATION_RUBRIC,
     passesTo: ['code-review', 'spec'],
@@ -355,6 +368,8 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     key: 'code-review',
     name: 'Code Review',
     color: '#56b98d',
+    description:
+      'Reviews the change against the spec and opens the pull request.',
     prompt: CODE_REVIEW,
     rubric: CODE_REVIEW_RUBRIC,
     passesTo: ['spec', 'implementation'],

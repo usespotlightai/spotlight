@@ -108,7 +108,13 @@ export function MarkdownEditor({
         nodes: NODES,
         theme: THEMES[size],
         editorState: () =>
-          $convertFromMarkdownString(initialValue, TRANSFORMERS),
+          $convertFromMarkdownString(
+            initialValue,
+            TRANSFORMERS,
+            undefined,
+            false,
+            Boolean(readOnly),
+          ),
         onError: (error) => {
           throw error;
         },
