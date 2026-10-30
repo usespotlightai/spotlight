@@ -195,13 +195,7 @@ export const poolStatus = (pool: PushPool): string => {
 };
 
 export const runnerStatus = (runner: ActiveRunner): string => {
-  if (!runner.currentRun) {
-    return 'Starting';
-  }
-
-  return runner.currentRun.state === 'waiting'
-    ? 'Waiting on a person'
-    : 'Running';
+  return runner.currentRun ? 'Running' : 'Starting';
 };
 
 type UnnamedKind = Exclude<LeasedRun['kind'], 'task' | 'chat'>;

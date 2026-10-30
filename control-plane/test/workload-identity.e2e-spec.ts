@@ -155,6 +155,10 @@ describe('a host claiming through a runner trust, as a platform workload with no
       runnerId: expect.any(String),
       token: expect.any(String),
       egressToken: expect.any(String),
+      sandboxId: expect.any(String),
+      sandboxToken: expect.any(String),
+      allowedHosts: [],
+      reused: false,
       work: expect.objectContaining({ kind: 'run', run: expect.anything() }),
     });
     expect(claimed.body.work.run.id).toBe(placed);
@@ -267,7 +271,10 @@ describe('a host claiming through a runner trust, as a platform workload with no
     const answered = await heartbeat(trust.id, await workload(), ['run-1']);
 
     expect(answered.status).toBe(200);
-    expect(answered.body).toEqual({ workspace: expect.any(String) });
+    expect(answered.body).toEqual({
+      workspace: expect.any(String),
+      drain: [],
+    });
 
     expect(await hostRow()).toMatchObject({
       workspaceId: answered.body.workspace,

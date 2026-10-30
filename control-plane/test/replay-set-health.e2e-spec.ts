@@ -412,9 +412,8 @@ const finish = async (assignment: Claimed, plan: Plan) => {
       failed: false,
       handover: { next: 'ship', note: 'Drained.' },
       sessionId: 'session_1',
-      archived: true,
     })
-    .expect(200);
+    .expect(204);
 };
 
 const check = async (assignment: Claimed) => {

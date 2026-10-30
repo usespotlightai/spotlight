@@ -698,8 +698,8 @@ describe('Run', () => {
   describe('while it waits on a person', () => {
     const PENDING = { state: 'pending', conversationId: 'task_1:0' };
 
-    it('says it is waiting for you where it paused, and leads to where to answer', () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
+    it('says it is waiting for you where it was suspended, and leads to where to answer', () => {
+      runs.mockReturnValue([run({ state: 'suspended', review: PENDING })]);
 
       const { container } = renderRun();
 
@@ -712,7 +712,7 @@ describe('Run', () => {
     });
 
     it('does not claim the agent is working, nor offer to stop it', () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
+      runs.mockReturnValue([run({ state: 'suspended', review: PENDING })]);
 
       renderRun();
 
@@ -725,7 +725,7 @@ describe('Run', () => {
     });
 
     it('offers to answer the question right here, so the run carries on', () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
+      runs.mockReturnValue([run({ state: 'suspended', review: PENDING })]);
 
       renderRun();
 
@@ -738,7 +738,7 @@ describe('Run', () => {
     });
 
     it('lets an approval be decided right here, through its inbox conversation', async () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
+      runs.mockReturnValue([run({ state: 'suspended', review: PENDING })]);
       const approval = conversationOf().notes.map((note) => ({
         ...note,
         form: 'approval',
@@ -792,7 +792,7 @@ describe('Run', () => {
     });
 
     it('does not call a run that asked before doing anything empty', () => {
-      runs.mockReturnValue([run({ state: 'waiting' })]);
+      runs.mockReturnValue([run({ state: 'suspended' })]);
       conversation.mockReturnValue(conversationOf({ notes: [] }));
 
       renderRun();
@@ -806,7 +806,7 @@ describe('Run', () => {
     it('catches up on its work once it goes back to it', () => {
       const client = new QueryClient();
       const invalidated = vi.spyOn(client, 'invalidateQueries');
-      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
+      runs.mockReturnValue([run({ state: 'suspended', review: PENDING })]);
 
       const { rerender } = renderRun(client);
       invalidated.mockClear();

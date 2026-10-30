@@ -57,7 +57,7 @@ export class HostController {
   @ApiOperation({
     operationId: 'hostHeartbeat',
     summary:
-      'A host sends a heartbeat with what it has and what it runs, so the Runners page can show it',
+      'A host sends a heartbeat with what it has and what it runs, and learns which of its sandboxes to drain',
   })
   @ApiOkResponse({ type: HostHeartbeatResponseDto })
   @ApiConflictResponse({
@@ -98,6 +98,10 @@ export class HostController {
               : {}),
           })),
         },
+        (body?.sandboxes ?? []).flatMap((each) =>
+          typeof each?.id === 'string' && each.id.length > 0 ? [each.id] : [],
+        ),
+        body?.stopping === true,
       ),
     );
 
@@ -112,7 +116,7 @@ export class HostController {
       });
     }
 
-    return new HostHeartbeatResponseDto(heartbeat.workspaceId);
+    return new HostHeartbeatResponseDto(heartbeat.workspaceId, heartbeat.drain);
   }
 
   @Delete()

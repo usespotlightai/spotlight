@@ -188,19 +188,12 @@ describe('the progress of a task whose run was asked to stop', () => {
   });
 });
 
-describe('the progress of a task whose run paused for a person', () => {
+describe('the progress of a task whose run was suspended for a person', () => {
   it('is none while the person owes an answer', async () => {
-    const { inbox, board } = await inboxWith('waiting', { answered: false });
+    const { inbox, board } = await inboxWith('suspended', { answered: false });
 
     expect(inbox?.progress).toBeNull();
     expect(board?.progress).toBeNull();
-  });
-
-  it('is in progress again once the person answered a run that waits warm', async () => {
-    const { inbox, board } = await inboxWith('waiting');
-
-    expect(inbox?.progress).toBe('in-progress');
-    expect(board?.progress).toBe('in-progress');
   });
 
   it('is queued again once the person answered a suspended run', async () => {
@@ -237,9 +230,9 @@ describe('a run on a task with nothing to ask its person', () => {
   });
 
   it('stays out where the run has a conversation open', async () => {
-    const { inbox, running } = await inboxWith('waiting');
+    const { inbox, running } = await inboxWith('suspended');
 
-    expect(inbox?.progress).toBe('in-progress');
+    expect(inbox?.progress).toBe('queued');
     expect(running).toBeUndefined();
   });
 });
@@ -285,7 +278,7 @@ describe('the progress of a chat whose run waits to start', () => {
     await expect(chatWith('claimed')).resolves.toBe('in-progress');
   });
 
-  it('is none while the run waits for the next message', async () => {
-    await expect(chatWith('waiting')).resolves.toBeNull();
+  it('is none while the chat waits for the next message', async () => {
+    await expect(chatWith('completed')).resolves.toBeNull();
   });
 });

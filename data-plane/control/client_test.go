@@ -791,109 +791,20 @@ func TestReadsTheMemoryFilesOfARun(t *testing.T) {
 	}
 }
 
-func TestCompleteReadsWhetherTheRunNowWaitsForAPerson(t *testing.T) {
+func TestCompleteReportsTheTurn(t *testing.T) {
 	var received string
 	var sent protocol.Completion
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		received = r.Method + " " + r.URL.Path
 		_ = json.NewDecoder(r.Body).Decode(&sent)
-		_, _ = w.Write([]byte(`{"waiting":true}`))
+		w.WriteHeader(http.StatusNoContent)
 	})
 
-	completed, err := client.Complete(context.Background(), "run_1", protocol.Completion{SessionID: "session_1"})
-	if err != nil {
+	if err := client.Complete(context.Background(), "run_1", protocol.Completion{SessionID: "session_1"}); err != nil {
 		t.Fatalf("complete: %v", err)
-	}
-	if !completed.Waiting {
-		t.Error("the run waits for a person, yet the runner read that it ended")
 	}
 	if received != "POST /api/runs/run_1/completion" || sent.SessionID != "session_1" {
 		t.Errorf("received %q with %+v", received, sent)
-	}
-}
-
-func TestCompleteReadsThatTheRunEnded(t *testing.T) {
-	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"waiting":false}`))
-	})
-
-	completed, err := client.Complete(context.Background(), "run_1", protocol.Completion{})
-	if err != nil {
-		t.Fatalf("complete: %v", err)
-	}
-	if completed.Waiting {
-		t.Error("the run ended, yet the runner read that it waits")
-	}
-}
-
-func TestSuspendReadsWhetherTheRunWasSuspended(t *testing.T) {
-	for _, answer := range []bool{true, false} {
-		var received string
-		client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-			received = r.Method + " " + r.URL.Path
-			_ = json.NewEncoder(w).Encode(protocol.Suspension{Suspended: answer})
-		})
-
-		suspension, err := client.Suspend(context.Background(), "run_1", false)
-		if err != nil {
-			t.Fatalf("suspend: %v", err)
-		}
-		if suspension.Suspended != answer {
-			t.Errorf("the control plane said suspended %t, the runner read %t", answer, suspension.Suspended)
-		}
-		if received != "POST /api/runs/run_1/suspended" {
-			t.Errorf("received %q", received)
-		}
-	}
-}
-
-func TestSuspendSaysWhyItCouldNotSuspend(t *testing.T) {
-	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "run is not waiting", http.StatusConflict)
-	})
-
-	if _, err := client.Suspend(context.Background(), "run_1", false); err == nil || !strings.Contains(err.Error(), "409") {
-		t.Fatalf("got %v", err)
-	}
-}
-
-func TestAwaitsPersonReadsWhetherTheTurnWouldWaitForAPerson(t *testing.T) {
-	for _, answer := range []bool{true, false} {
-		var received string
-		var sent protocol.Completion
-		client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-			received = r.Method + " " + r.URL.Path
-			_ = json.NewDecoder(r.Body).Decode(&sent)
-			_ = json.NewEncoder(w).Encode(protocol.TurnAwaitsPerson{AwaitsPerson: answer})
-		})
-
-		awaits, err := client.AwaitsPerson(context.Background(), "run_1", protocol.Completion{
-			Handover: &protocol.Handover{Next: "review"},
-		})
-		if err != nil {
-			t.Fatalf("awaits person: %v", err)
-		}
-		if awaits != answer {
-			t.Errorf("the control plane said %t, the runner read %t", answer, awaits)
-		}
-		if received != "POST /api/runs/run_1/completion/awaits-person" || sent.Handover == nil || sent.Handover.Next != "review" {
-			t.Errorf("received %q with %+v", received, sent)
-		}
-	}
-}
-
-func TestSuspendWithRequeueRequestsThatTheRunGoesBackOnTheQueue(t *testing.T) {
-	var sent protocol.SuspendRequest
-	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewDecoder(r.Body).Decode(&sent)
-		_ = json.NewEncoder(w).Encode(protocol.Suspension{Suspended: true})
-	})
-
-	if _, err := client.Suspend(context.Background(), "run_1", true); err != nil {
-		t.Fatalf("suspend: %v", err)
-	}
-	if !sent.Requeue {
-		t.Errorf("requested to suspend %+v", sent)
 	}
 }
 

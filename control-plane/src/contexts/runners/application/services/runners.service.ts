@@ -24,6 +24,7 @@ import type { RunnerRepository } from '@runners/domain/repositories/runner.repos
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
+import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
 import { allowsUrl } from '@runners/domain/services/allows-url';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
@@ -34,6 +35,7 @@ import type { ProvisionSecret } from '@runners/domain/value-objects/provision-se
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
+import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type {
@@ -72,6 +74,7 @@ export class Runners implements RunnersPort {
     private readonly trusts: RunnerTrustRepository,
     private readonly hosts: RunnerHostRepository,
     private readonly runners: RunnerRepository,
+    private readonly sandboxes: SandboxRepository,
     private readonly egresses: EgressRepository,
     private readonly calls: ProvisionCallsPort,
     private readonly secrets: ProvisionSecretsPort,
@@ -115,6 +118,7 @@ export class Runners implements RunnersPort {
     image: string,
     at: Date,
     claimBy: Date,
+    into: string | null = null,
   ): Promise<StartedRunner> {
     const hostId = HostId.of(host);
     const known = await this.hosts.find(hostId);
@@ -156,6 +160,14 @@ export class Runners implements RunnersPort {
         at,
         claimBy,
       });
+    const inSandbox = into
+      ? await this.sandboxes.find(SandboxId.of(into))
+      : null;
+
+    if (into && !inSandbox?.takesRunOn(hostId)) {
+      return { outcome: 'full' };
+    }
+
     const began =
       source.kind === 'trust'
         ? await this.beganThroughTrust(
@@ -168,6 +180,7 @@ export class Runners implements RunnersPort {
             'pull',
             at,
             starting,
+            inSandbox !== null,
           );
 
     return began.outcome === 'began'
@@ -395,6 +408,12 @@ export class Runners implements RunnersPort {
         };
   }
 
+  private async occupied(pool: RunnerPool, at: Date): Promise<number> {
+    const alive = await this.runners.aliveIn(pool.id, at);
+
+    return alive.length + (await this.sandboxes.idleInPool(pool.id));
+  }
+
   private beganThroughTrust(
     id: RunnerTrustId,
     mode: PoolMode,
@@ -418,6 +437,7 @@ export class Runners implements RunnersPort {
     mode: PoolMode,
     at: Date,
     starting: (through: RunnerPool) => Runner,
+    slotHeld = false,
   ): Promise<Began<RunnerPool>> {
     return this.transaction.inTransaction(async () => {
       const pool = await this.pools.findForStart(id);
@@ -426,8 +446,10 @@ export class Runners implements RunnersPort {
         return { outcome: 'gone' };
       }
 
-      const alive = await this.runners.aliveIn(pool.id, at);
-      const capacity = pool.capacity(mode, alive.length);
+      const capacity = pool.capacity(
+        mode,
+        slotHeld ? 0 : await this.occupied(pool, at),
+      );
 
       if (capacity !== 'open') {
         return { outcome: capacity };

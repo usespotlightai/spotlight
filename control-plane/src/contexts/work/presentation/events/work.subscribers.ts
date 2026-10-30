@@ -55,6 +55,7 @@ import type { ProposalAcceptances } from '@work/application/services/proposal-ac
 import type { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { RunnerLeases } from '@work/application/services/runner-leases.service';
+import type { SandboxLeases } from '@work/application/services/sandbox-leases.service';
 import type { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
@@ -122,6 +123,7 @@ export const workSubscribers = (reactions: {
   runGrants: RunGrantsPort;
   runTokens: RunTokensPort;
   runners: RunnerLeases;
+  sandboxes: SandboxLeases;
   toolUsedHooks: ToolUsedHooks;
   notices: Notices;
   connections: ConnectionsMade;
@@ -160,6 +162,19 @@ export const workSubscribers = (reactions: {
     'work.end-runner-of-ended-run',
     ['run.completed', 'run.exhausted', 'run.cancelled'],
     (event) => reactions.runners.runEnded(event.runId),
+  ),
+  subscribing<
+    RunCompleted | RunExhausted | RunCancelled | RunLeaseExpired | RunSuspended
+  >(
+    'work.release-sandbox-of-left-run',
+    [
+      'run.completed',
+      'run.exhausted',
+      'run.cancelled',
+      'run.lease-expired',
+      'run.suspended',
+    ],
+    (event) => reactions.sandboxes.runLeft(event.runId),
   ),
   subscribing<ToolUsed>(
     'work.fire-hooks-after-tool-used',

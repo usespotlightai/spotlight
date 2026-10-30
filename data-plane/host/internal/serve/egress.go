@@ -19,22 +19,35 @@ import (
 )
 
 type egressSidecar struct {
-	host       *Host
-	network    string
-	container  string
-	credential string
-	authority  []byte
+	host         *Host
+	name         string
+	labels       map[string]string
+	keys         []protocol.HarnessKey
+	wait         time.Duration
+	sandboxHosts []string
+	network      string
+	container    string
+	credential   string
+	authority    []byte
 }
 
 func (h *Host) egress(
 	ctx context.Context, assignment protocol.Assignment, harnessKeys []protocol.HarnessKey, log *slog.Logger,
 ) (*egressSidecar, error) {
-	if assignment.EgressToken == "" {
+	if assignment.EgressToken == "" && !assignment.StartsSandboxOnly() {
 		return &egressSidecar{host: h}, errors.New("the assignment has no credential for the sandbox's egress")
 	}
 
-	sidecar, err := h.egressSidecar(ctx, assignment.RunnerID, map[string]string{LabelHost: h.opts.HostID, LabelRunner: assignment.RunnerID},
-		assignment.EgressToken, harnessKeys, h.opts.EgressWait)
+	labels := map[string]string{LabelHost: h.opts.HostID}
+	if assignment.RunnerID != "" {
+		labels[LabelRunner] = assignment.RunnerID
+	}
+	if assignment.SandboxID != "" {
+		labels[LabelSandbox] = assignment.SandboxID
+	}
+
+	sidecar, err := h.egressSidecar(ctx, nameOf(assignment), labels,
+		assignment.EgressToken, assignment.AllowedHosts, harnessKeys, h.opts.EgressWait)
 	if err == nil {
 		log.Info("started the sandbox's egress", "egress", sidecar.container)
 	}
@@ -43,44 +56,69 @@ func (h *Host) egress(
 }
 
 func (h *Host) egressSidecar(
-	ctx context.Context, name string, labels map[string]string, token string, harnessKeys []protocol.HarnessKey,
-	wait time.Duration,
+	ctx context.Context, name string, labels map[string]string, token string, sandboxHosts []string,
+	harnessKeys []protocol.HarnessKey, wait time.Duration,
 ) (*egressSidecar, error) {
-	sidecar := &egressSidecar{host: h, credential: rand.Text()}
-
-	image, err := h.egressImage(ctx)
-	if err != nil {
-		return sidecar, err
+	if wait <= 0 {
+		wait = egressWait
+	}
+	sidecar := &egressSidecar{
+		host: h, name: name, labels: labels, keys: harnessKeys, sandboxHosts: sandboxHosts, wait: wait, credential: rand.Text(),
 	}
 
+	var err error
 	sidecar.network, err = h.engine.Network(ctx, "spotlight-"+name, labels)
 	if err != nil {
 		return sidecar, err
 	}
 
-	sidecar.container, err = h.startEgress(ctx, image, name, labels, protocol.EgressConfig{
-		URL:         h.now().SandboxURL,
-		Token:       token,
-		Credential:  sidecar.credential,
-		Allow:       h.now().Egress.Allow,
-		SecretAllow: h.now().Egress.SecretAllow,
-		HarnessKeys: harnessKeys,
-	}, []sandbox.Join{{Network: sidecar.network, Aliases: []string{EgressAlias}}})
-	if err != nil {
-		return sidecar, err
+	return sidecar, sidecar.start(ctx, token)
+}
+
+func (s *egressSidecar) rekey(ctx context.Context, token string) error {
+	if token == "" {
+		return errors.New("the assignment has no credential for the sandbox's egress")
 	}
 
-	if wait <= 0 {
-		wait = egressWait
+	if s.container != "" {
+		if err := s.host.engine.Destroy(ctx, s.container); err != nil {
+			return fmt.Errorf("stop the last run's egress: %w", err)
+		}
+		s.container, s.authority = "", nil
 	}
-	sidecar.authority, err = h.awaited(ctx, sidecar.container, protocol.EgressAuthority, wait, func(found []byte) bool {
+
+	return s.start(ctx, token)
+}
+
+func (s *egressSidecar) start(ctx context.Context, token string) error {
+	h := s.host
+
+	image, err := h.egressImage(ctx)
+	if err != nil {
+		return err
+	}
+
+	s.container, err = h.startEgress(ctx, image, s.name, s.labels, protocol.EgressConfig{
+		URL:          h.now().SandboxURL,
+		Token:        token,
+		Credential:   s.credential,
+		Allow:        h.now().Egress.Allow,
+		SecretAllow:  h.now().Egress.SecretAllow,
+		HarnessKeys:  s.keys,
+		SandboxHosts: s.sandboxHosts,
+	}, []sandbox.Join{{Network: s.network, Aliases: []string{EgressAlias}}})
+	if err != nil {
+		return err
+	}
+
+	s.authority, err = h.awaited(ctx, s.container, protocol.EgressAuthority, s.wait, func(found []byte) bool {
 		return x509.NewCertPool().AppendCertsFromPEM(found)
 	})
 	if errors.Is(err, errLate) {
-		return sidecar, fmt.Errorf("egress was not ready within %s", wait)
+		return fmt.Errorf("egress was not ready within %s", s.wait)
 	}
 
-	return sidecar, err
+	return err
 }
 
 func (h *Host) startEgress(
@@ -191,7 +229,11 @@ func (s *egressSidecar) env() []string {
 }
 
 func (s *egressSidecar) files() []sandbox.File {
-	return []sandbox.File{{Path: AuthorityPath, Mode: 0o644, DirMode: 0o755, Body: s.authority}}
+	return []sandbox.File{s.authorityFile()}
+}
+
+func (s *egressSidecar) authorityFile() sandbox.File {
+	return sandbox.File{Path: AuthorityPath, Mode: 0o644, DirMode: 0o755, Body: s.authority}
 }
 
 func (s *egressSidecar) close() {

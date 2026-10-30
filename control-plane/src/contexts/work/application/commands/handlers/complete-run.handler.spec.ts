@@ -24,6 +24,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunPaused } from '@work/domain/events/run-paused.event';
+import { RunSuspended } from '@work/domain/events/run-suspended.event';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -195,23 +196,21 @@ describe('CompleteRunHandler', () => {
       undefined,
       { next: 'review', note: 'Which queue should I drain?' },
       'session_1',
-      false,
-      true,
     );
 
-    it('pauses the run instead of ending it, and tells the runner to wait', async () => {
+    it('suspends the run until the person answers, so it leaves its lease at once', async () => {
       const saved: Run[] = [];
       const stored = { tasks: [] as Task[] };
 
-      const answered = await completing(
+      await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
         claimedByTheRun(),
         stored,
       ).execute(reviewing);
 
-      expect(answered).toEqual({ waiting: true });
-      expect(saved[0]?.state).toBe('waiting');
+      expect(saved[0]?.state).toBe('suspended');
+      expect(saved[0]?.claimedBy).toBeNull();
       expect(stored.tasks[0]?.awaitingReview).toBe(true);
       expect(stored.tasks[0]?.hasCurrentRun(RunId.of('run_1'))).toBe(true);
       expect(stored.tasks[0]?.sessionId?.value).toBe('session_1');
@@ -219,9 +218,9 @@ describe('CompleteRunHandler', () => {
         'Which queue should I drain?',
       );
       expect(saved[0]?.hasEnded).toBe(false);
-      expect(
-        saved[0]?.pullEvents().some((each) => each instanceof RunPaused),
-      ).toBe(true);
+      const events = saved[0]?.pullEvents() ?? [];
+      expect(events.some((each) => each instanceof RunPaused)).toBe(true);
+      expect(events.some((each) => each instanceof RunSuspended)).toBe(true);
     });
 
     it('puts the last words of the latest attempt to the person when the turn names no next step', async () => {
@@ -247,8 +246,6 @@ describe('CompleteRunHandler', () => {
           undefined,
           undefined,
           'session_1',
-          false,
-          true,
         ),
       );
 
@@ -276,7 +273,7 @@ describe('CompleteRunHandler', () => {
     it('ends the run as before when the turn passes the task to a station', async () => {
       const saved: Run[] = [];
 
-      const answered = await completing(
+      await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
         claimedByTheRun(),
@@ -286,14 +283,13 @@ describe('CompleteRunHandler', () => {
         }),
       );
 
-      expect(answered).toEqual({ waiting: false });
       expect(saved[0]?.state).toBe('completed');
     });
 
     it('ends a failed turn even where it would have asked a person', async () => {
       const saved: Run[] = [];
 
-      const answered = await completing(
+      await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
         claimedByTheRun(),
@@ -303,11 +299,10 @@ describe('CompleteRunHandler', () => {
         }),
       );
 
-      expect(answered).toEqual({ waiting: false });
       expect(saved[0]?.state).toBe('failed');
     });
 
-    it('carries on at once, without pausing or asking again, when the person already answered', async () => {
+    it('goes back on the queue at once, without asking again, when the person already answered', async () => {
       const saved: Run[] = [];
       const stored = { tasks: [] as Task[] };
       const answeredAlready = claimedByTheRun()
@@ -324,65 +319,38 @@ describe('CompleteRunHandler', () => {
           voice: Voice.person(UserId.of('user_1')),
         });
 
-      const answered = await completing(
+      await completing(
         async (run) => void saved.push(run),
         { kind: 'allowed' },
         answeredAlready,
         stored,
       ).execute(reviewing);
 
-      expect(answered).toEqual({ waiting: true });
-      expect(saved).toEqual([]);
+      expect(saved[0]?.state).toBe('queued');
+      expect(saved[0]?.attempt).toBe(2);
+      expect(saved[0]?.spec.value.resume?.sessionId).toBe('session_1');
       expect(stored.tasks).toEqual([]);
     });
 
-    it('answers a repeated report of a pause the same way, changing nothing and calling no hook again', async () => {
+    it('refuses a second report of a turn whose run it suspended', async () => {
       const saved: Run[] = [];
-      const waiting = () =>
-        leased().paused(
+      const suspended = () =>
+        leased().suspend(
           RunnerId.of('runner_1'),
           RunOutcome.of({ exitCode: 0, failed: false }),
           HandoverReport.none(),
           NOW,
         );
 
-      const handler = completing(
-        async (run) => void saved.push(run),
-        { kind: 'allowed' },
-        claimedByTheRun(),
-        { tasks: [], run: waiting },
-      );
-
-      const answered = await handler.execute(reviewing);
-
-      expect(answered).toEqual({ waiting: true });
+      await expect(
+        completing(
+          async (run) => void saved.push(run),
+          { kind: 'allowed' },
+          claimedByTheRun(),
+          { tasks: [], run: suspended },
+        ).execute(reviewing),
+      ).rejects.toThrow();
       expect(saved).toEqual([]);
-      expect(handler.hookCalls).toEqual([]);
-    });
-
-    it('ends the run as before when the runner could not archive its workspace', async () => {
-      const saved: Run[] = [];
-
-      const answered = await completing(
-        async (run) => void saved.push(run),
-        { kind: 'allowed' },
-        claimedByTheRun(),
-      ).execute(
-        new CompleteRunCommand(
-          'run_1',
-          'runner_1',
-          0,
-          false,
-          undefined,
-          { next: 'review' },
-          'session_1',
-          false,
-          false,
-        ),
-      );
-
-      expect(answered).toEqual({ waiting: false });
-      expect(saved[0]?.state).toBe('completed');
     });
 
     it('reads the task again when a person answered it while the turn was being reported', async () => {
@@ -417,21 +385,17 @@ describe('CompleteRunHandler', () => {
         return saving(...each);
       };
 
-      const answered = await handler.execute(reviewing);
+      await handler.execute(reviewing);
 
-      expect(answered).toEqual({ waiting: true });
       expect(reads).toBe(2);
-      expect(saved).toEqual([]);
+      expect(saved[saved.length - 1]?.state).toBe('queued');
     });
 
     it('ends the run when its task has moved on without it', async () => {
       const saved: Run[] = [];
 
-      const answered = await completing(
-        async (run) => void saved.push(run),
-      ).execute(reviewing);
+      await completing(async (run) => void saved.push(run)).execute(reviewing);
 
-      expect(answered).toEqual({ waiting: false });
       expect(saved[0]?.state).toBe('completed');
     });
   });
@@ -465,7 +429,6 @@ describe('CompleteRunHandler', () => {
       "Sandbox stopped at the host's time limit. Time limit: 2h0m0s",
       null,
       null,
-      false,
       false,
       false,
       true,

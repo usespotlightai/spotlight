@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 
-	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/telemetry"
 )
 
@@ -27,7 +26,6 @@ var Settings = []Setting{
 	{Key: "image", Env: envImage, Live: true},
 	{Key: "registry-config", Env: envRegistry},
 	{Key: "run-timeout", Env: envRunTimeout, Live: true},
-	{Key: "answer-wait", Env: protocol.AnswerWaitVar, Live: true},
 	{Key: "sandbox-url", Env: envSandboxURL, Live: true},
 	{Key: "sandbox-env", Env: envSandboxEnv, Live: true},
 	{Key: "sandbox-pass", Env: envPass, Live: true},

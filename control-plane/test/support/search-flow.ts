@@ -576,9 +576,8 @@ export const finished = async (
       failed: false,
       handover: { next: 'ship', note: 'Drained.' },
       sessionId: 'session_1',
-      archived: true,
     })
-    .expect(200);
+    .expect(204);
 };
 
 export const entryOf = async (runId: string) => {
@@ -724,9 +723,8 @@ export const endedSearchRun = async (
       failed,
       handover: failed ? undefined : { next: 'review', note: 'Proposed.' },
       sessionId: 'session_1',
-      archived: true,
     })
-    .expect(200);
+    .expect(204);
 };
 
 export const liveBlock = async () => {

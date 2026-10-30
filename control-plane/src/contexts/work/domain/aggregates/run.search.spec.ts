@@ -101,7 +101,7 @@ describe('a search run', () => {
 
   it('never waits for a person', () => {
     expect(() =>
-      claimed().paused(RUNNER, finished, reportOf('review'), NOW),
+      claimed().suspend(RUNNER, finished, reportOf('review'), NOW),
     ).toThrow(InvalidRunTransitionError);
   });
 

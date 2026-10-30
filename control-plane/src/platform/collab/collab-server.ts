@@ -1,5 +1,4 @@
 import type { IncomingMessage } from 'node:http';
-import type { Duplex } from 'node:stream';
 import { Redis } from '@hocuspocus/extension-redis';
 import { type Extension, Hocuspocus } from '@hocuspocus/server';
 import {
@@ -13,6 +12,11 @@ import type { CollabDocuments } from '@platform/collab/collab-documents';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { API_PREFIX, COLLAB } from '@platform/http/routes';
+import {
+  listenForUpgrades,
+  sameOrigin,
+  upgradeUrl,
+} from '@platform/websocket/upgrades';
 import {
   LOGGER,
   type LoggerPort,
@@ -56,21 +60,6 @@ const headersOf = (request: IncomingMessage): Headers => {
   }
 
   return headers;
-};
-
-// A browser always names the page that opens a socket; only our own pages may use the session cookie here.
-const sameOrigin = (request: IncomingMessage): boolean => {
-  const origin = request.headers.origin;
-
-  if (!origin) {
-    return true;
-  }
-
-  try {
-    return new URL(origin).host === request.headers.host;
-  } catch {
-    return false;
-  }
 };
 
 @Injectable()
@@ -172,23 +161,8 @@ export class CollabServer
     this.recheck = setInterval(() => void this.admitAgain(), RECHECK_MS);
     this.recheck.unref();
 
-    const server = this.adapters.httpAdapter?.getHttpServer() as
-      | {
-          on(
-            event: 'upgrade',
-            listener: (
-              request: IncomingMessage,
-              socket: Duplex,
-              head: Buffer,
-            ) => void,
-          ): void;
-        }
-      | undefined;
-
-    server?.on('upgrade', (request, socket, head) => {
-      if (
-        new URL(request.url ?? '/', 'http://collab').pathname !== COLLAB_PATH
-      ) {
+    listenForUpgrades(this.adapters, (request, socket, head) => {
+      if (upgradeUrl(request).pathname !== COLLAB_PATH) {
         return;
       }
 

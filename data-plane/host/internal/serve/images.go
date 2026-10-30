@@ -100,7 +100,7 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 			h.log.Warn("could not get the runner image", "image", each.image, "error", err)
 		}
 
-		if _, err := h.pool.Heartbeat(ctx, h.heartbeat()); err != nil {
+		if _, err := h.sendHeartbeat(ctx); err != nil {
 			h.log.Warn("could not report what it serves", "error", err)
 		}
 
@@ -110,7 +110,7 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 	}
 
 	if len(fresh)+len(stale) == 0 {
-		if _, err := h.pool.Heartbeat(ctx, h.heartbeat()); err != nil {
+		if _, err := h.sendHeartbeat(ctx); err != nil {
 			h.log.Warn("could not report what it serves", "error", err)
 		}
 	}
@@ -257,7 +257,7 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.Ha
 	defer cancel()
 
 	env, harnessKeys := standInsFor(h.now().SandboxEnv)
-	sidecar, err := h.egressSidecar(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", harnessKeys,
+	sidecar, err := h.egressSidecar(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", nil, harnessKeys,
 		probeEgressWait)
 	defer sidecar.close()
 	if err != nil {

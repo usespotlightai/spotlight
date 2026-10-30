@@ -581,23 +581,9 @@ describe('a replay ending', () => {
     const before = await taskRow(original.taskId);
     const notesBefore = await notesOf(original.taskId);
 
-    expect(
-      (
-        await runner(token)
-          .post(
-            `/api/runs/${replayId}/completion/awaits-person`,
-            finishing('ship'),
-          )
-          .expect(200)
-      ).body,
-    ).toEqual({ awaitsPerson: false });
-    expect(
-      (
-        await runner(token)
-          .post(`/api/runs/${replayId}/completion`, finishing('ship'))
-          .expect(200)
-      ).body,
-    ).toEqual({ waiting: false });
+    await runner(token)
+      .post(`/api/runs/${replayId}/completion`, finishing('ship'))
+      .expect(204);
 
     await untilDelivered(replayId);
 
@@ -640,15 +626,8 @@ describe('a replay ending', () => {
       ).body,
     ).toEqual({ decision: 'pending' });
     await runner(token)
-      .post(`/api/runs/${replayId}/suspended`, { requeue: true })
-      .expect(409);
-    expect(
-      (
-        await runner(token)
-          .post(`/api/runs/${replayId}/completion`, finishing('review'))
-          .expect(200)
-      ).body,
-    ).toEqual({ waiting: false });
+      .post(`/api/runs/${replayId}/completion`, finishing('review'))
+      .expect(204);
 
     await untilDelivered(replayId);
 
@@ -666,7 +645,7 @@ describe('a replay ending', () => {
 
     await runner(token)
       .post(`/api/runs/${replayId}/completion`, finishing('ship'))
-      .expect(200);
+      .expect(204);
     await untilDelivered(replayId);
 
     for (const kind of [

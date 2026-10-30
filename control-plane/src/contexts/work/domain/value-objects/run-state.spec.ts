@@ -9,7 +9,6 @@ import { describe, expect, it } from 'vitest';
 describe('isStopping', () => {
   it('stops a run that was asked to stop and still runs', () => {
     expect(isStopping('claimed', true)).toBe(true);
-    expect(isStopping('waiting', true)).toBe(true);
   });
 
   it('does not stop a run nobody asked to stop', () => {
@@ -43,15 +42,9 @@ describe('progressOfCurrentRun', () => {
     expect(
       progressOfCurrentRun({ state: 'claimed', stopRequested: true }, false),
     ).toBe('stopping');
-    expect(
-      progressOfCurrentRun({ state: 'waiting', stopRequested: true }, true),
-    ).toBe('stopping');
   });
 
-  it('counts a paused run that a person answered as under way again, as the answer takes it up', () => {
-    expect(
-      progressOfCurrentRun({ state: 'waiting', stopRequested: false }, true),
-    ).toBe('in-progress');
+  it('counts a suspended run that a person answered as queued, as the answer takes it up', () => {
     expect(
       progressOfCurrentRun({ state: 'suspended', stopRequested: false }, true),
     ).toBe('queued');
@@ -59,7 +52,7 @@ describe('progressOfCurrentRun', () => {
 
   it('counts no progress for a run that waits for a person or has ended', () => {
     expect(
-      progressOfCurrentRun({ state: 'waiting', stopRequested: false }, false),
+      progressOfCurrentRun({ state: 'suspended', stopRequested: false }, false),
     ).toBeNull();
     expect(
       progressOfCurrentRun({ state: 'completed', stopRequested: false }, false),
@@ -68,13 +61,11 @@ describe('progressOfCurrentRun', () => {
 });
 
 describe('resumable', () => {
-  it('takes up a suspended run, and a waiting run nobody asked to stop', () => {
+  it('takes up a suspended run', () => {
     expect(resumable('suspended', false)).toBe(true);
-    expect(resumable('waiting', false)).toBe(true);
   });
 
-  it('does not take up a waiting run asked to stop, nor a run that is not paused', () => {
-    expect(resumable('waiting', true)).toBe(false);
+  it('does not take up a run that is not suspended', () => {
     expect(resumable('claimed', false)).toBe(false);
     expect(resumable('completed', false)).toBe(false);
   });

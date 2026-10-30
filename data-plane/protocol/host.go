@@ -2,7 +2,7 @@ package protocol
 
 const TrustHeader = "Spotlight-Trust"
 
-const AnswerWaitVar = "SPOTLIGHT_ANSWER_WAIT"
+const RunTimeoutVar = "SPOTLIGHT_RUN_TIMEOUT"
 
 type HostRequirements struct {
 	Host      HostRequirement   `json:"host"`
@@ -21,8 +21,9 @@ type RunnerRequirement struct {
 }
 
 type HostClaim struct {
-	Host  string `json:"host"`
-	Image string `json:"image"`
+	Host    string `json:"host"`
+	Image   string `json:"image"`
+	Sandbox string `json:"sandbox,omitempty"`
 }
 
 type HostImage struct {
@@ -34,18 +35,25 @@ type HostImage struct {
 	UnavailableReason string          `json:"unavailableReason,omitempty"`
 }
 
+type HostSandbox struct {
+	ID string `json:"id"`
+}
+
 type HostHeartbeat struct {
-	BootID           string      `json:"bootId"`
-	Name             string      `json:"name"`
-	Release          string      `json:"release"`
-	ContainerRuntime string      `json:"containerRuntime"`
-	Capacity         int         `json:"capacity"`
-	Running          []string    `json:"running"`
-	Images           []HostImage `json:"images"`
+	BootID           string        `json:"bootId"`
+	Name             string        `json:"name"`
+	Release          string        `json:"release"`
+	ContainerRuntime string        `json:"containerRuntime"`
+	Capacity         int           `json:"capacity"`
+	Running          []string      `json:"running"`
+	Sandboxes        []HostSandbox `json:"sandboxes"`
+	Images           []HostImage   `json:"images"`
+	Stopping         bool          `json:"stopping"`
 }
 
 type HeartbeatResponse struct {
-	Workspace string `json:"workspace"`
+	Workspace string   `json:"workspace"`
+	Drain     []string `json:"drain,omitempty"`
 }
 
 type RunImage struct {

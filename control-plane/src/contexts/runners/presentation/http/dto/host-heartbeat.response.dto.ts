@@ -8,7 +8,17 @@ export class HostHeartbeatResponseDto {
   })
   readonly workspace: string;
 
-  constructor(workspace: string) {
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['5d2e8f1a-7c4b-4e9a-b3f6-1a8d0c7e2b95'],
+    description:
+      'The reported sandboxes to drain: the host stops each one with a grace period, then destroys it',
+  })
+  readonly drain: string[];
+
+  constructor(workspace: string, drain: readonly string[]) {
     this.workspace = workspace;
+    this.drain = [...drain];
   }
 }

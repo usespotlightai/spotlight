@@ -35,18 +35,9 @@ type journal struct {
 	done                   *protocol.Completion
 	completions            []protocol.Completion
 	completedBy            []int
-	waits                  []bool
 	calls                  []string
-	lostWhileWaiting       bool
-	conflictsWaiting       int
-	requeueSuspends        int
-	noWait                 bool
-	paused                 bool
-	answers                [][]protocol.Message
-	suspending             []bool
-	suspends               int
+	restores               int
 	stopAfter              int
-	stopWhileWaiting       bool
 	messages               [][]protocol.Message
 	acked                  []int
 	files                  map[string]string
@@ -82,41 +73,13 @@ func (j *journal) RenewLease(context.Context, string) (bool, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.renewals++
-	if j.lostWhileWaiting && j.paused {
-		return false, gone{}
-	}
-	if j.conflictsWaiting > 0 && j.paused {
-		j.conflictsWaiting--
-		return false, conflict{}
-	}
 	if j.archives != nil {
 		j.archives.renewed()
 	}
-	return (j.stopAfter > 0 && j.renewals >= j.stopAfter) || (j.stopWhileWaiting && j.paused), nil
+	return j.stopAfter > 0 && j.renewals >= j.stopAfter, nil
 }
 
-func (j *journal) AwaitsPerson(_ context.Context, _ string, _ protocol.Completion) (bool, error) {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	j.calls = append(j.calls, "awaits-person")
-	return !j.noWait && len(j.waits) > 0 && j.waits[0], nil
-}
-
-type gone struct{}
-
-func (gone) Error() string {
-	return "409 Conflict: a run cannot renew the lease on a run that is completed"
-}
-
-func (gone) RunNoLongerLeased() bool { return true }
-
-type conflict struct{}
-
-func (conflict) Error() string { return "409 Conflict: the run changed while its lease was renewed" }
-
-func (conflict) RunNoLongerLeased() bool { return false }
-
-func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion) (protocol.CompleteResponse, error) {
+func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion) error {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.calls = append(j.calls, "complete")
@@ -125,29 +88,7 @@ func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion
 	if j.archives != nil {
 		j.completedBy = append(j.completedBy, j.archives.count())
 	}
-
-	waiting := len(j.waits) > 0 && j.waits[0]
-	if len(j.waits) > 0 {
-		j.waits = j.waits[1:]
-	}
-	j.paused = waiting && !done.Stopped
-	return protocol.CompleteResponse{Waiting: j.paused}, nil
-}
-
-func (j *journal) Suspend(_ context.Context, _ string, requeue bool) (protocol.Suspension, error) {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	j.suspends++
-	if requeue {
-		j.requeueSuspends++
-		return protocol.Suspension{Suspended: true}, nil
-	}
-
-	suspended := len(j.suspending) == 0 || j.suspending[0]
-	if len(j.suspending) > 0 {
-		j.suspending = j.suspending[1:]
-	}
-	return protocol.Suspension{Suspended: suspended}, nil
+	return nil
 }
 
 func (j *journal) UseTool(
@@ -231,16 +172,6 @@ func (j *journal) Messages(context.Context, string) ([]protocol.Message, error) 
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
-	if j.paused {
-		if len(j.answers) == 0 {
-			return nil, nil
-		}
-		answer := j.answers[0]
-		j.answers = j.answers[1:]
-		j.paused = len(answer) == 0
-		return answer, nil
-	}
-
 	if len(j.messages) == 0 {
 		return nil, nil
 	}
@@ -282,6 +213,9 @@ func (j *journal) AskPermission(
 }
 
 func (j *journal) WorkspaceArchive(_ context.Context, _ string) (*protocol.StoredArchive, error) {
+	j.mu.Lock()
+	j.restores++
+	j.mu.Unlock()
 	if j.archives == nil {
 		return nil, nil
 	}
@@ -414,15 +348,9 @@ process.stdin.on("data", (chunk) => {
 
 type runOptions struct {
 	messages    [][]protocol.Message
-	waits       []bool
-	answers     [][]protocol.Message
-	suspending  []bool
-	answerWait  time.Duration
 	heartbeat   time.Duration
-	stopWaiting bool
-	lostWaiting bool
-	conflicts   int
-	noWait      bool
+	sandbox     *session.Sandbox
+	runID       string
 	briefing    string
 	handover    []string
 	agentUser   *account.User
@@ -459,21 +387,20 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 	}
 
 	written := &journal{
-		messages:         settings.messages,
-		waits:            settings.waits,
-		answers:          settings.answers,
-		suspending:       settings.suspending,
-		stopWhileWaiting: settings.stopWaiting,
-		lostWhileWaiting: settings.lostWaiting,
-		conflictsWaiting: settings.conflicts,
-		noWait:           settings.noWait,
-		stopAfter:        settings.stopAfter,
-		files:            settings.files,
-		decision:         settings.decision,
-		archives:         settings.archives,
-		memory:           settings.memory,
-		memoryErr:        settings.memoryErr,
-		startErr:         settings.startErr,
+		messages:  settings.messages,
+		stopAfter: settings.stopAfter,
+		files:     settings.files,
+		decision:  settings.decision,
+		archives:  settings.archives,
+		memory:    settings.memory,
+		memoryErr: settings.memoryErr,
+		startErr:  settings.startErr,
+	}
+	if settings.sandbox == nil {
+		settings.sandbox = new(session.Sandbox)
+	}
+	if settings.runID == "" {
+		settings.runID = "run_1"
 	}
 	ctx, stop := context.WithCancel(context.Background())
 	defer stop()
@@ -481,8 +408,8 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		go stopOnceWritten(ctx, stop, filepath.Join(settings.root, settings.stopOnce))
 	}
 
-	err := session.Execute(ctx, protocol.Run{
-		ID: "run_1",
+	err := settings.sandbox.Execute(ctx, protocol.Run{
+		ID: settings.runID,
 		Spec: protocol.Spec{
 			Command:       protocol.Command{Executable: executable, Env: settings.env},
 			Briefing:      settings.briefing,
@@ -499,14 +426,13 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 			Checkouts:     settings.checkouts,
 		},
 	}, session.Options{
-		Workspace:  settings.root,
-		Journal:    written,
-		Log:        slog.New(slog.NewTextHandler(io.Discard, nil)),
-		AgentUser:  settings.agentUser,
-		AnswerWait: settings.answerWait,
-		Heartbeat:  settings.heartbeat,
-		ProxyEnv:   settings.proxyEnv,
-		Enforced:   settings.enforced,
+		Workspace: settings.root,
+		Journal:   written,
+		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		AgentUser: settings.agentUser,
+		Heartbeat: settings.heartbeat,
+		ProxyEnv:  settings.proxyEnv,
+		Enforced:  settings.enforced,
 	})
 	if err != nil && settings.stopOnce == "" {
 		t.Fatalf("execute: %v", err)

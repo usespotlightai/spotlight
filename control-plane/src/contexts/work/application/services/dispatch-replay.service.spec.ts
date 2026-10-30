@@ -35,6 +35,7 @@ import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
+import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -265,7 +266,7 @@ const completed = (workspace = 'ws_1') =>
     workspaceId: WorkspaceId.of(workspace),
     resumeKey: ResumeKey.forTask('task_1'),
     holder: { kind: 'task', taskId: TaskId.of('task_1') },
-    run: ORIGINAL,
+    grantee: ArchiveGrantee.run(ORIGINAL),
     size: SIZE,
     digest: DIGEST,
     at: NOW,

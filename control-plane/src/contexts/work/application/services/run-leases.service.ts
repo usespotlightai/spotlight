@@ -3,6 +3,8 @@ import { RunVersionConflictError } from '@work/domain/exceptions/run-version-con
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 
 export class RunLeases {
+  readonly name = 'Expiring run leases';
+
   constructor(private readonly runs: RunRepository) {}
 
   async expireLeases(now: Date): Promise<readonly Run[]> {

@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 const NOW = new Date('2026-09-29T09:00:00.000Z');
 const RUNNER = RunnerId.of('runner_1');
 
-const waiting = () =>
+const working = () =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -27,14 +27,7 @@ const waiting = () =>
       handover: { options: [], noteLimit: 0 },
       resume: { key: 'task_1:station_1' },
     }),
-  })
-    .claim(RUNNER, NOW)
-    .paused(
-      RUNNER,
-      RunOutcome.of({ exitCode: 0, failed: false }),
-      HandoverReport.none(),
-      NOW,
-    );
+  }).claim(RUNNER, NOW);
 
 const renewing = (reads: Run[], conflictsFirst = false) => {
   const saved: Run[] = [];
@@ -63,16 +56,27 @@ const renewing = (reads: Run[], conflictsFirst = false) => {
 };
 
 describe('RenewLeaseHandler', () => {
-  it('renews again when a person’s answer resumed the run at the same moment', async () => {
-    const { renew, saved } = renewing([waiting(), waiting().resumed()], true);
+  it('renews again when a person asked to stop the run at the same moment', async () => {
+    const { renew, saved } = renewing(
+      [working(), working().requestStop(NOW)],
+      true,
+    );
 
     await renew();
 
     expect(saved[0]?.state).toBe('claimed');
+    expect(saved[0]?.stopRequested).toBe(true);
   });
 
   it('says a run its runner no longer leases is not there, rather than a conflict', async () => {
-    const { renew } = renewing([waiting().cancel(NOW)]);
+    const { renew } = renewing([
+      working().suspend(
+        RUNNER,
+        RunOutcome.of({ exitCode: 0, failed: false }),
+        HandoverReport.none(),
+        NOW,
+      ),
+    ]);
 
     await expect(renew()).rejects.toMatchObject({ kind: 'not-found' });
   });

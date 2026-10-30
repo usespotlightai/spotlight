@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/rand/v2"
 	"net/url"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -24,9 +26,10 @@ import (
 )
 
 const (
-	LabelHost   = "ai.usespotlight.host"
-	LabelRunner = "ai.usespotlight.runner"
-	LabelCall   = "ai.usespotlight.call"
+	LabelHost    = "ai.usespotlight.host"
+	LabelRunner  = "ai.usespotlight.runner"
+	LabelSandbox = "ai.usespotlight.sandbox"
+	LabelCall    = "ai.usespotlight.call"
 
 	AssignmentPath = "/run/spotlight/assignment.json"
 	MirrorRoot     = "/spotlight/mirrors"
@@ -50,6 +53,9 @@ const (
 	mirrorLongest   = 30 * time.Minute
 	probeLongest    = 2 * time.Minute
 	cleanupBudget   = time.Minute
+	deliverWait     = 5 * time.Minute
+	placeWait       = 10 * time.Minute
+	placePoll       = 500 * time.Millisecond
 	retryFloor      = 2 * time.Second
 	retryCeiling    = 30 * time.Second
 	updateRetry     = 10 * time.Minute
@@ -69,7 +75,7 @@ type RunClient interface {
 	RenewLease(ctx context.Context, runID string) (bool, error)
 	RenewCheckLease(ctx context.Context, runID, stackID string, recheck bool) (bool, error)
 	RecordImage(ctx context.Context, runID, image string) error
-	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.CompleteResponse, error)
+	Complete(ctx context.Context, runID string, done protocol.Completion) error
 	RecordChangeStackCheck(ctx context.Context, runID, stackID string, recheck bool, checked protocol.StackCheckResult) error
 }
 
@@ -84,26 +90,35 @@ type Registry interface {
 	For(image string) (string, error)
 }
 
+type Tunnel interface {
+	Serve(ctx context.Context, open func(ctx context.Context, sandboxID string) (io.ReadWriteCloser, error))
+}
+
+var ErrNoSandbox = errors.New("no such sandbox on this host")
+
+var sshCommand = []string{"spotlight", "runner", "ssh"}
+
 type Options struct {
-	HostID       string
-	Name         string
-	Version      string
-	Images       images.Allowed
-	Registry     Registry
-	Updates      Updates
-	AutoUpdate   bool
-	RefreshEvery time.Duration
-	LeaseEvery   time.Duration
-	EgressWait   time.Duration
-	Capacity     int
-	RunTimeout   time.Duration
-	AnswerWait   time.Duration
-	ControlURL   string
-	SandboxURL   string
-	SandboxEnv   []string
-	Egress       Egress
-	Network      string
-	ExtraHosts   []string
+	HostID         string
+	Name           string
+	Version        string
+	Images         images.Allowed
+	Registry       Registry
+	Updates        Updates
+	AutoUpdate     bool
+	RefreshEvery   time.Duration
+	LeaseEvery     time.Duration
+	HeartbeatEvery time.Duration
+	EgressWait     time.Duration
+	Capacity       int
+	RunTimeout     time.Duration
+	ControlURL     string
+	SandboxURL     string
+	SandboxEnv     []string
+	Egress         Egress
+	Network        string
+	ExtraHosts     []string
+	Tunnel         Tunnel
 }
 
 type Egress struct {
@@ -132,13 +147,15 @@ type Host struct {
 	containerRuntime string
 	bootID           string
 
-	beat atomic.Int64
+	beat     atomic.Int64
+	stopping atomic.Bool
 
 	mu           sync.Mutex
 	served       map[string]*served
 	disallowed   []string
 	required     protocol.HostRequirements
 	running      map[string]string
+	held         map[string]*held
 	claimBackoff map[string]time.Time
 	failures     map[string]int
 	egressIs     string
@@ -146,6 +163,7 @@ type Host struct {
 	updateAfter  time.Time
 	updated      bool
 	restarting   bool
+	drainingAll  bool
 	stopClaiming context.CancelFunc
 }
 
@@ -161,6 +179,7 @@ func New(opts Options, pool Pool, engine sandbox.Engine, mirrors *mirror.Mirrors
 		bootID:       crand.Text(),
 		served:       map[string]*served{},
 		running:      map[string]string{},
+		held:         map[string]*held{},
 		claimBackoff: map[string]time.Time{},
 		failures:     map[string]int{},
 	}
@@ -210,12 +229,24 @@ func (h *Host) Serve(ctx context.Context) error {
 
 	h.reap(ctx)
 
+	tunneling, stopTunneling := context.WithCancel(ctx)
+	var tunnel sync.WaitGroup
+	defer func() {
+		stopTunneling()
+		tunnel.Wait()
+	}()
+	if h.opts.Tunnel != nil {
+		tunnel.Go(func() { h.opts.Tunnel.Serve(tunneling, h.openSSH) })
+	}
+
+	beating, stopBeating := context.WithCancel(ctx)
 	var reporting sync.WaitGroup
 	defer func() {
 		stopClaiming()
+		stopBeating()
 		reporting.Wait()
 	}()
-	reporting.Go(func() { h.report(claiming, stop) })
+	reporting.Go(func() { h.report(beating, claiming, stop) })
 
 	if err := retried(claiming, h.log, "could not read what to serve, still trying", func() error {
 		return h.refresh(claiming, claiming, ctx, stop)
@@ -240,11 +271,12 @@ func (h *Host) Serve(ctx context.Context) error {
 	}
 
 	<-claiming.Done()
-	reporting.Wait()
 	h.loops.Wait()
 	h.sandboxes.Wait()
 	h.responding.Wait()
 	h.refreshes.Wait()
+	stopBeating()
+	reporting.Wait()
 
 	deregistering, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
@@ -371,20 +403,29 @@ func (h *Host) watch(claiming, serving context.Context, stop func(error)) {
 	}
 }
 
-func (h *Host) report(ctx context.Context, stop func(error)) {
-	ticker := time.NewTicker(heartbeatEvery)
+func (h *Host) report(ctx, claiming context.Context, stop func(error)) {
+	every := h.opts.HeartbeatEvery
+	if every <= 0 {
+		every = heartbeatEvery
+	}
+	ticker := time.NewTicker(every)
 	defer ticker.Stop()
+	stopped := claiming.Done()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+		case <-stopped:
+			stopped = nil
+			h.stopping.Store(true)
 		}
 
 		if _, err := h.sendHeartbeat(ctx); err != nil {
 			if final(err) {
 				stop(err)
+				h.drainEvery()
 				return
 			}
 			if ctx.Err() == nil {
@@ -398,6 +439,7 @@ func (h *Host) sendHeartbeat(ctx context.Context) (protocol.HeartbeatResponse, e
 	response, err := h.pool.Heartbeat(ctx, h.heartbeat())
 	if err == nil {
 		h.beat.Store(time.Now().UnixNano())
+		h.drainAll(response.Drain)
 	}
 	return response, err
 }
@@ -420,11 +462,16 @@ func (h *Host) Ready(ctx context.Context) error {
 func (h *Host) heartbeat() protocol.HostHeartbeat {
 	h.mu.Lock()
 	running := make([]string, 0, len(h.running))
-	for runner := range h.running {
+	for _, runner := range h.running {
 		running = append(running, runner)
+	}
+	sandboxes := make([]protocol.HostSandbox, 0, len(h.held))
+	for id := range h.held {
+		sandboxes = append(sandboxes, protocol.HostSandbox{ID: id})
 	}
 	h.mu.Unlock()
 	slices.Sort(running)
+	slices.SortFunc(sandboxes, func(a, b protocol.HostSandbox) int { return strings.Compare(a.ID, b.ID) })
 
 	return protocol.HostHeartbeat{
 		BootID:           h.bootID,
@@ -433,7 +480,9 @@ func (h *Host) heartbeat() protocol.HostHeartbeat {
 		ContainerRuntime: h.containerRuntime,
 		Capacity:         h.slots.size(),
 		Running:          running,
+		Sandboxes:        sandboxes,
 		Images:           h.reportedImages(),
+		Stopping:         h.stopping.Load(),
 	}
 }
 
@@ -495,7 +544,7 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 		backoff = retryFloor
 		h.sandboxes.Go(func() {
 			defer h.slots.give()
-			h.sandbox(telemetry.WithTrace(serving, trace), image, *assignment)
+			h.sandbox(telemetry.WithTrace(serving, trace), ctx, image, *assignment)
 		})
 	}
 }
@@ -532,7 +581,7 @@ func final(err error) bool {
 		control.HasReason(err, "host-unreported")
 }
 
-func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.Assignment) {
+func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment protocol.Assignment) {
 	log := h.log.With("runner", assignment.RunnerID)
 	trace, traced := telemetry.TraceFrom(ctx)
 	if traced {
@@ -544,6 +593,12 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 	if assignment.Work.Check != nil {
 		log = log.With("stack", assignment.Work.Check.StackID)
 	}
+	if assignment.SandboxID != "" {
+		log = log.With("sandboxId", assignment.SandboxID)
+	}
+
+	draining := h.hold(assignment.SandboxID)
+	defer h.release(assignment.SandboxID)
 
 	if ctx.Err() != nil {
 		log.Info("the host is stopping, so the work is left to be claimed again")
@@ -551,7 +606,7 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 	}
 
 	inSandbox := assignment
-	inSandbox.EgressToken = ""
+	inSandbox.EgressToken, inSandbox.AllowedHosts = "", nil
 	body, err := json.Marshal(inSandbox)
 	if err != nil {
 		log.Error("could not encode the assignment", "error", err)
@@ -559,11 +614,13 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 		return
 	}
 
-	client, err := h.pool.ForRun(assignment)
-	if err != nil {
-		log.Error("could not act for the runner of its assignment", "error", err)
-		h.reported(err, assignment)
-		return
+	var client RunClient
+	if !assignment.StartsSandboxOnly() {
+		if client, err = h.pool.ForRun(assignment); err != nil {
+			log.Error("could not act for the runner of its assignment", "error", err)
+			h.reported(err, assignment)
+			return
+		}
 	}
 
 	stopRenewing, stopRequested := h.renewingLease(ctx, assignment, client, log)
@@ -579,6 +636,9 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 	}
 
 	mounts := h.mountMirrors(ctx, assignment, log)
+	if volume, ok := h.editorServers(); ok && assignment.SandboxID != "" {
+		mounts = append(mounts, sandbox.Mount{Source: volume, Target: protocol.SandboxEditorServers, Volume: true})
+	}
 	if ctx.Err() != nil {
 		log.Info("the host is stopping, so the work is left to be claimed again")
 		return
@@ -607,7 +667,7 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 	env = append(env,
 		"SPOTLIGHT_URL="+h.now().SandboxURL,
 		"SPOTLIGHT_ASSIGNMENT_FILE="+AssignmentPath,
-		protocol.AnswerWaitVar+"="+h.now().AnswerWait.String(),
+		protocol.RunTimeoutVar+"="+h.now().RunTimeout.String(),
 	)
 	if len(mounts) > 0 {
 		env = append(env, "SPOTLIGHT_MIRRORS="+MirrorRoot)
@@ -616,11 +676,19 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 		env = append(env, telemetry.TraceparentVar+"="+trace.Traceparent())
 	}
 
+	labels := map[string]string{LabelHost: h.opts.HostID}
+	if assignment.RunnerID != "" {
+		labels[LabelRunner] = assignment.RunnerID
+	}
+	if assignment.SandboxID != "" {
+		labels[LabelSandbox] = assignment.SandboxID
+	}
+
 	id, err := h.engine.Start(starting, sandbox.Spec{
-		Name:    "spotlight-" + assignment.RunnerID,
+		Name:    "spotlight-" + nameOf(assignment),
 		Image:   ready.id,
 		Env:     env,
-		Labels:  map[string]string{LabelHost: h.opts.HostID, LabelRunner: assignment.RunnerID},
+		Labels:  labels,
 		Mounts:  mounts,
 		Files:   append([]sandbox.File{{Path: AssignmentPath, Mode: 0o400, Body: body}}, sidecar.files()...),
 		Network: sidecar.network,
@@ -634,9 +702,16 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 	}
 
 	stopRenewing()
-	h.track(assignment.RunnerID, id)
-	defer h.untrack(assignment.RunnerID)
-	log.Info("started a sandbox", "sandbox", id)
+	h.placed(assignment.SandboxID, id)
+	if assignment.RunnerID != "" {
+		h.track(id, assignment.RunnerID)
+		defer h.untrack(id)
+	}
+	if assignment.StartsSandboxOnly() {
+		log.Info("started a sandbox with no run; it restores its workspace and waits for runs", "sandbox", id)
+	} else {
+		log.Info("started a sandbox", "sandbox", id)
+	}
 
 	watching, stopWatching := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopWatching()
@@ -651,9 +726,32 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 
 	exited := make(chan int, 1)
 	go func() { exited <- h.waited(watching, id, log) }()
+	gone := make(chan struct{})
 
-	timeout := time.NewTimer(h.now().RunTimeout)
-	defer timeout.Stop()
+	var timeout <-chan time.Time
+	broken := make(chan error, 1)
+	if assignment.SandboxID != "" {
+		live := liveSandbox{id: id, sandboxID: assignment.SandboxID, image: image, digest: ready.digest, sidecar: sidecar}
+		delivering, stopDelivering := context.WithCancel(ctx)
+		taking, stopTaking := context.WithCancel(delivering)
+		stopFollowingClaims := context.AfterFunc(claiming, stopTaking)
+		delivered := make(chan struct{})
+		defer func() {
+			stopFollowingClaims()
+			stopDelivering()
+			<-delivered
+		}()
+		go func() {
+			defer close(delivered)
+			if err := h.nextRuns(taking, delivering, live, gone, log); err != nil {
+				broken <- err
+			}
+		}()
+	} else {
+		timer := time.NewTimer(h.now().RunTimeout)
+		defer timer.Stop()
+		timeout = timer.C
+	}
 
 	drain := func() {
 		drained := time.NewTimer(drainBudget)
@@ -664,18 +762,22 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 		}
 	}
 
-	ranOut := false
 	select {
 	case code := <-exited:
+		close(gone)
 		drain()
 		log.Info("the sandbox finished", "exit", code)
 		return
-	case <-timeout.C:
+	case <-timeout:
 		log.Warn("the sandbox ran past its time", "timeout", h.now().RunTimeout)
-		ranOut = true
+	case err := <-broken:
+		log.Warn("the sandbox stops, because a run could not be delivered into it", "error", err)
+	case <-draining:
+		log.Info("the control plane drains the sandbox")
 	case <-ctx.Done():
 		log.Info("the host is stopping, so is the sandbox")
 	}
+	close(gone)
 
 	stopping, cancelStop := context.WithTimeout(context.WithoutCancel(ctx), stopGrace+10*time.Second)
 	defer cancelStop()
@@ -683,29 +785,145 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 		log.Warn("could not stop the sandbox", "error", err)
 	}
 	drain()
+}
 
-	if ranOut {
-		stopRenewing()
-		h.timedOut(ctx, assignment, client, log)
+func nameOf(assignment protocol.Assignment) string {
+	if assignment.RunnerID != "" {
+		return assignment.RunnerID
+	}
+	return "sandbox-" + assignment.SandboxID
+}
+
+type liveSandbox struct {
+	id        string
+	sandboxID string
+	image     string
+	digest    string
+	sidecar   *egressSidecar
+}
+
+func (h *Host) nextRuns(
+	taking, delivering context.Context, live liveSandbox, gone <-chan struct{}, log *slog.Logger,
+) error {
+	backoff := retryFloor
+
+	for {
+		claimedAt := time.Now()
+		trace := telemetry.NewTrace()
+		next, err := h.pool.Claim(telemetry.WithTrace(taking, trace), protocol.HostClaim{Image: live.image, Sandbox: live.sandboxID})
+		switch {
+		case taking.Err() != nil:
+			return nil
+		case final(err):
+			return err
+		case err != nil:
+			log.Warn("could not claim the next run for the sandbox", "error", err, "retryIn", backoff)
+			if !sleep(taking, jitter(backoff)) {
+				return nil
+			}
+			backoff = min(backoff*2, retryCeiling)
+			continue
+		case next == nil:
+			if time.Since(claimedAt) < quickAnswer && !sleep(taking, jitter(retryFloor)) {
+				return nil
+			}
+			continue
+		}
+
+		backoff = retryFloor
+		if err := h.deliver(telemetry.WithTrace(delivering, trace), live, *next, gone, log); err != nil {
+			return err
+		}
 	}
 }
 
-func (h *Host) timedOut(ctx context.Context, assignment protocol.Assignment, client RunClient, log *slog.Logger) {
-	run := assignment.Work.Run
-	if run == nil {
-		return
+func (h *Host) deliver(
+	ctx context.Context, live liveSandbox, assignment protocol.Assignment, gone <-chan struct{}, log *slog.Logger,
+) error {
+	log = log.With("runner", assignment.RunnerID)
+	if run := assignment.Work.Run; run != nil {
+		log = log.With("run", run.ID)
 	}
 
-	telling, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
-	defer cancel()
+	client, err := h.pool.ForRun(assignment)
+	if err != nil {
+		h.reported(err, assignment)
+		return fmt.Errorf("act for the runner of the next run: %w", err)
+	}
 
-	if _, err := client.Complete(telling, run.ID, protocol.Completion{
-		ExitCode: -1,
-		Failed:   true,
-		TimedOut: true,
-		Message:  fmt.Sprintf("Sandbox stopped at the host's time limit. Time limit: %s", h.now().RunTimeout),
-	}); err != nil {
-		log.Warn("could not say the run ran out of time; its lease will expire instead", "error", err)
+	if !assignment.Reused || assignment.SandboxID != live.sandboxID {
+		err := fmt.Errorf("the claim for sandbox %s assigned work for sandbox %q", live.sandboxID, assignment.SandboxID)
+		h.reported(err, assignment)
+		h.failWork(ctx, assignment, client, "The run was assigned to the wrong sandbox.", log)
+		return err
+	}
+
+	stopRenewing, _ := h.renewingLease(ctx, assignment, client, log)
+	defer stopRenewing()
+
+	if run := assignment.Work.Run; run != nil {
+		if err := client.RecordImage(ctx, run.ID, live.digest); err != nil {
+			log.Warn("could not record the image the run starts from", "image", live.digest, "error", err)
+		}
+	}
+
+	failed := func(err error) error {
+		h.reported(err, assignment)
+		h.failWork(ctx, assignment, client, fmt.Sprintf("The run couldn't be delivered into its sandbox. Error: %v", err), log)
+		return err
+	}
+
+	if err := live.sidecar.rekey(ctx, assignment.EgressToken); err != nil {
+		return failed(fmt.Errorf("re-key the sandbox's egress: %w", err))
+	}
+	if err := h.engine.Put(ctx, live.id, live.sidecar.authorityFile()); err != nil {
+		return failed(fmt.Errorf("hand the sandbox its egress authority: %w", err))
+	}
+
+	inSandbox := assignment
+	inSandbox.EgressToken = ""
+	body, err := json.Marshal(inSandbox)
+	if err != nil {
+		return failed(fmt.Errorf("encode the assignment: %w", err))
+	}
+	if err := h.engine.Put(ctx, live.id, sandbox.File{Path: AssignmentPath, Mode: 0o400, Body: body}); err != nil {
+		return failed(fmt.Errorf("hand the sandbox its assignment: %w", err))
+	}
+
+	h.track(live.id, assignment.RunnerID)
+	log.Info("delivered the next run into the sandbox", "sandbox", live.id)
+
+	return h.handedOver(ctx, live.id, gone, log)
+}
+
+func (h *Host) handedOver(ctx context.Context, id string, gone <-chan struct{}, log *slog.Logger) error {
+	every := h.opts.LeaseEvery
+	if every <= 0 {
+		every = leaseEvery
+	}
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	limit := time.NewTimer(deliverWait)
+	defer limit.Stop()
+
+	for {
+		if err := h.engine.Signal(ctx, id, "SIGUSR1"); err != nil && ctx.Err() == nil {
+			log.Warn("could not signal the sandbox", "error", err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-gone:
+			return nil
+		case <-limit.C:
+			return fmt.Errorf("the runner did not take its assignment within %s", deliverWait)
+		case <-ticker.C:
+		}
+
+		if _, err := h.engine.Read(ctx, id, AssignmentPath); errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
 	}
 }
 
@@ -844,7 +1062,7 @@ func (h *Host) failWork(ctx context.Context, assignment protocol.Assignment, cli
 	var err error
 	switch work := assignment.Work; {
 	case work.Run != nil:
-		_, err = client.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, SetupFailed: true, Message: reason})
+		err = client.Complete(telling, work.Run.ID, protocol.Completion{ExitCode: -1, Failed: true, SetupFailed: true, Message: reason})
 	case work.Check != nil:
 		err = client.RecordChangeStackCheck(telling, work.Check.RunID, work.Check.StackID, work.Check.Recheck, protocol.StackCheckResult{
 			Skipped: &protocol.SkippedCheck{Code: protocol.SkipNoImage, Detail: reason},
@@ -973,16 +1191,134 @@ func (h *Host) destroy(id string) {
 	}
 }
 
-func (h *Host) track(runner, id string) {
+func (h *Host) track(id, runner string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.running[runner] = id
+	h.running[id] = runner
 }
 
-func (h *Host) untrack(runner string) {
+func (h *Host) untrack(id string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	delete(h.running, runner)
+	delete(h.running, id)
+}
+
+type held struct {
+	drain     chan struct{}
+	drained   bool
+	container string
+}
+
+func (h *Host) hold(sandboxID string) <-chan struct{} {
+	if sandboxID == "" {
+		return nil
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	each := &held{drain: make(chan struct{})}
+	h.held[sandboxID] = each
+	if h.drainingAll {
+		each.drained = true
+		close(each.drain)
+	}
+	return each.drain
+}
+
+func (h *Host) placed(sandboxID, container string) {
+	if sandboxID == "" {
+		return
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if each, ok := h.held[sandboxID]; ok {
+		each.container = container
+	}
+}
+
+func (h *Host) openSSH(ctx context.Context, sandboxID string) (io.ReadWriteCloser, error) {
+	waiting, cancel := context.WithTimeout(ctx, placeWait)
+	defer cancel()
+
+	for {
+		container, held := h.containerOf(sandboxID)
+		switch {
+		case !held:
+			return nil, fmt.Errorf("%w: %s", ErrNoSandbox, sandboxID)
+		case container != "":
+			return h.engine.Exec(ctx, container, sshCommand, &echo{log: h.log.With("sandboxId", sandboxID, "editor", true)})
+		}
+
+		if !sleep(waiting, placePoll) {
+			return nil, fmt.Errorf("%w: %s did not start in time", ErrNoSandbox, sandboxID)
+		}
+	}
+}
+
+func (h *Host) containerOf(sandboxID string) (string, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	each, ok := h.held[sandboxID]
+	if !ok || each.drained {
+		return "", false
+	}
+	return each.container, true
+}
+
+// Each sandbox can write to this volume, so sandboxes of other workspaces must not mount it.
+func (h *Host) editorServers() (string, bool) {
+	if h.workspace == "" {
+		return "", false
+	}
+
+	return "spotlight-editor-servers-" + volumeName(h.opts.HostID) + "-" + volumeName(h.workspace), true
+}
+
+func volumeName(part string) string {
+	return strings.ToLower(strings.Map(func(r rune) rune {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '-' || r == '_' || r == '.' {
+			return r
+		}
+		return -1
+	}, part))
+}
+
+func (h *Host) release(sandboxID string) {
+	if sandboxID == "" {
+		return
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	delete(h.held, sandboxID)
+}
+
+// No heartbeat reaches the control plane after this, so it cannot drain a sandbox that starts later.
+func (h *Host) drainEvery() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.drainingAll = true
+	for _, each := range h.held {
+		if !each.drained {
+			each.drained = true
+			close(each.drain)
+		}
+	}
+}
+
+func (h *Host) drainAll(sandboxIDs []string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	for _, id := range sandboxIDs {
+		if each, ok := h.held[id]; ok && !each.drained {
+			each.drained = true
+			close(each.drain)
+		}
+	}
 }
 
 func retried(ctx context.Context, log *slog.Logger, failed string, try func() error) error {

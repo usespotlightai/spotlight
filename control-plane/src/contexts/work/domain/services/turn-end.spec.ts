@@ -9,7 +9,8 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import { turnEnded, turnWaits } from '@work/domain/services/turn-end';
+import { RunPaused } from '@work/domain/events/run-paused.event';
+import { turnEnded } from '@work/domain/services/turn-end';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
@@ -143,7 +144,6 @@ const ending = (input: {
   outcome?: RunOutcome;
   handover?: { next?: string; note?: string } | null;
   ran?: Run;
-  archived?: boolean;
 }) =>
   turnEnded({
     run: input.ran ?? run(),
@@ -155,112 +155,80 @@ const ending = (input: {
       handover: input.handover ? Handover.of(input.handover) : null,
       session: HarnessSession.of('session_1'),
     }),
-    archived: input.archived ?? true,
     now: NOW,
   });
 
+const asks = (ended: ReturnType<typeof ending>) =>
+  ended.run.state === 'suspended';
+
 describe('turnEnded', () => {
-  it('pauses a turn that hands the task over for review, putting the task to a person in the same stroke', () => {
+  it('suspends a turn that hands the task over for review, putting the task to a person in the same stroke', () => {
     const ended = ending({ handover: { next: 'review', note: 'Which?' } });
 
-    expect(ended.waiting).toBe(true);
-    expect(ended.run.state).toBe('waiting');
+    expect(ended.run.state).toBe('suspended');
+    expect(ended.run.claimedBy).toBeNull();
     expect(ended.task?.awaitingReview).toBe(true);
     expect(ended.task?.hasCurrentRun(RUN)).toBe(true);
     expect(ended.task?.sessionId?.value).toBe('session_1');
     expect(ended.task?.notes[0]?.body.value).toBe('Which?');
   });
 
-  it('pauses a turn that ends without a handover to a station, or names a station it cannot pass to', () => {
-    expect(ending({ handover: null }).waiting).toBe(true);
-    expect(ending({ handover: { next: 'nowhere' } }).waiting).toBe(true);
+  it('suspends a turn that ends without a handover to a station, or names a station it cannot pass to', () => {
+    expect(asks(ending({ handover: null }))).toBe(true);
+    expect(asks(ending({ handover: { next: 'nowhere' } }))).toBe(true);
   });
 
-  it('pauses after a tool approval or harness permission was put to a person, asking nothing more', () => {
+  it('suspends after a tool approval or harness permission was put to a person, asking nothing more', () => {
     const ended = ending({ task: approvalAsked(), handover: { next: 'ship' } });
 
-    expect(ended.run.state).toBe('waiting');
+    expect(ended.run.state).toBe('suspended');
     expect(ended.task?.notes).toHaveLength(1);
   });
 
-  it('carries on at once, unchanged, when the person answered before the turn was reported', () => {
+  it('puts the run back on the queue at once, to resume its session, when the person answered before the turn was reported', () => {
     const answered = approvalAsked().answer(NotePosition.of(0), {
       station: StationName.of('build'),
       body: TaskNoteBody.of('Yes.'),
       at: NOW,
       voice: Voice.person(UserId.of('user_1')),
     });
-    const ran = run();
 
-    const ended = ending({ task: answered, ran });
+    const ended = ending({ task: answered });
 
-    expect(ended).toEqual({ waiting: true, run: ran, task: null });
-  });
-
-  it('answers a repeated report of a pause without changing anything', () => {
-    const waiting = run().paused(RUNNER, CLEAN, HandoverReport.none(), NOW);
-
-    expect(ending({ ran: waiting, handover: { next: 'review' } })).toEqual({
-      waiting: true,
-      run: waiting,
-      task: null,
-    });
-  });
-
-  it('ends the run as before, leaving the task to be put to the person, when its workspace was not archived', () => {
-    const ended = ending({ handover: { next: 'review' }, archived: false });
-
-    expect(ended.waiting).toBe(false);
-    expect(ended.run.state).toBe('completed');
     expect(ended.task).toBeNull();
+    expect(ended.run.state).toBe('queued');
+    expect(ended.run.attempt).toBe(2);
+    expect(ended.run.spec.resumesSession).toBe(true);
+    expect(
+      ended.run
+        .pullEvents()
+        .find((event): event is RunPaused => event instanceof RunPaused)
+        ?.resumesAtOnce,
+    ).toBe(true);
   });
 
-  describe('whether a turn waits, requested before the runner archives its workspace', () => {
-    const turn = (
-      handover: { next: string } | null,
-      over: {
-        ran?: Run;
-        mayBeSentToReview?: boolean;
-        outcome?: RunOutcome;
-      } = {},
-    ) => ({
-      run: over.ran ?? run(),
-      by: RUNNER,
-      task: handed(),
-      line,
-      outcome: over.outcome ?? CLEAN,
-      handover: handover ? Handover.of(handover) : null,
-      mayBeSentToReview: over.mayBeSentToReview ?? false,
-    });
+  it('says the run waits for a person when no answer came in during the turn', () => {
+    const ended = ending({ task: approvalAsked(), handover: { next: 'ship' } });
 
-    it('waits for the same turns it pauses', () => {
-      expect(turnWaits(turn({ next: 'review' }))).toBe(true);
-      expect(turnWaits(turn(null))).toBe(true);
-      expect(turnWaits(turn({ next: 'ship' }))).toBe(false);
-    });
+    expect(
+      ended.run
+        .pullEvents()
+        .find((event): event is RunPaused => event instanceof RunPaused)
+        ?.resumesAtOnce,
+    ).toBe(false);
+  });
 
-    it('may wait where a hook could stop the task being passed on', () => {
-      expect(
-        turnWaits(turn({ next: 'ship' }, { mayBeSentToReview: true })),
-      ).toBe(true);
-    });
+  it('refuses a repeated report of a turn whose run it suspended', () => {
+    const suspended = run().suspend(RUNNER, CLEAN, HandoverReport.none(), NOW);
 
-    it('still waits on a repeated report of a pause, unless it was stopped', () => {
-      const waiting = run().paused(RUNNER, CLEAN, HandoverReport.none(), NOW);
-
-      expect(turnWaits(turn({ next: 'ship' }, { ran: waiting }))).toBe(true);
-      expect(
-        turnWaits(
-          turn(null, { ran: waiting, outcome: RunOutcome.stopped(130) }),
-        ),
-      ).toBe(false);
-    });
+    expect(() =>
+      ending({ ran: suspended, handover: { next: 'review' } }),
+    ).toThrow();
   });
 
   it('ends a turn that passes the task on', () => {
     const ended = ending({ handover: { next: 'ship' } });
 
-    expect(ended.waiting).toBe(false);
     expect(ended.run.state).toBe('completed');
     expect(ended.task).toBeNull();
   });
@@ -273,28 +241,33 @@ describe('turnEnded', () => {
       }).run.state,
     ).toBe('failed');
     expect(
-      ending({
-        outcome: RunOutcome.stopped(130),
-        handover: { next: 'review' },
-      }).waiting,
+      asks(
+        ending({
+          outcome: RunOutcome.stopped(130),
+          handover: { next: 'review' },
+        }),
+      ),
     ).toBe(false);
   });
 
   it('ends a turn once a person requested the run to stop', () => {
     expect(
-      ending({ ran: run().requestStop(NOW), handover: { next: 'review' } })
-        .waiting,
+      asks(
+        ending({ ran: run().requestStop(NOW), handover: { next: 'review' } }),
+      ),
     ).toBe(false);
   });
 
   it('ends a turn whose task has moved on, or that works no task', () => {
     expect(
-      ending({
-        task: handed().leaveRun(RUN, NOW),
-        handover: { next: 'review' },
-      }).waiting,
+      asks(
+        ending({
+          task: handed().leaveRun(RUN, NOW),
+          handover: { next: 'review' },
+        }),
+      ),
     ).toBe(false);
-    expect(ending({ task: null, handover: { next: 'review' } }).waiting).toBe(
+    expect(asks(ending({ task: null, handover: { next: 'review' } }))).toBe(
       false,
     );
   });
@@ -344,14 +317,12 @@ describe('the end of a replay’s turn', () => {
         handover: next === null ? null : Handover.of({ next }),
         session: null,
       }),
-      archived: true,
       now: NOW,
     });
 
-  it('ends without waiting, and without touching a task', () => {
+  it('ends without being suspended, and without touching a task', () => {
     const turn = ended('ship');
 
-    expect(turn.waiting).toBe(false);
     expect(turn.task).toBeNull();
     expect(turn.run.hasCompleted).toBe(true);
     expect(turn.run.askedAPerson).toBe(false);
@@ -361,7 +332,7 @@ describe('the end of a replay’s turn', () => {
     for (const next of ['review', null, 'nowhere', 'done']) {
       const turn = ended(next);
 
-      expect(turn.waiting).toBe(false);
+      expect(turn.run.hasCompleted).toBe(true);
       expect(turn.run.askedAPerson).toBe(true);
     }
   });
@@ -374,19 +345,5 @@ describe('the end of a replay’s turn', () => {
     expect(ended('review', RunOutcome.stopped(130)).run.askedAPerson).toBe(
       false,
     );
-  });
-
-  it('never waits for a person, whatever its handover says', () => {
-    expect(
-      turnWaits({
-        run: replay(),
-        by: RUNNER,
-        task: null,
-        line,
-        outcome: RunOutcome.of({ exitCode: 0, failed: false }),
-        handover: Handover.of({ next: 'review' }),
-        mayBeSentToReview: true,
-      }),
-    ).toBe(false);
   });
 });

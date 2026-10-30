@@ -11,6 +11,7 @@ import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggr
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
+import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
@@ -43,7 +44,7 @@ export class GrantWorkspaceArchiveHandler
         workspaceId: run.workspaceId,
         resumeKey: run.resumeKey,
         holder: run.archiveHolder,
-        run: run.id,
+        grantee: ArchiveGrantee.run(run.id),
         size: ArchiveSize.of(command.size),
         digest: ArchiveDigest.of(command.sha256),
         at: this.clock.now(),

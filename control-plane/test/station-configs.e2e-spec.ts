@@ -230,7 +230,7 @@ describe('the station config a run ran with', () => {
       at: new Date('2026-09-02T00:00:00Z'),
     });
     const stopping = await ran(stationId, {
-      state: 'waiting',
+      state: 'claimed',
       at: new Date('2026-09-03T00:00:00Z'),
     });
     await db
@@ -238,7 +238,7 @@ describe('the station config a run ran with', () => {
       .set({ stopRequestedAt: new Date('2026-09-04T00:00:00Z') })
       .where(eq(schema.run.id, stopping.runId));
     await ran(stationId, {
-      state: 'waiting',
+      state: 'suspended',
       at: new Date('2026-09-05T00:00:00Z'),
     });
     await ran(stationId, {
@@ -255,7 +255,7 @@ describe('the station config a run ran with', () => {
     expect(
       unfinished.map((each) => [each.runId, each.state, each.stopRequested]),
     ).toEqual([
-      [stopping.runId, 'waiting', true],
+      [stopping.runId, 'claimed', true],
       [claimed.runId, 'claimed', false],
       [queued.runId, 'queued', false],
     ]);

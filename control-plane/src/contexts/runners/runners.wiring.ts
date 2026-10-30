@@ -30,6 +30,7 @@ import { DeleteRunnerTrustHandler } from '@runners/application/commands/handlers
 import { DeleteWorkspaceRunnersHandler } from '@runners/application/commands/handlers/delete-workspace-runners.handler';
 import { DeregisterHostHandler } from '@runners/application/commands/handlers/deregister-host.handler';
 import { HostHeartbeatHandler } from '@runners/application/commands/handlers/host-heartbeat.handler';
+import { OpenSandboxHandler } from '@runners/application/commands/handlers/open-sandbox.handler';
 import { RegisterRunnerHandler } from '@runners/application/commands/handlers/register-runner.handler';
 import { UpdateEgressHandler } from '@runners/application/commands/handlers/update-egress.handler';
 import { UpdateRunnerPoolHandler } from '@runners/application/commands/handlers/update-runner-pool.handler';
@@ -55,7 +56,9 @@ import {
   UpdateRunnerTrustCommand,
   UpdateWorkspaceRunnersCommand,
 } from '@runners/application/commands/runner-resource.commands';
+import { OpenSandboxCommand } from '@runners/application/commands/sandbox.commands';
 import { RUNNERS_EVENT_MAPPERS } from '@runners/application/integration-events/runners.event-mappers';
+import { EDITOR_SANDBOXES } from '@runners/application/ports/editor-sandboxes.port';
 import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import {
@@ -66,7 +69,10 @@ import {
   PROVISION_SECRETS,
   type ProvisionSecretsPort,
 } from '@runners/application/ports/provision-secrets.port';
-import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
+import {
+  RUNNER_AUTHENTICATOR,
+  type RunnerAuthenticatorPort,
+} from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_CONFIGURATION } from '@runners/application/ports/runner-configuration.port';
 import { RUNNER_DEFINITIONS } from '@runners/application/ports/runner-definitions.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
@@ -78,6 +84,8 @@ import {
   type RunnerResourcesPort,
 } from '@runners/application/ports/runner-resources.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
+import { SANDBOX_TUNNELS } from '@runners/application/ports/sandbox-tunnels.port';
+import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
 import { ImportEgressHandler } from '@runners/application/queries/handlers/import-egress.handler';
 import { ImportRunnerPoolHandler } from '@runners/application/queries/handlers/import-runner-pool.handler';
 import { ImportRunnerTrustHandler } from '@runners/application/queries/handlers/import-runner-trust.handler';
@@ -107,6 +115,7 @@ import {
   ReadWorkspaceRunnersQuery,
 } from '@runners/application/queries/runner-resource.queries';
 import { DeleteRunnersOfDeletedWorkspace } from '@runners/application/services/delete-runners-of-deleted-workspace.service';
+import { HostAdmission } from '@runners/application/services/host-admission.service';
 import { PurgeStaleHosts } from '@runners/application/services/purge-stale-hosts.service';
 import { RunnerAuthenticator } from '@runners/application/services/runner-authenticator.service';
 import { RunnerConfiguration } from '@runners/application/services/runner-configuration.service';
@@ -115,8 +124,10 @@ import { RunnerEgress } from '@runners/application/services/runner-egress.servic
 import { RunnerHeartbeats } from '@runners/application/services/runner-heartbeats.service';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
 import { Runners } from '@runners/application/services/runners.service';
+import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import { RUNNERS_PAYLOAD_TYPES } from '@runners/domain/payload-types';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
+import { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
 import { RunnerTokenAuth } from '@runners/infrastructure/auth/runner-token.auth';
 import { RunnerDefinitions } from '@runners/infrastructure/definitions/runner-definitions';
 import { InstallerAssets } from '@runners/infrastructure/installer/installer-assets';
@@ -127,12 +138,14 @@ import { DrizzleRunnerRepository } from '@runners/infrastructure/persistence/dri
 import { DrizzleRunnerHostRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-host.repository';
 import { DrizzleRunnerPoolRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-pool.repository';
 import { DrizzleRunnerTrustRepository } from '@runners/infrastructure/persistence/drizzle/repositories/runner-trust.repository';
+import { DrizzleSandboxRepository } from '@runners/infrastructure/persistence/drizzle/repositories/sandbox.repository';
 import { DrizzleUsedEgressTokensRepository } from '@runners/infrastructure/persistence/drizzle/repositories/used-egress-tokens.repository';
 import { DrizzleUsedPoolTokensRepository } from '@runners/infrastructure/persistence/drizzle/repositories/used-pool-tokens.repository';
 import { DrizzleWorkspaceRunnersRepository } from '@runners/infrastructure/persistence/drizzle/repositories/workspace-runners.repository';
 import { EncryptedProvisionSecrets } from '@runners/infrastructure/provision/encrypted-provision-secrets';
 import { SignedProvisionCalls } from '@runners/infrastructure/provision/signed-provision-calls';
 import { RunnerHostGauges } from '@runners/infrastructure/telemetry/runner-host-gauges';
+import { HostSandboxTunnels } from '@runners/infrastructure/tunnels/host-sandbox-tunnels';
 import { runnersSubscribers } from '@runners/presentation/events/runners.subscribers';
 import { EgressResourceController } from '@runners/presentation/http/controllers/egress-resource.controller';
 import { HostController } from '@runners/presentation/http/controllers/host.controller';
@@ -142,6 +155,7 @@ import { RunnerPoolResourceController } from '@runners/presentation/http/control
 import { RunnerRegistrationController } from '@runners/presentation/http/controllers/runner-registration.controller';
 import { RunnerTrustResourceController } from '@runners/presentation/http/controllers/runner-trust-resource.controller';
 import { WorkspaceRunnersResourceController } from '@runners/presentation/http/controllers/workspace-runners-resource.controller';
+import { SandboxesWorker } from '@runners/presentation/workers/sandboxes.worker';
 import { StaleHostsWorker } from '@runners/presentation/workers/stale-hosts.worker';
 import {
   CLOCK,
@@ -306,6 +320,54 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       new StaleHostsWorker(purging, logger),
   },
   {
+    provide: Sandboxes,
+    inject: [
+      DrizzleSandboxRepository,
+      ENV,
+      ID_GENERATOR,
+      TOKEN_ISSUER,
+      TRANSACTION,
+      LOGGER,
+    ],
+    useFactory: (
+      sandboxes: DrizzleSandboxRepository,
+      env: Env,
+      ids: IdGeneratorPort,
+      tokens: TokenIssuer,
+      transaction: TransactionPort,
+      logger: LoggerPort,
+    ) =>
+      new Sandboxes(
+        sandboxes,
+        SandboxDrainPolicy.of({
+          graceMs: env.SPOTLIGHT_SANDBOX_GRACE,
+          editorLimitMs: env.SPOTLIGHT_EDITOR_LIMIT,
+        }),
+        ids,
+        tokens,
+        transaction,
+        logger,
+      ),
+  },
+  { provide: SANDBOXES, useExisting: Sandboxes },
+  { provide: EDITOR_SANDBOXES, useExisting: Sandboxes },
+  {
+    provide: HostAdmission,
+    inject: [RUNNER_AUTHENTICATOR, DrizzleRunnerHostRepository],
+    useFactory: (
+      authenticator: RunnerAuthenticatorPort,
+      hosts: DrizzleRunnerHostRepository,
+    ) => new HostAdmission(authenticator, hosts),
+  },
+  HostSandboxTunnels,
+  { provide: SANDBOX_TUNNELS, useExisting: HostSandboxTunnels },
+  {
+    provide: SandboxesWorker,
+    inject: [Sandboxes, CLOCK, LOGGER],
+    useFactory: (sandboxes: Sandboxes, clock: ClockPort, logger: LoggerPort) =>
+      new SandboxesWorker(sandboxes, clock, logger),
+  },
+  {
     provide: RUNNER_EGRESS,
     inject: [
       DrizzleRunnerRepository,
@@ -366,6 +428,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       DrizzleRunnerTrustRepository,
       DrizzleRunnerHostRepository,
       DrizzleRunnerRepository,
+      DrizzleSandboxRepository,
       DrizzleEgressRepository,
       PROVISION_CALLS,
       PROVISION_SECRETS,
@@ -381,6 +444,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       trusts: DrizzleRunnerTrustRepository,
       hosts: DrizzleRunnerHostRepository,
       runners: DrizzleRunnerRepository,
+      sandboxes: DrizzleSandboxRepository,
       egresses: DrizzleEgressRepository,
       calls: ProvisionCallsPort,
       secrets: ProvisionSecretsPort,
@@ -396,6 +460,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
         trusts,
         hosts,
         runners,
+        sandboxes,
         egresses,
         calls,
         secrets,
@@ -440,6 +505,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   DrizzleUsedEgressTokensRepository,
   DrizzleRunnerRepository,
   DrizzleRunnerHostRepository,
+  DrizzleSandboxRepository,
 
   {
     provide: RUNNER_READER,
@@ -469,6 +535,11 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(HostHeartbeatCommand, HostHeartbeatHandler, [
     RUNNER_AUTHENTICATOR,
     DrizzleRunnerHostRepository,
+    Sandboxes,
+    CLOCK,
+  ]),
+  ...bindCommandHandler(OpenSandboxCommand, OpenSandboxHandler, [
+    SANDBOXES,
     CLOCK,
   ]),
   ...bindCommandHandler(DeregisterHostCommand, DeregisterHostHandler, [

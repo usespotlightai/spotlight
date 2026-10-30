@@ -5,7 +5,6 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
-import { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import { RunPaused } from '@work/domain/events/run-paused.event';
 import { RunResumed } from '@work/domain/events/run-resumed.event';
 import { RunSuspended } from '@work/domain/events/run-suspended.event';
@@ -42,9 +41,7 @@ const claimed = () =>
     }),
   }).claim(RUNNER, NOW);
 
-const waiting = () => claimed().paused(RUNNER, CLEAN, ASKED, NOW);
-
-const suspended = () => waiting().suspend(RUNNER, later(60_000));
+const suspended = () => claimed().suspend(RUNNER, CLEAN, ASKED, NOW);
 
 const lastEvent = (run: Run) => {
   const events = run.pullEvents();
@@ -53,18 +50,20 @@ const lastEvent = (run: Run) => {
 };
 
 describe('a run that asks a person', () => {
-  describe('pausing', () => {
-    it('waits for the answer instead of ending, still leased by its runner', () => {
-      const run = waiting();
+  describe('suspending', () => {
+    it('leaves its lease at once instead of ending, keeping the attempt', () => {
+      const run = suspended();
 
-      expect(run.state).toBe('waiting');
+      expect(run.state).toBe('suspended');
       expect(run.hasEnded).toBe(false);
-      expect(run.isLeasedBy(RUNNER)).toBe(true);
-      expect(run.waitsForAPerson).toBe(true);
+      expect(run.claimedBy).toBeNull();
+      expect(run.leaseExpiresAt).toBeNull();
+      expect(run.isLeasedBy(RUNNER)).toBe(false);
+      expect(run.suspendedAttempts).toEqual([1]);
     });
 
-    it('says what the turn ended with, so the task is put to the person', () => {
-      expect(waiting().pullEvents()).toEqual([
+    it('says what the turn ended with, and that its runner left it, so its secrets, runner and sandbox lease are released', () => {
+      expect(suspended().pullEvents()).toEqual([
         new RunPaused(
           RunId.of('run_1'),
           WorkspaceId.of('ws_1'),
@@ -75,32 +74,39 @@ describe('a run that asks a person', () => {
           ASKED.session,
           1,
           NOW,
+          false,
+        ),
+        new RunSuspended(
+          RunId.of('run_1'),
+          WorkspaceId.of('ws_1'),
+          RUNNER,
+          NOW,
+          1,
         ),
       ]);
     });
 
-    it('remembers the session it paused in, for a runner that takes it up later', () => {
-      expect(waiting().spec.value.resume).toEqual({
+    it('remembers the session it was suspended in, for the run that takes it up', () => {
+      expect(suspended().spec.value.resume).toEqual({
         key: 'task_1:station_1',
         sessionId: 'session_1',
         resumeSession: true,
       });
-      expect(waiting().restoresFrom?.value).toBe('task_1:station_1');
+      expect(suspended().restoresFrom?.value).toBe('task_1:station_1');
     });
 
-    it('keeps its lease while it waits, and lets its runner renew it and journal', () => {
-      const run = waiting();
-
-      expect(run.leaseExpiresAt?.getTime()).toBeGreaterThan(NOW.getTime());
-      expect(run.renewLease(RUNNER, later(30_000)).state).toBe('waiting');
-      expect(run.journalFor(RUNNER)).toEqual(
-        RunAttempt.of(RunId.of('run_1'), 1),
+    it('lets its runner renew or journal it no more', () => {
+      expect(() => suspended().renewLease(RUNNER, later(30_000))).toThrow(
+        InvalidRunTransitionError,
+      );
+      expect(() => suspended().journalFor(RUNNER)).toThrow(
+        InvalidRunTransitionError,
       );
     });
 
-    it('does not wait on a turn that failed or was stopped', () => {
+    it('is not suspended on a turn that failed or was stopped', () => {
       expect(() =>
-        claimed().paused(
+        claimed().suspend(
           RUNNER,
           RunOutcome.of({ exitCode: 1, failed: true }),
           ASKED,
@@ -108,124 +114,41 @@ describe('a run that asks a person', () => {
         ),
       ).toThrow(InvalidRunTransitionError);
       expect(() =>
-        claimed().paused(RUNNER, RunOutcome.stopped(130), ASKED, NOW),
+        claimed().suspend(RUNNER, RunOutcome.stopped(130), ASKED, NOW),
       ).toThrow(InvalidRunTransitionError);
     });
 
-    it('does not wait once a person requested it to stop', () => {
+    it('is not suspended once a person requested it to stop', () => {
       expect(() =>
-        claimed().requestStop(NOW).paused(RUNNER, CLEAN, ASKED, NOW),
+        claimed().requestStop(NOW).suspend(RUNNER, CLEAN, ASKED, NOW),
       ).toThrow(InvalidRunTransitionError);
     });
 
-    it('is paused only by the runner that leases it, and only while working', () => {
-      expect(() => claimed().paused(OTHER, CLEAN, ASKED, NOW)).toThrow(
+    it('is suspended only by the runner that leases it, and only while working', () => {
+      expect(() => claimed().suspend(OTHER, CLEAN, ASKED, NOW)).toThrow(
         InvalidRunTransitionError,
       );
-      expect(() => waiting().paused(RUNNER, CLEAN, ASKED, NOW)).toThrow(
+      expect(() => suspended().suspend(RUNNER, CLEAN, ASKED, NOW)).toThrow(
         InvalidRunTransitionError,
       );
     });
   });
 
-  describe('answered while it waits warm', () => {
-    it('goes back to work on the same attempt, still leased by its runner', () => {
-      const run = waiting().resumed();
-
-      expect(run.state).toBe('claimed');
-      expect(run.attempt).toBe(1);
-      expect(run.isLeasedBy(RUNNER)).toBe(true);
-      expect(lastEvent(run)).toEqual(
-        new RunResumed(
-          RunId.of('run_1'),
-          WorkspaceId.of('ws_1'),
-          null,
-          1,
-          true,
-        ),
-      );
-    });
-
-    it('is not suspended afterwards: suspending leaves it working for the answer to be given', () => {
-      const run = waiting().resumed();
-
-      const after = run.suspend(RUNNER, later(60_000));
-
-      expect(after).toBe(run);
-      expect(after.state).toBe('claimed');
-    });
-
-    it('can pause again at the end of a later turn', () => {
-      const run = waiting().resumed().paused(RUNNER, CLEAN, ASKED, NOW);
-
-      expect(run.state).toBe('waiting');
-      expect(run.attempt).toBe(1);
-    });
-  });
-
-  describe('suspending once the grace period ends', () => {
-    it('releases its runner and keeps the attempt, so its journal still shows it', () => {
-      const run = suspended();
-
-      expect(run.state).toBe('suspended');
-      expect(run.claimedBy).toBeNull();
-      expect(run.leaseExpiresAt).toBeNull();
-      expect(run.suspendedAttempts).toEqual([1]);
-      expect(run.hasEnded).toBe(false);
-      expect(run.waitsForAPerson).toBe(true);
-    });
-
-    it('says the runner left it, so its secrets and its runner are released', () => {
-      expect(lastEvent(waiting().suspend(RUNNER, later(60_000)))).toEqual(
-        new RunSuspended(
-          RunId.of('run_1'),
-          WorkspaceId.of('ws_1'),
-          RUNNER,
-          later(60_000),
-          1,
-        ),
-      );
-    });
-
-    it('is suspended only by the runner that leases it', () => {
-      expect(() => waiting().suspend(OTHER, NOW)).toThrow(
-        InvalidRunTransitionError,
-      );
-      expect(() => suspended().suspend(RUNNER, NOW)).toThrow(
-        InvalidRunTransitionError,
-      );
-    });
-
-    it('ends stopped instead when a person requested it to stop while it waited', () => {
-      const run = waiting().requestStop(NOW).suspend(RUNNER, later(60_000));
-
-      expect(run.state).toBe('completed');
-      expect(run.outcome?.stopped).toBe(true);
-      expect(lastEvent(run)).toBeInstanceOf(RunCompleted);
-    });
-  });
-
-  describe('answered once suspended', () => {
-    it('goes back on the queue as its next attempt, for any runner to take up from the archive', () => {
+  describe('answered', () => {
+    it('goes back on the queue as its next attempt, to resume its session', () => {
       const run = suspended().resumed();
 
       expect(run.state).toBe('queued');
       expect(run.attempt).toBe(2);
       expect(run.suspendedAttempts).toEqual([1]);
       expect(run.spec.resumesSession).toBe(true);
-      expect(run.restoresFrom?.value).toBe('task_1:station_1');
+      expect(run.outcome).toBeNull();
       expect(lastEvent(run)).toEqual(
-        new RunResumed(
-          RunId.of('run_1'),
-          WorkspaceId.of('ws_1'),
-          null,
-          2,
-          false,
-        ),
+        new RunResumed(RunId.of('run_1'), WorkspaceId.of('ws_1'), null, 2),
       );
     });
 
-    it('is claimed by another runner on its new attempt', () => {
+    it('is claimed by a runner on its new attempt', () => {
       const run = suspended().resumed().claim(OTHER, later(120_000));
 
       expect(run.isLeasedBy(OTHER)).toBe(true);
@@ -234,12 +157,21 @@ describe('a run that asks a person', () => {
       );
     });
 
+    it('cannot be taken up twice by one answer', () => {
+      const run = suspended().resumed();
+
+      expect(run.resumable).toBe(false);
+      expect(() => run.resumed()).toThrow(InvalidRunTransitionError);
+    });
+
     it('does not count waiting for a person against the attempts a lost runner is given', () => {
       let run = suspended().resumed();
 
       for (let times = 0; times < 2; times++) {
-        run = run.claim(RUNNER, NOW).paused(RUNNER, CLEAN, ASKED, NOW);
-        run = run.suspend(RUNNER, NOW).resumed();
+        run = run
+          .claim(RUNNER, NOW)
+          .suspend(RUNNER, CLEAN, ASKED, NOW)
+          .resumed();
       }
 
       const lost = run.claim(RUNNER, NOW);
@@ -267,86 +199,21 @@ describe('a run that asks a person', () => {
     expect(exhausted.expiredLeases).toBe(3);
   });
 
-  it('goes back on the queue from its archive when its runner, harness already closed, suspends it after the answer came', () => {
-    const run = waiting().resumed().suspend(RUNNER, later(60_000), true);
-
-    expect(run.state).toBe('queued');
-    expect(run.attempt).toBe(2);
-    expect(run.suspendedAttempts).toEqual([1]);
-    expect(run.spec.resumesSession).toBe(true);
-    expect(lastEvent(run)).toBeInstanceOf(RunSuspended);
-  });
-
-  it('ends stopped rather than go back on the queue when a stop was requested before it was suspended to be requeued', () => {
-    const run = waiting()
-      .resumed()
-      .requestStop(NOW)
-      .suspend(RUNNER, later(60_000), true);
+  it('ends stopped at once when a person stops it while suspended', () => {
+    const run = suspended().requestStop(NOW);
 
     expect(run.state).toBe('completed');
     expect(run.outcome?.stopped).toBe(true);
-  });
-
-  it('is suspended to be requeued only once an answer resumed it from a pause', () => {
-    expect(() => claimed().suspend(RUNNER, NOW, true)).toThrow(
-      InvalidRunTransitionError,
-    );
-  });
-
-  describe('the one order when the grace period ends', () => {
-    it('lets the answer reach the live session when it comes before the run is suspended', () => {
-      const answered = waiting().resumed();
-
-      expect(answered.state).toBe('claimed');
-      expect(answered.suspend(RUNNER, later(60_000)).isLeasedBy(RUNNER)).toBe(
-        true,
-      );
-    });
-
-    it('requeues from the archive when the answer comes once the run is suspended', () => {
-      expect(suspended().resumed().state).toBe('queued');
-    });
-
-    it('cannot be taken up twice by one answer', () => {
-      expect(() => waiting().resumed().resumed()).toThrow(
-        InvalidRunTransitionError,
-      );
-      expect(() => suspended().resumed().resumed()).toThrow(
-        InvalidRunTransitionError,
-      );
-    });
-  });
-
-  describe('when a person stops it while it waits', () => {
-    it('gets a stop request while warm, so its runner ends it stopped', () => {
-      const run = waiting().requestStop(NOW);
-
-      expect(run.stopRequested).toBe(true);
-      expect(run.resumable).toBe(false);
-      expect(() => run.resumed()).toThrow(InvalidRunTransitionError);
-      expect(run.complete(RUNNER, RunOutcome.stopped(0)).state).toBe(
-        'completed',
-      );
-    });
-
-    it('ends stopped at once when a person stops it while suspended', () => {
-      const run = suspended().requestStop(NOW);
-
-      expect(run.state).toBe('completed');
-      expect(run.outcome?.stopped).toBe(true);
-      expect(lastEvent(run)).toBeInstanceOf(RunCompleted);
-    });
+    expect(lastEvent(run)).toBeInstanceOf(RunCompleted);
   });
 
   describe('cancelled by its task', () => {
-    it('ends as its paused turn ended, whether waiting warm or suspended', () => {
-      for (const paused of [waiting(), suspended()]) {
-        const ended = paused.cancel(NOW);
+    it('ends as its suspended turn ended', () => {
+      const ended = suspended().cancel(NOW);
 
-        expect(ended.state).toBe('completed');
-        expect(ended.outcome).toEqual(CLEAN);
-        expect(lastEvent(ended)).toBeInstanceOf(RunCompleted);
-      }
+      expect(ended.state).toBe('completed');
+      expect(ended.outcome).toEqual(CLEAN);
+      expect(lastEvent(ended)).toBeInstanceOf(RunCompleted);
     });
 
     it('requests a working run to stop, and cancels one still queued', () => {
@@ -360,40 +227,10 @@ describe('a run that asks a person', () => {
         }).cancel(NOW).state,
       ).toBe('cancelled');
     });
-
-    it('carries the outcome of its paused turn until it is taken up again', () => {
-      expect(waiting().outcome).toEqual(CLEAN);
-      expect(waiting().resumed().outcome).toBeNull();
-      expect(suspended().resumed().outcome).toBeNull();
-    });
   });
 
-  describe('losing its runner while it waits warm', () => {
-    it('is suspended rather than going back on the queue, keeping the attempt', () => {
-      const run = waiting();
-      const expiredAt = run.leaseExpiresAt as Date;
-
-      const lost = run.expireLease(expiredAt);
-
-      expect(lost.state).toBe('suspended');
-      expect(lost.attempt).toBe(1);
-      expect(lost.suspendedAttempts).toEqual([1]);
-      expect(lastEvent(lost)).toEqual(
-        new RunLeaseExpired(
-          RunId.of('run_1'),
-          WorkspaceId.of('ws_1'),
-          RUNNER,
-          expiredAt,
-          1,
-        ),
-      );
-    });
-  });
-
-  it('reads back as it was stored while waiting or suspended, and never leased when suspended', () => {
-    expect(Run.rehydrate({ ...waiting() }).state).toBe('waiting');
+  it('reads back as it was stored while suspended, and never leased', () => {
     expect(Run.rehydrate({ ...suspended() }).suspendedAttempts).toEqual([1]);
-    expect(() => Run.rehydrate({ ...waiting(), claimedBy: null })).toThrow();
     expect(() =>
       Run.rehydrate({ ...suspended(), claimedBy: RUNNER }),
     ).toThrow();

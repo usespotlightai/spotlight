@@ -393,7 +393,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       .post(`/api/runs/${runId}/completion`)
       .set('Authorization', `Bearer ${runner.token}`)
       .send({ exitCode: 0, failed: false })
-      .expect(200);
+      .expect(204);
     const [ended] = await eventually(async () => {
       const rows = await db
         .select()

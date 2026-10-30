@@ -251,6 +251,17 @@ describe('Task', () => {
     ).toBeInTheDocument();
   });
 
+  it('opens the task’s workspace in VS Code', () => {
+    renderAt('task_1');
+
+    expect(
+      screen.getByRole('link', { name: 'Open in VS Code' }),
+    ).toHaveAttribute(
+      'href',
+      'vscode://vscode-remote/ssh-remote+task-task_1.acme.spotlight/workspace',
+    );
+  });
+
   it('names the line it came from in the breadcrumbs', () => {
     renderAt('task_1');
 

@@ -14,7 +14,6 @@ import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 export interface TurnEnd {
-  readonly waiting: boolean;
   readonly run: Run;
   readonly task: Task | null;
 }
@@ -49,23 +48,6 @@ const asksAPerson = (turn: Turn): boolean => {
   return task.awaitingReview || putsItToAPerson(routing);
 };
 
-export const turnWaits = (
-  turn: Turn & { readonly by: RunnerId; readonly mayBeSentToReview: boolean },
-): boolean => {
-  if (turn.run.pausedBy(turn.by)) {
-    return !turn.outcome.stopped;
-  }
-
-  const sentToReview =
-    turn.mayBeSentToReview && turn.handover
-      ? { ...turn, handover: turn.handover.sentToReview('') }
-      : null;
-
-  return (
-    asksAPerson(turn) || (sentToReview !== null && asksAPerson(sentToReview))
-  );
-};
-
 export const turnEnded = (turn: {
   run: Run;
   by: RunnerId;
@@ -73,10 +55,9 @@ export const turnEnded = (turn: {
   line: Line | null;
   outcome: RunOutcome;
   report: HandoverReport;
-  archived: boolean;
   now: Date;
 }): TurnEnd => {
-  const { run, by, task, line, outcome, report, archived, now } = turn;
+  const { run, by, task, line, outcome, report, now } = turn;
 
   const ending = {
     run,
@@ -87,39 +68,27 @@ export const turnEnded = (turn: {
     lastWords: report.lastWords,
   };
 
-  if (run.leavesNothingBehind) {
-    return {
-      waiting: false,
-      run: run.complete(by, outcome, report),
-      task: null,
-    };
-  }
-
-  const waits = turnWaits({ ...ending, by, mayBeSentToReview: false });
-
-  if (waits && run.pausedBy(by)) {
-    return { waiting: true, run, task: null };
-  }
-
-  if (!task || !archived || !waits) {
-    return {
-      waiting: false,
-      run: run.complete(by, outcome, report),
-      task: null,
-    };
+  if (run.leavesNothingBehind || !task || !asksAPerson(ending)) {
+    return { run: run.complete(by, outcome, report), task: null };
   }
 
   if (task.unacknowledged.length > 0) {
-    return { waiting: true, run, task: null };
+    return {
+      run: run
+        .suspend(by, outcome, report, now, { resumesAtOnce: true })
+        .resumed(),
+      task: null,
+    };
   }
+
+  const suspended = run.suspend(by, outcome, report, now);
 
   const recorded = report.session
     ? task.recordSession(report.session, by)
     : task;
 
   return {
-    waiting: true,
-    run: run.paused(by, outcome, report, now),
+    run: suspended,
     task: recorded.awaitingReview
       ? recorded
       : recorded.putToAPerson(run.id, {

@@ -10,6 +10,24 @@ const LOG_LEVELS = [
   'silent',
 ] as const;
 
+const UNIT_MS: Readonly<Record<string, number>> = {
+  ms: 1,
+  s: 1_000,
+  m: 60_000,
+  h: 60 * 60_000,
+};
+
+const duration = (fallback: string) =>
+  z
+    .string()
+    .regex(/^\d+(ms|s|m|h)$/, 'is a duration such as 90s, 10m or 12h')
+    .default(fallback)
+    .transform((raw) => {
+      const [, amount, unit] = /^(\d+)(ms|s|m|h)$/.exec(raw) ?? [];
+      return Number(amount) * UNIT_MS[unit];
+    })
+    .pipe(z.number().int().positive());
+
 export const databaseSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
 });
@@ -51,6 +69,8 @@ export const envSchema = databaseSchema
     // Shares live drafts between control-plane instances. Without it, people writing one draft must reach the same instance.
     REDIS_URL: z.url({ protocol: /^rediss?$/ }).optional(),
     SPOTLIGHT_LONG_POLL_MS: z.coerce.number().int().positive().default(10_000),
+    SPOTLIGHT_SANDBOX_GRACE: duration('10m'),
+    SPOTLIGHT_EDITOR_LIMIT: duration('12h'),
     SPOTLIGHT_MCP_RELIST_SECONDS: z.coerce
       .number()
       .int()

@@ -42,6 +42,10 @@ import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-poo
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
+import { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
+import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
+import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
+import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
@@ -76,6 +80,10 @@ export const RUNNERS_PAYLOAD_TYPES = [
   RunnerPoolId,
   RunnerLabels,
   RunnerTrustId,
+  SandboxDrainPolicy,
+  SandboxId,
+  SandboxKey,
+  SandboxLease,
   TrustKey,
   TrustedWorkload,
   WorkspaceRunnersId,

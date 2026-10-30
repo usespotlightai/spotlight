@@ -13,7 +13,7 @@ func setRequired(t *testing.T) {
 
 	for _, name := range []string{
 		"SPOTLIGHT_URL", "SPOTLIGHT_RUN_TOKEN", "SPOTLIGHT_ASSIGNMENT_FILE", "SPOTLIGHT_WORKSPACE",
-		"SPOTLIGHT_AGENT_USER", "SPOTLIGHT_GIT_AUTHOR_NAME", "SPOTLIGHT_GIT_AUTHOR_EMAIL", "SPOTLIGHT_ANSWER_WAIT",
+		"SPOTLIGHT_AGENT_USER", "SPOTLIGHT_GIT_AUTHOR_NAME", "SPOTLIGHT_GIT_AUTHOR_EMAIL", "SPOTLIGHT_RUN_TIMEOUT",
 		"SPOTLIGHT_EGRESS_URL", "SPOTLIGHT_EGRESS_PROXY_CREDENTIAL", "SPOTLIGHT_EGRESS_TRAFFIC",
 	} {
 		t.Setenv(name, "")
@@ -102,31 +102,31 @@ func TestLoadWorksInTheSamePlaceEveryTime(t *testing.T) {
 	if cfg.Author.Name != "Spotlight" || cfg.Author.Email != "noreply@usespotlight.ai" {
 		t.Errorf("author %+v", cfg.Author)
 	}
-	if cfg.AnswerWait != 0 {
-		t.Errorf("a runner no host started waits %v for an answer, rather than suspending at once", cfg.AnswerWait)
+	if cfg.RunTimeout != 0 {
+		t.Errorf("a runner no host started stops its run after %v", cfg.RunTimeout)
 	}
 }
 
-func TestLoadReadsHowLongToWaitWarmForAnAnswer(t *testing.T) {
+func TestLoadReadsHowLongOneRunMayTake(t *testing.T) {
 	setRequired(t)
-	t.Setenv("SPOTLIGHT_ANSWER_WAIT", "90s")
+	t.Setenv("SPOTLIGHT_RUN_TIMEOUT", "90s")
 
 	cfg, err := config.Load(nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if cfg.AnswerWait != 90*time.Second {
-		t.Errorf("answer wait %v", cfg.AnswerWait)
+	if cfg.RunTimeout != 90*time.Second {
+		t.Errorf("run timeout %v", cfg.RunTimeout)
 	}
 }
 
-func TestLoadRejectsAnAnswerWaitThatIsNoDurationOrIsNegative(t *testing.T) {
+func TestLoadRejectsARunTimeoutThatIsNoDurationOrIsNegative(t *testing.T) {
 	for _, raw := range []string{"soon", "90", "-1s"} {
 		setRequired(t)
-		t.Setenv("SPOTLIGHT_ANSWER_WAIT", raw)
+		t.Setenv("SPOTLIGHT_RUN_TIMEOUT", raw)
 
-		if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_ANSWER_WAIT") {
+		if _, err := config.Load(nil); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_RUN_TIMEOUT") {
 			t.Errorf("%q: expected an error, got %v", raw, err)
 		}
 	}

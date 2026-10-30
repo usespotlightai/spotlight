@@ -283,23 +283,6 @@ type Completion struct {
 	Message     string    `json:"message,omitempty"`
 	Handover    *Handover `json:"handover,omitempty"`
 	SessionID   string    `json:"sessionId,omitempty"`
-	Archived    bool      `json:"archived,omitempty"`
-}
-
-type TurnAwaitsPerson struct {
-	AwaitsPerson bool `json:"awaitsPerson"`
-}
-
-type CompleteResponse struct {
-	Waiting bool `json:"waiting"`
-}
-
-type SuspendRequest struct {
-	Requeue bool `json:"requeue,omitempty"`
-}
-
-type Suspension struct {
-	Suspended bool `json:"suspended"`
 }
 
 type StoredArchive struct {
@@ -344,8 +327,9 @@ type ChangeStackGenerationRequest struct {
 }
 
 const (
-	ClaimedRun   = "run"
-	ClaimedCheck = "check"
+	ClaimedRun     = "run"
+	ClaimedCheck   = "check"
+	ClaimedSandbox = "sandbox"
 )
 
 type ClaimResponse struct {
@@ -355,10 +339,18 @@ type ClaimResponse struct {
 }
 
 type Assignment struct {
-	RunnerID    string        `json:"runnerId"`
-	Token       string        `json:"token"`
-	EgressToken string        `json:"egressToken,omitempty"`
-	Work        ClaimResponse `json:"work"`
+	RunnerID     string        `json:"runnerId"`
+	Token        string        `json:"token"`
+	EgressToken  string        `json:"egressToken,omitempty"`
+	SandboxID    string        `json:"sandboxId,omitempty"`
+	SandboxToken string        `json:"sandboxToken,omitempty"`
+	AllowedHosts []string      `json:"allowedHosts,omitempty"`
+	Reused       bool          `json:"reused,omitempty"`
+	Work         ClaimResponse `json:"work"`
+}
+
+func (a Assignment) StartsSandboxOnly() bool {
+	return a.Work.Kind == ClaimedSandbox
 }
 
 type StackCheck struct {

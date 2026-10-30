@@ -7,26 +7,16 @@ import type { LeasedRunReaderPort } from '@work/application/ports/leased-run-rea
 import type { PendingMessagesQuery } from '@work/application/queries/pending-messages.query';
 import { Attached } from '@work/application/rendering/attached';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
 
 export class PendingMessagesHandler
   implements QueryHandlerPort<PendingMessagesQuery, PendingMessageDto[]>
 {
-  constructor(
-    private readonly runs: RunRepository,
-    private readonly leasedRuns: LeasedRunReaderPort,
-  ) {}
+  constructor(private readonly leasedRuns: LeasedRunReaderPort) {}
 
   async execute(query: PendingMessagesQuery): Promise<PendingMessageDto[]> {
     try {
       const runId = RunId.of(query.runId);
       const runner = RunnerId.of(query.runnerId);
-      const run = await this.runs.findById(runId);
-
-      if (run?.pausedBy(runner)) {
-        return [];
-      }
-
       const pending = await this.leasedRuns.pendingFor(runId, runner);
 
       if (!pending) {

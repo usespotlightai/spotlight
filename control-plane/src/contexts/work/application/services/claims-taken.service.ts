@@ -40,6 +40,10 @@ export class ClaimsTaken {
     );
   }
 
+  async dropRun(claimed: Run, runner: RunnerId): Promise<void> {
+    await this.runUnclaimed(claimed, runner);
+  }
+
   async check(claimed: ClaimedCheck, runner: RunnerId): Promise<void> {
     await this.taken(runner, { kind: 'check', id: claimed.stackId }, () =>
       this.checks.unclaim(

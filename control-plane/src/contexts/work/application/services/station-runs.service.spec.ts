@@ -180,10 +180,10 @@ describe('StationRuns.unfinished', () => {
             },
           }),
           unfinishedRow('run_stopping', {
-            state: 'waiting',
+            state: 'claimed',
             stopRequested: true,
           }),
-          unfinishedRow('run_waiting', { state: 'waiting' }),
+          unfinishedRow('run_suspended', { state: 'suspended' }),
         ],
       } as unknown as StationRunReaderPort,
       NO_SKILLS,

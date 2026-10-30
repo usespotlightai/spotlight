@@ -60,6 +60,7 @@ export interface RunnersPort {
     image: string,
     at: Date,
     claimBy: Date,
+    into?: string | null,
   ): Promise<StartedRunner>;
 
   reports(source: CredentialSourceRef, host: string): Promise<boolean>;
