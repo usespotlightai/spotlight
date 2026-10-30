@@ -7,6 +7,7 @@ import { JudgeAgreement } from '@/components/features/stations/judge/JudgeAgreem
 import { StationRunOutcomes } from '@/components/features/stations/outcomes/StationRunOutcomes';
 import { StationSection } from '@/components/features/stations/StationSection';
 import { useStation } from '@/hooks/api/useStation';
+import { useStationInsights } from '@/hooks/api/useStationInsights';
 import {
   failedAny,
   RUNS_BY_CONFIG_NOTE,
@@ -35,6 +36,8 @@ export function StationInsights({
   const named = names.get(stationId);
   const lineId = named?.lineId ?? report?.lineId;
   const { station } = useStation(teamId, lineId, stationId);
+  const outcomes = useStationInsights(teamId, lineId, stationId);
+  const ranAny = (outcomes.data?.groups.length ?? 0) > 0;
 
   return (
     <div data-slot="station-insights" className="flex flex-col gap-6">
@@ -75,6 +78,7 @@ export function StationInsights({
           scrolls
           title="Runs by config"
           description={RUNS_BY_CONFIG_NOTE}
+          className={ranAny ? undefined : 'bg-transparent'}
         >
           <StationRunOutcomes
             slug={slug}
