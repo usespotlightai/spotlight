@@ -8,6 +8,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { DecisionCard } from '@/components/shared/DecisionCard';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useGradeRun } from '@/hooks/api/useGradeRun';
 import { useRunScores } from '@/hooks/api/useRunScores';
 import { notFound } from '@/lib/error';
@@ -59,7 +60,14 @@ export function GradeRun({ slug, teamId, runId }: GradeRunProps) {
         trailing={<GradeSaving pending={grade.isPending} />}
       />
 
-      {rubricBody !== null && <GradeRubric rubric={rubricBody} />}
+      {rubricBody !== null && (
+        <ScrollArea
+          className="max-h-48 rounded"
+          viewportClassName="overscroll-contain"
+        >
+          <GradeRubric rubric={rubricBody} />
+        </ScrollArea>
+      )}
 
       {scores.data.kind === 'claims' ? (
         <ClaimsGrade
