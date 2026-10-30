@@ -39,7 +39,12 @@ const LIST_PANE = {
 export function Inbox() {
   const { slug } = useParams();
   const inbox = useInbox(slug);
-  const listPane = usePaneWidth<HTMLDivElement>(LIST_PANE);
+  const {
+    width: listWidth,
+    resizing: listResizing,
+    paneRef: listRef,
+    handleProps: listHandle,
+  } = usePaneWidth<HTMLDivElement>(LIST_PANE);
   const sections = useCollapsed(SECTIONS_STORAGE_KEY);
   const animating = useTimedFlag(DISCLOSURE_MS);
   const toggle = (section: string) => {
@@ -61,12 +66,12 @@ export function Inbox() {
       <div
         className={cn(
           'flex min-h-0 flex-1',
-          listPane.resizing && 'cursor-col-resize select-none',
+          listResizing && 'cursor-col-resize select-none',
         )}
       >
         <div
-          ref={listPane.paneRef}
-          style={{ width: listPane.width }}
+          ref={listRef}
+          style={{ width: listWidth }}
           className="relative flex shrink-0 flex-col border-r-[0.5px] border-border"
         >
           <PageHeader title={<Breadcrumbs segments={[{ label: 'Inbox' }]} />} />
@@ -139,11 +144,7 @@ export function Inbox() {
             <InboxDragOverlay slug={slug} entry={drag.dragged} />
           </DndContext>
 
-          <PaneHandle
-            {...listPane.handleProps}
-            edge="right"
-            resizing={listPane.resizing}
-          />
+          <PaneHandle {...listHandle} edge="right" resizing={listResizing} />
         </div>
 
         <PageOutlet />

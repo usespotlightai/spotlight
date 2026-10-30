@@ -5,6 +5,7 @@ export function useObjectUrl(file: Blob): string | null {
 
   useEffect(() => {
     const made = URL.createObjectURL(file);
+    // react-doctor-disable-next-line react-hooks-js/set-state-in-effect
     setUrl(made);
 
     return () => URL.revokeObjectURL(made);

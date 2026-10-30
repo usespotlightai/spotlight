@@ -19,7 +19,12 @@ export function ChangeStackView({
   onPick,
 }: ChangeStackViewProps) {
   const located = layerAt(stack, layerId);
-  const nav = usePaneWidth<HTMLDivElement>(STACK_NAV_PANE);
+  const {
+    width: navWidth,
+    resizing: navResizing,
+    paneRef: navRef,
+    handleProps: navHandle,
+  } = usePaneWidth<HTMLDivElement>(STACK_NAV_PANE);
   const shown = located?.layer.id;
 
   usePreloadedLanguages(stack.files.map((file) => file.path));
@@ -27,8 +32,8 @@ export function ChangeStackView({
   return (
     <div className="flex min-h-0 flex-1">
       <div
-        ref={nav.paneRef}
-        style={{ width: nav.width }}
+        ref={navRef}
+        style={{ width: navWidth }}
         className="relative flex shrink-0 border-border border-r-[0.5px]"
       >
         <ScrollArea className="min-w-0 flex-1">
@@ -48,7 +53,7 @@ export function ChangeStackView({
           </nav>
         </ScrollArea>
 
-        <PaneHandle {...nav.handleProps} edge="right" resizing={nav.resizing} />
+        <PaneHandle {...navHandle} edge="right" resizing={navResizing} />
       </div>
 
       <Virtualizer className="min-w-0 flex-1 overflow-y-auto">

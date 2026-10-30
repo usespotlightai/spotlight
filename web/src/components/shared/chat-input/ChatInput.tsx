@@ -69,7 +69,10 @@ export function ChatInput({
   const cursors = useRef<HTMLDivElement>(null);
   const message = useChatMessage(slug, initialReferences, initialText, shared);
   const lifted = message.images.length > 0;
-  const fit = useOneLineFit(message.written, lifted);
+  const { inner, writing, height, expanded } = useOneLineFit(
+    message.written,
+    lifted,
+  );
 
   const { send, unsendable, stopping } = useChatSend({
     outgoing: message.outgoing,
@@ -102,26 +105,26 @@ export function ChatInput({
       <form
         onSubmit={send}
         {...(!disabled && message.handlers)}
-        style={fit.height === null ? undefined : { height: fit.height }}
+        style={height === null ? undefined : { height }}
         className="box-content overflow-hidden rounded-2xl border border-border bg-card shadow-xs transition-[height] duration-200 ease-out-quad motion-reduce:transition-none"
       >
         <div
-          ref={fit.inner}
-          data-expanded={fit.expanded || undefined}
-          style={fit.expanded ? EXPANDED : COMPACT}
+          ref={inner}
+          data-expanded={expanded || undefined}
+          style={expanded ? EXPANDED : COMPACT}
           className={cn(
             'grid items-center gap-x-1 gap-y-2 p-1.5',
-            fit.expanded && 'pt-0.5',
+            expanded && 'pt-0.5',
           )}
         >
-          {fit.expanded && lifted && (
+          {expanded && lifted && (
             <div style={{ gridArea: 'top' }} className="px-1.5 pt-1">
               <ImageThumbs images={message.images} onRemove={message.remove} />
             </div>
           )}
 
           <div
-            ref={fit.writing}
+            ref={writing}
             style={{ gridArea: 'editor' }}
             className="relative min-w-0 px-1.5"
           >
@@ -157,7 +160,7 @@ export function ChatInput({
             area="settings"
             className={cn(
               'flex min-w-0 items-center gap-1',
-              fit.expanded ? 'justify-start' : 'justify-end',
+              expanded ? 'justify-start' : 'justify-end',
             )}
           >
             {settings}

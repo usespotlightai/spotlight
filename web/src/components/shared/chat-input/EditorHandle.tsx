@@ -3,19 +3,19 @@ import type { LexicalEditor } from 'lexical';
 import { type RefObject, useEffect } from 'react';
 
 type EditorHandleProps = {
-  handle: RefObject<LexicalEditor | null>;
+  editorRef: RefObject<LexicalEditor | null>;
   editable: boolean;
 };
 
-export function EditorHandle({ handle, editable }: EditorHandleProps) {
+export function EditorHandle({ editorRef, editable }: EditorHandleProps) {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
-    handle.current = editor;
+    editorRef.current = editor;
     return () => {
-      handle.current = null;
+      editorRef.current = null;
     };
-  }, [editor, handle]);
+  }, [editor, editorRef]);
 
   useEffect(() => {
     editor.setEditable(editable);

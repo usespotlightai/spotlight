@@ -39,6 +39,51 @@ const resolved = (host: HTMLElement): Record<PullRequestType, string> => {
   return colors;
 };
 
+type Scene = {
+  geometry: FlowGeometry;
+  middle: number;
+  focus: PullRequestType | null;
+  height: number;
+};
+
+const paintDots = (
+  element: HTMLCanvasElement,
+  dots: readonly Dot[],
+  colors: Record<PullRequestType, string>,
+  { geometry, middle, focus, height }: Scene,
+) => {
+  const context = element.getContext('2d');
+
+  if (!context) {
+    return;
+  }
+
+  const ratio = window.devicePixelRatio || 1;
+  const width = geometry.width;
+
+  if (element.width !== Math.round(width * ratio)) {
+    element.width = Math.round(width * ratio);
+    element.height = Math.round(height * ratio);
+  }
+
+  context.setTransform(ratio, 0, 0, ratio, 0, 0);
+  context.clearRect(0, 0, width, height);
+
+  for (const dot of dots) {
+    context.globalAlpha = focus && dot.type !== focus ? FADED : SHOWN;
+    context.fillStyle = colors[dot.type];
+    context.beginPath();
+    context.arc(
+      dot.x,
+      middle + dot.lane * halfAt(geometry, dot.x) * 0.85,
+      dot.radius,
+      0,
+      Math.PI * 2,
+    );
+    context.fill();
+  }
+};
+
 export function usePipelineParticles({
   canvas,
   geometry,
@@ -57,39 +102,18 @@ export function usePipelineParticles({
 
   const paint = () => {
     const element = canvas.current;
-    const context = element?.getContext('2d');
 
-    if (!element || !context) {
+    if (!element) {
       return;
     }
-
-    const ratio = window.devicePixelRatio || 1;
-    const width = latest.current.geometry.width;
-
-    if (element.width !== Math.round(width * ratio)) {
-      element.width = Math.round(width * ratio);
-      element.height = Math.round(height * ratio);
+    if (!colors.current) {
+      colors.current = resolved(element.parentElement ?? document.body);
     }
 
-    colors.current ??= resolved(element.parentElement ?? document.body);
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    context.clearRect(0, 0, width, height);
-
-    const { focus: picked, middle: across } = latest.current;
-
-    for (const dot of dots.current) {
-      context.globalAlpha = picked && dot.type !== picked ? FADED : SHOWN;
-      context.fillStyle = colors.current[dot.type];
-      context.beginPath();
-      context.arc(
-        dot.x,
-        across + dot.lane * halfAt(latest.current.geometry, dot.x) * 0.85,
-        dot.radius,
-        0,
-        Math.PI * 2,
-      );
-      context.fill();
-    }
+    paintDots(element, dots.current, colors.current, {
+      ...latest.current,
+      height,
+    });
   };
 
   useLayoutEffect(() => {

@@ -7,10 +7,11 @@ import {
   useState,
 } from 'react';
 import {
-  carriesFiles,
+  allowFileDrop,
   drawn,
-  filesIn,
+  dropFiles,
   type PendingAttachment,
+  pasteFiles,
   sizeProblem,
 } from '@/lib/attachment';
 import { uploadAttachment } from '@/lib/upload-attachment';
@@ -81,35 +82,6 @@ export function useAttachments(
 
   const clear = () => setAttachments([]);
 
-  const handlersFor = (take: (files: readonly File[]) => void) => {
-    const took = (event: ClipboardEvent | DragEvent, files: File[]) => {
-      if (files.length === 0) {
-        return;
-      }
-
-      event.preventDefault();
-      event.stopPropagation();
-      take(files);
-    };
-
-    return {
-      onDragOver: (event: DragEvent) => {
-        if (carriesFiles(event.dataTransfer)) {
-          event.preventDefault();
-        }
-      },
-      onDropCapture: (event: DragEvent) => {
-        if (carriesFiles(event.dataTransfer)) {
-          event.preventDefault();
-          event.stopPropagation();
-        }
-        took(event, filesIn(event.dataTransfer));
-      },
-      onPasteCapture: (event: ClipboardEvent) =>
-        took(event, filesIn(event.clipboardData)),
-    };
-  };
-
   return {
     attachments,
     ids: attachments.flatMap((each) =>
@@ -119,7 +91,10 @@ export function useAttachments(
     add,
     remove,
     clear,
-    handlers: handlersFor(add),
-    handlersFor,
+    handlers: {
+      onDragOver: allowFileDrop,
+      onDropCapture: (event: DragEvent) => dropFiles(event, add),
+      onPasteCapture: (event: ClipboardEvent) => pasteFiles(event, add),
+    },
   };
 }

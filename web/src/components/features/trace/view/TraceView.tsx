@@ -22,7 +22,12 @@ type TraceViewProps = {
 export function TraceView({ trace, teamId }: TraceViewProps) {
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const [picked, setPicked] = useState<string | null>(null);
-  const names = usePaneWidth<HTMLDivElement>(NAMES_PANE);
+  const {
+    width: namesWidth,
+    resizing: namesResizing,
+    paneRef: namesRef,
+    handleProps: namesHandle,
+  } = usePaneWidth<HTMLDivElement>(NAMES_PANE);
   const listed = useRef<HTMLUListElement>(null);
   const panel = useRef<HTMLElement>(null);
 
@@ -78,15 +83,12 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
       }
     >
       <div
-        ref={names.paneRef}
+        ref={namesRef}
         className="relative flex min-w-0 flex-1 flex-col"
-        style={{ '--names': `${names.width}px` } as CSSProperties}
+        style={{ '--names': `${namesWidth}px` } as CSSProperties}
       >
         <div
-          className={cn(
-            'flex flex-1 flex-col',
-            names.resizing && 'select-none',
-          )}
+          className={cn('flex flex-1 flex-col', namesResizing && 'select-none')}
         >
           <TraceScale
             label={(tick) => formatShortDuration(Math.round(whole * tick))}
@@ -125,9 +127,9 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
           style={{ width: 'var(--names)' }}
         >
           <PaneHandle
-            {...names.handleProps}
+            {...namesHandle}
             edge="right"
-            resizing={names.resizing}
+            resizing={namesResizing}
             className="pointer-events-auto"
           />
         </div>
