@@ -205,6 +205,34 @@ func TestRestoresTheWorkspaceForARunThatStartsItsConversationAfresh(t *testing.T
 	}
 }
 
+func TestArchivesTheWorkspaceWhenTheRunnerStopsMidTurn(t *testing.T) {
+	archives := newArchives(t)
+
+	stopped := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); continue;`, "end_turn"),
+		func(o *runOptions) {
+			o.archives = archives
+			o.resume = protocol.Resume{Key: resumeKey}
+			o.stopOnce = "notes.md"
+		})
+
+	if got := step(t, stopped, "archive"); !strings.HasPrefix(got, "Captured the workspace") {
+		t.Fatalf("a stopped runner said %q about archiving its workspace", got)
+	}
+	if len(stopped.completions) != 0 {
+		t.Errorf("a stopped runner reported %d turns, wanted none: its lease expires and the run is attempted again", len(stopped.completions))
+	}
+
+	next := run(t, harness(t, `output = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"),
+		func(o *runOptions) {
+			o.archives = archives
+			o.resume = protocol.Resume{Key: resumeKey}
+		})
+
+	if got := agentOutput(t, next); got != "halfway" {
+		t.Errorf("the next attempt found %q in the workspace", got)
+	}
+}
+
 func TestCoalescesAWorkspaceNothingChangedIn(t *testing.T) {
 	archives := newArchives(t)
 	continuing := func(o *runOptions) {

@@ -447,6 +447,7 @@ type runOptions struct {
 	checkouts   []protocol.Checkout
 	proxyEnv    map[string]string
 	enforced    func(context.Context) bool
+	stopOnce    string
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -474,7 +475,13 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		memoryErr:        settings.memoryErr,
 		startErr:         settings.startErr,
 	}
-	err := session.Execute(context.Background(), protocol.Run{
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+	if settings.stopOnce != "" {
+		go stopOnceWritten(ctx, stop, filepath.Join(settings.root, settings.stopOnce))
+	}
+
+	err := session.Execute(ctx, protocol.Run{
 		ID: "run_1",
 		Spec: protocol.Spec{
 			Command:       protocol.Command{Executable: executable, Env: settings.env},
@@ -501,11 +508,21 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		ProxyEnv:   settings.proxyEnv,
 		Enforced:   settings.enforced,
 	})
-	if err != nil {
+	if err != nil && settings.stopOnce == "" {
 		t.Fatalf("execute: %v", err)
 	}
 
 	return written
+}
+
+func stopOnceWritten(ctx context.Context, stop context.CancelFunc, path string) {
+	for ctx.Err() == nil {
+		if _, err := os.Stat(path); err == nil {
+			stop()
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 func agentOutput(t *testing.T, written *journal) string {

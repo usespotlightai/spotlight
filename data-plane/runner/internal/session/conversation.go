@@ -177,6 +177,10 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 }
 
 func (c *conversation) complete(ctx context.Context, exitCode int) (waiting bool, err error) {
+	if ctx.Err() != nil {
+		return false, c.leave(ctx)
+	}
+
 	stopped := c.stopWasRequested()
 	if stopped {
 		c.journal.record(ctx, protocol.Event{Type: protocol.EventAgentStopped})
@@ -213,6 +217,18 @@ func (c *conversation) complete(ctx context.Context, exitCode int) (waiting bool
 
 	c.log.Info("turn reported", "exitCode", exitCode, "stopped", stopped, "waiting", completed.Waiting)
 	return completed.Waiting && !stopped, nil
+}
+
+func (c *conversation) leave(ctx context.Context) error {
+	c.close()
+	c.archiver.archive(ctx)
+
+	settled, cancel := settling(ctx)
+	defer cancel()
+	c.journal.flush(settled)
+
+	c.log.Info("the runner is stopping; the workspace is kept for the run's next attempt")
+	return ctx.Err()
 }
 
 func (c *conversation) close() {
