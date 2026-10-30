@@ -7,12 +7,15 @@ import { PageOutlet } from '@/components/shell/layout/PageOutlet';
 import { SettingsSidebar } from '@/components/shell/layout/SettingsSidebar';
 import { SidebarSlide } from '@/components/shell/layout/SidebarSlide';
 import { WorkspaceSidebar } from '@/components/shell/layout/WorkspaceSidebar';
+import { AppTabStrip } from '@/components/shell/tabs/AppTabStrip';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { useAppTabs } from '@/hooks/useAppTabs';
 import { useLastPlace } from '@/hooks/useLastPlace';
 import { useSlideFrom } from '@/hooks/useSlideFrom';
 import { failed, loading } from '@/lib/query';
+import { TabTitleContext } from '@/lib/tab-title';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_URL_PREFIX, workspacePath } from '@/lib/workspace';
 
@@ -23,6 +26,16 @@ export function Workspace() {
   const leftAt = useLastPlace(!inSettings);
   const settingUp = useSettingUp(slug, workspace.data);
   const slideFrom = useSlideFrom(inSettings);
+  const tabs = useAppTabs(slug ?? '', workspace.data?.teams ?? []);
+  const strip = (
+    <AppTabStrip
+      tabs={tabs.tabs}
+      activeId={tabs.activeId}
+      onSelect={tabs.select}
+      onClose={tabs.close}
+      onOpen={tabs.open}
+    />
+  );
 
   if (!slug) {
     return null;
@@ -30,15 +43,17 @@ export function Workspace() {
 
   if (loading(workspace)) {
     return (
-      <DashboardLayout>
-        <PageOutlet />
+      <DashboardLayout tabs={strip}>
+        <TabTitleContext value={tabs.report}>
+          <PageOutlet />
+        </TabTitleContext>
       </DashboardLayout>
     );
   }
 
   if (failed(workspace)) {
     return (
-      <DashboardLayout>
+      <DashboardLayout tabs={strip}>
         <PageNotice>
           <CouldNotLoad
             what="The workspace"
@@ -92,8 +107,11 @@ export function Workspace() {
           )}
         </SidebarSlide>
       }
+      tabs={strip}
     >
-      <PageOutlet />
+      <TabTitleContext value={tabs.report}>
+        <PageOutlet />
+      </TabTitleContext>
     </DashboardLayout>
   );
 }

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useTabTitle } from '@/lib/tab-title';
 
 type SettingsPageProps = {
   title: string;
@@ -12,6 +13,8 @@ export function SettingsPage({
   description,
   children,
 }: SettingsPageProps) {
+  useTabTitle(title);
+
   return (
     <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-8 py-8">

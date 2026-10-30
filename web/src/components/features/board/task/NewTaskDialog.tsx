@@ -78,6 +78,7 @@ export function NewTaskDialog({
         <DialogHeader>
           <DialogTitle className="flex min-w-0 items-center gap-1.5 font-medium text-muted-foreground text-xs">
             <Breadcrumbs
+              namesTab={false}
               segments={[
                 { label: lineName },
                 { label: stationName },

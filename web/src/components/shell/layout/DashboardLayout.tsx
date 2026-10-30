@@ -5,10 +5,15 @@ import { cn } from '@/lib/utils';
 
 type DashboardLayoutProps = {
   sidebar?: ReactNode;
+  tabs?: ReactNode;
   children?: ReactNode;
 };
 
-export function DashboardLayout({ sidebar, children }: DashboardLayoutProps) {
+export function DashboardLayout({
+  sidebar,
+  tabs,
+  children,
+}: DashboardLayoutProps) {
   const { width, resizing, handleProps, paneRef } = usePaneWidth<HTMLElement>();
 
   return (
@@ -28,8 +33,10 @@ export function DashboardLayout({ sidebar, children }: DashboardLayoutProps) {
         <PaneHandle {...handleProps} edge="right" resizing={resizing} />
       </aside>
 
-      <div className="min-w-0 flex-1 p-2 md:pl-0">
-        <section className="flex h-full flex-col overflow-clip rounded-lg border-[0.5px] border-border bg-surface shadow-pane">
+      <div className="flex min-w-0 flex-1 flex-col p-2 md:pl-0">
+        {tabs}
+
+        <section className="flex min-h-0 flex-1 flex-col overflow-clip rounded-lg border-[0.5px] border-border bg-surface shadow-pane">
           {children}
         </section>
       </div>

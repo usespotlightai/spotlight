@@ -3,6 +3,7 @@ import { Fragment } from 'react';
 import { Link } from 'react-router';
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
 import { Shortened } from '@/components/shell/layout/Shortened';
+import { useTabTitle } from '@/lib/tab-title';
 
 const LABEL_WIDTH = 256;
 
@@ -15,9 +16,12 @@ export type BreadcrumbSegment = {
 
 type BreadcrumbsProps = {
   segments: readonly BreadcrumbSegment[];
+  namesTab?: boolean;
 };
 
-export function Breadcrumbs({ segments }: BreadcrumbsProps) {
+export function Breadcrumbs({ segments, namesTab = true }: BreadcrumbsProps) {
+  useTabTitle(namesTab ? segments.at(-1)?.label : undefined);
+
   return segments.map(({ label, avatar, to }, index) => {
     const content = (
       <>
