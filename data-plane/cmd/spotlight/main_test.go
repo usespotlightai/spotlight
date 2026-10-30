@@ -50,7 +50,7 @@ func TestEveryListedCommandIsKnown(t *testing.T) {
 }
 
 func TestEveryCommandHasASummaryAndUsage(t *testing.T) {
-	for _, args := range [][]string{{"handover"}, {"tools", "call"}, {"host", "config", "set"}, {"replay", "check"}, {"login"}, {"egress", "serve"}} {
+	for _, args := range [][]string{{"handover"}, {"tools", "call"}, {"host", "config", "set"}, {"replay", "check"}, {"login"}, {"ssh", "setup"}, {"ssh", "proxy"}, {"egress", "serve"}} {
 		command, rest, found := commands.Resolve(args)
 		if !found || len(rest) > 0 || command.Summary == "" || len(command.Usage) == 0 {
 			t.Errorf("%q resolved to %+v, rest %q", args, command, rest)

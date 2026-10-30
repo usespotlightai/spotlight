@@ -12,9 +12,11 @@ import (
 )
 
 const (
-	DirVar   = "SPOTLIGHT_CONFIG_DIR"
-	xdgVar   = "XDG_CONFIG_HOME"
-	fileName = "credentials.json"
+	DirVar         = "SPOTLIGHT_CONFIG_DIR"
+	URLVar         = "SPOTLIGHT_URL"
+	DefaultAddress = "https://app.usespotlight.ai"
+	xdgVar         = "XDG_CONFIG_HOME"
+	fileName       = "credentials.json"
 )
 
 type Login struct {
