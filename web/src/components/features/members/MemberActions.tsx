@@ -29,7 +29,7 @@ export function MemberActions({
   const offered = rolesOffered(role, assignableRoles);
 
   if (offered.length < 2) {
-    return <span aria-hidden className="size-7 shrink-0" />;
+    return null;
   }
 
   return (
