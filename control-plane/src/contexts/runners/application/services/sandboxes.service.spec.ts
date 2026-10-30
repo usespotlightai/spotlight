@@ -1,12 +1,16 @@
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
-import type { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
+import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import {
   aSandbox,
   DRAIN_POLICY,
   GRACE_MS,
+  sandboxTokens,
   storedSandboxes,
+  tokenHashOf,
 } from '@runners/domain/aggregates/sandbox.fake-spec';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
+import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
+import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -45,6 +49,7 @@ const serving = (input: { known?: Sandbox[]; silentHosts?: string[] } = {}) => {
     sandboxes,
     DRAIN_POLICY,
     { generate: () => `sandbox_new_${++next}` },
+    sandboxTokens(),
     {
       inTransaction: (work: () => Promise<unknown>) => work(),
     } as TransactionPort,
@@ -65,11 +70,12 @@ describe('Sandboxes', () => {
   it('starts a sandbox for a run on the host that claimed it, held by the run', async () => {
     const { stored, service } = serving();
 
-    const id = await service.holdForRun(forRun('run_1'), STARTED_AT);
+    const { id, token } = await service.holdForRun(forRun('run_1'), STARTED_AT);
     const sandbox = stored.get(id);
 
     expect(sandbox?.current).toBe('starting');
-    expect(sandbox?.hostId.value).toBe(HOST);
+    expect(sandbox?.hostId?.value).toBe(HOST);
+    expect(sandbox?.tokenHash?.equals(tokenHashOf(token))).toBe(true);
     expect(sandbox?.key?.value).toBe('task-task_1');
     expect(sandbox?.holdsRun('run_1')).toBe(true);
   });
@@ -79,7 +85,7 @@ describe('Sandboxes', () => {
       known: [placed('sandbox_1').reported().releaseRun('run_1', STARTED_AT)],
     });
 
-    const id = await service.holdForRun(forRun('run_2'), later(1_000));
+    const { id } = await service.holdForRun(forRun('run_2'), later(1_000));
 
     expect(stored.get('sandbox_1')?.current).toBe('draining');
     expect(stored.get(id)?.current).toBe('starting');
@@ -281,6 +287,12 @@ describe('Sandboxes', () => {
             .releaseRun('run_1', later(1_000)),
           placed('sandbox_4', { key: 'task-task_4' }).reported().drain(),
           placed('sandbox_5', { key: 'task-task_5' }).lost(later(1_000)),
+          Sandbox.request({
+            id: SandboxId.of('sandbox_6'),
+            workspaceId: WORKSPACE,
+            key: SandboxKey.of('task-task_6'),
+            at: STARTED_AT,
+          }),
         ],
         silentHosts: [],
       });
@@ -298,5 +310,153 @@ describe('Sandboxes', () => {
         silent.service.liveKeysIn(WORKSPACE.value, later(2_000)),
       ).resolves.toEqual([]);
     });
+  });
+  describe('a sandbox requested with no run', () => {
+    const requested = (id = 'sandbox_r', key = 'task-task_1') =>
+      Sandbox.request({
+        id: SandboxId.of(id),
+        workspaceId: WORKSPACE,
+        key: SandboxKey.of(key),
+        at: STARTED_AT,
+      });
+
+    it('starts on no host and waits to be claimed', async () => {
+      const { stored, service } = serving();
+
+      const opened = await service.open(
+        WORKSPACE.value,
+        'task-task_1',
+        STARTED_AT,
+      );
+
+      expect(opened).toEqual({ id: 'sandbox_new_1', state: 'starting' });
+      expect(stored.get(opened.id)?.isRequested).toBe(true);
+      await expect(service.requestedIn(WORKSPACE.value)).resolves.toEqual([
+        { id: 'sandbox_new_1', key: 'task-task_1' },
+      ]);
+    });
+
+    it('is the live sandbox of the key when one is open', async () => {
+      const { stored, service } = serving({
+        known: [placed('sandbox_1').reported()],
+      });
+
+      await expect(
+        service.open(WORKSPACE.value, 'task-task_1', later(1_000)),
+      ).resolves.toEqual({ id: 'sandbox_1', state: 'ready' });
+      expect(stored.size).toBe(1);
+    });
+
+    it('is asked for only once while it waits', async () => {
+      const { stored, service } = serving();
+
+      const first = await service.open(
+        WORKSPACE.value,
+        'task-task_1',
+        STARTED_AT,
+      );
+      const second = await service.open(
+        WORKSPACE.value,
+        'task-task_1',
+        later(1_000),
+      );
+
+      expect(second.id).toBe(first.id);
+      expect(stored.size).toBe(1);
+    });
+
+    it('starts on the host that claims it, with a token of its own', async () => {
+      const { stored, service } = serving({ known: [requested()] });
+
+      const started = await service.startRequested(
+        'sandbox_r',
+        HOST,
+        later(5_000),
+      );
+
+      expect(started?.id).toBe('sandbox_r');
+      const sandbox = stored.get('sandbox_r');
+      expect(sandbox?.hostId?.value).toBe(HOST);
+      expect(sandbox?.startedAt).toEqual(later(5_000));
+      expect(sandbox?.idleSince).toEqual(later(5_000));
+      expect(
+        sandbox?.tokenHash?.equals(tokenHashOf(started?.token ?? '')),
+      ).toBe(true);
+      await expect(
+        service.startRequested('sandbox_r', OTHER_HOST, later(6_000)),
+      ).resolves.toBeNull();
+      await expect(service.requestedIn(WORKSPACE.value)).resolves.toEqual([]);
+    });
+
+    it('is taken by the next run of its key, on the host that claims the run', async () => {
+      const { stored, service } = serving({ known: [requested()] });
+
+      const started = await service.holdForRun(forRun('run_2'), later(5_000));
+
+      expect(started.id).toBe('sandbox_r');
+      expect(stored.get('sandbox_r')?.holdsRun('run_2')).toBe(true);
+      expect(stored.get('sandbox_r')?.hostId?.value).toBe(HOST);
+      expect(stored.size).toBe(1);
+    });
+
+    it('is gone when no host claims it within the grace', async () => {
+      const { stored, service } = serving({ known: [requested()] });
+
+      await service.drainIdle(later(GRACE_MS - 1));
+      expect(stored.get('sandbox_r')?.current).toBe('starting');
+
+      await service.drainIdle(later(GRACE_MS));
+      expect(stored.get('sandbox_r')?.current).toBe('gone');
+    });
+
+    it('is not lost while it waits for a host', async () => {
+      const { stored, service } = serving({ known: [requested()] });
+
+      await service.drainIdle(later(1_000));
+
+      expect(stored.get('sandbox_r')?.current).toBe('starting');
+    });
+  });
+
+  describe('a sandbox token', () => {
+    it('authenticates its live sandbox only', async () => {
+      const { service } = serving();
+      const { id, token } = await service.holdForRun(
+        forRun('run_1'),
+        STARTED_AT,
+      );
+
+      await expect(service.authenticate(token)).resolves.toEqual({
+        id,
+        workspaceId: WORKSPACE.value,
+        key: 'task-task_1',
+      });
+      await expect(service.authenticate('stolen')).resolves.toBeNull();
+      await expect(service.authenticate(undefined)).resolves.toBeNull();
+    });
+
+    it('stops working once its sandbox is gone', async () => {
+      const { stored, service } = serving();
+      const { id, token } = await service.holdForRun(
+        forRun('run_1'),
+        STARTED_AT,
+      );
+      const sandbox = stored.get(id);
+      if (sandbox) {
+        stored.set(id, sandbox.lost(later(1_000)));
+      }
+
+      await expect(service.authenticate(token)).resolves.toBeNull();
+    });
+  });
+
+  it('drains a ready sandbox that cannot take the run its key queued', async () => {
+    const { stored, service } = serving({
+      known: [placed('sandbox_1').reported().releaseRun('run_1', later(1_000))],
+    });
+
+    await service.drain('sandbox_1');
+
+    expect(stored.get('sandbox_1')?.current).toBe('draining');
   });
 });

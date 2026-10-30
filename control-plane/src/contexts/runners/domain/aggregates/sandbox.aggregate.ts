@@ -5,6 +5,7 @@ import type { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export type SandboxState = 'starting' | 'ready' | 'draining' | 'gone';
@@ -34,7 +35,8 @@ interface State {
   readonly id: SandboxId;
   readonly workspaceId: WorkspaceId;
   readonly key: SandboxKey | null;
-  readonly hostId: HostId;
+  readonly hostId: HostId | null;
+  readonly tokenHash: TokenHash | null;
   readonly state: SandboxState;
   readonly leases: readonly SandboxLease[];
   readonly idleSince: Date | null;
@@ -53,6 +55,7 @@ export class Sandbox extends EventRecorder {
     workspaceId: WorkspaceId;
     key: SandboxKey | null;
     hostId: HostId;
+    tokenHash: TokenHash;
     runId: string;
     at: Date;
   }): Sandbox {
@@ -61,9 +64,31 @@ export class Sandbox extends EventRecorder {
       workspaceId: input.workspaceId,
       key: input.key,
       hostId: input.hostId,
+      tokenHash: input.tokenHash,
       state: 'starting',
       leases: [SandboxLease.forRun(input.runId, input.at)],
       idleSince: null,
+      startedAt: input.at,
+      goneAt: null,
+      version: 0,
+    });
+  }
+
+  static request(input: {
+    id: SandboxId;
+    workspaceId: WorkspaceId;
+    key: SandboxKey;
+    at: Date;
+  }): Sandbox {
+    return new Sandbox({
+      id: input.id,
+      workspaceId: input.workspaceId,
+      key: input.key,
+      hostId: null,
+      tokenHash: null,
+      state: 'starting',
+      leases: [],
+      idleSince: input.at,
       startedAt: input.at,
       goneAt: null,
       version: 0,
@@ -82,6 +107,24 @@ export class Sandbox extends EventRecorder {
       throw new InconsistentStateError(
         'sandbox',
         'has a time it was gone that does not match its state',
+      );
+    }
+
+    if ((state.hostId === null) !== (state.tokenHash === null)) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'has a host with no token, or a token with no host',
+      );
+    }
+
+    if (
+      state.hostId === null &&
+      (state.leases.length > 0 ||
+        (state.state !== 'starting' && state.state !== 'gone'))
+    ) {
+      throw new InconsistentStateError(
+        'sandbox',
+        `is ${state.state} or held while no host started it`,
       );
     }
 
@@ -113,8 +156,20 @@ export class Sandbox extends EventRecorder {
     return this.state.key;
   }
 
-  get hostId(): HostId {
+  get hostId(): HostId | null {
     return this.state.hostId;
+  }
+
+  get tokenHash(): TokenHash | null {
+    return this.state.tokenHash;
+  }
+
+  get isPlaced(): boolean {
+    return this.state.hostId !== null;
+  }
+
+  get isRequested(): boolean {
+    return !this.isPlaced && this.state.state === 'starting';
   }
 
   get current(): SandboxState {
@@ -166,7 +221,22 @@ export class Sandbox extends EventRecorder {
   }
 
   takesRunOn(hostId: HostId): boolean {
-    return this.isReady && this.isIdle && this.state.hostId.equals(hostId);
+    return (
+      this.isReady &&
+      this.isIdle &&
+      (this.state.hostId?.equals(hostId) ?? false)
+    );
+  }
+
+  placeOn(hostId: HostId, tokenHash: TokenHash, at: Date): Sandbox {
+    if (!this.isRequested) {
+      throw new InconsistentStateError(
+        'sandbox',
+        `is ${this.state.state} or on a host already, and cannot start on a host`,
+      );
+    }
+
+    return this.with({ hostId, tokenHash, startedAt: at, idleSince: at });
   }
 
   holdRun(runId: string, at: Date): Sandbox {
@@ -174,10 +244,10 @@ export class Sandbox extends EventRecorder {
       return this;
     }
 
-    if (!this.isOpen) {
+    if (!this.isOpen || !this.isPlaced) {
       throw new InconsistentStateError(
         'sandbox',
-        `is ${this.state.state} and cannot take run ${runId}`,
+        `is ${this.state.state} or has no host, and cannot take run ${runId}`,
       );
     }
 
@@ -225,6 +295,13 @@ export class Sandbox extends EventRecorder {
   }
 
   drain(): Sandbox {
+    if (!this.isPlaced) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'has no host to drain it; it can only be lost',
+      );
+    }
+
     return this.isOpen ? this.with({ state: 'draining' }) : this;
   }
 
@@ -246,7 +323,11 @@ export class Sandbox extends EventRecorder {
   }
 
   drainedWhenDue(policy: SandboxDrainPolicy, now: Date): Sandbox {
-    return this.drainDue(policy, now) ? this.drain() : this;
+    if (!this.drainDue(policy, now)) {
+      return this;
+    }
+
+    return this.isPlaced ? this.drain() : this.lost(now);
   }
 
   private with(changes: Partial<State>): Sandbox {

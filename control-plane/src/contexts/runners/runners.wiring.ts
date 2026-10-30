@@ -30,6 +30,7 @@ import { DeleteRunnerTrustHandler } from '@runners/application/commands/handlers
 import { DeleteWorkspaceRunnersHandler } from '@runners/application/commands/handlers/delete-workspace-runners.handler';
 import { DeregisterHostHandler } from '@runners/application/commands/handlers/deregister-host.handler';
 import { HostHeartbeatHandler } from '@runners/application/commands/handlers/host-heartbeat.handler';
+import { OpenSandboxHandler } from '@runners/application/commands/handlers/open-sandbox.handler';
 import { RegisterRunnerHandler } from '@runners/application/commands/handlers/register-runner.handler';
 import { UpdateEgressHandler } from '@runners/application/commands/handlers/update-egress.handler';
 import { UpdateRunnerPoolHandler } from '@runners/application/commands/handlers/update-runner-pool.handler';
@@ -55,6 +56,7 @@ import {
   UpdateRunnerTrustCommand,
   UpdateWorkspaceRunnersCommand,
 } from '@runners/application/commands/runner-resource.commands';
+import { OpenSandboxCommand } from '@runners/application/commands/sandbox.commands';
 import { RUNNERS_EVENT_MAPPERS } from '@runners/application/integration-events/runners.event-mappers';
 import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
@@ -312,11 +314,19 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: Sandboxes,
-    inject: [DrizzleSandboxRepository, ENV, ID_GENERATOR, TRANSACTION, LOGGER],
+    inject: [
+      DrizzleSandboxRepository,
+      ENV,
+      ID_GENERATOR,
+      TOKEN_ISSUER,
+      TRANSACTION,
+      LOGGER,
+    ],
     useFactory: (
       sandboxes: DrizzleSandboxRepository,
       env: Env,
       ids: IdGeneratorPort,
+      tokens: TokenIssuer,
       transaction: TransactionPort,
       logger: LoggerPort,
     ) =>
@@ -327,6 +337,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
           editorLimitMs: env.SPOTLIGHT_EDITOR_LIMIT,
         }),
         ids,
+        tokens,
         transaction,
         logger,
       ),
@@ -507,6 +518,10 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
     RUNNER_AUTHENTICATOR,
     DrizzleRunnerHostRepository,
     Sandboxes,
+    CLOCK,
+  ]),
+  ...bindCommandHandler(OpenSandboxCommand, OpenSandboxHandler, [
+    SANDBOXES,
     CLOCK,
   ]),
   ...bindCommandHandler(DeregisterHostCommand, DeregisterHostHandler, [

@@ -10,6 +10,7 @@ import {
 } from '@work/domain/aggregates/workspace-archive.aggregate';
 import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
+import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -130,7 +131,7 @@ const archived = async (
     workspaceId: WorkspaceId.of('ws_1'),
     resumeKey: key,
     holder,
-    run: RunId.of(randomUUID()),
+    grantee: ArchiveGrantee.run(RunId.of(randomUUID())),
     size: STORED.size,
     digest: STORED.digest,
     at: times.grantedAt,

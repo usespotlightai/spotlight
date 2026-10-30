@@ -38,6 +38,7 @@ import { ClaimOrder } from '@work/domain/services/claim-order';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
+import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -233,6 +234,38 @@ export class DrizzleRunRepository implements RunRepository {
       .leftJoin(replayed, eq(replayed.id, run.replayOfRunId));
   }
 
+  async newestWithKey(
+    workspaceId: WorkspaceId,
+    key: ResumeKey,
+  ): Promise<Run | null> {
+    const [row] = await this.selected()
+      .where(
+        and(
+          eq(run.workspaceId, workspaceId.value),
+          sql`${resumeKeyOf} = ${key.value}`,
+        ),
+      )
+      .orderBy(desc(run.createdAt), desc(run.id))
+      .limit(1);
+
+    return row ? toRun(row) : null;
+  }
+
+  async queuedWithKey(
+    workspaceId: WorkspaceId,
+    key: ResumeKey,
+  ): Promise<readonly Run[]> {
+    const rows = await this.selected().where(
+      and(
+        eq(run.workspaceId, workspaceId.value),
+        eq(run.state, 'queued'),
+        sql`${resumeKeyOf} = ${key.value}`,
+      ),
+    );
+
+    return rows.map(toRun);
+  }
+
   async findById(id: RunId): Promise<Run | null> {
     const [row] = await this.selected().where(eq(run.id, id.value)).limit(1);
 
@@ -308,6 +341,7 @@ export class DrizzleRunRepository implements RunRepository {
       readonly skip: number;
       readonly max: number;
       readonly withSecrets: boolean;
+      readonly avoiding: readonly ResumeKey[];
     },
   ): Promise<readonly Run[]> {
     const rows = await this.selected()
@@ -323,6 +357,7 @@ export class DrizzleRunRepository implements RunRepository {
           ),
           or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
           noEarlierRunStillLeased,
+          routedBy({ avoiding: page.avoiding }),
         ),
       )
       .orderBy(desc(run.priority), run.createdAt, run.id)

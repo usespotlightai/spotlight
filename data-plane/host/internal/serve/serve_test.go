@@ -132,6 +132,19 @@ func (e *fakeEngine) liveEgressesOf(runner string) []sandbox.Spec {
 	return live
 }
 
+func (e *fakeEngine) liveEgressesOfSandbox(sandboxID string) []sandbox.Spec {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	var live []sandbox.Spec
+	for id, spec := range e.egresses {
+		if spec.Labels[serve.LabelSandbox] == sandboxID && !slices.Contains(e.destroyed, id) {
+			live = append(live, spec)
+		}
+	}
+	return live
+}
+
 const egressImage = "egress:1"
 
 func isEgress(spec sandbox.Spec) bool {
@@ -1115,6 +1128,73 @@ func TestALiveSandboxOutlivesTheRunTimeLimit(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	if engine.wasDestroyed(id) {
 		t.Error("the host stopped a sandbox at the run time limit; only a drain ends it")
+	}
+}
+
+func sandboxOnly(sandboxID string) protocol.Assignment {
+	return protocol.Assignment{
+		SandboxID:    sandboxID,
+		SandboxToken: "sandbox-token-" + sandboxID,
+		AllowedHosts: []string{"archives.example.com"},
+		Work:         protocol.ClaimResponse{Kind: protocol.ClaimedSandbox},
+	}
+}
+
+func TestStartsASandboxWithNoRunThatThenTakesRuns(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.keepsFile = true
+	opts := options(t)
+	opts.LeaseEvery = 5 * time.Millisecond
+	serving(t, opts, engine, pool)
+
+	pool.work <- sandboxOnly("sandbox_r")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	id := engine.workSandboxes()[0]
+
+	started := engine.sandbox(id)
+	if started.Labels[serve.LabelSandbox] != "sandbox_r" {
+		t.Errorf("labelled %v", started.Labels)
+	}
+	if _, ok := started.Labels[serve.LabelRunner]; ok {
+		t.Errorf("labelled a sandbox with no run with a runner: %v", started.Labels)
+	}
+	var first protocol.Assignment
+	for _, file := range started.Files {
+		if file.Path == serve.AssignmentPath {
+			_ = json.Unmarshal(file.Body, &first)
+		}
+	}
+	if !first.StartsSandboxOnly() || first.SandboxToken != "sandbox-token-sandbox_r" || first.AllowedHosts != nil {
+		t.Errorf("the sandbox got %+v", first)
+	}
+
+	egress := engine.liveEgressesOfSandbox("sandbox_r")
+	if len(egress) != 1 {
+		t.Fatalf("started %d egresses for the sandbox", len(egress))
+	}
+	config := egressTokenOf(t, egress[0])
+	if config.Token != "" || !slices.Equal(config.SandboxHosts, []string{"archives.example.com"}) {
+		t.Errorf("the egress of a sandbox with no run got %+v", config)
+	}
+	eventually(t, "the sandbox reported", func() bool {
+		return slices.Equal(pool.reportedSandboxes(), []string{"sandbox_r"})
+	})
+	if running := pool.lastHeartbeat().Running; len(running) != 0 {
+		t.Errorf("reported %v running in a sandbox with no run", running)
+	}
+
+	pool.into <- reused("runner_2", "sandbox_r")
+	eventually(t, "the run delivered into the sandbox", func() bool {
+		file, ok := engine.putIn(id, serve.AssignmentPath)
+		var got protocol.Assignment
+		return ok && json.Unmarshal(file.Body, &got) == nil && got.RunnerID == "runner_2"
+	})
+	eventually(t, "the egress re-keyed for the run", func() bool {
+		live := engine.liveEgressesOfSandbox("sandbox_r")
+		return len(live) == 1 && egressTokenOf(t, live[0]).Token == "egress-runner_2"
+	})
+	if len(engine.workSandboxes()) != 1 {
+		t.Errorf("started %d containers", len(engine.workSandboxes()))
 	}
 }
 

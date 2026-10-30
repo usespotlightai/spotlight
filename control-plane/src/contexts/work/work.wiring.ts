@@ -155,6 +155,7 @@ import { ClaimHostCallHandler } from '@work/application/commands/handlers/claim-
 import { ClaimHostWorkHandler } from '@work/application/commands/handlers/claim-host-work.handler';
 import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.handler';
 import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
+import { CompleteSandboxArchiveHandler } from '@work/application/commands/handlers/complete-sandbox-archive.handler';
 import { CompleteWorkspaceArchiveHandler } from '@work/application/commands/handlers/complete-workspace-archive.handler';
 import { CreateLineHandler } from '@work/application/commands/handlers/create-line.handler';
 import { DeleteLineHandler } from '@work/application/commands/handlers/delete-line.handler';
@@ -164,6 +165,7 @@ import { EnqueueRunHandler } from '@work/application/commands/handlers/enqueue-r
 import { FetchRunSecretsHandler } from '@work/application/commands/handlers/fetch-run-secrets.handler';
 import { FetchSharedRunSecretsHandler } from '@work/application/commands/handlers/fetch-shared-run-secrets.handler';
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
+import { GrantSandboxArchiveHandler } from '@work/application/commands/handlers/grant-sandbox-archive.handler';
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
 import { KeepTaskDraftHandler } from '@work/application/commands/handlers/keep-task-draft.handler';
 import { MarkInboxItemReadHandler } from '@work/application/commands/handlers/mark-inbox-item-read.handler';
@@ -220,7 +222,9 @@ import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { UpdateLineCommand } from '@work/application/commands/update-line.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import {
+  CompleteSandboxArchiveCommand,
   CompleteWorkspaceArchiveCommand,
+  GrantSandboxArchiveCommand,
   GrantWorkspaceArchiveCommand,
 } from '@work/application/commands/workspace-archive.commands';
 import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
@@ -493,6 +497,7 @@ import { ReadTaskDraftHandler } from '@work/application/queries/handlers/read-ta
 import { ReadTaskJournalHandler } from '@work/application/queries/handlers/read-task-journal.handler';
 import { ReadTaskTraceHandler } from '@work/application/queries/handlers/read-task-trace.handler';
 import { RunStopRequestedHandler } from '@work/application/queries/handlers/run-stop-requested.handler';
+import { StoredSandboxArchiveHandler } from '@work/application/queries/handlers/stored-sandbox-archive.handler';
 import { StoredWorkspaceArchiveHandler } from '@work/application/queries/handlers/stored-workspace-archive.handler';
 import { WatchRunHandler } from '@work/application/queries/handlers/watch-run.handler';
 import { HostRequirementsQuery } from '@work/application/queries/host.queries';
@@ -523,7 +528,10 @@ import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trac
 import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journal.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
-import { StoredWorkspaceArchiveQuery } from '@work/application/queries/stored-workspace-archive.query';
+import {
+  StoredSandboxArchiveQuery,
+  StoredWorkspaceArchiveQuery,
+} from '@work/application/queries/stored-workspace-archive.query';
 import {
   JoinTaskDraftQuery,
   ReadTaskDraftQuery,
@@ -588,6 +596,7 @@ import { RunLoader } from '@work/application/services/run-loader.service';
 import { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import { RunWorks } from '@work/application/services/run-works.service';
 import { RunnerLeases } from '@work/application/services/runner-leases.service';
+import { SandboxArchives } from '@work/application/services/sandbox-archives.service';
 import { SandboxLeases } from '@work/application/services/sandbox-leases.service';
 import { SearchRuns } from '@work/application/services/search-runs.service';
 import { SetupPullRequestToolUse } from '@work/application/services/setup-pull-request.tool-use';
@@ -687,6 +696,7 @@ import { RunController } from '@work/presentation/http/controllers/run.controlle
 import { RunStreamController } from '@work/presentation/http/controllers/run-stream.controller';
 import { RunnerController } from '@work/presentation/http/controllers/runner.controller';
 import { RunnerActivityController } from '@work/presentation/http/controllers/runner-activity.controller';
+import { SandboxArchiveController } from '@work/presentation/http/controllers/sandbox-archive.controller';
 import { TaskController } from '@work/presentation/http/controllers/task.controller';
 import { WorkspaceArchiveController } from '@work/presentation/http/controllers/workspace-archive.controller';
 import { NetworkCallsWorker } from '@work/presentation/workers/network-calls.worker';
@@ -711,6 +721,7 @@ export const WORK_CONTROLLERS: readonly Type[] = [
   RunStreamController,
   RunnerController,
   WorkspaceArchiveController,
+  SandboxArchiveController,
   PoolController,
   HostWorkController,
   EgressController,
@@ -1902,6 +1913,41 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ),
 
   {
+    provide: SandboxArchives,
+    inject: [SANDBOXES],
+    useFactory: (sandboxes: SandboxesPort) => new SandboxArchives(sandboxes),
+  },
+
+  ...bindQueryHandler(StoredSandboxArchiveQuery, StoredSandboxArchiveHandler, [
+    SandboxArchives,
+    DrizzleWorkspaceArchiveRepository,
+    WORKSPACE_ARCHIVE_STORE,
+  ]),
+
+  ...bindCommandHandler(
+    GrantSandboxArchiveCommand,
+    GrantSandboxArchiveHandler,
+    [
+      SandboxArchives,
+      DrizzleWorkspaceArchiveRepository,
+      WORKSPACE_ARCHIVE_STORE,
+      ID_GENERATOR,
+      CLOCK,
+    ],
+  ),
+
+  ...bindCommandHandler(
+    CompleteSandboxArchiveCommand,
+    CompleteSandboxArchiveHandler,
+    [
+      SandboxArchives,
+      DrizzleWorkspaceArchiveRepository,
+      WORKSPACE_ARCHIVE_STORE,
+      CLOCK,
+    ],
+  ),
+
+  {
     provide: RemoveReleasedArchives,
     inject: [
       ARCHIVE_REFERENCES,
@@ -2004,6 +2050,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       CHECK_PROVISIONING,
       RUNNER_POOLS,
       RUNNERS,
+      SANDBOXES,
       ProvisionFailures,
       ID_GENERATOR,
       CLOCK,
@@ -2014,6 +2061,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       checks: CheckProvisioningPort,
       pools: RunnerPoolsPort,
       runners: RunnersPort,
+      sandboxes: SandboxesPort,
       failures: ProvisionFailures,
       ids: IdGeneratorPort,
       clock: ClockPort,
@@ -2024,6 +2072,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         checks,
         pools,
         runners,
+        sandboxes,
         failures,
         ids,
         clock,
@@ -2427,6 +2476,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ProvisionFailures,
     RunStartHooks,
     LongPoll,
+    SANDBOXES,
   ]),
 
   ...bindCommandHandler(ClaimHostWorkCommand, ClaimHostWorkHandler, [
@@ -2441,6 +2491,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ClaimsTaken,
     LongPoll,
     SANDBOXES,
+    SANDBOX_HOSTS,
   ]),
 
   ...bindCommandHandler(ClaimHostCallCommand, ClaimHostCallHandler, [

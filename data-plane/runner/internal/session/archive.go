@@ -31,11 +31,15 @@ type archiver struct {
 
 	restoredFrom string
 	baseline     string
+	leftOut      []string
 	current      string
 }
 
 type kept struct {
-	archive string
+	archive  string
+	baseline string
+	leftOut  []string
+	archives bool
 }
 
 func newArchiver(
@@ -53,13 +57,14 @@ func newArchiver(
 }
 
 func (a *archiver) keep() kept {
-	return kept{archive: a.current}
+	return kept{archive: a.current, baseline: a.baseline, leftOut: a.leftOut, archives: a.restoresWorkspace()}
 }
 
 func (a *archiver) carry(from kept) {
 	a.restoredFrom, a.current = from.archive, from.archive
+	a.baseline, a.leftOut = from.baseline, from.leftOut
 	if from.archive != "" {
-		a.report(restoreStep, "Kept the workspace the last run left in this sandbox")
+		a.report(restoreStep, "Kept the workspace this sandbox restored or the last run left in it")
 	}
 }
 
@@ -133,27 +138,38 @@ func (a *archiver) restoredExactly(ctx context.Context, wanted string) error {
 }
 
 func (a *archiver) unpacked(ctx context.Context, stored protocol.StoredArchive) error {
-	fetched, err := archive.Fetch(ctx, a.through, stored, a.scratch)
+	if err := unpackInto(ctx, a.space, a.through, stored, a.rebuilt(ctx), a.scratch, a.log); err != nil {
+		return err
+	}
+
+	a.restoredFrom, a.current = stored.ID, stored.ID
+	return nil
+}
+
+func unpackInto(
+	ctx context.Context, space *workspace.Workspace, through http.RoundTripper, stored protocol.StoredArchive,
+	leaveOut []string, scratch string, log *slog.Logger,
+) error {
+	fetched, err := archive.Fetch(ctx, through, stored, scratch)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err := fetched.Remove(); err != nil {
-			a.log.Warn("could not remove the fetched workspace", "error", err)
+			log.Warn("could not remove the fetched workspace", "error", err)
 		}
 	}()
 
-	if err := a.space.Clear(a.rebuilt(ctx)); err != nil {
-		a.emptied()
+	if err := space.Clear(leaveOut); err != nil {
+		emptied(space, log)
 		return err
 	}
 
-	if err := fetched.UnpackInto(a.space.Dir); err != nil {
-		a.emptied()
+	if err := fetched.UnpackInto(space.Dir); err != nil {
+		emptied(space, log)
 		return err
 	}
 
-	a.restoredFrom, a.current = stored.ID, stored.ID
 	return nil
 }
 
@@ -162,13 +178,14 @@ func (a *archiver) recordBaseline() {
 		return
 	}
 
-	fingerprint, err := archive.Fingerprint(a.space.Dir, a.rebuilt(context.Background()))
+	leaveOut := a.rebuilt(context.Background())
+	fingerprint, err := archive.Fingerprint(a.space.Dir, leaveOut)
 	if err != nil {
 		a.log.Warn("could not take the workspace's fingerprint", "error", err)
 		return
 	}
 
-	a.baseline = fingerprint
+	a.baseline, a.leftOut = fingerprint, leaveOut
 }
 
 func (a *archiver) archive(ctx context.Context) bool {
@@ -203,31 +220,60 @@ func (a *archiver) archived(ctx context.Context) (string, bool) {
 		return "Coalesced: nothing changed since the workspace was last restored or archived", true
 	}
 
-	packed, err := archive.Pack(a.space.Dir, a.scratch, leaveOut)
+	stored, err := packAndStore(ctx, a.space, a.through, leaveOut, a.scratch, storeCalls{
+		grant: func(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error) {
+			return a.control.GrantArchive(ctx, a.run.ID, size, sha256)
+		},
+		complete: func(ctx context.Context, archiveID string) error {
+			return a.control.CompleteArchive(ctx, a.run.ID, archiveID)
+		},
+	}, a.log)
 	if err != nil {
 		return "Skipped: " + err.Error(), false
+	}
+	a.baseline, a.leftOut, a.current = now, leaveOut, stored.id
+
+	return fmt.Sprintf("Captured the workspace for the next run (%s)", sized(stored.size)), true
+}
+
+type storeCalls struct {
+	grant    func(ctx context.Context, size int64, sha256 string) (protocol.ArchiveGrant, error)
+	complete func(ctx context.Context, archiveID string) error
+}
+
+type storedArchive struct {
+	id   string
+	size int64
+}
+
+func packAndStore(
+	ctx context.Context, space *workspace.Workspace, through http.RoundTripper, leaveOut []string, scratch string,
+	calls storeCalls, log *slog.Logger,
+) (storedArchive, error) {
+	packed, err := archive.Pack(space.Dir, scratch, leaveOut)
+	if err != nil {
+		return storedArchive{}, err
 	}
 	defer func() {
 		if err := packed.Remove(); err != nil {
-			a.log.Warn("could not remove the packed workspace", "error", err)
+			log.Warn("could not remove the packed workspace", "error", err)
 		}
 	}()
 
-	grant, err := a.control.GrantArchive(ctx, a.run.ID, packed.Size, packed.SHA256)
+	grant, err := calls.grant(ctx, packed.Size, packed.SHA256)
 	if err != nil {
-		return "Skipped: " + err.Error(), false
+		return storedArchive{}, err
 	}
 
-	if err := archive.Upload(ctx, a.through, grant, packed); err != nil {
-		return "Skipped: " + err.Error(), false
+	if err := archive.Upload(ctx, through, grant, packed); err != nil {
+		return storedArchive{}, err
 	}
 
-	if err := a.control.CompleteArchive(ctx, a.run.ID, grant.ID); err != nil {
-		return "Skipped: " + err.Error(), false
+	if err := calls.complete(ctx, grant.ID); err != nil {
+		return storedArchive{}, err
 	}
-	a.baseline, a.current = now, grant.ID
 
-	return fmt.Sprintf("Captured the workspace for the next run (%s)", sized(packed.Size)), true
+	return storedArchive{id: grant.ID, size: packed.Size}, nil
 }
 
 // leased renews the lease also after a person requests a stop. The run must keep its lease until it ends.
@@ -261,9 +307,9 @@ func settling(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.WithoutCancel(ctx), settleFor)
 }
 
-func (a *archiver) emptied() {
-	if err := a.space.Clear(nil); err != nil {
-		a.log.Warn("could not clear a workspace half restored", "error", err)
+func emptied(space *workspace.Workspace, log *slog.Logger) {
+	if err := space.Clear(nil); err != nil {
+		log.Warn("could not clear a workspace half restored", "error", err)
 	}
 }
 

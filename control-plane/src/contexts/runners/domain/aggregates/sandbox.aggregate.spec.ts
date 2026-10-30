@@ -4,8 +4,11 @@ import {
   DRAIN_POLICY,
   EDITOR_LIMIT_MS,
   GRACE_MS,
+  tokenHashOf,
 } from '@runners/domain/aggregates/sandbox.fake-spec';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
+import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
+import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -32,6 +35,7 @@ const withLeases = (leases: SandboxLease[], idleSince: Date | null) => {
     workspaceId: sandbox.workspaceId,
     key: sandbox.key,
     hostId: sandbox.hostId,
+    tokenHash: sandbox.tokenHash,
     state: sandbox.current,
     leases,
     idleSince,
@@ -165,5 +169,78 @@ describe('Sandbox', () => {
       withLeases([SandboxLease.forRun('run_1', later(0))], later(0)),
     ).toThrow(InconsistentStateError);
     expect(() => withLeases([], null)).toThrow(InconsistentStateError);
+  });
+  describe('requested with no run', () => {
+    const requested = () =>
+      Sandbox.request({
+        id: SandboxId.of('sandbox_r'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        key: SandboxKey.of('task-task_1'),
+        at: STARTED_AT,
+      });
+
+    it('waits on no host, held by nothing and idle from the request', () => {
+      const sandbox = requested();
+
+      expect(sandbox.current).toBe('starting');
+      expect(sandbox.isRequested).toBe(true);
+      expect(sandbox.hostId).toBeNull();
+      expect(sandbox.tokenHash).toBeNull();
+      expect(sandbox.leases).toEqual([]);
+      expect(sandbox.idleSince).toEqual(STARTED_AT);
+      expect(sandbox.takesRunOn(HOST)).toBe(false);
+    });
+
+    it('starts on the host that claims it and becomes idle from then', () => {
+      const placed = requested().placeOn(
+        HOST,
+        tokenHashOf('token'),
+        later(5_000),
+      );
+
+      expect(placed.isRequested).toBe(false);
+      expect(placed.hostId?.equals(HOST)).toBe(true);
+      expect(placed.startedAt).toEqual(later(5_000));
+      expect(placed.idleSince).toEqual(later(5_000));
+      expect(placed.reported().takesRunOn(HOST)).toBe(true);
+      expect(() =>
+        placed.placeOn(HOST, tokenHashOf('token'), later(6_000)),
+      ).toThrow(InconsistentStateError);
+    });
+
+    it('is lost, not drained, when no host claims it within the grace', () => {
+      const sandbox = requested();
+
+      expect(
+        sandbox.drainedWhenDue(DRAIN_POLICY, later(GRACE_MS)).current,
+      ).toBe('gone');
+      expect(() => sandbox.drain()).toThrow(InconsistentStateError);
+    });
+
+    it('takes no run before a host starts it', () => {
+      expect(() => requested().holdRun('run_1', later(1))).toThrow(
+        InconsistentStateError,
+      );
+    });
+
+    it('cannot have a host without a token', () => {
+      const sandbox = started();
+
+      expect(() =>
+        Sandbox.rehydrate({
+          id: sandbox.id,
+          workspaceId: sandbox.workspaceId,
+          key: sandbox.key,
+          hostId: sandbox.hostId,
+          tokenHash: null,
+          state: sandbox.current,
+          leases: sandbox.leases,
+          idleSince: sandbox.idleSince,
+          startedAt: sandbox.startedAt,
+          goneAt: null,
+          version: 0,
+        }),
+      ).toThrow(InconsistentStateError);
+    });
   });
 });

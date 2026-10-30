@@ -1905,6 +1905,143 @@
         ]
       }
     },
+    "/sandboxes/{sandboxId}/workspace-archive": {
+      "get": {
+        "description": "The bearer is the sandbox token from the sandbox’s first assignment.",
+        "operationId": "readSandboxArchive",
+        "parameters": [
+          {
+            "name": "sandboxId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredArchiveResponseDto"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Nothing to restore: the sandbox starts with an empty workspace"
+          },
+          "404": {
+            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The archive a sandbox restores when it starts: the newest workspace its task or chat left",
+        "tags": [
+          "runners"
+        ]
+      },
+      "post": {
+        "description": "The bearer is the sandbox token. The sandbox archives with it when it drains, also when no run is in it.",
+        "operationId": "grantSandboxArchive",
+        "parameters": [
+          {
+            "name": "sandboxId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantWorkspaceArchiveRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveGrantResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox"
+          },
+          "422": {
+            "description": "Too large, not a SHA-256, a sandbox of no task or chat, or nowhere to store it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Archive the workspace as the sandbox keeps it: a place to upload its archive, for this size and SHA-256 only",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/sandboxes/{sandboxId}/workspace-archive/{archiveId}/complete": {
+      "post": {
+        "operationId": "completeSandboxArchive",
+        "parameters": [
+          {
+            "name": "sandboxId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "archiveId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox"
+          },
+          "409": {
+            "description": "Not uploaded, or uploaded other than as granted"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Say the archive is uploaded, so the next sandbox or run of this task or chat restores it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/pools/{id}/queue": {
       "get": {
         "operationId": "poolQueue",
@@ -1987,7 +2124,7 @@
     },
     "/hosts/claim": {
       "post": {
-        "description": "Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a task or chat whose workspace a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox.",
+        "description": "Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a task or chat whose workspace a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the workspace of its task or chat and waits for runs.",
         "operationId": "claimHostWork",
         "parameters": [
           {
@@ -2036,7 +2173,7 @@
             "bearer": []
           }
         ],
-        "summary": "Long-poll for one run or check, assigned with a one-run runner’s credential",
+        "summary": "Long-poll for one run or check, assigned with a one-run runner’s credential, or for a sandbox to start with no run",
         "tags": [
           "runners"
         ]
@@ -21278,8 +21415,10 @@
             "type": "string",
             "enum": [
               "run",
-              "check"
-            ]
+              "check",
+              "sandbox"
+            ],
+            "description": "`sandbox` is only for a host claim: start a sandbox with no run in it"
           },
           "run": {
             "nullable": true,
@@ -22931,22 +23070,40 @@
         "properties": {
           "runnerId": {
             "type": "string",
+            "nullable": true,
             "example": "9c4e1a7b-2d58-4f36-8b0e-6a1f3c9d7e24",
-            "description": "The one-run runner Spotlight started for this work"
+            "description": "The one-run runner Spotlight started for this work. Null for a sandbox with no run."
           },
           "token": {
             "type": "string",
-            "description": "The one-run credential, good only for this work and only until it ends; every later call carries it instead of the host’s own credential"
+            "nullable": true,
+            "description": "The one-run credential, good only for this work and only until it ends; every later call carries it instead of the host’s own credential. Null for a sandbox with no run."
           },
           "egressToken": {
             "type": "string",
-            "description": "The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox"
+            "nullable": true,
+            "description": "The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox. Null for a sandbox with no run: its egress starts with no secrets."
           },
           "sandboxId": {
             "type": "string",
             "nullable": true,
             "example": "5d2e8f1a-7c4b-4e9a-b3f6-1a8d0c7e2b95",
             "description": "The sandbox Spotlight started for a run; the host labels its container with it and reports it in each heartbeat. Null for a check."
+          },
+          "sandboxToken": {
+            "type": "string",
+            "nullable": true,
+            "description": "The credential of a new sandbox, for its own calls only: restore and archive its workspace. The host hands it into the sandbox with the first assignment. Null when the run reuses a live sandbox, and for a check."
+          },
+          "allowedHosts": {
+            "example": [
+              "spotlight-archives.s3.eu-west-1.amazonaws.com"
+            ],
+            "description": "Hosts the egress of a sandbox with no run lets through: where the sandbox restores and stores its workspace archives. Empty for a run: its egress reads them with the run’s secrets.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "reused": {
             "type": "boolean",
@@ -22962,6 +23119,8 @@
           "token",
           "egressToken",
           "sandboxId",
+          "sandboxToken",
+          "allowedHosts",
           "reused",
           "work"
         ]

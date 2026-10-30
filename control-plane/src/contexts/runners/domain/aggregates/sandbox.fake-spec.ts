@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
@@ -6,12 +7,29 @@ import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.
 import { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
 import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { vi } from 'vitest';
 
 export const GRACE_MS = 10 * 60_000;
 
 export const EDITOR_LIMIT_MS = 12 * 60 * 60_000;
+
+export const tokenHashOf = (token: string): TokenHash =>
+  TokenHash.of(createHash('sha256').update(token).digest('hex'));
+
+export const sandboxTokens = (): TokenIssuer => {
+  let issued = 0;
+
+  return {
+    issue: () => {
+      const token = `sandbox-token-${++issued}`;
+      return { token, hash: tokenHashOf(token).value };
+    },
+    hash: (token: string) => tokenHashOf(token).value,
+  };
+};
 
 export const DRAIN_POLICY = SandboxDrainPolicy.of({
   graceMs: GRACE_MS,
@@ -24,6 +42,7 @@ const savedAs = (sandbox: Sandbox, version: number): Sandbox =>
     workspaceId: sandbox.workspaceId,
     key: sandbox.key,
     hostId: sandbox.hostId,
+    tokenHash: sandbox.tokenHash,
     state: sandbox.current,
     leases: sandbox.leases,
     idleSince: sandbox.idleSince,
@@ -45,6 +64,7 @@ export const aSandbox = (input: {
     workspaceId: input.workspaceId,
     key: input.key === null ? null : SandboxKey.of(input.key ?? 'task-task_1'),
     hostId: input.hostId,
+    tokenHash: tokenHashOf(input.id ?? 'sandbox_1'),
     runId: input.runId ?? 'run_1',
     at: input.at,
   });
@@ -91,16 +111,33 @@ export const storedSandboxes = (
             each.key?.equals(key),
         ) ?? null,
     ),
+    liveByTokenHash: vi.fn(
+      async (hash: TokenHash) =>
+        all().find(
+          (each) => each.isLive && each.tokenHash?.equals(hash) === true,
+        ) ?? null,
+    ),
+    requestedIn: vi.fn(async (workspaceId: WorkspaceId, limit: number) =>
+      all()
+        .filter(
+          (each) => each.isRequested && each.workspaceId.equals(workspaceId),
+        )
+        .sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime())
+        .slice(0, limit),
+    ),
     liveOn: vi.fn(async (hostId: HostId) =>
-      all().filter((each) => each.isLive && each.hostId.equals(hostId)),
+      all().filter(
+        (each) => each.isLive && each.hostId?.equals(hostId) === true,
+      ),
     ),
     liveKeysIn: vi.fn(async (workspaceId: WorkspaceId) => {
       const silent = input.silentHosts?.() ?? [];
       return all().flatMap((each) =>
         each.isLive &&
+        each.isPlaced &&
         each.key !== null &&
         each.workspaceId.equals(workspaceId) &&
-        !silent.includes(each.hostId.value)
+        !silent.includes(each.hostId?.value ?? '')
           ? [each.key]
           : [],
       );
@@ -111,6 +148,7 @@ export const storedSandboxes = (
           (each) =>
             each.isLive &&
             each.isIdle &&
+            each.hostId !== null &&
             input.poolOf?.(each.hostId.value) === poolId.value,
         ).length,
     ),
@@ -126,7 +164,10 @@ export const storedSandboxes = (
     liveOnHostsSilentSince: vi.fn(async () => {
       const silent = input.silentHosts?.() ?? [];
       return all().filter(
-        (each) => each.isLive && silent.includes(each.hostId.value),
+        (each) =>
+          each.isLive &&
+          each.hostId !== null &&
+          silent.includes(each.hostId.value),
       );
     }),
     removeGoneBefore: vi.fn(async (cutoff: Date) => {

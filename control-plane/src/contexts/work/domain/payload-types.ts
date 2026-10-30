@@ -48,6 +48,7 @@ import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
+import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -173,6 +174,7 @@ export const WORK_PAYLOAD_TYPES = [
   ApprovalNeeded,
   ApprovalSubject,
   ArchiveDigest,
+  ArchiveGrantee,
   ArchiveSize,
   AttachmentId,
   Attachment,

@@ -584,7 +584,7 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	}
 
 	inSandbox := assignment
-	inSandbox.EgressToken = ""
+	inSandbox.EgressToken, inSandbox.AllowedHosts = "", nil
 	body, err := json.Marshal(inSandbox)
 	if err != nil {
 		log.Error("could not encode the assignment", "error", err)
@@ -592,11 +592,13 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		return
 	}
 
-	client, err := h.pool.ForRun(assignment)
-	if err != nil {
-		log.Error("could not act for the runner of its assignment", "error", err)
-		h.reported(err, assignment)
-		return
+	var client RunClient
+	if !assignment.StartsSandboxOnly() {
+		if client, err = h.pool.ForRun(assignment); err != nil {
+			log.Error("could not act for the runner of its assignment", "error", err)
+			h.reported(err, assignment)
+			return
+		}
 	}
 
 	stopRenewing, stopRequested := h.renewingLease(ctx, assignment, client, log)
@@ -649,13 +651,16 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		env = append(env, telemetry.TraceparentVar+"="+trace.Traceparent())
 	}
 
-	labels := map[string]string{LabelHost: h.opts.HostID, LabelRunner: assignment.RunnerID}
+	labels := map[string]string{LabelHost: h.opts.HostID}
+	if assignment.RunnerID != "" {
+		labels[LabelRunner] = assignment.RunnerID
+	}
 	if assignment.SandboxID != "" {
 		labels[LabelSandbox] = assignment.SandboxID
 	}
 
 	id, err := h.engine.Start(starting, sandbox.Spec{
-		Name:    "spotlight-" + assignment.RunnerID,
+		Name:    "spotlight-" + nameOf(assignment),
 		Image:   ready.id,
 		Env:     env,
 		Labels:  labels,
@@ -672,9 +677,15 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 	}
 
 	stopRenewing()
-	h.track(id, assignment.RunnerID)
-	defer h.untrack(id)
-	log.Info("started a sandbox", "sandbox", id)
+	if assignment.RunnerID != "" {
+		h.track(id, assignment.RunnerID)
+		defer h.untrack(id)
+	}
+	if assignment.StartsSandboxOnly() {
+		log.Info("started a sandbox with no run; it restores its workspace and waits for runs", "sandbox", id)
+	} else {
+		log.Info("started a sandbox", "sandbox", id)
+	}
 
 	watching, stopWatching := context.WithCancel(context.WithoutCancel(ctx))
 	defer stopWatching()
@@ -748,6 +759,13 @@ func (h *Host) sandbox(ctx, claiming context.Context, image string, assignment p
 		log.Warn("could not stop the sandbox", "error", err)
 	}
 	drain()
+}
+
+func nameOf(assignment protocol.Assignment) string {
+	if assignment.RunnerID != "" {
+		return assignment.RunnerID
+	}
+	return "sandbox-" + assignment.SandboxID
 }
 
 type liveSandbox struct {

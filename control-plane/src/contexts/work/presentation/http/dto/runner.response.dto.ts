@@ -155,8 +155,12 @@ export class ClaimedCheckResponseDto {
 }
 
 export class ClaimedWorkResponseDto {
-  @ApiProperty({ enum: ['run', 'check'] })
-  readonly kind: 'run' | 'check';
+  @ApiProperty({
+    enum: ['run', 'check', 'sandbox'],
+    description:
+      '`sandbox` is only for a host claim: start a sandbox with no run in it',
+  })
+  readonly kind: 'run' | 'check' | 'sandbox';
 
   @ApiProperty({ type: () => ClaimedRunResponseDto, nullable: true })
   readonly run: ClaimedRunResponseDto | null;
@@ -165,7 +169,7 @@ export class ClaimedWorkResponseDto {
   readonly check: ClaimedCheckResponseDto | null;
 
   constructor(
-    kind: 'run' | 'check',
+    kind: 'run' | 'check' | 'sandbox',
     run: ClaimedRunResponseDto | null,
     check: ClaimedCheckResponseDto | null,
   ) {

@@ -6,6 +6,7 @@ import {
   WorkspaceArchive,
 } from '@work/domain/aggregates/workspace-archive.aggregate';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
+import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
@@ -30,7 +31,7 @@ export const anArchive = (
     workspaceId: WorkspaceId.of('ws_1'),
     resumeKey: ResumeKey.forTask('task_1'),
     holder: { kind: 'task', taskId: TaskId.of('task_1') },
-    run: RunId.of(overrides.run ?? 'run_1'),
+    grantee: ArchiveGrantee.run(RunId.of(overrides.run ?? 'run_1')),
     size: ArchiveSize.of(overrides.bytes ?? 1_024),
     digest: ArchiveDigest.of(SHA256),
     at: GRANTED_AT,
@@ -46,7 +47,7 @@ export const aCompletedChatArchive = (): WorkspaceArchive =>
     workspaceId: WorkspaceId.of('ws_1'),
     resumeKey: ResumeKey.forChat('chat_1'),
     holder: { kind: 'chat', chatId: ChatId.of('chat_1') },
-    run: RunId.of('run_1'),
+    grantee: ArchiveGrantee.run(RunId.of('run_1')),
     size: ArchiveSize.of(1_024),
     digest: ArchiveDigest.of(SHA256),
     at: GRANTED_AT,

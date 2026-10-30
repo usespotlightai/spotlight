@@ -327,8 +327,9 @@ type ChangeStackGenerationRequest struct {
 }
 
 const (
-	ClaimedRun   = "run"
-	ClaimedCheck = "check"
+	ClaimedRun     = "run"
+	ClaimedCheck   = "check"
+	ClaimedSandbox = "sandbox"
 )
 
 type ClaimResponse struct {
@@ -338,12 +339,18 @@ type ClaimResponse struct {
 }
 
 type Assignment struct {
-	RunnerID    string        `json:"runnerId"`
-	Token       string        `json:"token"`
-	EgressToken string        `json:"egressToken,omitempty"`
-	SandboxID   string        `json:"sandboxId,omitempty"`
-	Reused      bool          `json:"reused,omitempty"`
-	Work        ClaimResponse `json:"work"`
+	RunnerID     string        `json:"runnerId"`
+	Token        string        `json:"token"`
+	EgressToken  string        `json:"egressToken,omitempty"`
+	SandboxID    string        `json:"sandboxId,omitempty"`
+	SandboxToken string        `json:"sandboxToken,omitempty"`
+	AllowedHosts []string      `json:"allowedHosts,omitempty"`
+	Reused       bool          `json:"reused,omitempty"`
+	Work         ClaimResponse `json:"work"`
+}
+
+func (a Assignment) StartsSandboxOnly() bool {
+	return a.Work.Kind == ClaimedSandbox
 }
 
 type StackCheck struct {
