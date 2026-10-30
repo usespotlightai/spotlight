@@ -79,6 +79,44 @@ func TestUpdatesToTheControlPlanesReleaseAndRestartsWhenItsSandboxesFinish(t *te
 	}
 }
 
+func TestAnUpdatingHostKeepsReportingItsSandboxesUntilTheControlPlaneDrainsThem(t *testing.T) {
+	engine, pool, binary := harnessed(), newPool(), &updates{}
+	opts := updating(t, binary, true)
+	opts.HeartbeatEvery = 10 * time.Millisecond
+	_, stopped := serving(t, opts, engine, pool)
+
+	pool.work <- inSandbox("runner_1", "sandbox_a")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	id := engine.workSandboxes()[0]
+
+	pool.mu.Lock()
+	pool.release = "v0.7.0"
+	pool.mu.Unlock()
+	eventually(t, "a heartbeat that says the host stops", func() bool {
+		last := pool.lastHeartbeat()
+		return last.Stopping && len(last.Sandboxes) == 1 && last.Sandboxes[0].ID == "sandbox_a"
+	})
+
+	pool.into <- reused("runner_2", "sandbox_a")
+	time.Sleep(100 * time.Millisecond)
+	if _, ok := engine.putIn(id, serve.AssignmentPath); ok {
+		t.Error("a stopping host delivered the next run into its sandbox")
+	}
+	beats := len(pool.heartbeatsSent())
+	time.Sleep(50 * time.Millisecond)
+	if len(pool.heartbeatsSent()) == beats {
+		t.Fatal("the host stopped its heartbeats while a sandbox lives")
+	}
+
+	pool.drainSandboxes("sandbox_a")
+	if err := stopped(); !errors.Is(err, serve.ErrRestart) {
+		t.Fatalf("stopped with %v", err)
+	}
+	if !engine.wasDestroyed(id) {
+		t.Error("restarted before the drained sandbox was destroyed")
+	}
+}
+
 func TestUpdatesBeforeItClaimsWhenItStartsOnAnotherRelease(t *testing.T) {
 	engine, pool, binary := harnessed(), newPool(), &updates{}
 	pool.release = "v0.7.0"

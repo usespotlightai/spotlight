@@ -1,6 +1,7 @@
 import type {
   SandboxesPort,
   SandboxForRun,
+  SandboxTakingRuns,
 } from '@runners/application/ports/sandboxes.port';
 import { reviseSandbox } from '@runners/application/services/sandbox-revisions';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
@@ -68,6 +69,54 @@ export class Sandboxes implements SandboxesPort {
     }
   }
 
+  async takingRuns(
+    sandboxId: string,
+    hostId: string,
+  ): Promise<SandboxTakingRuns | null> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    if (!found?.key || !found.takesRunOn(HostId.of(hostId))) {
+      return null;
+    }
+
+    return {
+      id: found.id.value,
+      workspaceId: found.workspaceId.value,
+      key: found.key.value,
+    };
+  }
+
+  async holdInSandbox(
+    sandboxId: string,
+    run: SandboxForRun,
+    at: Date,
+  ): Promise<boolean> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    if (!found) {
+      return false;
+    }
+
+    const held = await reviseSandbox(this.sandboxes, found, (sandbox) =>
+      sandbox.takesRunOn(HostId.of(run.hostId)) &&
+      sandbox.key?.value === run.key &&
+      sandbox.workspaceId.value === run.workspaceId
+        ? sandbox.holdRun(run.runId, at)
+        : sandbox,
+    );
+
+    return held?.holdsRun(run.runId) ?? false;
+  }
+
+  async liveKeysIn(workspaceId: string, at: Date): Promise<readonly string[]> {
+    const keys = await this.sandboxes.liveKeysIn(
+      WorkspaceId.of(workspaceId),
+      RunnerHost.onlineCutoff(at),
+    );
+
+    return keys.map((each) => each.value);
+  }
+
   async releaseRun(runId: string, at: Date): Promise<void> {
     for (const holding of await this.sandboxes.holdingRun(runId)) {
       await reviseSandbox(this.sandboxes, holding, (sandbox) =>
@@ -80,6 +129,7 @@ export class Sandboxes implements SandboxesPort {
     host: string,
     reported: readonly string[],
     at: Date,
+    stopping: boolean,
   ): Promise<readonly string[]> {
     const hostId = HostId.of(host);
     const known = await this.sandboxes.liveOn(hostId);
@@ -88,9 +138,11 @@ export class Sandboxes implements SandboxesPort {
 
     for (const live of known) {
       const changed = await reviseSandbox(this.sandboxes, live, (sandbox) =>
-        reporting.has(sandbox.id.value)
-          ? sandbox.reported()
-          : sandbox.unreported(at),
+        !reporting.has(sandbox.id.value)
+          ? sandbox.unreported(at)
+          : stopping
+            ? sandbox.reported().drainedWhenIdle()
+            : sandbox.reported(),
       );
 
       if (changed && !changed.mustDrain) {

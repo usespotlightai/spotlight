@@ -16,5 +16,6 @@ export type HostClaimDto =
       readonly token: string;
       readonly egressToken: string;
       readonly sandboxId: string | null;
+      readonly reused: boolean;
       readonly work: ClaimedWorkDto;
     };

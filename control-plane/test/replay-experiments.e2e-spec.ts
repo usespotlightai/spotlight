@@ -312,9 +312,8 @@ const finishes = async (
       failed,
       handover: failed ? undefined : { next: 'ship', note: 'Done here.' },
       sessionId: 'session_1',
-      archived: true,
     })
-    .expect(200);
+    .expect(204);
 };
 
 const untilEnded = (runId: string) =>

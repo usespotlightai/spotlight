@@ -114,6 +114,7 @@ const reporting = (
       credential = CREDENTIAL,
       bootId = 'boot_1',
       sandboxes: string[] = [],
+      stopping = false,
     ) =>
       handler.execute(
         new HostHeartbeatCommand(
@@ -122,6 +123,7 @@ const reporting = (
           bootId,
           { ...REPORT, ...report },
           sandboxes,
+          stopping,
         ),
       ),
   };

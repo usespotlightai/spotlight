@@ -38,14 +38,14 @@ func readAssignment(path string) (*protocol.Assignment, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read its assignment: %w", err)
 	}
-	// The credential is read one time. Nothing later in the sandbox can find it on disk.
-	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("remove its assignment: %w", err)
-	}
 
 	var assigned protocol.Assignment
 	if err := json.Unmarshal(raw, &assigned); err != nil {
 		return nil, fmt.Errorf("read its assignment: %w", err)
+	}
+	// The credential is read one time. Nothing later in the sandbox can find it on disk.
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("remove its assignment: %w", err)
 	}
 	if assigned.Token == "" || assigned.RunnerID == "" {
 		return nil, fmt.Errorf("its assignment has no one-run credential")

@@ -58,11 +58,31 @@ describe('sandboxes (e2e)', () => {
     return id;
   };
 
-  const claim = () =>
+  const claim = (sandbox?: string) =>
     http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${token}`)
-      .send({ host: HOST, image: IMAGE });
+      .send({ host: HOST, image: IMAGE, sandbox });
+
+  const complete = (runId: string, runnerToken: string) =>
+    http()
+      .post(`/api/runs/${runId}/completion`)
+      .set('Authorization', `Bearer ${runnerToken}`)
+      .send({ exitCode: 0, failed: false })
+      .expect(204);
+
+  const idleAndReady = async (key: string) => {
+    const runId = await queue({ key });
+    const claimed = await claim().expect(200);
+    const sandboxId: string = claimed.body.sandboxId;
+    await heartbeat([sandboxId]).expect(200);
+    await complete(runId, claimed.body.token);
+    await eventually(async () =>
+      (await sandboxRow(sandboxId))?.idleSince ? true : null,
+    );
+
+    return sandboxId;
+  };
 
   const heartbeat = (sandboxes: string[] = []) =>
     http()
@@ -154,11 +174,7 @@ describe('sandboxes (e2e)', () => {
     ).resolves.toMatchObject({ body: { drain: ['sandbox-unknown'] } });
     expect((await sandboxRow(sandboxId))?.state).toBe('ready');
 
-    await http()
-      .post(`/api/runs/${runId}/completion`)
-      .set('Authorization', `Bearer ${claimed.body.token}`)
-      .send({ exitCode: 0, failed: false })
-      .expect(200);
+    await complete(runId, claimed.body.token);
     const released = await eventually(async () => {
       const row = await sandboxRow(sandboxId);
       return row?.idleSince ? row : null;
@@ -184,20 +200,70 @@ describe('sandboxes (e2e)', () => {
     });
   });
 
-  it('drains the earlier sandbox of a key when a later run of that key starts its own', async () => {
+  it('runs the next run of a key in its ready sandbox, claimed only by that sandbox’s host for it', async () => {
+    const sandboxId = await idleAndReady('task-task_3');
+    const next = await queue({ key: 'task-task_3' });
+
+    await claim().expect(204);
+    const reused = await claim(sandboxId).expect(200);
+
+    expect(reused.body).toMatchObject({
+      sandboxId,
+      reused: true,
+      work: { kind: 'run', run: { id: next } },
+    });
+    expect(await sandboxRow(sandboxId)).toMatchObject({
+      state: 'ready',
+      leases: [{ kind: 'run', holder: next, renewedAt: expect.any(String) }],
+      idleSince: null,
+    });
+  });
+
+  it('takes nothing into a sandbox for a run of another key, nor into a sandbox with a run in it', async () => {
+    const sandboxId = await idleAndReady('task-task_4');
+    await queue({ key: 'task-task_5' });
+
+    await claim(sandboxId).expect(204);
+
+    const other = await claim().expect(200);
+    expect(other.body.sandboxId).not.toBe(sandboxId);
+
+    const busy = other.body.sandboxId as string;
+    await heartbeat([sandboxId, busy]).expect(200);
+    await queue({ key: 'task-task_5' });
+    await claim(busy).expect(204);
+  });
+
+  it('starts a fresh sandbox for the next run of a key once its draining sandbox is gone', async () => {
+    const sandboxId = await idleAndReady('task-task_6');
+    await db
+      .update(schema.sandbox)
+      .set({ state: 'draining' })
+      .where(eq(schema.sandbox.id, sandboxId));
+    const next = await queue({ key: 'task-task_6' });
+
+    await claim().expect(204);
+    await heartbeat([]).expect(200);
+    expect((await sandboxRow(sandboxId))?.state).toBe('gone');
+
+    const fresh = await claim().expect(200);
+
+    expect(fresh.body).toMatchObject({
+      reused: false,
+      work: { kind: 'run', run: { id: next } },
+    });
+    expect(fresh.body.sandboxId).not.toBe(sandboxId);
+  });
+
+  it('leaves the next run of a key to its sandbox while that sandbox starts', async () => {
     const first = await queue({ key: 'task-task_2' });
     const earlier = await claim().expect(200);
-    await http()
-      .post(`/api/runs/${first}/completion`)
-      .set('Authorization', `Bearer ${earlier.body.token}`)
-      .send({ exitCode: 0, failed: false })
-      .expect(200);
+    await complete(first, earlier.body.token);
     await queue({ key: 'task-task_2' });
 
-    const later = await claim().expect(200);
+    await claim().expect(204);
 
-    expect((await sandboxRow(earlier.body.sandboxId))?.state).toBe('draining');
-    expect((await sandboxRow(later.body.sandboxId))?.state).toBe('starting');
+    expect((await sandboxRow(earlier.body.sandboxId))?.state).toBe('starting');
   });
 
   it('hands out no second run of a chat while an earlier run of it holds its lease', async () => {

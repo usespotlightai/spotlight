@@ -134,6 +134,7 @@ describe('Sandboxes', () => {
       HOST,
       ['sandbox_1', 'sandbox_3', 'sandbox_4', 'sandbox_unknown'],
       later(1_000),
+      false,
     );
 
     expect(stored.get('sandbox_1')?.current).toBe('ready');
@@ -141,6 +142,40 @@ describe('Sandboxes', () => {
     expect(stored.get('sandbox_3')?.current).toBe('draining');
     expect(stored.get('sandbox_4')?.current).toBe('ready');
     expect(drain).toEqual(['sandbox_3', 'sandbox_4', 'sandbox_unknown']);
+  });
+
+  it('drains the idle sandboxes of a host that stops, and keeps those a run holds until the run leaves', async () => {
+    const { stored, service } = serving({
+      known: [
+        placed('sandbox_1').reported(),
+        placed('sandbox_2', { key: 'chat-chat_1', runId: 'run_2' })
+          .reported()
+          .releaseRun('run_2', later(500)),
+      ],
+    });
+
+    const drain = await service.reconcile(
+      HOST,
+      ['sandbox_1', 'sandbox_2'],
+      later(1_000),
+      true,
+    );
+
+    expect(stored.get('sandbox_1')?.current).toBe('ready');
+    expect(stored.get('sandbox_2')?.current).toBe('draining');
+    expect(drain).toEqual(['sandbox_2']);
+
+    await service.releaseRun('run_1', later(2_000));
+
+    expect(
+      await service.reconcile(
+        HOST,
+        ['sandbox_1', 'sandbox_2'],
+        later(3_000),
+        true,
+      ),
+    ).toEqual(['sandbox_1', 'sandbox_2']);
+    expect(stored.get('sandbox_1')?.current).toBe('draining');
   });
 
   it('drains a sandbox idle past the grace, and loses sandboxes on silent hosts', async () => {
@@ -172,5 +207,96 @@ describe('Sandboxes', () => {
 
     await service.drainIdle(later(24 * 60 * 60_000));
     expect(stored.has('sandbox_1')).toBe(false);
+  });
+
+  describe('the next run of a key with a live sandbox', () => {
+    const idle = () =>
+      placed('sandbox_1').reported().releaseRun('run_1', later(1_000));
+
+    it('is taken by the ready sandbox on the host that claims for it', async () => {
+      const { service } = serving({ known: [idle()] });
+
+      await expect(service.takingRuns('sandbox_1', HOST)).resolves.toEqual({
+        id: 'sandbox_1',
+        workspaceId: WORKSPACE.value,
+        key: 'task-task_1',
+      });
+      await expect(
+        service.takingRuns('sandbox_1', OTHER_HOST),
+      ).resolves.toBeNull();
+      await expect(service.takingRuns('sandbox_9', HOST)).resolves.toBeNull();
+    });
+
+    it('is taken by no sandbox that has a run in it, or that drains', async () => {
+      for (const sandbox of [placed('sandbox_1').reported(), idle().drain()]) {
+        const { service } = serving({ known: [sandbox] });
+
+        await expect(service.takingRuns('sandbox_1', HOST)).resolves.toBeNull();
+      }
+    });
+
+    it('holds the run in the sandbox it was claimed for', async () => {
+      const { stored, service } = serving({ known: [idle()] });
+
+      await expect(
+        service.holdInSandbox('sandbox_1', forRun('run_2'), later(2_000)),
+      ).resolves.toBe(true);
+      expect(stored.get('sandbox_1')?.holdsRun('run_2')).toBe(true);
+      expect(stored.size).toBe(1);
+    });
+
+    it('is not held by a sandbox that took another run or drained meanwhile', async () => {
+      for (const sandbox of [
+        idle().holdRun('run_3', later(1_500)),
+        idle().drain(),
+      ]) {
+        const { stored, service } = serving({ known: [sandbox] });
+
+        await expect(
+          service.holdInSandbox('sandbox_1', forRun('run_2'), later(2_000)),
+        ).resolves.toBe(false);
+        expect(stored.get('sandbox_1')?.holdsRun('run_2')).toBe(false);
+      }
+    });
+
+    it('is not held by a sandbox of another key', async () => {
+      const { service } = serving({ known: [idle()] });
+
+      await expect(
+        service.holdInSandbox(
+          'sandbox_1',
+          forRun('run_2', 'task-task_2'),
+          later(2_000),
+        ),
+      ).resolves.toBe(false);
+    });
+
+    it('names the keys that placed sandboxes keep until they are gone, except those on silent hosts', async () => {
+      const { service } = serving({
+        known: [
+          placed('sandbox_1').reported(),
+          placed('sandbox_2', { key: 'task-task_2' }),
+          placed('sandbox_3', { key: 'chat-chat_1', host: OTHER_HOST })
+            .reported()
+            .releaseRun('run_1', later(1_000)),
+          placed('sandbox_4', { key: 'task-task_4' }).reported().drain(),
+          placed('sandbox_5', { key: 'task-task_5' }).lost(later(1_000)),
+        ],
+        silentHosts: [],
+      });
+
+      expect(
+        [...(await service.liveKeysIn(WORKSPACE.value, later(2_000)))].sort(),
+      ).toEqual(['chat-chat_1', 'task-task_1', 'task-task_2', 'task-task_4']);
+
+      const silent = serving({
+        known: [placed('sandbox_1').reported()],
+        silentHosts: [HOST],
+      });
+
+      await expect(
+        silent.service.liveKeysIn(WORKSPACE.value, later(2_000)),
+      ).resolves.toEqual([]);
+    });
   });
 });

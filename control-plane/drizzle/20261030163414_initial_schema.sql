@@ -48,7 +48,7 @@ CREATE TYPE "public"."search_skip_reason" AS ENUM('no-agent', 'no-scoring', 'set
 CREATE TYPE "public"."inbox_request_form" AS ENUM('memories', 'grade', 'alert');--> statement-breakpoint
 CREATE TYPE "public"."notice_form" AS ENUM('ended', 'advice');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_claimed" AS ENUM('queued', 'cancelled', 'unreplayable');--> statement-breakpoint
-CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'waiting', 'suspended', 'completed', 'failed', 'cancelled', 'superseded');--> statement-breakpoint
+CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'suspended', 'completed', 'failed', 'cancelled', 'superseded');--> statement-breakpoint
 CREATE SEQUENCE "public"."memory_handle_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1;--> statement-breakpoint
 CREATE TABLE "event_delivery" (
 	"event_id" uuid NOT NULL,

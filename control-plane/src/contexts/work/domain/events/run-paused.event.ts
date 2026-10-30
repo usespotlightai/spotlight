@@ -21,6 +21,7 @@ export class RunPaused implements DomainEvent {
     readonly session: HarnessSession | null,
     readonly attempt: number,
     readonly at: Date,
+    readonly resumesAtOnce: boolean,
   ) {}
 
   get taskId(): TaskId | null {

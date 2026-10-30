@@ -13,7 +13,7 @@ import {
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { eq } from 'drizzle-orm';
+import { eq, ne } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
@@ -95,7 +95,15 @@ const heartbeat = async () => {
     .expect(200);
 };
 
+const lostEarlierSandboxes = async () => {
+  await db
+    .update(schema.sandbox)
+    .set({ state: 'gone', goneAt: new Date() })
+    .where(ne(schema.sandbox.state, 'gone'));
+};
+
 const claimed = async (runId: string): Promise<string> => {
+  await lostEarlierSandboxes();
   await heartbeat();
 
   const assignment = (
@@ -153,7 +161,6 @@ const askingForReview = {
   failed: false,
   handover: { next: 'review', note: 'Which queue should I drain?' },
   sessionId: 'session_1',
-  archived: true,
 };
 
 const runRow = async (runId: string) => {
@@ -301,16 +308,18 @@ afterAll(async () => {
 });
 
 describe('a run that asks a person', () => {
-  it('pauses when its runner reports the turn asked for review, keeping the task and waiting for the answer', async () => {
+  it('is suspended at once when its runner reports the turn asked for review, keeping the task with the person', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 
-    const completed = await runner(token)
+    await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
-      .expect(200);
+      .expect(204);
 
-    expect(completed.body).toEqual({ waiting: true });
-    expect((await runRow(runId))?.state).toBe('waiting');
+    const suspended = await runRow(runId);
+    expect(suspended?.state).toBe('suspended');
+    expect(suspended?.claimedBy).toBeNull();
+    expect(suspended?.suspendedAttempts).toEqual([1]);
 
     const item = await inboxItemOf(taskId);
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
@@ -318,69 +327,15 @@ describe('a run that asks a person', () => {
     expect(item.progress).toBeNull();
     expect(item.runId).toBe(runId);
 
-    const waiting = await runner(token)
-      .get(`/api/runs/${runId}/messages`)
-      .expect(200);
-    expect(waiting.body).toEqual([]);
-
-    const renewed = await runner(token)
+    await runner(token).get(`/api/runs/${runId}/messages`).expect(404);
+    await runner(token)
       .post(`/api/runs/${runId}/lease`)
-      .expect(201);
-    expect(renewed.body).toEqual({ stop: false });
+      .expect((response) =>
+        expect(response.status).toBeGreaterThanOrEqual(400),
+      );
   });
 
-  it('sends an answer given while it waits warm to the same run, which a suspend request then leaves working', async () => {
-    const { taskId, runId } = await aTaskWithLeasedRun();
-    const token = await claimed(runId);
-    await runner(token)
-      .post(`/api/runs/${runId}/completion`, askingForReview)
-      .expect(200);
-
-    await answered(taskId, 'The default one.');
-
-    const run = await runIn(runId, 'claimed');
-    expect(run?.attempt).toBe(1);
-    expect((await inboxItemOf(taskId)).progress).not.toBeNull();
-
-    const pending = (
-      await runner(token).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as PendingMessage[];
-    expect(pending.map((each) => each.body)).toEqual(['The default one.']);
-
-    const suspension = await runner(token)
-      .post(`/api/runs/${runId}/suspended`)
-      .expect(200);
-    expect(suspension.body).toEqual({ suspended: false });
-
-    await runner(token)
-      .post(`/api/runs/${runId}/messages/ack`, {
-        upTo: pending[0]?.position,
-      })
-      .expect(204);
-    expect(
-      (await runner(token).get(`/api/runs/${runId}/messages`).expect(200)).body,
-    ).toEqual([]);
-
-    const again = await runner(token)
-      .post(`/api/runs/${runId}/completion`, {
-        exitCode: 0,
-        failed: false,
-        handover: { next: 'ship', note: 'Drained.' },
-      })
-      .expect(200);
-    expect(again.body).toEqual({ waiting: false });
-    expect((await runRow(runId))?.state).toBe('completed');
-
-    const runs = (
-      await http()
-        .get(`/api/teams/${team.teamId.value}/tasks/${taskId}/runs`)
-        .set(TEST_USER_HEADER, team.owner.value)
-        .expect(200)
-    ).body as { id: string }[];
-    expect(runs.filter((each) => each.id === runId)).toHaveLength(1);
-  });
-
-  it('suspends after the grace period, and an answer requeues the same run as a new attempt that restores the archive', async () => {
+  it('requeues the same run as a new attempt once answered, to resume its session from its workspace', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const first = await claimed(runId);
 
@@ -398,18 +353,7 @@ describe('a run that asks a person', () => {
       .expect(204);
     await runner(first)
       .post(`/api/runs/${runId}/completion`, askingForReview)
-      .expect(200);
-
-    const suspension = await runner(first)
-      .post(`/api/runs/${runId}/suspended`)
-      .expect(200);
-    expect(suspension.body).toEqual({ suspended: true });
-
-    const suspended = await runRow(runId);
-    expect(suspended?.state).toBe('suspended');
-    expect(suspended?.claimedBy).toBeNull();
-    expect(suspended?.suspendedAttempts).toEqual([1]);
-    await runner(first).get(`/api/runs/${runId}/messages`).expect(404);
+      .expect(204);
 
     await answered(taskId, 'The default one.');
 
@@ -423,6 +367,7 @@ describe('a run that asks a person', () => {
       },
     });
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
+    expect((await inboxItemOf(taskId)).progress).toBe('queued');
 
     const second = await claimed(runId);
     expect(second).not.toBe(first);
@@ -450,6 +395,23 @@ describe('a run that asks a person', () => {
         .map((each) => each.attempt)
         .sort(),
     ).toEqual([1, 2]);
+
+    await runner(second)
+      .post(`/api/runs/${runId}/completion`, {
+        exitCode: 0,
+        failed: false,
+        handover: { next: 'ship', note: 'Drained.' },
+      })
+      .expect(204);
+    expect((await runRow(runId))?.state).toBe('completed');
+
+    const runs = (
+      await http()
+        .get(`/api/teams/${team.teamId.value}/tasks/${taskId}/runs`)
+        .set(TEST_USER_HEADER, team.owner.value)
+        .expect(200)
+    ).body as { id: string }[];
+    expect(runs.filter((each) => each.id === runId)).toHaveLength(1);
   });
 
   it('ends a suspended run as its turn ended when a person parks its task back in the backlog', async () => {
@@ -457,8 +419,7 @@ describe('a run that asks a person', () => {
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
-      .expect(200);
-    await runner(token).post(`/api/runs/${runId}/suspended`).expect(200);
+      .expect(204);
     await inboxItemOf(taskId);
 
     await http()
@@ -475,37 +436,12 @@ describe('a run that asks a person', () => {
     expect((await taskRow(taskId))?.currentRunId).not.toBe(runId);
   });
 
-  it('ends a run waiting warm as its turn ended when a person parks its task back in the backlog, so its runner releases the sandbox', async () => {
-    const { taskId, runId } = await aTaskWithLeasedRun();
-    const token = await claimed(runId);
-    await runner(token)
-      .post(`/api/runs/${runId}/completion`, askingForReview)
-      .expect(200);
-    await inboxItemOf(taskId);
-
-    await http()
-      .post(
-        `/api/teams/${team.teamId.value}/lines/${DELIVERY}/tasks/${taskId}/move`,
-      )
-      .set(TEST_USER_HEADER, team.owner.value)
-      .send({ stationId: BACKLOG, revision: 0 })
-      .expect((response) => expect(response.status).toBeLessThan(300));
-
-    const ended = await runIn(runId, 'completed');
-    expect(ended?.stopped).toBe(false);
-    await runner(token)
-      .post(`/api/runs/${runId}/lease`)
-      .expect((response) =>
-        expect(response.status).toBeGreaterThanOrEqual(400),
-      );
-  });
-
   it('takes a message in the run chat as the answer, taking the same run up once', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
-      .expect(200);
+      .expect(204);
     await inboxItemOf(taskId);
 
     await http()
@@ -514,80 +450,37 @@ describe('a run that asks a person', () => {
       .send({ body: 'Drain the default one.' })
       .expect((response) => expect(response.status).toBeLessThan(300));
 
-    const working = await runIn(runId, 'claimed');
-    expect(working?.attempt).toBe(1);
+    const requeued = await runIn(runId, 'queued');
+    expect(requeued?.attempt).toBe(2);
+
+    const next = await claimed(runId);
     const pending = (
-      await runner(token).get(`/api/runs/${runId}/messages`).expect(200)
+      await runner(next).get(`/api/runs/${runId}/messages`).expect(200)
     ).body as PendingMessage[];
     expect(pending.map((each) => each.body)).toEqual([
       'Drain the default one.',
     ]);
-    expect((await inboxItemOf(taskId)).progress).not.toBeNull();
   });
 
-  it('reports whether a turn would wait for a person before the runner archives its workspace', async () => {
-    const { runId } = await aTaskWithLeasedRun();
-    const token = await claimed(runId);
-
-    const review = await runner(token)
-      .post(`/api/runs/${runId}/completion/awaits-person`, askingForReview)
-      .expect(200);
-    const ship = await runner(token)
-      .post(`/api/runs/${runId}/completion/awaits-person`, {
-        exitCode: 0,
-        failed: false,
-        handover: { next: 'ship' },
-      })
-      .expect(200);
-
-    expect(review.body).toEqual({ awaitsPerson: true });
-    expect(ship.body).toEqual({ awaitsPerson: false });
-    expect((await runRow(runId))?.state).toBe('claimed');
-  });
-
-  it('ends the run as before, putting the task to the person, when the workspace was not archived', async () => {
-    const { taskId, runId } = await aTaskWithLeasedRun();
-    const token = await claimed(runId);
-
-    const completed = await runner(token)
-      .post(`/api/runs/${runId}/completion`, {
-        ...askingForReview,
-        archived: false,
-      })
-      .expect(200);
-
-    expect(completed.body).toEqual({ waiting: false });
-    expect((await runRow(runId))?.state).toBe('completed');
-    await eventually(async () =>
-      (await inboxItemOf(taskId)).runId === null ? true : null,
-    );
-  });
-
-  it('writes only one of an answer and a suspension read from the same waiting run', async () => {
+  it('writes only one of an answer and a stop read from the same suspended run', async () => {
     const { runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
-      .expect(200);
+      .expect(204);
     const runs = app.get(DrizzleRunRepository);
     const read = await runs.findById(RunId.of(runId));
 
     if (!read) {
-      throw new Error('the waiting run could not be read');
+      throw new Error('the suspended run could not be read');
     }
 
-    const leasedBy = read.claimedBy;
-
-    if (!leasedBy) {
-      throw new Error('no runner has a lease on the waiting run');
-    }
-
-    await runs.save(read.suspend(leasedBy, new Date()));
+    await runs.save(read.requestStop(new Date()));
 
     await expect(runs.save(read.resumed())).rejects.toBeInstanceOf(
       RunVersionConflictError,
     );
-    expect((await runRow(runId))?.state).toBe('suspended');
+    expect((await runRow(runId))?.state).toBe('completed');
   });
 });
 
@@ -625,7 +518,7 @@ describe('a message in a run chat', () => {
         handover: { next: 'done', note: 'Deployed.' },
         sessionId: 'session_1',
       })
-      .expect(200);
+      .expect(204);
     await eventually(async () =>
       (await taskRow(taskId))?.finishedAt ? true : null,
     );
@@ -737,7 +630,7 @@ describe('a run queued while an earlier run of its task is still leased', () => 
           failed: false,
           stopped: true,
         })
-        .expect(200);
+        .expect(204);
       expect((await runRow(runId))?.state).not.toBe('claimed');
 
       expect(await claimsNext()).toContain(next);

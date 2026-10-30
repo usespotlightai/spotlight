@@ -8,10 +8,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import {
-  CompleteRunCommand,
-  SuspendRunCommand,
-} from '@work/application/commands/runner.commands';
+import { CompleteRunCommand } from '@work/application/commands/runner.commands';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import {
   HAPPENING_REACTIONS,
@@ -188,17 +185,8 @@ const pausedAsking = async (runId: RunId) => {
         undefined,
         { next: 'review', note: 'Which queue should I drain?' },
         'session_1',
-        false,
-        true,
       ),
     );
-  expect((await runOf(runId)).state).toBe('waiting');
-};
-
-const suspended = async (runId: RunId) => {
-  await app
-    .get(CommandBus)
-    .execute(new SuspendRunCommand(runId.value, RUNNER.value));
   expect((await runOf(runId)).state).toBe('suspended');
 };
 
@@ -436,40 +424,32 @@ describe('a happening while the current run of the task waits on a person (e2e)'
     return { task: await found(task.id), runId };
   };
 
-  it.each([
-    ['warm', async (_: RunId) => {}],
-    ['suspended', suspended],
-  ])(
-    'defers the move beside the question while the run waits %s',
-    async (state, waits) => {
-      const { task, runId } = await pausedAt('implementation');
-      await waits(runId);
+  it('defers the move beside the question while the run is suspended', async () => {
+    const { task, runId } = await pausedAt('implementation');
 
-      await changesRequested(task);
+    await changesRequested(task);
 
-      const after = await found(task.id);
-      expect(after.stationId).toEqual(stationKeyed('implementation').id);
-      expect(after.currentRunId).toEqual(runId);
-      expect(after.awaitingReview).toBe(true);
-      expect(after.deferredMoveTo).toEqual(stationKeyed('code-review').id);
-      expect(
-        after.notes.slice(-2).map((each) => [each.kind, each.body.value]),
-      ).toEqual([
-        ['asked', 'Which queue should I drain?'],
-        ['message', DEFERRED_MOVE_TO_CODE_REVIEW],
-      ]);
-      expect((await runOf(runId)).state).toBe(
-        state === 'warm' ? 'waiting' : 'suspended',
-      );
-    },
-  );
+    const after = await found(task.id);
+    expect(after.stationId).toEqual(stationKeyed('implementation').id);
+    expect(after.currentRunId).toEqual(runId);
+    expect(after.awaitingReview).toBe(true);
+    expect(after.deferredMoveTo).toEqual(stationKeyed('code-review').id);
+    expect(
+      after.notes.slice(-2).map((each) => [each.kind, each.body.value]),
+    ).toEqual([
+      ['asked', 'Which queue should I drain?'],
+      ['message', DEFERRED_MOVE_TO_CODE_REVIEW],
+    ]);
+    expect((await runOf(runId)).state).toBe('suspended');
+  });
 
   it('makes the deferred move once the answered run ends without passing it on', async () => {
     const { task, runId } = await pausedAt('implementation');
     await changesRequested(task);
 
     await answered(task, task.notes.length - 1, 'The default one.');
-    await eventually(async () => (await runOf(runId)).state === 'claimed');
+    await eventually(async () => (await runOf(runId)).state === 'queued');
+    await claimed(runId);
     await endedPassingTo(runId, 'review');
 
     const moved = await atStation(task, 'code-review');
@@ -477,34 +457,25 @@ describe('a happening while the current run of the task waits on a person (e2e)'
     expect(moved.currentRunId).not.toEqual(runId);
   });
 
-  it.each([
-    ['warm', async (_: RunId) => {}],
-    ['suspended', suspended],
-  ])(
-    'adds a merge to the open question while the run waits %s, asking nothing again and leaving the run as it is',
-    async (state, waits) => {
-      const { task, runId } = await pausedAt('implementation');
-      await waits(runId);
+  it('adds a merge to the open question while the run is suspended, asking nothing again and leaving the run as it is', async () => {
+    const { task, runId } = await pausedAt('implementation');
 
-      await merged(task);
+    await merged(task);
 
-      const after = await found(task.id);
-      expect(after.stationId).toEqual(stationKeyed('implementation').id);
-      expect(after.currentRunId).toEqual(runId);
-      expect(after.awaitingReview).toBe(true);
-      expect(after.finished).toBe(false);
-      expect(after.notes.filter((each) => each.kind === 'asked')).toHaveLength(
-        1,
-      );
-      expect(after.notes[after.notes.length - 1]?.body.value).toBe(
-        'The pull request was merged while Implementation was waiting for an answer. Close the task, or reply to carry on.',
-      );
+    const after = await found(task.id);
+    expect(after.stationId).toEqual(stationKeyed('implementation').id);
+    expect(after.currentRunId).toEqual(runId);
+    expect(after.awaitingReview).toBe(true);
+    expect(after.finished).toBe(false);
+    expect(after.notes.filter((each) => each.kind === 'asked')).toHaveLength(1);
+    expect(after.notes[after.notes.length - 1]?.body.value).toBe(
+      'The pull request was merged while Implementation was waiting for an answer. Close the task, or reply to carry on.',
+    );
 
-      const run = await runOf(runId);
-      expect(run.state).toBe(state === 'warm' ? 'waiting' : 'suspended');
-      expect(run.stopRequested).toBe(false);
-    },
-  );
+    const run = await runOf(runId);
+    expect(run.state).toBe('suspended');
+    expect(run.stopRequested).toBe(false);
+  });
 });
 
 describe('a run-chat message on a task a merge interrupted (e2e)', () => {

@@ -532,14 +532,11 @@ export class Run extends EventRecorder {
   }
 
   private lostTo(now: Date, outcome: (attempts: number) => RunOutcome): Run {
-    const next =
-      this.state === 'waiting'
-        ? this.leftWaiting(null)
-        : this.stopRequested
-          ? this.endedAsStopped(null)
-          : LOST.exhaustedAfter(this.expiredLeases) || this.askedAPerson
-            ? this.exhaust(outcome(this.expiredLeases))
-            : this.backOnTheQueue();
+    const next = this.stopRequested
+      ? this.endedAsStopped(null)
+      : LOST.exhaustedAfter(this.expiredLeases) || this.askedAPerson
+        ? this.exhaust(outcome(this.expiredLeases))
+        : this.backOnTheQueue();
 
     if (this.claimedBy) {
       next.record(
@@ -798,13 +795,14 @@ export class Run extends EventRecorder {
     return this.askedAPerson ? this : this.with({ askedAPerson: true });
   }
 
-  paused(
+  suspend(
     by: RunnerId,
     outcome: RunOutcome,
     report: HandoverReport,
     now: Date,
+    { resumesAtOnce = false }: { resumesAtOnce?: boolean } = {},
   ): Run {
-    this.requireClaimedBy(by, 'pause');
+    this.requireClaimedBy(by, 'suspend');
 
     if (this.leavesNothingBehind) {
       throw new InvalidRunTransitionError(
@@ -824,14 +822,16 @@ export class Run extends EventRecorder {
       );
     }
 
-    const waiting = this.with({
-      state: 'waiting',
-      leaseExpiresAt: this.leaseFrom(now),
+    const suspended = this.with({
+      state: 'suspended',
+      claimedBy: null,
+      leaseExpiresAt: null,
       spec: this.spec.resumingIn(report.session),
       outcome,
+      suspendedAttempts: [...this.suspendedAttempts, this.attempt],
     });
 
-    waiting.record(
+    suspended.record(
       new RunPaused(
         this.id,
         this.workspaceId,
@@ -842,18 +842,14 @@ export class Run extends EventRecorder {
         report.session,
         this.attempt,
         now,
+        resumesAtOnce,
       ),
     );
+    suspended.record(
+      new RunSuspended(this.id, this.workspaceId, by, now, this.attempt),
+    );
 
-    return waiting;
-  }
-
-  get waitsForAPerson(): boolean {
-    return this.state === 'waiting' || this.state === 'suspended';
-  }
-
-  pausedBy(runner: RunnerId): boolean {
-    return this.state === 'waiting' && this.wasClaimedBy(runner);
+    return suspended;
   }
 
   get resumable(): boolean {
@@ -867,75 +863,13 @@ export class Run extends EventRecorder {
       );
     }
 
-    const warm = this.state === 'waiting';
-    const resumed = warm
-      ? this.with({ state: 'claimed', outcome: null })
-      : this.backOnTheQueue();
+    const resumed = this.backOnTheQueue();
 
     resumed.record(
-      new RunResumed(
-        this.id,
-        this.workspaceId,
-        this.subject,
-        resumed.attempt,
-        warm,
-      ),
+      new RunResumed(this.id, this.workspaceId, this.subject, resumed.attempt),
     );
 
     return resumed;
-  }
-
-  suspend(by: RunnerId, now: Date, requeue = false): Run {
-    this.requireLeasedBy(by, 'suspend');
-
-    if (this.state !== 'waiting') {
-      return requeue ? this.requeueToResume(by, now) : this;
-    }
-
-    const suspended = this.leftWaiting(by);
-
-    if (suspended.state === 'suspended') {
-      suspended.record(
-        new RunSuspended(this.id, this.workspaceId, by, now, this.attempt),
-      );
-    }
-
-    return suspended;
-  }
-
-  private requeueToResume(by: RunnerId, now: Date): Run {
-    if (this.state !== 'claimed' || !this.spec.resumesSession) {
-      throw new InvalidRunTransitionError(
-        `Run ${this.id.value} can be suspended only after an answer resumes it from a pause.`,
-      );
-    }
-
-    if (this.stopRequested) {
-      return this.leftWaiting(by);
-    }
-
-    const requeued = this.with({
-      suspendedAttempts: [...this.suspendedAttempts, this.attempt],
-    }).backOnTheQueue();
-
-    requeued.record(
-      new RunSuspended(this.id, this.workspaceId, by, now, this.attempt),
-    );
-
-    return requeued;
-  }
-
-  private leftWaiting(by: RunnerId | null): Run {
-    if (this.stopRequested) {
-      return this.endedAsStopped(by);
-    }
-
-    return this.with({
-      state: 'suspended',
-      claimedBy: null,
-      leaseExpiresAt: null,
-      suspendedAttempts: [...this.suspendedAttempts, this.attempt],
-    });
   }
 
   private endedAsStopped(by: RunnerId | null): Run {
@@ -1056,7 +990,6 @@ export class Run extends EventRecorder {
         return this.cancelQueued(CANCELLED_QUEUED);
       case 'claimed':
         return this.requestStop(now);
-      case 'waiting':
       case 'suspended':
         return this.endedAsItPaused();
       default:

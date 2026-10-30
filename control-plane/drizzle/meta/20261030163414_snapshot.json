@@ -1,5 +1,5 @@
 {
-  "id": "5256da93-b9a7-4eff-8f76-7292f7af2b39",
+  "id": "7131342d-6f0a-47a0-875c-0645a9b649e8",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -16308,7 +16308,6 @@
       "values": [
         "queued",
         "claimed",
-        "waiting",
         "suspended",
         "completed",
         "failed",

@@ -585,7 +585,7 @@ describe('the team’s memory laid out in the run’s workspace', () => {
       .post(`/api/runs/${runId}/completion`)
       .set('Authorization', `Bearer ${token}`)
       .send({ exitCode: 0, failed: false })
-      .expect(200);
+      .expect(204);
 
     const recalled = await eventually(async () => {
       const read = (

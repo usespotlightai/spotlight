@@ -283,23 +283,6 @@ type Completion struct {
 	Message     string    `json:"message,omitempty"`
 	Handover    *Handover `json:"handover,omitempty"`
 	SessionID   string    `json:"sessionId,omitempty"`
-	Archived    bool      `json:"archived,omitempty"`
-}
-
-type TurnAwaitsPerson struct {
-	AwaitsPerson bool `json:"awaitsPerson"`
-}
-
-type CompleteResponse struct {
-	Waiting bool `json:"waiting"`
-}
-
-type SuspendRequest struct {
-	Requeue bool `json:"requeue,omitempty"`
-}
-
-type Suspension struct {
-	Suspended bool `json:"suspended"`
 }
 
 type StoredArchive struct {
@@ -359,6 +342,7 @@ type Assignment struct {
 	Token       string        `json:"token"`
 	EgressToken string        `json:"egressToken,omitempty"`
 	SandboxID   string        `json:"sandboxId,omitempty"`
+	Reused      bool          `json:"reused,omitempty"`
 	Work        ClaimResponse `json:"work"`
 }
 

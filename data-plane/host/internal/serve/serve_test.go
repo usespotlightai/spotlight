@@ -63,6 +63,10 @@ type fakeEngine struct {
 	egressMute  bool
 	egressFails bool
 	callMute    bool
+
+	put       map[string]map[string]sandbox.File
+	signals   map[string][]string
+	keepsFile bool
 }
 
 func newEngine() *fakeEngine {
@@ -75,7 +79,57 @@ func newEngine() *fakeEngine {
 
 		egresses: map[string]sandbox.Spec{},
 		networks: map[string]map[string]string{},
+		put:      map[string]map[string]sandbox.File{},
+		signals:  map[string][]string{},
 	}
+}
+
+func (e *fakeEngine) Put(_ context.Context, id string, file sandbox.File) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if e.put[id] == nil {
+		e.put[id] = map[string]sandbox.File{}
+	}
+	e.put[id][file.Path] = file
+	return nil
+}
+
+func (e *fakeEngine) Signal(_ context.Context, id, signal string) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	e.signals[id] = append(e.signals[id], signal)
+	if signal == "SIGUSR1" && !e.keepsFile {
+		delete(e.put[id], serve.AssignmentPath)
+	}
+	return nil
+}
+
+func (e *fakeEngine) putIn(id, path string) (sandbox.File, bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	file, ok := e.put[id][path]
+	return file, ok
+}
+
+func (e *fakeEngine) signalled(id string) []string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return slices.Clone(e.signals[id])
+}
+
+func (e *fakeEngine) liveEgressesOf(runner string) []sandbox.Spec {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	var live []sandbox.Spec
+	for id, spec := range e.egresses {
+		if spec.Labels[serve.LabelRunner] == runner && !slices.Contains(e.destroyed, id) {
+			live = append(live, spec)
+		}
+	}
+	return live
 }
 
 const egressImage = "egress:1"
@@ -228,6 +282,10 @@ func (e *fakeEngine) Read(_ context.Context, id, path string) ([]byte, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	if file, ok := e.put[id][path]; ok {
+		return file.Body, nil
+	}
+
 	spec, ok := e.egresses[id]
 	if !ok || (e.egressMute && spec.Labels[serve.LabelRunner] != "") {
 		return nil, os.ErrNotExist
@@ -368,7 +426,7 @@ func (c *runClient) RecordImage(_ context.Context, runID, image string) error {
 	return nil
 }
 
-func (c *runClient) Complete(_ context.Context, runID string, done protocol.Completion) (protocol.CompleteResponse, error) {
+func (c *runClient) Complete(_ context.Context, runID string, done protocol.Completion) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.completed[runID] = done
@@ -376,7 +434,7 @@ func (c *runClient) Complete(_ context.Context, runID string, done protocol.Comp
 		c.renewedBy = map[string]int{}
 	}
 	c.renewedBy[runID] = len(c.renewed)
-	return protocol.CompleteResponse{}, nil
+	return nil
 }
 
 func (c *runClient) RecordChangeStackCheck(_ context.Context, _, stackID string, _ bool, checked protocol.StackCheckResult) error {
@@ -412,6 +470,7 @@ type pool struct {
 	traces       []string
 	inUse        bool
 	work         chan protocol.Assignment
+	into         chan protocol.Assignment
 	revoke       chan struct{}
 	offered      chan protocol.HostClaim
 	named        []string
@@ -432,6 +491,7 @@ type pool struct {
 func newPool() *pool {
 	return &pool{
 		work:    make(chan protocol.Assignment, 8),
+		into:    make(chan protocol.Assignment, 8),
 		revoke:  make(chan struct{}),
 		offered: make(chan protocol.HostClaim, 256),
 
@@ -490,6 +550,17 @@ func (p *pool) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.A
 	if unoffer {
 		return nil, fmt.Errorf("claim: %w",
 			&control.ResponseError{Status: 409, Reason: "image-unreported", Err: errors.New("unreported")})
+	}
+
+	if offer.Sandbox != "" {
+		select {
+		case assignment := <-p.into:
+			return &assignment, nil
+		case <-time.After(20 * time.Millisecond):
+			return nil, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
 
 	select {
@@ -560,6 +631,12 @@ func (p *pool) drainSandboxes(ids ...string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.drain = ids
+}
+
+func (p *pool) heartbeatsSent() []protocol.HostHeartbeat {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return slices.Clone(p.heartbeats)
 }
 
 func (p *pool) reportedSandboxes() []string {
@@ -763,18 +840,18 @@ func TestASandboxContinuesTheTraceOfItsClaim(t *testing.T) {
 	eventually(t, "destroyed", func() bool { return engine.wasDestroyed(id) })
 }
 
-func TestEverySandboxIsToldHowLongToWaitWarmForAnAnswer(t *testing.T) {
+func TestEverySandboxIsToldHowLongOneRunMayTake(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := options(t)
-	opts.AnswerWait = 90 * time.Second
+	opts.RunTimeout = 90 * time.Second
 	serving(t, opts, engine, pool)
 
 	pool.work <- assignment("runner_1")
 	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
 
 	id := engine.workSandboxes()[0]
-	if spec := engine.sandbox(id); !slices.Contains(spec.Env, "SPOTLIGHT_ANSWER_WAIT=1m30s") {
-		t.Errorf("the sandbox did not get the wait time: %v", spec.Env)
+	if spec := engine.sandbox(id); !slices.Contains(spec.Env, "SPOTLIGHT_RUN_TIMEOUT=1m30s") {
+		t.Errorf("the sandbox did not get the run time limit: %v", spec.Env)
 	}
 
 	engine.finish(id)
@@ -843,41 +920,6 @@ func TestASandboxThatRunsPastItsTimeIsStoppedAndDestroyed(t *testing.T) {
 	}
 }
 
-func TestARunWhoseSandboxRanPastItsTimeIsReportedAsTimedOut(t *testing.T) {
-	engine, pool := harnessed(), newPool()
-	opts := options(t)
-	opts.RunTimeout = 50 * time.Millisecond
-	serving(t, opts, engine, pool)
-
-	pool.work <- assignment("runner_1")
-	eventually(t, "the run reported timed out", func() bool {
-		done, ok := pool.runClient.completion("run-runner_1")
-		return ok && done.Failed && done.TimedOut && !done.SetupFailed && strings.Contains(done.Message, "time limit")
-	})
-}
-
-func TestStopsRenewingTheLeaseBeforeSayingTheRunRanOutOfTime(t *testing.T) {
-	engine, pool := harnessed(), newPool()
-	opts := options(t)
-	opts.RunTimeout = 80 * time.Millisecond
-	opts.LeaseEvery = 5 * time.Millisecond
-	serving(t, opts, engine, pool)
-
-	pool.work <- assignment("runner_1")
-	eventually(t, "the run reported timed out", func() bool {
-		done, ok := pool.runClient.completion("run-runner_1")
-		return ok && done.TimedOut
-	})
-	time.Sleep(40 * time.Millisecond)
-
-	pool.runClient.mu.Lock()
-	defer pool.runClient.mu.Unlock()
-	atReport := pool.runClient.renewedBy["run-runner_1"]
-	if len(pool.runClient.renewed) != atReport {
-		t.Errorf("renewed the lease %d times after saying the run ran out of time", len(pool.runClient.renewed)-atReport)
-	}
-}
-
 func TestARunWhoseSandboxFinishesInTimeIsLeftToItsRunnerToReport(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	serving(t, options(t), engine, pool)
@@ -925,6 +967,155 @@ func TestLabelsAndReportsEachRunsSandboxUntilItsContainerIsGone(t *testing.T) {
 		return engine.wasDestroyed(labelled["sandbox_a"]) &&
 			slices.Equal(pool.reportedSandboxes(), []string{"sandbox_b"})
 	})
+}
+
+func reused(runner, sandboxID string) protocol.Assignment {
+	each := inSandbox(runner, sandboxID)
+	each.Reused = true
+	return each
+}
+
+func liveSandbox(t *testing.T, engine *fakeEngine, pool *pool, opts serve.Options) string {
+	t.Helper()
+
+	serving(t, opts, engine, pool)
+	pool.work <- inSandbox("runner_1", "sandbox_a")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	return engine.workSandboxes()[0]
+}
+
+func egressTokenOf(t *testing.T, egress sandbox.Spec) protocol.EgressConfig {
+	t.Helper()
+
+	var config protocol.EgressConfig
+	if len(egress.Files) == 0 || json.Unmarshal(egress.Files[0].Body, &config) != nil {
+		t.Fatalf("egress got %+v", egress.Files)
+	}
+	return config
+}
+
+func TestDeliversTheNextRunIntoTheLiveSandbox(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.keepsFile = true
+	opts := options(t)
+	opts.LeaseEvery = 5 * time.Millisecond
+	id := liveSandbox(t, engine, pool, opts)
+
+	pool.into <- reused("runner_2", "sandbox_a")
+	eventually(t, "the next assignment in the sandbox", func() bool {
+		_, ok := engine.putIn(id, serve.AssignmentPath)
+		return ok
+	})
+
+	file, _ := engine.putIn(id, serve.AssignmentPath)
+	var got protocol.Assignment
+	if err := json.Unmarshal(file.Body, &got); err != nil || got.RunnerID != "runner_2" || got.Token != "one-run-runner_2" {
+		t.Errorf("the sandbox got %s (%v)", file.Body, err)
+	}
+	if file.Mode != 0o400 || got.EgressToken != "" || strings.Contains(string(file.Body), "egress-runner_2") {
+		t.Errorf("the sandbox got the egress credential or a readable file: %o %s", file.Mode, file.Body)
+	}
+	eventually(t, "the runner signalled", func() bool { return slices.Contains(engine.signalled(id), "SIGUSR1") })
+	eventually(t, "the next run's runner reported", func() bool {
+		return slices.Equal(pool.lastHeartbeat().Running, []string{"runner_2"})
+	})
+	if image := pool.runClient.imageOf("run-runner_2"); image == "" {
+		t.Error("the next run did not record its image")
+	}
+	if len(engine.workSandboxes()) != 1 {
+		t.Errorf("started %d containers for two runs of one sandbox", len(engine.workSandboxes()))
+	}
+}
+
+func TestRenewsTheNextRunsLeaseUntilTheRunnerTakesItsAssignment(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	engine.keepsFile = true
+	opts := options(t)
+	opts.LeaseEvery = 5 * time.Millisecond
+	id := liveSandbox(t, engine, pool, opts)
+
+	pool.into <- reused("runner_2", "sandbox_a")
+	renewals := func() int {
+		pool.runClient.mu.Lock()
+		defer pool.runClient.mu.Unlock()
+		return len(slices.DeleteFunc(slices.Clone(pool.runClient.renewed), func(each string) bool { return each != "run-runner_2" }))
+	}
+	eventually(t, "the next run's lease renewed", func() bool { return renewals() >= 3 })
+	if signals := engine.signalled(id); len(signals) < 2 {
+		t.Errorf("signalled %v while the assignment waited", signals)
+	}
+
+	engine.set(func(e *fakeEngine) { delete(e.put[id], serve.AssignmentPath) })
+	time.Sleep(30 * time.Millisecond)
+	taken := renewals()
+	time.Sleep(30 * time.Millisecond)
+	if renewals() != taken {
+		t.Error("the host still renews the lease after the runner took its assignment")
+	}
+}
+
+func TestReKeysTheEgressForEachRunAndHandsTheSandboxItsAuthority(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	id := liveSandbox(t, engine, pool, options(t))
+	firstEgress, first, _ := engine.egressOf("runner_1")
+	before := egressTokenOf(t, first)
+
+	pool.into <- reused("runner_2", "sandbox_a")
+	eventually(t, "the egress re-keyed", func() bool {
+		live := engine.liveEgressesOf("runner_1")
+		return len(live) == 1 && egressTokenOf(t, live[0]).Token == "egress-runner_2"
+	})
+
+	after := egressTokenOf(t, engine.liveEgressesOf("runner_1")[0])
+	if after.Credential != before.Credential {
+		t.Error("the re-keyed egress takes another proxy credential than the sandbox has")
+	}
+	if !engine.wasDestroyed(firstEgress) {
+		t.Error("the last run's egress is still there")
+	}
+	authority, ok := engine.putIn(id, serve.AuthorityPath)
+	if !ok || !strings.Contains(string(authority.Body), "BEGIN CERTIFICATE") || authority.Mode != 0o644 {
+		t.Errorf("the sandbox got %+v for the new egress's authority", authority)
+	}
+}
+
+func TestAWorkSandboxClaimsNothingForItself(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	serving(t, options(t), engine, pool)
+
+	pool.work <- assignment("runner_1")
+	eventually(t, "a sandbox", func() bool { return len(engine.workSandboxes()) == 1 })
+	pool.into <- reused("runner_2", "sandbox_a")
+	time.Sleep(100 * time.Millisecond)
+
+	if len(pool.into) != 1 {
+		t.Error("work with no sandbox claimed a run into one")
+	}
+}
+
+func TestStopsTheSandboxAndFailsTheRunAssignedToAnotherSandbox(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	id := liveSandbox(t, engine, pool, options(t))
+
+	pool.into <- reused("runner_2", "sandbox_b")
+
+	eventually(t, "the run failed", func() bool {
+		done, ok := pool.runClient.completion("run-runner_2")
+		return ok && done.Failed && done.SetupFailed
+	})
+	eventually(t, "the sandbox stopped", func() bool { return engine.wasDestroyed(id) })
+}
+
+func TestALiveSandboxOutlivesTheRunTimeLimit(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	opts := options(t)
+	opts.RunTimeout = 20 * time.Millisecond
+	id := liveSandbox(t, engine, pool, opts)
+
+	time.Sleep(100 * time.Millisecond)
+	if engine.wasDestroyed(id) {
+		t.Error("the host stopped a sandbox at the run time limit; only a drain ends it")
+	}
 }
 
 func TestReportsNoSandboxForWorkThatHasNone(t *testing.T) {

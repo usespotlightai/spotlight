@@ -18,6 +18,7 @@ export class HostHeartbeatCommand {
     readonly bootId: string,
     readonly report: ReportedHost,
     readonly sandboxes: readonly string[],
+    readonly stopping: boolean,
   ) {}
 }
 

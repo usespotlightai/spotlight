@@ -238,3 +238,49 @@ func TestASandboxOnItsOwnNetworkConnectsOnlyToWhatJoinedIt(t *testing.T) {
 		t.Errorf("reading a missing file answered %v", err)
 	}
 }
+
+func TestARunningSandboxTakesAFileAndASignal(t *testing.T) {
+	engine, err := Connect("")
+	if err != nil {
+		t.Skip("no container runtime: ", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	const image = "busybox:1.36"
+	if _, err := engine.Describe(ctx); err != nil || engine.Pull(ctx, image, "") != nil {
+		t.Skip("no usable container runtime")
+	}
+
+	id, err := engine.Start(ctx, sandbox.Spec{
+		Image: image,
+		Args:  []string{"sh", "-c", "trap 'cat /run/spotlight/assignment.json; exit 0' USR1; while true; do sleep 0.1; done"},
+	})
+	if id != "" {
+		defer func() { _ = engine.Destroy(context.Background(), id) }()
+	}
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+
+	if err := engine.Put(ctx, id, sandbox.File{Path: "/run/spotlight/assignment.json", Mode: 0o400, Body: []byte("next run\n")}); err != nil {
+		t.Fatalf("put: %v", err)
+	}
+	if err := engine.Signal(ctx, id, "SIGUSR1"); err != nil {
+		t.Fatalf("signal: %v", err)
+	}
+
+	code, err := engine.Wait(ctx, id)
+	if err != nil || code != 0 {
+		t.Fatalf("exit %d: %v", code, err)
+	}
+
+	var out bytes.Buffer
+	if err := engine.Follow(ctx, id, &out); err != nil {
+		t.Fatalf("follow: %v", err)
+	}
+	if !strings.Contains(out.String(), "next run") {
+		t.Errorf("said %q", out.String())
+	}
+}

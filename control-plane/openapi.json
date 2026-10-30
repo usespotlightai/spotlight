@@ -1740,7 +1740,7 @@
     },
     "/runs/{runId}/completion": {
       "post": {
-        "description": "When the turn ended by asking a person (a handover for review, a tool approval or a harness permission put to them), the run waits for their answer instead of ending, and the answer says so.",
+        "description": "The run leaves its lease. When the turn ended by asking a person (a handover for review, a tool approval or a harness permission put to them), the run is suspended until they answer. The answer requeues it, and the sandbox that keeps its workspace takes it first.",
         "operationId": "completeRun",
         "parameters": [
           {
@@ -1763,117 +1763,14 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RunCompletionResponseDto"
-                }
-              }
-            }
+          "204": {
+            "description": "Turn reported"
           },
           "401": {
             "description": "Missing, no longer valid or wrong runner token"
           }
         },
         "summary": "Report how the agent’s turn ended",
-        "tags": [
-          "runners"
-        ]
-      }
-    },
-    "/runs/{runId}/completion/awaits-person": {
-      "post": {
-        "description": "The runner calls this before it archives the workspace at the end of a turn. Nothing changes: the completion decides.",
-        "operationId": "turnAwaitsPerson",
-        "parameters": [
-          {
-            "name": "runId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CompleteRunRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TurnAwaitsPersonResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, no longer valid or wrong runner token"
-          },
-          "404": {
-            "description": "No such run leased by this runner"
-          }
-        },
-        "summary": "Whether a turn reported like this would wait for a person",
-        "tags": [
-          "runners"
-        ]
-      }
-    },
-    "/runs/{runId}/suspended": {
-      "post": {
-        "description": "The runner has completed the workspace archive and releases its sandbox. A later answer requeues the same run, and any runner claims it and restores it from the archive. If the answer arrived first, the run is not suspended: it is working again, and the runner delivers the answer to the live session.",
-        "operationId": "suspendRun",
-        "parameters": [
-          {
-            "name": "runId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SuspendRunRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RunSuspensionResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing, no longer valid or wrong runner token"
-          },
-          "409": {
-            "description": "The run is not leased by this runner"
-          }
-        },
-        "summary": "Suspend a run whose person did not answer within the grace period",
         "tags": [
           "runners"
         ]
@@ -2090,7 +1987,7 @@
     },
     "/hosts/claim": {
       "post": {
-        "description": "Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call.",
+        "description": "Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a task or chat whose workspace a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox.",
         "operationId": "claimHostWork",
         "parameters": [
           {
@@ -2139,7 +2036,7 @@
             "bearer": []
           }
         ],
-        "summary": "Long-poll for one run or check, assigned with a one-run runner’s credential for a fresh sandbox",
+        "summary": "Long-poll for one run or check, assigned with a one-run runner’s credential",
         "tags": [
           "runners"
         ]
@@ -22819,65 +22716,11 @@
             "type": "boolean",
             "example": false,
             "description": "A person stopped the run rather than the agent finishing it."
-          },
-          "archived": {
-            "type": "boolean",
-            "example": true,
-            "description": "The workspace archive is complete as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there."
           }
         },
         "required": [
           "exitCode",
           "failed"
-        ]
-      },
-      "RunCompletionResponseDto": {
-        "type": "object",
-        "properties": {
-          "waiting": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then suspends the run."
-          }
-        },
-        "required": [
-          "waiting"
-        ]
-      },
-      "TurnAwaitsPersonResponseDto": {
-        "type": "object",
-        "properties": {
-          "awaitsPerson": {
-            "type": "boolean",
-            "example": true,
-            "description": "Whether this turn, as reported, would put the run to a person, so the runner keeps its harness running while it archives the workspace. Otherwise the runner closes the harness first, as the run ends."
-          }
-        },
-        "required": [
-          "awaitsPerson"
-        ]
-      },
-      "SuspendRunRequestDto": {
-        "type": "object",
-        "properties": {
-          "requeue": {
-            "type": "boolean",
-            "example": false,
-            "description": "The harness has already closed, so an answer that arrived first cannot be delivered warm: the run goes back on the queue from its archive instead of staying with this runner."
-          }
-        }
-      },
-      "RunSuspensionResponseDto": {
-        "type": "object",
-        "properties": {
-          "suspended": {
-            "type": "boolean",
-            "example": true,
-            "description": "Whether the run is suspended (or, if a stop was requested, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages."
-          }
-        },
-        "required": [
-          "suspended"
         ]
       },
       "StoredArchiveResponseDto": {
@@ -23071,6 +22914,11 @@
             "type": "string",
             "example": "ghcr.io/acme/api-runner:main",
             "description": "The runner image this claim will run in, one the host reported that it supports; what it contains and whether it is the default come from that report"
+          },
+          "sandbox": {
+            "type": "string",
+            "example": "5d2e8f1a-7c4b-4e9a-b3f6-1a8d0c7e2b95",
+            "description": "A live sandbox of this host that has no run in it. The claim then takes only a queued run of the task or chat whose workspace that sandbox keeps, and delivers it into that sandbox. The sandbox already holds a capacity slot."
           }
         },
         "required": [
@@ -23100,6 +22948,11 @@
             "example": "5d2e8f1a-7c4b-4e9a-b3f6-1a8d0c7e2b95",
             "description": "The sandbox Spotlight started for a run; the host labels its container with it and reports it in each heartbeat. Null for a check."
           },
+          "reused": {
+            "type": "boolean",
+            "example": false,
+            "description": "The run goes into the live sandbox the claim named, not into a new one. The host delivers its assignment into that container."
+          },
           "work": {
             "$ref": "#/components/schemas/ClaimedWorkResponseDto"
           }
@@ -23109,6 +22962,7 @@
           "token",
           "egressToken",
           "sandboxId",
+          "reused",
           "work"
         ]
       },
@@ -24945,7 +24799,6 @@
             "enum": [
               "queued",
               "claimed",
-              "waiting",
               "suspended",
               "completed",
               "failed",
@@ -25291,7 +25144,6 @@
             "enum": [
               "queued",
               "claimed",
-              "waiting",
               "suspended",
               "completed",
               "failed",
@@ -25506,7 +25358,6 @@
             "enum": [
               "queued",
               "claimed",
-              "waiting",
               "suspended",
               "completed",
               "failed",
@@ -27940,6 +27791,11 @@
               }
             },
             "type": "array"
+          },
+          "stopping": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when the host stopped claiming to update or restart. Spotlight then drains each of its sandboxes when no run holds it"
           }
         },
         "required": [

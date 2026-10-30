@@ -118,9 +118,9 @@ export class HostWorkController {
   @ApiOperation({
     operationId: 'claimHostWork',
     summary:
-      'Long-poll for one run or check, assigned with a one-run runner’s credential for a fresh sandbox',
+      'Long-poll for one run or check, assigned with a one-run runner’s credential',
     description:
-      'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call.',
+      'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a task or chat whose workspace a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox.',
   })
   @ApiOkResponse({ type: HostClaimResponseDto })
   @ApiConflictResponse({
@@ -145,6 +145,7 @@ export class HostWorkController {
         { bearer: bearerIn(authorization), trust },
         body?.host ?? '',
         body?.image ?? '',
+        body?.sandbox || null,
       ),
     );
 
@@ -185,6 +186,7 @@ export class HostWorkController {
       claimed.token,
       claimed.egressToken,
       claimed.sandboxId,
+      claimed.reused,
       ClaimedWorkHttpMapper.toResponse(claimed.work),
     );
   }

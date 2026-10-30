@@ -32,6 +32,7 @@ import type {
   Claimant,
   RunExtras,
   RunRepository,
+  SandboxRouting,
 } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
@@ -78,6 +79,25 @@ const noEarlierRunStillLeased = sql`NOT EXISTS (
       sql`, `,
     )})
 )`;
+
+const resumeKeyOf = sql`coalesce(${run.spec} -> 'resume' ->> 'key', '')`;
+
+const routedBy = (routing: SandboxRouting | undefined): SQL => {
+  if (!routing) {
+    return sql`true`;
+  }
+
+  if ('into' in routing) {
+    return sql`${resumeKeyOf} = ${routing.into.value}`;
+  }
+
+  return routing.avoiding.length === 0
+    ? sql`true`
+    : sql`${resumeKeyOf} NOT IN (${sql.join(
+        routing.avoiding.map((each) => sql`${each.value}`),
+        sql`, `,
+      )})`;
+};
 
 type Row = typeof run.$inferSelect;
 
@@ -178,6 +198,7 @@ export class DrizzleRunRepository implements RunRepository {
           AND (claimable_from IS NULL OR claimable_from <= ${now.toISOString()}::timestamp)
           AND ${placementMatches(run.placement, run.placementImage, by.offer)}
           AND ${noEarlierRunStillLeased}
+          AND ${routedBy(by.sandbox)}
         ORDER BY priority DESC, created_at
         FOR UPDATE SKIP LOCKED
         LIMIT 1

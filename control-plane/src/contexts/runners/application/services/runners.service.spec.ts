@@ -30,6 +30,11 @@ import {
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
+import type { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
+import {
+  aSandbox,
+  storedSandboxes,
+} from '@runners/domain/aggregates/sandbox.fake-spec';
 import { ProvisionSecretDecryptionFailedError } from '@runners/domain/exceptions/provision-secret-decryption-failed.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
@@ -39,6 +44,7 @@ import { CredentialSource } from '@runners/domain/value-objects/credential-sourc
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
+import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -60,6 +66,13 @@ const HOST = HOST_ID.value;
 
 const IMAGE = 'ghcr.io/acme/runner:main';
 
+const WORKSPACE = WorkspaceId.of('ws_1');
+
+const idleSandbox = () =>
+  aSandbox({ workspaceId: WORKSPACE, hostId: HOST_ID, at: STARTED_AT })
+    .reported()
+    .releaseRun('run_1', STARTED_AT);
+
 const PLATFORM: PlatformEgressSettings = {
   url: EgressUrl.of('https://egress.usespotlight.ai'),
   tokenHash: hashOf('7'),
@@ -78,6 +91,7 @@ const running = (
     insecureAllowed?: boolean;
     egress?: Egress | null;
     platform?: PlatformEgressSettings | null;
+    sandboxes?: readonly Sandbox[];
   } = {},
 ) => {
   const known = input.host === undefined ? aHost() : input.host;
@@ -87,6 +101,10 @@ const running = (
   const saved: Runner[] = [];
   const called: ProvisionCall[] = [];
   let issued = 0;
+  const { sandboxes } = storedSandboxes(
+    { poolOf: (host) => (host === HOST ? POOL_ID.value : null) },
+    ...(input.sandboxes ?? []),
+  );
   const service = new Runners(
     {
       findForStart: vi.fn(async () => pool),
@@ -111,6 +129,7 @@ const running = (
       }),
       findByWork: vi.fn(async () => (input.existing ? [input.existing] : [])),
     } as unknown as RunnerRepository,
+    sandboxes,
     {
       find: vi.fn(async () => input.egress ?? null),
     } as unknown as EgressRepository,
@@ -220,6 +239,69 @@ describe('Runners', () => {
         service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
       ).resolves.toEqual({ outcome: 'full' });
       expect(added).toEqual([]);
+    });
+
+    it('counts a live sandbox no run is in against maxRuns', async () => {
+      const { service, added } = running(aPullPool({ maxRuns: 1 }), {
+        sandboxes: [idleSandbox()],
+      });
+
+      await expect(
+        service.start(THROUGH_POOL, HOST, IMAGE, STARTED_AT, CLAIM_BY),
+      ).resolves.toEqual({ outcome: 'full' });
+      expect(added).toEqual([]);
+    });
+
+    it('starts one into a ready sandbox of the host with no run in it, as that sandbox holds its slot', async () => {
+      const { service, added } = running(aPullPool({ maxRuns: 1 }), {
+        sandboxes: [idleSandbox()],
+      });
+
+      await expect(
+        service.start(
+          THROUGH_POOL,
+          HOST,
+          IMAGE,
+          STARTED_AT,
+          CLAIM_BY,
+          'sandbox_1',
+        ),
+      ).resolves.toMatchObject({ outcome: 'started' });
+      expect(added).toHaveLength(1);
+    });
+
+    it('starts none into a sandbox that is busy, still starting or on another host', async () => {
+      for (const sandbox of [
+        aSandbox({ workspaceId: WORKSPACE, hostId: HOST_ID, at: STARTED_AT }),
+        aSandbox({
+          workspaceId: WORKSPACE,
+          hostId: HOST_ID,
+          at: STARTED_AT,
+        }).releaseRun('run_1', STARTED_AT),
+        aSandbox({
+          workspaceId: WORKSPACE,
+          hostId: HostId.of('Z7Q2M4ZC3VYH6N5RB8WX1TDJ9P'),
+          at: STARTED_AT,
+        })
+          .reported()
+          .releaseRun('run_1', STARTED_AT),
+      ]) {
+        const { service, added } = running(aPullPool(), {
+          sandboxes: [sandbox],
+        });
+
+        await expect(
+          service.start(
+            THROUGH_POOL,
+            HOST,
+            IMAGE,
+            STARTED_AT,
+            CLAIM_BY,
+            'sandbox_1',
+          ),
+        ).resolves.toEqual({ outcome: 'full' });
+        expect(added).toEqual([]);
+      }
     });
 
     it('starts none for a pool that is gone, or that provisions instead', async () => {

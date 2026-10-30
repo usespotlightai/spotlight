@@ -1,7 +1,10 @@
 import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
-import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
+import type {
+  SandboxesPort,
+  SandboxTakingRuns,
+} from '@runners/application/ports/sandboxes.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -15,16 +18,19 @@ import type { ClaimsTaken } from '@work/application/services/claims-taken.servic
 import type { LongPoll } from '@work/application/services/long-poll';
 import type { RunLeases } from '@work/application/services/run-leases.service';
 import type { RunStartHooks } from '@work/application/services/run-start-hooks.service';
+import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type {
   Claimant,
   RunRepository,
 } from '@work/domain/repositories/run.repository';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 
 const CLAIM_WINDOW_MS = 60_000;
 
 interface Claimed {
   readonly work: ClaimedWorkDto;
   readonly sandboxId: string | null;
+  readonly reused: boolean;
 }
 
 export class ClaimHostWorkHandler
@@ -55,6 +61,18 @@ export class ClaimHostWorkHandler
       }
 
       const until = this.polls.deadline();
+      const { sandbox } = command;
+      const into = sandbox
+        ? await this.polls.polled(
+            () => this.sandboxes.takingRuns(sandbox, command.host),
+            until,
+          )
+        : null;
+
+      if (sandbox && !into) {
+        return { outcome: 'nothing' };
+      }
+
       const started = await this.polls.polled(async () => {
         const now = this.clock.now();
         const attempt = await this.runners.start(
@@ -63,6 +81,7 @@ export class ClaimHostWorkHandler
           command.image,
           now,
           new Date(now.getTime() + CLAIM_WINDOW_MS),
+          into?.id ?? null,
         );
 
         return attempt.outcome === 'full' ? null : attempt;
@@ -85,7 +104,9 @@ export class ClaimHostWorkHandler
 
       let claimed: Claimed | null = null;
       try {
-        claimed = await this.claimed(started.runnerId, command.host, until);
+        claimed = into
+          ? await this.claimedInto(started.runnerId, command.host, into, until)
+          : await this.claimed(started.runnerId, command.host, until);
       } finally {
         if (!claimed) {
           await this.runners.release(started.runnerId, this.clock.now());
@@ -102,6 +123,7 @@ export class ClaimHostWorkHandler
         token: started.token,
         egressToken: started.egressToken,
         sandboxId: claimed.sandboxId,
+        reused: claimed.reused,
         work: claimed.work,
       };
     } catch (error) {
@@ -122,15 +144,19 @@ export class ClaimHostWorkHandler
 
     await this.leases.expireLeases(this.clock.now());
 
-    const claimant: Claimant = {
-      runner,
-      workspaceId: heartbeat.workspaceId,
-      harnesses: heartbeat.harnesses,
-      offer: heartbeat.offer,
-      claims: 'any',
-    };
-
     const found = await this.polls.polled<Claimed | 'requeued'>(async () => {
+      const held = await this.sandboxes.liveKeysIn(
+        heartbeat.workspaceId.value,
+        this.clock.now(),
+      );
+      const claimant: Claimant = {
+        runner,
+        workspaceId: heartbeat.workspaceId,
+        harnesses: heartbeat.harnesses,
+        offer: heartbeat.offer,
+        claims: 'any',
+        sandbox: { avoiding: held.map((each) => ResumeKey.of(each)) },
+      };
       const run = await this.runs.claimNext(claimant, this.clock.now());
       const start = run
         ? await this.starting.mayStart(run, runner, until)
@@ -153,7 +179,7 @@ export class ClaimHostWorkHandler
           this.clock.now(),
         );
 
-        return { work: claimedRun(run), sandboxId };
+        return { work: claimedRun(run), sandboxId, reused: false };
       }
 
       const check = await this.checks.claimNext(
@@ -169,9 +195,66 @@ export class ClaimHostWorkHandler
 
       await this.taken.check(check, runner);
 
-      return { work: { kind: 'check', check }, sandboxId: null };
+      return { work: { kind: 'check', check }, sandboxId: null, reused: false };
     }, until);
 
     return found === 'requeued' ? null : found;
+  }
+
+  private async claimedInto(
+    runner: RunnerId,
+    host: string,
+    into: SandboxTakingRuns,
+    until: Date,
+  ): Promise<Claimed | null> {
+    const heartbeat = await this.heartbeats.heartbeat(runner, this.clock.now());
+
+    if (!heartbeat || heartbeat.workspaceId.value !== into.workspaceId) {
+      return null;
+    }
+
+    await this.leases.expireLeases(this.clock.now());
+
+    const claimant: Claimant = {
+      runner,
+      workspaceId: heartbeat.workspaceId,
+      harnesses: heartbeat.harnesses,
+      offer: heartbeat.offer,
+      claims: 'any',
+      sandbox: { into: ResumeKey.of(into.key) },
+    };
+
+    const found = await this.polls.polled<Run | 'requeued'>(async () => {
+      const run = await this.runs.claimNext(claimant, this.clock.now());
+      const start = run
+        ? await this.starting.mayStart(run, runner, until)
+        : null;
+
+      return start === 'requeued' ? start : start === 'starts' ? run : null;
+    }, until);
+
+    if (!found || found === 'requeued') {
+      return null;
+    }
+
+    await this.taken.run(found, runner);
+
+    const held = await this.sandboxes.holdInSandbox(
+      into.id,
+      {
+        workspaceId: found.workspaceId.value,
+        key: found.resumeKey?.value ?? null,
+        hostId: host,
+        runId: found.id.value,
+      },
+      this.clock.now(),
+    );
+
+    if (!held) {
+      await this.taken.dropRun(found, runner);
+      return null;
+    }
+
+    return { work: claimedRun(found), sandboxId: into.id, reused: true };
   }
 }

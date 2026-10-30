@@ -157,6 +157,36 @@ export class Sandbox extends EventRecorder {
     return this.state.leases.some((each) => each.isHeldBy('run', runId));
   }
 
+  get isReady(): boolean {
+    return this.state.state === 'ready';
+  }
+
+  get isIdle(): boolean {
+    return this.state.idleSince !== null;
+  }
+
+  takesRunOn(hostId: HostId): boolean {
+    return this.isReady && this.isIdle && this.state.hostId.equals(hostId);
+  }
+
+  holdRun(runId: string, at: Date): Sandbox {
+    if (this.holdsRun(runId)) {
+      return this;
+    }
+
+    if (!this.isOpen) {
+      throw new InconsistentStateError(
+        'sandbox',
+        `is ${this.state.state} and cannot take run ${runId}`,
+      );
+    }
+
+    return this.with({
+      leases: [...this.state.leases, SandboxLease.forRun(runId, at)],
+      idleSince: null,
+    });
+  }
+
   releaseRun(runId: string, at: Date): Sandbox {
     if (!this.holdsRun(runId)) {
       return this;
@@ -196,6 +226,10 @@ export class Sandbox extends EventRecorder {
 
   drain(): Sandbox {
     return this.isOpen ? this.with({ state: 'draining' }) : this;
+  }
+
+  drainedWhenIdle(): Sandbox {
+    return this.isIdle ? this.drain() : this;
   }
 
   drainDue(policy: SandboxDrainPolicy, now: Date): boolean {

@@ -80,13 +80,6 @@ export class CompleteRunRequestDto {
     description: 'A person stopped the run rather than the agent finishing it.',
   })
   readonly stopped?: boolean;
-
-  @ApiPropertyOptional({
-    example: true,
-    description:
-      'The workspace archive is complete as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there.',
-  })
-  readonly archived?: boolean;
 }
 
 export class EnqueueRunRequestDto {
@@ -109,15 +102,6 @@ export class EnqueueRunRequestDto {
     },
   })
   readonly spec!: Record<string, unknown>;
-}
-
-export class SuspendRunRequestDto {
-  @ApiPropertyOptional({
-    example: false,
-    description:
-      'The harness has already closed, so an answer that arrived first cannot be delivered warm: the run goes back on the queue from its archive instead of staying with this runner.',
-  })
-  readonly requeue?: boolean;
 }
 
 export class AckMessagesRequestDto {

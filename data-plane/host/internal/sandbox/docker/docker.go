@@ -243,6 +243,19 @@ func (e *Engine) Start(ctx context.Context, spec sandbox.Spec) (string, error) {
 	return answer.Id, nil
 }
 
+func (e *Engine) Put(ctx context.Context, id string, file sandbox.File) error {
+	return e.copyFile(ctx, id, file)
+}
+
+func (e *Engine) Signal(ctx context.Context, id, signal string) error {
+	query := url.Values{"signal": {signal}}
+	if _, err := e.call(ctx, http.MethodPost, "/containers/"+id+"/kill?"+query.Encode(), nil, nil); err != nil {
+		return fmt.Errorf("signal a sandbox: %w", err)
+	}
+
+	return nil
+}
+
 func (e *Engine) copyFiles(ctx context.Context, id string, files []sandbox.File) error {
 	for _, file := range files {
 		if err := e.copyFile(ctx, id, file); err != nil {

@@ -107,7 +107,6 @@ describe('underway', () => {
   });
 
   it('is not under way while it waits on a person, or once it is over', () => {
-    expect(underway(run('waiting'))).toBe(false);
     expect(underway(run('suspended'))).toBe(false);
     expect(underway(run('completed'))).toBe(false);
   });
@@ -117,18 +116,12 @@ describe('waitsOnPerson', () => {
   const run = (state: Run['state'], progress: Run['progress'] = null) =>
     ({ state, progress }) as Run;
 
-  it('is true while the run keeps its sandbox warm for an answer', () => {
-    expect(waitsOnPerson(run('waiting'))).toBe(true);
-  });
-
-  it('is true once nobody answered in time and the run was suspended', () => {
+  it('is true while the run is suspended for an answer', () => {
     expect(waitsOnPerson(run('suspended'))).toBe(true);
   });
 
-  it('is false once the person answered, or someone asked the run to stop', () => {
-    expect(waitsOnPerson(run('waiting', 'in-progress'))).toBe(false);
+  it('is false once the person answered', () => {
     expect(waitsOnPerson(run('suspended', 'queued'))).toBe(false);
-    expect(waitsOnPerson(run('waiting', 'stopping'))).toBe(false);
   });
 
   it('does not for a run at work, waiting for a runner, or over', () => {
@@ -153,8 +146,7 @@ describe('runStatus', () => {
     expect(runStatus(run('queued'))).toBeNull();
   });
 
-  it('reads a run that asked a person as waiting for you, suspended or not', () => {
-    expect(runStatus(run('waiting'))).toBe('Waiting for you');
+  it('reads a run that asked a person as waiting for you', () => {
     expect(runStatus(run('suspended'))).toBe('Waiting for you');
   });
 
@@ -189,7 +181,7 @@ describe('run filters', () => {
     progress: null,
     review: null,
   } as const;
-  const asking = { state: 'waiting', progress: null, review: null } as const;
+  const asking = { state: 'suspended', progress: null, review: null } as const;
 
   it('lets every run through All', () => {
     expect(inRunFilter('all', pending)).toBe(true);

@@ -54,6 +54,8 @@ type Engine interface {
 	Inspect(ctx context.Context, image string) (Image, error)
 	Pull(ctx context.Context, image, auth string) error
 	Start(ctx context.Context, spec Spec) (string, error)
+	Put(ctx context.Context, id string, file File) error
+	Signal(ctx context.Context, id, signal string) error
 	Follow(ctx context.Context, id string, out io.Writer) error
 	Wait(ctx context.Context, id string) (int, error)
 	Stop(ctx context.Context, id string, grace time.Duration) error

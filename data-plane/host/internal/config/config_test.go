@@ -26,7 +26,7 @@ func isolated(t *testing.T) string {
 	dir := t.TempDir()
 	for _, name := range []string{
 		"SPOTLIGHT_URL", "SPOTLIGHT_POOL_TOKEN", "SPOTLIGHT_TRUST", "SPOTLIGHT_OIDC_TOKEN_FILE",
-		"SPOTLIGHT_CAPACITY", "SPOTLIGHT_RUNNER_IMAGE", "SPOTLIGHT_RUN_TIMEOUT", "SPOTLIGHT_ANSWER_WAIT", "SPOTLIGHT_SANDBOX_URL",
+		"SPOTLIGHT_CAPACITY", "SPOTLIGHT_RUNNER_IMAGE", "SPOTLIGHT_RUN_TIMEOUT", "SPOTLIGHT_SANDBOX_URL",
 		"SPOTLIGHT_SANDBOX_ENV", "SPOTLIGHT_SANDBOX_NETWORK", "SPOTLIGHT_SANDBOX_HOSTS", "SPOTLIGHT_STATE",
 		"SPOTLIGHT_HOST_NAME", "DOCKER_HOST", "SPOTLIGHT_SANDBOX_PASS",
 		"SPOTLIGHT_EGRESS_IMAGE", "SPOTLIGHT_EGRESS_ALLOW", "SPOTLIGHT_EGRESS_ENV", "SPOTLIGHT_EGRESS_PASS",
@@ -62,8 +62,8 @@ func TestLoadsWhatTheInstallerWrote(t *testing.T) {
 	if cfg.Credential() != control.Bearer("pool-token") {
 		t.Errorf("credential %v", cfg.Credential())
 	}
-	if cfg.Capacity != 1 || cfg.RunTimeout != 6*time.Hour || cfg.AnswerWait != 5*time.Minute {
-		t.Errorf("capacity %d, timeout %v, answer wait %v", cfg.Capacity, cfg.RunTimeout, cfg.AnswerWait)
+	if cfg.Capacity != 1 || cfg.RunTimeout != 6*time.Hour {
+		t.Errorf("capacity %d, timeout %v", cfg.Capacity, cfg.RunTimeout)
 	}
 	if cfg.Images.Default != config.Image+":v1.4.0" || !cfg.Images.Allows(config.Image+":v1.4.0") {
 		t.Errorf("images %+v: the runner image is pinned to the host's version", cfg.Images)
@@ -140,36 +140,6 @@ func TestRejectsAmbiguousOrMissingCredentials(t *testing.T) {
 	}
 }
 
-func TestReadsHowLongARunWaitsWarmForAnAnswer(t *testing.T) {
-	for raw, want := range map[string]time.Duration{"0": 0, "90s": 90 * time.Second, "1h": time.Hour} {
-		isolated(t)
-		t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
-		t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-token")
-		t.Setenv("SPOTLIGHT_ANSWER_WAIT", raw)
-
-		cfg, err := config.Load("dev")
-		if err != nil {
-			t.Fatalf("%s: load: %v", raw, err)
-		}
-		if cfg.AnswerWait != want {
-			t.Errorf("%s: answer wait %v, want %v", raw, cfg.AnswerWait, want)
-		}
-	}
-}
-
-func TestRejectsAnAnswerWaitThatIsNoDurationOrIsNegative(t *testing.T) {
-	for _, raw := range []string{"soon", "5", "-1m"} {
-		isolated(t)
-		t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
-		t.Setenv("SPOTLIGHT_POOL_TOKEN", "pool-token")
-		t.Setenv("SPOTLIGHT_ANSWER_WAIT", raw)
-
-		if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_ANSWER_WAIT") {
-			t.Errorf("%q: expected an error, got %v", raw, err)
-		}
-	}
-}
-
 func TestPassesTheSandboxEnvironmentButNeverTheHostsCredential(t *testing.T) {
 	dir := isolated(t)
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
@@ -184,7 +154,7 @@ func TestPassesTheSandboxEnvironmentButNeverTheHostsCredential(t *testing.T) {
 		t.Errorf("sandbox env %v", cfg.SandboxEnv)
 	}
 
-	for _, leaked := range []string{"SPOTLIGHT_POOL_TOKEN=anything\n", "SOMETHING=Bearer pool-token\n", "SPOTLIGHT_ANSWER_WAIT=1h\n", "SPOTLIGHT_RUN_TOKEN=anything\n"} {
+	for _, leaked := range []string{"SPOTLIGHT_POOL_TOKEN=anything\n", "SOMETHING=Bearer pool-token\n", "SPOTLIGHT_RUN_TIMEOUT=1h\n", "SPOTLIGHT_RUN_TOKEN=anything\n"} {
 		write(t, filepath.Join(dir, "sandbox.env"), leaked)
 		if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "sandbox environment") {
 			t.Errorf("%q: expected an error, got %v", leaked, err)

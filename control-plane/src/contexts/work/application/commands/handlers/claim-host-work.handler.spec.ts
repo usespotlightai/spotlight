@@ -7,7 +7,10 @@ import type {
   RunnersPort,
   StartedRunner,
 } from '@runners/application/ports/runners.port';
-import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
+import type {
+  SandboxesPort,
+  SandboxTakingRuns,
+} from '@runners/application/ports/sandboxes.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -26,6 +29,7 @@ import type {
 } from '@work/application/services/run-start-hooks.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -64,6 +68,9 @@ const pulling = (
     check?: ClaimedCheck | null;
     starts?: RunStart;
     tookFails?: boolean;
+    taking?: SandboxTakingRuns | null;
+    holds?: boolean;
+    liveKeys?: readonly string[];
   } = {},
 ) => {
   let now = NOW;
@@ -136,6 +143,9 @@ const pulling = (
   };
   const sandboxes = {
     holdForRun: vi.fn(async () => 'sandbox_1'),
+    takingRuns: vi.fn(async () => over.taking ?? null),
+    holdInSandbox: vi.fn(async () => over.holds ?? true),
+    liveKeysIn: vi.fn(async () => over.liveKeys ?? []),
     releaseRun: vi.fn(async () => {}),
   } satisfies SandboxesPort;
   const handler = new ClaimHostWorkHandler(
@@ -208,6 +218,7 @@ describe('ClaimHostWorkHandler', () => {
       IMAGE,
       new Date(NOW.getTime() + 10_000),
       new Date(NOW.getTime() + 70_000),
+      null,
     );
     expect(claimNext).not.toHaveBeenCalled();
   });
@@ -238,6 +249,7 @@ describe('ClaimHostWorkHandler', () => {
       IMAGE,
       new Date(NOW.getTime() + 1_000),
       new Date(NOW.getTime() + 61_000),
+      null,
     );
   });
 
@@ -288,6 +300,7 @@ describe('ClaimHostWorkHandler', () => {
       IMAGE,
       NOW,
       new Date(NOW.getTime() + 60_000),
+      null,
     );
   });
 
@@ -324,6 +337,106 @@ describe('ClaimHostWorkHandler', () => {
       { workspaceId: 'ws_1', key: 'task-task_1', hostId: HOST, runId: 'run_1' },
       NOW,
     );
+  });
+
+  it('leaves the runs of keys that ready sandboxes keep to those sandboxes', async () => {
+    const { handler, claimNext } = pulling({
+      run: taken(),
+      liveKeys: ['task-task_2', 'chat-chat_1'],
+    });
+
+    await handler.execute(pull());
+
+    expect(claimNext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sandbox: {
+          avoiding: [ResumeKey.of('task-task_2'), ResumeKey.of('chat-chat_1')],
+        },
+      }),
+      NOW,
+    );
+  });
+
+  describe('a claim for a live sandbox', () => {
+    const live: SandboxTakingRuns = {
+      id: 'sandbox_7',
+      workspaceId: 'ws_1',
+      key: 'task-task_1',
+    };
+    const into = () =>
+      new ClaimHostWorkCommand(
+        { bearer: 'pool-token', trust: undefined },
+        HOST,
+        IMAGE,
+        'sandbox_7',
+      );
+
+    it('takes only a run of the key it keeps, and reuses the sandbox', async () => {
+      const { handler, runners, claimNext, sandboxes } = pulling({
+        run: taken(),
+        taking: live,
+      });
+
+      expect(await handler.execute(into())).toMatchObject({
+        outcome: 'claimed',
+        sandboxId: 'sandbox_7',
+        reused: true,
+        work: { kind: 'run', run: { id: 'run_1' } },
+      });
+      expect(sandboxes.takingRuns).toHaveBeenCalledWith('sandbox_7', HOST);
+      expect(runners.start).toHaveBeenCalledWith(
+        { kind: 'pool', id: 'pool_1' },
+        HOST,
+        IMAGE,
+        NOW,
+        new Date(NOW.getTime() + 60_000),
+        'sandbox_7',
+      );
+      expect(claimNext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sandbox: { into: ResumeKey.of('task-task_1') },
+        }),
+        NOW,
+      );
+      expect(sandboxes.holdInSandbox).toHaveBeenCalledWith(
+        'sandbox_7',
+        {
+          workspaceId: 'ws_1',
+          key: 'task-task_1',
+          hostId: HOST,
+          runId: 'run_1',
+        },
+        NOW,
+      );
+      expect(sandboxes.holdForRun).not.toHaveBeenCalled();
+    });
+
+    it('takes no check', async () => {
+      const { handler, claimCheck } = pulling({ check: aCheck, taking: live });
+
+      expect(await handler.execute(into())).toEqual({ outcome: 'nothing' });
+      expect(claimCheck).not.toHaveBeenCalled();
+    });
+
+    it('starts no runner for a sandbox that takes no run', async () => {
+      const { handler, runners } = pulling({ run: taken(), taking: null });
+
+      expect(await handler.execute(into())).toEqual({ outcome: 'nothing' });
+      expect(runners.start).not.toHaveBeenCalled();
+    });
+
+    it('puts the run back and releases the runner when the sandbox took another run or drained meanwhile', async () => {
+      const { handler, runners, saved } = pulling({
+        run: taken(),
+        taking: live,
+        holds: false,
+      });
+
+      expect(await handler.execute(into())).toEqual({ outcome: 'nothing' });
+      expect(saved[saved.length - 1]?.state).toBe('queued');
+      expect(saved[saved.length - 1]?.attempt).toBe(taken().attempt);
+      expect(runners.release).toHaveBeenCalledWith(POOLED, NOW);
+    });
   });
 
   it('hands over a check once no run wants the runner, with no sandbox', async () => {

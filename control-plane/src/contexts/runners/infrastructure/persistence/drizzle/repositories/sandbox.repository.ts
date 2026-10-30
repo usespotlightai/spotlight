@@ -13,6 +13,7 @@ import {
 import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
+import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import {
@@ -30,7 +31,18 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, inArray, isNotNull, lte, ne, or, sql } from 'drizzle-orm';
+import {
+  and,
+  count,
+  eq,
+  gt,
+  inArray,
+  isNotNull,
+  lte,
+  ne,
+  or,
+  sql,
+} from 'drizzle-orm';
 
 type Row = typeof sandbox.$inferSelect;
 
@@ -179,6 +191,42 @@ export class DrizzleSandboxRepository implements SandboxRepository {
       .where(and(eq(sandbox.hostId, hostId.value), ne(sandbox.state, 'gone')));
 
     return rows.map(toSandbox);
+  }
+
+  async liveKeysIn(
+    workspaceId: WorkspaceId,
+    heardSince: Date,
+  ): Promise<readonly SandboxKey[]> {
+    const rows = await this.context.db
+      .select({ key: sandbox.key })
+      .from(sandbox)
+      .innerJoin(runnerHost, eq(runnerHost.id, sandbox.hostId))
+      .where(
+        and(
+          eq(sandbox.workspaceId, workspaceId.value),
+          ne(sandbox.state, 'gone'),
+          isNotNull(sandbox.key),
+          gt(runnerHost.lastHeartbeatAt, heardSince),
+        ),
+      );
+
+    return rows.flatMap((row) => (row.key ? [SandboxKey.of(row.key)] : []));
+  }
+
+  async idleInPool(poolId: RunnerPoolId): Promise<number> {
+    const [row] = await this.context.db
+      .select({ idle: count() })
+      .from(sandbox)
+      .innerJoin(runnerHost, eq(runnerHost.id, sandbox.hostId))
+      .where(
+        and(
+          eq(runnerHost.poolId, poolId.value),
+          ne(sandbox.state, 'gone'),
+          isNotNull(sandbox.idleSince),
+        ),
+      );
+
+    return row?.idle ?? 0;
   }
 
   async holdingRun(runId: string): Promise<readonly Sandbox[]> {

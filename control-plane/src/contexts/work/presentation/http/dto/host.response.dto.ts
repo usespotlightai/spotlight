@@ -29,6 +29,13 @@ export class HostClaimResponseDto {
   })
   readonly sandboxId: string | null;
 
+  @ApiProperty({
+    example: false,
+    description:
+      'The run goes into the live sandbox the claim named, not into a new one. The host delivers its assignment into that container.',
+  })
+  readonly reused: boolean;
+
   @ApiProperty({ type: ClaimedWorkResponseDto })
   readonly work: ClaimedWorkResponseDto;
 
@@ -37,12 +44,14 @@ export class HostClaimResponseDto {
     token: string,
     egressToken: string,
     sandboxId: string | null,
+    reused: boolean,
     work: ClaimedWorkResponseDto,
   ) {
     this.runnerId = runnerId;
     this.token = token;
     this.egressToken = egressToken;
     this.sandboxId = sandboxId;
+    this.reused = reused;
     this.work = work;
   }
 }

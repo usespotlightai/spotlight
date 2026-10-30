@@ -14,7 +14,6 @@ type Settings struct {
 	Images     images.Allowed
 	Capacity   int
 	RunTimeout time.Duration
-	AnswerWait time.Duration
 	SandboxURL string
 	SandboxEnv []string
 	Egress     Egress
@@ -26,7 +25,7 @@ type Settings struct {
 func settingsOf(opts Options) Settings {
 	return Settings{
 		Name: opts.Name, Images: opts.Images, Capacity: opts.Capacity, RunTimeout: opts.RunTimeout,
-		AnswerWait: opts.AnswerWait, SandboxURL: opts.SandboxURL, SandboxEnv: opts.SandboxEnv, Egress: opts.Egress,
+		SandboxURL: opts.SandboxURL, SandboxEnv: opts.SandboxEnv, Egress: opts.Egress,
 		Network: opts.Network, ExtraHosts: opts.ExtraHosts, AutoUpdate: opts.AutoUpdate,
 	}
 }

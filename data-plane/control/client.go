@@ -437,37 +437,14 @@ func (c *Client) RecordImage(ctx context.Context, runID, image string) error {
 	return nil
 }
 
-func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.CompleteResponse, error) {
+func (c *Client) Complete(ctx context.Context, runID string, done protocol.Completion) error {
 	path := fmt.Sprintf("/api/runs/%s/completion", url.PathEscape(runID))
 
-	var completed protocol.CompleteResponse
-	if err := c.do(ctx, http.MethodPost, path, done, &completed); err != nil {
-		return protocol.CompleteResponse{}, fmt.Errorf("complete: %w", err)
+	if err := c.do(ctx, http.MethodPost, path, done, nil); err != nil {
+		return fmt.Errorf("complete: %w", err)
 	}
 
-	return completed, nil
-}
-
-func (c *Client) AwaitsPerson(ctx context.Context, runID string, turn protocol.Completion) (bool, error) {
-	path := fmt.Sprintf("/api/runs/%s/completion/awaits-person", url.PathEscape(runID))
-
-	var answer protocol.TurnAwaitsPerson
-	if err := c.do(ctx, http.MethodPost, path, turn, &answer); err != nil {
-		return false, fmt.Errorf("read whether the turn waits for a person: %w", err)
-	}
-
-	return answer.AwaitsPerson, nil
-}
-
-func (c *Client) Suspend(ctx context.Context, runID string, requeue bool) (protocol.Suspension, error) {
-	path := fmt.Sprintf("/api/runs/%s/suspended", url.PathEscape(runID))
-
-	var suspension protocol.Suspension
-	if err := c.do(ctx, http.MethodPost, path, protocol.SuspendRequest{Requeue: requeue}, &suspension); err != nil {
-		return protocol.Suspension{}, fmt.Errorf("suspend: %w", err)
-	}
-
-	return suspension, nil
+	return nil
 }
 
 func (c *Client) Attachment(

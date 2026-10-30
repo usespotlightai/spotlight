@@ -39,8 +39,8 @@ const queued = () =>
 
 const claimed = () => queued().claim(RUNNER, NOW);
 
-const waitingForAPerson = () =>
-  claimed().paused(
+const suspended = () =>
+  claimed().suspend(
     RUNNER,
     RunOutcome.of({ exitCode: 0, failed: false }),
     HandoverReport.none(),
@@ -82,24 +82,14 @@ describe('CancelDetachedRun', () => {
     expect(save.mock.calls[0]?.[0].state).toBe('cancelled');
   });
 
-  it('ends a run waiting warm for a person as its turn ended, so its runner releases the sandbox', async () => {
-    const { handler, save } = stopping(waitingForAPerson());
+  it('ends a run suspended for a person as its turn ended, since no runner leases it', async () => {
+    const { handler, save } = stopping(suspended());
 
     await handler.on(detached);
 
     expect(save.mock.calls[0]?.[0].state).toBe('completed');
     expect(save.mock.calls[0]?.[0].outcome?.stopped).toBe(false);
     expect(save.mock.calls[0]?.[0].outcome?.failed).toBe(false);
-  });
-
-  it('ends a suspended run as its turn ended, since no runner leases it', async () => {
-    const { handler, save } = stopping(
-      waitingForAPerson().suspend(RUNNER, NOW),
-    );
-
-    await handler.on(detached);
-
-    expect(save.mock.calls[0]?.[0].state).toBe('completed');
     expect(save.mock.calls[0]?.[0].outcome?.exitCode).toBe(0);
   });
 

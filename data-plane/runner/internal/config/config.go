@@ -20,7 +20,7 @@ type Config struct {
 	Workspace      string
 	AgentUser      string
 	Author         prepare.Author
-	AnswerWait     time.Duration
+	RunTimeout     time.Duration
 	Egress         Egress
 }
 
@@ -50,7 +50,7 @@ const (
 	envAgentUser       = "SPOTLIGHT_AGENT_USER"
 	envAuthorName      = "SPOTLIGHT_GIT_AUTHOR_NAME"
 	envAuthorEmail     = "SPOTLIGHT_GIT_AUTHOR_EMAIL"
-	envAnswerWait      = protocol.AnswerWaitVar
+	envRunTimeout      = protocol.RunTimeoutVar
 	envEgressURL       = protocol.EgressURLVar
 	envProxyCredential = protocol.EgressProxyCredentialVar
 	envTraffic         = protocol.EgressTrafficVar
@@ -112,12 +112,12 @@ func Load(args []string) (Config, error) {
 		}
 	}
 
-	if raw := get(envAnswerWait); raw != "" {
-		wait, err := time.ParseDuration(raw)
-		if err != nil || wait < 0 {
-			note(fmt.Errorf("%s: %q is not a duration such as 5m, or 0 to suspend at once", envAnswerWait, raw))
+	if raw := get(envRunTimeout); raw != "" {
+		timeout, err := time.ParseDuration(raw)
+		if err != nil || timeout < 0 {
+			note(fmt.Errorf("%s: %q is not a duration such as 6h, or 0 for no limit", envRunTimeout, raw))
 		} else {
-			cfg.AnswerWait = wait
+			cfg.RunTimeout = timeout
 		}
 	}
 

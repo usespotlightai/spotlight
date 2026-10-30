@@ -1,7 +1,6 @@
 export const RUN_STATES = [
   'queued',
   'claimed',
-  'waiting',
   'suspended',
   'completed',
   'failed',
@@ -13,7 +12,6 @@ export type RunState = (typeof RUN_STATES)[number];
 
 export const LEASED_RUN_STATES = [
   'claimed',
-  'waiting',
 ] as const satisfies readonly RunState[];
 
 export const TERMINAL_RUN_STATES = [
@@ -28,7 +26,7 @@ export const isStopping = (state: RunState, stopRequested: boolean): boolean =>
   !(TERMINAL_RUN_STATES as readonly RunState[]).includes(state);
 
 export const resumable = (state: RunState, stopRequested: boolean): boolean =>
-  state === 'suspended' || (state === 'waiting' && !stopRequested);
+  state === 'suspended' && !stopRequested;
 
 export const PROGRESSES = ['queued', 'in-progress', 'stopping'] as const;
 
@@ -67,7 +65,7 @@ export const progressOfCurrentRun = (
     return 'queued';
   }
   if (takenUp && resumable(current.state, current.stopRequested)) {
-    return current.state === 'waiting' ? 'in-progress' : 'queued';
+    return 'queued';
   }
 
   return progressOf(current);

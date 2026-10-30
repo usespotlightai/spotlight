@@ -187,7 +187,6 @@ import { SendMessageHandler } from '@work/application/commands/handlers/send-mes
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
-import { SuspendRunHandler } from '@work/application/commands/handlers/suspend-run.handler';
 import { UpdateLineHandler } from '@work/application/commands/handlers/update-line.handler';
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
 import {
@@ -215,7 +214,6 @@ import {
   RecordStartingPointCommand,
   RenewCheckLeaseCommand,
   RenewLeaseCommand,
-  SuspendRunCommand,
 } from '@work/application/commands/runner.commands';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
@@ -496,7 +494,6 @@ import { ReadTaskJournalHandler } from '@work/application/queries/handlers/read-
 import { ReadTaskTraceHandler } from '@work/application/queries/handlers/read-task-trace.handler';
 import { RunStopRequestedHandler } from '@work/application/queries/handlers/run-stop-requested.handler';
 import { StoredWorkspaceArchiveHandler } from '@work/application/queries/handlers/stored-workspace-archive.handler';
-import { TurnAwaitsPersonHandler } from '@work/application/queries/handlers/turn-awaits-person.handler';
 import { WatchRunHandler } from '@work/application/queries/handlers/watch-run.handler';
 import { HostRequirementsQuery } from '@work/application/queries/host.queries';
 import { ImportLineQuery } from '@work/application/queries/import-line.query';
@@ -531,7 +528,6 @@ import {
   JoinTaskDraftQuery,
   ReadTaskDraftQuery,
 } from '@work/application/queries/task-draft.queries';
-import { TurnAwaitsPersonQuery } from '@work/application/queries/turn-awaits-person.query';
 import { WatchRunQuery } from '@work/application/queries/watch-run.query';
 import { ApplyLines } from '@work/application/services/apply-lines.service';
 import {
@@ -1931,7 +1927,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   ...bindQueryHandler(PendingMessagesQuery, PendingMessagesHandler, [
-    DrizzleRunRepository,
     LEASED_RUN_READER,
   ]),
 
@@ -1948,13 +1943,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(RunStopRequestedQuery, RunStopRequestedHandler, [
     LEASED_RUN_READER,
-  ]),
-
-  ...bindQueryHandler(TurnAwaitsPersonQuery, TurnAwaitsPersonHandler, [
-    DrizzleRunRepository,
-    DrizzleTaskRepository,
-    DrizzleLineRepository,
-    LIFECYCLE_HOOKS,
   ]),
 
   ...bindQueryHandler(ListHarnessesQuery, ListHarnessesHandler, [
@@ -2570,12 +2558,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(RenewLeaseCommand, RenewLeaseHandler, [
     DrizzleRunRepository,
     RUNNER_HEARTBEATS,
-    CLOCK,
-  ]),
-
-  ...bindCommandHandler(SuspendRunCommand, SuspendRunHandler, [
-    DrizzleRunRepository,
-    TRANSACTION,
     CLOCK,
   ]),
 

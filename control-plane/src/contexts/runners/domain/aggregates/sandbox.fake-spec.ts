@@ -2,6 +2,7 @@ import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
+import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
 import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
@@ -49,7 +50,10 @@ export const aSandbox = (input: {
   });
 
 export const storedSandboxes = (
-  input: { silentHosts?: () => readonly string[] } = {},
+  input: {
+    silentHosts?: () => readonly string[];
+    poolOf?: (hostId: string) => string | null;
+  } = {},
   ...known: Sandbox[]
 ) => {
   const stored = new Map(known.map((each) => [each.id.value, each]));
@@ -89,6 +93,26 @@ export const storedSandboxes = (
     ),
     liveOn: vi.fn(async (hostId: HostId) =>
       all().filter((each) => each.isLive && each.hostId.equals(hostId)),
+    ),
+    liveKeysIn: vi.fn(async (workspaceId: WorkspaceId) => {
+      const silent = input.silentHosts?.() ?? [];
+      return all().flatMap((each) =>
+        each.isLive &&
+        each.key !== null &&
+        each.workspaceId.equals(workspaceId) &&
+        !silent.includes(each.hostId.value)
+          ? [each.key]
+          : [],
+      );
+    }),
+    idleInPool: vi.fn(
+      async (poolId: RunnerPoolId) =>
+        all().filter(
+          (each) =>
+            each.isLive &&
+            each.isIdle &&
+            input.poolOf?.(each.hostId.value) === poolId.value,
+        ).length,
     ),
     holdingRun: vi.fn(async (runId: string) =>
       all().filter((each) => each.isLive && each.holdsRun(runId)),

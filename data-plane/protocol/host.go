@@ -2,7 +2,7 @@ package protocol
 
 const TrustHeader = "Spotlight-Trust"
 
-const AnswerWaitVar = "SPOTLIGHT_ANSWER_WAIT"
+const RunTimeoutVar = "SPOTLIGHT_RUN_TIMEOUT"
 
 type HostRequirements struct {
 	Host      HostRequirement   `json:"host"`
@@ -21,8 +21,9 @@ type RunnerRequirement struct {
 }
 
 type HostClaim struct {
-	Host  string `json:"host"`
-	Image string `json:"image"`
+	Host    string `json:"host"`
+	Image   string `json:"image"`
+	Sandbox string `json:"sandbox,omitempty"`
 }
 
 type HostImage struct {
@@ -47,6 +48,7 @@ type HostHeartbeat struct {
 	Running          []string      `json:"running"`
 	Sandboxes        []HostSandbox `json:"sandboxes"`
 	Images           []HostImage   `json:"images"`
+	Stopping         bool          `json:"stopping"`
 }
 
 type HeartbeatResponse struct {

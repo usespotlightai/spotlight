@@ -65,7 +65,12 @@ export class HostHeartbeatHandler
       return {
         outcome: 'accepted',
         workspaceId: authenticated.workspaceId.value,
-        drain: await this.sandboxes.reconcile(id.value, command.sandboxes, at),
+        drain: await this.sandboxes.reconcile(
+          id.value,
+          command.sandboxes,
+          at,
+          command.stopping,
+        ),
       };
     } catch (error) {
       if (error instanceof HostInUseError) {

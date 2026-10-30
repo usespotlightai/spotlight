@@ -2,7 +2,10 @@ package runner
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -62,6 +65,10 @@ func run(args []string, version string) error {
 	log := telemetry.NewLogger("runner", os.Stdout)
 	slog.SetDefault(log)
 
+	delivered := make(chan os.Signal, 1)
+	signal.Notify(delivered, syscall.SIGUSR1)
+	defer signal.Stop(delivered)
+
 	ctx, stop := signal.NotifyContext(
 		context.Background(),
 		syscall.SIGINT,
@@ -102,15 +109,9 @@ func run(args []string, version string) error {
 		return nil
 	}
 
-	client, err := control.ForRun(cfg.URL, *assigned)
-	if err != nil {
-		return err
-	}
-
-	r := runner{cfg: cfg, agentUser: agentUser, log: log.With("runner", client.RunnerID())}
+	r := runner{cfg: cfg, agentUser: agentUser, log: log, sandbox: new(session.Sandbox)}
 	if egress != nil {
 		r.transport = egress.Transport(nil)
-		client.Through(r.transport)
 
 		proxy, err := r.openLocalProxy(ctx, egress)
 		if err != nil {
@@ -120,9 +121,15 @@ func run(args []string, version string) error {
 			r.proxyEnv = proxy.env
 		}
 	}
-	r.serve(ctx, client, assigned.Work)
 
-	r.log.Info("runner stopped")
+	if !cfg.HasAssignmentFile() || assigned.SandboxID == "" {
+		r.serve(ctx, *assigned)
+		log.Info("runner stopped")
+		return nil
+	}
+
+	r.supervise(ctx, *assigned, delivered)
+	log.Info("runner stopped; the sandbox drains")
 	return nil
 }
 
@@ -130,36 +137,154 @@ type runner struct {
 	cfg       config.Config
 	agentUser *account.User
 	log       *slog.Logger
+	sandbox   *session.Sandbox
 	transport http.RoundTripper
 	proxyEnv  map[string]string
 	unready   error
 }
 
-func (r runner) serve(ctx context.Context, client *control.Client, work protocol.ClaimResponse) {
-	switch {
-	case work.Kind == protocol.ClaimedRun && work.Run != nil:
-		r.log.Info("running", "run", work.Run.ID)
-		if err := session.Execute(ctx, *work.Run, session.Options{
-			Workspace:    r.cfg.Workspace,
-			Journal:      client,
-			Log:          r.log,
-			AgentUser:    r.agentUser,
-			Author:       r.cfg.Author,
-			Mirrors:      os.Getenv("SPOTLIGHT_MIRRORS"),
-			ControlPlane: r.cfg.URL,
-			Token:        client.Token(),
-			AnswerWait:   r.cfg.AnswerWait,
-			Transport:    r.transport,
-			ProxyEnv:     r.proxyEnv,
-			Enforced:     r.enforced(),
-			Unready:      r.unready,
-		}); err != nil {
-			r.log.Error("run failed", "run", work.Run.ID, "error", err)
+func (r runner) supervise(ctx context.Context, assigned protocol.Assignment, delivered <-chan os.Signal) {
+	log := r.log.With("sandboxId", assigned.SandboxID)
+	log.Info("supervising the sandbox")
+
+	for {
+		each := r
+		each.transport = trustingTheSandbox(log)
+		each.serve(ctx, assigned)
+		if ctx.Err() != nil {
+			return
 		}
+
+		r.stopLeftovers(log)
+
+		next, ok := r.nextAssignment(ctx, delivered, log)
+		if !ok {
+			return
+		}
+		assigned = next
+
+		if err := cacerts.Install(protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
+			log.Warn("could not trust the egress authority of the next run, so TLS through egress may fail", "error", err)
+		}
+	}
+}
+
+// Go reads the system authorities one time. Each run's egress has a new authority, so read them again.
+func trustingTheSandbox(log *slog.Logger) http.RoundTripper {
+	pem, err := os.ReadFile(protocol.SandboxBundle)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			log.Warn("could not read the sandbox's trusted authorities", "error", err)
+		}
+		return nil
+	}
+
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(pem) {
+		log.Warn("the sandbox's trusted authorities hold no certificate")
+		return nil
+	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
+	return transport
+}
+
+func (r runner) nextAssignment(ctx context.Context, delivered <-chan os.Signal, log *slog.Logger) (protocol.Assignment, bool) {
+	log.Info("waiting for the next run")
+
+	for {
+		select {
+		case <-ctx.Done():
+			return protocol.Assignment{}, false
+		case <-delivered:
+		}
+
+		assigned, err := readAssignment(r.cfg.AssignmentFile)
+		if err != nil {
+			log.Warn("could not read the next assignment; waiting for the host to signal again", "error", err)
+			continue
+		}
+
+		return *assigned, true
+	}
+}
+
+func (r runner) stopLeftovers(log *slog.Logger) {
+	stopped, err := r.agentUser.StopProcesses()
+	if err != nil {
+		log.Warn("could not stop every process the last run left", "error", err)
+	}
+	if stopped > 0 {
+		log.Info("stopped the processes the last run left", "count", stopped)
+	}
+}
+
+func (r runner) serve(ctx context.Context, assigned protocol.Assignment) {
+	client, err := control.ForRun(r.cfg.URL, assigned)
+	if err != nil {
+		r.log.Error("could not act for the assigned runner", "error", err)
+		return
+	}
+	if r.transport != nil {
+		client.Through(r.transport)
+	}
+
+	r.log = r.log.With("runner", client.RunnerID())
+
+	switch work := assigned.Work; {
+	case work.Kind == protocol.ClaimedRun && work.Run != nil:
+		r.execute(ctx, client, *work.Run)
 	case work.Kind == protocol.ClaimedCheck && work.Check != nil:
 		r.check(ctx, client, *work.Check)
 	default:
 		r.log.Warn("was assigned something it does not know how to do", "kind", work.Kind)
+	}
+}
+
+func (r runner) execute(ctx context.Context, client *control.Client, run protocol.Run) {
+	r.log.Info("running", "run", run.ID)
+
+	running, cancel := ctx, context.CancelFunc(func() {})
+	if r.cfg.RunTimeout > 0 {
+		running, cancel = context.WithTimeout(ctx, r.cfg.RunTimeout)
+	}
+	defer cancel()
+
+	err := r.sandbox.Execute(running, run, session.Options{
+		Workspace:    r.cfg.Workspace,
+		Journal:      client,
+		Log:          r.log,
+		AgentUser:    r.agentUser,
+		Author:       r.cfg.Author,
+		Mirrors:      os.Getenv("SPOTLIGHT_MIRRORS"),
+		ControlPlane: r.cfg.URL,
+		Token:        client.Token(),
+		Transport:    r.transport,
+		ProxyEnv:     r.proxyEnv,
+		Enforced:     r.enforced(),
+		Unready:      r.unready,
+	})
+	if err == nil {
+		return
+	}
+
+	r.log.Error("run failed", "run", run.ID, "error", err)
+	if errors.Is(running.Err(), context.DeadlineExceeded) && ctx.Err() == nil {
+		r.timedOut(ctx, client, run.ID)
+	}
+}
+
+func (r runner) timedOut(ctx context.Context, client *control.Client, runID string) {
+	r.log.Warn("the run ran past its time", "run", runID, "timeout", r.cfg.RunTimeout)
+
+	if err := client.Complete(ctx, runID, protocol.Completion{
+		ExitCode: -1,
+		Failed:   true,
+		TimedOut: true,
+		Message:  fmt.Sprintf("Run stopped at the host's time limit. Time limit: %s", r.cfg.RunTimeout),
+	}); err != nil {
+		r.log.Warn("could not say the run ran out of time; its lease will expire instead", "error", err)
 	}
 }
 

@@ -235,45 +235,6 @@ export class RenewLeaseResponseDto {
   }
 }
 
-export class RunCompletionResponseDto {
-  @ApiProperty({
-    example: false,
-    description:
-      'Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then suspends the run.',
-  })
-  readonly waiting: boolean;
-
-  constructor(waiting: boolean) {
-    this.waiting = waiting;
-  }
-}
-
-export class TurnAwaitsPersonResponseDto {
-  @ApiProperty({
-    example: true,
-    description:
-      'Whether this turn, as reported, would put the run to a person, so the runner keeps its harness running while it archives the workspace. Otherwise the runner closes the harness first, as the run ends.',
-  })
-  readonly awaitsPerson: boolean;
-
-  constructor(awaitsPerson: boolean) {
-    this.awaitsPerson = awaitsPerson;
-  }
-}
-
-export class RunSuspensionResponseDto {
-  @ApiProperty({
-    example: true,
-    description:
-      'Whether the run is suspended (or, if a stop was requested, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.',
-  })
-  readonly suspended: boolean;
-
-  constructor(suspended: boolean) {
-    this.suspended = suspended;
-  }
-}
-
 export class RenewCheckLeaseResponseDto {
   @ApiProperty({
     example: false,

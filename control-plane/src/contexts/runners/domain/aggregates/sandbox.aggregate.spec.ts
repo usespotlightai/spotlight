@@ -63,12 +63,51 @@ describe('Sandbox', () => {
     expect(released.idleSince).toEqual(later(1_000));
   });
 
+  it('takes the next run on its host once ready and idle, and holds it', () => {
+    const idle = started().reported().releaseRun('run_1', later(1_000));
+
+    expect(idle.takesRunOn(HOST)).toBe(true);
+    expect(idle.takesRunOn(HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDF'))).toBe(
+      false,
+    );
+    expect(started().takesRunOn(HOST)).toBe(false);
+    expect(started().reported().takesRunOn(HOST)).toBe(false);
+    expect(idle.drain().takesRunOn(HOST)).toBe(false);
+
+    const held = idle.holdRun('run_2', later(2_000));
+
+    expect(held.holdsRun('run_2')).toBe(true);
+    expect(held.idleSince).toBeNull();
+    expect(held.takesRunOn(HOST)).toBe(false);
+    expect(held.holdRun('run_2', later(3_000))).toBe(held);
+  });
+
+  it('takes no run once it drains', () => {
+    const draining = started()
+      .reported()
+      .releaseRun('run_1', later(1_000))
+      .drain();
+
+    expect(() => draining.holdRun('run_2', later(2_000))).toThrow(
+      'cannot take run run_2',
+    );
+  });
+
   it('drains once it holds no lease for the grace, and not before', () => {
     const idle = started().reported().releaseRun('run_1', later(0));
 
     expect(idle.drainDue(DRAIN_POLICY, later(GRACE_MS - 1))).toBe(false);
     expect(idle.drainedWhenDue(DRAIN_POLICY, later(GRACE_MS - 1))).toBe(idle);
     expect(idle.drainedWhenDue(DRAIN_POLICY, later(GRACE_MS)).current).toBe(
+      'draining',
+    );
+  });
+
+  it('drains at once when idle and its host stops, but not while a run holds it', () => {
+    const held = started().reported();
+
+    expect(held.drainedWhenIdle()).toBe(held);
+    expect(held.releaseRun('run_1', later(0)).drainedWhenIdle().current).toBe(
       'draining',
     );
   });

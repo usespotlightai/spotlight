@@ -133,7 +133,6 @@ func run(version string) error {
 		AutoUpdate: live.AutoUpdate,
 		Capacity:   live.Capacity,
 		RunTimeout: live.RunTimeout,
-		AnswerWait: live.AnswerWait,
 		ControlURL: cfg.URL,
 		SandboxURL: live.SandboxURL,
 		SandboxEnv: live.SandboxEnv,
@@ -233,7 +232,6 @@ func liveSettings(cfg config.Config, version string) serve.Settings {
 		Images:     cfg.Images,
 		Capacity:   cfg.Capacity,
 		RunTimeout: cfg.RunTimeout,
-		AnswerWait: cfg.AnswerWait,
 		SandboxURL: cfg.SandboxURL,
 		SandboxEnv: cfg.SandboxEnv,
 		Egress: serve.Egress{

@@ -31,6 +31,11 @@ type archiver struct {
 
 	restoredFrom string
 	baseline     string
+	current      string
+}
+
+type kept struct {
+	archive string
 }
 
 func newArchiver(
@@ -44,6 +49,17 @@ func newArchiver(
 		scratch: os.TempDir(),
 		through: through,
 		log:     log,
+	}
+}
+
+func (a *archiver) keep() kept {
+	return kept{archive: a.current}
+}
+
+func (a *archiver) carry(from kept) {
+	a.restoredFrom, a.current = from.archive, from.archive
+	if from.archive != "" {
+		a.report(restoreStep, "Kept the workspace the last run left in this sandbox")
 	}
 }
 
@@ -137,7 +153,7 @@ func (a *archiver) unpacked(ctx context.Context, stored protocol.StoredArchive) 
 		return err
 	}
 
-	a.restoredFrom = stored.ID
+	a.restoredFrom, a.current = stored.ID, stored.ID
 	return nil
 }
 
@@ -169,6 +185,9 @@ func (a *archiver) archive(ctx context.Context) bool {
 		summary, completed = a.archived(ctx)
 		a.report(archiveStep, "%s", summary)
 	})
+	if !completed {
+		a.current = ""
+	}
 
 	return completed
 }
@@ -206,7 +225,7 @@ func (a *archiver) archived(ctx context.Context) (string, bool) {
 	if err := a.control.CompleteArchive(ctx, a.run.ID, grant.ID); err != nil {
 		return "Skipped: " + err.Error(), false
 	}
-	a.baseline = now
+	a.baseline, a.current = now, grant.ID
 
 	return fmt.Sprintf("Captured the workspace for the next run (%s)", sized(packed.Size)), true
 }
