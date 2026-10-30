@@ -103,4 +103,11 @@ export class HostHeartbeatRequestDto {
       'The runner images it supports or cannot use, each with what it found inside',
   })
   readonly images?: HostImageRequestDto[];
+
+  @ApiPropertyOptional({
+    example: false,
+    description:
+      'True when the host stopped claiming to update or restart. Spotlight then drains each of its sandboxes when no run holds it',
+  })
+  readonly stopping?: boolean;
 }

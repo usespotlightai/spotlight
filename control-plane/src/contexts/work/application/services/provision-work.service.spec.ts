@@ -7,6 +7,7 @@ import type {
   ProvisionRequest,
   RunnersPort,
 } from '@runners/application/ports/runners.port';
+import type { SandboxesPort } from '@runners/application/ports/sandboxes.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -29,6 +30,7 @@ import { ProvisionWork } from '@work/application/services/provision-work.service
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -97,6 +99,7 @@ const provisioning = (
     readonly expired?: readonly ExpiredCheck[];
     readonly reserves?: boolean;
   } = {},
+  liveKeys: readonly string[] = [],
 ) => {
   const logger = {
     debug: vi.fn(),
@@ -113,6 +116,7 @@ const provisioning = (
         readonly skip: number;
         readonly max: number;
         readonly withSecrets: boolean;
+        readonly avoiding: readonly ResumeKey[];
       },
     ) =>
       [...stored.values()]
@@ -179,6 +183,9 @@ const provisioning = (
         },
       } as unknown as RunnerPoolsPort,
       { provision, release } as unknown as RunnersPort,
+      {
+        liveKeysIn: vi.fn(async () => liveKeys),
+      } as unknown as SandboxesPort,
       failures,
       {
         generate: () => {
@@ -320,6 +327,26 @@ describe('ProvisionWork', () => {
     expect(provision).toHaveBeenCalledTimes(2);
     expect(awaitingProvision).toHaveBeenCalledOnce();
     expect(checks.awaiting).not.toHaveBeenCalled();
+  });
+
+  it('provisions no runner for the runs of keys that ready host sandboxes keep', async () => {
+    const { provisioner, awaitingProvision } = provisioning(
+      [waiting('run_1')],
+      [aPool('burst')],
+      {},
+      NOON,
+      0,
+      {},
+      ['task-task_1'],
+    );
+
+    await provisioner.due();
+
+    expect(awaitingProvision).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      NOON,
+      expect.objectContaining({ avoiding: [ResumeKey.of('task-task_1')] }),
+    );
   });
 
   it('reads the next page while a pool still has room', async () => {

@@ -12,6 +12,7 @@ import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggr
 import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
+import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -37,13 +38,28 @@ const holderOf = (row: Row): ArchiveHolder => {
   );
 };
 
+const granteeOf = (row: Row): ArchiveGrantee => {
+  if (row.grantedToRunId) {
+    return ArchiveGrantee.run(RunId.of(row.grantedToRunId));
+  }
+
+  if (row.grantedToSandboxId) {
+    return ArchiveGrantee.sandbox(row.grantedToSandboxId);
+  }
+
+  throw new InconsistentStateError(
+    'workspace archive',
+    `was granted to neither a run nor a sandbox (${row.id})`,
+  );
+};
+
 const toArchive = (row: Row): WorkspaceArchive =>
   WorkspaceArchive.rehydrate({
     id: WorkspaceArchiveId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
     resumeKey: ResumeKey.of(row.resumeKey),
     holder: holderOf(row),
-    grantedTo: RunId.of(row.grantedToRunId),
+    grantedTo: granteeOf(row),
     size: ArchiveSize.of(row.size),
     digest: ArchiveDigest.of(row.sha256),
     grantedAt: row.grantedAt,
@@ -73,7 +89,8 @@ export class DrizzleWorkspaceArchiveRepository
         workspaceId: added.workspaceId.value,
         resumeKey: added.resumeKey.value,
         ...holderColumns(added.holder),
-        grantedToRunId: added.grantedTo.value,
+        grantedToRunId: added.grantedTo.runId?.value ?? null,
+        grantedToSandboxId: added.grantedTo.sandboxId,
         size: added.size.bytes,
         sha256: added.digest.sha256,
         grantedAt: added.grantedAt,

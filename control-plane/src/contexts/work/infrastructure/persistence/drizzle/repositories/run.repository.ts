@@ -32,11 +32,13 @@ import type {
   Claimant,
   RunExtras,
   RunRepository,
+  SandboxRouting,
 } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
+import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -78,6 +80,25 @@ const noEarlierRunStillLeased = sql`NOT EXISTS (
       sql`, `,
     )})
 )`;
+
+const resumeKeyOf = sql`coalesce(${run.spec} -> 'resume' ->> 'key', '')`;
+
+const routedBy = (routing: SandboxRouting | undefined): SQL => {
+  if (!routing) {
+    return sql`true`;
+  }
+
+  if ('into' in routing) {
+    return sql`${resumeKeyOf} = ${routing.into.value}`;
+  }
+
+  return routing.avoiding.length === 0
+    ? sql`true`
+    : sql`${resumeKeyOf} NOT IN (${sql.join(
+        routing.avoiding.map((each) => sql`${each.value}`),
+        sql`, `,
+      )})`;
+};
 
 type Row = typeof run.$inferSelect;
 
@@ -178,6 +199,7 @@ export class DrizzleRunRepository implements RunRepository {
           AND (claimable_from IS NULL OR claimable_from <= ${now.toISOString()}::timestamp)
           AND ${placementMatches(run.placement, run.placementImage, by.offer)}
           AND ${noEarlierRunStillLeased}
+          AND ${routedBy(by.sandbox)}
         ORDER BY priority DESC, created_at
         FOR UPDATE SKIP LOCKED
         LIMIT 1
@@ -210,6 +232,38 @@ export class DrizzleRunRepository implements RunRepository {
       .select({ run, replayedTaskId: replayed.taskId })
       .from(run)
       .leftJoin(replayed, eq(replayed.id, run.replayOfRunId));
+  }
+
+  async newestWithKey(
+    workspaceId: WorkspaceId,
+    key: ResumeKey,
+  ): Promise<Run | null> {
+    const [row] = await this.selected()
+      .where(
+        and(
+          eq(run.workspaceId, workspaceId.value),
+          sql`${resumeKeyOf} = ${key.value}`,
+        ),
+      )
+      .orderBy(desc(run.createdAt), desc(run.id))
+      .limit(1);
+
+    return row ? toRun(row) : null;
+  }
+
+  async queuedWithKey(
+    workspaceId: WorkspaceId,
+    key: ResumeKey,
+  ): Promise<readonly Run[]> {
+    const rows = await this.selected().where(
+      and(
+        eq(run.workspaceId, workspaceId.value),
+        eq(run.state, 'queued'),
+        sql`${resumeKeyOf} = ${key.value}`,
+      ),
+    );
+
+    return rows.map(toRun);
   }
 
   async findById(id: RunId): Promise<Run | null> {
@@ -287,6 +341,7 @@ export class DrizzleRunRepository implements RunRepository {
       readonly skip: number;
       readonly max: number;
       readonly withSecrets: boolean;
+      readonly avoiding: readonly ResumeKey[];
     },
   ): Promise<readonly Run[]> {
     const rows = await this.selected()
@@ -302,6 +357,7 @@ export class DrizzleRunRepository implements RunRepository {
           ),
           or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
           noEarlierRunStillLeased,
+          routedBy({ avoiding: page.avoiding }),
         ),
       )
       .orderBy(desc(run.priority), run.createdAt, run.id)

@@ -10,10 +10,8 @@ type State int
 const (
 	Preparing State = iota
 	Running
-	Waiting
 	Draining
 	Completed
-	Suspended
 	Failed
 )
 
@@ -22,9 +20,6 @@ type Trigger int
 const (
 	WorkspaceReady Trigger = iota
 	AgentStarted
-	PersonAsked
-	PersonAnswered
-	RunSuspended
 	AgentExited
 	Drained
 	Errored
@@ -37,15 +32,8 @@ var transitions = map[State]map[Trigger]State{
 		Errored:        Failed,
 	},
 	Running: {
-		PersonAsked: Waiting,
 		AgentExited: Draining,
 		Errored:     Failed,
-	},
-	Waiting: {
-		PersonAnswered: Running,
-		RunSuspended:   Suspended,
-		AgentExited:    Draining,
-		Errored:        Failed,
 	},
 	Draining: {
 		Drained: Completed,
@@ -67,14 +55,10 @@ func (s State) String() string {
 		return "preparing"
 	case Running:
 		return "running"
-	case Waiting:
-		return "waiting"
 	case Draining:
 		return "draining"
 	case Completed:
 		return "completed"
-	case Suspended:
-		return "suspended"
 	case Failed:
 		return "failed"
 	}
@@ -91,12 +75,6 @@ func (t Trigger) String() string {
 		return "prepared"
 	case AgentStarted:
 		return "started"
-	case PersonAsked:
-		return "put to a person"
-	case PersonAnswered:
-		return "answered"
-	case RunSuspended:
-		return "suspended"
 	case AgentExited:
 		return "exited"
 	case Drained:

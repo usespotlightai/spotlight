@@ -1,5 +1,5 @@
 {
-  "id": "5256da93-b9a7-4eff-8f76-7292f7af2b39",
+  "id": "9f7b3a8a-75e4-4989-909e-9e01b6879e54",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -11684,7 +11684,13 @@
           "name": "host_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "state": {
           "name": "state",
@@ -11794,6 +11800,43 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "sandbox_token_hash_idx": {
+          "name": "sandbox_token_hash_idx",
+          "columns": [
+            {
+              "expression": "token_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sandbox_requested_idx": {
+          "name": "sandbox_requested_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"sandbox\".\"host_id\" is null and \"sandbox\".\"state\" = 'starting'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -11801,6 +11844,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "sandbox_host_has_token": {
+          "name": "sandbox_host_has_token",
+          "value": "(\"sandbox\".\"host_id\" is null) = (\"sandbox\".\"token_hash\" is null)"
+        },
         "sandbox_gone_at_matches_state": {
           "name": "sandbox_gone_at_matches_state",
           "value": "(\"sandbox\".\"state\" = 'gone') = (\"sandbox\".\"gone_at\" is not null)"
@@ -15692,7 +15739,13 @@
           "name": "granted_to_run_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "granted_to_sandbox_id": {
+          "name": "granted_to_sandbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "size": {
           "name": "size",
@@ -15789,7 +15842,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "workspace_archive_granted_to_one": {
+          "name": "workspace_archive_granted_to_one",
+          "value": "(\"workspace_archive\".\"granted_to_run_id\" is null) <> (\"workspace_archive\".\"granted_to_sandbox_id\" is null)"
+        }
+      },
       "isRLSEnabled": false
     }
   },
@@ -16308,7 +16366,6 @@
       "values": [
         "queued",
         "claimed",
-        "waiting",
         "suspended",
         "completed",
         "failed",

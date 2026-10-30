@@ -10,7 +10,7 @@ import {
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, ne } from 'drizzle-orm';
 import {
   afterAll,
   afterEach,
@@ -317,6 +317,10 @@ describe('egress fetching a run’s secrets (e2e)', () => {
       .update(schema.run)
       .set({ leaseExpiresAt: new Date(Date.now() - 1_000) })
       .where(eq(schema.run.id, runId));
+    await db
+      .update(schema.sandbox)
+      .set({ state: 'gone', goneAt: new Date() })
+      .where(ne(schema.sandbox.state, 'gone'));
 
     const second = await claimed();
     const to = recipient();
@@ -351,7 +355,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
       .post(`/api/runs/${runId}/completion`)
       .set('Authorization', `Bearer ${work.token}`)
       .send({ exitCode: 0, failed: false })
-      .expect(200);
+      .expect(204);
 
     await eventually(async () => {
       const answer = await fetchSecrets(work.egressToken, recipient().written);

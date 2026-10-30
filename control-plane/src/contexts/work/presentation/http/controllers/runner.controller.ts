@@ -41,17 +41,12 @@ import {
   RecordStartingPointCommand,
   RenewCheckLeaseCommand,
   RenewLeaseCommand,
-  SuspendRunCommand,
 } from '@work/application/commands/runner.commands';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import type { HarnessDto } from '@work/application/dto/harness.dto';
 import type { PendingMessageDto } from '@work/application/dto/pending-message.dto';
 import type { PermissionAnswerDto } from '@work/application/dto/permission-answer.dto';
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
-import type {
-  RunCompletionDto,
-  RunSuspensionDto,
-} from '@work/application/dto/run-completion.dto';
 import type { RunnerHistoryAnswer } from '@work/application/dto/runner-history.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
@@ -63,7 +58,6 @@ import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attac
 import { ReadRunnerHistoryQuery } from '@work/application/queries/read-runner-history.query';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
-import { TurnAwaitsPersonQuery } from '@work/application/queries/turn-awaits-person.query';
 import { HarnessProbeResponseDto } from '@work/presentation/http/dto/harness-probe.response.dto';
 import {
   AckMessagesRequestDto,
@@ -75,18 +69,14 @@ import {
   RecordStartingPointRequestDto,
   ReplyToReviewCommentRequestDto,
   RunAttachmentResponseDto,
-  SuspendRunRequestDto,
 } from '@work/presentation/http/dto/runner.request.dto';
 import {
   ClaimedWorkResponseDto,
   PermissionAnswerResponseDto,
   RenewCheckLeaseResponseDto,
   RenewLeaseResponseDto,
-  RunCompletionResponseDto,
-  RunSuspensionResponseDto,
   ToolActingAsResponseDto,
   ToolAnswerResponseDto,
-  TurnAwaitsPersonResponseDto,
 } from '@work/presentation/http/dto/runner.response.dto';
 import { RunnerHistoryResponseDto } from '@work/presentation/http/dto/runner-history.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
@@ -588,23 +578,20 @@ export class RunnerController {
   }
 
   @Post('runs/:runId/completion')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'completeRun',
     summary: 'Report how the agent’s turn ended',
     description:
-      'When the turn ended by asking a person (a handover for review, a tool approval or a harness permission put to them), the run waits for their answer instead of ending, and the answer says so.',
+      'The run leaves its lease. When the turn ended by asking a person (a handover for review, a tool approval or a harness permission put to them), the run is suspended until they answer. The answer requeues it, and the sandbox that keeps its workspace takes it first.',
   })
-  @ApiOkResponse({ type: RunCompletionResponseDto })
+  @ApiNoContentResponse({ description: 'Turn reported' })
   async complete(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
     @Body() body: CompleteRunRequestDto,
-  ): Promise<RunCompletionResponseDto> {
-    const completed = await this.commandBus.execute<
-      CompleteRunCommand,
-      RunCompletionDto
-    >(
+  ): Promise<void> {
+    await this.commandBus.execute<CompleteRunCommand, void>(
       new CompleteRunCommand(
         runId,
         runnerId,
@@ -614,68 +601,9 @@ export class RunnerController {
         body.handover ?? null,
         body.sessionId ?? null,
         body.stopped ?? false,
-        body.archived ?? false,
         body.setupFailed ?? false,
         body.timedOut ?? false,
       ),
     );
-
-    return new RunCompletionResponseDto(completed.waiting);
-  }
-
-  @Post('runs/:runId/completion/awaits-person')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    operationId: 'turnAwaitsPerson',
-    summary: 'Whether a turn reported like this would wait for a person',
-    description:
-      'The runner calls this before it archives the workspace at the end of a turn. Nothing changes: the completion decides.',
-  })
-  @ApiOkResponse({ type: TurnAwaitsPersonResponseDto })
-  @ApiNotFoundResponse({ description: 'No such run leased by this runner' })
-  async awaitsPerson(
-    @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
-    @Body() body: CompleteRunRequestDto,
-  ): Promise<TurnAwaitsPersonResponseDto> {
-    const awaitsPerson = await this.queryBus.execute<
-      TurnAwaitsPersonQuery,
-      boolean
-    >(
-      new TurnAwaitsPersonQuery(
-        runId,
-        runnerId,
-        body.exitCode,
-        body.failed,
-        body.stopped ?? false,
-        body.handover ?? null,
-      ),
-    );
-
-    return new TurnAwaitsPersonResponseDto(awaitsPerson);
-  }
-
-  @Post('runs/:runId/suspended')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    operationId: 'suspendRun',
-    summary:
-      'Suspend a run whose person did not answer within the grace period',
-    description:
-      'The runner has completed the workspace archive and releases its sandbox. A later answer requeues the same run, and any runner claims it and restores it from the archive. If the answer arrived first, the run is not suspended: it is working again, and the runner delivers the answer to the live session.',
-  })
-  @ApiOkResponse({ type: RunSuspensionResponseDto })
-  @ApiConflictResponse({ description: 'The run is not leased by this runner' })
-  async suspend(
-    @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
-    @Body() body: SuspendRunRequestDto,
-  ): Promise<RunSuspensionResponseDto> {
-    const suspension = await this.commandBus.execute<
-      SuspendRunCommand,
-      RunSuspensionDto
-    >(new SuspendRunCommand(runId, runnerId, body?.requeue ?? false));
-
-    return new RunSuspensionResponseDto(suspension.suspended);
   }
 }

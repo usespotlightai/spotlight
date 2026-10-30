@@ -101,6 +101,7 @@ export class HostController {
         (body?.sandboxes ?? []).flatMap((each) =>
           typeof each?.id === 'string' && each.id.length > 0 ? [each.id] : [],
         ),
+        body?.stopping === true,
       ),
     );
 

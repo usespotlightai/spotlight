@@ -51,6 +51,7 @@ import {
   HostRequirementsResponseDto,
   RunnerReleaseResponseDto,
 } from '@work/presentation/http/dto/host-requirements.response.dto';
+import { ClaimedWorkResponseDto } from '@work/presentation/http/dto/runner.response.dto';
 import { ClaimedWorkHttpMapper } from '@work/presentation/http/mappers/claimed-work.http.mapper';
 
 interface Answerable {
@@ -118,9 +119,9 @@ export class HostWorkController {
   @ApiOperation({
     operationId: 'claimHostWork',
     summary:
-      'Long-poll for one run or check, assigned with a one-run runner’s credential for a fresh sandbox',
+      'Long-poll for one run or check, assigned with a one-run runner’s credential, or for a sandbox to start with no run',
     description:
-      'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call.',
+      'Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a task or chat whose workspace a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the workspace of its task or chat and waits for runs.',
   })
   @ApiOkResponse({ type: HostClaimResponseDto })
   @ApiConflictResponse({
@@ -145,6 +146,7 @@ export class HostWorkController {
         { bearer: bearerIn(authorization), trust },
         body?.host ?? '',
         body?.image ?? '',
+        body?.sandbox || null,
       ),
     );
 
@@ -180,13 +182,29 @@ export class HostWorkController {
       return undefined;
     }
 
-    return new HostClaimResponseDto(
-      claimed.runnerId,
-      claimed.token,
-      claimed.egressToken,
-      claimed.sandboxId,
-      ClaimedWorkHttpMapper.toResponse(claimed.work),
-    );
+    if (claimed.outcome === 'sandbox') {
+      return new HostClaimResponseDto({
+        runnerId: null,
+        token: null,
+        egressToken: null,
+        sandboxId: claimed.sandboxId,
+        sandboxToken: claimed.sandboxToken,
+        allowedHosts: claimed.allowedHosts,
+        reused: false,
+        work: new ClaimedWorkResponseDto('sandbox', null, null),
+      });
+    }
+
+    return new HostClaimResponseDto({
+      runnerId: claimed.runnerId,
+      token: claimed.token,
+      egressToken: claimed.egressToken,
+      sandboxId: claimed.sandboxId,
+      sandboxToken: claimed.sandboxToken,
+      allowedHosts: [],
+      reused: claimed.reused,
+      work: ClaimedWorkHttpMapper.toResponse(claimed.work),
+    });
   }
 
   @Post('calls/claim')

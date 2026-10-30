@@ -665,7 +665,7 @@ describe('a search run ending', () => {
 
     await runner(token)
       .post(`/api/runs/${runId}/completion`, finishing('review'))
-      .expect(200);
+      .expect(204);
     await untilUsageRecorded(runId);
 
     expect((await runRow(runId))?.state).toBe('completed');
@@ -740,13 +740,9 @@ describe('a search run ending', () => {
           .expect(200)
       ).body,
     ).toEqual({ decision: 'pending' });
-    expect(
-      (
-        await runner(token)
-          .post(`/api/runs/${runId}/completion`, finishing('review'))
-          .expect(200)
-      ).body,
-    ).toEqual({ waiting: false });
+    await runner(token)
+      .post(`/api/runs/${runId}/completion`, finishing('review'))
+      .expect(204);
     await untilUsageRecorded(runId);
 
     expect((await runRow(runId))?.askedAPerson).toBe(true);

@@ -181,9 +181,8 @@ describe('reading a file attached to a leased chat run', () => {
         exitCode: 0,
         failed: false,
         sessionId: 'session_1',
-        archived: true,
       })
-      .expect(200);
+      .expect(204);
 
     const after = await read(leased.token, leased.runId, leased.attachmentId);
 

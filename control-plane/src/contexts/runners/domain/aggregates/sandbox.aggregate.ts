@@ -5,6 +5,7 @@ import type { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export type SandboxState = 'starting' | 'ready' | 'draining' | 'gone';
@@ -34,7 +35,8 @@ interface State {
   readonly id: SandboxId;
   readonly workspaceId: WorkspaceId;
   readonly key: SandboxKey | null;
-  readonly hostId: HostId;
+  readonly hostId: HostId | null;
+  readonly tokenHash: TokenHash | null;
   readonly state: SandboxState;
   readonly leases: readonly SandboxLease[];
   readonly idleSince: Date | null;
@@ -53,6 +55,7 @@ export class Sandbox extends EventRecorder {
     workspaceId: WorkspaceId;
     key: SandboxKey | null;
     hostId: HostId;
+    tokenHash: TokenHash;
     runId: string;
     at: Date;
   }): Sandbox {
@@ -61,9 +64,31 @@ export class Sandbox extends EventRecorder {
       workspaceId: input.workspaceId,
       key: input.key,
       hostId: input.hostId,
+      tokenHash: input.tokenHash,
       state: 'starting',
       leases: [SandboxLease.forRun(input.runId, input.at)],
       idleSince: null,
+      startedAt: input.at,
+      goneAt: null,
+      version: 0,
+    });
+  }
+
+  static request(input: {
+    id: SandboxId;
+    workspaceId: WorkspaceId;
+    key: SandboxKey;
+    at: Date;
+  }): Sandbox {
+    return new Sandbox({
+      id: input.id,
+      workspaceId: input.workspaceId,
+      key: input.key,
+      hostId: null,
+      tokenHash: null,
+      state: 'starting',
+      leases: [],
+      idleSince: input.at,
       startedAt: input.at,
       goneAt: null,
       version: 0,
@@ -85,7 +110,24 @@ export class Sandbox extends EventRecorder {
       );
     }
 
+    if ((state.hostId === null) !== (state.tokenHash === null)) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'has a host with no token, or a token with no host',
+      );
+    }
+
     const holdsARun = state.leases.some((each) => each.kind === 'run');
+
+    if (
+      state.hostId === null &&
+      (holdsARun || (state.state !== 'starting' && state.state !== 'gone'))
+    ) {
+      throw new InconsistentStateError(
+        'sandbox',
+        `is ${state.state} or held by a run while no host started it`,
+      );
+    }
 
     if (holdsARun === (state.idleSince !== null)) {
       throw new InconsistentStateError(
@@ -113,8 +155,20 @@ export class Sandbox extends EventRecorder {
     return this.state.key;
   }
 
-  get hostId(): HostId {
+  get hostId(): HostId | null {
     return this.state.hostId;
+  }
+
+  get tokenHash(): TokenHash | null {
+    return this.state.tokenHash;
+  }
+
+  get isPlaced(): boolean {
+    return this.state.hostId !== null;
+  }
+
+  get isRequested(): boolean {
+    return !this.isPlaced && this.state.state === 'starting';
   }
 
   get current(): SandboxState {
@@ -157,6 +211,55 @@ export class Sandbox extends EventRecorder {
     return this.state.leases.some((each) => each.isHeldBy('run', runId));
   }
 
+  holdsEditor(holder: string): boolean {
+    return this.state.leases.some((each) => each.isHeldBy('editor', holder));
+  }
+
+  get isReady(): boolean {
+    return this.state.state === 'ready';
+  }
+
+  get isIdle(): boolean {
+    return this.state.idleSince !== null;
+  }
+
+  takesRunOn(hostId: HostId): boolean {
+    return (
+      this.isReady &&
+      this.isIdle &&
+      (this.state.hostId?.equals(hostId) ?? false)
+    );
+  }
+
+  placeOn(hostId: HostId, tokenHash: TokenHash, at: Date): Sandbox {
+    if (!this.isRequested) {
+      throw new InconsistentStateError(
+        'sandbox',
+        `is ${this.state.state} or on a host already, and cannot start on a host`,
+      );
+    }
+
+    return this.with({ hostId, tokenHash, startedAt: at, idleSince: at });
+  }
+
+  holdRun(runId: string, at: Date): Sandbox {
+    if (this.holdsRun(runId)) {
+      return this;
+    }
+
+    if (!this.isOpen || !this.isPlaced) {
+      throw new InconsistentStateError(
+        'sandbox',
+        `is ${this.state.state} or has no host, and cannot take run ${runId}`,
+      );
+    }
+
+    return this.with({
+      leases: [...this.state.leases, SandboxLease.forRun(runId, at)],
+      idleSince: null,
+    });
+  }
+
   releaseRun(runId: string, at: Date): Sandbox {
     if (!this.holdsRun(runId)) {
       return this;
@@ -170,6 +273,41 @@ export class Sandbox extends EventRecorder {
       leases,
       idleSince: leases.some((each) => each.kind === 'run') ? null : at,
     });
+  }
+
+  holdEditor(holder: string, at: Date): Sandbox {
+    if (!this.isOpen) {
+      throw new InconsistentStateError(
+        'sandbox',
+        `is ${this.state.state}, and no editor can hold it`,
+      );
+    }
+
+    return this.with({
+      leases: [
+        ...this.state.leases.filter((each) => !each.isHeldBy('editor', holder)),
+        SandboxLease.forEditor(holder, at),
+      ],
+    });
+  }
+
+  releaseEditor(holder: string, at: Date): Sandbox {
+    if (!this.holdsEditor(holder)) {
+      return this;
+    }
+
+    return this.withLeases(
+      this.state.leases.filter((each) => !each.isHeldBy('editor', holder)),
+      at,
+    );
+  }
+
+  withoutExpiredEditors(now: Date): Sandbox {
+    const leases = this.state.leases.filter((each) => !each.expiredAt(now));
+
+    return leases.length === this.state.leases.length
+      ? this
+      : this.withLeases(leases, now);
   }
 
   reported(): Sandbox {
@@ -195,7 +333,18 @@ export class Sandbox extends EventRecorder {
   }
 
   drain(): Sandbox {
+    if (!this.isPlaced) {
+      throw new InconsistentStateError(
+        'sandbox',
+        'has no host to drain it; it can only be lost',
+      );
+    }
+
     return this.isOpen ? this.with({ state: 'draining' }) : this;
+  }
+
+  drainedWhenIdle(): Sandbox {
+    return this.isIdle ? this.drain() : this;
   }
 
   drainDue(policy: SandboxDrainPolicy, now: Date): boolean {
@@ -212,7 +361,22 @@ export class Sandbox extends EventRecorder {
   }
 
   drainedWhenDue(policy: SandboxDrainPolicy, now: Date): Sandbox {
-    return this.drainDue(policy, now) ? this.drain() : this;
+    const held = this.withoutExpiredEditors(now);
+
+    if (!held.drainDue(policy, now)) {
+      return held;
+    }
+
+    return held.isPlaced ? held.drain() : held.lost(now);
+  }
+
+  private withLeases(leases: readonly SandboxLease[], at: Date): Sandbox {
+    const idle = !leases.some((each) => each.kind === 'run');
+
+    return this.with({
+      leases,
+      idleSince: idle && leases.length === 0 ? at : this.state.idleSince,
+    });
   }
 
   private with(changes: Partial<State>): Sandbox {

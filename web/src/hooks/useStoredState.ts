@@ -1,28 +1,50 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 
-const readStored = (storageKey: string, fallback: string): string => {
+const unstored = new Map<string, string>();
+const listeners = new Map<string, Set<() => void>>();
+
+const readStored = (storageKey: string): string | null => {
   try {
-    return localStorage.getItem(storageKey) ?? fallback;
+    return localStorage.getItem(storageKey);
   } catch {
-    return fallback;
+    return unstored.get(storageKey) ?? null;
   }
+};
+
+const writeStored = (storageKey: string, value: string) => {
+  try {
+    localStorage.setItem(storageKey, value);
+  } catch {
+    unstored.set(storageKey, value);
+  }
+  for (const listener of listeners.get(storageKey) ?? []) {
+    listener();
+  }
+};
+
+const subscribe = (storageKey: string, listener: () => void) => {
+  const keyed = listeners.get(storageKey) ?? new Set();
+  keyed.add(listener);
+  listeners.set(storageKey, keyed);
+
+  return () => {
+    keyed.delete(listener);
+  };
 };
 
 export function useStoredState(
   storageKey: string,
   fallback: string,
 ): [string, (value: string) => void] {
-  const [stored, setStored] = useState(() => readStored(storageKey, fallback));
+  const stored = useSyncExternalStore(
+    useCallback((listener) => subscribe(storageKey, listener), [storageKey]),
+    () => readStored(storageKey),
+  );
 
   const store = useCallback(
-    (value: string) => {
-      setStored(value);
-      try {
-        localStorage.setItem(storageKey, value);
-      } catch {}
-    },
+    (value: string) => writeStored(storageKey, value),
     [storageKey],
   );
 
-  return [stored, store];
+  return [stored ?? fallback, store];
 }

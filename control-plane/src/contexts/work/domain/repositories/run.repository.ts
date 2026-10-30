@@ -5,8 +5,13 @@ import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-off
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
+import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 
 type Claims = 'any' | 'reserved';
+
+export type SandboxRouting =
+  | { readonly into: ResumeKey }
+  | { readonly avoiding: readonly ResumeKey[] };
 
 export interface Claimant {
   readonly runner: RunnerId;
@@ -14,6 +19,7 @@ export interface Claimant {
   readonly harnesses: readonly HarnessId[];
   readonly offer: RunnerOffer;
   readonly claims: Claims;
+  readonly sandbox?: SandboxRouting;
 }
 
 export interface RunExtras {
@@ -28,6 +34,13 @@ export interface RunRepository {
 
   findById(id: RunId): Promise<Run | null>;
 
+  newestWithKey(workspaceId: WorkspaceId, key: ResumeKey): Promise<Run | null>;
+
+  queuedWithKey(
+    workspaceId: WorkspaceId,
+    key: ResumeKey,
+  ): Promise<readonly Run[]>;
+
   expiredLeases(now: Date): Promise<readonly Run[]>;
 
   claimedBy(runner: RunnerId): Promise<readonly Run[]>;
@@ -41,6 +54,7 @@ export interface RunRepository {
       readonly skip: number;
       readonly max: number;
       readonly withSecrets: boolean;
+      readonly avoiding: readonly ResumeKey[];
     },
   ): Promise<readonly Run[]>;
 

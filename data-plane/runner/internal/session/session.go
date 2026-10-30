@@ -32,9 +32,7 @@ import (
 type Journal interface {
 	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
 	RenewLease(ctx context.Context, runID string) (bool, error)
-	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.CompleteResponse, error)
-	AwaitsPerson(ctx context.Context, runID string, turn protocol.Completion) (bool, error)
-	Suspend(ctx context.Context, runID string, requeue bool) (protocol.Suspension, error)
+	Complete(ctx context.Context, runID string, done protocol.Completion) error
 	UseTool(ctx context.Context, runID, name string, input json.RawMessage) (json.RawMessage, error)
 	GenerateChangeStack(ctx context.Context, runID, repository, diff, base string) error
 	ReplyToReviewComment(ctx context.Context, runID string, reply protocol.ReviewCommentReply) error
@@ -76,7 +74,6 @@ type Options struct {
 	ControlPlane string
 	Token        string
 	SetupTimeout time.Duration
-	AnswerWait   time.Duration
 	Heartbeat    time.Duration
 	Transport    http.RoundTripper
 	ProxyEnv     map[string]string
@@ -84,7 +81,16 @@ type Options struct {
 	Unready      error
 }
 
+type Sandbox struct {
+	space *workspace.Workspace
+	kept  *kept
+}
+
 func Execute(ctx context.Context, run protocol.Run, opts Options) error {
+	return new(Sandbox).Execute(ctx, run, opts)
+}
+
+func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	log := opts.Log.With("run", run.ID)
 	journal := &journalWriter{runID: run.ID, journal: opts.Journal}
 
@@ -101,14 +107,23 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, opts.Unready)
 	}
 
-	space, err := workspace.Open(opts.Workspace)
-	if err != nil {
-		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	if s.space == nil {
+		space, err := workspace.Open(opts.Workspace)
+		if err != nil {
+			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		}
+		s.space = space
 	}
+	space := s.space
 
 	archiver := newArchiver(run, space, journal, opts.Journal, opts.Transport, log)
-	if err := archiver.restore(ctx); err != nil {
-		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+	defer func() { s.kept = new(archiver.keep()) }()
+	if s.kept == nil || archiver.replays() {
+		if err := archiver.restore(ctx); err != nil {
+			return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
+		}
+	} else {
+		archiver.carry(*s.kept)
 	}
 
 	if err := space.Remove(workspace.HandoverPath); err != nil {
@@ -342,21 +357,15 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		attached: func(ctx context.Context, attachment protocol.Attachment) error {
 			return fetch(ctx, opts.Journal, run.ID, space, opts.AgentUser, attachment)
 		},
-		escalated:  &escalated,
-		handOver:   handingOver(opts, run, space.Dir, bases, log),
-		heartbeat:  opts.heartbeat(),
-		answerWait: opts.AnswerWait,
-		log:        log,
-		stopped:    make(chan struct{}),
-		lost:       make(chan struct{}),
+		escalated: &escalated,
+		handOver:  handingOver(opts, run, space.Dir, bases, log),
+		heartbeat: opts.heartbeat(),
+		log:       log,
+		stopped:   make(chan struct{}),
 	}
 
-	suspended, err := talk.work(ctx, talk.opening(ctx))
+	err = talk.work(ctx, talk.opening(ctx))
 	_ = harness.Close()
-	if suspended {
-		log.Info("run suspended", "state", lifecycle.state)
-		return nil
-	}
 	if err != nil {
 		return err
 	}
@@ -735,7 +744,7 @@ func failed(
 	})
 	journal.flush(ctx)
 
-	if _, err := reporter.Complete(ctx, runID, protocol.Completion{
+	if err := reporter.Complete(ctx, runID, protocol.Completion{
 		ExitCode:    -1,
 		Failed:      true,
 		SetupFailed: beforeHandover,

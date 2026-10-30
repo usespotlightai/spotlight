@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -25,31 +24,17 @@ type conversation struct {
 	attached     func(context.Context, protocol.Attachment) error
 	escalated    *atomic.Bool
 	handOver     func(context.Context)
-	closed       bool
 	heartbeat    time.Duration
-	answerWait   time.Duration
 	log          *slog.Logger
 
 	stopped chan struct{}
-	lost    chan struct{}
-	losing  sync.Once
 }
-
-const maxUnreadAnswers = 3
 
 const resumeAfterLostRunner = "The runner working on this was lost before your turn ended. Carry on where you left off."
 
 type lostRun interface {
 	RunNoLongerLeased() bool
 }
-
-type awaitResult int
-
-const (
-	answered awaitResult = iota
-	stopRequested
-	released
-)
 
 func (c *conversation) opening(ctx context.Context) string {
 	briefing := c.run.Spec.Briefing
@@ -71,38 +56,16 @@ func (c *conversation) opening(ctx context.Context) string {
 	}
 }
 
-func (c *conversation) work(ctx context.Context, prompt string) (bool, error) {
+func (c *conversation) work(ctx context.Context, prompt string) error {
 	renewing, stopRenewing := context.WithCancel(ctx)
 	defer stopRenewing()
-	go renew(renewing, c.control, c.run.ID, c.heartbeat, c.log, c.stop, c.lose)
+	go renew(renewing, c.control, c.run.ID, c.heartbeat, c.log, c.stop)
 
 	flushing, stopFlushing := context.WithCancel(ctx)
 	defer stopFlushing()
 	go stream(flushing, c.journal)
 
-	for {
-		waiting, err := c.complete(ctx, c.converse(ctx, prompt))
-		if err != nil || !waiting {
-			return false, err
-		}
-
-		c.lifecycle.note(PersonAsked, c.log)
-		c.log.Info("waiting warm for a person to answer", "for", c.answerWait)
-
-		message, woke := c.await(ctx)
-		switch woke {
-		case released:
-			c.lifecycle.note(RunSuspended, c.log)
-			return true, nil
-		case stopRequested:
-			_, err := c.complete(ctx, 0)
-			return false, err
-		}
-
-		c.lifecycle.note(PersonAnswered, c.log)
-		c.escalated.Store(false)
-		prompt = message
-	}
+	return c.complete(ctx, c.converse(ctx, prompt))
 }
 
 func (c *conversation) converse(ctx context.Context, prompt string) int {
@@ -176,9 +139,9 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 	}
 }
 
-func (c *conversation) complete(ctx context.Context, exitCode int) (waiting bool, err error) {
+func (c *conversation) complete(ctx context.Context, exitCode int) error {
 	if ctx.Err() != nil {
-		return false, c.leave(ctx)
+		return c.leave(ctx)
 	}
 
 	stopped := c.stopWasRequested()
@@ -194,15 +157,8 @@ func (c *conversation) complete(ctx context.Context, exitCode int) (waiting bool
 		SessionID: c.sessionID,
 	}
 
-	awaits, err := c.control.AwaitsPerson(ctx, c.run.ID, turn)
-	if err != nil {
-		c.log.Warn("could not read whether the turn waits for a person; ending it as the run ends", "error", err)
-	}
-	if !awaits {
-		c.close()
-	}
-
-	turn.Archived = c.archiver.archive(ctx)
+	_ = c.harness.Close()
+	c.archiver.archive(ctx)
 	c.journal.flush(ctx)
 
 	if c.handOver != nil && !stopped {
@@ -210,17 +166,16 @@ func (c *conversation) complete(ctx context.Context, exitCode int) (waiting bool
 		c.handOver = nil
 	}
 
-	completed, err := c.control.Complete(ctx, c.run.ID, turn)
-	if err != nil {
-		return false, err
+	if err := c.control.Complete(ctx, c.run.ID, turn); err != nil {
+		return err
 	}
 
-	c.log.Info("turn reported", "exitCode", exitCode, "stopped", stopped, "waiting", completed.Waiting)
-	return completed.Waiting && !stopped, nil
+	c.log.Info("turn reported", "exitCode", exitCode, "stopped", stopped)
+	return nil
 }
 
 func (c *conversation) leave(ctx context.Context) error {
-	c.close()
+	_ = c.harness.Close()
 	c.archiver.archive(ctx)
 
 	settled, cancel := settling(ctx)
@@ -229,76 +184,6 @@ func (c *conversation) leave(ctx context.Context) error {
 
 	c.log.Info("the runner is stopping; the workspace is kept for the run's next attempt")
 	return ctx.Err()
-}
-
-func (c *conversation) close() {
-	c.closed = true
-	_ = c.harness.Close()
-}
-
-func (c *conversation) lose() {
-	c.losing.Do(func() { close(c.lost) })
-}
-
-func (c *conversation) await(ctx context.Context) (string, awaitResult) {
-	wait := c.answerWait
-	if c.closed {
-		wait = 0
-	}
-	grace := time.NewTimer(wait)
-	defer grace.Stop()
-	unread := 0
-
-	listening := time.NewTicker(c.heartbeat)
-	defer listening.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			c.log.Info("the runner is stopping; the run is suspended once its lease expires")
-			return "", released
-		case <-c.stopped:
-			return "", stopRequested
-		case <-c.lost:
-			c.log.Info("the run is no longer this runner's; releasing the sandbox")
-			return "", released
-		case <-listening.C:
-			if c.closed {
-				continue
-			}
-			if message, received := c.pollMessages(ctx); received {
-				return message, answered
-			}
-		case <-grace.C:
-			suspension, err := c.control.Suspend(ctx, c.run.ID, false)
-			if err != nil {
-				c.log.Warn("could not suspend the run; it is suspended once its lease expires", "error", err)
-				return "", released
-			}
-			if suspension.Suspended {
-				c.log.Info("nobody answered in time; the run is suspended")
-				return "", released
-			}
-
-			if c.closed {
-				c.log.Info("answered while suspending a run whose harness has closed; it is requeued for the next runner")
-				if _, err := c.control.Suspend(ctx, c.run.ID, true); err != nil {
-					c.log.Warn("could not requeue the run; a runner claims it again once its lease expires", "error", err)
-				}
-				return "", released
-			}
-
-			c.log.Info("answered while suspending")
-			if message, received := c.pollMessages(ctx); received {
-				return message, answered
-			}
-			if unread++; unread >= maxUnreadAnswers {
-				c.log.Warn("the run works again, but no message is there to read; releasing it")
-				return "", released
-			}
-			grace.Reset(max(c.answerWait, c.heartbeat))
-		}
-	}
 }
 
 func (c *conversation) pollMessages(ctx context.Context) (string, bool) {
@@ -379,7 +264,6 @@ func renew(
 	every time.Duration,
 	log *slog.Logger,
 	onStop func(),
-	onLost func(),
 ) {
 	ticker := time.NewTicker(every)
 	defer ticker.Stop()
@@ -393,7 +277,6 @@ func renew(
 			var lost lostRun
 			if errors.As(err, &lost) && lost.RunNoLongerLeased() {
 				log.Info("the run is no longer leased by this runner", "error", err)
-				onLost()
 				return
 			}
 			if err != nil {

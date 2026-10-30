@@ -257,7 +257,7 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.Ha
 	defer cancel()
 
 	env, harnessKeys := standInsFor(h.now().SandboxEnv)
-	sidecar, err := h.egressSidecar(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", harnessKeys,
+	sidecar, err := h.egressSidecar(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", nil, harnessKeys,
 		probeEgressWait)
 	defer sidecar.close()
 	if err != nil {

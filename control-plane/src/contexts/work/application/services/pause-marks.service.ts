@@ -12,7 +12,9 @@ export class PauseMarks {
       {
         type: RUN_PAUSED,
         at: event.at,
-        message: 'Waiting for a person',
+        message: event.resumesAtOnce
+          ? 'Messages came in during the turn. The run starts again to read them.'
+          : 'Waiting for a person',
       },
     );
   }

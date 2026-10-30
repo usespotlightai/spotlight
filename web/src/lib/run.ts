@@ -45,8 +45,7 @@ export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
     : 'The run ended before the agent started.';
 
 export const waitsOnPerson = (run: Pick<Run, 'state' | 'progress'>): boolean =>
-  (run.state === 'waiting' || run.state === 'suspended') &&
-  run.progress === null;
+  run.state === 'suspended' && run.progress === null;
 
 export const waitsForYou = (
   run: Pick<Run, 'state' | 'progress' | 'review'>,

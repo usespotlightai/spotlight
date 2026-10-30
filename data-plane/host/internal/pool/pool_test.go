@@ -78,6 +78,27 @@ func TestClaimRejectsWorkWithNoCredential(t *testing.T) {
 	}
 }
 
+func TestClaimTakesASandboxWithNoRunOnlyWithItsCredential(t *testing.T) {
+	answer := `{"runnerId":null,"token":null,"egressToken":null,"sandboxId":"sandbox_1","sandboxToken":"sandbox-token",` +
+		`"allowedHosts":["archives.example.com"],"reused":false,"work":{"kind":"sandbox","run":null,"check":null}}`
+	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(answer))
+	})
+
+	assignment, err := client.Claim(context.Background(), protocol.HostClaim{})
+	if err != nil || !assignment.StartsSandboxOnly() || assignment.SandboxToken != "sandbox-token" ||
+		len(assignment.AllowedHosts) != 1 {
+		t.Fatalf("got %+v, %v", assignment, err)
+	}
+
+	bare := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(protocol.Assignment{SandboxID: "sandbox_1", Work: protocol.ClaimResponse{Kind: protocol.ClaimedSandbox}})
+	})
+	if _, err := bare.Claim(context.Background(), protocol.HostClaim{}); err == nil {
+		t.Fatal("took a sandbox with no credential")
+	}
+}
+
 func TestAnUnauthorizedCredentialSaysSo(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "unknown pool token", http.StatusUnauthorized)

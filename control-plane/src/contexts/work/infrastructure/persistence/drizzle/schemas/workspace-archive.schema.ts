@@ -1,5 +1,7 @@
+import { sql } from 'drizzle-orm';
 import {
   bigint,
+  check,
   index,
   integer,
   pgTable,
@@ -15,7 +17,8 @@ export const workspaceArchive = pgTable(
     resumeKey: text('resume_key').notNull(),
     taskId: text('task_id'),
     chatId: text('chat_id'),
-    grantedToRunId: text('granted_to_run_id').notNull(),
+    grantedToRunId: text('granted_to_run_id'),
+    grantedToSandboxId: text('granted_to_sandbox_id'),
     size: bigint('size', { mode: 'number' }).notNull(),
     sha256: text('sha256').notNull(),
     grantedAt: timestamp('granted_at').notNull(),
@@ -30,5 +33,9 @@ export const workspaceArchive = pgTable(
     ),
     index('workspace_archive_task_idx').on(table.taskId),
     index('workspace_archive_chat_idx').on(table.chatId),
+    check(
+      'workspace_archive_granted_to_one',
+      sql`(${table.grantedToRunId} is null) <> (${table.grantedToSandboxId} is null)`,
+    ),
   ],
 );

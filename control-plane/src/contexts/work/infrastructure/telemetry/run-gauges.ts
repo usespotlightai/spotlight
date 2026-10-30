@@ -14,7 +14,7 @@ import {
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { and, count, eq, inArray, isNull, lte, min, or } from 'drizzle-orm';
 
-const OPEN_STATES = ['queued', 'claimed', 'waiting', 'suspended'] as const;
+const OPEN_STATES = ['queued', 'claimed', 'suspended'] as const;
 
 @Injectable()
 export class RunGauges implements OnModuleInit, OnModuleDestroy {

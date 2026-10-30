@@ -356,25 +356,21 @@ describe('the progress of a run once a person answered it', () => {
   };
 
   it('takes up the current run in every run list once the answer is in', async () => {
-    const { taskId, runId, older } = await paused('waiting', true);
+    const { taskId, runId, older } = await paused('suspended', true);
 
     expect(await listed(taskId, runId)).toEqual([true, true, true]);
     expect(await listed(taskId, older)).toEqual([false, false, false]);
   });
 
   it('takes up no run while the person still owes the answer', async () => {
-    const { taskId, runId } = await paused('waiting', false);
+    const { taskId, runId } = await paused('suspended', false);
 
     expect(await listed(taskId, runId)).toEqual([false, false, false]);
   });
 
-  it('says in the run notes that an answered run is under way again', async () => {
-    const warm = await paused('waiting', true);
+  it('says in the run notes that an answered run is queued again', async () => {
     const suspended = await paused('suspended', true);
 
-    expect(
-      (await reader.notesFor(RunId.of(warm.runId), VIEWER))?.progress,
-    ).toBe('in-progress');
     expect(
       (await reader.notesFor(RunId.of(suspended.runId), VIEWER))?.progress,
     ).toBe('queued');

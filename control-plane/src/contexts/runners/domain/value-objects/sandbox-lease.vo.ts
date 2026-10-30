@@ -7,6 +7,8 @@ export const SANDBOX_LEASE_KINDS: readonly SandboxLeaseKind[] = [
   'editor',
 ];
 
+export const EDITOR_LEASE_MS = 2 * 60_000;
+
 export class SandboxLease {
   private constructor(
     readonly kind: SandboxLeaseKind,
@@ -28,6 +30,17 @@ export class SandboxLease {
 
   static forRun(runId: string, at: Date): SandboxLease {
     return SandboxLease.of('run', runId, at);
+  }
+
+  static forEditor(holder: string, at: Date): SandboxLease {
+    return SandboxLease.of('editor', holder, at);
+  }
+
+  expiredAt(now: Date): boolean {
+    return (
+      this.kind === 'editor' &&
+      now.getTime() - this.renewedAt.getTime() >= EDITOR_LEASE_MS
+    );
   }
 
   isHeldBy(kind: SandboxLeaseKind, holder: string): boolean {

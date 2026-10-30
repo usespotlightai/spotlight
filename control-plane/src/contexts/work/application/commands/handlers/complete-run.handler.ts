@@ -5,7 +5,6 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { CompleteRunCommand } from '@work/application/commands/runner.commands';
-import type { RunCompletionDto } from '@work/application/dto/run-completion.dto';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TaskViewsPort } from '@work/application/ports/task-views.port';
@@ -29,7 +28,7 @@ const isVersionConflict = (error: unknown): boolean =>
   error instanceof TaskVersionConflictError;
 
 export class CompleteRunHandler
-  implements CommandHandlerPort<CompleteRunCommand, RunCompletionDto>
+  implements CommandHandlerPort<CompleteRunCommand, void>
 {
   constructor(
     private readonly runs: RunRepository,
@@ -42,7 +41,7 @@ export class CompleteRunHandler
     private readonly journals: RunJournalReaderPort,
   ) {}
 
-  async execute(command: CompleteRunCommand): Promise<RunCompletionDto> {
+  async execute(command: CompleteRunCommand): Promise<void> {
     try {
       const runId = RunId.of(command.runId);
       const runnerId = RunnerId.of(command.runnerId);
@@ -79,7 +78,7 @@ export class CompleteRunHandler
       });
 
       return await this.retrying(() =>
-        this.ended(runId, runnerId, outcome, report, command.archived),
+        this.ended(runId, runnerId, outcome, report),
       );
     } catch (error) {
       rethrowAsApplicationError(error);
@@ -99,9 +98,7 @@ export class CompleteRunHandler
     );
   }
 
-  private async retrying(
-    work: () => Promise<RunCompletionDto>,
-  ): Promise<RunCompletionDto> {
+  private async retrying(work: () => Promise<void>): Promise<void> {
     for (let attempt = 1; ; attempt++) {
       try {
         return await this.transaction.inTransaction(work);
@@ -113,10 +110,7 @@ export class CompleteRunHandler
     }
   }
 
-  private async timedOut(
-    runId: RunId,
-    by: RunnerId,
-  ): Promise<RunCompletionDto> {
+  private async timedOut(runId: RunId, by: RunnerId): Promise<void> {
     const run = await this.runs.findById(runId);
 
     if (!run) {
@@ -124,8 +118,6 @@ export class CompleteRunHandler
     }
 
     await this.runs.save(run.timedOut(by, this.clock.now()));
-
-    return { waiting: false };
   }
 
   private async ended(
@@ -133,8 +125,7 @@ export class CompleteRunHandler
     by: RunnerId,
     outcome: RunOutcome,
     report: HandoverReport,
-    archived: boolean,
-  ): Promise<RunCompletionDto> {
+  ): Promise<void> {
     const run = await this.runs.findById(runId);
 
     if (!run) {
@@ -150,7 +141,6 @@ export class CompleteRunHandler
       line,
       outcome,
       report,
-      archived: archived,
       now: this.clock.now(),
     });
 
@@ -161,8 +151,6 @@ export class CompleteRunHandler
     if (ended.run !== run) {
       await this.runs.save(ended.run);
     }
-
-    return { waiting: ended.waiting };
   }
 
   private async handingOver(
@@ -176,8 +164,7 @@ export class CompleteRunHandler
       !run?.firesHooks ||
       !run.taskId ||
       run.hasEnded ||
-      !run.wasClaimedBy(runnerId) ||
-      run.pausedBy(runnerId)
+      !run.wasClaimedBy(runnerId)
     ) {
       return handover;
     }

@@ -147,17 +147,11 @@ describe('formatRun', () => {
 });
 
 describe('runnerStatus', () => {
-  it('says a runner is starting, running, or waiting on a person', () => {
+  it('says a runner is starting or running', () => {
     const active = runner();
 
     expect(runnerStatus({ ...active, currentRun: null })).toBe('Starting');
     expect(runnerStatus({ ...active, currentRun: LEASED_RUN })).toBe('Running');
-    expect(
-      runnerStatus({
-        ...active,
-        currentRun: { ...LEASED_RUN, state: 'waiting' },
-      }),
-    ).toBe('Waiting on a person');
   });
 });
 

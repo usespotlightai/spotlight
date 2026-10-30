@@ -42,7 +42,7 @@ func live(t *testing.T, opts serve.Options, engine *fakeEngine, pool *pool) (*se
 func settingsOf(opts serve.Options) serve.Settings {
 	return serve.Settings{
 		Name: opts.Name, Images: opts.Images, Capacity: opts.Capacity, RunTimeout: opts.RunTimeout,
-		AnswerWait: opts.AnswerWait, SandboxURL: opts.SandboxURL, SandboxEnv: opts.SandboxEnv, Egress: opts.Egress,
+		SandboxURL: opts.SandboxURL, SandboxEnv: opts.SandboxEnv, Egress: opts.Egress,
 		Network: opts.Network, ExtraHosts: opts.ExtraHosts, AutoUpdate: opts.AutoUpdate,
 	}
 }

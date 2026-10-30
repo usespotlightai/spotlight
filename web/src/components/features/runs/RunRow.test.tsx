@@ -75,14 +75,7 @@ describe('RunRow, what a run is doing', () => {
     expect(screen.queryByText('Queued')).not.toBeInTheDocument();
   });
 
-  it('says a run that asked a person is waiting for you, not in progress', () => {
-    shown(<RunRow run={run('waiting')} to="/runs/run_1" />);
-
-    expect(screen.getByText('Waiting for you')).toBeInTheDocument();
-    expect(screen.queryByText('In progress')).not.toBeInTheDocument();
-  });
-
-  it('still says it is waiting for you once the run is suspended', () => {
+  it('says a run that asked a person is waiting for you, neither in progress nor queued', () => {
     shown(<RunRow run={run('suspended')} to="/runs/run_1" />);
 
     expect(screen.getByText('Waiting for you')).toBeInTheDocument();
@@ -93,7 +86,7 @@ describe('RunRow, what a run is doing', () => {
   it('leads from waiting for you to where the person answers', () => {
     shown(
       <RunRow
-        run={run('waiting', PENDING)}
+        run={run('suspended', PENDING)}
         to="/runs/run_1"
         reviewTo="/inbox/task_1:3"
       />,

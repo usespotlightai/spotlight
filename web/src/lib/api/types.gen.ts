@@ -475,7 +475,10 @@ export type ClaimedCheckResponseDto = {
 };
 
 export type ClaimedWorkResponseDto = {
-  kind: 'run' | 'check';
+  /**
+   * `sandbox` is only for a host claim: start a sandbox with no run in it
+   */
+  kind: 'run' | 'check' | 'sandbox';
   run: ClaimedRunResponseDto | null;
   check: ClaimedCheckResponseDto | null;
 };
@@ -990,38 +993,6 @@ export type CompleteRunRequestDto = {
    * A person stopped the run rather than the agent finishing it.
    */
   stopped?: boolean;
-  /**
-   * The workspace archive is complete as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there.
-   */
-  archived?: boolean;
-};
-
-export type RunCompletionResponseDto = {
-  /**
-   * Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then suspends the run.
-   */
-  waiting: boolean;
-};
-
-export type TurnAwaitsPersonResponseDto = {
-  /**
-   * Whether this turn, as reported, would put the run to a person, so the runner keeps its harness running while it archives the workspace. Otherwise the runner closes the harness first, as the run ends.
-   */
-  awaitsPerson: boolean;
-};
-
-export type SuspendRunRequestDto = {
-  /**
-   * The harness has already closed, so an answer that arrived first cannot be delivered warm: the run goes back on the queue from its archive instead of staying with this runner.
-   */
-  requeue?: boolean;
-};
-
-export type RunSuspensionResponseDto = {
-  /**
-   * Whether the run is suspended (or, if a stop was requested, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.
-   */
-  suspended: boolean;
 };
 
 export type StoredArchiveResponseDto = {
@@ -1117,25 +1088,41 @@ export type ClaimHostWorkRequestDto = {
    * The runner image this claim will run in, one the host reported that it supports; what it contains and whether it is the default come from that report
    */
   image: string;
+  /**
+   * A live sandbox of this host that has no run in it. The claim then takes only a queued run of the task or chat whose workspace that sandbox keeps, and delivers it into that sandbox. The sandbox already holds a capacity slot.
+   */
+  sandbox?: string;
 };
 
 export type HostClaimResponseDto = {
   /**
-   * The one-run runner Spotlight started for this work
+   * The one-run runner Spotlight started for this work. Null for a sandbox with no run.
    */
-  runnerId: string;
+  runnerId: string | null;
   /**
-   * The one-run credential, good only for this work and only until it ends; every later call carries it instead of the host’s own credential
+   * The one-run credential, good only for this work and only until it ends; every later call carries it instead of the host’s own credential. Null for a sandbox with no run.
    */
-  token: string;
+  token: string | null;
   /**
-   * The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox
+   * The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox. Null for a sandbox with no run: its egress starts with no secrets.
    */
-  egressToken: string;
+  egressToken: string | null;
   /**
    * The sandbox Spotlight started for a run; the host labels its container with it and reports it in each heartbeat. Null for a check.
    */
   sandboxId: string | null;
+  /**
+   * The credential of a new sandbox, for its own calls only: restore and archive its workspace. The host hands it into the sandbox with the first assignment. Null when the run reuses a live sandbox, and for a check.
+   */
+  sandboxToken: string | null;
+  /**
+   * Hosts the egress of a sandbox with no run lets through: where the sandbox restores and stores its workspace archives. Empty for a run: its egress reads them with the run’s secrets.
+   */
+  allowedHosts: Array<string>;
+  /**
+   * The run goes into the live sandbox the claim named, not into a new one. The host delivers its assignment into that container.
+   */
+  reused: boolean;
   work: ClaimedWorkResponseDto;
 };
 
@@ -1896,7 +1883,7 @@ export type RunReviewResponseDto = {
 
 export type TeamRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
+  state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -2005,7 +1992,7 @@ export type RunNetworkResponseDto = {
 
 export type LatestRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
+  state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   /**
    * What it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
    */
@@ -2084,7 +2071,7 @@ export type SendMessageRequestDto = {
 
 export type TaskRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
+  state: 'queued' | 'claimed' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -3085,6 +3072,10 @@ export type HostHeartbeatRequestDto = {
    * The runner images it supports or cannot use, each with what it found inside
    */
   images?: Array<Array<unknown>>;
+  /**
+   * True when the host stopped claiming to update or restart. Spotlight then drains each of its sandboxes when no run holds it
+   */
+  stopping?: boolean;
 };
 
 export type HostHeartbeatResponseDto = {
@@ -8995,62 +8986,13 @@ export type CompleteRunErrors = {
 };
 
 export type CompleteRunResponses = {
-  200: RunCompletionResponseDto;
+  /**
+   * Turn reported
+   */
+  204: void;
 };
 
 export type CompleteRunResponse = CompleteRunResponses[keyof CompleteRunResponses];
-
-export type TurnAwaitsPersonData = {
-  body: CompleteRunRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/completion/awaits-person';
-};
-
-export type TurnAwaitsPersonErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * No such run leased by this runner
-   */
-  404: unknown;
-};
-
-export type TurnAwaitsPersonResponses = {
-  200: TurnAwaitsPersonResponseDto;
-};
-
-export type TurnAwaitsPersonResponse = TurnAwaitsPersonResponses[keyof TurnAwaitsPersonResponses];
-
-export type SuspendRunData = {
-  body: SuspendRunRequestDto;
-  path: {
-    runId: string;
-  };
-  query?: never;
-  url: '/runs/{runId}/suspended';
-};
-
-export type SuspendRunErrors = {
-  /**
-   * Missing, no longer valid or wrong runner token
-   */
-  401: unknown;
-  /**
-   * The run is not leased by this runner
-   */
-  409: unknown;
-};
-
-export type SuspendRunResponses = {
-  200: RunSuspensionResponseDto;
-};
-
-export type SuspendRunResponse = SuspendRunResponses[keyof SuspendRunResponses];
 
 export type ReadWorkspaceArchiveData = {
   body?: never;
@@ -9142,6 +9084,85 @@ export type CompleteWorkspaceArchiveResponses = {
 };
 
 export type CompleteWorkspaceArchiveResponse = CompleteWorkspaceArchiveResponses[keyof CompleteWorkspaceArchiveResponses];
+
+export type ReadSandboxArchiveData = {
+  body?: never;
+  path: {
+    sandboxId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/workspace-archive';
+};
+
+export type ReadSandboxArchiveErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox
+   */
+  404: unknown;
+};
+
+export type ReadSandboxArchiveResponses = {
+  200: StoredArchiveResponseDto;
+  /**
+   * Nothing to restore: the sandbox starts with an empty workspace
+   */
+  204: void;
+};
+
+export type ReadSandboxArchiveResponse = ReadSandboxArchiveResponses[keyof ReadSandboxArchiveResponses];
+
+export type GrantSandboxArchiveData = {
+  body: GrantWorkspaceArchiveRequestDto;
+  path: {
+    sandboxId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/workspace-archive';
+};
+
+export type GrantSandboxArchiveErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox
+   */
+  404: unknown;
+  /**
+   * Too large, not a SHA-256, a sandbox of no task or chat, or nowhere to store it
+   */
+  422: unknown;
+};
+
+export type GrantSandboxArchiveResponses = {
+  201: ArchiveGrantResponseDto;
+};
+
+export type GrantSandboxArchiveResponse = GrantSandboxArchiveResponses[keyof GrantSandboxArchiveResponses];
+
+export type CompleteSandboxArchiveData = {
+  body?: never;
+  path: {
+    sandboxId: string;
+    archiveId: string;
+  };
+  query?: never;
+  url: '/sandboxes/{sandboxId}/workspace-archive/{archiveId}/complete';
+};
+
+export type CompleteSandboxArchiveErrors = {
+  /**
+   * Missing, wrong or no longer valid sandbox token, or not this sandbox
+   */
+  404: unknown;
+  /**
+   * Not uploaded, or uploaded other than as granted
+   */
+  409: unknown;
+};
+
+export type CompleteSandboxArchiveResponses = {
+  204: void;
+};
+
+export type CompleteSandboxArchiveResponse = CompleteSandboxArchiveResponses[keyof CompleteSandboxArchiveResponses];
 
 export type PoolQueueData = {
   body?: never;

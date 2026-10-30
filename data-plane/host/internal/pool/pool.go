@@ -53,6 +53,12 @@ func (c *Client) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol
 	if status == http.StatusNoContent {
 		return nil, nil
 	}
+	if assignment.StartsSandboxOnly() {
+		if assignment.SandboxID == "" || assignment.SandboxToken == "" {
+			return nil, fmt.Errorf("claim: the sandbox has no id or credential")
+		}
+		return &assignment, nil
+	}
 	if assignment.Token == "" || assignment.RunnerID == "" {
 		return nil, fmt.Errorf("claim: the assignment has no one-run credential")
 	}

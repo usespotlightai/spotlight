@@ -23,6 +23,7 @@ import {
 } from '@work/domain/aggregates/workspace-archive.fake-spec';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
+import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
@@ -146,7 +147,7 @@ describe('RecordStartingPointHandler', () => {
         workspaceId: WorkspaceId.of('ws_1'),
         resumeKey: ResumeKey.forTask('task_2'),
         holder: { kind: 'task', taskId: TaskId.of('task_2') },
-        run: RunId.of('run_2'),
+        grantee: ArchiveGrantee.run(RunId.of('run_2')),
         size: ArchiveSize.of(1_024),
         digest: ArchiveDigest.of(SHA256),
         at: GRANTED_AT,

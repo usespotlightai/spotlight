@@ -11,6 +11,5 @@ export class RunResumed implements DomainEvent {
     readonly workspaceId: WorkspaceId,
     readonly subject: RunSubject | null,
     readonly attempt: number,
-    readonly warm: boolean,
   ) {}
 }

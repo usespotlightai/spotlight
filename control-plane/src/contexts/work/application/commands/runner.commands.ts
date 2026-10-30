@@ -68,7 +68,6 @@ export class CompleteRunCommand {
     readonly handover?: { next?: string; note?: string } | null,
     readonly sessionId?: string | null,
     readonly stopped: boolean = false,
-    readonly archived: boolean = false,
     readonly setupFailed: boolean = false,
     readonly timedOut: boolean = false,
   ) {}
@@ -88,13 +87,6 @@ export class ClaimHostWorkCommand {
     readonly credential: HostCredentials,
     readonly host: string,
     readonly image: string,
-  ) {}
-}
-
-export class SuspendRunCommand {
-  constructor(
-    readonly runId: string,
-    readonly runnerId: string,
-    readonly requeue: boolean = false,
+    readonly sandbox: string | null = null,
   ) {}
 }

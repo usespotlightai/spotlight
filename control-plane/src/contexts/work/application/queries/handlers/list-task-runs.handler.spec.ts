@@ -143,22 +143,17 @@ describe('ListTaskRunsHandler', () => {
     expect(only?.progress).toBe('stopping');
   });
 
-  it('says a paused run is under way again once the answer takes it up, and not before', async () => {
+  it('says a suspended run is queued again once the answer takes it up, and not before', async () => {
     const { runs } = reading([
-      summary({ id: 'run_1', state: 'waiting', takenUpOnAnswer: true }),
-      summary({ id: 'run_2', state: 'suspended', takenUpOnAnswer: true }),
-      summary({ id: 'run_3', state: 'waiting', takenUpOnAnswer: false }),
+      summary({ id: 'run_1', state: 'suspended', takenUpOnAnswer: true }),
+      summary({ id: 'run_2', state: 'suspended', takenUpOnAnswer: false }),
     ]);
 
     const found = await new ListTaskRunsHandler(runs).execute(
       new ListTaskRunsQuery('task_1', 'user_1'),
     );
 
-    expect(found.map((each) => each.progress)).toEqual([
-      'in-progress',
-      'queued',
-      null,
-    ]);
+    expect(found.map((each) => each.progress)).toEqual(['queued', null]);
   });
 
   it('answers with nothing for a task the viewer cannot see', async () => {
