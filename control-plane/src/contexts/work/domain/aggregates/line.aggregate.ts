@@ -146,6 +146,7 @@ export class Line extends EventRecorder {
           key: each.key,
           name: each.name,
           color: each.color,
+          description: each.description,
           position,
           kind: each.kind,
           agentPrompt: each.agentPrompt,

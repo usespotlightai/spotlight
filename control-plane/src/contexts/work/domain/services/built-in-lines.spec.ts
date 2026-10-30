@@ -14,6 +14,14 @@ describe('the words the built-in lines wait for', () => {
   });
 });
 
+describe('the built-in stations', () => {
+  it('describe each station where agents work', () => {
+    for (const opening of BUILT_IN_STATIONS) {
+      expect(opening.description !== null).toBe(opening.kind === 'work');
+    }
+  });
+});
+
 describe('what the built-in line tells its agents', () => {
   it('names no tool in a prompt that the station does not have', () => {
     for (const opening of BUILT_IN_STATIONS) {
