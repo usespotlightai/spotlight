@@ -12,7 +12,7 @@ export function TrailSkeleton({
 }) {
   return (
     <>
-      <Breadcrumbs segments={known} />
+      <Breadcrumbs segments={known} namesTab={false} />
 
       {known.length > 0 && <CrumbSeparator />}
 

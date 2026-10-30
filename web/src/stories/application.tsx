@@ -3,6 +3,7 @@ import { onlineManager } from '@tanstack/react-query';
 import type { Location } from 'react-router';
 import { mocked } from 'storybook/test';
 import { useSession } from '@/hooks/api/useSession';
+import { APP_TABS_KEY } from '@/lib/app-tabs';
 import {
   ACCOUNTS,
   ACTIONS,
@@ -18,6 +19,16 @@ import {
   ScriptedApplication,
 } from '@/stories/ScriptedApplication';
 import { resumed } from '@/stories/visit';
+
+const closeStoredTabs = () => {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith(APP_TABS_KEY)) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {}
+};
 
 export type PageArgs = {
   readonly state: PageState;
@@ -129,6 +140,7 @@ export const pageStory = <Extra extends object = object>({
   } as Partial<ArgTypes<PageArgs & Extra>>,
   beforeEach: () => {
     onlineManager.setOnline(true);
+    closeStoredTabs();
 
     return () => mocked(useSession).mockRestore();
   },
