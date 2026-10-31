@@ -44,12 +44,12 @@ const seated =
     return {
       admin: seat.owner,
       viewer: seat.member,
-      collection: `/api/resources/workspaces/${workspaceId}/${kind}`,
-      item: (id) => `/api/resources/${kind}/${id}`,
+      collection: `/api/v1/resources/workspaces/${workspaceId}/${kind}`,
+      item: (id) => `/api/v1/resources/${kind}/${id}`,
       importing: (address) =>
-        `/api/resources/workspaces/${workspaceId}/${kind}/import?address=${encodeURIComponent(address)}`,
+        `/api/v1/resources/workspaces/${workspaceId}/${kind}/import?address=${encodeURIComponent(address)}`,
       listing: (workspaceId) =>
-        `/api/resources/workspaces/${workspaceId}/${kind}`,
+        `/api/v1/resources/workspaces/${workspaceId}/${kind}`,
       workspaceOf: () => workspaceId,
       address: bodies.address ?? workspaceId,
       ...bodies,
@@ -141,7 +141,7 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
     body: object,
   ) =>
     http()
-      .post(`/api/resources/workspaces/${workspaceId}/${kind}`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/${kind}`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send(body);
@@ -185,7 +185,7 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
 
   const tokenWith = async (scopes: readonly string[]) => {
     const issued = await http()
-      .post(`/api/resources/workspaces/${workspaceId}/tokens`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/tokens`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: scopes.join('-'), scopes });
@@ -226,15 +226,15 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
   it('lets a configure token with the runners scope manage trusts, pools and the declaration, as Terraform would', async () => {
     const terraform = as(await tokenWith(['configure', 'runners']));
     const trust = await terraform.post(
-      `/api/resources/workspaces/${workspaceId}/runner-trusts`,
+      `/api/v1/resources/workspaces/${workspaceId}/runner-trusts`,
       { key: 'production', issuer: ISSUER, subject: SUBJECT },
     );
     const pool = await terraform.post(
-      `/api/resources/workspaces/${workspaceId}/runner-pools`,
+      `/api/v1/resources/workspaces/${workspaceId}/runner-pools`,
       { key: 'ephemeral' },
     );
     const created = await terraform.post(
-      `/api/resources/workspaces/${workspaceId}/workspace-runners`,
+      `/api/v1/resources/workspaces/${workspaceId}/workspace-runners`,
       { trusts: ['production'], pools: ['ephemeral'] },
     );
 
@@ -245,7 +245,7 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
     expect(
       (
         await terraform.put(
-          `/api/resources/runner-pools/${pool.body.id}`,
+          `/api/v1/resources/runner-pools/${pool.body.id}`,
           pool.body.version,
           { key: 'ephemeral', labels: ['gpu'] },
         )
@@ -254,7 +254,7 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
     expect(
       (
         await terraform.delete(
-          `/api/resources/runner-trusts/${trust.body.id}`,
+          `/api/v1/resources/runner-trusts/${trust.body.id}`,
           trust.body.version,
         )
       ).status,
@@ -275,7 +275,7 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
 
     const answered = [
       await configure.post(
-        `/api/resources/workspaces/${workspaceId}/runner-trusts`,
+        `/api/v1/resources/workspaces/${workspaceId}/runner-trusts`,
         {
           key: 'staging',
           issuer: ISSUER,
@@ -283,7 +283,7 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
         },
       ),
       await configure.put(
-        `/api/resources/runner-trusts/${trust.body.id}`,
+        `/api/v1/resources/runner-trusts/${trust.body.id}`,
         trust.body.version,
         {
           key: 'production',
@@ -293,31 +293,31 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
         },
       ),
       await configure.delete(
-        `/api/resources/runner-trusts/${trust.body.id}`,
+        `/api/v1/resources/runner-trusts/${trust.body.id}`,
         trust.body.version,
       ),
       await configure.post(
-        `/api/resources/workspaces/${workspaceId}/runner-pools`,
+        `/api/v1/resources/workspaces/${workspaceId}/runner-pools`,
         {
           key: 'sandboxes',
         },
       ),
       await configure.put(
-        `/api/resources/runner-pools/${pool.body.id}`,
+        `/api/v1/resources/runner-pools/${pool.body.id}`,
         pool.body.version,
         { key: 'ephemeral', labels: ['gpu'] },
       ),
       await configure.delete(
-        `/api/resources/runner-pools/${pool.body.id}`,
+        `/api/v1/resources/runner-pools/${pool.body.id}`,
         pool.body.version,
       ),
       await configure.put(
-        `/api/resources/workspace-runners/${created.body.id}`,
+        `/api/v1/resources/workspace-runners/${created.body.id}`,
         created.body.version,
         { trusts: [] },
       ),
       await configure.delete(
-        `/api/resources/workspace-runners/${created.body.id}`,
+        `/api/v1/resources/workspace-runners/${created.body.id}`,
         created.body.version,
       ),
     ];
@@ -339,14 +339,14 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
       ].map((title) => ['urn:spotlight:problem:forbidden', title, 'runners']),
     );
     expect(
-      (await configure.get(`/api/resources/runner-trusts/${trust.body.id}`))
+      (await configure.get(`/api/v1/resources/runner-trusts/${trust.body.id}`))
         .status,
     ).toBe(200);
   });
 
   it('rejects a token that would manage runners without a rung of the ladder', async () => {
     const rejected = await http()
-      .post(`/api/resources/workspaces/${workspaceId}/tokens`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/tokens`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: 'runners', scopes: ['runners'] });
@@ -367,16 +367,17 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
     const reader = as(await tokenWith(['read']));
 
     expect(
-      (await reader.get(`/api/resources/runner-trusts/${trust.body.id}`))
+      (await reader.get(`/api/v1/resources/runner-trusts/${trust.body.id}`))
         .status,
     ).toBe(200);
     expect(
-      (await reader.get(`/api/resources/runner-pools/${pool.body.id}`)).status,
+      (await reader.get(`/api/v1/resources/runner-pools/${pool.body.id}`))
+        .status,
     ).toBe(200);
     expect(
       (
         await reader.post(
-          `/api/resources/workspaces/${workspaceId}/runner-pools`,
+          `/api/v1/resources/workspaces/${workspaceId}/runner-pools`,
           {
             key: 'sandboxes',
           },
@@ -386,7 +387,7 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
     expect(
       (
         await reader.put(
-          `/api/resources/runner-pools/${pool.body.id}`,
+          `/api/v1/resources/runner-pools/${pool.body.id}`,
           pool.body.version,
           { key: 'ephemeral', labels: ['gpu'] },
         )
@@ -395,7 +396,7 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
     expect(
       (
         await reader.post(
-          `/api/resources/workspaces/${workspaceId}/runner-trusts`,
+          `/api/v1/resources/workspaces/${workspaceId}/runner-trusts`,
           {
             key: 'staging',
             issuer: ISSUER,
@@ -416,7 +417,7 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
 
     await terraform
       .put(
-        `/api/resources/runner-trusts/${trust.body.id}`,
+        `/api/v1/resources/runner-trusts/${trust.body.id}`,
         trust.body.version,
         {
           key: 'production',
@@ -427,12 +428,12 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
       )
       .expect(200);
     await terraform
-      .post(`/api/resources/workspaces/${workspaceId}/runner-pools`, {
+      .post(`/api/v1/resources/workspaces/${workspaceId}/runner-pools`, {
         key: 'ephemeral',
       })
       .expect(201);
     await terraform
-      .post(`/api/resources/workspaces/${workspaceId}/workspace-runners`, {
+      .post(`/api/v1/resources/workspaces/${workspaceId}/workspace-runners`, {
         trusts: ['production'],
       })
       .expect(201);
@@ -474,10 +475,10 @@ describe('runner trusts, pools and the workspace runners (e2e)', () => {
     await asOwner('workspace-runners', { trusts: ['production'] }).expect(201);
 
     const workspace = await http()
-      .get(`/api/resources/workspaces/${workspaceId}`)
+      .get(`/api/v1/resources/workspaces/${workspaceId}`)
       .set(TEST_USER_HEADER, owner);
     const rejected = await http()
-      .delete(`/api/resources/workspaces/${workspaceId}`)
+      .delete(`/api/v1/resources/workspaces/${workspaceId}`)
       .set(TEST_USER_HEADER, owner)
       .set('If-Match', `"${workspace.body.version}"`);
 

@@ -176,7 +176,7 @@ describe('sandboxes (e2e)', () => {
     unseat = seat.unseat;
     token = tokenOf('s');
     await http()
-      .post(`/api/resources/workspaces/${workspaceId}/runner-pools`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/runner-pools`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send({ key: 'sandboxes', token })

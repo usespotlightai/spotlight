@@ -166,7 +166,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
   const exported = async (): Promise<readonly Written[]> => {
     const answered = await as(seat.owner).get(
-      `/api/resources/workspaces/${workspaceId}/export`,
+      `/api/v1/resources/workspaces/${workspaceId}/export`,
     );
 
     expect(answered.status).toBe(200);
@@ -240,7 +240,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ['line', `teams/${workspaceId}/lines`, DELIVERY],
     ] as const) {
       const created = await as(seat.owner).post(
-        `/api/resources/${collection}`,
+        `/api/v1/resources/${collection}`,
         body,
       );
 
@@ -429,7 +429,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
   it('writes each secret’s value version exactly as the API answers it, so adopting one plans no rotation', async () => {
     const unversioned = await as(seat.owner).post(
-      `/api/resources/workspaces/${workspaceId}/secrets`,
+      `/api/v1/resources/workspaces/${workspaceId}/secrets`,
       {
         name: 'SENTRY_TOKEN',
         bindings: [{ host: 'sentry.io', prefix: 'Bearer ' }],
@@ -442,7 +442,9 @@ describe('a workspace exported as Terraform (e2e)', () => {
     const main = moduleOf(await exported());
 
     for (const id of [made.secret, unversioned.body.id]) {
-      const answered = await as(seat.owner).get(`/api/resources/secrets/${id}`);
+      const answered = await as(seat.owner).get(
+        `/api/v1/resources/secrets/${id}`,
+      );
       const block = blockOf(
         main,
         `resource "spotlight_secret" "${answered.body.name.toLowerCase()}"`,
@@ -488,14 +490,14 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ['integrations', made.integration],
     ]) {
       const read = await as(seat.owner).get(
-        `/api/resources/${collection}/${id}`,
+        `/api/v1/resources/${collection}/${id}`,
       );
       const body =
         collection === 'skills'
           ? { key: read.body.key, files: read.body.files }
           : read.body.definition;
       const written = await as(seat.owner).put(
-        `/api/resources/${collection}/${id}`,
+        `/api/v1/resources/${collection}/${id}`,
         read.body.version,
         body,
       );
@@ -508,11 +510,11 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
   it('lets a token that may only read export the workspace', async () => {
     const issued = await as(seat.owner).post(
-      `/api/resources/workspaces/${workspaceId}/tokens`,
+      `/api/v1/resources/workspaces/${workspaceId}/tokens`,
       { name: 'survey', scopes: ['read'] },
     );
     const answered = await http()
-      .get(`/api/resources/workspaces/${workspaceId}/export`)
+      .get(`/api/v1/resources/workspaces/${workspaceId}/export`)
       .set(
         'Authorization',
         `Bearer ${issued.headers['spotlight-workspace-token']}`,
@@ -545,7 +547,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       ],
     ]) {
       const answered = await as(seat.member).get(
-        `/api/resources/${collection}/${id}/hcl`,
+        `/api/v1/resources/${collection}/${id}/hcl`,
       );
 
       expect(answered.status, collection).toBe(200);
@@ -559,7 +561,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
 
   it('answers a skill as HCL with the files it reads', async () => {
     const answered = await as(seat.member).get(
-      `/api/resources/skills/${made.skill}/hcl`,
+      `/api/v1/resources/skills/${made.skill}/hcl`,
     );
 
     expect(answered.body.files.map((each: Written) => each.path)).toEqual([
@@ -574,18 +576,19 @@ describe('a workspace exported as Terraform (e2e)', () => {
     expect(
       (
         await as(stranger).get(
-          `/api/resources/workspaces/${workspaceId}/export`,
+          `/api/v1/resources/workspaces/${workspaceId}/export`,
         )
       ).status,
     ).toBe(404);
     expect(
-      (await as(stranger).get(`/api/resources/lines/${made.line}/hcl`)).status,
+      (await as(stranger).get(`/api/v1/resources/lines/${made.line}/hcl`))
+        .status,
     ).toBe(404);
   });
 
   it('knows no collection it does not render', async () => {
     const answered = await as(seat.owner).get(
-      `/api/resources/tokens/${workspaceId}/hcl`,
+      `/api/v1/resources/tokens/${workspaceId}/hcl`,
     );
 
     expect(answered.status).toBe(404);
@@ -819,7 +822,7 @@ describe('the configuration the export spec renders (e2e)', () => {
           ? `teams/${teams.get(each.teamKey)}`
           : `workspaces/${workspaceId}`;
       const created = await served(app)
-        .post(`/api/resources/${owner}/${COLLECTIONS[each.kind]}`)
+        .post(`/api/v1/resources/${owner}/${COLLECTIONS[each.kind]}`)
         .set(TEST_USER_HEADER, seat.owner)
         .set('Idempotency-Key', randomUUID())
         .send(bodyOf(each, egresses));
@@ -839,7 +842,7 @@ describe('the configuration the export spec renders (e2e)', () => {
     }
 
     const exported = await served(app)
-      .get(`/api/resources/workspaces/${workspaceId}/export`)
+      .get(`/api/v1/resources/workspaces/${workspaceId}/export`)
       .set(TEST_USER_HEADER, seat.owner);
 
     expect(exported.body.files).toEqual(

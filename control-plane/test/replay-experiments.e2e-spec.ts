@@ -417,7 +417,7 @@ beforeAll(async () => {
   });
 
   await http()
-    .post(`/api/resources/workspaces/${team.workspaceId.value}/runner-pools`)
+    .post(`/api/v1/resources/workspaces/${team.workspaceId.value}/runner-pools`)
     .set(TEST_USER_HEADER, team.owner.value)
     .set('Idempotency-Key', randomUUID())
     .send({ key: 'hosts', labels: ['linux'], token: POOL_TOKEN })
@@ -912,13 +912,13 @@ describe('a replay set whose station leaves its line', () => {
     });
 
     const line = (
-      await owner().get(`/api/resources/lines/${DELIVERY}`).expect(200)
+      await owner().get(`/api/v1/resources/lines/${DELIVERY}`).expect(200)
     ).body as {
       version: number;
       definition: { stations: { key: string; passesTo: string[] }[] };
     };
     await owner()
-      .put(`/api/resources/lines/${DELIVERY}`)
+      .put(`/api/v1/resources/lines/${DELIVERY}`)
       .set('If-Match', `"${line.version}"`)
       .send({
         ...line.definition,

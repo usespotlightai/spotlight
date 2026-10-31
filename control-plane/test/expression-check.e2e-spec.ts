@@ -41,7 +41,7 @@ describe('checking expressions for a plan', () => {
 
   const check = (body: object) =>
     served(app)
-      .post('/api/expressions/check')
+      .post('/api/v1/expressions/check')
       .set(TEST_USER_HEADER, 'expression-checker')
       .send({ definition: DEFINITION, ...body });
 
@@ -136,7 +136,7 @@ describe('checking expressions for a plan', () => {
 
   it('lists every position with its variables', async () => {
     const answer = await served(app)
-      .get('/api/expressions/positions')
+      .get('/api/v1/expressions/positions')
       .set(TEST_USER_HEADER, 'expression-checker');
 
     expect(answer.status).toBe(200);
@@ -151,7 +151,7 @@ describe('checking expressions for a plan', () => {
 
   it('answers only a signed-in caller', async () => {
     const answer = await served(app)
-      .post('/api/expressions/check')
+      .post('/api/v1/expressions/check')
       .send({ position: WHEN, expression: 'true', definition: DEFINITION });
 
     expect(answer.status).toBe(401);

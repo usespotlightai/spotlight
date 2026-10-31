@@ -94,7 +94,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
 
   const setSecret = (body: object) =>
     http()
-      .post(`/api/resources/workspaces/${workspaceId}/secrets`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/secrets`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send(body)
@@ -177,7 +177,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     unseat = seat.unseat;
 
     await http()
-      .post(`/api/resources/workspaces/${workspaceId}/runner-pools`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/runner-pools`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send({ key: 'hosts', labels: ['linux'], token: TOKEN })

@@ -109,7 +109,7 @@ const linkedAccountOf = (integration: string) =>
   integration === 'sentry' ? 'sam.rivera@acme.dev' : '@sam';
 
 const resourceHandlers = [
-  api.get('/resources/teams/:id', ({ params }) => {
+  api.get('/v1/resources/teams/:id', ({ params }) => {
     const teamId = String(params.id);
     if (!isTeam(teamId)) {
       return notFound();
@@ -127,7 +127,7 @@ const resourceHandlers = [
     });
   }),
 
-  api.post('/resources/workspaces', async ({ request }) => {
+  api.post('/v1/resources/workspaces', async ({ request }) => {
     const { name, slug } = (await request.json()) as {
       name: string;
       slug: string;
@@ -149,14 +149,14 @@ const resourceHandlers = [
     );
   }),
 
-  api.get('/resources/workspaces/:workspaceId/runner-pools', ({ params }) =>
+  api.get('/v1/resources/workspaces/:workspaceId/runner-pools', ({ params }) =>
     ofWorkspaceId(params.workspaceId)
       ? json({ items: settingsWorld().pools })
       : notFound(),
   ),
 
   api.post(
-    '/resources/workspaces/:workspaceId/runner-pools',
+    '/v1/resources/workspaces/:workspaceId/runner-pools',
     async ({ params, request }) => {
       if (!ofWorkspaceId(params.workspaceId)) {
         return notFound();
@@ -174,7 +174,7 @@ const resourceHandlers = [
     },
   ),
 
-  api.get('/resources/workspaces/:workspaceId/tokens', ({ params }) =>
+  api.get('/v1/resources/workspaces/:workspaceId/tokens', ({ params }) =>
     ofWorkspaceId(params.workspaceId)
       ? json({ items: settingsWorld().tokens })
       : notFound(),
@@ -187,7 +187,7 @@ const resourceHandlers = [
   ),
 
   api.post(
-    '/resources/workspaces/:workspaceId/tokens',
+    '/v1/resources/workspaces/:workspaceId/tokens',
     async ({ params, request }) => {
       if (!ofWorkspaceId(params.workspaceId)) {
         return notFound();
@@ -209,7 +209,7 @@ const resourceHandlers = [
     },
   ),
 
-  api.delete('/resources/tokens/:id', ({ params }) => {
+  api.delete('/v1/resources/tokens/:id', ({ params }) => {
     const store = settingsWorld();
     if (!store.tokens.some((each) => each.id === params.id)) {
       return notFound();

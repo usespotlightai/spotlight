@@ -90,7 +90,7 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
     return {
       create: async (path: string, body: object): Promise<Body> => {
         const answer = await http
-          .post(`/api/resources/${path}`)
+          .post(`/api/v1/resources/${path}`)
           .set(TEST_USER_HEADER, owner)
           .set('Idempotency-Key', randomUUID())
           .send(body);
@@ -100,16 +100,16 @@ describe('a team’s whole configuration, through the resource API (e2e)', () =>
         return answer.body;
       },
       read: (path: string) =>
-        http.get(`/api/resources/${path}`).set(TEST_USER_HEADER, owner),
+        http.get(`/api/v1/resources/${path}`).set(TEST_USER_HEADER, owner),
       update: (path: string, version: number, body: object) =>
         http
-          .put(`/api/resources/${path}`)
+          .put(`/api/v1/resources/${path}`)
           .set(TEST_USER_HEADER, owner)
           .set('If-Match', `"${version}"`)
           .send(body),
       delete: (path: string, version: number) =>
         http
-          .delete(`/api/resources/${path}`)
+          .delete(`/api/v1/resources/${path}`)
           .set(TEST_USER_HEADER, owner)
           .set('If-Match', `"${version}"`),
     };

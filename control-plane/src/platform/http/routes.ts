@@ -1,8 +1,12 @@
 export const API_PREFIX = 'api';
 
-export const RESOURCES = 'resources';
+export const RESOURCE_API = 'v1';
 
-export const EXPRESSIONS = 'expressions';
+export const RESOURCES = `${RESOURCE_API}/resources`;
+
+export const EXPRESSIONS = `${RESOURCE_API}/expressions`;
+
+export const WORKSPACE_TOKEN_EXCHANGE = `${RESOURCE_API}/workspace-tokens`;
 
 export const WEBHOOKS = 'webhooks';
 

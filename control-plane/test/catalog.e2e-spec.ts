@@ -58,7 +58,7 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
     as: string = seat.member,
   ) =>
     served(app)
-      .get(`/api/resources/workspaces/${workspace}/catalog/${kind}`)
+      .get(`/api/v1/resources/workspaces/${workspace}/catalog/${kind}`)
       .query(query)
       .set(TEST_USER_HEADER, as);
 
@@ -182,13 +182,13 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
     await onPlan('team');
 
     const issued = await served(app)
-      .post(`/api/resources/workspaces/${workspace}/tokens`)
+      .post(`/api/v1/resources/workspaces/${workspace}/tokens`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: 'terraform', scopes: ['read'] });
 
     const answer = await served(app)
-      .get(`/api/resources/workspaces/${workspace}/catalog/tools`)
+      .get(`/api/v1/resources/workspaces/${workspace}/catalog/tools`)
       .query({ name: 'web-search', version: '~> 1.0' })
       .set(
         'Authorization',
@@ -285,7 +285,7 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
 
   const created = (body: object) =>
     served(app)
-      .post(`/api/resources/teams/${team}/lines`)
+      .post(`/api/v1/resources/teams/${team}/lines`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send(body);
@@ -323,7 +323,7 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
     await onTheTeamPlan();
     const http = served(app);
     const made = await http
-      .post(`/api/resources/teams/${team}/lines`)
+      .post(`/api/v1/resources/teams/${team}/lines`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send(enabling(['catalog.web-search@1.0.0'], ['catalog.research@1.0.0']));
@@ -335,7 +335,7 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
     });
 
     const upgraded = await http
-      .put(`/api/resources/lines/${made.body.id}`)
+      .put(`/api/v1/resources/lines/${made.body.id}`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('If-Match', `"${made.body.version}"`)
       .send(enabling(['catalog.web-search@1.1.0'], ['catalog.research@1.0.0']));
@@ -352,7 +352,7 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
 
   it('rejects one catalog tool named at two versions, pointing at the station', async () => {
     const rejected = await served(app)
-      .post(`/api/resources/teams/${team}/lines`)
+      .post(`/api/v1/resources/teams/${team}/lines`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send(

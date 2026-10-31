@@ -62,7 +62,8 @@ jobs:
         run: |
           npm run openapi:generate
           npm run auth:generate
-          git diff --exit-code -- openapi.json src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts \
+          git add --intent-to-add -- 'openapi*.json'
+          git diff --exit-code -- 'openapi*.json' src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts \
             || { echo "::error::Generated files are stale. Run 'npm run openapi:generate' and 'npm run auth:generate' in control-plane."; exit 1; }
 
   e2e:

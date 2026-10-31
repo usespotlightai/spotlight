@@ -10,7 +10,7 @@
     "includes": [
       "**",
       "!drizzle",
-      "!openapi.json",
+      "!openapi*.json",
       "!src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts",
       "!dist"
     ]

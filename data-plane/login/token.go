@@ -26,7 +26,7 @@ const (
 	actionsRequestURL  = "ACTIONS_ID_TOKEN_REQUEST_URL"
 	actionsRequestAuth = "ACTIONS_ID_TOKEN_REQUEST_TOKEN"
 	defaultAudience    = "spotlight"
-	exchangePath       = "/api/workspace-tokens/exchange"
+	exchangePath       = "/api/v1/workspace-tokens/exchange"
 )
 
 func Token(args []string, version string) int {

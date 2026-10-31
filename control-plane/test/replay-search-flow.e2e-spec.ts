@@ -98,7 +98,7 @@ describe('a search for a better station config', () => {
       `${teamPath()}/replay-runs/${replayRun}/replay`,
       `${teamPath()}/search-runs/${replayRun}`,
       `${teamPath()}/runs/${replayRun}/notes`,
-      `/api/resources/workspaces/${team.workspaceId.value}/replay-candidates`,
+      `/api/v1/resources/workspaces/${team.workspaceId.value}/replay-candidates`,
     ]) {
       await owner().get(path).expect(404);
     }
@@ -129,7 +129,7 @@ describe('a search for a better station config', () => {
       .expect(404);
     await owner()
       .post(
-        `/api/resources/lines/${DELIVERY}/stations/build/replay-candidates`,
+        `/api/v1/resources/lines/${DELIVERY}/stations/build/replay-candidates`,
         {
           name: 'Shorter',
           station: { key: 'build' },

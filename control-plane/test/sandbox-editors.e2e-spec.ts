@@ -126,7 +126,9 @@ describe('sandbox editors (e2e)', () => {
     host = `host-editors-${randomUUID().slice(0, 8)}`;
     poolToken = tokenOf('e');
     await http()
-      .post(`/api/resources/workspaces/${team.workspaceId.value}/runner-pools`)
+      .post(
+        `/api/v1/resources/workspaces/${team.workspaceId.value}/runner-pools`,
+      )
       .set(TEST_USER_HEADER, team.owner.value)
       .set('Idempotency-Key', randomUUID())
       .send({ key: 'editors', token: poolToken })

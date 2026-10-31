@@ -43,7 +43,7 @@ export const listTeamLines = <ThrowOnError extends boolean = false>(options: Opt
  */
 export const createLine = <ThrowOnError extends boolean = false>(options: Options<CreateLineData, ThrowOnError>): RequestResult<CreateLineResponses, CreateLineErrors, ThrowOnError> => (options.client ?? client).post<CreateLineResponses, CreateLineErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/teams/{teamId}/lines',
+  url: '/v1/resources/teams/{teamId}/lines',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -56,7 +56,7 @@ export const createLine = <ThrowOnError extends boolean = false>(options: Option
  */
 export const deleteLine = <ThrowOnError extends boolean = false>(options: Options<DeleteLineData, ThrowOnError>): RequestResult<DeleteLineResponses, DeleteLineErrors, ThrowOnError> => (options.client ?? client).delete<DeleteLineResponses, DeleteLineErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/lines/{id}',
+  url: '/v1/resources/lines/{id}',
   ...options
 });
 
@@ -65,7 +65,7 @@ export const deleteLine = <ThrowOnError extends boolean = false>(options: Option
  */
 export const readLine = <ThrowOnError extends boolean = false>(options: Options<ReadLineData, ThrowOnError>): RequestResult<ReadLineResponses, ReadLineErrors, ThrowOnError> => (options.client ?? client).get<ReadLineResponses, ReadLineErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/lines/{id}',
+  url: '/v1/resources/lines/{id}',
   ...options
 });
 
@@ -74,7 +74,7 @@ export const readLine = <ThrowOnError extends boolean = false>(options: Options<
  */
 export const updateLine = <ThrowOnError extends boolean = false>(options: Options<UpdateLineData, ThrowOnError>): RequestResult<UpdateLineResponses, UpdateLineErrors, ThrowOnError> => (options.client ?? client).put<UpdateLineResponses, UpdateLineErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/lines/{id}',
+  url: '/v1/resources/lines/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ export const updateLine = <ThrowOnError extends boolean = false>(options: Option
  */
 export const importLine = <ThrowOnError extends boolean = false>(options: Options<ImportLineData, ThrowOnError>): RequestResult<ImportLineResponses, ImportLineErrors, ThrowOnError> => (options.client ?? client).get<ImportLineResponses, ImportLineErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/lines/import',
+  url: '/v1/resources/workspaces/{workspaceId}/lines/import',
   ...options
 });
 
@@ -96,7 +96,7 @@ export const importLine = <ThrowOnError extends boolean = false>(options: Option
  */
 export const listLines = <ThrowOnError extends boolean = false>(options: Options<ListLinesData, ThrowOnError>): RequestResult<ListLinesResponses, ListLinesErrors, ThrowOnError> => (options.client ?? client).get<ListLinesResponses, ListLinesErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/lines',
+  url: '/v1/resources/workspaces/{workspaceId}/lines',
   ...options
 });
 
@@ -699,7 +699,7 @@ export const readOnboarding = <ThrowOnError extends boolean = false>(options: Op
  */
 export const importWorkspace = <ThrowOnError extends boolean = false>(options: Options<ImportWorkspaceData, ThrowOnError>): RequestResult<ImportWorkspaceResponses, ImportWorkspaceErrors, ThrowOnError> => (options.client ?? client).get<ImportWorkspaceResponses, ImportWorkspaceErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/import',
+  url: '/v1/resources/workspaces/import',
   ...options
 });
 
@@ -708,7 +708,7 @@ export const importWorkspace = <ThrowOnError extends boolean = false>(options: O
  */
 export const listWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<ListWorkspacesData, ThrowOnError>): RequestResult<ListWorkspacesResponses, ListWorkspacesErrors, ThrowOnError> => (options?.client ?? client).get<ListWorkspacesResponses, ListWorkspacesErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces',
+  url: '/v1/resources/workspaces',
   ...options
 });
 
@@ -717,7 +717,7 @@ export const listWorkspaces = <ThrowOnError extends boolean = false>(options?: O
  */
 export const createWorkspace = <ThrowOnError extends boolean = false>(options: Options<CreateWorkspaceData, ThrowOnError>): RequestResult<CreateWorkspaceResponses, CreateWorkspaceErrors, ThrowOnError> => (options.client ?? client).post<CreateWorkspaceResponses, CreateWorkspaceErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces',
+  url: '/v1/resources/workspaces',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -730,7 +730,7 @@ export const createWorkspace = <ThrowOnError extends boolean = false>(options: O
  */
 export const deleteWorkspace = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceData, ThrowOnError>): RequestResult<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceResponses, DeleteWorkspaceErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{id}',
+  url: '/v1/resources/workspaces/{id}',
   ...options
 });
 
@@ -739,7 +739,7 @@ export const deleteWorkspace = <ThrowOnError extends boolean = false>(options: O
  */
 export const readWorkspace = <ThrowOnError extends boolean = false>(options: Options<ReadWorkspaceData, ThrowOnError>): RequestResult<ReadWorkspaceResponses, ReadWorkspaceErrors, ThrowOnError> => (options.client ?? client).get<ReadWorkspaceResponses, ReadWorkspaceErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{id}',
+  url: '/v1/resources/workspaces/{id}',
   ...options
 });
 
@@ -748,7 +748,7 @@ export const readWorkspace = <ThrowOnError extends boolean = false>(options: Opt
  */
 export const updateWorkspace = <ThrowOnError extends boolean = false>(options: Options<UpdateWorkspaceData, ThrowOnError>): RequestResult<UpdateWorkspaceResponses, UpdateWorkspaceErrors, ThrowOnError> => (options.client ?? client).put<UpdateWorkspaceResponses, UpdateWorkspaceErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{id}',
+  url: '/v1/resources/workspaces/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -761,7 +761,7 @@ export const updateWorkspace = <ThrowOnError extends boolean = false>(options: O
  */
 export const listTeams = <ThrowOnError extends boolean = false>(options: Options<ListTeamsData, ThrowOnError>): RequestResult<ListTeamsResponses, ListTeamsErrors, ThrowOnError> => (options.client ?? client).get<ListTeamsResponses, ListTeamsErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/teams',
+  url: '/v1/resources/workspaces/{workspaceId}/teams',
   ...options
 });
 
@@ -770,7 +770,7 @@ export const listTeams = <ThrowOnError extends boolean = false>(options: Options
  */
 export const createTeam = <ThrowOnError extends boolean = false>(options: Options<CreateTeamData, ThrowOnError>): RequestResult<CreateTeamResponses, CreateTeamErrors, ThrowOnError> => (options.client ?? client).post<CreateTeamResponses, CreateTeamErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/teams',
+  url: '/v1/resources/workspaces/{workspaceId}/teams',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -783,7 +783,7 @@ export const createTeam = <ThrowOnError extends boolean = false>(options: Option
  */
 export const deleteTeam = <ThrowOnError extends boolean = false>(options: Options<DeleteTeamData, ThrowOnError>): RequestResult<DeleteTeamResponses, DeleteTeamErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTeamResponses, DeleteTeamErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/teams/{id}',
+  url: '/v1/resources/teams/{id}',
   ...options
 });
 
@@ -792,7 +792,7 @@ export const deleteTeam = <ThrowOnError extends boolean = false>(options: Option
  */
 export const readTeam = <ThrowOnError extends boolean = false>(options: Options<ReadTeamData, ThrowOnError>): RequestResult<ReadTeamResponses, ReadTeamErrors, ThrowOnError> => (options.client ?? client).get<ReadTeamResponses, ReadTeamErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/teams/{id}',
+  url: '/v1/resources/teams/{id}',
   ...options
 });
 
@@ -801,7 +801,7 @@ export const readTeam = <ThrowOnError extends boolean = false>(options: Options<
  */
 export const updateTeam = <ThrowOnError extends boolean = false>(options: Options<UpdateTeamData, ThrowOnError>): RequestResult<UpdateTeamResponses, UpdateTeamErrors, ThrowOnError> => (options.client ?? client).put<UpdateTeamResponses, UpdateTeamErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/teams/{id}',
+  url: '/v1/resources/teams/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -814,7 +814,7 @@ export const updateTeam = <ThrowOnError extends boolean = false>(options: Option
  */
 export const importTeam = <ThrowOnError extends boolean = false>(options: Options<ImportTeamData, ThrowOnError>): RequestResult<ImportTeamResponses, ImportTeamErrors, ThrowOnError> => (options.client ?? client).get<ImportTeamResponses, ImportTeamErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/teams/import',
+  url: '/v1/resources/workspaces/{workspaceId}/teams/import',
   ...options
 });
 
@@ -823,7 +823,7 @@ export const importTeam = <ThrowOnError extends boolean = false>(options: Option
  */
 export const listWorkspaceTokens = <ThrowOnError extends boolean = false>(options: Options<ListWorkspaceTokensData, ThrowOnError>): RequestResult<ListWorkspaceTokensResponses, ListWorkspaceTokensErrors, ThrowOnError> => (options.client ?? client).get<ListWorkspaceTokensResponses, ListWorkspaceTokensErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/tokens',
+  url: '/v1/resources/workspaces/{workspaceId}/tokens',
   ...options
 });
 
@@ -832,7 +832,7 @@ export const listWorkspaceTokens = <ThrowOnError extends boolean = false>(option
  */
 export const createWorkspaceToken = <ThrowOnError extends boolean = false>(options: Options<CreateWorkspaceTokenData, ThrowOnError>): RequestResult<CreateWorkspaceTokenResponses, CreateWorkspaceTokenErrors, ThrowOnError> => (options.client ?? client).post<CreateWorkspaceTokenResponses, CreateWorkspaceTokenErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/tokens',
+  url: '/v1/resources/workspaces/{workspaceId}/tokens',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -845,7 +845,7 @@ export const createWorkspaceToken = <ThrowOnError extends boolean = false>(optio
  */
 export const deleteWorkspaceToken = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceTokenData, ThrowOnError>): RequestResult<DeleteWorkspaceTokenResponses, DeleteWorkspaceTokenErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceTokenResponses, DeleteWorkspaceTokenErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/tokens/{id}',
+  url: '/v1/resources/tokens/{id}',
   ...options
 });
 
@@ -854,7 +854,7 @@ export const deleteWorkspaceToken = <ThrowOnError extends boolean = false>(optio
  */
 export const readWorkspaceToken = <ThrowOnError extends boolean = false>(options: Options<ReadWorkspaceTokenData, ThrowOnError>): RequestResult<ReadWorkspaceTokenResponses, ReadWorkspaceTokenErrors, ThrowOnError> => (options.client ?? client).get<ReadWorkspaceTokenResponses, ReadWorkspaceTokenErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/tokens/{id}',
+  url: '/v1/resources/tokens/{id}',
   ...options
 });
 
@@ -863,7 +863,7 @@ export const readWorkspaceToken = <ThrowOnError extends boolean = false>(options
  */
 export const updateWorkspaceToken = <ThrowOnError extends boolean = false>(options: Options<UpdateWorkspaceTokenData, ThrowOnError>): RequestResult<UpdateWorkspaceTokenResponses, UpdateWorkspaceTokenErrors, ThrowOnError> => (options.client ?? client).put<UpdateWorkspaceTokenResponses, UpdateWorkspaceTokenErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/tokens/{id}',
+  url: '/v1/resources/tokens/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -876,7 +876,7 @@ export const updateWorkspaceToken = <ThrowOnError extends boolean = false>(optio
  */
 export const importWorkspaceToken = <ThrowOnError extends boolean = false>(options: Options<ImportWorkspaceTokenData, ThrowOnError>): RequestResult<ImportWorkspaceTokenResponses, ImportWorkspaceTokenErrors, ThrowOnError> => (options.client ?? client).get<ImportWorkspaceTokenResponses, ImportWorkspaceTokenErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/tokens/import',
+  url: '/v1/resources/workspaces/{workspaceId}/tokens/import',
   ...options
 });
 
@@ -885,7 +885,7 @@ export const importWorkspaceToken = <ThrowOnError extends boolean = false>(optio
  */
 export const listOidcTrusts = <ThrowOnError extends boolean = false>(options: Options<ListOidcTrustsData, ThrowOnError>): RequestResult<ListOidcTrustsResponses, ListOidcTrustsErrors, ThrowOnError> => (options.client ?? client).get<ListOidcTrustsResponses, ListOidcTrustsErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/oidc-trusts',
+  url: '/v1/resources/workspaces/{workspaceId}/oidc-trusts',
   ...options
 });
 
@@ -894,7 +894,7 @@ export const listOidcTrusts = <ThrowOnError extends boolean = false>(options: Op
  */
 export const createOidcTrust = <ThrowOnError extends boolean = false>(options: Options<CreateOidcTrustData, ThrowOnError>): RequestResult<CreateOidcTrustResponses, CreateOidcTrustErrors, ThrowOnError> => (options.client ?? client).post<CreateOidcTrustResponses, CreateOidcTrustErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/oidc-trusts',
+  url: '/v1/resources/workspaces/{workspaceId}/oidc-trusts',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -907,7 +907,7 @@ export const createOidcTrust = <ThrowOnError extends boolean = false>(options: O
  */
 export const deleteOidcTrust = <ThrowOnError extends boolean = false>(options: Options<DeleteOidcTrustData, ThrowOnError>): RequestResult<DeleteOidcTrustResponses, DeleteOidcTrustErrors, ThrowOnError> => (options.client ?? client).delete<DeleteOidcTrustResponses, DeleteOidcTrustErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/oidc-trusts/{id}',
+  url: '/v1/resources/oidc-trusts/{id}',
   ...options
 });
 
@@ -916,7 +916,7 @@ export const deleteOidcTrust = <ThrowOnError extends boolean = false>(options: O
  */
 export const readOidcTrust = <ThrowOnError extends boolean = false>(options: Options<ReadOidcTrustData, ThrowOnError>): RequestResult<ReadOidcTrustResponses, ReadOidcTrustErrors, ThrowOnError> => (options.client ?? client).get<ReadOidcTrustResponses, ReadOidcTrustErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/oidc-trusts/{id}',
+  url: '/v1/resources/oidc-trusts/{id}',
   ...options
 });
 
@@ -925,7 +925,7 @@ export const readOidcTrust = <ThrowOnError extends boolean = false>(options: Opt
  */
 export const updateOidcTrust = <ThrowOnError extends boolean = false>(options: Options<UpdateOidcTrustData, ThrowOnError>): RequestResult<UpdateOidcTrustResponses, UpdateOidcTrustErrors, ThrowOnError> => (options.client ?? client).put<UpdateOidcTrustResponses, UpdateOidcTrustErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/oidc-trusts/{id}',
+  url: '/v1/resources/oidc-trusts/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -938,7 +938,7 @@ export const updateOidcTrust = <ThrowOnError extends boolean = false>(options: O
  */
 export const importOidcTrust = <ThrowOnError extends boolean = false>(options: Options<ImportOidcTrustData, ThrowOnError>): RequestResult<ImportOidcTrustResponses, ImportOidcTrustErrors, ThrowOnError> => (options.client ?? client).get<ImportOidcTrustResponses, ImportOidcTrustErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/oidc-trusts/import',
+  url: '/v1/resources/workspaces/{workspaceId}/oidc-trusts/import',
   ...options
 });
 
@@ -946,7 +946,7 @@ export const importOidcTrust = <ThrowOnError extends boolean = false>(options: O
  * Exchange the OIDC token a CI platform issued a workload for a short-lived workspace token, through an OIDC trust that matches it
  */
 export const exchangeWorkloadToken = <ThrowOnError extends boolean = false>(options: Options<ExchangeWorkloadTokenData, ThrowOnError>): RequestResult<ExchangeWorkloadTokenResponses, ExchangeWorkloadTokenErrors, ThrowOnError> => (options.client ?? client).post<ExchangeWorkloadTokenResponses, ExchangeWorkloadTokenErrors, ThrowOnError>({
-  url: '/workspace-tokens/exchange',
+  url: '/v1/workspace-tokens/exchange',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1070,7 +1070,7 @@ export const acceptInvite = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const listSecrets = <ThrowOnError extends boolean = false>(options: Options<ListSecretsData, ThrowOnError>): RequestResult<ListSecretsResponses, ListSecretsErrors, ThrowOnError> => (options.client ?? client).get<ListSecretsResponses, ListSecretsErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/secrets',
+  url: '/v1/resources/workspaces/{workspaceId}/secrets',
   ...options
 });
 
@@ -1079,7 +1079,7 @@ export const listSecrets = <ThrowOnError extends boolean = false>(options: Optio
  */
 export const createSecret = <ThrowOnError extends boolean = false>(options: Options<CreateSecretData, ThrowOnError>): RequestResult<CreateSecretResponses, CreateSecretErrors, ThrowOnError> => (options.client ?? client).post<CreateSecretResponses, CreateSecretErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/secrets',
+  url: '/v1/resources/workspaces/{workspaceId}/secrets',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1092,7 +1092,7 @@ export const createSecret = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const deleteSecret = <ThrowOnError extends boolean = false>(options: Options<DeleteSecretData, ThrowOnError>): RequestResult<DeleteSecretResponses, DeleteSecretErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSecretResponses, DeleteSecretErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/secrets/{id}',
+  url: '/v1/resources/secrets/{id}',
   ...options
 });
 
@@ -1101,7 +1101,7 @@ export const deleteSecret = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const readSecret = <ThrowOnError extends boolean = false>(options: Options<ReadSecretData, ThrowOnError>): RequestResult<ReadSecretResponses, ReadSecretErrors, ThrowOnError> => (options.client ?? client).get<ReadSecretResponses, ReadSecretErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/secrets/{id}',
+  url: '/v1/resources/secrets/{id}',
   ...options
 });
 
@@ -1110,7 +1110,7 @@ export const readSecret = <ThrowOnError extends boolean = false>(options: Option
  */
 export const updateSecret = <ThrowOnError extends boolean = false>(options: Options<UpdateSecretData, ThrowOnError>): RequestResult<UpdateSecretResponses, UpdateSecretErrors, ThrowOnError> => (options.client ?? client).put<UpdateSecretResponses, UpdateSecretErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/secrets/{id}',
+  url: '/v1/resources/secrets/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1123,7 +1123,7 @@ export const updateSecret = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const importSecret = <ThrowOnError extends boolean = false>(options: Options<ImportSecretData, ThrowOnError>): RequestResult<ImportSecretResponses, ImportSecretErrors, ThrowOnError> => (options.client ?? client).get<ImportSecretResponses, ImportSecretErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/secrets/import',
+  url: '/v1/resources/workspaces/{workspaceId}/secrets/import',
   ...options
 });
 
@@ -1132,7 +1132,7 @@ export const importSecret = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const readCatalogTool = <ThrowOnError extends boolean = false>(options: Options<ReadCatalogToolData, ThrowOnError>): RequestResult<ReadCatalogToolResponses, ReadCatalogToolErrors, ThrowOnError> => (options.client ?? client).get<ReadCatalogToolResponses, ReadCatalogToolErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/catalog/tools',
+  url: '/v1/resources/workspaces/{workspaceId}/catalog/tools',
   ...options
 });
 
@@ -1141,7 +1141,7 @@ export const readCatalogTool = <ThrowOnError extends boolean = false>(options: O
  */
 export const readCatalogSkill = <ThrowOnError extends boolean = false>(options: Options<ReadCatalogSkillData, ThrowOnError>): RequestResult<ReadCatalogSkillResponses, ReadCatalogSkillErrors, ThrowOnError> => (options.client ?? client).get<ReadCatalogSkillResponses, ReadCatalogSkillErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/catalog/skills',
+  url: '/v1/resources/workspaces/{workspaceId}/catalog/skills',
   ...options
 });
 
@@ -1216,7 +1216,7 @@ export const registerRunner = <ThrowOnError extends boolean = false>(options: Op
  */
 export const listRunnerTrusts = <ThrowOnError extends boolean = false>(options: Options<ListRunnerTrustsData, ThrowOnError>): RequestResult<ListRunnerTrustsResponses, ListRunnerTrustsErrors, ThrowOnError> => (options.client ?? client).get<ListRunnerTrustsResponses, ListRunnerTrustsErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/runner-trusts',
+  url: '/v1/resources/workspaces/{workspaceId}/runner-trusts',
   ...options
 });
 
@@ -1225,7 +1225,7 @@ export const listRunnerTrusts = <ThrowOnError extends boolean = false>(options: 
  */
 export const createRunnerTrust = <ThrowOnError extends boolean = false>(options: Options<CreateRunnerTrustData, ThrowOnError>): RequestResult<CreateRunnerTrustResponses, CreateRunnerTrustErrors, ThrowOnError> => (options.client ?? client).post<CreateRunnerTrustResponses, CreateRunnerTrustErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/runner-trusts',
+  url: '/v1/resources/workspaces/{workspaceId}/runner-trusts',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1238,7 +1238,7 @@ export const createRunnerTrust = <ThrowOnError extends boolean = false>(options:
  */
 export const deleteRunnerTrust = <ThrowOnError extends boolean = false>(options: Options<DeleteRunnerTrustData, ThrowOnError>): RequestResult<DeleteRunnerTrustResponses, DeleteRunnerTrustErrors, ThrowOnError> => (options.client ?? client).delete<DeleteRunnerTrustResponses, DeleteRunnerTrustErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/runner-trusts/{id}',
+  url: '/v1/resources/runner-trusts/{id}',
   ...options
 });
 
@@ -1247,7 +1247,7 @@ export const deleteRunnerTrust = <ThrowOnError extends boolean = false>(options:
  */
 export const readRunnerTrust = <ThrowOnError extends boolean = false>(options: Options<ReadRunnerTrustData, ThrowOnError>): RequestResult<ReadRunnerTrustResponses, ReadRunnerTrustErrors, ThrowOnError> => (options.client ?? client).get<ReadRunnerTrustResponses, ReadRunnerTrustErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/runner-trusts/{id}',
+  url: '/v1/resources/runner-trusts/{id}',
   ...options
 });
 
@@ -1256,7 +1256,7 @@ export const readRunnerTrust = <ThrowOnError extends boolean = false>(options: O
  */
 export const updateRunnerTrust = <ThrowOnError extends boolean = false>(options: Options<UpdateRunnerTrustData, ThrowOnError>): RequestResult<UpdateRunnerTrustResponses, UpdateRunnerTrustErrors, ThrowOnError> => (options.client ?? client).put<UpdateRunnerTrustResponses, UpdateRunnerTrustErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/runner-trusts/{id}',
+  url: '/v1/resources/runner-trusts/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1269,7 +1269,7 @@ export const updateRunnerTrust = <ThrowOnError extends boolean = false>(options:
  */
 export const importRunnerTrust = <ThrowOnError extends boolean = false>(options: Options<ImportRunnerTrustData, ThrowOnError>): RequestResult<ImportRunnerTrustResponses, ImportRunnerTrustErrors, ThrowOnError> => (options.client ?? client).get<ImportRunnerTrustResponses, ImportRunnerTrustErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/runner-trusts/import',
+  url: '/v1/resources/workspaces/{workspaceId}/runner-trusts/import',
   ...options
 });
 
@@ -1278,7 +1278,7 @@ export const importRunnerTrust = <ThrowOnError extends boolean = false>(options:
  */
 export const listRunnerPools = <ThrowOnError extends boolean = false>(options: Options<ListRunnerPoolsData, ThrowOnError>): RequestResult<ListRunnerPoolsResponses, ListRunnerPoolsErrors, ThrowOnError> => (options.client ?? client).get<ListRunnerPoolsResponses, ListRunnerPoolsErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/runner-pools',
+  url: '/v1/resources/workspaces/{workspaceId}/runner-pools',
   ...options
 });
 
@@ -1287,7 +1287,7 @@ export const listRunnerPools = <ThrowOnError extends boolean = false>(options: O
  */
 export const createRunnerPool = <ThrowOnError extends boolean = false>(options: Options<CreateRunnerPoolData, ThrowOnError>): RequestResult<CreateRunnerPoolResponses, CreateRunnerPoolErrors, ThrowOnError> => (options.client ?? client).post<CreateRunnerPoolResponses, CreateRunnerPoolErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/runner-pools',
+  url: '/v1/resources/workspaces/{workspaceId}/runner-pools',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1300,7 +1300,7 @@ export const createRunnerPool = <ThrowOnError extends boolean = false>(options: 
  */
 export const deleteRunnerPool = <ThrowOnError extends boolean = false>(options: Options<DeleteRunnerPoolData, ThrowOnError>): RequestResult<DeleteRunnerPoolResponses, DeleteRunnerPoolErrors, ThrowOnError> => (options.client ?? client).delete<DeleteRunnerPoolResponses, DeleteRunnerPoolErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/runner-pools/{id}',
+  url: '/v1/resources/runner-pools/{id}',
   ...options
 });
 
@@ -1309,7 +1309,7 @@ export const deleteRunnerPool = <ThrowOnError extends boolean = false>(options: 
  */
 export const readRunnerPool = <ThrowOnError extends boolean = false>(options: Options<ReadRunnerPoolData, ThrowOnError>): RequestResult<ReadRunnerPoolResponses, ReadRunnerPoolErrors, ThrowOnError> => (options.client ?? client).get<ReadRunnerPoolResponses, ReadRunnerPoolErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/runner-pools/{id}',
+  url: '/v1/resources/runner-pools/{id}',
   ...options
 });
 
@@ -1318,7 +1318,7 @@ export const readRunnerPool = <ThrowOnError extends boolean = false>(options: Op
  */
 export const updateRunnerPool = <ThrowOnError extends boolean = false>(options: Options<UpdateRunnerPoolData, ThrowOnError>): RequestResult<UpdateRunnerPoolResponses, UpdateRunnerPoolErrors, ThrowOnError> => (options.client ?? client).put<UpdateRunnerPoolResponses, UpdateRunnerPoolErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/runner-pools/{id}',
+  url: '/v1/resources/runner-pools/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1331,7 +1331,7 @@ export const updateRunnerPool = <ThrowOnError extends boolean = false>(options: 
  */
 export const importRunnerPool = <ThrowOnError extends boolean = false>(options: Options<ImportRunnerPoolData, ThrowOnError>): RequestResult<ImportRunnerPoolResponses, ImportRunnerPoolErrors, ThrowOnError> => (options.client ?? client).get<ImportRunnerPoolResponses, ImportRunnerPoolErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/runner-pools/import',
+  url: '/v1/resources/workspaces/{workspaceId}/runner-pools/import',
   ...options
 });
 
@@ -1340,7 +1340,7 @@ export const importRunnerPool = <ThrowOnError extends boolean = false>(options: 
  */
 export const listEgresses = <ThrowOnError extends boolean = false>(options: Options<ListEgressesData, ThrowOnError>): RequestResult<ListEgressesResponses, ListEgressesErrors, ThrowOnError> => (options.client ?? client).get<ListEgressesResponses, ListEgressesErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/egresses',
+  url: '/v1/resources/workspaces/{workspaceId}/egresses',
   ...options
 });
 
@@ -1349,7 +1349,7 @@ export const listEgresses = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const createEgress = <ThrowOnError extends boolean = false>(options: Options<CreateEgressData, ThrowOnError>): RequestResult<CreateEgressResponses, CreateEgressErrors, ThrowOnError> => (options.client ?? client).post<CreateEgressResponses, CreateEgressErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/egresses',
+  url: '/v1/resources/workspaces/{workspaceId}/egresses',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1362,7 +1362,7 @@ export const createEgress = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const deleteEgress = <ThrowOnError extends boolean = false>(options: Options<DeleteEgressData, ThrowOnError>): RequestResult<DeleteEgressResponses, DeleteEgressErrors, ThrowOnError> => (options.client ?? client).delete<DeleteEgressResponses, DeleteEgressErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/egresses/{id}',
+  url: '/v1/resources/egresses/{id}',
   ...options
 });
 
@@ -1371,7 +1371,7 @@ export const deleteEgress = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const readEgress = <ThrowOnError extends boolean = false>(options: Options<ReadEgressData, ThrowOnError>): RequestResult<ReadEgressResponses, ReadEgressErrors, ThrowOnError> => (options.client ?? client).get<ReadEgressResponses, ReadEgressErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/egresses/{id}',
+  url: '/v1/resources/egresses/{id}',
   ...options
 });
 
@@ -1380,7 +1380,7 @@ export const readEgress = <ThrowOnError extends boolean = false>(options: Option
  */
 export const updateEgress = <ThrowOnError extends boolean = false>(options: Options<UpdateEgressData, ThrowOnError>): RequestResult<UpdateEgressResponses, UpdateEgressErrors, ThrowOnError> => (options.client ?? client).put<UpdateEgressResponses, UpdateEgressErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/egresses/{id}',
+  url: '/v1/resources/egresses/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1393,7 +1393,7 @@ export const updateEgress = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const importEgress = <ThrowOnError extends boolean = false>(options: Options<ImportEgressData, ThrowOnError>): RequestResult<ImportEgressResponses, ImportEgressErrors, ThrowOnError> => (options.client ?? client).get<ImportEgressResponses, ImportEgressErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/egresses/import',
+  url: '/v1/resources/workspaces/{workspaceId}/egresses/import',
   ...options
 });
 
@@ -1402,7 +1402,7 @@ export const importEgress = <ThrowOnError extends boolean = false>(options: Opti
  */
 export const listWorkspaceRunners = <ThrowOnError extends boolean = false>(options: Options<ListWorkspaceRunnersData, ThrowOnError>): RequestResult<ListWorkspaceRunnersResponses, ListWorkspaceRunnersErrors, ThrowOnError> => (options.client ?? client).get<ListWorkspaceRunnersResponses, ListWorkspaceRunnersErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/workspace-runners',
+  url: '/v1/resources/workspaces/{workspaceId}/workspace-runners',
   ...options
 });
 
@@ -1411,7 +1411,7 @@ export const listWorkspaceRunners = <ThrowOnError extends boolean = false>(optio
  */
 export const createWorkspaceRunners = <ThrowOnError extends boolean = false>(options: Options<CreateWorkspaceRunnersData, ThrowOnError>): RequestResult<CreateWorkspaceRunnersResponses, CreateWorkspaceRunnersErrors, ThrowOnError> => (options.client ?? client).post<CreateWorkspaceRunnersResponses, CreateWorkspaceRunnersErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/workspace-runners',
+  url: '/v1/resources/workspaces/{workspaceId}/workspace-runners',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1424,7 +1424,7 @@ export const createWorkspaceRunners = <ThrowOnError extends boolean = false>(opt
  */
 export const deleteWorkspaceRunners = <ThrowOnError extends boolean = false>(options: Options<DeleteWorkspaceRunnersData, ThrowOnError>): RequestResult<DeleteWorkspaceRunnersResponses, DeleteWorkspaceRunnersErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWorkspaceRunnersResponses, DeleteWorkspaceRunnersErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspace-runners/{id}',
+  url: '/v1/resources/workspace-runners/{id}',
   ...options
 });
 
@@ -1433,7 +1433,7 @@ export const deleteWorkspaceRunners = <ThrowOnError extends boolean = false>(opt
  */
 export const readWorkspaceRunners = <ThrowOnError extends boolean = false>(options: Options<ReadWorkspaceRunnersData, ThrowOnError>): RequestResult<ReadWorkspaceRunnersResponses, ReadWorkspaceRunnersErrors, ThrowOnError> => (options.client ?? client).get<ReadWorkspaceRunnersResponses, ReadWorkspaceRunnersErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspace-runners/{id}',
+  url: '/v1/resources/workspace-runners/{id}',
   ...options
 });
 
@@ -1442,7 +1442,7 @@ export const readWorkspaceRunners = <ThrowOnError extends boolean = false>(optio
  */
 export const updateWorkspaceRunners = <ThrowOnError extends boolean = false>(options: Options<UpdateWorkspaceRunnersData, ThrowOnError>): RequestResult<UpdateWorkspaceRunnersResponses, UpdateWorkspaceRunnersErrors, ThrowOnError> => (options.client ?? client).put<UpdateWorkspaceRunnersResponses, UpdateWorkspaceRunnersErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspace-runners/{id}',
+  url: '/v1/resources/workspace-runners/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1455,7 +1455,7 @@ export const updateWorkspaceRunners = <ThrowOnError extends boolean = false>(opt
  */
 export const importWorkspaceRunners = <ThrowOnError extends boolean = false>(options: Options<ImportWorkspaceRunnersData, ThrowOnError>): RequestResult<ImportWorkspaceRunnersResponses, ImportWorkspaceRunnersErrors, ThrowOnError> => (options.client ?? client).get<ImportWorkspaceRunnersResponses, ImportWorkspaceRunnersErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/workspace-runners/import',
+  url: '/v1/resources/workspaces/{workspaceId}/workspace-runners/import',
   ...options
 });
 
@@ -1474,7 +1474,7 @@ export const listTeamSkills = <ThrowOnError extends boolean = false>(options: Op
  */
 export const createSkill = <ThrowOnError extends boolean = false>(options: Options<CreateSkillData, ThrowOnError>): RequestResult<CreateSkillResponses, CreateSkillErrors, ThrowOnError> => (options.client ?? client).post<CreateSkillResponses, CreateSkillErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/teams/{teamId}/skills',
+  url: '/v1/resources/teams/{teamId}/skills',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1487,7 +1487,7 @@ export const createSkill = <ThrowOnError extends boolean = false>(options: Optio
  */
 export const deleteSkill = <ThrowOnError extends boolean = false>(options: Options<DeleteSkillData, ThrowOnError>): RequestResult<DeleteSkillResponses, DeleteSkillErrors, ThrowOnError> => (options.client ?? client).delete<DeleteSkillResponses, DeleteSkillErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/skills/{id}',
+  url: '/v1/resources/skills/{id}',
   ...options
 });
 
@@ -1496,7 +1496,7 @@ export const deleteSkill = <ThrowOnError extends boolean = false>(options: Optio
  */
 export const readSkill = <ThrowOnError extends boolean = false>(options: Options<ReadSkillData, ThrowOnError>): RequestResult<ReadSkillResponses, ReadSkillErrors, ThrowOnError> => (options.client ?? client).get<ReadSkillResponses, ReadSkillErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/skills/{id}',
+  url: '/v1/resources/skills/{id}',
   ...options
 });
 
@@ -1505,7 +1505,7 @@ export const readSkill = <ThrowOnError extends boolean = false>(options: Options
  */
 export const updateSkill = <ThrowOnError extends boolean = false>(options: Options<UpdateSkillData, ThrowOnError>): RequestResult<UpdateSkillResponses, UpdateSkillErrors, ThrowOnError> => (options.client ?? client).put<UpdateSkillResponses, UpdateSkillErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/skills/{id}',
+  url: '/v1/resources/skills/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1518,7 +1518,7 @@ export const updateSkill = <ThrowOnError extends boolean = false>(options: Optio
  */
 export const importSkill = <ThrowOnError extends boolean = false>(options: Options<ImportSkillData, ThrowOnError>): RequestResult<ImportSkillResponses, ImportSkillErrors, ThrowOnError> => (options.client ?? client).get<ImportSkillResponses, ImportSkillErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/skills/import',
+  url: '/v1/resources/workspaces/{workspaceId}/skills/import',
   ...options
 });
 
@@ -1527,7 +1527,7 @@ export const importSkill = <ThrowOnError extends boolean = false>(options: Optio
  */
 export const listSkills = <ThrowOnError extends boolean = false>(options: Options<ListSkillsData, ThrowOnError>): RequestResult<ListSkillsResponses, ListSkillsErrors, ThrowOnError> => (options.client ?? client).get<ListSkillsResponses, ListSkillsErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/skills',
+  url: '/v1/resources/workspaces/{workspaceId}/skills',
   ...options
 });
 
@@ -1536,7 +1536,7 @@ export const listSkills = <ThrowOnError extends boolean = false>(options: Option
  */
 export const createHarnessProfile = <ThrowOnError extends boolean = false>(options: Options<CreateHarnessProfileData, ThrowOnError>): RequestResult<CreateHarnessProfileResponses, CreateHarnessProfileErrors, ThrowOnError> => (options.client ?? client).post<CreateHarnessProfileResponses, CreateHarnessProfileErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/teams/{teamId}/harness-profiles',
+  url: '/v1/resources/teams/{teamId}/harness-profiles',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1549,7 +1549,7 @@ export const createHarnessProfile = <ThrowOnError extends boolean = false>(optio
  */
 export const deleteHarnessProfile = <ThrowOnError extends boolean = false>(options: Options<DeleteHarnessProfileData, ThrowOnError>): RequestResult<DeleteHarnessProfileResponses, DeleteHarnessProfileErrors, ThrowOnError> => (options.client ?? client).delete<DeleteHarnessProfileResponses, DeleteHarnessProfileErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/harness-profiles/{id}',
+  url: '/v1/resources/harness-profiles/{id}',
   ...options
 });
 
@@ -1558,7 +1558,7 @@ export const deleteHarnessProfile = <ThrowOnError extends boolean = false>(optio
  */
 export const readHarnessProfile = <ThrowOnError extends boolean = false>(options: Options<ReadHarnessProfileData, ThrowOnError>): RequestResult<ReadHarnessProfileResponses, ReadHarnessProfileErrors, ThrowOnError> => (options.client ?? client).get<ReadHarnessProfileResponses, ReadHarnessProfileErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/harness-profiles/{id}',
+  url: '/v1/resources/harness-profiles/{id}',
   ...options
 });
 
@@ -1567,7 +1567,7 @@ export const readHarnessProfile = <ThrowOnError extends boolean = false>(options
  */
 export const updateHarnessProfile = <ThrowOnError extends boolean = false>(options: Options<UpdateHarnessProfileData, ThrowOnError>): RequestResult<UpdateHarnessProfileResponses, UpdateHarnessProfileErrors, ThrowOnError> => (options.client ?? client).put<UpdateHarnessProfileResponses, UpdateHarnessProfileErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/harness-profiles/{id}',
+  url: '/v1/resources/harness-profiles/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1580,7 +1580,7 @@ export const updateHarnessProfile = <ThrowOnError extends boolean = false>(optio
  */
 export const importHarnessProfile = <ThrowOnError extends boolean = false>(options: Options<ImportHarnessProfileData, ThrowOnError>): RequestResult<ImportHarnessProfileResponses, ImportHarnessProfileErrors, ThrowOnError> => (options.client ?? client).get<ImportHarnessProfileResponses, ImportHarnessProfileErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/harness-profiles/import',
+  url: '/v1/resources/workspaces/{workspaceId}/harness-profiles/import',
   ...options
 });
 
@@ -1589,7 +1589,7 @@ export const importHarnessProfile = <ThrowOnError extends boolean = false>(optio
  */
 export const listHarnessProfiles = <ThrowOnError extends boolean = false>(options: Options<ListHarnessProfilesData, ThrowOnError>): RequestResult<ListHarnessProfilesResponses, ListHarnessProfilesErrors, ThrowOnError> => (options.client ?? client).get<ListHarnessProfilesResponses, ListHarnessProfilesErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/harness-profiles',
+  url: '/v1/resources/workspaces/{workspaceId}/harness-profiles',
   ...options
 });
 
@@ -1598,7 +1598,7 @@ export const listHarnessProfiles = <ThrowOnError extends boolean = false>(option
  */
 export const exportWorkspace = <ThrowOnError extends boolean = false>(options: Options<ExportWorkspaceData, ThrowOnError>): RequestResult<ExportWorkspaceResponses, ExportWorkspaceErrors, ThrowOnError> => (options.client ?? client).get<ExportWorkspaceResponses, ExportWorkspaceErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{id}/export',
+  url: '/v1/resources/workspaces/{id}/export',
   ...options
 });
 
@@ -1607,7 +1607,7 @@ export const exportWorkspace = <ThrowOnError extends boolean = false>(options: O
  */
 export const readResourceHcl = <ThrowOnError extends boolean = false>(options: Options<ReadResourceHclData, ThrowOnError>): RequestResult<ReadResourceHclResponses, ReadResourceHclErrors, ThrowOnError> => (options.client ?? client).get<ReadResourceHclResponses, ReadResourceHclErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/{collection}/{id}/hcl',
+  url: '/v1/resources/{collection}/{id}/hcl',
   ...options
 });
 
@@ -1756,7 +1756,7 @@ export const setMyToolRule = <ThrowOnError extends boolean = false>(options: Opt
  */
 export const createIntegration = <ThrowOnError extends boolean = false>(options: Options<CreateIntegrationData, ThrowOnError>): RequestResult<CreateIntegrationResponses, CreateIntegrationErrors, ThrowOnError> => (options.client ?? client).post<CreateIntegrationResponses, CreateIntegrationErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/teams/{teamId}/integrations',
+  url: '/v1/resources/teams/{teamId}/integrations',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1769,7 +1769,7 @@ export const createIntegration = <ThrowOnError extends boolean = false>(options:
  */
 export const deleteIntegration = <ThrowOnError extends boolean = false>(options: Options<DeleteIntegrationData, ThrowOnError>): RequestResult<DeleteIntegrationResponses, DeleteIntegrationErrors, ThrowOnError> => (options.client ?? client).delete<DeleteIntegrationResponses, DeleteIntegrationErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/integrations/{id}',
+  url: '/v1/resources/integrations/{id}',
   ...options
 });
 
@@ -1778,7 +1778,7 @@ export const deleteIntegration = <ThrowOnError extends boolean = false>(options:
  */
 export const readIntegration = <ThrowOnError extends boolean = false>(options: Options<ReadIntegrationData, ThrowOnError>): RequestResult<ReadIntegrationResponses, ReadIntegrationErrors, ThrowOnError> => (options.client ?? client).get<ReadIntegrationResponses, ReadIntegrationErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/integrations/{id}',
+  url: '/v1/resources/integrations/{id}',
   ...options
 });
 
@@ -1787,7 +1787,7 @@ export const readIntegration = <ThrowOnError extends boolean = false>(options: O
  */
 export const updateIntegration = <ThrowOnError extends boolean = false>(options: Options<UpdateIntegrationData, ThrowOnError>): RequestResult<UpdateIntegrationResponses, UpdateIntegrationErrors, ThrowOnError> => (options.client ?? client).put<UpdateIntegrationResponses, UpdateIntegrationErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/integrations/{id}',
+  url: '/v1/resources/integrations/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1800,7 +1800,7 @@ export const updateIntegration = <ThrowOnError extends boolean = false>(options:
  */
 export const importIntegration = <ThrowOnError extends boolean = false>(options: Options<ImportIntegrationData, ThrowOnError>): RequestResult<ImportIntegrationResponses, ImportIntegrationErrors, ThrowOnError> => (options.client ?? client).get<ImportIntegrationResponses, ImportIntegrationErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/integrations/import',
+  url: '/v1/resources/workspaces/{workspaceId}/integrations/import',
   ...options
 });
 
@@ -1809,7 +1809,7 @@ export const importIntegration = <ThrowOnError extends boolean = false>(options:
  */
 export const listIntegrations = <ThrowOnError extends boolean = false>(options: Options<ListIntegrationsData, ThrowOnError>): RequestResult<ListIntegrationsResponses, ListIntegrationsErrors, ThrowOnError> => (options.client ?? client).get<ListIntegrationsResponses, ListIntegrationsErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/integrations',
+  url: '/v1/resources/workspaces/{workspaceId}/integrations',
   ...options
 });
 
@@ -1818,7 +1818,7 @@ export const listIntegrations = <ThrowOnError extends boolean = false>(options: 
  */
 export const checkExpression = <ThrowOnError extends boolean = false>(options: Options<CheckExpressionData, ThrowOnError>): RequestResult<CheckExpressionResponses, CheckExpressionErrors, ThrowOnError> => (options.client ?? client).post<CheckExpressionResponses, CheckExpressionErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/expressions/check',
+  url: '/v1/expressions/check',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1831,7 +1831,7 @@ export const checkExpression = <ThrowOnError extends boolean = false>(options: O
  */
 export const listExpressionPositions = <ThrowOnError extends boolean = false>(options?: Options<ListExpressionPositionsData, ThrowOnError>): RequestResult<ListExpressionPositionsResponses, ListExpressionPositionsErrors, ThrowOnError> => (options?.client ?? client).get<ListExpressionPositionsResponses, ListExpressionPositionsErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/expressions/positions',
+  url: '/v1/expressions/positions',
   ...options
 });
 
@@ -1845,7 +1845,7 @@ export const listHappenings = <ThrowOnError extends boolean = false>(options: Op
  */
 export const createHook = <ThrowOnError extends boolean = false>(options: Options<CreateHookData, ThrowOnError>): RequestResult<CreateHookResponses, CreateHookErrors, ThrowOnError> => (options.client ?? client).post<CreateHookResponses, CreateHookErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/teams/{teamId}/hooks',
+  url: '/v1/resources/teams/{teamId}/hooks',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1858,7 +1858,7 @@ export const createHook = <ThrowOnError extends boolean = false>(options: Option
  */
 export const deleteHook = <ThrowOnError extends boolean = false>(options: Options<DeleteHookData, ThrowOnError>): RequestResult<DeleteHookResponses, DeleteHookErrors, ThrowOnError> => (options.client ?? client).delete<DeleteHookResponses, DeleteHookErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/hooks/{id}',
+  url: '/v1/resources/hooks/{id}',
   ...options
 });
 
@@ -1867,7 +1867,7 @@ export const deleteHook = <ThrowOnError extends boolean = false>(options: Option
  */
 export const readHook = <ThrowOnError extends boolean = false>(options: Options<ReadHookData, ThrowOnError>): RequestResult<ReadHookResponses, ReadHookErrors, ThrowOnError> => (options.client ?? client).get<ReadHookResponses, ReadHookErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/hooks/{id}',
+  url: '/v1/resources/hooks/{id}',
   ...options
 });
 
@@ -1876,7 +1876,7 @@ export const readHook = <ThrowOnError extends boolean = false>(options: Options<
  */
 export const updateHook = <ThrowOnError extends boolean = false>(options: Options<UpdateHookData, ThrowOnError>): RequestResult<UpdateHookResponses, UpdateHookErrors, ThrowOnError> => (options.client ?? client).put<UpdateHookResponses, UpdateHookErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/hooks/{id}',
+  url: '/v1/resources/hooks/{id}',
   ...options,
   headers: {
     'Content-Type': 'application/json',
@@ -1889,7 +1889,7 @@ export const updateHook = <ThrowOnError extends boolean = false>(options: Option
  */
 export const importHook = <ThrowOnError extends boolean = false>(options: Options<ImportHookData, ThrowOnError>): RequestResult<ImportHookResponses, ImportHookErrors, ThrowOnError> => (options.client ?? client).get<ImportHookResponses, ImportHookErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/hooks/import',
+  url: '/v1/resources/workspaces/{workspaceId}/hooks/import',
   ...options
 });
 
@@ -1898,7 +1898,7 @@ export const importHook = <ThrowOnError extends boolean = false>(options: Option
  */
 export const listHooks = <ThrowOnError extends boolean = false>(options: Options<ListHooksData, ThrowOnError>): RequestResult<ListHooksResponses, ListHooksErrors, ThrowOnError> => (options.client ?? client).get<ListHooksResponses, ListHooksErrors, ThrowOnError>({
   security: [{ scheme: 'bearer', type: 'http' }],
-  url: '/resources/workspaces/{workspaceId}/hooks',
+  url: '/v1/resources/workspaces/{workspaceId}/hooks',
   ...options
 });
 

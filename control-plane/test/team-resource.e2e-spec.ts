@@ -44,11 +44,12 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/workspaces/${workspaceId}/teams`,
-    item: (id) => `/api/resources/teams/${id}`,
+    collection: `/api/v1/resources/workspaces/${workspaceId}/teams`,
+    item: (id) => `/api/v1/resources/teams/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${workspaceId}/teams/import?address=${encodeURIComponent(address)}`,
-    listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/teams`,
+      `/api/v1/resources/workspaces/${workspaceId}/teams/import?address=${encodeURIComponent(address)}`,
+    listing: (workspaceId) =>
+      `/api/v1/resources/workspaces/${workspaceId}/teams`,
     workspaceOf: () => workspaceId,
     address: 'core',
     valid: { key: 'core', name: 'Core' },
@@ -106,7 +107,7 @@ describe('a team, created through the resource API (e2e)', () => {
 
   beforeEach(async () => {
     fixture = await seated(app);
-    workspaceId = fixture.collection.split('/')[4] ?? '';
+    workspaceId = fixture.collection.split('/')[5] ?? '';
   });
 
   afterEach(async () => {

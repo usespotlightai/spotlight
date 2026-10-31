@@ -78,7 +78,7 @@ const overview = () =>
 
 const readToken = async (of = team): Promise<string> => {
   const answer = await served(app)
-    .post(`/api/resources/workspaces/${of.workspaceId.value}/tokens`)
+    .post(`/api/v1/resources/workspaces/${of.workspaceId.value}/tokens`)
     .set(TEST_USER_HEADER, of.owner.value)
     .set('Idempotency-Key', randomUUID())
     .send({ name: `readers-${randomUUID().slice(0, 6)}`, scopes: ['read'] });

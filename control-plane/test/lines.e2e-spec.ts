@@ -17,16 +17,16 @@ describe('LineController (e2e)', () => {
     return served(app).get('/api/teams/team_1/lines').expect(401);
   });
 
-  it('/resources/teams/:teamId/lines (POST) is rejected without a session', () => {
+  it('/v1/resources/teams/:teamId/lines (POST) is rejected without a session', () => {
     return served(app)
-      .post('/api/resources/teams/team_1/lines')
+      .post('/api/v1/resources/teams/team_1/lines')
       .send({ key: 'delivery', name: 'Delivery', stations: [] })
       .expect(401);
   });
 
-  it('/resources/teams/:teamId/integrations (POST) is rejected without a session', () => {
+  it('/v1/resources/teams/:teamId/integrations (POST) is rejected without a session', () => {
     return served(app)
-      .post('/api/resources/teams/team_1/integrations')
+      .post('/api/v1/resources/teams/team_1/integrations')
       .send({ integration: 'linear' })
       .expect(401);
   });

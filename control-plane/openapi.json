@@ -118,7 +118,7 @@
         ]
       }
     },
-    "/resources/teams/{teamId}/lines": {
+    "/v1/resources/teams/{teamId}/lines": {
       "post": {
         "operationId": "createLine",
         "parameters": [
@@ -317,7 +317,7 @@
         }
       }
     },
-    "/resources/lines/{id}": {
+    "/v1/resources/lines/{id}": {
       "get": {
         "operationId": "readLine",
         "parameters": [
@@ -743,7 +743,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/lines/import": {
+    "/v1/resources/workspaces/{workspaceId}/lines/import": {
       "get": {
         "operationId": "importLine",
         "parameters": [
@@ -855,7 +855,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/lines": {
+    "/v1/resources/workspaces/{workspaceId}/lines": {
       "get": {
         "operationId": "listLines",
         "parameters": [
@@ -4189,7 +4189,7 @@
         ]
       }
     },
-    "/resources/workspaces/import": {
+    "/v1/resources/workspaces/import": {
       "get": {
         "operationId": "importWorkspace",
         "parameters": [
@@ -4292,7 +4292,7 @@
         }
       }
     },
-    "/resources/workspaces": {
+    "/v1/resources/workspaces": {
       "get": {
         "operationId": "listWorkspaces",
         "parameters": [
@@ -4532,7 +4532,7 @@
         }
       }
     },
-    "/resources/workspaces/{id}": {
+    "/v1/resources/workspaces/{id}": {
       "get": {
         "operationId": "readWorkspace",
         "parameters": [
@@ -4935,7 +4935,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/teams": {
+    "/v1/resources/workspaces/{workspaceId}/teams": {
       "post": {
         "operationId": "createTeam",
         "parameters": [
@@ -5203,7 +5203,7 @@
         }
       }
     },
-    "/resources/teams/{id}": {
+    "/v1/resources/teams/{id}": {
       "get": {
         "operationId": "readTeam",
         "parameters": [
@@ -5606,7 +5606,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/teams/import": {
+    "/v1/resources/workspaces/{workspaceId}/teams/import": {
       "get": {
         "operationId": "importTeam",
         "parameters": [
@@ -5718,7 +5718,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/tokens": {
+    "/v1/resources/workspaces/{workspaceId}/tokens": {
       "post": {
         "operationId": "createWorkspaceToken",
         "parameters": [
@@ -6020,7 +6020,7 @@
         }
       }
     },
-    "/resources/tokens/{id}": {
+    "/v1/resources/tokens/{id}": {
       "get": {
         "operationId": "readWorkspaceToken",
         "parameters": [
@@ -6450,7 +6450,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/tokens/import": {
+    "/v1/resources/workspaces/{workspaceId}/tokens/import": {
       "get": {
         "operationId": "importWorkspaceToken",
         "parameters": [
@@ -6562,7 +6562,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/oidc-trusts": {
+    "/v1/resources/workspaces/{workspaceId}/oidc-trusts": {
       "post": {
         "operationId": "createOidcTrust",
         "parameters": [
@@ -6875,7 +6875,7 @@
         }
       }
     },
-    "/resources/oidc-trusts/{id}": {
+    "/v1/resources/oidc-trusts/{id}": {
       "get": {
         "operationId": "readOidcTrust",
         "parameters": [
@@ -7323,7 +7323,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/oidc-trusts/import": {
+    "/v1/resources/workspaces/{workspaceId}/oidc-trusts/import": {
       "get": {
         "operationId": "importOidcTrust",
         "parameters": [
@@ -7435,7 +7435,7 @@
         }
       }
     },
-    "/workspace-tokens/exchange": {
+    "/v1/workspace-tokens/exchange": {
       "post": {
         "operationId": "exchangeWorkloadToken",
         "parameters": [],
@@ -8129,7 +8129,7 @@
         ]
       }
     },
-    "/resources/workspaces/{workspaceId}/secrets": {
+    "/v1/resources/workspaces/{workspaceId}/secrets": {
       "post": {
         "operationId": "createSecret",
         "parameters": [
@@ -8458,7 +8458,7 @@
         }
       }
     },
-    "/resources/secrets/{id}": {
+    "/v1/resources/secrets/{id}": {
       "get": {
         "operationId": "readSecret",
         "parameters": [
@@ -8922,7 +8922,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/secrets/import": {
+    "/v1/resources/workspaces/{workspaceId}/secrets/import": {
       "get": {
         "operationId": "importSecret",
         "parameters": [
@@ -9034,7 +9034,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/catalog/tools": {
+    "/v1/resources/workspaces/{workspaceId}/catalog/tools": {
       "get": {
         "operationId": "readCatalogTool",
         "parameters": [
@@ -9165,7 +9165,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/catalog/skills": {
+    "/v1/resources/workspaces/{workspaceId}/catalog/skills": {
       "get": {
         "operationId": "readCatalogSkill",
         "parameters": [
@@ -9638,7 +9638,7 @@
         ]
       }
     },
-    "/resources/workspaces/{workspaceId}/runner-trusts": {
+    "/v1/resources/workspaces/{workspaceId}/runner-trusts": {
       "post": {
         "operationId": "createRunnerTrust",
         "parameters": [
@@ -9924,7 +9924,7 @@
         }
       }
     },
-    "/resources/runner-trusts/{id}": {
+    "/v1/resources/runner-trusts/{id}": {
       "get": {
         "operationId": "readRunnerTrust",
         "parameters": [
@@ -10345,7 +10345,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/runner-trusts/import": {
+    "/v1/resources/workspaces/{workspaceId}/runner-trusts/import": {
       "get": {
         "operationId": "importRunnerTrust",
         "parameters": [
@@ -10457,7 +10457,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/runner-pools": {
+    "/v1/resources/workspaces/{workspaceId}/runner-pools": {
       "post": {
         "operationId": "createRunnerPool",
         "parameters": [
@@ -10795,7 +10795,7 @@
         }
       }
     },
-    "/resources/runner-pools/{id}": {
+    "/v1/resources/runner-pools/{id}": {
       "get": {
         "operationId": "readRunnerPool",
         "parameters": [
@@ -11262,7 +11262,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/runner-pools/import": {
+    "/v1/resources/workspaces/{workspaceId}/runner-pools/import": {
       "get": {
         "operationId": "importRunnerPool",
         "parameters": [
@@ -11374,7 +11374,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/egresses": {
+    "/v1/resources/workspaces/{workspaceId}/egresses": {
       "post": {
         "operationId": "createEgress",
         "parameters": [
@@ -11662,7 +11662,7 @@
         }
       }
     },
-    "/resources/egresses/{id}": {
+    "/v1/resources/egresses/{id}": {
       "get": {
         "operationId": "readEgress",
         "parameters": [
@@ -12079,7 +12079,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/egresses/import": {
+    "/v1/resources/workspaces/{workspaceId}/egresses/import": {
       "get": {
         "operationId": "importEgress",
         "parameters": [
@@ -12191,7 +12191,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/workspace-runners": {
+    "/v1/resources/workspaces/{workspaceId}/workspace-runners": {
       "post": {
         "operationId": "createWorkspaceRunners",
         "parameters": [
@@ -12474,7 +12474,7 @@
         }
       }
     },
-    "/resources/workspace-runners/{id}": {
+    "/v1/resources/workspace-runners/{id}": {
       "get": {
         "operationId": "readWorkspaceRunners",
         "parameters": [
@@ -12892,7 +12892,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/workspace-runners/import": {
+    "/v1/resources/workspaces/{workspaceId}/workspace-runners/import": {
       "get": {
         "operationId": "importWorkspaceRunners",
         "parameters": [
@@ -13080,7 +13080,7 @@
         ]
       }
     },
-    "/resources/teams/{teamId}/skills": {
+    "/v1/resources/teams/{teamId}/skills": {
       "post": {
         "operationId": "createSkill",
         "parameters": [
@@ -13261,7 +13261,7 @@
         }
       }
     },
-    "/resources/skills/{id}": {
+    "/v1/resources/skills/{id}": {
       "get": {
         "operationId": "readSkill",
         "parameters": [
@@ -13669,7 +13669,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/skills/import": {
+    "/v1/resources/workspaces/{workspaceId}/skills/import": {
       "get": {
         "operationId": "importSkill",
         "parameters": [
@@ -13781,7 +13781,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/skills": {
+    "/v1/resources/workspaces/{workspaceId}/skills": {
       "get": {
         "operationId": "listSkills",
         "parameters": [
@@ -13875,7 +13875,7 @@
         }
       }
     },
-    "/resources/teams/{teamId}/harness-profiles": {
+    "/v1/resources/teams/{teamId}/harness-profiles": {
       "post": {
         "operationId": "createHarnessProfile",
         "parameters": [
@@ -14124,7 +14124,7 @@
         }
       }
     },
-    "/resources/harness-profiles/{id}": {
+    "/v1/resources/harness-profiles/{id}": {
       "get": {
         "operationId": "readHarnessProfile",
         "parameters": [
@@ -14600,7 +14600,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/harness-profiles/import": {
+    "/v1/resources/workspaces/{workspaceId}/harness-profiles/import": {
       "get": {
         "operationId": "importHarnessProfile",
         "parameters": [
@@ -14712,7 +14712,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/harness-profiles": {
+    "/v1/resources/workspaces/{workspaceId}/harness-profiles": {
       "get": {
         "operationId": "listHarnessProfiles",
         "parameters": [
@@ -14806,7 +14806,7 @@
         }
       }
     },
-    "/resources/workspaces/{id}/export": {
+    "/v1/resources/workspaces/{id}/export": {
       "get": {
         "operationId": "exportWorkspace",
         "parameters": [
@@ -14896,7 +14896,7 @@
         ]
       }
     },
-    "/resources/{collection}/{id}/hcl": {
+    "/v1/resources/{collection}/{id}/hcl": {
       "get": {
         "operationId": "readResourceHcl",
         "parameters": [
@@ -15835,7 +15835,7 @@
         ]
       }
     },
-    "/resources/teams/{teamId}/integrations": {
+    "/v1/resources/teams/{teamId}/integrations": {
       "post": {
         "operationId": "createIntegration",
         "parameters": [
@@ -16009,7 +16009,7 @@
         }
       }
     },
-    "/resources/integrations/{id}": {
+    "/v1/resources/integrations/{id}": {
       "get": {
         "operationId": "readIntegration",
         "parameters": [
@@ -16410,7 +16410,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/integrations/import": {
+    "/v1/resources/workspaces/{workspaceId}/integrations/import": {
       "get": {
         "operationId": "importIntegration",
         "parameters": [
@@ -16522,7 +16522,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/integrations": {
+    "/v1/resources/workspaces/{workspaceId}/integrations": {
       "get": {
         "operationId": "listIntegrations",
         "parameters": [
@@ -16616,7 +16616,7 @@
         }
       }
     },
-    "/expressions/check": {
+    "/v1/expressions/check": {
       "post": {
         "operationId": "checkExpression",
         "parameters": [
@@ -16717,7 +16717,7 @@
         ]
       }
     },
-    "/expressions/positions": {
+    "/v1/expressions/positions": {
       "get": {
         "operationId": "listExpressionPositions",
         "parameters": [
@@ -16832,7 +16832,7 @@
         ]
       }
     },
-    "/resources/teams/{teamId}/hooks": {
+    "/v1/resources/teams/{teamId}/hooks": {
       "post": {
         "operationId": "createHook",
         "parameters": [
@@ -16994,7 +16994,7 @@
         }
       }
     },
-    "/resources/hooks/{id}": {
+    "/v1/resources/hooks/{id}": {
       "get": {
         "operationId": "readHook",
         "parameters": [
@@ -17383,7 +17383,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/hooks/import": {
+    "/v1/resources/workspaces/{workspaceId}/hooks/import": {
       "get": {
         "operationId": "importHook",
         "parameters": [
@@ -17495,7 +17495,7 @@
         }
       }
     },
-    "/resources/workspaces/{workspaceId}/hooks": {
+    "/v1/resources/workspaces/{workspaceId}/hooks": {
       "get": {
         "operationId": "listHooks",
         "parameters": [
@@ -20364,7 +20364,7 @@
   },
   "info": {
     "title": "Spotlight Control Plane",
-    "description": "HTTP API for the Spotlight Control Plane.\n\n## Resource conventions\n\nOperations marked `x-spotlight-resource` manage configuration resources, the ones the Terraform provider writes. They live under `/resources` and address everything by id. Every resource follows these rules, and a conformance suite checks each one against them.\n\n- **Stable ids.** Spotlight issues a resource's `id` when it is created. It never changes for the resource's life, whatever else does.\n- **Reads return every field.** A read returns the whole resource, defaults filled in, so a client comparing it with what it wrote sees any drift. A write returns exactly what a read returns.\n- **Versions.** Every resource carries a `version` that rises with each change, and each response carries it as a strong `ETag` (`\"3\"`). An update or delete must send it back as `If-Match`: without one it fails with 428, and against a version that is no longer current with 409, whose body gives the `currentVersion` and whose `ETag` names it. A write that would remove something another resource still uses fails with 409 `in-use`.\n- **Idempotent creates.** A create must carry an `Idempotency-Key`. Retrying with the same key and body within 24 hours returns the resource that the first attempt created, marked `Idempotent-Replayed: true`, and creates nothing more; the same key with a different body fails with 422.\n- **Problems name fields.** Errors are `application/problem+json` (RFC 9457). `type` is stable and safe to branch on. An invalid request lists `errors`, each with the `path` of the attribute it is about, as in `stations[2].check`; a key that is not a plain name is quoted, as Terraform addresses it: `on[\"task.opened\"].to.thread`.\n- **API versions.** A client may send `Spotlight-Api-Version`; every response names the version that it uses, currently `2026-09-23`. Changes within a version are additive only: fields and operations are added, never removed, renamed or given a new meaning.\n- **Expression checks.** `POST /expressions/check` type-checks one CEL expression at the attribute that contains it, named within the resource's whole definition (`integration.webhook.events[0].when`), as `terraform plan` needs. What the expression may read is worked out from that definition exactly as applying it would, so a plan fails where an apply would; a definition that has an error fails with 422, each error under `definition`. It returns the type and any errors, each with the span it is about and a suggestion where a declared name is near, and warnings about the definition, such as a capture shadowing a built-in name. `GET /expressions/positions` lists every position, with `[*]` for any index or key, and the variables an expression there can read. They follow these headers and problems, but are not resources.\n- **Credentials.** A client calls with a person's session or with a workspace token. A script or Terraform sends a workspace token, or the login that `spotlight login` stores, as `Authorization: Bearer <token>`. A login acts as its person, with that person's role. A token acts only within its own workspace and only as its scopes allow. `read`, `plan` and `configure` are a ladder: `read` reads, `plan` also checks expressions, and `configure` also creates, updates and deletes configuration as a workspace admin may, except secrets, runners and OIDC trusts. `secrets` is granted beside one of them and lets the token create, rebind, rotate and delete secrets; Terraform that manages secrets uses `[\"configure\", \"secrets\"]`. `runners` is granted the same way and lets the token create, rekey and delete runners and runner trusts and create, update and delete the workspace's runners, since a runner claims runs, checks out repositories and keeps git credentials; Terraform that manages runners uses `[\"configure\", \"runners\"]`. `trusts` is granted the same way and lets the token create, update and delete OIDC trusts, since a trust hands out tokens; a token can only create a trust that grants scopes it has itself, so bootstrap the trusts once with a token that has `trusts` and every scope they grant, as in `[\"configure\", \"secrets\", \"trusts\"]`, and revoke it. No token manages members or tokens, or reads the audit.\n- **CI without a stored token.** A workspace admin, or a token granted `trusts`, creates an OIDC trust naming an OIDC issuer, audience, subject and claims, and the scopes and lifetime (at most an hour) of the tokens it issues. A CI job exchanges the OIDC token its platform issues it at `POST /api/workspace-tokens/exchange` with `{ \"trust\": <trust id>, \"token\": <OIDC token> }`, and calls with the short-lived token it gets back. Deleting the trust stops every token that it issued at once, and the audit names the trust and the workload's subject beside each exchange and each change made with an issued token.\n- **Forbidden changes.** A change by someone who may read the resource but not change it, person or token, fails with 403 `forbidden`, whose `permission` names what the caller lacks, one of `configure`, `secrets`, `runners`, `trusts`, `administer`, `create-workspaces`, `plan`. Anything they may not see at all returns 404.\n- **Who changed what.** A client names itself in `Spotlight-Client` (`terraform-provider/<version>` or `web`), and every configuration change is recorded with who made it, person or token, and through which client. A secret's change also records the value version it moved to and the hosts it is bound to, never its value.\n- **Import by address.** Each resource has an `address` that names it within its workspace, such as `core/linear`, and an import operation that returns the resource at that address, as `terraform import` needs. A workspace's address is its slug; a team's is its key; anything a team owns is the team's key and its own, as in `core/delivery`.",
+    "description": "HTTP API for the Spotlight Control Plane.\n\n## Resource conventions\n\nOperations marked `x-spotlight-resource` manage configuration resources, the ones the Terraform provider writes. They live under `/v1/resources` and address everything by id. Every resource follows these rules, and a conformance suite checks each one against them.\n\n- **Stable ids.** Spotlight issues a resource's `id` when it is created. It never changes for the resource's life, whatever else does.\n- **Reads return every field.** A read returns the whole resource, defaults filled in, so a client comparing it with what it wrote sees any drift. A write returns exactly what a read returns.\n- **Versions.** Every resource carries a `version` that rises with each change, and each response carries it as a strong `ETag` (`\"3\"`). An update or delete must send it back as `If-Match`: without one it fails with 428, and against a version that is no longer current with 409, whose body gives the `currentVersion` and whose `ETag` names it. A write that would remove something another resource still uses fails with 409 `in-use`.\n- **Idempotent creates.** A create must carry an `Idempotency-Key`. Retrying with the same key and body within 24 hours returns the resource that the first attempt created, marked `Idempotent-Replayed: true`, and creates nothing more; the same key with a different body fails with 422.\n- **Problems name fields.** Errors are `application/problem+json` (RFC 9457). `type` is stable and safe to branch on. An invalid request lists `errors`, each with the `path` of the attribute it is about, as in `stations[2].check`; a key that is not a plain name is quoted, as Terraform addresses it: `on[\"task.opened\"].to.thread`.\n- **API versions.** The path names the major version, as in `/v1`; a change that is not additive gets a new path. Within it, a client may send `Spotlight-Api-Version`; every response names the version that it uses, currently `2026-09-23`. Changes within a version are additive only: fields and operations are added, never removed, renamed or given a new meaning.\n- **Expression checks.** `POST /v1/expressions/check` type-checks one CEL expression at the attribute that contains it, named within the resource's whole definition (`integration.webhook.events[0].when`), as `terraform plan` needs. What the expression may read is worked out from that definition exactly as applying it would, so a plan fails where an apply would; a definition that has an error fails with 422, each error under `definition`. It returns the type and any errors, each with the span it is about and a suggestion where a declared name is near, and warnings about the definition, such as a capture shadowing a built-in name. `GET /v1/expressions/positions` lists every position, with `[*]` for any index or key, and the variables an expression there can read. They follow these headers and problems, but are not resources.\n- **Credentials.** A client calls with a person's session or with a workspace token. A script or Terraform sends a workspace token, or the login that `spotlight login` stores, as `Authorization: Bearer <token>`. A login acts as its person, with that person's role. A token acts only within its own workspace and only as its scopes allow. `read`, `plan` and `configure` are a ladder: `read` reads, `plan` also checks expressions, and `configure` also creates, updates and deletes configuration as a workspace admin may, except secrets, runners and OIDC trusts. `secrets` is granted beside one of them and lets the token create, rebind, rotate and delete secrets; Terraform that manages secrets uses `[\"configure\", \"secrets\"]`. `runners` is granted the same way and lets the token create, rekey and delete runners and runner trusts and create, update and delete the workspace's runners, since a runner claims runs, checks out repositories and keeps git credentials; Terraform that manages runners uses `[\"configure\", \"runners\"]`. `trusts` is granted the same way and lets the token create, update and delete OIDC trusts, since a trust hands out tokens; a token can only create a trust that grants scopes it has itself, so bootstrap the trusts once with a token that has `trusts` and every scope they grant, as in `[\"configure\", \"secrets\", \"trusts\"]`, and revoke it. No token manages members or tokens, or reads the audit.\n- **CI without a stored token.** A workspace admin, or a token granted `trusts`, creates an OIDC trust naming an OIDC issuer, audience, subject and claims, and the scopes and lifetime (at most an hour) of the tokens it issues. A CI job exchanges the OIDC token its platform issues it at `POST /v1/workspace-tokens/exchange` with `{ \"trust\": <trust id>, \"token\": <OIDC token> }`, and calls with the short-lived token it gets back. Deleting the trust stops every token that it issued at once, and the audit names the trust and the workload's subject beside each exchange and each change made with an issued token.\n- **Forbidden changes.** A change by someone who may read the resource but not change it, person or token, fails with 403 `forbidden`, whose `permission` names what the caller lacks, one of `configure`, `secrets`, `runners`, `trusts`, `administer`, `create-workspaces`, `plan`. Anything they may not see at all returns 404.\n- **Who changed what.** A client names itself in `Spotlight-Client` (`terraform-provider/<version>` or `web`), and every configuration change is recorded with who made it, person or token, and through which client. A secret's change also records the value version it moved to and the hosts it is bound to, never its value.\n- **Import by address.** Each resource has an `address` that names it within its workspace, such as `core/linear`, and an import operation that returns the resource at that address, as `terraform import` needs. A workspace's address is its slug; a team's is its key; anything a team owns is the team's key and its own, as in `core/delivery`.",
     "version": "2026-09-23",
     "contact": {}
   },

@@ -98,14 +98,14 @@ describe('runner pools (e2e)', () => {
 
   const create = (body: object) =>
     http()
-      .post(`/api/resources/workspaces/${workspaceId}/runner-pools`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/runner-pools`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send(body);
 
   const update = (id: string, version: number, body: object) =>
     http()
-      .put(`/api/resources/runner-pools/${id}`)
+      .put(`/api/v1/resources/runner-pools/${id}`)
       .set(TEST_USER_HEADER, owner)
       .set('If-Match', `"${version}"`)
       .send(body);
@@ -259,7 +259,7 @@ describe('runner pools (e2e)', () => {
       const token = tokenOf('i');
       await create({ key: 'ephemeral', token }).expect(201);
       await http()
-        .post(`/api/resources/teams/${workspaceId}/lines`)
+        .post(`/api/v1/resources/teams/${workspaceId}/lines`)
         .set(TEST_USER_HEADER, owner)
         .set('Idempotency-Key', randomUUID())
         .send({
@@ -439,7 +439,7 @@ describe('runner pools (e2e)', () => {
       const token = tokenOf('deleted');
       const made = await create({ key: 'ephemeral', token }).expect(201);
       await http()
-        .delete(`/api/resources/runner-pools/${made.body.id}`)
+        .delete(`/api/v1/resources/runner-pools/${made.body.id}`)
         .set(TEST_USER_HEADER, owner)
         .set('If-Match', `"${made.body.version}"`)
         .expect(204);
@@ -655,10 +655,10 @@ describe('runner pools (e2e)', () => {
       await create({ key: 'ephemeral', token: tokenOf('h') }).expect(201);
 
       const workspace = await http()
-        .get(`/api/resources/workspaces/${workspaceId}`)
+        .get(`/api/v1/resources/workspaces/${workspaceId}`)
         .set(TEST_USER_HEADER, owner);
       const rejected = await http()
-        .delete(`/api/resources/workspaces/${workspaceId}`)
+        .delete(`/api/v1/resources/workspaces/${workspaceId}`)
         .set(TEST_USER_HEADER, owner)
         .set('If-Match', `"${workspace.body.version}"`);
 
@@ -816,7 +816,7 @@ describe('runner pools (e2e)', () => {
       const claimed = await claimWith(token).expect(200);
 
       await http()
-        .delete(`/api/resources/runner-pools/${pool.body.id}`)
+        .delete(`/api/v1/resources/runner-pools/${pool.body.id}`)
         .set(TEST_USER_HEADER, owner)
         .set('If-Match', `"${pool.body.version}"`)
         .expect(204);

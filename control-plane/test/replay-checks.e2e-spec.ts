@@ -296,7 +296,7 @@ const endReplay = async (
 
 const tokenWith = async (scopes: readonly string[]) => {
   const issued = await http()
-    .post(`/api/resources/workspaces/${team.workspaceId.value}/tokens`)
+    .post(`/api/v1/resources/workspaces/${team.workspaceId.value}/tokens`)
     .set(TEST_USER_HEADER, team.owner.value)
     .set('Idempotency-Key', randomUUID())
     .send({ name: `checks-${scopes.join('-')}`, scopes });
@@ -386,7 +386,7 @@ beforeAll(async () => {
   });
 
   await http()
-    .post(`/api/resources/workspaces/${team.workspaceId.value}/runner-pools`)
+    .post(`/api/v1/resources/workspaces/${team.workspaceId.value}/runner-pools`)
     .set(TEST_USER_HEADER, team.owner.value)
     .set('Idempotency-Key', randomUUID())
     .send({ key: 'hosts', labels: ['linux'], token: POOL_TOKEN })

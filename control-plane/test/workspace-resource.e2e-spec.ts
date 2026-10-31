@@ -35,11 +35,11 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: '/api/resources/workspaces',
-    item: (id) => `/api/resources/workspaces/${id}`,
+    collection: '/api/v1/resources/workspaces',
+    item: (id) => `/api/v1/resources/workspaces/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/import?address=${encodeURIComponent(address)}`,
-    listing: () => '/api/resources/workspaces',
+      `/api/v1/resources/workspaces/import?address=${encodeURIComponent(address)}`,
+    listing: () => '/api/v1/resources/workspaces',
     workspaceOf: (created) => created.id,
     listsAcrossWorkspaces: true,
     address: slug,

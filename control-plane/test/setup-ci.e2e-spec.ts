@@ -220,7 +220,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
 
   it('stops, and changes nothing, when a trust with its key admits another workload', async () => {
     await served(app)
-      .post(`/api/resources/workspaces/${workspaceId}/oidc-trusts`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/oidc-trusts`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send({

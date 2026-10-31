@@ -147,14 +147,14 @@ describe('an integration providing tools from an API spec (e2e)', () => {
 
   const create = (body: object, key: string = randomUUID()) =>
     served(app)
-      .post(`/api/resources/teams/${workspaceId}/integrations`)
+      .post(`/api/v1/resources/teams/${workspaceId}/integrations`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', key)
       .send(body);
 
   const update = (id: string, version: number, body: object) =>
     served(app)
-      .put(`/api/resources/integrations/${id}`)
+      .put(`/api/v1/resources/integrations/${id}`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('If-Match', `"${version}"`)
       .send(body);

@@ -152,8 +152,12 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     fetch.mockClear();
 
     expect(
-      (await post(`/api/resources/teams/${workspaceId}/integrations`, LINEAR))
-        .status,
+      (
+        await post(
+          `/api/v1/resources/teams/${workspaceId}/integrations`,
+          LINEAR,
+        )
+      ).status,
     ).toBe(201);
   });
 
@@ -187,7 +191,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
 
   it('injects the secret that is bound to the host, and reaches the host', async () => {
     await post(
-      `/api/resources/workspaces/${workspaceId}/secrets`,
+      `/api/v1/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
@@ -202,7 +206,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
   });
 
   it('reaches the host with a secret bound to a query parameter, and keeps it out of the answer', async () => {
-    await post(`/api/resources/workspaces/${workspaceId}/secrets`, {
+    await post(`/api/v1/resources/workspaces/${workspaceId}/secrets`, {
       ...secretBoundTo('api.linear.app'),
       bindings: [{ host: 'api.linear.app', location: 'query', name: 'key' }],
     });
@@ -226,7 +230,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
 
   it('infers an output schema from what the tool answered, without its values, for the next run’s manifest', async () => {
     await post(
-      `/api/resources/workspaces/${workspaceId}/secrets`,
+      `/api/v1/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
@@ -250,7 +254,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
 
   it('grants the run the secret for its host alone', async () => {
     await post(
-      `/api/resources/workspaces/${workspaceId}/secrets`,
+      `/api/v1/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
@@ -275,7 +279,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
 
   it('grants each attempt of a run afresh, and nothing more to an attempt the run moved past', async () => {
     await post(
-      `/api/resources/workspaces/${workspaceId}/secrets`,
+      `/api/v1/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
@@ -296,7 +300,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     const grants = app.get<RunGrantsPort>(RUN_GRANTS);
 
     await post(
-      `/api/resources/workspaces/${workspaceId}/secrets`,
+      `/api/v1/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
@@ -310,7 +314,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
 
   it('sends nothing for a run whose end was received before anything was granted to it', async () => {
     await post(
-      `/api/resources/workspaces/${workspaceId}/secrets`,
+      `/api/v1/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
     );
 
@@ -331,7 +335,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
 
   it('sends nothing where the secret is bound to another host', async () => {
     await post(
-      `/api/resources/workspaces/${workspaceId}/secrets`,
+      `/api/v1/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('uploads.linear.app'),
     );
 

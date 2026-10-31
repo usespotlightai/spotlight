@@ -8169,7 +8169,7 @@ export type CreateLineData = {
     teamId: string;
   };
   query?: never;
-  url: '/resources/teams/{teamId}/lines';
+  url: '/v1/resources/teams/{teamId}/lines';
 };
 
 export type CreateLineErrors = {
@@ -8230,7 +8230,7 @@ export type DeleteLineData = {
     id: string;
   };
   query?: never;
-  url: '/resources/lines/{id}';
+  url: '/v1/resources/lines/{id}';
 };
 
 export type DeleteLineErrors = {
@@ -8287,7 +8287,7 @@ export type ReadLineData = {
     id: string;
   };
   query?: never;
-  url: '/resources/lines/{id}';
+  url: '/v1/resources/lines/{id}';
 };
 
 export type ReadLineErrors = {
@@ -8338,7 +8338,7 @@ export type UpdateLineData = {
     id: string;
   };
   query?: never;
-  url: '/resources/lines/{id}';
+  url: '/v1/resources/lines/{id}';
 };
 
 export type UpdateLineErrors = {
@@ -8404,7 +8404,7 @@ export type ImportLineData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/lines/import';
+  url: '/v1/resources/workspaces/{workspaceId}/lines/import';
 };
 
 export type ImportLineErrors = {
@@ -8449,7 +8449,7 @@ export type ListLinesData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/lines';
+  url: '/v1/resources/workspaces/{workspaceId}/lines';
 };
 
 export type ListLinesErrors = {
@@ -10530,7 +10530,7 @@ export type ImportWorkspaceData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/import';
+  url: '/v1/resources/workspaces/import';
 };
 
 export type ImportWorkspaceErrors = {
@@ -10573,7 +10573,7 @@ export type ListWorkspacesData = {
   };
   path?: never;
   query?: never;
-  url: '/resources/workspaces';
+  url: '/v1/resources/workspaces';
 };
 
 export type ListWorkspacesErrors = {
@@ -10619,7 +10619,7 @@ export type CreateWorkspaceData = {
   };
   path?: never;
   query?: never;
-  url: '/resources/workspaces';
+  url: '/v1/resources/workspaces';
 };
 
 export type CreateWorkspaceErrors = {
@@ -10680,7 +10680,7 @@ export type DeleteWorkspaceData = {
     id: string;
   };
   query?: never;
-  url: '/resources/workspaces/{id}';
+  url: '/v1/resources/workspaces/{id}';
 };
 
 export type DeleteWorkspaceErrors = {
@@ -10737,7 +10737,7 @@ export type ReadWorkspaceData = {
     id: string;
   };
   query?: never;
-  url: '/resources/workspaces/{id}';
+  url: '/v1/resources/workspaces/{id}';
 };
 
 export type ReadWorkspaceErrors = {
@@ -10789,7 +10789,7 @@ export type UpdateWorkspaceData = {
     id: string;
   };
   query?: never;
-  url: '/resources/workspaces/{id}';
+  url: '/v1/resources/workspaces/{id}';
 };
 
 export type UpdateWorkspaceErrors = {
@@ -10850,7 +10850,7 @@ export type ListTeamsData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/teams';
+  url: '/v1/resources/workspaces/{workspaceId}/teams';
 };
 
 export type ListTeamsErrors = {
@@ -10902,7 +10902,7 @@ export type CreateTeamData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/teams';
+  url: '/v1/resources/workspaces/{workspaceId}/teams';
 };
 
 export type CreateTeamErrors = {
@@ -10963,7 +10963,7 @@ export type DeleteTeamData = {
     id: string;
   };
   query?: never;
-  url: '/resources/teams/{id}';
+  url: '/v1/resources/teams/{id}';
 };
 
 export type DeleteTeamErrors = {
@@ -11020,7 +11020,7 @@ export type ReadTeamData = {
     id: string;
   };
   query?: never;
-  url: '/resources/teams/{id}';
+  url: '/v1/resources/teams/{id}';
 };
 
 export type ReadTeamErrors = {
@@ -11072,7 +11072,7 @@ export type UpdateTeamData = {
     id: string;
   };
   query?: never;
-  url: '/resources/teams/{id}';
+  url: '/v1/resources/teams/{id}';
 };
 
 export type UpdateTeamErrors = {
@@ -11138,7 +11138,7 @@ export type ImportTeamData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/teams/import';
+  url: '/v1/resources/workspaces/{workspaceId}/teams/import';
 };
 
 export type ImportTeamErrors = {
@@ -11183,7 +11183,7 @@ export type ListWorkspaceTokensData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/tokens';
+  url: '/v1/resources/workspaces/{workspaceId}/tokens';
 };
 
 export type ListWorkspaceTokensErrors = {
@@ -11237,7 +11237,7 @@ export type CreateWorkspaceTokenData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/tokens';
+  url: '/v1/resources/workspaces/{workspaceId}/tokens';
 };
 
 export type CreateWorkspaceTokenErrors = {
@@ -11300,7 +11300,7 @@ export type DeleteWorkspaceTokenData = {
     id: string;
   };
   query?: never;
-  url: '/resources/tokens/{id}';
+  url: '/v1/resources/tokens/{id}';
 };
 
 export type DeleteWorkspaceTokenErrors = {
@@ -11357,7 +11357,7 @@ export type ReadWorkspaceTokenData = {
     id: string;
   };
   query?: never;
-  url: '/resources/tokens/{id}';
+  url: '/v1/resources/tokens/{id}';
 };
 
 export type ReadWorkspaceTokenErrors = {
@@ -11411,7 +11411,7 @@ export type UpdateWorkspaceTokenData = {
     id: string;
   };
   query?: never;
-  url: '/resources/tokens/{id}';
+  url: '/v1/resources/tokens/{id}';
 };
 
 export type UpdateWorkspaceTokenErrors = {
@@ -11477,7 +11477,7 @@ export type ImportWorkspaceTokenData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/tokens/import';
+  url: '/v1/resources/workspaces/{workspaceId}/tokens/import';
 };
 
 export type ImportWorkspaceTokenErrors = {
@@ -11522,7 +11522,7 @@ export type ListOidcTrustsData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/oidc-trusts';
+  url: '/v1/resources/workspaces/{workspaceId}/oidc-trusts';
 };
 
 export type ListOidcTrustsErrors = {
@@ -11581,7 +11581,7 @@ export type CreateOidcTrustData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/oidc-trusts';
+  url: '/v1/resources/workspaces/{workspaceId}/oidc-trusts';
 };
 
 export type CreateOidcTrustErrors = {
@@ -11642,7 +11642,7 @@ export type DeleteOidcTrustData = {
     id: string;
   };
   query?: never;
-  url: '/resources/oidc-trusts/{id}';
+  url: '/v1/resources/oidc-trusts/{id}';
 };
 
 export type DeleteOidcTrustErrors = {
@@ -11699,7 +11699,7 @@ export type ReadOidcTrustData = {
     id: string;
   };
   query?: never;
-  url: '/resources/oidc-trusts/{id}';
+  url: '/v1/resources/oidc-trusts/{id}';
 };
 
 export type ReadOidcTrustErrors = {
@@ -11758,7 +11758,7 @@ export type UpdateOidcTrustData = {
     id: string;
   };
   query?: never;
-  url: '/resources/oidc-trusts/{id}';
+  url: '/v1/resources/oidc-trusts/{id}';
 };
 
 export type UpdateOidcTrustErrors = {
@@ -11824,7 +11824,7 @@ export type ImportOidcTrustData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/oidc-trusts/import';
+  url: '/v1/resources/workspaces/{workspaceId}/oidc-trusts/import';
 };
 
 export type ImportOidcTrustErrors = {
@@ -11857,7 +11857,7 @@ export type ExchangeWorkloadTokenData = {
   body: ExchangeWorkloadTokenRequestDto;
   path?: never;
   query?: never;
-  url: '/workspace-tokens/exchange';
+  url: '/v1/workspace-tokens/exchange';
 };
 
 export type ExchangeWorkloadTokenErrors = {
@@ -12344,7 +12344,7 @@ export type ListSecretsData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/secrets';
+  url: '/v1/resources/workspaces/{workspaceId}/secrets';
 };
 
 export type ListSecretsErrors = {
@@ -12417,7 +12417,7 @@ export type CreateSecretData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/secrets';
+  url: '/v1/resources/workspaces/{workspaceId}/secrets';
 };
 
 export type CreateSecretErrors = {
@@ -12478,7 +12478,7 @@ export type DeleteSecretData = {
     id: string;
   };
   query?: never;
-  url: '/resources/secrets/{id}';
+  url: '/v1/resources/secrets/{id}';
 };
 
 export type DeleteSecretErrors = {
@@ -12535,7 +12535,7 @@ export type ReadSecretData = {
     id: string;
   };
   query?: never;
-  url: '/resources/secrets/{id}';
+  url: '/v1/resources/secrets/{id}';
 };
 
 export type ReadSecretErrors = {
@@ -12608,7 +12608,7 @@ export type UpdateSecretData = {
     id: string;
   };
   query?: never;
-  url: '/resources/secrets/{id}';
+  url: '/v1/resources/secrets/{id}';
 };
 
 export type UpdateSecretErrors = {
@@ -12674,7 +12674,7 @@ export type ImportSecretData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/secrets/import';
+  url: '/v1/resources/workspaces/{workspaceId}/secrets/import';
 };
 
 export type ImportSecretErrors = {
@@ -12728,7 +12728,7 @@ export type ReadCatalogToolData = {
      */
     version: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/catalog/tools';
+  url: '/v1/resources/workspaces/{workspaceId}/catalog/tools';
 };
 
 export type ReadCatalogToolErrors = {
@@ -12790,7 +12790,7 @@ export type ReadCatalogSkillData = {
      */
     version: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/catalog/skills';
+  url: '/v1/resources/workspaces/{workspaceId}/catalog/skills';
 };
 
 export type ReadCatalogSkillErrors = {
@@ -13075,7 +13075,7 @@ export type ListRunnerTrustsData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/runner-trusts';
+  url: '/v1/resources/workspaces/{workspaceId}/runner-trusts';
 };
 
 export type ListRunnerTrustsErrors = {
@@ -13130,7 +13130,7 @@ export type CreateRunnerTrustData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/runner-trusts';
+  url: '/v1/resources/workspaces/{workspaceId}/runner-trusts';
 };
 
 export type CreateRunnerTrustErrors = {
@@ -13191,7 +13191,7 @@ export type DeleteRunnerTrustData = {
     id: string;
   };
   query?: never;
-  url: '/resources/runner-trusts/{id}';
+  url: '/v1/resources/runner-trusts/{id}';
 };
 
 export type DeleteRunnerTrustErrors = {
@@ -13248,7 +13248,7 @@ export type ReadRunnerTrustData = {
     id: string;
   };
   query?: never;
-  url: '/resources/runner-trusts/{id}';
+  url: '/v1/resources/runner-trusts/{id}';
 };
 
 export type ReadRunnerTrustErrors = {
@@ -13303,7 +13303,7 @@ export type UpdateRunnerTrustData = {
     id: string;
   };
   query?: never;
-  url: '/resources/runner-trusts/{id}';
+  url: '/v1/resources/runner-trusts/{id}';
 };
 
 export type UpdateRunnerTrustErrors = {
@@ -13369,7 +13369,7 @@ export type ImportRunnerTrustData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/runner-trusts/import';
+  url: '/v1/resources/workspaces/{workspaceId}/runner-trusts/import';
 };
 
 export type ImportRunnerTrustErrors = {
@@ -13414,7 +13414,7 @@ export type ListRunnerPoolsData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/runner-pools';
+  url: '/v1/resources/workspaces/{workspaceId}/runner-pools';
 };
 
 export type ListRunnerPoolsErrors = {
@@ -13500,7 +13500,7 @@ export type CreateRunnerPoolData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/runner-pools';
+  url: '/v1/resources/workspaces/{workspaceId}/runner-pools';
 };
 
 export type CreateRunnerPoolErrors = {
@@ -13563,7 +13563,7 @@ export type DeleteRunnerPoolData = {
     id: string;
   };
   query?: never;
-  url: '/resources/runner-pools/{id}';
+  url: '/v1/resources/runner-pools/{id}';
 };
 
 export type DeleteRunnerPoolErrors = {
@@ -13620,7 +13620,7 @@ export type ReadRunnerPoolData = {
     id: string;
   };
   query?: never;
-  url: '/resources/runner-pools/{id}';
+  url: '/v1/resources/runner-pools/{id}';
 };
 
 export type ReadRunnerPoolErrors = {
@@ -13706,7 +13706,7 @@ export type UpdateRunnerPoolData = {
     id: string;
   };
   query?: never;
-  url: '/resources/runner-pools/{id}';
+  url: '/v1/resources/runner-pools/{id}';
 };
 
 export type UpdateRunnerPoolErrors = {
@@ -13772,7 +13772,7 @@ export type ImportRunnerPoolData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/runner-pools/import';
+  url: '/v1/resources/workspaces/{workspaceId}/runner-pools/import';
 };
 
 export type ImportRunnerPoolErrors = {
@@ -13817,7 +13817,7 @@ export type ListEgressesData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/egresses';
+  url: '/v1/resources/workspaces/{workspaceId}/egresses';
 };
 
 export type ListEgressesErrors = {
@@ -13880,7 +13880,7 @@ export type CreateEgressData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/egresses';
+  url: '/v1/resources/workspaces/{workspaceId}/egresses';
 };
 
 export type CreateEgressErrors = {
@@ -13943,7 +13943,7 @@ export type DeleteEgressData = {
     id: string;
   };
   query?: never;
-  url: '/resources/egresses/{id}';
+  url: '/v1/resources/egresses/{id}';
 };
 
 export type DeleteEgressErrors = {
@@ -14000,7 +14000,7 @@ export type ReadEgressData = {
     id: string;
   };
   query?: never;
-  url: '/resources/egresses/{id}';
+  url: '/v1/resources/egresses/{id}';
 };
 
 export type ReadEgressErrors = {
@@ -14063,7 +14063,7 @@ export type UpdateEgressData = {
     id: string;
   };
   query?: never;
-  url: '/resources/egresses/{id}';
+  url: '/v1/resources/egresses/{id}';
 };
 
 export type UpdateEgressErrors = {
@@ -14129,7 +14129,7 @@ export type ImportEgressData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/egresses/import';
+  url: '/v1/resources/workspaces/{workspaceId}/egresses/import';
 };
 
 export type ImportEgressErrors = {
@@ -14174,7 +14174,7 @@ export type ListWorkspaceRunnersData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/workspace-runners';
+  url: '/v1/resources/workspaces/{workspaceId}/workspace-runners';
 };
 
 export type ListWorkspaceRunnersErrors = {
@@ -14227,7 +14227,7 @@ export type CreateWorkspaceRunnersData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/workspace-runners';
+  url: '/v1/resources/workspaces/{workspaceId}/workspace-runners';
 };
 
 export type CreateWorkspaceRunnersErrors = {
@@ -14288,7 +14288,7 @@ export type DeleteWorkspaceRunnersData = {
     id: string;
   };
   query?: never;
-  url: '/resources/workspace-runners/{id}';
+  url: '/v1/resources/workspace-runners/{id}';
 };
 
 export type DeleteWorkspaceRunnersErrors = {
@@ -14345,7 +14345,7 @@ export type ReadWorkspaceRunnersData = {
     id: string;
   };
   query?: never;
-  url: '/resources/workspace-runners/{id}';
+  url: '/v1/resources/workspace-runners/{id}';
 };
 
 export type ReadWorkspaceRunnersErrors = {
@@ -14398,7 +14398,7 @@ export type UpdateWorkspaceRunnersData = {
     id: string;
   };
   query?: never;
-  url: '/resources/workspace-runners/{id}';
+  url: '/v1/resources/workspace-runners/{id}';
 };
 
 export type UpdateWorkspaceRunnersErrors = {
@@ -14464,7 +14464,7 @@ export type ImportWorkspaceRunnersData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/workspace-runners/import';
+  url: '/v1/resources/workspaces/{workspaceId}/workspace-runners/import';
 };
 
 export type ImportWorkspaceRunnersErrors = {
@@ -14570,7 +14570,7 @@ export type CreateSkillData = {
     teamId: string;
   };
   query?: never;
-  url: '/resources/teams/{teamId}/skills';
+  url: '/v1/resources/teams/{teamId}/skills';
 };
 
 export type CreateSkillErrors = {
@@ -14631,7 +14631,7 @@ export type DeleteSkillData = {
     id: string;
   };
   query?: never;
-  url: '/resources/skills/{id}';
+  url: '/v1/resources/skills/{id}';
 };
 
 export type DeleteSkillErrors = {
@@ -14688,7 +14688,7 @@ export type ReadSkillData = {
     id: string;
   };
   query?: never;
-  url: '/resources/skills/{id}';
+  url: '/v1/resources/skills/{id}';
 };
 
 export type ReadSkillErrors = {
@@ -14742,7 +14742,7 @@ export type UpdateSkillData = {
     id: string;
   };
   query?: never;
-  url: '/resources/skills/{id}';
+  url: '/v1/resources/skills/{id}';
 };
 
 export type UpdateSkillErrors = {
@@ -14808,7 +14808,7 @@ export type ImportSkillData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/skills/import';
+  url: '/v1/resources/workspaces/{workspaceId}/skills/import';
 };
 
 export type ImportSkillErrors = {
@@ -14853,7 +14853,7 @@ export type ListSkillsData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/skills';
+  url: '/v1/resources/workspaces/{workspaceId}/skills';
 };
 
 export type ListSkillsErrors = {
@@ -14923,7 +14923,7 @@ export type CreateHarnessProfileData = {
     teamId: string;
   };
   query?: never;
-  url: '/resources/teams/{teamId}/harness-profiles';
+  url: '/v1/resources/teams/{teamId}/harness-profiles';
 };
 
 export type CreateHarnessProfileErrors = {
@@ -14984,7 +14984,7 @@ export type DeleteHarnessProfileData = {
     id: string;
   };
   query?: never;
-  url: '/resources/harness-profiles/{id}';
+  url: '/v1/resources/harness-profiles/{id}';
 };
 
 export type DeleteHarnessProfileErrors = {
@@ -15041,7 +15041,7 @@ export type ReadHarnessProfileData = {
     id: string;
   };
   query?: never;
-  url: '/resources/harness-profiles/{id}';
+  url: '/v1/resources/harness-profiles/{id}';
 };
 
 export type ReadHarnessProfileErrors = {
@@ -15111,7 +15111,7 @@ export type UpdateHarnessProfileData = {
     id: string;
   };
   query?: never;
-  url: '/resources/harness-profiles/{id}';
+  url: '/v1/resources/harness-profiles/{id}';
 };
 
 export type UpdateHarnessProfileErrors = {
@@ -15177,7 +15177,7 @@ export type ImportHarnessProfileData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/harness-profiles/import';
+  url: '/v1/resources/workspaces/{workspaceId}/harness-profiles/import';
 };
 
 export type ImportHarnessProfileErrors = {
@@ -15222,7 +15222,7 @@ export type ListHarnessProfilesData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/harness-profiles';
+  url: '/v1/resources/workspaces/{workspaceId}/harness-profiles';
 };
 
 export type ListHarnessProfilesErrors = {
@@ -15267,7 +15267,7 @@ export type ExportWorkspaceData = {
     id: string;
   };
   query?: never;
-  url: '/resources/workspaces/{id}/export';
+  url: '/v1/resources/workspaces/{id}/export';
 };
 
 export type ExportWorkspaceErrors = {
@@ -15310,7 +15310,7 @@ export type ReadResourceHclData = {
     id: string;
   };
   query?: never;
-  url: '/resources/{collection}/{id}/hcl';
+  url: '/v1/resources/{collection}/{id}/hcl';
 };
 
 export type ReadResourceHclErrors = {
@@ -15824,7 +15824,7 @@ export type CreateIntegrationData = {
     teamId: string;
   };
   query?: never;
-  url: '/resources/teams/{teamId}/integrations';
+  url: '/v1/resources/teams/{teamId}/integrations';
 };
 
 export type CreateIntegrationErrors = {
@@ -15885,7 +15885,7 @@ export type DeleteIntegrationData = {
     id: string;
   };
   query?: never;
-  url: '/resources/integrations/{id}';
+  url: '/v1/resources/integrations/{id}';
 };
 
 export type DeleteIntegrationErrors = {
@@ -15942,7 +15942,7 @@ export type ReadIntegrationData = {
     id: string;
   };
   query?: never;
-  url: '/resources/integrations/{id}';
+  url: '/v1/resources/integrations/{id}';
 };
 
 export type ReadIntegrationErrors = {
@@ -15993,7 +15993,7 @@ export type UpdateIntegrationData = {
     id: string;
   };
   query?: never;
-  url: '/resources/integrations/{id}';
+  url: '/v1/resources/integrations/{id}';
 };
 
 export type UpdateIntegrationErrors = {
@@ -16059,7 +16059,7 @@ export type ImportIntegrationData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/integrations/import';
+  url: '/v1/resources/workspaces/{workspaceId}/integrations/import';
 };
 
 export type ImportIntegrationErrors = {
@@ -16104,7 +16104,7 @@ export type ListIntegrationsData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/integrations';
+  url: '/v1/resources/workspaces/{workspaceId}/integrations';
 };
 
 export type ListIntegrationsErrors = {
@@ -16147,7 +16147,7 @@ export type CheckExpressionData = {
   };
   path?: never;
   query?: never;
-  url: '/expressions/check';
+  url: '/v1/expressions/check';
 };
 
 export type CheckExpressionErrors = {
@@ -16194,7 +16194,7 @@ export type ListExpressionPositionsData = {
   };
   path?: never;
   query?: never;
-  url: '/expressions/positions';
+  url: '/v1/expressions/positions';
 };
 
 export type ListExpressionPositionsErrors = {
@@ -16262,7 +16262,7 @@ export type CreateHookData = {
     teamId: string;
   };
   query?: never;
-  url: '/resources/teams/{teamId}/hooks';
+  url: '/v1/resources/teams/{teamId}/hooks';
 };
 
 export type CreateHookErrors = {
@@ -16323,7 +16323,7 @@ export type DeleteHookData = {
     id: string;
   };
   query?: never;
-  url: '/resources/hooks/{id}';
+  url: '/v1/resources/hooks/{id}';
 };
 
 export type DeleteHookErrors = {
@@ -16380,7 +16380,7 @@ export type ReadHookData = {
     id: string;
   };
   query?: never;
-  url: '/resources/hooks/{id}';
+  url: '/v1/resources/hooks/{id}';
 };
 
 export type ReadHookErrors = {
@@ -16429,7 +16429,7 @@ export type UpdateHookData = {
     id: string;
   };
   query?: never;
-  url: '/resources/hooks/{id}';
+  url: '/v1/resources/hooks/{id}';
 };
 
 export type UpdateHookErrors = {
@@ -16495,7 +16495,7 @@ export type ImportHookData = {
      */
     address: unknown;
   };
-  url: '/resources/workspaces/{workspaceId}/hooks/import';
+  url: '/v1/resources/workspaces/{workspaceId}/hooks/import';
 };
 
 export type ImportHookErrors = {
@@ -16540,7 +16540,7 @@ export type ListHooksData = {
     workspaceId: string;
   };
   query?: never;
-  url: '/resources/workspaces/{workspaceId}/hooks';
+  url: '/v1/resources/workspaces/{workspaceId}/hooks';
 };
 
 export type ListHooksErrors = {

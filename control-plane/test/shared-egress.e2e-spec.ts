@@ -131,7 +131,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
 
   const created = (collection: string, body: object) =>
     http()
-      .post(`/api/resources/workspaces/${workspaceId}/${collection}`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/${collection}`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send(body);
@@ -556,7 +556,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
 
     try {
       const theirs = await http()
-        .post(`/api/resources/workspaces/${other}/egresses`)
+        .post(`/api/v1/resources/workspaces/${other}/egresses`)
         .set(TEST_USER_HEADER, elsewhere.owner)
         .set('Idempotency-Key', randomUUID())
         .send({ key: 'shared', url: 'https://egress.example.com' })
@@ -600,13 +600,13 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
 
   it('does not accept the old egress token once the token is rotated', async () => {
     const egress = await http()
-      .get(`/api/resources/egresses/${egressId}`)
+      .get(`/api/v1/resources/egresses/${egressId}`)
       .set(TEST_USER_HEADER, owner)
       .expect(200);
     const rotated = `rotated${randomUUID().replaceAll('-', '')}`;
 
     await http()
-      .put(`/api/resources/egresses/${egressId}`)
+      .put(`/api/v1/resources/egresses/${egressId}`)
       .set(TEST_USER_HEADER, owner)
       .set('If-Match', `"${egress.body.version}"`)
       .send({
@@ -626,12 +626,12 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
   it('tells the runner to send only bound traffic through egress when the pool says so', async () => {
     const pool = await http()
       .get(
-        `/api/resources/workspaces/${workspaceId}/runner-pools/import?address=sandboxes`,
+        `/api/v1/resources/workspaces/${workspaceId}/runner-pools/import?address=sandboxes`,
       )
       .set(TEST_USER_HEADER, owner)
       .expect(200);
     await http()
-      .put(`/api/resources/runner-pools/${pool.body.id}`)
+      .put(`/api/v1/resources/runner-pools/${pool.body.id}`)
       .set(TEST_USER_HEADER, owner)
       .set('If-Match', `"${pool.body.version}"`)
       .send({
@@ -651,12 +651,12 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
 
   it('does not delete an egress while a pool names it', async () => {
     const egress = await http()
-      .get(`/api/resources/egresses/${egressId}`)
+      .get(`/api/v1/resources/egresses/${egressId}`)
       .set(TEST_USER_HEADER, owner)
       .expect(200);
 
     await http()
-      .delete(`/api/resources/egresses/${egressId}`)
+      .delete(`/api/v1/resources/egresses/${egressId}`)
       .set(TEST_USER_HEADER, owner)
       .set('If-Match', `"${egress.body.version}"`)
       .expect(409);
