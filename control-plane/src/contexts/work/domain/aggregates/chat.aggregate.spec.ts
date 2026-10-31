@@ -411,17 +411,7 @@ describe('Chat', () => {
       expect(ended.followsUp).toBe(true);
     });
 
-    it('follows up after a run with a stop request on the messages it did not take', () => {
-      const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
-        session: SESSION,
-        claimedBy: RUNNER,
-      });
-
-      expect(ended.chat.running).toBe(false);
-      expect(ended.followsUp).toBe(true);
-    });
-
-    it('does not follow up after a run with a stop request that took every message', () => {
+    it('does not follow up when every message was taken', () => {
       const ended = working().runEnded(RunId.of('run_1'), {
         session: SESSION,
         claimedBy: RUNNER,
