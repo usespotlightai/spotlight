@@ -7,6 +7,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useAssignTask } from '@/hooks/api/useAssignTask';
 import { useMembers } from '@/hooks/api/useMembers';
 import type { Task } from '@/lib/task';
@@ -25,11 +30,29 @@ function Unclaimed({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        'flex size-6 shrink-0 items-center justify-center rounded-full border border-muted-foreground/60 border-dashed text-muted-foreground',
+        'relative flex size-6 shrink-0 items-center justify-center text-muted-foreground',
         className,
       )}
     >
-      <UserRound className="size-3" aria-hidden />
+      <svg
+        viewBox="0 0 24 24"
+        className="absolute inset-0 size-full -rotate-90 text-muted-foreground/40"
+        aria-hidden
+      >
+        <circle
+          cx="12"
+          cy="12"
+          r="11.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1"
+          vectorEffect="non-scaling-stroke"
+          pathLength="30"
+          strokeDasharray="3 2"
+          strokeDashoffset="1.5"
+        />
+      </svg>
+      <UserRound className="size-2.5" aria-hidden />
     </span>
   );
 }
@@ -81,16 +104,25 @@ export function AssigneePicker({
           />
         </DropdownMenuTrigger>
       ) : (
-        <DropdownMenuTrigger
-          onPointerDown={(event) => event.stopPropagation()}
-          aria-label={label}
-          className={cn(
-            'shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            className,
-          )}
-        >
-          {assignee ? <PersonAvatar person={assignee} /> : <Unclaimed />}
-        </DropdownMenuTrigger>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <DropdownMenuTrigger
+                onPointerDown={(event) => event.stopPropagation()}
+                aria-label={label}
+                className={cn(
+                  'shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  className,
+                )}
+              />
+            }
+          >
+            {assignee ? <PersonAvatar person={assignee} /> : <Unclaimed />}
+          </TooltipTrigger>
+          <TooltipContent>
+            {assignee ? assignee.name : 'No assignee'}
+          </TooltipContent>
+        </Tooltip>
       )}
 
       <DropdownMenuContent
