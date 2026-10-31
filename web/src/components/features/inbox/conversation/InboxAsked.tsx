@@ -1,5 +1,6 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
+import { PinnedText } from '@/components/features/inbox/conversation/PinnedText';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import type { Attachment } from '@/lib/attachment';
 import type { ConversationItem } from '@/lib/inbox';
@@ -37,9 +38,11 @@ export function InboxAsked({
           </h1>
 
           {description && (
-            <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-6">
-              {description}
-            </p>
+            <PinnedText>
+              <p className="whitespace-pre-wrap text-muted-foreground text-sm leading-6">
+                {description}
+              </p>
+            </PinnedText>
           )}
         </div>
       </MessageCard>
