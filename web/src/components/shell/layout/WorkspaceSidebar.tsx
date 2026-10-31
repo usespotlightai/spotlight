@@ -1,5 +1,6 @@
 import { Inbox } from 'lucide-react';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
+import { SidebarSearch } from '@/components/shell/layout/SidebarSearch';
 import { TeamNav } from '@/components/shell/layout/TeamNav';
 import { WorkspaceMenu } from '@/components/shell/layout/WorkspaceMenu';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,9 +17,14 @@ type WorkspaceSidebarProps = {
     readonly role: Role;
     readonly teams: readonly Team[];
   };
+  onSearch: () => void;
 };
 
-export function WorkspaceSidebar({ slug, workspace }: WorkspaceSidebarProps) {
+export function WorkspaceSidebar({
+  slug,
+  workspace,
+  onSearch,
+}: WorkspaceSidebarProps) {
   const { data: waiting } = useInbox(slug);
   const unseen = waiting?.filter((each) => each.unread) ?? [];
 
@@ -34,17 +40,20 @@ export function WorkspaceSidebar({ slug, workspace }: WorkspaceSidebarProps) {
 
       <ScrollArea className="min-h-0 flex-1">
         <nav className="min-h-full flex flex-col gap-4 pt-2">
-          <SidebarLink
-            to={inboxPath(slug)}
-            icon={Inbox}
-            trailing={
-              unseen.length > 0 ? (
-                <p className="text-xs">{unseen.length}</p>
-              ) : null
-            }
-          >
-            Inbox
-          </SidebarLink>
+          <div className="flex flex-col gap-0.5">
+            <SidebarSearch onOpen={onSearch} />
+            <SidebarLink
+              to={inboxPath(slug)}
+              icon={Inbox}
+              trailing={
+                unseen.length > 0 ? (
+                  <p className="text-xs">{unseen.length}</p>
+                ) : null
+              }
+            >
+              Inbox
+            </SidebarLink>
+          </div>
 
           <TeamNav slug={slug} teams={workspace.teams} />
         </nav>

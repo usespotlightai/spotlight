@@ -1,13 +1,4 @@
-import {
-  ChevronLeft,
-  KeyRound,
-  type LucideIcon,
-  Server,
-  Settings2,
-  SquareMousePointer,
-  Users,
-  Webhook,
-} from 'lucide-react';
+import { ChevronLeft, KeyRound, Server, Settings2, Users } from 'lucide-react';
 import { Link } from 'react-router';
 import { SettingsNavGroup } from '@/components/shell/layout/SettingsNavGroup';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
@@ -19,17 +10,10 @@ import { onlineCount, runnersPath } from '@/lib/runner';
 import {
   apiAccessPath,
   TEAM_SETTINGS_PAGES,
-  type TeamSettingsPageId,
   teamSettingsPath,
   workspaceGeneralPath,
 } from '@/lib/settings';
 import type { Team } from '@/lib/team';
-
-const TEAM_SETTINGS_ICONS: Record<TeamSettingsPageId, LucideIcon> = {
-  general: Settings2,
-  integrations: Webhook,
-  skills: SquareMousePointer,
-};
 
 type SettingsSidebarProps = {
   slug: string;
@@ -106,7 +90,7 @@ export function SettingsSidebar({
                 <li key={page.id}>
                   <SidebarLink
                     to={teamSettingsPath(slug, team.id, page.id)}
-                    icon={TEAM_SETTINGS_ICONS[page.id]}
+                    icon={page.icon}
                   >
                     {page.label}
                   </SidebarLink>

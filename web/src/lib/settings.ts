@@ -1,3 +1,5 @@
+import { Settings2, SquareMousePointer, Webhook } from 'lucide-react';
+
 export const settingsPath = (slug: string): string => `/w/${slug}/settings`;
 
 export const apiAccessPath = (slug: string): string =>
@@ -7,9 +9,9 @@ export const workspaceGeneralPath = (slug: string): string =>
   `${settingsPath(slug)}/general`;
 
 export const TEAM_SETTINGS_PAGES = [
-  { id: 'general', label: 'General' },
-  { id: 'integrations', label: 'Integrations' },
-  { id: 'skills', label: 'Skills' },
+  { id: 'general', label: 'General', icon: Settings2 },
+  { id: 'integrations', label: 'Integrations', icon: Webhook },
+  { id: 'skills', label: 'Skills', icon: SquareMousePointer },
 ] as const;
 
 export type TeamSettingsPageId = (typeof TEAM_SETTINGS_PAGES)[number]['id'];
