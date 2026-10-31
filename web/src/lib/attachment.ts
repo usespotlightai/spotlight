@@ -12,7 +12,11 @@ export type PendingAttachment = {
   readonly image: File | null;
 } & (
   | { readonly state: 'uploading' }
-  | { readonly state: 'ready'; readonly id: string }
+  | {
+      readonly state: 'ready';
+      readonly id: string;
+      readonly uploadedAt?: number;
+    }
   | { readonly state: 'failed'; readonly problem: string }
 );
 

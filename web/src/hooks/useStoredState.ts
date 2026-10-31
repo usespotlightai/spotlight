@@ -3,7 +3,7 @@ import { useCallback, useSyncExternalStore } from 'react';
 const unstored = new Map<string, string>();
 const listeners = new Map<string, Set<() => void>>();
 
-const readStored = (storageKey: string): string | null => {
+export const readStored = (storageKey: string): string | null => {
   try {
     return localStorage.getItem(storageKey);
   } catch {
@@ -11,7 +11,7 @@ const readStored = (storageKey: string): string | null => {
   }
 };
 
-const writeStored = (storageKey: string, value: string) => {
+export const writeStored = (storageKey: string, value: string) => {
   try {
     localStorage.setItem(storageKey, value);
   } catch {
