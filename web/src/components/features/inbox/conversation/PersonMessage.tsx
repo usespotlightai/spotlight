@@ -1,4 +1,5 @@
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
+import { PinnedText } from '@/components/features/inbox/conversation/PinnedText';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { AvatarStack } from '@/components/shared/avatar/AvatarStack';
 import type { Attachment } from '@/lib/attachment';
@@ -26,9 +27,11 @@ export function PersonMessage({
       {body && (
         <div className="self-stretch">
           <MessageCard className={cn(signed && 'pr-10')}>
-            <p className="whitespace-pre-wrap text-foreground text-sm leading-6">
-              {body}
-            </p>
+            <PinnedText>
+              <p className="whitespace-pre-wrap text-foreground text-sm leading-6">
+                {body}
+              </p>
+            </PinnedText>
           </MessageCard>
         </div>
       )}

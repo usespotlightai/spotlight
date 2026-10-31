@@ -17,6 +17,7 @@ const meta = {
       chat: choice('Chat', {
         chat_retries: 'Planning tasks',
         chat_small_prs: 'Improving a station',
+        chat_pasted_log: 'Long message',
       }),
     },
   }),
@@ -25,3 +26,7 @@ const meta = {
 export default meta;
 
 export const Chat: StoryObj<typeof meta> = {};
+
+export const LongMessage: StoryObj<typeof meta> = {
+  args: { chat: 'chat_pasted_log' },
+};
