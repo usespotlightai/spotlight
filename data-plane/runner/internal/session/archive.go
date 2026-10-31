@@ -82,7 +82,7 @@ func (a *archiver) restore(ctx context.Context) error {
 	}
 
 	if a.restoresWorkspace() {
-		a.leased(ctx, a.restored)
+		a.restored(ctx)
 	}
 
 	return nil
@@ -112,12 +112,7 @@ func (a *archiver) restoreReplayed(ctx context.Context) error {
 		return nil
 	}
 
-	var err error
-	a.leased(ctx, func(ctx context.Context) {
-		err = a.restoredExactly(ctx, *wanted)
-	})
-
-	return err
+	return a.restoredExactly(ctx, *wanted)
 }
 
 func (a *archiver) restoredExactly(ctx context.Context, wanted string) error {
@@ -278,11 +273,17 @@ func packAndStore(
 
 // leased renews the lease also after a person requests a stop. The run must keep its lease until it ends.
 func (a *archiver) leased(ctx context.Context, do func(context.Context)) {
-	renewing, stop := context.WithCancel(ctx)
+	stop := leasing(ctx, a.control, a.run.ID, heartbeat, a.log)
 	defer stop()
 
+	do(ctx)
+}
+
+func leasing(ctx context.Context, lease Journal, runID string, every time.Duration, log *slog.Logger) context.CancelFunc {
+	renewing, stop := context.WithCancel(ctx)
+
 	go func() {
-		ticker := time.NewTicker(heartbeat)
+		ticker := time.NewTicker(every)
 		defer ticker.Stop()
 
 		for {
@@ -290,14 +291,14 @@ func (a *archiver) leased(ctx context.Context, do func(context.Context)) {
 			case <-renewing.Done():
 				return
 			case <-ticker.C:
-				if _, err := a.control.RenewLease(renewing, a.run.ID); err != nil {
-					a.log.Warn("could not renew lease", "error", err)
+				if _, err := lease.RenewLease(renewing, runID); err != nil {
+					log.Warn("could not renew lease", "error", err)
 				}
 			}
 		}
 	}()
 
-	do(ctx)
+	return stop
 }
 
 func settling(ctx context.Context) (context.Context, context.CancelFunc) {

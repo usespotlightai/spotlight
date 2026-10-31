@@ -48,6 +48,8 @@ type journal struct {
 	remembered             []remembered
 	memory                 []protocol.MemoryFile
 	memoryErr              error
+	memoryTakes            time.Duration
+	renewedWhileReading    int
 	starts                 []protocol.StartingPoint
 	startErr               error
 	proposed               []protocol.CandidateProposal
@@ -165,7 +167,20 @@ func (j *journal) RecordCause(
 }
 
 func (j *journal) MemoryFiles(context.Context, string) ([]protocol.MemoryFile, error) {
+	if j.memoryTakes > 0 {
+		before := j.renewed()
+		time.Sleep(j.memoryTakes)
+		j.mu.Lock()
+		j.renewedWhileReading = j.renewals - before
+		j.mu.Unlock()
+	}
 	return j.memory, j.memoryErr
+}
+
+func (j *journal) renewed() int {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.renewals
 }
 
 func (j *journal) Messages(context.Context, string) ([]protocol.Message, error) {
@@ -368,6 +383,7 @@ type runOptions struct {
 	archives    *archives
 	memory      []protocol.MemoryFile
 	memoryErr   error
+	memoryTakes time.Duration
 	starting    bool
 	startErr    error
 	replay      *protocol.Replay
@@ -387,14 +403,15 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 	}
 
 	written := &journal{
-		messages:  settings.messages,
-		stopAfter: settings.stopAfter,
-		files:     settings.files,
-		decision:  settings.decision,
-		archives:  settings.archives,
-		memory:    settings.memory,
-		memoryErr: settings.memoryErr,
-		startErr:  settings.startErr,
+		messages:    settings.messages,
+		stopAfter:   settings.stopAfter,
+		files:       settings.files,
+		decision:    settings.decision,
+		archives:    settings.archives,
+		memory:      settings.memory,
+		memoryErr:   settings.memoryErr,
+		memoryTakes: settings.memoryTakes,
+		startErr:    settings.startErr,
 	}
 	if settings.sandbox == nil {
 		settings.sandbox = new(session.Sandbox)
@@ -994,6 +1011,17 @@ output = JSON.stringify([fs.readdirSync(".spotlight/memory"), fs.readFileSync(".
 
 	if output := agentOutput(t, written); !strings.Contains(output, `["README.md"]`) || !strings.Contains(output, "could not be read") {
 		t.Errorf("the agent found %s", output)
+	}
+}
+
+func TestTheRunKeepsItsLeaseWhileItPreparesTheWorkspace(t *testing.T) {
+	written := run(t, harness(t, `output = "ready";`, "end_turn"), func(o *runOptions) {
+		o.heartbeat = 10 * time.Millisecond
+		o.memoryTakes = 200 * time.Millisecond
+	})
+
+	if written.renewedWhileReading == 0 {
+		t.Error("nothing renewed the lease before the agent started")
 	}
 }
 

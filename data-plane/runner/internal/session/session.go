@@ -117,6 +117,9 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	space := s.space
 
 	archiver := newArchiver(run, space, journal, opts.Journal, opts.Transport, log)
+	// The host renews the lease only until the handover, and prepare and setup can outlast it.
+	stopLeasing := leasing(ctx, opts.Journal, run.ID, opts.heartbeat(), log)
+	defer stopLeasing()
 	defer func() { s.kept = new(archiver.keep()) }()
 	if s.kept == nil || archiver.replays() {
 		if err := archiver.restore(ctx); err != nil {
@@ -364,6 +367,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		stopped:   make(chan struct{}),
 	}
 
+	stopLeasing()
 	err = talk.work(ctx, talk.opening(ctx))
 	_ = harness.Close()
 	if err != nil {
