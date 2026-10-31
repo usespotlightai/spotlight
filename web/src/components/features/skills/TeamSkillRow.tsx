@@ -1,5 +1,6 @@
 import { SquareMousePointer } from 'lucide-react';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
+import { OneLine } from '@/components/shared/OneLine';
 import { RowIcon } from '@/components/shared/RowIcon';
 import type { TeamSkillResponseDto } from '@/lib/api';
 import { skillAnchor } from '@/lib/skills';
@@ -21,7 +22,9 @@ export function TeamSkillRow({
     >
       <SettingsRow
         label={skill.key}
-        description={skill.description}
+        description={
+          skill.description ? <OneLine text={skill.description} /> : undefined
+        }
         leading={<RowIcon icon={SquareMousePointer} />}
       />
     </div>
