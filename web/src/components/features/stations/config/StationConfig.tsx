@@ -30,7 +30,7 @@ export function StationConfig({
         Config
       </h2>
 
-      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-flow-row-dense auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <AgentCard station={station} />
         <StationPrompt stationId={station.id} prompt={station.agentPrompt} />
         <SkillsCard skills={station.skills} />

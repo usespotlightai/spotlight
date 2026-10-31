@@ -6,9 +6,9 @@ import { SummarySkeleton } from '@/components/features/stations/overview/Summary
 export function StationOverviewSkeleton() {
   return (
     <div className="flex flex-col gap-3">
-      <StationAttentionSkeleton />
       <SummarySkeleton />
       <StationConfigSkeleton />
+      <StationAttentionSkeleton />
       <section className="flex flex-col gap-1.5">
         <h2 className="font-medium text-foreground text-xs">Runs</h2>
         <RecentRunsSkeleton />

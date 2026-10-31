@@ -437,7 +437,7 @@ describe('Station', () => {
     });
   });
 
-  it('offers the overview as its one tab, opening on what needs attention', () => {
+  it('offers the overview as its one tab, with what needs attention below the config', () => {
     renderAt('station_2');
 
     const tabs = within(screen.getByRole('navigation', { name: 'Station' }));
@@ -451,8 +451,12 @@ describe('Station', () => {
       'href',
       '/w/acme/team/team_1/lines/line_1/stations/station_2',
     );
-    expect(screen.getAllByRole('heading', { level: 2 })[0]).toHaveTextContent(
-      'What needs attention',
+    const headings = screen
+      .getAllByRole('heading', { level: 2 })
+      .map((heading) => heading.textContent);
+    expect(headings).toContain('Config');
+    expect(headings.indexOf('What needs attention')).toBeGreaterThan(
+      headings.indexOf('Config'),
     );
     expect(
       screen.getByRole('heading', { name: 'Recent runs' }),
@@ -902,15 +906,8 @@ describe('Station', () => {
       ).toBeInTheDocument();
     });
 
-    it('shows the rubric read-only on hover', async () => {
-      const user = userEvent.setup();
+    it('shows the rubric read-only in the judge card', async () => {
       renderAt('station_2');
-
-      expect(
-        screen.queryByLabelText('The judge’s rubric'),
-      ).not.toBeInTheDocument();
-
-      await user.hover(screen.getByRole('button', { name: 'Rubric' }));
 
       expect(
         await screen.findByLabelText('The judge’s rubric'),

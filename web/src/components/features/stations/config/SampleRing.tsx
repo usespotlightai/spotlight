@@ -9,14 +9,14 @@ export function SampleRing({ share, label }: { share: number; label: string }) {
       role="img"
       aria-label={label}
       viewBox="0 0 40 40"
-      className="size-20 shrink-0 -rotate-90"
+      className="size-28 shrink-0 -rotate-90"
     >
       <circle
         cx="20"
         cy="20"
         r={RADIUS}
         fill="none"
-        strokeWidth="4"
+        strokeWidth="3"
         className="stroke-muted"
       />
       <circle
@@ -24,7 +24,7 @@ export function SampleRing({ share, label }: { share: number; label: string }) {
         cy="20"
         r={RADIUS}
         fill="none"
-        strokeWidth="4"
+        strokeWidth="3"
         strokeLinecap="round"
         strokeDasharray={`${swept} ${ROUND}`}
         className="stroke-chart-primary"
