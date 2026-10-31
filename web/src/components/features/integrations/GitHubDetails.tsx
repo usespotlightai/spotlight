@@ -1,4 +1,5 @@
 import { GitHubAppLink } from '@/components/features/integrations/GitHubAppLink';
+import { IntegrationFacts } from '@/components/features/integrations/IntegrationFacts';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import { WarningTooltip } from '@/components/shared/WarningTooltip';
 import { inaccessibleOf } from '@/lib/github';
@@ -19,7 +20,7 @@ export function GitHubDetails({
   const inaccessible = inaccessibleOf(used, accessible);
 
   return (
-    <dl className="flex flex-col gap-2 pr-4 pb-4 pl-12">
+    <IntegrationFacts>
       <FactRow>
         <dt className={FACT_LABEL}>App</dt>
         <dd className={FACT_VALUE}>
@@ -71,6 +72,6 @@ export function GitHubDetails({
           </dd>
         </FactRow>
       )}
-    </dl>
+    </IntegrationFacts>
   );
 }
