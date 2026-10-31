@@ -101,13 +101,22 @@ describe('ChatOutcomes', () => {
     expect(save.mock.calls[0]?.[0].currentRunId?.value).toBe('run_2');
   });
 
-  it('leaves the messages waiting when the person stopped the agent', async () => {
+  it('takes up the messages the agent did not get when the person stopped it', async () => {
     const withMessage = working().addMessage({
       by: UserId.of('user_1'),
-      body: ChatMessageBody.of('Never mind.'),
+      body: ChatMessageBody.of('Look at the task briefing instead.'),
       at: NOW,
     });
-    const { outcomes, takenUp } = outcomesOf(withMessage);
+    const { outcomes, save, takenUp } = outcomesOf(withMessage);
+
+    await outcomes.onRunCompleted(completed(RunOutcome.stopped(0)));
+
+    expect(takenUp).toHaveBeenCalledTimes(1);
+    expect(save.mock.calls[0]?.[0].currentRunId?.value).toBe('run_2');
+  });
+
+  it('waits for the person when the agent was stopped with nothing left to take', async () => {
+    const { outcomes, takenUp } = outcomesOf(working());
 
     await outcomes.onRunCompleted(completed(RunOutcome.stopped(0)));
 

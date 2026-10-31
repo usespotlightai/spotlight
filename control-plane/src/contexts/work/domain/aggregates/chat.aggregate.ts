@@ -349,7 +349,6 @@ export class Chat extends EventRecorder {
     ending: {
       readonly session: HarnessSession | null;
       readonly claimedBy: RunnerId | null;
-      readonly stopped: boolean;
     },
   ): ChatAfterRun {
     if (!this.hasCurrentRun(runId)) {
@@ -365,10 +364,7 @@ export class Chat extends EventRecorder {
       ending.claimedBy,
     );
 
-    return {
-      chat: recorded,
-      followsUp: !ending.stopped && recorded.wantsFollowUp,
-    };
+    return { chat: recorded, followsUp: recorded.wantsFollowUp };
   }
 
   endRun(runId: RunId): Chat {
