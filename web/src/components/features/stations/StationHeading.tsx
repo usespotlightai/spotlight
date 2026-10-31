@@ -1,13 +1,14 @@
 import { StationMark } from '@/components/features/stations/StationMark';
 import { StationTabs } from '@/components/features/stations/StationTabs';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
-import { stationShare } from '@/lib/station';
+import { type StationTab, stationShare } from '@/lib/station';
 
 type StationHeadingProps = {
   slug: string;
   teamId: string;
   line: LineResponseDto;
   station: StationResponseDto;
+  tab: StationTab;
 };
 
 export function StationHeading({
@@ -15,6 +16,7 @@ export function StationHeading({
   teamId,
   line,
   station,
+  tab,
 }: StationHeadingProps) {
   return (
     <div className="flex shrink-0 flex-col gap-4 pt-2">
@@ -46,7 +48,7 @@ export function StationHeading({
           teamId={teamId}
           lineId={line.id}
           stationId={station.id}
-          current="overview"
+          current={tab}
         />
       )}
     </div>

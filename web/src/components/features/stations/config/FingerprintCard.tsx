@@ -1,5 +1,6 @@
 import { ConfigCard } from '@/components/features/stations/config/ConfigCard';
 import { ConfigCardValue } from '@/components/features/stations/config/ConfigCardValue';
+import { CalendarDay } from '@/components/shared/CalendarDay';
 import { SectionLink } from '@/components/shared/SectionLink';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { buttonVariants } from '@/components/ui/button-variants';
@@ -47,9 +48,23 @@ export function FingerprintCard({
         </ConfigCardValue>
       ) : live ? (
         <>
-          <ConfigCardValue detail={`Config ${live.fingerprint}`}>
-            {live.since ? `Live since ${live.since}` : 'Live'}
-          </ConfigCardValue>
+          {live.since ? (
+            <div className="flex flex-col items-start gap-3">
+              <div className="flex flex-col gap-1">
+                <p className="text-base text-foreground leading-tight tracking-tight">
+                  Live since
+                </p>
+                <p className="text-[0.7rem] text-muted-foreground">
+                  Config {live.fingerprint}
+                </p>
+              </div>
+              <CalendarDay day={live.since} className="self-center" />
+            </div>
+          ) : (
+            <ConfigCardValue detail={`Config ${live.fingerprint}`}>
+              Live
+            </ConfigCardValue>
+          )}
 
           {live.pullRequest && (
             <a

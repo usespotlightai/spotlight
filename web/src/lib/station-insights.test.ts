@@ -116,7 +116,7 @@ describe('configFingerprint', () => {
       ]),
     ).toEqual({
       fingerprint: 'aaaaaaaa',
-      since: 'Oct 3',
+      since: '2026-10-03',
       pullRequest: 'https://github.com/acme/config/pull/42',
     });
   });

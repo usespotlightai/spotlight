@@ -51,7 +51,7 @@ export function JudgeCard({
         </SectionLink>
       }
     >
-      <div className="grid flex-1 gap-4 sm:grid-cols-2">
+      <div className="grid flex-1 gap-x-10 gap-y-4 sm:grid-cols-2">
         <div className="flex min-w-0 flex-col gap-3">
           <div className="flex items-center gap-3">
             <SampleRing

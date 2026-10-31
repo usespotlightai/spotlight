@@ -179,7 +179,7 @@ export default function App() {
                 <Route index element={<TeamIndex />} />
                 <Route path="lines/:lineId" element={<LineBoard />} />
                 <Route
-                  path="lines/:lineId/stations/:stationId"
+                  path="lines/:lineId/stations/:stationId/:tab?"
                   element={<Station />}
                 />
                 <Route path="tasks/:taskId" element={<Task />} />
