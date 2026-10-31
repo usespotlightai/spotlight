@@ -52,12 +52,12 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${workspaceId}/integrations`,
-    item: (id) => `/api/resources/integrations/${id}`,
+    collection: `/api/v1/resources/teams/${workspaceId}/integrations`,
+    item: (id) => `/api/v1/resources/integrations/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${workspaceId}/integrations/import?address=${encodeURIComponent(address)}`,
+      `/api/v1/resources/workspaces/${workspaceId}/integrations/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) =>
-      `/api/resources/workspaces/${workspaceId}/integrations`,
+      `/api/v1/resources/workspaces/${workspaceId}/integrations`,
     workspaceOf: () => workspaceId,
     address: 'team/linear',
     valid: LINEAR,
@@ -153,7 +153,7 @@ describe('an integration, created through the resource API (e2e)', () => {
 
   beforeEach(async () => {
     fixture = await seated(app);
-    teamId = fixture.collection.split('/')[4] ?? '';
+    teamId = fixture.collection.split('/')[5] ?? '';
   });
 
   afterEach(async () => {

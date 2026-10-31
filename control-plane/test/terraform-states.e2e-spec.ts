@@ -84,7 +84,7 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
   const issue = async (scopes: readonly string[], name = scopes.join('-')) =>
     (
       await http()
-        .post(`/api/resources/workspaces/${seat.workspaceId}/tokens`)
+        .post(`/api/v1/resources/workspaces/${seat.workspaceId}/tokens`)
         .set(TEST_USER_HEADER, seat.owner)
         .set('Idempotency-Key', randomUUID())
         .send({ name, scopes })

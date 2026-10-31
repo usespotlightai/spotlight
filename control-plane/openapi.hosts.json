@@ -1,0 +1,5595 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Liveness probe",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "operationId": "getReadiness",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponseDto"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Readiness probe",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/runners/harnesses": {
+      "get": {
+        "operationId": "listHarnessProbes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HarnessProbeResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          }
+        },
+        "summary": "What to look for on this runner, so it can say what it has",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runners/claim": {
+      "post": {
+        "description": "Work is either a run to carry out or a change stack check to run against a fresh checkout. A run always comes first.",
+        "operationId": "claimRun",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimedWorkResponseDto"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Nothing queued for this pool"
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          }
+        },
+        "summary": "Long-poll for work, answering empty when the queue is",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/messages": {
+      "get": {
+        "operationId": "pendingMessages",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PendingMessageResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run leased by this runner"
+          }
+        },
+        "summary": "The messages that a person sent to the agent of this run",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/attachments/{attachmentId}": {
+      "get": {
+        "operationId": "readRunAttachment",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attachmentId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, byte for byte"
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such file, or not this runner’s run to read it for"
+          }
+        },
+        "summary": "A file attached to the run’s task, to lay out in its workspace",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/trace/{taskId}": {
+      "get": {
+        "operationId": "readRunTrace",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskTraceResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run or task, or not this run’s team to read"
+          }
+        },
+        "summary": "Read a task's trace, for an agent studying one of its own team",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/history": {
+      "get": {
+        "operationId": "readRunHistory",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "last",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "since",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "outcome",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fingerprint",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "line",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "station",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunnerHistoryResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run, or no such station in its team"
+          },
+          "409": {
+            "description": "Several of the team’s lines have a station by that key"
+          }
+        },
+        "summary": "Read a station's recent runs, their configs, journals, changes and outcomes, for an agent studying its own team",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/messages/ack": {
+      "post": {
+        "operationId": "ackMessages",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AckMessagesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "409": {
+            "description": "The run is not leased by this runner"
+          }
+        },
+        "summary": "Acknowledge the messages that the agent got",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/lease": {
+      "post": {
+        "description": "The answer carries back whether a person has requested that the run stop, so the heartbeat also tells the runner about a stop.",
+        "operationId": "renewLease",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewLeaseResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "The run is no longer leased by this runner: it ended, was suspended, or its task cancelled it. The runner releases its sandbox."
+          },
+          "409": {
+            "description": "The run kept changing while its lease was renewed; renew again on the next heartbeat."
+          }
+        },
+        "summary": "Say the run is still in progress",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/change-stack-checks/{stackId}/lease": {
+      "post": {
+        "description": "The runner with the lease on a check renews that lease while the check runs, so a second runner does not claim a long check. The answer carries back whether the runner should stop checking.",
+        "operationId": "renewCheckLease",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stackId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recheck",
+            "required": false,
+            "in": "query",
+            "description": "true when the check is the recheck of a replay’s change, as its claim said",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewCheckLeaseResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such runner, or the check this runner leases is of another run"
+          },
+          "409": {
+            "description": "The check kept moving on while it was renewed"
+          }
+        },
+        "summary": "Say the check of a change stack is still in progress",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/image": {
+      "post": {
+        "description": "The host pulls the image named for the run just after it claims it, and records the digest it pulled here, so the run shows the environment it had.",
+        "operationId": "recordRunImage",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordRunImageRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "409": {
+            "description": "The run is not leased by this runner"
+          }
+        },
+        "summary": "Say which image, by digest, the run’s sandbox started from",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/starting-point": {
+      "post": {
+        "description": "The runner reports this once the workspace is restored and its checkouts prepared, before the agent starts, and only for a run that works a task. A later attempt of the same run keeps where the first one started.",
+        "operationId": "recordStartingPoint",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordStartingPointRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run"
+          },
+          "409": {
+            "description": "The run is not leased by this runner on that attempt, works no task, or already started from somewhere else"
+          },
+          "422": {
+            "description": "An archive the run could not have restored, a commit that is not a full SHA, or checkouts that are not the run’s own"
+          }
+        },
+        "summary": "Say where the run started: the archive it restored and the commit each checkout was at",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/events": {
+      "post": {
+        "operationId": "appendRunEvents",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppendRunEventsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "409": {
+            "description": "The run is not leased by this runner"
+          }
+        },
+        "summary": "Add to the run’s journal",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/tools/{tool}": {
+      "post": {
+        "description": "The input and the answer are the tool’s own. Only for a tool enabled for the run; any credential it needs is added by Spotlight, never sent by the run.",
+        "operationId": "useTool",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tool",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "pull-request",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "example": {
+                  "title": "Fix the queue",
+                  "body": "What it does."
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ToolAnswerResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "403": {
+            "description": "This tool is not enabled for the run"
+          },
+          "404": {
+            "description": "No such run, station or tool for this runner"
+          },
+          "409": {
+            "description": "The run works no task to use it on"
+          },
+          "422": {
+            "description": "What the agent handed the tool is not what it takes"
+          },
+          "502": {
+            "description": "The integration the tool calls answered with an error"
+          }
+        },
+        "summary": "Do what a tool enabled for the run does",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/permissions": {
+      "post": {
+        "description": "Only for a run whose station names a harness profile. An approval the task already has for this exact call is spent on it; otherwise a person is asked in their inbox, and the run waits for their answer once its turn ends.",
+        "operationId": "askPermission",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskPermissionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PermissionAnswerResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "409": {
+            "description": "The run is not leased by this runner"
+          }
+        },
+        "summary": "Ask whether the harness may do what it asked to",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/review-comment-replies": {
+      "post": {
+        "description": "Spotlight replies with its own credential. No GitHub credential is ever sent to a runner.",
+        "operationId": "replyToReviewComment",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyToReviewCommentRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          }
+        },
+        "summary": "Reply to a review comment on the pull request, and resolve it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/completion": {
+      "post": {
+        "description": "The run leaves its lease. When the turn ended by asking a person (a handover for review, a tool approval or a harness permission put to them), the run is suspended until they answer. The answer requeues it, and the sandbox that keeps its workspace takes it first.",
+        "operationId": "completeRun",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteRunRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Turn reported"
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          }
+        },
+        "summary": "Report how the agent’s turn ended",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/workspace-archive": {
+      "get": {
+        "operationId": "readWorkspaceArchive",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredArchiveResponseDto"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Nothing to restore: the run starts its work afresh"
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "Not this runner’s run"
+          }
+        },
+        "summary": "The archive to restore before the run starts: the workspace the conversation it carries on was left in",
+        "tags": [
+          "runners"
+        ]
+      },
+      "post": {
+        "operationId": "grantWorkspaceArchive",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantWorkspaceArchiveRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveGrantResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "Not this runner’s run"
+          },
+          "422": {
+            "description": "Too large, not a SHA-256, work that does not carry on, or nowhere to store it"
+          }
+        },
+        "summary": "Archive the workspace as the run leaves it: a place to upload its archive, for this size and SHA-256 only",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/workspace-archive/{archiveId}/complete": {
+      "post": {
+        "operationId": "completeWorkspaceArchive",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "archiveId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "Not this runner’s run, or not an archive granted to it"
+          },
+          "409": {
+            "description": "Not uploaded, or uploaded other than as granted"
+          }
+        },
+        "summary": "Say the archive is uploaded, so the next run of this work restores it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/sandboxes/{sandboxId}/workspace-archive": {
+      "get": {
+        "description": "The bearer is the sandbox token from the sandbox’s first assignment.",
+        "operationId": "readSandboxArchive",
+        "parameters": [
+          {
+            "name": "sandboxId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoredArchiveResponseDto"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Nothing to restore: the sandbox starts with an empty workspace"
+          },
+          "404": {
+            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The archive a sandbox restores when it starts: the newest workspace its task or chat left",
+        "tags": [
+          "runners"
+        ]
+      },
+      "post": {
+        "description": "The bearer is the sandbox token. The sandbox archives with it when it drains, also when no run is in it.",
+        "operationId": "grantSandboxArchive",
+        "parameters": [
+          {
+            "name": "sandboxId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantWorkspaceArchiveRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveGrantResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox"
+          },
+          "422": {
+            "description": "Too large, not a SHA-256, a sandbox of no task or chat, or nowhere to store it"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Archive the workspace as the sandbox keeps it: a place to upload its archive, for this size and SHA-256 only",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/sandboxes/{sandboxId}/workspace-archive/{archiveId}/complete": {
+      "post": {
+        "operationId": "completeSandboxArchive",
+        "parameters": [
+          {
+            "name": "sandboxId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "archiveId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "404": {
+            "description": "Missing, wrong or no longer valid sandbox token, or not this sandbox"
+          },
+          "409": {
+            "description": "Not uploaded, or uploaded other than as granted"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Say the archive is uploaded, so the next sandbox or run of this task or chat restores it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/pools/{id}/queue": {
+      "get": {
+        "operationId": "poolQueue",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "3f7c2a9e-1b64-4d8f-a5e0-9c2b7d4e1f86",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PoolQueueResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, rotated or unknown pool token"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "How many runs wait for this pool, per label, for an autoscaler such as a KEDA ScaledJob",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/hosts/requirements": {
+      "get": {
+        "operationId": "hostRequirements",
+        "parameters": [
+          {
+            "name": "Spotlight-Trust",
+            "in": "header",
+            "description": "The runner trust to claim through; the bearer is then the workload’s token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostRequirementsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, rotated or unknown pool token, or a workload the trust does not match"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Which runner images a host should serve, what to look for in them, and how new their runner must be",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/hosts/claim": {
+      "post": {
+        "description": "Each claim starts a one-run runner through the pool or trust. The host passes its credential into the sandbox and never its own; the runner there carries it on every later call. A run of a task or chat whose workspace a ready sandbox keeps goes only to that sandbox: its host claims it with `sandbox`, and the run reuses the sandbox. Other runs start a new sandbox. When no run waits, the claim can start a requested sandbox with no run (`work.kind` is `sandbox`): it restores the workspace of its task or chat and waits for runs.",
+        "operationId": "claimHostWork",
+        "parameters": [
+          {
+            "name": "Spotlight-Trust",
+            "in": "header",
+            "description": "The runner trust to claim through; the bearer is then the workload’s token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimHostWorkRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostClaimResponseDto"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Nothing waits for this pool or trust yet, or the pool is at maxRuns"
+          },
+          "401": {
+            "description": "Missing, rotated or unknown pool token, or a workload the trust does not match"
+          },
+          "409": {
+            "description": "The host has not reported through this pool or trust (`host-unreported`), is on a release older than the host minimum (`host-outdated`), or has not reported that it supports the image it claims for (`image-unreported`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Long-poll for one run or check, assigned with a one-run runner’s credential, or for a sandbox to start with no run",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/hosts/calls/claim": {
+      "post": {
+        "description": "Assigns the oldest call waiting for this pool’s or trust’s workspace that has not expired. The host sends it once and records the response.",
+        "operationId": "claimHostCall",
+        "parameters": [
+          {
+            "name": "Spotlight-Trust",
+            "in": "header",
+            "description": "The runner trust to claim through; the bearer is then the workload’s token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimHostCallRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostCallResponseDto"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No call waits for this pool’s or trust’s workspace"
+          },
+          "401": {
+            "description": "Missing, rotated or unknown pool token, or a workload the trust does not match"
+          },
+          "409": {
+            "description": "The host has not reported through this pool or trust (`host-unreported`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Long-poll for one call that a hook requested, to send from inside the host’s network",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/hosts/calls/{id}/response": {
+      "post": {
+        "operationId": "recordHostCallResponse",
+        "parameters": [
+          {
+            "name": "Spotlight-Trust",
+            "in": "header",
+            "description": "The runner trust to claim through; the bearer is then the workload’s token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordHostCallResponseRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Spotlight recorded the response"
+          },
+          "401": {
+            "description": "Missing, rotated or unknown pool token, or a workload the trust does not match"
+          },
+          "404": {
+            "description": "No such call waits for this pool’s or trust’s workspace"
+          },
+          "409": {
+            "description": "The call already has a response, expired before it got a response, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Record the response to a claimed call",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/egress/secrets": {
+      "post": {
+        "description": "Called by an egress sidecar with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight stores come back sealed to the recipient. For a value in an external store, the response gives the external reference that egress reads.",
+        "operationId": "fetchRunSecrets",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FetchRunSecretsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EgressSecretsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or unknown egress token, or its runner no longer has a lease on work"
+          },
+          "409": {
+            "description": "The runner of this proxy credential has no lease on a run yet. Please fetch the secrets again after it claims one"
+          },
+          "422": {
+            "description": "The recipient is not an X25519 public key"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The secrets that egress injects into the run’s requests, for their bound hosts",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/egress/authorize": {
+      "post": {
+        "description": "Called by a shared egress with its egress token. Before the runner has a run, the egress allows it to connect only to the control plane.",
+        "operationId": "authorizeRunner",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizeRunnerRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EgressAuthorizationResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or unknown egress token, or its runner no longer has a lease on work"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Whether a shared egress may serve the runner that presented a run proxy credential",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/egress/active-runs": {
+      "post": {
+        "description": "Called by each node of a shared egress about every 30 seconds. The node evicts the secrets of every run that is not in the response.",
+        "operationId": "checkActiveRuns",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckActiveRunsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EgressActiveRunsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or unknown egress token, or its runner no longer has a lease on work"
+          },
+          "422": {
+            "description": "The request has more than 500 proxy credentials"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The runs of a shared egress that their runners still lease",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/egress/connections": {
+      "post": {
+        "description": "Called by a shared egress with its egress token. Spotlight stores each record with its run for 30 days. It stores a record only when the run still names the runner of the proxy credential, and that runner is active, or ended at most 2 minutes before.",
+        "operationId": "recordEgressConnections",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordEgressConnectionsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Spotlight accepted the records"
+          },
+          "401": {
+            "description": "Missing or unknown egress token, or its runner no longer has a lease on work"
+          },
+          "422": {
+            "description": "The request has more than 2000 records"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Records the connections a shared egress made for its runs",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/hosts/{hostId}": {
+      "put": {
+        "operationId": "hostHeartbeat",
+        "parameters": [
+          {
+            "name": "Spotlight-Trust",
+            "in": "header",
+            "description": "The runner trust to claim through; the bearer is then the workload’s token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hostId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "K7Q2M4ZC3VYH6N5RB8WX1TDJ9P",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HostHeartbeatRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HostHeartbeatResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Pool token is missing, rotated or unknown, or no trust accepts this workload."
+          },
+          "409": {
+            "description": "The host id is in use by another pool or trust"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "A host sends a heartbeat with what it has and what it runs, and learns which of its sandboxes to drain",
+        "tags": [
+          "runners"
+        ]
+      },
+      "delete": {
+        "operationId": "deregisterHost",
+        "parameters": [
+          {
+            "name": "Spotlight-Trust",
+            "in": "header",
+            "description": "The runner trust to claim through; the bearer is then the workload’s token",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "hostId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "K7Q2M4ZC3VYH6N5RB8WX1TDJ9P",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deregistered"
+          },
+          "401": {
+            "description": "Pool token is missing, rotated or unknown, or no trust accepts this workload."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "A host that stops deregisters itself, so the Runners page no longer shows it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runners/register": {
+      "post": {
+        "operationId": "registerRunner",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRunnerRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisteredRunnerResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          }
+        },
+        "summary": "Announce this runner and the harnesses it found installed",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/change-stacks": {
+      "post": {
+        "description": "Spotlight generates a change stack for each run of a station that asks for diffs: the runner hands over the diff of each checkout.",
+        "operationId": "generateChangeStack",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateChangeStackRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "Not a run this runner claimed"
+          },
+          "409": {
+            "description": "The run is a search, which changes no repository"
+          }
+        },
+        "summary": "Hand over what a run changed, so that Spotlight generates a change stack from it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/change-stack-checks/{stackId}": {
+      "post": {
+        "operationId": "recordChangeStackCheck",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stackId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "recheck",
+            "required": false,
+            "in": "query",
+            "description": "true when the check is the recheck of a replay’s change, as its claim said",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordChangeStackCheckRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "Not a run this runner claimed, or no such stack of it"
+          },
+          "409": {
+            "description": "This runner does not have the lease on the check of that stack"
+          },
+          "422": {
+            "description": "The stack was already checked, or names steps it has not"
+          }
+        },
+        "summary": "Report whether each layer of a change stack passed its check",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/memories/recall": {
+      "post": {
+        "operationId": "recallMemories",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecallMemoriesRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TeamMemoryResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run leased by this runner"
+          },
+          "409": {
+            "description": "The run is a search, which recalls nothing the team remembers"
+          },
+          "422": {
+            "description": "Nothing to look for"
+          }
+        },
+        "summary": "Search what the run’s team remembers, for an agent that needs more than its briefing. It records what the run recalled",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/memories/{handle}/recall": {
+      "post": {
+        "operationId": "recallMemory",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "handle",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "M-12",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamMemoryDetailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run leased by this runner"
+          },
+          "409": {
+            "description": "The run is a search, which recalls nothing the team remembers"
+          },
+          "422": {
+            "description": "Not a handle like M-12"
+          }
+        },
+        "summary": "Read one of the team’s memories in full, by its handle. It records that the run recalled it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/memories": {
+      "post": {
+        "description": "It waits in the inbox beside the task for a person to approve, like a drafted memory.",
+        "operationId": "remember",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RememberRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposedMemoryResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run leased by this runner"
+          },
+          "409": {
+            "description": "The run is a replay or a search, which remembers nothing for the team"
+          },
+          "422": {
+            "description": "An unknown kind or scope, a path outside the run’s repositories, or a chat run"
+          }
+        },
+        "summary": "Propose a memory from inside the run that cites the step that proposed it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/memory-files": {
+      "get": {
+        "operationId": "readMemoryFiles",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemoryFileResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run leased by this runner"
+          }
+        },
+        "summary": "Every active memory that applies to the run, as files to write into its workspace",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/search-candidates": {
+      "post": {
+        "description": "Proposing the same name again from the same run answers with the candidate it proposed. A rejected proposal does not count as one of the iteration’s candidates, but the run may only try so often.",
+        "operationId": "proposeSearchCandidate",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposeSearchCandidateRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchCandidateProposedResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "This run is no longer the active run of the search, or it is not a search run that this runner leases",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The iteration proposed all the candidates it may, or tried too often, or another iteration uses the name already",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A name that is no slug, no hypothesis, or a station block the line rejects or that changes what a search may not; errors name each problem’s path",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Propose a candidate from inside a search’s agent run; Spotlight replays it on the search’s searched tasks",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
+    "/runs/{runId}/failure-causes": {
+      "post": {
+        "description": "One cause per task: recording a task’s cause again replaces the one before. Only the tasks the reflection’s briefing lists take a cause.",
+        "operationId": "recordFailureCause",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordFailureCauseRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FailureCauseRecordedResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "This run is no longer the active run of the search, it is not a search run that this runner leases, or the reflection does not look into the task",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The run proposes candidates; it looks into no causes",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A cause that is none of config, task, judge, check or infra, no evidence, or text too long",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Record why a failing task failed, from inside the run in which a stalled search looks into why",
+        "tags": [
+          "runners"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Spotlight Control Plane",
+    "description": "HTTP API for the Spotlight Control Plane.\n\n## Resource conventions\n\nOperations marked `x-spotlight-resource` manage configuration resources, the ones the Terraform provider writes. They live under `/v1/resources` and address everything by id. Every resource follows these rules, and a conformance suite checks each one against them.\n\n- **Stable ids.** Spotlight issues a resource's `id` when it is created. It never changes for the resource's life, whatever else does.\n- **Reads return every field.** A read returns the whole resource, defaults filled in, so a client comparing it with what it wrote sees any drift. A write returns exactly what a read returns.\n- **Versions.** Every resource carries a `version` that rises with each change, and each response carries it as a strong `ETag` (`\"3\"`). An update or delete must send it back as `If-Match`: without one it fails with 428, and against a version that is no longer current with 409, whose body gives the `currentVersion` and whose `ETag` names it. A write that would remove something another resource still uses fails with 409 `in-use`.\n- **Idempotent creates.** A create must carry an `Idempotency-Key`. Retrying with the same key and body within 24 hours returns the resource that the first attempt created, marked `Idempotent-Replayed: true`, and creates nothing more; the same key with a different body fails with 422.\n- **Problems name fields.** Errors are `application/problem+json` (RFC 9457). `type` is stable and safe to branch on. An invalid request lists `errors`, each with the `path` of the attribute it is about, as in `stations[2].check`; a key that is not a plain name is quoted, as Terraform addresses it: `on[\"task.opened\"].to.thread`.\n- **API versions.** The path names the major version, as in `/v1`; a change that is not additive gets a new path. Within it, a client may send `Spotlight-Api-Version`; every response names the version that it uses, currently `2026-09-23`. Changes within a version are additive only: fields and operations are added, never removed, renamed or given a new meaning.\n- **Expression checks.** `POST /v1/expressions/check` type-checks one CEL expression at the attribute that contains it, named within the resource's whole definition (`integration.webhook.events[0].when`), as `terraform plan` needs. What the expression may read is worked out from that definition exactly as applying it would, so a plan fails where an apply would; a definition that has an error fails with 422, each error under `definition`. It returns the type and any errors, each with the span it is about and a suggestion where a declared name is near, and warnings about the definition, such as a capture shadowing a built-in name. `GET /v1/expressions/positions` lists every position, with `[*]` for any index or key, and the variables an expression there can read. They follow these headers and problems, but are not resources.\n- **Credentials.** A client calls with a person's session or with a workspace token. A script or Terraform sends a workspace token, or the login that `spotlight login` stores, as `Authorization: Bearer <token>`. A login acts as its person, with that person's role. A token acts only within its own workspace and only as its scopes allow. `read`, `plan` and `configure` are a ladder: `read` reads, `plan` also checks expressions, and `configure` also creates, updates and deletes configuration as a workspace admin may, except secrets, runners and OIDC trusts. `secrets` is granted beside one of them and lets the token create, rebind, rotate and delete secrets; Terraform that manages secrets uses `[\"configure\", \"secrets\"]`. `runners` is granted the same way and lets the token create, rekey and delete runners and runner trusts and create, update and delete the workspace's runners, since a runner claims runs, checks out repositories and keeps git credentials; Terraform that manages runners uses `[\"configure\", \"runners\"]`. `trusts` is granted the same way and lets the token create, update and delete OIDC trusts, since a trust hands out tokens; a token can only create a trust that grants scopes it has itself, so bootstrap the trusts once with a token that has `trusts` and every scope they grant, as in `[\"configure\", \"secrets\", \"trusts\"]`, and revoke it. No token manages members or tokens, or reads the audit.\n- **CI without a stored token.** A workspace admin, or a token granted `trusts`, creates an OIDC trust naming an OIDC issuer, audience, subject and claims, and the scopes and lifetime (at most an hour) of the tokens it issues. A CI job exchanges the OIDC token its platform issues it at `POST /v1/workspace-tokens/exchange` with `{ \"trust\": <trust id>, \"token\": <OIDC token> }`, and calls with the short-lived token it gets back. Deleting the trust stops every token that it issued at once, and the audit names the trust and the workload's subject beside each exchange and each change made with an issued token.\n- **Forbidden changes.** A change by someone who may read the resource but not change it, person or token, fails with 403 `forbidden`, whose `permission` names what the caller lacks, one of `configure`, `secrets`, `runners`, `trusts`, `administer`, `create-workspaces`, `plan`. Anything they may not see at all returns 404.\n- **Who changed what.** A client names itself in `Spotlight-Client` (`terraform-provider/<version>` or `web`), and every configuration change is recorded with who made it, person or token, and through which client. A secret's change also records the value version it moved to and the hosts it is bound to, never its value.\n- **Import by address.** Each resource has an `address` that names it within its workspace, such as `core/linear`, and an import operation that returns the resource at that address, as `terraform import` needs. A workspace's address is its slug; a team's is its key; anything a team owns is the team's key and its own, as in `core/delivery`.",
+    "version": "2026-09-23",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "opaque",
+        "type": "http",
+        "description": "A workspace token"
+      }
+    },
+    "schemas": {
+      "HealthResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ok",
+            "enum": [
+              "ok"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "ReadinessCheckDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "postgres"
+          },
+          "status": {
+            "type": "string",
+            "example": "ok",
+            "enum": [
+              "ok",
+              "failed"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "status"
+        ]
+      },
+      "ReadinessResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "ready",
+            "enum": [
+              "ready",
+              "not_ready"
+            ]
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReadinessCheckDto"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "checks"
+        ]
+      },
+      "FieldErrorResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "stations[2].check",
+            "description": "The attribute it is about, as a Terraform provider addresses one; empty for the whole resource"
+          },
+          "message": {
+            "type": "string",
+            "example": "must not be empty"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning"
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "message",
+          "severity"
+        ]
+      },
+      "ProblemResponseDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "urn:spotlight:problem:version-conflict",
+            "description": "What kind of problem it is; stable, safe to branch on"
+          },
+          "title": {
+            "type": "string",
+            "example": "The integration changed since it was read"
+          },
+          "status": {
+            "type": "number",
+            "example": 409
+          },
+          "detail": {
+            "type": "string",
+            "example": "The integration changed since you read it. Please send the current version as If-Match. Current version: 4"
+          },
+          "errors": {
+            "description": "Each field that is wrong, when the request was invalid",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FieldErrorResponseDto"
+            }
+          },
+          "currentVersion": {
+            "type": "number",
+            "example": 4,
+            "description": "The version the resource is at now, when a write conflicted"
+          },
+          "permission": {
+            "type": "string",
+            "enum": [
+              "configure",
+              "secrets",
+              "runners",
+              "trusts",
+              "administer",
+              "create-workspaces",
+              "plan"
+            ],
+            "example": "secrets",
+            "description": "The permission the caller lacks, when the request is forbidden: one its role in the workspace, or its token’s scopes, do not grant"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail"
+        ]
+      },
+      "HarnessProbeResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "executable": {
+            "type": "string",
+            "example": "claude",
+            "description": "What to look for on the runner’s PATH."
+          },
+          "discovery": {
+            "example": [
+              "cursor-agent",
+              "models"
+            ],
+            "description": "What to run to list this harness’s models, argv-style. Empty where the CLI cannot enumerate them.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "versionProbe": {
+            "example": [
+              "cursor-agent",
+              "--version"
+            ],
+            "description": "What to run to learn which release of this harness is installed, argv-style; the first version-shaped word it prints is the release.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "executable",
+          "discovery",
+          "versionProbe"
+        ]
+      },
+      "ClaimedRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code",
+            "description": "The harness the run needs, so a host can tell whether the image it pulled still contains it"
+          },
+          "attempt": {
+            "type": "number",
+            "example": 1,
+            "description": "Which attempt of the run this is, so what the runner reports for it is not taken for a later one"
+          },
+          "spec": {
+            "type": "object",
+            "description": "What the runner lays out and starts, as the runner reads it"
+          }
+        },
+        "required": [
+          "id",
+          "harness",
+          "attempt",
+          "spec"
+        ]
+      },
+      "ClaimedCheckStepResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The whole change, or the layer this step covers",
+            "example": "whole"
+          },
+          "patch": {
+            "type": "string",
+            "description": "What to apply on the base before running"
+          },
+          "stopsOnFailure": {
+            "type": "boolean",
+            "description": "Whether a failure here leaves the later steps unrun"
+          },
+          "runsSetup": {
+            "type": "boolean",
+            "description": "Whether the checkout must be made ready again once this step applies, because it installs something the step before it did not"
+          }
+        },
+        "required": [
+          "id",
+          "patch",
+          "stopsOnFailure",
+          "runsSetup"
+        ]
+      },
+      "ClaimedCheckResponseDto": {
+        "type": "object",
+        "properties": {
+          "stackId": {
+            "type": "string",
+            "example": "stack_1"
+          },
+          "recheck": {
+            "type": "boolean",
+            "description": "It checks a replay’s change a second time; the runner says so, as recheck=true, when it renews the check’s lease and reports what it found"
+          },
+          "runId": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+          },
+          "repository": {
+            "type": "object",
+            "nullable": true,
+            "description": "Which checkout to check"
+          },
+          "base": {
+            "type": "object",
+            "nullable": true,
+            "description": "The commit to check out"
+          },
+          "setup": {
+            "type": "object",
+            "nullable": true,
+            "description": "What makes the checkout ready before the check runs"
+          },
+          "command": {
+            "type": "string",
+            "example": "npm test"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClaimedCheckStepResponseDto"
+            }
+          }
+        },
+        "required": [
+          "stackId",
+          "recheck",
+          "runId",
+          "repository",
+          "base",
+          "setup",
+          "command",
+          "steps"
+        ]
+      },
+      "ClaimedWorkResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "run",
+              "check",
+              "sandbox"
+            ],
+            "description": "`sandbox` is only for a host claim: start a sandbox with no run in it"
+          },
+          "run": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClaimedRunResponseDto"
+              }
+            ]
+          },
+          "check": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClaimedCheckResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "run",
+          "check"
+        ]
+      },
+      "RunAttachmentResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47"
+          },
+          "path": {
+            "type": "string",
+            "example": ".spotlight/attachments/5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47/queue-stuck.png",
+            "description": "Where in the workspace to put it"
+          }
+        },
+        "required": [
+          "id",
+          "path"
+        ]
+      },
+      "PendingMessageResponseDto": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "number",
+            "example": 4
+          },
+          "body": {
+            "type": "string",
+            "example": "Cap the retries at 500 while you are in there."
+          },
+          "attachments": {
+            "description": "Files to lay out before the words are sent",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunAttachmentResponseDto"
+            }
+          }
+        },
+        "required": [
+          "position",
+          "body",
+          "attachments"
+        ]
+      },
+      "StepLocationResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "control-plane/src/app.module.ts"
+          },
+          "line": {
+            "type": "number",
+            "example": 126,
+            "nullable": true
+          }
+        },
+        "required": [
+          "path",
+          "line"
+        ]
+      },
+      "StepChangeResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "nullable": true
+          },
+          "before": {
+            "type": "string",
+            "description": "The file before the agent changed it"
+          },
+          "after": {
+            "type": "string",
+            "description": "The file as the agent left it"
+          }
+        },
+        "required": [
+          "path",
+          "before",
+          "after"
+        ]
+      },
+      "JournalStepResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "example": "tool",
+            "enum": [
+              "message",
+              "thought",
+              "tool",
+              "planned",
+              "hook"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "example": "ToolSearch"
+          },
+          "status": {
+            "type": "string",
+            "nullable": true,
+            "example": "completed"
+          },
+          "tool": {
+            "type": "string",
+            "nullable": true,
+            "example": "execute",
+            "description": "What sort of tool it was: execute, read, edit, …"
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the tool answered with, as much of it as is worth reading"
+          },
+          "ms": {
+            "type": "number",
+            "example": 1200,
+            "description": "How long it took, in ms"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-08-29T12:00:03.000Z",
+            "description": "When it began, for laying the run out against a clock"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StepLocationResponseDto"
+            }
+          },
+          "input": {
+            "type": "string",
+            "nullable": true,
+            "description": "The input of the call, as it was sent"
+          },
+          "output": {
+            "type": "string",
+            "nullable": true,
+            "description": "The output of the call, unread"
+          },
+          "change": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StepChangeResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "kind",
+          "text",
+          "status",
+          "tool",
+          "detail",
+          "ms",
+          "startedAt",
+          "locations",
+          "input",
+          "output",
+          "change"
+        ]
+      },
+      "SpanAttributeResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "gen_ai.request.model"
+          },
+          "value": {
+            "type": "string",
+            "example": "claude-opus-5"
+          }
+        },
+        "required": [
+          "name",
+          "value"
+        ]
+      },
+      "RunSpanResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "8889c15027e46e76"
+          },
+          "parentId": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string",
+            "example": "claude_code.llm_request"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-08-29T12:00:03.000Z"
+          },
+          "ms": {
+            "type": "number",
+            "example": 4350
+          },
+          "failed": {
+            "type": "boolean",
+            "example": false
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SpanAttributeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "parentId",
+          "name",
+          "startedAt",
+          "ms",
+          "failed",
+          "attributes"
+        ]
+      },
+      "TraceConnectionResponseDto": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "example": "paste.example.net"
+          },
+          "port": {
+            "type": "number",
+            "example": 443
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "passthrough",
+              "injected",
+              "blocked",
+              "failed"
+            ],
+            "description": "blocked: egress stopped it. failed: egress could not open it. injected: egress injected a secret into the request"
+          },
+          "status": {
+            "type": "number",
+            "nullable": true,
+            "example": 401,
+            "description": "The status the host answered an injected request with"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "not-allowed",
+              "private-address",
+              "not-bound",
+              "no-such-host",
+              "timed-out",
+              "tls-failed",
+              "unreachable",
+              null
+            ],
+            "nullable": true,
+            "description": "Why egress blocked the connection or could not open it"
+          },
+          "error": {
+            "type": "string",
+            "enum": [
+              "blocked",
+              "failed",
+              "auth-failed",
+              "server-error",
+              null
+            ],
+            "nullable": true,
+            "description": "The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error"
+          },
+          "count": {
+            "type": "number",
+            "example": 3,
+            "description": "How many times the same error occurred in this row. The row starts at the first time"
+          }
+        },
+        "required": [
+          "host",
+          "port",
+          "outcome",
+          "status",
+          "reason",
+          "error",
+          "count"
+        ]
+      },
+      "TraceNodeResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "run:run_1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "run",
+              "phase",
+              "step",
+              "span",
+              "connection"
+            ],
+            "example": "run"
+          },
+          "name": {
+            "type": "string",
+            "example": "Implementation"
+          },
+          "startedAt": {
+            "type": "string",
+            "example": "2026-09-01T13:25:04.000Z"
+          },
+          "ms": {
+            "type": "number",
+            "example": 143000,
+            "description": "How long it took, in ms"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "overhead",
+              "failed"
+            ],
+            "example": "agent",
+            "description": "The agent working, the overhead around it, or an error"
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true,
+            "example": 4.97
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true,
+            "example": "USD"
+          },
+          "step": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/JournalStepResponseDto"
+              }
+            ]
+          },
+          "span": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunSpanResponseDto"
+              }
+            ]
+          },
+          "connection": {
+            "nullable": true,
+            "description": "On a connection row: a connection of the run with an error, as a shared egress recorded it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TraceConnectionResponseDto"
+              }
+            ]
+          },
+          "egressEnforcement": {
+            "type": "string",
+            "enum": [
+              "enforced",
+              "not-enforced",
+              null
+            ],
+            "nullable": true,
+            "description": "On a run row: what the runner in the sandbox reported before the harness started. enforced: a direct connection around egress failed. not-enforced: it operated. null: the runner did not check"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceNodeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "startedAt",
+          "ms",
+          "category",
+          "cost",
+          "currency",
+          "step",
+          "span",
+          "connection",
+          "egressEnforcement",
+          "children"
+        ]
+      },
+      "TaskTraceResponseDto": {
+        "type": "object",
+        "properties": {
+          "startedAt": {
+            "type": "string",
+            "nullable": true
+          },
+          "ms": {
+            "type": "number",
+            "example": 2423000,
+            "description": "First run to last, in ms"
+          },
+          "rows": {
+            "type": "number",
+            "example": 454,
+            "description": "How many rows it draws"
+          },
+          "errors": {
+            "type": "number",
+            "example": 21
+          },
+          "roots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TraceNodeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "startedAt",
+          "ms",
+          "rows",
+          "errors",
+          "roots"
+        ]
+      },
+      "HistoryPlaceResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "implementation"
+          },
+          "name": {
+            "type": "string",
+            "example": "Implementation"
+          }
+        },
+        "required": [
+          "key",
+          "name"
+        ]
+      },
+      "ProfileViewResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "careful"
+          },
+          "settings": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "The permissions, MCP servers and native settings it contained"
+          }
+        },
+        "required": [
+          "key",
+          "settings"
+        ]
+      },
+      "RepositoryViewResponseDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "api"
+          },
+          "setup": {
+            "type": "string",
+            "nullable": true,
+            "example": "npm ci"
+          }
+        },
+        "required": [
+          "name",
+          "setup"
+        ]
+      },
+      "SkillViewResponseDto": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "example": "reviewing"
+          },
+          "hash": {
+            "type": "string",
+            "description": "The SHA-256 of the skill's files"
+          }
+        },
+        "required": [
+          "key",
+          "hash"
+        ]
+      },
+      "JudgeViewResponseDto": {
+        "type": "object",
+        "properties": {
+          "rubricHash": {
+            "type": "string",
+            "description": "The SHA-256 of the judge's rubric"
+          },
+          "sample": {
+            "type": "number",
+            "example": 0.2,
+            "description": "The share of runs judged"
+          },
+          "minAgreement": {
+            "type": "number",
+            "example": 0.6,
+            "description": "How often the judge must agree with people"
+          }
+        },
+        "required": [
+          "rubricHash",
+          "sample",
+          "minAgreement"
+        ]
+      },
+      "StationConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "nullable": true
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "model": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-opus-5-5"
+          },
+          "effort": {
+            "type": "string",
+            "nullable": true,
+            "example": "high"
+          },
+          "profile": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ProfileViewResponseDto"
+              }
+            ]
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "example": "ghcr.io/acme/api:1"
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepositoryViewResponseDto"
+            }
+          },
+          "skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SkillViewResponseDto"
+            }
+          },
+          "tools": {
+            "example": [
+              "pull-request"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "decisions": {
+            "type": "boolean"
+          },
+          "memories": {
+            "type": "boolean"
+          },
+          "judge": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/JudgeViewResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "prompt",
+          "harness",
+          "model",
+          "effort",
+          "profile",
+          "image",
+          "repositories",
+          "skills",
+          "tools",
+          "decisions",
+          "memories",
+          "judge"
+        ]
+      },
+      "HistoryConfigResponseDto": {
+        "type": "object",
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "description": "The SHA-256 naming this station config"
+          },
+          "config": {
+            "$ref": "#/components/schemas/StationConfigResponseDto"
+          }
+        },
+        "required": [
+          "fingerprint",
+          "config"
+        ]
+      },
+      "RunUsageResponseDto": {
+        "type": "object",
+        "properties": {
+          "ms": {
+            "type": "number",
+            "nullable": true
+          },
+          "steps": {
+            "type": "number"
+          },
+          "errors": {
+            "type": "number"
+          },
+          "contextTokens": {
+            "type": "number",
+            "nullable": true
+          },
+          "cost": {
+            "type": "number",
+            "nullable": true
+          },
+          "currency": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "ms",
+          "steps",
+          "errors",
+          "contextTokens",
+          "cost",
+          "currency"
+        ]
+      },
+      "TaskHumanActionResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "started",
+              "parked",
+              "accepted",
+              "answered",
+              "approved",
+              "dismissed",
+              "sent-back"
+            ]
+          },
+          "at": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "at"
+        ]
+      },
+      "RunOutcomeResponseDto": {
+        "type": "object",
+        "properties": {
+          "ending": {
+            "type": "string",
+            "enum": [
+              "completed",
+              "failed",
+              "stopped",
+              "exhausted",
+              "cancelled",
+              "superseded"
+            ]
+          },
+          "failure": {
+            "type": "string",
+            "nullable": true,
+            "example": "exited"
+          },
+          "visit": {
+            "type": "number",
+            "description": "How many runs this station has taken on the task, this one included"
+          },
+          "usage": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunUsageResponseDto"
+              }
+            ]
+          },
+          "checks": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "passed",
+              "failed",
+              "skipped",
+              null
+            ]
+          },
+          "firstHumanAction": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/TaskHumanActionResponseDto"
+              }
+            ]
+          },
+          "pullRequestState": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "open",
+              "merged",
+              "closed",
+              null
+            ]
+          }
+        },
+        "required": [
+          "ending",
+          "failure",
+          "visit",
+          "usage",
+          "checks",
+          "firstHumanAction",
+          "pullRequestState"
+        ]
+      },
+      "FileChangeResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "src/queue.ts"
+          },
+          "before": {
+            "type": "string"
+          },
+          "after": {
+            "type": "string"
+          },
+          "omitted": {
+            "type": "boolean",
+            "description": "The file was too large to send whole; before and after are empty"
+          }
+        },
+        "required": [
+          "path",
+          "before",
+          "after",
+          "omitted"
+        ]
+      },
+      "HistoryRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "example": "completed"
+          },
+          "attempt": {
+            "type": "number"
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "endedAt": {
+            "type": "string"
+          },
+          "outcome": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunOutcomeResponseDto"
+              }
+            ]
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileChangeResponseDto"
+            }
+          },
+          "trace": {
+            "$ref": "#/components/schemas/TaskTraceResponseDto"
+          }
+        },
+        "required": [
+          "runId",
+          "taskId",
+          "title",
+          "fingerprint",
+          "state",
+          "attempt",
+          "harness",
+          "startedAt",
+          "endedAt",
+          "outcome",
+          "changes",
+          "trace"
+        ]
+      },
+      "HistoryCandidateRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "description": "The replay run of the candidate"
+          },
+          "original": {
+            "type": "string",
+            "description": "The task run it replayed"
+          },
+          "repeat": {
+            "type": "number",
+            "example": 1,
+            "description": "Which copy of the task run it is, from 1"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string",
+            "nullable": true
+          },
+          "state": {
+            "type": "string",
+            "example": "completed"
+          },
+          "attempt": {
+            "type": "number"
+          },
+          "harness": {
+            "type": "string",
+            "example": "claude-code"
+          },
+          "startedAt": {
+            "type": "string"
+          },
+          "endedAt": {
+            "type": "string"
+          },
+          "usage": {
+            "nullable": true,
+            "description": "What the replay cost; a replay run has no outcome of its own, so the response shows its cost beside the run",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RunUsageResponseDto"
+              }
+            ]
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileChangeResponseDto"
+            }
+          },
+          "trace": {
+            "$ref": "#/components/schemas/TaskTraceResponseDto"
+          },
+          "succeeded": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Whether the replay succeeded; null while it is unscored"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "verdict": {
+            "type": "string",
+            "nullable": true,
+            "example": "pass"
+          },
+          "guidance": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the judge says a failing replay should do differently, never its reasons",
+            "example": "Give up on an upload that keeps failing instead of looping."
+          }
+        },
+        "required": [
+          "runId",
+          "original",
+          "repeat",
+          "taskId",
+          "title",
+          "fingerprint",
+          "state",
+          "attempt",
+          "harness",
+          "startedAt",
+          "endedAt",
+          "usage",
+          "changes",
+          "trace",
+          "succeeded",
+          "reasons",
+          "verdict",
+          "guidance"
+        ]
+      },
+      "HistoryCandidateResponseDto": {
+        "type": "object",
+        "properties": {
+          "candidateName": {
+            "type": "string",
+            "example": "oldest-first"
+          },
+          "fingerprint": {
+            "type": "string",
+            "description": "The SHA-256 naming the candidate’s config"
+          },
+          "hypothesis": {
+            "type": "string",
+            "description": "Why the search proposed the candidate"
+          },
+          "block": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "The candidate’s station block, in the shape that the line resource uses for a station",
+            "example": {
+              "key": "build",
+              "name": "Build",
+              "kind": "work",
+              "harness": "claude-code",
+              "prompt": "Build it, then drain the queue.",
+              "passesTo": [
+                "ship"
+              ]
+            }
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryCandidateRunResponseDto"
+            }
+          }
+        },
+        "required": [
+          "candidateName",
+          "fingerprint",
+          "hypothesis",
+          "block",
+          "runs"
+        ]
+      },
+      "RunnerHistoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "line": {
+            "$ref": "#/components/schemas/HistoryPlaceResponseDto"
+          },
+          "station": {
+            "$ref": "#/components/schemas/HistoryPlaceResponseDto"
+          },
+          "configs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryConfigResponseDto"
+            }
+          },
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryRunResponseDto"
+            }
+          },
+          "candidates": {
+            "description": "For a search run, the candidates it proposed and their replay runs; empty for any other run",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryCandidateResponseDto"
+            }
+          },
+          "seedBlock": {
+            "type": "object",
+            "additionalProperties": true,
+            "nullable": true,
+            "description": "For a search run, the station block it started from; null for any other run",
+            "example": {
+              "key": "build",
+              "name": "Build",
+              "kind": "work",
+              "harness": "claude-code",
+              "prompt": "Build it, then drain the queue.",
+              "passesTo": [
+                "ship"
+              ]
+            }
+          }
+        },
+        "required": [
+          "line",
+          "station",
+          "configs",
+          "runs",
+          "candidates",
+          "seedBlock"
+        ]
+      },
+      "AckMessagesRequestDto": {
+        "type": "object",
+        "properties": {
+          "upTo": {
+            "type": "number",
+            "example": 4,
+            "description": "The agent got all the messages up to and including this note"
+          }
+        },
+        "required": [
+          "upTo"
+        ]
+      },
+      "RenewLeaseResponseDto": {
+        "type": "object",
+        "properties": {
+          "stop": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether a person has requested that the runner stop this run"
+          }
+        },
+        "required": [
+          "stop"
+        ]
+      },
+      "RenewCheckLeaseResponseDto": {
+        "type": "object",
+        "properties": {
+          "stop": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether the runner should stop checking: the check was deleted with its task, ended, or waited too long to be recorded"
+          }
+        },
+        "required": [
+          "stop"
+        ]
+      },
+      "RecordRunImageRequestDto": {
+        "type": "object",
+        "properties": {
+          "image": {
+            "type": "string",
+            "example": "ghcr.io/acme/api-runner@sha256:9b2f5c1e0d7a4b3c8e6f1a2d5c7b9e0f3a4d6c8b1e2f5a7c9d0b3e6f8a1c4d7e",
+            "description": "The image the sandbox started from, named by its digest"
+          }
+        },
+        "required": [
+          "image"
+        ]
+      },
+      "StartedCheckoutRequestDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "service",
+            "description": "The checkout, by its path in the workspace, as the run received it"
+          },
+          "commit": {
+            "type": "string",
+            "example": "4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a",
+            "description": "The commit HEAD was at once the workspace was restored and the checkout prepared, as its full SHA"
+          }
+        },
+        "required": [
+          "path",
+          "commit"
+        ]
+      },
+      "RecordStartingPointRequestDto": {
+        "type": "object",
+        "properties": {
+          "attempt": {
+            "type": "number",
+            "example": 1,
+            "description": "The attempt of the run assigned to the runner, as the claim named it"
+          },
+          "archiveId": {
+            "type": "string",
+            "nullable": true,
+            "example": "0b8e2f4c-6a1d-4e3b-9c7f-5d2a8e1b4c6f",
+            "description": "The workspace archive the run restored, or null where it started afresh"
+          },
+          "checkouts": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StartedCheckoutRequestDto"
+            }
+          }
+        },
+        "required": [
+          "attempt",
+          "archiveId",
+          "checkouts"
+        ]
+      },
+      "RunEventRequestDto": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "number",
+            "example": 1,
+            "description": "Assigned by the runner, gapless"
+          },
+          "type": {
+            "type": "string",
+            "example": "output"
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-08-23T18:00:00.000Z"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string",
+            "description": "One session update as the agent reported it, JSON, base64"
+          }
+        },
+        "required": [
+          "seq",
+          "type",
+          "at"
+        ]
+      },
+      "AppendRunEventsRequestDto": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunEventRequestDto"
+            }
+          }
+        },
+        "required": [
+          "events"
+        ]
+      },
+      "ToolActingAsResponseDto": {
+        "type": "object",
+        "properties": {
+          "actsAs": {
+            "type": "string",
+            "description": "Whose connection the call used: the team’s, or the person’s who started the task",
+            "enum": [
+              "team",
+              "requester"
+            ],
+            "example": "requester"
+          },
+          "personId": {
+            "type": "string",
+            "description": "The person whose connection it was, where it was a person’s",
+            "example": "user_1",
+            "nullable": true
+          },
+          "linkedAccount": {
+            "type": "string",
+            "description": "The account name on the service of whoever the call acted as, where the service gives it",
+            "example": "@alice",
+            "nullable": true
+          }
+        },
+        "required": [
+          "actsAs",
+          "personId",
+          "linkedAccount"
+        ]
+      },
+      "ToolAnswerResponseDto": {
+        "type": "object",
+        "properties": {
+          "output": {
+            "description": "What the tool answered, shaped as the tool shapes it",
+            "example": "https://github.com/acme/api/pull/9",
+            "nullable": true,
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "object"
+              },
+              {
+                "type": "array",
+                "items": {}
+              }
+            ]
+          },
+          "actingAs": {
+            "nullable": true,
+            "description": "Whose connection the call acted with, where its integration requires a connection",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ToolActingAsResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "output",
+          "actingAs"
+        ]
+      },
+      "AskPermissionRequestDto": {
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "example": "0f6c2b1e-4d7a-4b8e-9c21-5a3e7d9f1b60",
+            "description": "The harness session asking, so the run that takes the task up again after the answer carries on in it"
+          },
+          "kind": {
+            "type": "string",
+            "example": "execute",
+            "description": "The ACP tool kind the harness sent, as in read, edit or execute"
+          },
+          "title": {
+            "type": "string",
+            "example": "`git push origin main`",
+            "description": "What the harness said it wants to do"
+          },
+          "input": {
+            "type": "object",
+            "additionalProperties": true,
+            "example": {
+              "command": "git push origin main"
+            },
+            "description": "The tool call’s raw input, as the harness sent it"
+          }
+        }
+      },
+      "PermissionAnswerResponseDto": {
+        "type": "object",
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "reject",
+              "pending"
+            ],
+            "example": "pending",
+            "description": "allow or reject answers the harness now; pending means a person was asked in their inbox, so the run should end its turn and release the task"
+          }
+        },
+        "required": [
+          "decision"
+        ]
+      },
+      "ReplyToReviewCommentRequestDto": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "string",
+            "example": "c3",
+            "description": "Which review comment, as the briefing named it"
+          },
+          "body": {
+            "type": "string",
+            "example": "Split out in 4a1c2b0."
+          },
+          "resolve": {
+            "type": "boolean",
+            "example": true,
+            "description": "Resolve the thread as well as replying to it"
+          }
+        },
+        "required": [
+          "handle",
+          "body"
+        ]
+      },
+      "HandoverDto": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "type": "string",
+            "example": "code-review",
+            "description": "The key of the station to pass the task to, as in code-review; \"review\" to ask a person; or \"done\" to close the task at its current station. Anything this line does not know is treated as a question for a person."
+          },
+          "note": {
+            "type": "string",
+            "example": "Reproduced on restart. Needs a spec for draining the queue.",
+            "description": "What the next station, or the person, should know"
+          }
+        },
+        "required": [
+          "next"
+        ]
+      },
+      "CompleteRunRequestDto": {
+        "type": "object",
+        "properties": {
+          "exitCode": {
+            "type": "number",
+            "example": 0
+          },
+          "failed": {
+            "type": "boolean",
+            "example": false
+          },
+          "setupFailed": {
+            "type": "boolean",
+            "example": false,
+            "description": "With failed: it failed before the agent was handed the run, while the runner made its workspace ready"
+          },
+          "timedOut": {
+            "type": "boolean",
+            "example": false,
+            "description": "With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease expired"
+          },
+          "message": {
+            "type": "string"
+          },
+          "handover": {
+            "$ref": "#/components/schemas/HandoverDto"
+          },
+          "sessionId": {
+            "type": "string",
+            "example": "67e5ddad-0fc6-4a33-90df-3c17732132c8",
+            "description": "What the harness called this conversation. Reported rather than remembered by the runner, because the next run may fall to another one."
+          },
+          "stopped": {
+            "type": "boolean",
+            "example": false,
+            "description": "A person stopped the run rather than the agent finishing it."
+          }
+        },
+        "required": [
+          "exitCode",
+          "failed"
+        ]
+      },
+      "StoredArchiveResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0b6f3c2e-6c55-4b8e-9d7a-2f4e1a9c8d31"
+          },
+          "url": {
+            "type": "string",
+            "description": "Where to GET the archive, for a quarter of an hour"
+          },
+          "size": {
+            "type": "number",
+            "example": 48213551
+          },
+          "sha256": {
+            "type": "string",
+            "example": "9f2c1d0e8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f10"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "size",
+          "sha256"
+        ]
+      },
+      "GrantWorkspaceArchiveRequestDto": {
+        "type": "object",
+        "properties": {
+          "size": {
+            "type": "number",
+            "example": 48213551,
+            "description": "The archive’s size in bytes, as it will be uploaded"
+          },
+          "sha256": {
+            "type": "string",
+            "example": "9f2c1d0e8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f10",
+            "description": "The archive’s SHA-256, as 64 hexadecimal digits"
+          }
+        },
+        "required": [
+          "size",
+          "sha256"
+        ]
+      },
+      "ArchiveGrantResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "0b6f3c2e-6c55-4b8e-9d7a-2f4e1a9c8d31"
+          },
+          "url": {
+            "type": "string",
+            "description": "Where to PUT the archive, for a quarter of an hour; the upload must carry every header given"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "content-type": "application/gzip",
+              "x-amz-checksum-sha256": "nywdDot6b15NPCsaD56NfG5Kp9PS0bmo9+bWxLOqLxA="
+            }
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "headers"
+        ]
+      },
+      "PoolQueueResponseDto": {
+        "type": "object",
+        "properties": {
+          "pending": {
+            "type": "integer",
+            "example": 3,
+            "description": "Runs and checks waiting that this pool could take, for an autoscaler to start runners for"
+          },
+          "running": {
+            "type": "integer",
+            "example": 1,
+            "description": "The pool’s runners that are active now: with a lease on a run or check, or started and yet to claim"
+          },
+          "capacity": {
+            "type": "integer",
+            "nullable": true,
+            "example": 7,
+            "description": "How many more runs the pool may take at once under maxRuns, or null for no limit"
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "example": {
+              "linux": 3,
+              "gpu": 1
+            },
+            "description": "Of what is pending, how many name each of the pool’s labels in their placement"
+          }
+        },
+        "required": [
+          "pending",
+          "running",
+          "capacity",
+          "labels"
+        ]
+      },
+      "HostReleaseResponseDto": {
+        "type": "object",
+        "properties": {
+          "release": {
+            "type": "string",
+            "nullable": true,
+            "example": "v0.7.0",
+            "description": "The published release this control plane runs; a host on another release updates to it, unless the operator turned that off. Null when the control plane runs a staging build or does not know its release"
+          },
+          "minimum": {
+            "type": "string",
+            "example": "v0.5.1",
+            "description": "The oldest host release this control plane gives work to; an older host gets no work until it updates"
+          }
+        },
+        "required": [
+          "release",
+          "minimum"
+        ]
+      },
+      "RunnerReleaseResponseDto": {
+        "type": "object",
+        "properties": {
+          "minimum": {
+            "type": "string",
+            "example": "v0.3.0",
+            "description": "The oldest runner release this control plane works with; a host cannot use an image whose runner is older"
+          }
+        },
+        "required": [
+          "minimum"
+        ]
+      },
+      "HostRequirementsResponseDto": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "$ref": "#/components/schemas/HostReleaseResponseDto"
+          },
+          "runner": {
+            "$ref": "#/components/schemas/RunnerReleaseResponseDto"
+          },
+          "harnesses": {
+            "description": "What a host looks for in each runner image",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HarnessProbeResponseDto"
+            }
+          },
+          "images": {
+            "example": [
+              "ghcr.io/acme/api-runner:main"
+            ],
+            "description": "The images this workspace’s lines name; a host serves those its allow-list allows, beside its default",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "host",
+          "runner",
+          "harnesses",
+          "images"
+        ]
+      },
+      "ClaimHostWorkRequestDto": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "example": "K7Q2M4ZC3VYH6N5RB8WX1TDJ9P",
+            "description": "The host claiming, as it names itself in its heartbeat"
+          },
+          "image": {
+            "type": "string",
+            "example": "ghcr.io/acme/api-runner:main",
+            "description": "The runner image this claim will run in, one the host reported that it supports; what it contains and whether it is the default come from that report"
+          },
+          "sandbox": {
+            "type": "string",
+            "example": "5d2e8f1a-7c4b-4e9a-b3f6-1a8d0c7e2b95",
+            "description": "A live sandbox of this host that has no run in it. The claim then takes only a queued run of the task or chat whose workspace that sandbox keeps, and delivers it into that sandbox. The sandbox already holds a capacity slot."
+          }
+        },
+        "required": [
+          "host",
+          "image"
+        ]
+      },
+      "HostClaimResponseDto": {
+        "type": "object",
+        "properties": {
+          "runnerId": {
+            "type": "string",
+            "nullable": true,
+            "example": "9c4e1a7b-2d58-4f36-8b0e-6a1f3c9d7e24",
+            "description": "The one-run runner Spotlight started for this work. Null for a sandbox with no run."
+          },
+          "token": {
+            "type": "string",
+            "nullable": true,
+            "description": "The one-run credential, good only for this work and only until it ends; every later call carries it instead of the host’s own credential. Null for a sandbox with no run."
+          },
+          "egressToken": {
+            "type": "string",
+            "nullable": true,
+            "description": "The credential the egress sidecar fetches the run’s secrets with; the host hands it to egress alone, never into the sandbox. Null for a sandbox with no run: its egress starts with no secrets."
+          },
+          "sandboxId": {
+            "type": "string",
+            "nullable": true,
+            "example": "5d2e8f1a-7c4b-4e9a-b3f6-1a8d0c7e2b95",
+            "description": "The sandbox Spotlight started for a run; the host labels its container with it and reports it in each heartbeat. Null for a check."
+          },
+          "sandboxToken": {
+            "type": "string",
+            "nullable": true,
+            "description": "The credential of a new sandbox, for its own calls only: restore and archive its workspace. The host hands it into the sandbox with the first assignment. Null when the run reuses a live sandbox, and for a check."
+          },
+          "allowedHosts": {
+            "example": [
+              "spotlight-archives.s3.eu-west-1.amazonaws.com"
+            ],
+            "description": "Hosts the egress of a sandbox with no run lets through: where the sandbox restores and stores its workspace archives. Empty for a run: its egress reads them with the run’s secrets.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "reused": {
+            "type": "boolean",
+            "example": false,
+            "description": "The run goes into the live sandbox the claim named, not into a new one. The host delivers its assignment into that container."
+          },
+          "work": {
+            "$ref": "#/components/schemas/ClaimedWorkResponseDto"
+          }
+        },
+        "required": [
+          "runnerId",
+          "token",
+          "egressToken",
+          "sandboxId",
+          "sandboxToken",
+          "allowedHosts",
+          "reused",
+          "work"
+        ]
+      },
+      "ClaimHostCallRequestDto": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "example": "K7Q2M4ZC3VYH6N5RB8WX1TDJ9P",
+            "description": "The host claiming, as it names itself in its heartbeat"
+          }
+        },
+        "required": [
+          "host"
+        ]
+      },
+      "HostCallResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a3f1c2d4-5b6e-4f70-8a91-b2c3d4e5f607",
+            "description": "The call, to answer by once it has been sent"
+          },
+          "method": {
+            "type": "string",
+            "example": "POST",
+            "description": "The method to send with"
+          },
+          "url": {
+            "type": "string",
+            "example": "http://audit.internal:8080/hooks",
+            "description": "Where to send it, from inside the host’s network"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "content-type": "application/json"
+            },
+            "description": "Sent with the body, exactly as given"
+          },
+          "body": {
+            "type": "string",
+            "example": "eyJob29rIjogImNvcmUvYXVkaXQifQ==",
+            "description": "The body to send, base64"
+          },
+          "timeoutMs": {
+            "type": "number",
+            "example": 10000,
+            "description": "How long to wait for an answer, in milliseconds"
+          }
+        },
+        "required": [
+          "id",
+          "method",
+          "url",
+          "headers",
+          "body",
+          "timeoutMs"
+        ]
+      },
+      "RecordHostCallResponseRequestDto": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "example": "K7Q2M4ZC3VYH6N5RB8WX1TDJ9P",
+            "description": "The host that records the response, the one that claimed the call"
+          },
+          "status": {
+            "type": "number",
+            "example": 200,
+            "description": "The HTTP status of the response, or 0 when no response came"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "content-type": "application/json"
+            },
+            "description": "The headers of the response"
+          },
+          "body": {
+            "type": "string",
+            "example": "eyJyZWZ1c2UiOiAibm90IHRvZGF5In0=",
+            "description": "The body of the response, base64, at most 16 KiB"
+          },
+          "ms": {
+            "type": "number",
+            "example": 184,
+            "description": "How long the call took to get a response, in milliseconds"
+          },
+          "error": {
+            "type": "string",
+            "example": "dial tcp 10.0.4.2:443: connection refused",
+            "description": "Why no response came, when the status is 0"
+          }
+        },
+        "required": [
+          "host",
+          "status",
+          "ms"
+        ]
+      },
+      "FetchRunSecretsRequestDto": {
+        "type": "object",
+        "properties": {
+          "recipient": {
+            "type": "string",
+            "example": "p8kX0q1cVJ3Q0x4yQ2a6m0dD6b8hT3n1gC9sZ7rW2Ek=",
+            "description": "The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it"
+          },
+          "proxyCredential": {
+            "type": "string",
+            "description": "The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; an egress sidecar leaves it out"
+          }
+        },
+        "required": [
+          "recipient"
+        ]
+      },
+      "ExternalSecretRefResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "aws-secrets-manager"
+            ]
+          },
+          "secretId": {
+            "type": "string",
+            "example": "arn:aws:secretsmanager:eu-west-1:123456789012:secret:linear-api-key"
+          },
+          "field": {
+            "type": "string",
+            "nullable": true,
+            "example": "token"
+          }
+        },
+        "required": [
+          "kind",
+          "secretId",
+          "field"
+        ]
+      },
+      "FetchedSecretResponseDto": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string",
+            "example": "LINEAR_API_KEY"
+          },
+          "host": {
+            "type": "string",
+            "example": "mcp.linear.app",
+            "description": "The one host that egress injects it for"
+          },
+          "location": {
+            "type": "string",
+            "enum": [
+              "header",
+              "query"
+            ],
+            "example": "header",
+            "description": "Whether egress injects it in a request header or in a query parameter"
+          },
+          "name": {
+            "type": "string",
+            "example": "authorization",
+            "description": "The header or query parameter that contains its stand-in"
+          },
+          "prefix": {
+            "type": "string",
+            "example": "Bearer "
+          },
+          "sealed": {
+            "type": "string",
+            "nullable": true,
+            "description": "The value, sealed to the recipient for this run; null when egress reads it in its own network"
+          },
+          "externalRef": {
+            "nullable": true,
+            "description": "Where egress reads the value with its host’s own identity; null when Spotlight sealed it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ExternalSecretRefResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "secret",
+          "host",
+          "location",
+          "name",
+          "prefix",
+          "sealed",
+          "externalRef"
+        ]
+      },
+      "DeniedSecretResponseDto": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string",
+            "example": "LINEAR_API_KEY"
+          },
+          "reason": {
+            "type": "string",
+            "example": "The workspace has no secret named LINEAR_API_KEY; create it before anything uses it"
+          }
+        },
+        "required": [
+          "secret",
+          "reason"
+        ]
+      },
+      "SpotlightApiResponseDto": {
+        "type": "object",
+        "properties": {
+          "sealed": {
+            "type": "string",
+            "description": "A read and plan token for this run alone, sealed to the recipient; egress injects it for the control plane as a bearer token"
+          }
+        },
+        "required": [
+          "sealed"
+        ]
+      },
+      "EgressSecretsResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "example": "run_1",
+            "description": "The run the sealed values are bound to; null when the sandbox checks a change stack and gets no secrets"
+          },
+          "extraAllowedHosts": {
+            "example": [
+              "storage.example.com"
+            ],
+            "description": "Hosts that every sandbox is allowed to connect to besides the control plane, whatever else the host allows",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bound": {
+            "example": [
+              "mcp.linear.app"
+            ],
+            "description": "The hosts the secrets are bound to. Egress decrypts only these hosts, and also the control plane host when spotlightApi is set",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "secrets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FetchedSecretResponseDto"
+            }
+          },
+          "denied": {
+            "description": "The secrets of the run that egress does not get, and why",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeniedSecretResponseDto"
+            }
+          },
+          "spotlightApi": {
+            "nullable": true,
+            "description": "Where the run uses Spotlight’s own API, the token that it uses",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpotlightApiResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "runId",
+          "extraAllowedHosts",
+          "bound",
+          "secrets",
+          "denied",
+          "spotlightApi"
+        ]
+      },
+      "AuthorizeRunnerRequestDto": {
+        "type": "object",
+        "properties": {
+          "proxyCredential": {
+            "type": "string",
+            "description": "The run proxy credential a runner presented to the egress"
+          }
+        },
+        "required": [
+          "proxyCredential"
+        ]
+      },
+      "EgressAuthorizationResponseDto": {
+        "type": "object",
+        "properties": {
+          "runnerId": {
+            "type": "string",
+            "example": "runner_1"
+          },
+          "workspaceId": {
+            "type": "string",
+            "example": "ws_1"
+          },
+          "controlPlaneHost": {
+            "type": "string",
+            "example": "app.usespotlight.ai",
+            "description": "The host of the control plane URL the runner was handed. Before the runner has a run, egress allows it to connect only to this host"
+          },
+          "controlPlanePort": {
+            "type": "number",
+            "example": 443,
+            "description": "The port of the control plane URL the runner was handed. Egress allows a sandbox to connect to the control plane host only on this port"
+          },
+          "extraAllowedHosts": {
+            "example": [
+              "storage.example.com"
+            ],
+            "description": "Hosts that every sandbox is allowed to connect to besides the control plane, whatever else the egress allows",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "runnerId",
+          "workspaceId",
+          "controlPlaneHost",
+          "controlPlanePort",
+          "extraAllowedHosts"
+        ]
+      },
+      "CheckActiveRunsRequestDto": {
+        "type": "object",
+        "properties": {
+          "proxyCredentials": {
+            "maxItems": 500,
+            "description": "The run proxy credentials whose runs the egress serves now",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "proxyCredentials"
+        ]
+      },
+      "EgressActiveRunsResponseDto": {
+        "type": "object",
+        "properties": {
+          "active": {
+            "description": "The proxy credentials whose runner still leases its work, or has no work yet. Egress evicts the secrets of every other run",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "active"
+        ]
+      },
+      "EgressConnectionRequestDto": {
+        "type": "object",
+        "properties": {
+          "proxyCredential": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string",
+            "example": "registry.npmjs.org"
+          },
+          "port": {
+            "type": "number",
+            "example": 443
+          },
+          "bytesOut": {
+            "type": "number",
+            "description": "Bytes from the sandbox to the host"
+          },
+          "bytesIn": {
+            "type": "number",
+            "description": "Bytes from the host to the sandbox"
+          },
+          "ms": {
+            "type": "number",
+            "description": "How long the connection was open"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "passthrough",
+              "injected",
+              "blocked",
+              "failed"
+            ]
+          },
+          "status": {
+            "type": "number",
+            "minimum": 100,
+            "maximum": 599,
+            "description": "The status the host answered an injected request with. Egress cannot read the status of a passthrough connection"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "not-allowed",
+              "private-address",
+              "not-bound",
+              "no-such-host",
+              "timed-out",
+              "tls-failed",
+              "unreachable"
+            ],
+            "description": "Why egress blocked the connection or could not open it. Spotlight drops a record whose reason does not fit its outcome"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "proxyCredential",
+          "host",
+          "port",
+          "bytesOut",
+          "bytesIn",
+          "ms",
+          "outcome",
+          "at"
+        ]
+      },
+      "RecordEgressConnectionsRequestDto": {
+        "type": "object",
+        "properties": {
+          "records": {
+            "maxItems": 2000,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EgressConnectionRequestDto"
+            }
+          }
+        },
+        "required": [
+          "records"
+        ]
+      },
+      "HostHeartbeatRequestDto": {
+        "type": "object",
+        "properties": {
+          "bootId": {
+            "type": "string",
+            "example": "K7Q2M4ZC3VYH6N5RB8WX1TDJ9P",
+            "description": "New each time the host starts, so a restart shows as one"
+          },
+          "name": {
+            "type": "string",
+            "example": "build-box-1",
+            "description": "What the host calls itself, usually its hostname"
+          },
+          "release": {
+            "type": "string",
+            "example": "v1.4.0",
+            "description": "The spotlight release it runs"
+          },
+          "containerRuntime": {
+            "type": "string",
+            "example": "Docker Engine - Community 27.3.1 (linux/amd64)",
+            "description": "The container runtime its sandboxes run in"
+          },
+          "capacity": {
+            "type": "number",
+            "example": 4,
+            "description": "How many sandboxes it runs at once"
+          },
+          "running": {
+            "example": [
+              "3f7c2a9e-1b64-4d8f-a5e0-9c2b7d4e1f86"
+            ],
+            "description": "The one-run runners in its sandboxes now",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sandboxes": {
+            "description": "The sandboxes whose containers it has now",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "hostSandboxRequestDto"
+              }
+            },
+            "type": "array"
+          },
+          "images": {
+            "description": "The runner images it supports or cannot use, each with what it found inside",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "hostImageRequestDto"
+              }
+            },
+            "type": "array"
+          },
+          "stopping": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when the host stopped claiming to update or restart. Spotlight then drains each of its sandboxes when no run holds it"
+          }
+        },
+        "required": [
+          "bootId",
+          "name",
+          "release",
+          "containerRuntime",
+          "capacity"
+        ]
+      },
+      "HostHeartbeatResponseDto": {
+        "type": "object",
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "example": "9b1d4c7e-2a3f-4e5d-8c6b-7a8f9e0d1c2b",
+            "description": "The workspace the host serves, which it keeps its mirrors under"
+          },
+          "drain": {
+            "example": [
+              "5d2e8f1a-7c4b-4e9a-b3f6-1a8d0c7e2b95"
+            ],
+            "description": "The reported sandboxes to drain: the host stops each one with a grace period, then destroys it",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "workspace",
+          "drain"
+        ]
+      },
+      "RegisterRunnerRequestDto": {
+        "type": "object",
+        "properties": {
+          "harnesses": {
+            "description": "The harnesses the runner found installed, each with the models it discovered. What is on a machine is a fact about that machine, so the machine is what says it.",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "registeredHarnessRequestDto"
+              }
+            },
+            "type": "array"
+          }
+        }
+      },
+      "RegisteredRunnerResponseDto": {
+        "type": "object",
+        "properties": {
+          "runnerId": {
+            "type": "string",
+            "example": "3fd46417-95af-4c8b-9a3d-2b7e5f0c1d84"
+          }
+        },
+        "required": [
+          "runnerId"
+        ]
+      },
+      "GenerateChangeStackRequestDto": {
+        "type": "object",
+        "properties": {
+          "diff": {
+            "type": "string",
+            "description": "The changes, as the output of git diff"
+          },
+          "repository": {
+            "type": "object",
+            "nullable": true,
+            "description": "Which checkout the changes are from"
+          },
+          "base": {
+            "type": "object",
+            "nullable": true,
+            "description": "The commit of the checkout when the run began"
+          }
+        },
+        "required": [
+          "diff",
+          "repository",
+          "base"
+        ]
+      },
+      "SkippedCheckRequestDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "no-base",
+              "no-checkout",
+              "checkout-failed",
+              "setup-failed",
+              "workspace-failed",
+              "out-of-time",
+              "no-image"
+            ],
+            "description": "Why the runner could not check the stack at all"
+          },
+          "detail": {
+            "type": "string",
+            "nullable": true,
+            "description": "What it printed while trying, where that helps"
+          }
+        },
+        "required": [
+          "code"
+        ]
+      },
+      "CheckedStepRequestDto": {
+        "type": "object",
+        "properties": {
+          "step": {
+            "type": "string",
+            "example": "c1.l2",
+            "description": "The step it ran: \"whole\", or the layer it checked"
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "output": {
+            "type": "string",
+            "description": "The end of what the check printed"
+          },
+          "durationMs": {
+            "type": "number",
+            "example": 42000
+          }
+        },
+        "required": [
+          "step",
+          "passed",
+          "output",
+          "durationMs"
+        ]
+      },
+      "RecordChangeStackCheckRequestDto": {
+        "type": "object",
+        "properties": {
+          "skipped": {
+            "nullable": true,
+            "description": "Set where the stack could not be checked at all",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SkippedCheckRequestDto"
+              }
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckedStepRequestDto"
+            }
+          }
+        }
+      },
+      "MemoryDecisionResponseDto": {
+        "type": "object",
+        "properties": {
+          "by": {
+            "type": "string",
+            "example": "user_1"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Ada Lovelace"
+          },
+          "at": {
+            "type": "string",
+            "example": "2026-09-27T10:00:00.000Z"
+          }
+        },
+        "required": [
+          "by",
+          "name",
+          "at"
+        ]
+      },
+      "MemoryProvenanceStepResponseDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "number",
+            "example": 12,
+            "description": "The position of the step in its run"
+          },
+          "kind": {
+            "type": "string",
+            "example": "thought",
+            "description": "message, thought, planned, handover, or remember"
+          },
+          "text": {
+            "type": "string",
+            "example": "A queue would need a worker we do not run."
+          }
+        },
+        "required": [
+          "index",
+          "kind",
+          "text"
+        ]
+      },
+      "MemoryPersonResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "user_1"
+          },
+          "name": {
+            "type": "string",
+            "nullable": true,
+            "example": "Maya Chen"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://avatars.githubusercontent.com/u/1"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image"
+        ]
+      },
+      "MemoryProvenanceNoteResponseDto": {
+        "type": "object",
+        "properties": {
+          "position": {
+            "type": "number",
+            "example": 4,
+            "description": "The position of the note on its task"
+          },
+          "by": {
+            "type": "string",
+            "example": "person",
+            "description": "person: a teammate signed in to Spotlight; world: someone writing through another tool"
+          },
+          "author": {
+            "nullable": true,
+            "description": "The teammate who wrote it; absent for a note from another tool, which carries no author",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryPersonResponseDto"
+              }
+            ]
+          },
+          "text": {
+            "type": "string",
+            "example": "Never retry an upload rejected with a 403."
+          }
+        },
+        "required": [
+          "position",
+          "by",
+          "author",
+          "text"
+        ]
+      },
+      "ProposedMemoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "memory_1"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rationale",
+              "rejected-approach",
+              "failure",
+              "environment",
+              "preference",
+              "correction"
+            ],
+            "example": "correction"
+          },
+          "body": {
+            "type": "string",
+            "example": "Never retry an upload the bucket rejected with a 403."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "person",
+              "run",
+              "outside"
+            ],
+            "example": "person",
+            "description": "person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else"
+          },
+          "proposedBy": {
+            "type": "string",
+            "enum": [
+              "drafter",
+              "agent"
+            ],
+            "example": "agent",
+            "description": "drafter: the drafter read it from the run after the run ended; agent: the agent proposed it with spotlight remember"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "approved",
+              "rejected"
+            ],
+            "example": "proposed"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "team",
+              "line",
+              "station"
+            ],
+            "example": "station",
+            "description": "Where it applies: the whole team, its line, or its station"
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "paths": {
+            "example": [
+              "src/uploads.ts"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supersedes": {
+            "type": "string",
+            "nullable": true,
+            "description": "The active memory it replaces after approval"
+          },
+          "decision": {
+            "nullable": true,
+            "description": "Who approved or rejected it, and when",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryDecisionResponseDto"
+              }
+            ]
+          },
+          "harness": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-code",
+            "description": "The harness of the run whose steps it cites"
+          },
+          "steps": {
+            "description": "The steps of its run that it cites",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryProvenanceStepResponseDto"
+            }
+          },
+          "notes": {
+            "description": "The notes on the task that it cites",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryProvenanceNoteResponseDto"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "body",
+          "source",
+          "proposedBy",
+          "state",
+          "scope",
+          "repository",
+          "paths",
+          "supersedes",
+          "decision",
+          "harness",
+          "steps",
+          "notes"
+        ]
+      },
+      "MemoryRetirementResponseDto": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "by": {
+            "nullable": true,
+            "description": "Who retired it; nobody where a newer memory superseded it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryPersonResponseDto"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "nullable": true
+          },
+          "supersededBy": {
+            "type": "string",
+            "nullable": true,
+            "description": "The memory that replaced it"
+          }
+        },
+        "required": [
+          "at",
+          "by",
+          "reason",
+          "supersededBy"
+        ]
+      },
+      "MemoryProvenanceResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "example": "task_1"
+          },
+          "runId": {
+            "type": "string",
+            "example": "run_1"
+          }
+        },
+        "required": [
+          "taskId",
+          "runId"
+        ]
+      },
+      "TeamMemoryResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "memory_1"
+          },
+          "handle": {
+            "type": "string",
+            "example": "M-12",
+            "description": "How runs and people name it, as in spotlight recall M-12"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rationale",
+              "rejected-approach",
+              "failure",
+              "environment",
+              "preference",
+              "correction"
+            ],
+            "example": "preference"
+          },
+          "body": {
+            "type": "string",
+            "example": "Name branches after the ticket."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "person",
+              "run",
+              "outside"
+            ],
+            "example": "person"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "retired"
+            ],
+            "example": "active"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "team",
+              "line",
+              "station"
+            ],
+            "example": "team"
+          },
+          "lineId": {
+            "type": "string",
+            "nullable": true
+          },
+          "stationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "approvedBy": {
+            "description": "Who approved or wrote it",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryPersonResponseDto"
+              }
+            ]
+          },
+          "approvedAt": {
+            "type": "string",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "supersedes": {
+            "type": "string",
+            "nullable": true,
+            "description": "The memory it replaced"
+          },
+          "retirement": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryRetirementResponseDto"
+              }
+            ]
+          },
+          "provenance": {
+            "nullable": true,
+            "description": "The task and run it cites; none where a person wrote it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryProvenanceResponseDto"
+              }
+            ]
+          },
+          "runs": {
+            "type": "number",
+            "example": 3,
+            "description": "How many runs were briefed with it or recalled it"
+          }
+        },
+        "required": [
+          "id",
+          "handle",
+          "kind",
+          "body",
+          "source",
+          "status",
+          "scope",
+          "lineId",
+          "stationId",
+          "repository",
+          "paths",
+          "approvedBy",
+          "approvedAt",
+          "supersedes",
+          "retirement",
+          "provenance",
+          "runs"
+        ]
+      },
+      "MemoryLinkResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "memory_1"
+          },
+          "handle": {
+            "type": "string",
+            "example": "M-7"
+          },
+          "body": {
+            "type": "string",
+            "example": "Name branches after the ticket."
+          }
+        },
+        "required": [
+          "id",
+          "handle",
+          "body"
+        ]
+      },
+      "TeamMemoryDetailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "memory_1"
+          },
+          "handle": {
+            "type": "string",
+            "example": "M-12",
+            "description": "How runs and people name it, as in spotlight recall M-12"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rationale",
+              "rejected-approach",
+              "failure",
+              "environment",
+              "preference",
+              "correction"
+            ],
+            "example": "preference"
+          },
+          "body": {
+            "type": "string",
+            "example": "Name branches after the ticket."
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "person",
+              "run",
+              "outside"
+            ],
+            "example": "person"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "retired"
+            ],
+            "example": "active"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "team",
+              "line",
+              "station"
+            ],
+            "example": "team"
+          },
+          "lineId": {
+            "type": "string",
+            "nullable": true
+          },
+          "stationId": {
+            "type": "string",
+            "nullable": true
+          },
+          "repository": {
+            "type": "string",
+            "nullable": true,
+            "example": "acme/api"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "approvedBy": {
+            "description": "Who approved or wrote it",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryPersonResponseDto"
+              }
+            ]
+          },
+          "approvedAt": {
+            "type": "string",
+            "example": "2026-09-27T10:00:00.000Z"
+          },
+          "supersedes": {
+            "type": "string",
+            "nullable": true,
+            "description": "The memory it replaced"
+          },
+          "retirement": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryRetirementResponseDto"
+              }
+            ]
+          },
+          "provenance": {
+            "nullable": true,
+            "description": "The task and run it cites; none where a person wrote it",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryProvenanceResponseDto"
+              }
+            ]
+          },
+          "runs": {
+            "type": "number",
+            "example": 3,
+            "description": "How many runs were briefed with it or recalled it"
+          },
+          "harness": {
+            "type": "string",
+            "nullable": true,
+            "example": "claude-code",
+            "description": "The harness of the run whose steps it cites"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryProvenanceStepResponseDto"
+            }
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MemoryProvenanceNoteResponseDto"
+            }
+          },
+          "superseded": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryLinkResponseDto"
+              }
+            ]
+          },
+          "successor": {
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/MemoryLinkResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "handle",
+          "kind",
+          "body",
+          "source",
+          "status",
+          "scope",
+          "lineId",
+          "stationId",
+          "repository",
+          "paths",
+          "approvedBy",
+          "approvedAt",
+          "supersedes",
+          "retirement",
+          "provenance",
+          "runs",
+          "harness",
+          "steps",
+          "notes",
+          "superseded",
+          "successor"
+        ]
+      },
+      "RecallMemoriesRequestDto": {
+        "type": "object",
+        "properties": {
+          "words": {
+            "type": "string",
+            "example": "upload retries",
+            "description": "Words to look for"
+          }
+        },
+        "required": [
+          "words"
+        ]
+      },
+      "RememberRequestDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "rationale",
+              "rejected-approach",
+              "failure",
+              "environment",
+              "preference",
+              "correction"
+            ],
+            "example": "rationale"
+          },
+          "body": {
+            "type": "string",
+            "example": "Uploads retry in the request, not from a queue."
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "team",
+              "line",
+              "station"
+            ],
+            "nullable": true,
+            "description": "Where it applies; the run’s line when left out"
+          },
+          "paths": {
+            "example": [
+              "api/src/uploads"
+            ],
+            "description": "Paths it is about, relative to the run’s workspace, each starting with the checkout folder",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supersedes": {
+            "type": "string",
+            "nullable": true,
+            "example": "M-7",
+            "description": "The active memory it corrects, by handle"
+          }
+        },
+        "required": [
+          "kind",
+          "body"
+        ]
+      },
+      "MemoryFileResponseDto": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": ".spotlight/memory/repositories/acme/api/src/uploads/M-18.md",
+            "description": "Where to write it, relative to the run’s workspace"
+          },
+          "body": {
+            "type": "string",
+            "example": "# M-18 · rationale\n\nUploads retry in the request.\n"
+          }
+        },
+        "required": [
+          "path",
+          "body"
+        ]
+      },
+      "ProposeSearchCandidateRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "terse-prompt",
+            "description": "A slug unique in the search: lowercase letters, digits and hyphens, starting with a letter or digit, at most 63 characters"
+          },
+          "hypothesis": {
+            "type": "string",
+            "example": "A shorter prompt keeps it on the failing test.",
+            "description": "What the candidate is expected to improve, and why"
+          },
+          "station": {
+            "type": "object",
+            "description": "The station block, as the line stores it, changed only where a search may change it"
+          }
+        },
+        "required": [
+          "name",
+          "hypothesis",
+          "station"
+        ]
+      },
+      "SearchCandidateProposedResponseDto": {
+        "type": "object",
+        "properties": {
+          "candidateId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "example": "terse-prompt"
+          },
+          "replayId": {
+            "type": "string",
+            "description": "Its replay on the search’s searched tasks, started now"
+          }
+        },
+        "required": [
+          "candidateId",
+          "name",
+          "replayId"
+        ]
+      },
+      "RecordFailureCauseRequestDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string",
+            "description": "A failing task the reflection’s briefing lists, by its task id"
+          },
+          "cause": {
+            "type": "string",
+            "enum": [
+              "config",
+              "task",
+              "judge",
+              "check",
+              "infra"
+            ],
+            "description": "config when a change to the station’s config could fix it; task when the task itself is why; judge when the judge scored it wrong; check when the check failed for a reason the change did not cause; infra when the run failed around the work"
+          },
+          "evidence": {
+            "type": "string",
+            "description": "What in the runs shows the cause, in 1 to 4000 characters"
+          },
+          "suggestion": {
+            "type": "string",
+            "nullable": true,
+            "description": "What a person, or the next iteration, should change, in at most 4000 characters"
+          }
+        },
+        "required": [
+          "taskId",
+          "cause",
+          "evidence"
+        ]
+      },
+      "FailureCauseRecordedResponseDto": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "string"
+          },
+          "cause": {
+            "type": "string",
+            "enum": [
+              "config",
+              "task",
+              "judge",
+              "check",
+              "infra"
+            ]
+          },
+          "replayRunId": {
+            "type": "string",
+            "description": "The failing replay run the cause is about"
+          }
+        },
+        "required": [
+          "taskId",
+          "cause",
+          "replayRunId"
+        ]
+      }
+    }
+  }
+}

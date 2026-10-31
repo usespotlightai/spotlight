@@ -141,7 +141,9 @@ const integrationNamed = async (integration: string) =>
   (
     (
       await asOwner
-        .get(`/api/resources/workspaces/${team.workspaceId.value}/integrations`)
+        .get(
+          `/api/v1/resources/workspaces/${team.workspaceId.value}/integrations`,
+        )
         .expect(200)
     ).body.items as {
       integration: string;
@@ -157,7 +159,10 @@ const integrationNamed = async (integration: string) =>
   ).find((each) => each.integration === integration);
 
 const createIntegration = (body: object) =>
-  asOwner.post(`/api/resources/teams/${team.teamId.value}/integrations`, body);
+  asOwner.post(
+    `/api/v1/resources/teams/${team.teamId.value}/integrations`,
+    body,
+  );
 
 const TOOLS = [
   'tracker.search-issues',
@@ -309,7 +314,7 @@ beforeAll(async () => {
   ]);
 
   await http()
-    .post(`/api/resources/workspaces/${team.workspaceId.value}/runner-pools`)
+    .post(`/api/v1/resources/workspaces/${team.workspaceId.value}/runner-pools`)
     .set(TEST_USER_HEADER, team.owner.value)
     .set('Idempotency-Key', randomUUID())
     .send({ key: 'hosts', labels: ['linux'], token: POOL_TOKEN })
@@ -498,7 +503,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
 
   it('lets a tool.using hook deny a call to the server', async () => {
     const hooked = await asOwner.post(
-      `/api/resources/teams/${team.teamId.value}/hooks`,
+      `/api/v1/resources/teams/${team.teamId.value}/hooks`,
       {
         key: 'searches-need-policy',
         on: 'tool.using',

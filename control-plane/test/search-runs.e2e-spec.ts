@@ -385,7 +385,7 @@ beforeAll(async () => {
   memoryHandle = stored?.handle ?? 0;
 
   await http()
-    .post(`/api/resources/workspaces/${team.workspaceId.value}/runner-pools`)
+    .post(`/api/v1/resources/workspaces/${team.workspaceId.value}/runner-pools`)
     .set('x-test-user', team.owner.value)
     .set('Idempotency-Key', randomUUID())
     .send({ key: 'hosts', labels: ['linux'], token: POOL_TOKEN })

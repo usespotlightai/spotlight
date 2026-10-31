@@ -131,7 +131,7 @@ export const SettingUp = {
     const alone = repositories.every((each) =>
       each.equals(configFolder.repository),
     );
-    const exported = `"$SPOTLIGHT_URL/api/resources/workspaces/${workspaceId}/export"`;
+    const exported = `"$SPOTLIGHT_URL/api/v1/resources/workspaces/${workspaceId}/export"`;
     const state = `${spotlightUrl.replace(/\/+$/, '')}/api/terraform/workspaces/<slug>/states/default`;
 
     return [
@@ -172,7 +172,7 @@ export const SettingUp = {
         'The export has one file per concern, such as `line-<team>-<line>.tf` and `imports.tf`. Keep that layout, and keep the `.tf` files at the top of the folder. Then adapt it:',
         '- each line’s `source { repository, path }`, naming its own `line-<team>-<line>.tf`',
         '- the `backend` in `terraform.tf`. For Spotlight’s, read the workspace’s `slug`, and write the block below with it. Keep this address: inside the sandbox, `$SPOTLIGHT_URL` can be an address that only this host reaches.',
-        `\`\`\`\ncurl -fsS -H "Authorization: Bearer $SPOTLIGHT_API_TOKEN" "$SPOTLIGHT_URL/api/resources/workspaces/${workspaceId}"\n\`\`\``,
+        `\`\`\`\ncurl -fsS -H "Authorization: Bearer $SPOTLIGHT_API_TOKEN" "$SPOTLIGHT_URL/api/v1/resources/workspaces/${workspaceId}"\n\`\`\``,
         `\`\`\`hcl\nbackend "http" {\n  address        = "${state}"\n  lock_address   = "${state}/lock"\n  unlock_address = "${state}/lock"\n  lock_method    = "POST"\n  unlock_method  = "DELETE"\n  username       = "spotlight"\n}\n\`\`\``,
         '- `locals.tf` for values that two or more resources share, such as a tool list or a `check` command',
         '- a `README.md` that says what the folder configures, which variables to set, and how to plan and apply. If Spotlight keeps the state, say that Terraform reads its token from `TF_HTTP_PASSWORD`: `export TF_HTTP_PASSWORD=$(spotlight token)` after `spotlight login`, and the same command in CI, where it exchanges the job’s OIDC token through the trust.',

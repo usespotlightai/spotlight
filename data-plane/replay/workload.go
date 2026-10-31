@@ -22,7 +22,7 @@ const (
 	actionsURLVar      = "ACTIONS_ID_TOKEN_REQUEST_URL"
 	actionsTokenVar    = "ACTIONS_ID_TOKEN_REQUEST_TOKEN"
 	defaultAudience    = "spotlight"
-	exchangePath       = "/api/workspace-tokens/exchange"
+	exchangePath       = "/api/v1/workspace-tokens/exchange"
 	workloadAnswerTime = time.Minute
 	renewBefore        = 5 * time.Minute
 )

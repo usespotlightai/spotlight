@@ -416,7 +416,7 @@ describe('inviting people to a workspace (e2e)', () => {
 
   it('puts nobody on a team by a workspace token', async () => {
     const issued = await http()
-      .post(`/api/resources/workspaces/${workspaceId}/tokens`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/tokens`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send({ name: 'team-adder', scopes: ['configure'] })

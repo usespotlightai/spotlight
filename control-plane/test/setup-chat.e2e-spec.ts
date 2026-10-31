@@ -72,7 +72,7 @@ describe('setting a team up as code (e2e)', () => {
 
   const exported = (token: string) =>
     served(app)
-      .get(`/api/resources/workspaces/${workspaceId}/export`)
+      .get(`/api/v1/resources/workspaces/${workspaceId}/export`)
       .set('Authorization', `Bearer ${token}`);
 
   beforeAll(async () => {

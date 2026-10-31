@@ -14,7 +14,10 @@ const NOT_EXPORTED: Readonly<Record<string, string>> = {
 
 const kindsInOpenApi = (): readonly string[] => {
   const document = JSON.parse(
-    readFileSync(resolve(__dirname, '../../../../../openapi.json'), 'utf8'),
+    readFileSync(
+      resolve(__dirname, '../../../../../openapi.resources.json'),
+      'utf8',
+    ),
   ) as { paths: Record<string, Record<string, Record<string, unknown>>> };
 
   return [

@@ -69,11 +69,12 @@ const seated = async (
     workspaceId,
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${workspaceId}/lines`,
-    item: (id) => `/api/resources/lines/${id}`,
+    collection: `/api/v1/resources/teams/${workspaceId}/lines`,
+    item: (id) => `/api/v1/resources/lines/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${workspaceId}/lines/import?address=${encodeURIComponent(address)}`,
-    listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/lines`,
+      `/api/v1/resources/workspaces/${workspaceId}/lines/import?address=${encodeURIComponent(address)}`,
+    listing: (workspaceId) =>
+      `/api/v1/resources/workspaces/${workspaceId}/lines`,
     workspaceOf: () => workspaceId,
     address: `team/${DELIVERY.key}`,
     valid: judged(JUDGE, ALERTS),
@@ -454,7 +455,7 @@ describe('a line, created through the resource API (e2e)', () => {
           : each,
       ),
     });
-    const teamId = fixture.collection.split('/')[4];
+    const teamId = fixture.collection.split('/')[5];
     const listed = await served(app)
       .get(`/api/teams/${teamId}/lines`)
       .set(TEST_USER_HEADER, fixture.admin);
@@ -579,7 +580,7 @@ describe('a line, created through the resource API (e2e)', () => {
       path: 'teams/core/delivery.tf',
     };
     const made = await create({ ...DELIVERY, source });
-    const teamId = fixture.collection.split('/')[4];
+    const teamId = fixture.collection.split('/')[5];
     const listed = await served(app)
       .get(`/api/teams/${teamId}/lines`)
       .set(TEST_USER_HEADER, fixture.admin);
@@ -728,7 +729,7 @@ describe('a line, created through the resource API (e2e)', () => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const workspaceId = fixture.workspaceId;
     const alpha = await served(app)
-      .post(`/api/resources/workspaces/${workspaceId}/teams`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/teams`)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('Idempotency-Key', randomUUID())
       .send({ key: 'alpha', name: 'Alpha' });
@@ -738,7 +739,7 @@ describe('a line, created through the resource API (e2e)', () => {
     try {
       const onTeam = await create(DELIVERY);
       const onAlpha = await served(app)
-        .post(`/api/resources/teams/${alpha.body.id}/lines`)
+        .post(`/api/v1/resources/teams/${alpha.body.id}/lines`)
         .set(TEST_USER_HEADER, fixture.admin)
         .set('Idempotency-Key', randomUUID())
         .send(DELIVERY);
@@ -760,7 +761,7 @@ describe('a line, created through the resource API (e2e)', () => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const workspaceId = fixture.workspaceId;
     const alpha = await served(app)
-      .post(`/api/resources/workspaces/${workspaceId}/teams`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/teams`)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('Idempotency-Key', randomUUID())
       .send({ key: 'alpha', name: 'Alpha' });
@@ -773,7 +774,7 @@ describe('a line, created through the resource API (e2e)', () => {
       const onAlpha = await Promise.all(
         definitions.map((each) =>
           served(app)
-            .post(`/api/resources/teams/${alpha.body.id}/lines`)
+            .post(`/api/v1/resources/teams/${alpha.body.id}/lines`)
             .set(TEST_USER_HEADER, fixture.admin)
             .set('Idempotency-Key', randomUUID())
             .send({

@@ -130,7 +130,7 @@ describe('each person’s own connections (e2e)', () => {
     seat = await seatTeam(db, workspaceId);
 
     const made = await as(seat.owner).post(
-      `/api/resources/teams/${workspaceId}/integrations`,
+      `/api/v1/resources/teams/${workspaceId}/integrations`,
       LINEAR,
     );
     expect(made.status).toBe(201);

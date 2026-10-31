@@ -67,11 +67,12 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${workspaceId}/hooks`,
-    item: (id) => `/api/resources/hooks/${id}`,
+    collection: `/api/v1/resources/teams/${workspaceId}/hooks`,
+    item: (id) => `/api/v1/resources/hooks/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${workspaceId}/hooks/import?address=${encodeURIComponent(address)}`,
-    listing: (workspaceId) => `/api/resources/workspaces/${workspaceId}/hooks`,
+      `/api/v1/resources/workspaces/${workspaceId}/hooks/import?address=${encodeURIComponent(address)}`,
+    listing: (workspaceId) =>
+      `/api/v1/resources/workspaces/${workspaceId}/hooks`,
     workspaceOf: () => workspaceId,
     address: 'team/grafana-reads',
     valid: GRAFANA_READS,
@@ -170,11 +171,11 @@ describe('a hook, created through the resource API (e2e)', () => {
       .where(
         eq(
           schema.integrationDefinition.teamId,
-          fixture.collection.split('/')[4] ?? '',
+          fixture.collection.split('/')[5] ?? '',
         ),
       );
     const removed = await served(app)
-      .put(`/api/resources/integrations/${integration?.id}`)
+      .put(`/api/v1/resources/integrations/${integration?.id}`)
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${integration?.version}"`)
       .send({ ...GRAFANA, tools: {} });
@@ -223,7 +224,7 @@ describe('a hook, created through the resource API (e2e)', () => {
 
   it('checks a hook expression at plan, suggesting what was meant', async () => {
     const checked = await served(app)
-      .post('/api/expressions/check')
+      .post('/api/v1/expressions/check')
       .set(TEST_USER_HEADER, fixture.admin)
       .send({
         position: 'hook.when',

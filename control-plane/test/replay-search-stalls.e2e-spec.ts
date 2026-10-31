@@ -304,7 +304,7 @@ describe('a search for a better station config, when it stalls or loses its stat
       POLISH,
     );
     const line = (
-      await owner().get(`/api/resources/lines/${DELIVERY}`).expect(200)
+      await owner().get(`/api/v1/resources/lines/${DELIVERY}`).expect(200)
     ).body as {
       version: number;
       definition: { stations: { key: string }[] };
@@ -312,7 +312,7 @@ describe('a search for a better station config, when it stalls or loses its stat
 
     await owner()
       .put(
-        `/api/resources/lines/${DELIVERY}`,
+        `/api/v1/resources/lines/${DELIVERY}`,
         {
           ...line.definition,
           stations: line.definition.stations.filter(

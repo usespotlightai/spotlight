@@ -20,6 +20,7 @@ import {
 } from '@nestjs/swagger';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { CLIENT_HEADER } from '@platform/http/resources/resource-headers';
+import { WORKSPACE_TOKEN_EXCHANGE } from '@platform/http/routes';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 
 const UNAUTHORIZED =
@@ -27,7 +28,7 @@ const UNAUTHORIZED =
 
 @ApiTags('workspace-tokens')
 @AllowAnonymous()
-@Controller('workspace-tokens')
+@Controller(WORKSPACE_TOKEN_EXCHANGE)
 export class WorkloadTokenExchangeController {
   constructor(private readonly commandBus: CommandBus) {}
 

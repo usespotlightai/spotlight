@@ -65,12 +65,12 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/teams/${workspaceId}/harness-profiles`,
-    item: (id) => `/api/resources/harness-profiles/${id}`,
+    collection: `/api/v1/resources/teams/${workspaceId}/harness-profiles`,
+    item: (id) => `/api/v1/resources/harness-profiles/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${workspaceId}/harness-profiles/import?address=${encodeURIComponent(address)}`,
+      `/api/v1/resources/workspaces/${workspaceId}/harness-profiles/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) =>
-      `/api/resources/workspaces/${workspaceId}/harness-profiles`,
+      `/api/v1/resources/workspaces/${workspaceId}/harness-profiles`,
     workspaceOf: () => workspaceId,
     address: 'team/careful',
     valid: CAREFUL,
@@ -158,7 +158,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
 
   beforeEach(async () => {
     fixture = await seated(app);
-    teamId = fixture.collection.split('/')[4] ?? '';
+    teamId = fixture.collection.split('/')[5] ?? '';
   });
 
   afterEach(async () => {
@@ -218,7 +218,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     await create(CAREFUL);
     const { first, second, ...line } = delivery();
     const laid = await as(fixture.admin).create(
-      `/api/resources/teams/${teamId}/lines`,
+      `/api/v1/resources/teams/${teamId}/lines`,
       line,
     );
 
@@ -263,7 +263,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     const issue = async (scopes: readonly string[]) =>
       (
         await as(fixture.admin).create(
-          `/api/resources/workspaces/${teamId}/tokens`,
+          `/api/v1/resources/workspaces/${teamId}/tokens`,
           { name: scopes.join('-'), scopes },
         )
       ).headers['spotlight-workspace-token'] as string;
@@ -325,12 +325,15 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     };
 
     const setSecret = () =>
-      as(fixture.admin).create(`/api/resources/workspaces/${teamId}/secrets`, {
-        name: 'LINEAR_API_KEY',
-        bindings: [{ host: 'mcp.linear.app', prefix: 'Bearer ' }],
-        valueWo: 'lin_api_profile_e2e',
-        valueWoVersion: 1,
-      });
+      as(fixture.admin).create(
+        `/api/v1/resources/workspaces/${teamId}/secrets`,
+        {
+          name: 'LINEAR_API_KEY',
+          bindings: [{ host: 'mcp.linear.app', prefix: 'Bearer ' }],
+          valueWo: 'lin_api_profile_e2e',
+          valueWoVersion: 1,
+        },
+      );
 
     afterEach(async () => {
       const db = app.get<DrizzleDatabase>(DRIZZLE);
@@ -380,7 +383,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
       });
 
       const rejected = await served(app)
-        .delete(`/api/resources/secrets/${secret.body.id}`)
+        .delete(`/api/v1/resources/secrets/${secret.body.id}`)
         .set(TEST_USER_HEADER, fixture.admin)
         .set('If-Match', `"${secret.body.version}"`);
 
@@ -393,7 +396,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     const made = await create(CAREFUL);
     const { first, second: _second, ...line } = delivery();
     await as(fixture.admin).create(
-      `/api/resources/teams/${teamId}/lines`,
+      `/api/v1/resources/teams/${teamId}/lines`,
       line,
     );
 

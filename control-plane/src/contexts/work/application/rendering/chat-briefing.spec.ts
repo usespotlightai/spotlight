@@ -303,7 +303,7 @@ describe('ChatBriefing', () => {
       expect(briefing).toContain('`infra/spotlight/`');
       expect(briefing).toContain('spotlight tools call setup-pull-request');
       expect(briefing).toContain(
-        '"$SPOTLIGHT_URL/api/resources/workspaces/ws_1/export"',
+        '"$SPOTLIGHT_URL/api/v1/resources/workspaces/ws_1/export"',
       );
       expect(briefing).toContain('terraform plan');
     });
@@ -313,7 +313,7 @@ describe('ChatBriefing', () => {
 
       expect(briefing).toContain('recommend that Spotlight keeps the state');
       expect(briefing).toContain(
-        '"$SPOTLIGHT_URL/api/resources/workspaces/ws_1"',
+        '"$SPOTLIGHT_URL/api/v1/resources/workspaces/ws_1"',
       );
       expect(briefing).toContain(
         'address        = "https://app.usespotlight.ai/api/terraform/workspaces/<slug>/states/default"',

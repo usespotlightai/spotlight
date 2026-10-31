@@ -140,7 +140,7 @@ describe('signing in from the command line (e2e)', () => {
     const login = await signIn(owner);
 
     const created = await served(app)
-      .post(`/api/resources/workspaces/${workspaceId}/oidc-trusts`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/oidc-trusts`)
       .set('Authorization', `Bearer ${login}`)
       .set('Idempotency-Key', randomUUID())
       .send({
@@ -174,7 +174,7 @@ describe('signing in from the command line (e2e)', () => {
       .expect(200);
 
     const { body } = await served(app)
-      .get(`/api/resources/workspaces/${workspaceId}`)
+      .get(`/api/v1/resources/workspaces/${workspaceId}`)
       .set('Authorization', `Bearer ${login}`)
       .expect(401);
 
@@ -185,7 +185,7 @@ describe('signing in from the command line (e2e)', () => {
 
   it('turns away a bearer that is neither a workspace token nor a login', async () => {
     await served(app)
-      .get(`/api/resources/workspaces/${workspaceId}`)
+      .get(`/api/v1/resources/workspaces/${workspaceId}`)
       .set('Authorization', 'Bearer not-a-real-token')
       .expect(401);
   });

@@ -882,7 +882,9 @@ export const openSearchFlow = (): void => {
     ]);
 
     await http()
-      .post(`/api/resources/workspaces/${team.workspaceId.value}/runner-pools`)
+      .post(
+        `/api/v1/resources/workspaces/${team.workspaceId.value}/runner-pools`,
+      )
       .set(TEST_USER_HEADER, team.owner.value)
       .set('Idempotency-Key', randomUUID())
       .send({ key: 'hosts', labels: ['linux'], token: POOL_TOKEN })

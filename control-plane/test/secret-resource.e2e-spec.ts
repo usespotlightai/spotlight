@@ -41,12 +41,12 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   return {
     admin: seat.owner,
     viewer: seat.member,
-    collection: `/api/resources/workspaces/${workspaceId}/secrets`,
-    item: (id) => `/api/resources/secrets/${id}`,
+    collection: `/api/v1/resources/workspaces/${workspaceId}/secrets`,
+    item: (id) => `/api/v1/resources/secrets/${id}`,
     importing: (address) =>
-      `/api/resources/workspaces/${workspaceId}/secrets/import?address=${encodeURIComponent(address)}`,
+      `/api/v1/resources/workspaces/${workspaceId}/secrets/import?address=${encodeURIComponent(address)}`,
     listing: (workspaceId) =>
-      `/api/resources/workspaces/${workspaceId}/secrets`,
+      `/api/v1/resources/workspaces/${workspaceId}/secrets`,
     workspaceOf: () => workspaceId,
     address: 'LINEAR_API_KEY',
     valid: LINEAR,
@@ -148,7 +148,7 @@ describe('a secret, created through the resource API (e2e)', () => {
 
   beforeEach(async () => {
     fixture = await seated(app);
-    workspaceId = fixture.collection.split('/')[4] ?? '';
+    workspaceId = fixture.collection.split('/')[5] ?? '';
   });
 
   afterEach(async () => {

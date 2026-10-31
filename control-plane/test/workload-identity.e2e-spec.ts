@@ -39,7 +39,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
 
   const trusted = async (labels: string[] = ['vpc-internal']) => {
     const made = await http()
-      .post(`/api/resources/workspaces/${workspaceId}/runner-trusts`)
+      .post(`/api/v1/resources/workspaces/${workspaceId}/runner-trusts`)
       .set(TEST_USER_HEADER, owner)
       .set('Idempotency-Key', randomUUID())
       .send({
@@ -247,7 +247,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     await heartbeat(trust.id, await workload()).expect(200);
 
     await http()
-      .delete(`/api/resources/runner-trusts/${trust.id}`)
+      .delete(`/api/v1/resources/runner-trusts/${trust.id}`)
       .set(TEST_USER_HEADER, owner)
       .set('If-Match', `"${trust.version}"`)
       .expect(204);
