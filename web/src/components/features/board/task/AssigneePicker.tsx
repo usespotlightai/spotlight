@@ -123,7 +123,7 @@ export function AssigneePicker({
             {assignee ? <PersonAvatar person={assignee} /> : <Unclaimed />}
           </TooltipTrigger>
           <TooltipContent>
-            {assignee ? assignee.name : 'No assignee'}
+            {assignee ? assignee.name : 'Assign this task'}
           </TooltipContent>
         </Tooltip>
       )}
