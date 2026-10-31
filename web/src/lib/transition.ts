@@ -64,23 +64,22 @@ export const transitionMove = (
   );
   const expanded = transitionEnded(expanding);
   let done = false;
-  const land = (fade: () => void) => {
+  const land = () => {
     if (!done) {
       done = true;
       landed();
-      fade();
+      ghost.remove();
     }
   };
-  const afterPaint = () =>
-    requestAnimationFrame(() => requestAnimationFrame(() => ghost.remove()));
 
-  moving.oncancel = () => land(() => ghost.remove());
+  moving.oncancel = land;
   moving.onfinish = () => {
-    void expanded.then(() => land(afterPaint));
+    void expanded.then(land);
   };
 
   return () => {
-    land(() => ghost.remove());
+    done = true;
     moving.cancel();
+    ghost.remove();
   };
 };
