@@ -6,6 +6,7 @@ import {
   formatMeasure,
   formatStat,
   type JudgeCalibration,
+  measureNote,
 } from '@/lib/judge';
 
 export function AgreementMeter({
@@ -28,6 +29,7 @@ export function AgreementMeter({
           <MeterLabel
             label={formatMeasure(calibration.measure)}
             value={formatStat(calibration.agreement)}
+            tooltip={measureNote(calibration.measure)}
           />
           <MeterBar
             share={calibration.agreement ?? 0}

@@ -14,7 +14,7 @@ export function StationConfigSkeleton() {
     <section className="flex flex-col gap-1.5">
       <h2 className="font-medium text-foreground text-xs">Config</h2>
 
-      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-flow-row-dense auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <SkeletonBlock>
           <ConfigCard title="Agent">
             <ConfigCardValue
@@ -61,10 +61,10 @@ export function StationConfigSkeleton() {
           </ConfigCard>
         </SkeletonBlock>
 
-        <SkeletonBlock>
+        <SkeletonBlock className="sm:col-span-2">
           <ConfigCard title="Judge">
             <div className="flex items-center gap-3">
-              <Skeleton className="size-20 rounded-full" />
+              <Skeleton className="size-28 rounded-full" />
               <ConfigCardValue detail={<SkeletonLine className="w-16" />}>
                 <SkeletonLine className="w-12" />
               </ConfigCardValue>

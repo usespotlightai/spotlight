@@ -13,6 +13,7 @@ import type {
   TrendPointResponseDto,
 } from '@/lib/api';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
+import type { TooltipNote } from '@/lib/tooltip-note';
 
 export type StationJudgeAgreement = StationJudgeAgreementResponseDto;
 
@@ -152,6 +153,40 @@ const MEASURES: Record<NonNullable<JudgeCalibration['measure']>, string> = {
 
 export const formatMeasure = (measure: JudgeCalibration['measure']): string =>
   measure ? MEASURES[measure] : 'Agreement';
+
+const MINIMUM_NOTE =
+  'The mark on the bar is the minimum. Below it, judge scores are hidden.';
+
+const MEASURE_NOTES: Record<
+  NonNullable<JudgeCalibration['measure']>,
+  TooltipNote
+> = {
+  kappa: {
+    title: 'Cohen’s kappa',
+    body: `How often the judge and people give the same score to the same run. Agreement by chance does not count. ${MINIMUM_NOTE}`,
+    rows: [
+      ['1.00', 'Full agreement'],
+      ['0.80 – 1.00', 'Very strong'],
+      ['0.60 – 0.80', 'Strong'],
+      ['0.40 – 0.60', 'Moderate'],
+      ['Below 0.40', 'Weak'],
+      ['0 or below', 'No better than chance'],
+    ],
+  },
+  spearman: {
+    title: 'Spearman’s ρ',
+    body: `How well the judge puts runs in the same order as people do, from best to worst. ${MINIMUM_NOTE}`,
+    rows: [
+      ['1.00', 'Same order'],
+      ['0', 'No relation'],
+      ['−1.00', 'Opposite order'],
+    ],
+  },
+};
+
+export const measureNote = (
+  measure: JudgeCalibration['measure'],
+): TooltipNote | null => (measure ? MEASURE_NOTES[measure] : null);
 
 export const formatStat = (value: number | null): string =>
   value === null ? '–' : value.toFixed(2);

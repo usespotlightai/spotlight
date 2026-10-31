@@ -21,8 +21,6 @@ export function StationOverview({
 
   return (
     <>
-      <StationAttention line={line} station={station} at={at} />
-
       <StationSummary {...at} />
 
       <StationConfig
@@ -31,6 +29,8 @@ export function StationOverview({
         line={line}
         station={station}
       />
+
+      <StationAttention line={line} station={station} at={at} />
 
       <StationRuns {...at} />
     </>
