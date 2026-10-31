@@ -26,12 +26,16 @@ type AssigneePickerProps = {
   className?: string;
 };
 
-function Unclaimed({ className }: { className?: string }) {
+const RING_WIDTH = { sm: 1.5, md: 1 } as const;
+
+function Unclaimed({ size = 'md' }: { size?: keyof typeof RING_WIDTH }) {
+  const width = RING_WIDTH[size];
+
   return (
     <span
       className={cn(
-        'relative flex size-6 shrink-0 items-center justify-center text-muted-foreground',
-        className,
+        'relative flex shrink-0 items-center justify-center text-muted-foreground',
+        size === 'sm' ? 'size-4' : 'size-6',
       )}
     >
       <svg
@@ -42,11 +46,10 @@ function Unclaimed({ className }: { className?: string }) {
         <circle
           cx="12"
           cy="12"
-          r="11.5"
+          r={12 - width / 2}
           fill="none"
           stroke="currentColor"
-          strokeWidth="1"
-          vectorEffect="non-scaling-stroke"
+          strokeWidth={width}
           pathLength="30"
           strokeDasharray="3 2"
           strokeDashoffset="1.5"
@@ -88,7 +91,7 @@ export function AssigneePicker({
               className="size-4 data-[size=sm]:size-4"
             />
           ) : (
-            <Unclaimed className="size-4" />
+            <Unclaimed size="sm" />
           )}
           <span
             className={cn(
@@ -131,7 +134,7 @@ export function AssigneePicker({
       >
         <DropdownMenuGroup>
           <DropdownMenuItem closeOnClick onClick={() => assign(null)}>
-            <Unclaimed className="size-4" />
+            <Unclaimed size="sm" />
             <span className="flex-1 truncate text-foreground">No assignee</span>
             {!assignee && (
               <Check className="size-4 text-foreground" aria-hidden />
