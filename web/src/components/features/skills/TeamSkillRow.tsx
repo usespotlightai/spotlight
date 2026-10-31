@@ -22,7 +22,9 @@ export function TeamSkillRow({
     >
       <SettingsRow
         label={skill.key}
-        description={<OneLine text={skill.description} />}
+        description={
+          skill.description ? <OneLine text={skill.description} /> : undefined
+        }
         leading={<RowIcon icon={SquareMousePointer} />}
       />
     </div>

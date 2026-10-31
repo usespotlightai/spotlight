@@ -14,7 +14,7 @@ type OneLineProps = {
 
 export function OneLine({ text, className }: OneLineProps) {
   const line = useRef<HTMLSpanElement>(null);
-  const overflows = useOverflows(line, true, 'x');
+  const overflows = useOverflows(line, true, 'x', text);
 
   return (
     <Tooltip disabled={!overflows}>
