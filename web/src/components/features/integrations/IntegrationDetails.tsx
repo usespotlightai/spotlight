@@ -1,4 +1,5 @@
 import { IntegrationAccount } from '@/components/features/integrations/IntegrationAccount';
+import { IntegrationFacts } from '@/components/features/integrations/IntegrationFacts';
 import { IntegrationPeople } from '@/components/features/integrations/IntegrationPeople';
 import { TeamAccountActions } from '@/components/features/integrations/TeamAccountActions';
 import { TeamAccountButton } from '@/components/features/integrations/TeamAccountButton';
@@ -36,7 +37,7 @@ export function IntegrationDetails({
   const problem = spec ? formatReadProblem(spec) : null;
 
   return (
-    <dl className="flex flex-col gap-2 pr-4 pb-4 pl-12">
+    <IntegrationFacts>
       {usesTeamAccount(integration) && (
         <FactRow>
           <dt className={FACT_LABEL}>Team account</dt>
@@ -125,6 +126,6 @@ export function IntegrationDetails({
         <dt className={FACT_LABEL}>Defined in</dt>
         <dd className={FACT_VALUE}>{integration.path}</dd>
       </FactRow>
-    </dl>
+    </IntegrationFacts>
   );
 }
