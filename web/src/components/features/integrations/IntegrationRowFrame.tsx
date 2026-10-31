@@ -73,7 +73,10 @@ export function IntegrationRowFrame({
             move.from,
             target,
             body.current?.firstElementChild as HTMLElement | null,
-            () => flushSync(() => setTransitioning(false)),
+            (end) =>
+              end === 'finished'
+                ? flushSync(() => setTransitioning(false))
+                : setTransitioning(false),
           )
         : null;
 
