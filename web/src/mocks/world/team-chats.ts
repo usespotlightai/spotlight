@@ -466,6 +466,40 @@ const setupChat = (): ChatRecord => {
   };
 };
 
+const PASTED_LOG = Array.from(
+  { length: 80 },
+  (_, at) =>
+    `2026-10-30T02:${String(at % 60).padStart(2, '0')}:14Z worker-${(at % 4) + 1} webhook delivery ${4120 + at} failed: 503 from billing, retry ${(at % 5) + 1} of 5`,
+).join('\n');
+
+const pastedLogChat = (): ChatRecord => {
+  const sentAt = hoursAgo(30);
+  const answer = chatTurn('run_chat_pasted_log_1', sentAt, [
+    {
+      kind: 'message',
+      text: 'Every failure is a 503 from billing, and the retries land on the same minute. The deliveries back off by a fixed 60 seconds, so they all hit billing again together. Add jitter to the backoff before anything else.',
+    },
+  ]);
+
+  return {
+    chat: chatOf({
+      id: 'chat_pasted_log',
+      title: 'Why does this log keep failing?',
+      createdAt: sentAt,
+      updatedAt: turnEndsAt(answer),
+      messages: [
+        messageBy(
+          SAM,
+          0,
+          `Why does this log keep failing?\n\n${PASTED_LOG}`,
+          sentAt,
+        ),
+      ],
+    }),
+    journals: [answer],
+  };
+};
+
 const seededChats = (): Record<string, ChatRecord[]> => ({
   [PLATFORM_ID]: [
     setupChat(),
@@ -473,6 +507,7 @@ const seededChats = (): Record<string, ChatRecord[]> => ({
     implementationChat(),
     rateLimitsChat(),
     quarterChat(),
+    pastedLogChat(),
   ],
   [GROWTH_ID]: [onboardingChat()],
 });
