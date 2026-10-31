@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { FadingScroll } from '@/components/shared/FadingScroll';
 
 export function PinnedText({ children }: { children: ReactNode }) {
-  return <ScrollArea className="max-h-[40vh]">{children}</ScrollArea>;
+  return <FadingScroll className="max-h-[40vh]">{children}</FadingScroll>;
 }
