@@ -254,7 +254,7 @@ export const configFingerprint = (
   return current
     ? {
         fingerprint: current.fingerprint.slice(0, 8),
-        since: current.firstDay ? formatDay(current.firstDay) : null,
+        since: current.firstDay,
         pullRequest: current.pullRequest?.url ?? null,
       }
     : null;

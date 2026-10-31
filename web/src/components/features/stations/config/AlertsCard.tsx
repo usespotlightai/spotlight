@@ -16,6 +16,7 @@ export function AlertsCard({ alerts }: { alerts: readonly AlertRule[] }) {
   return (
     <ConfigCard
       title={`Alert rules · ${alerts.length}`}
+      className="sm:col-span-2"
       action={
         paging && (
           <div className="flex items-center gap-0.5">
@@ -48,7 +49,7 @@ export function AlertsCard({ alerts }: { alerts: readonly AlertRule[] }) {
         aria-label="Alert rules"
         aria-roledescription="carousel"
         className={cn(
-          '-mx-3 flex flex-1 gap-2 overflow-x-auto px-3 [scrollbar-width:none]',
+          '-mx-3 flex flex-1 gap-4 overflow-x-auto px-3 [scrollbar-width:none]',
           paging && 'cursor-grab',
           dragging && 'cursor-grabbing select-none',
         )}

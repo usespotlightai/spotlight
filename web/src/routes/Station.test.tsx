@@ -232,6 +232,7 @@ const OUTCOMES = {
       ran: true,
       pullRequest: null,
       firstRunId: 'run_2',
+      firstDay: '2026-10-28',
       fingerprint: 'a'.repeat(64),
       config: null,
       changes: [],
@@ -273,16 +274,16 @@ function HandedOver() {
   );
 }
 
-const renderAt = (stationId: string) =>
+const renderAt = (stationId: string, tab = '') =>
   render(
     <MemoryRouter
       initialEntries={[
-        `/w/acme/team/team_1/lines/line_1/stations/${stationId}`,
+        `/w/acme/team/team_1/lines/line_1/stations/${stationId}${tab && `/${tab}`}`,
       ]}
     >
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/lines/:lineId/stations/:stationId"
+          path="/w/:slug/team/:teamId/lines/:lineId/stations/:stationId/:tab?"
           element={<Station />}
         />
         <Route path="/w/:slug/team/:teamId/agent" element={<HandedOver />} />
@@ -386,7 +387,7 @@ describe('Station', () => {
       name: 'Loading the station',
     });
     expect(overview).toHaveTextContent('What needs attention');
-    expect(overview).toHaveTextContent('Config');
+    expect(overview).toHaveTextContent('Runs');
     expect(overview).toHaveTextContent('Latest runs on this config');
   });
 
@@ -437,29 +438,51 @@ describe('Station', () => {
     });
   });
 
-  it('offers the overview as its one tab, with what needs attention below the config', () => {
+  it('offers the overview and the config as tabs, opening on the overview', () => {
     renderAt('station_2');
 
     const tabs = within(screen.getByRole('navigation', { name: 'Station' }));
 
-    expect(tabs.getAllByRole('link')).toHaveLength(1);
+    expect(tabs.getAllByRole('link').map((tab) => tab.textContent)).toEqual([
+      'Overview',
+      'Config',
+    ]);
     expect(tabs.getByRole('link', { name: 'Overview' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(tabs.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+    expect(tabs.getByRole('link', { name: 'Config' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_2',
-    );
-    const headings = screen
-      .getAllByRole('heading', { level: 2 })
-      .map((heading) => heading.textContent);
-    expect(headings).toContain('Config');
-    expect(headings.indexOf('What needs attention')).toBeGreaterThan(
-      headings.indexOf('Config'),
+      '/w/acme/team/team_1/lines/line_1/stations/station_2/config',
     );
     expect(
-      screen.getByRole('heading', { name: 'Recent runs' }),
+      screen.getByRole('heading', { name: 'What needs attention' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'Config' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the config on its own tab', () => {
+    renderAt('station_2', 'config');
+
+    expect(
+      within(screen.getByRole('navigation', { name: 'Station' })).getByRole(
+        'link',
+        { name: 'Config' },
+      ),
+    ).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('region', { name: 'Config' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'What needs attention' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('says so when the station has no such tab', () => {
+    renderAt('station_2', 'improve');
+
+    expect(
+      screen.getByRole('heading', { name: 'Station not found' }),
     ).toBeInTheDocument();
   });
 
@@ -491,139 +514,6 @@ describe('Station', () => {
 
       expect(
         screen.queryByRole('heading', { name: 'Latest runs on this config' }),
-      ).not.toBeInTheDocument();
-    });
-
-    it('offers no paging where every alert fits', () => {
-      renderAt('station_2');
-
-      expect(
-        screen.queryByRole('button', { name: 'Next alert rule' }),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', { name: /^Show page/ }),
-      ).not.toBeInTheDocument();
-    });
-
-    it('pages through the station’s alerts where they overflow', async () => {
-      const user = userEvent.setup();
-      laidOut({ track: 200, slide: 180 });
-      renderAt('station_2');
-
-      const previous = screen.getByRole('button', {
-        name: 'Previous alert rule',
-      });
-      const next = screen.getByRole('button', { name: 'Next alert rule' });
-
-      expect(previous).toBeDisabled();
-
-      await user.click(next);
-      await user.click(next);
-
-      expect(next).toBeDisabled();
-      expect(
-        screen.getByRole('button', { name: 'Show page 3 of 3' }),
-      ).toHaveAttribute('aria-current', 'true');
-    });
-
-    it('counts only the pages the track can scroll to', () => {
-      laidOut({ track: 450, slide: 180 });
-      renderAt('station_2');
-
-      expect(
-        screen.getAllByRole('button', { name: /^Show page/ }),
-      ).toHaveLength(2);
-    });
-
-    it('links to the pull request that brought the live config', () => {
-      outcomes.mockReturnValue({
-        ...OUTCOMES,
-        groups: OUTCOMES.groups.map((group, at) =>
-          at === 0
-            ? {
-                ...group,
-                pullRequest: { url: 'https://github.com/acme/config/pull/42' },
-              }
-            : group,
-        ),
-      });
-
-      renderAt('station_2');
-
-      expect(
-        within(sectionTitled('Config fingerprint')).getByRole('link', {
-          name: 'View pull request',
-        }),
-      ).toHaveAttribute('href', 'https://github.com/acme/config/pull/42');
-    });
-
-    it('offers no pull request where none brought the config', () => {
-      renderAt('station_2');
-
-      expect(
-        screen.queryByRole('link', { name: 'View pull request' }),
-      ).not.toBeInTheDocument();
-    });
-
-    it('says which config fingerprint is live, linking to its history', () => {
-      renderAt('station_2');
-
-      const fingerprint = within(sectionTitled('Config fingerprint'));
-
-      expect(fingerprint.getByText('Config aaaaaaaa')).toBeInTheDocument();
-      expect(
-        fingerprint.getByRole('link', { name: 'History' }),
-      ).toHaveAttribute('href', `${INSIGHTS}?tab=stations&stationId=station_2`);
-    });
-
-    it('lists the station’s alerts in the order they were written', () => {
-      renderAt('station_2');
-
-      expect(
-        within(screen.getByRole('list', { name: 'Alert rules' }))
-          .getAllByRole('listitem')
-          .map((each) => each.getAttribute('aria-label')),
-      ).toEqual([
-        'Alerts when the sent-back rate rises 20 points or more over 20 runs',
-        'Alerts when the cost per run goes above 2.00 over 10 runs',
-        'Alerts when the accepted rate falls 10 points or more over 20 runs',
-      ]);
-    });
-
-    it('says how far the judge agrees with people, linking to its agreement in Insights', () => {
-      renderAt('station_2');
-
-      expect(
-        document.querySelector('[data-slot="judge-calibration"]'),
-      ).toHaveTextContent('Cohen’s kappa0.71Qualified above 0.60 over 24 runs');
-      expect(screen.getByRole('link', { name: 'Agreement' })).toHaveAttribute(
-        'href',
-        `${INSIGHTS}?tab=stations&stationId=station_2#judge`,
-      );
-    });
-
-    it('leaves out how far the judge agrees with people where its agreement could not load', () => {
-      judged.mockReturnValue(undefined);
-      judgeFailing.mockReturnValue(true);
-
-      renderAt('station_2');
-
-      expect(
-        document.querySelector('[data-slot="judge-calibration"]'),
-      ).not.toBeInTheDocument();
-      expect(sectionTitled('Judge')).toHaveTextContent(
-        'Qualified from 0.60 agreement',
-      );
-    });
-
-    it('shows no alerts and no judge calibration where none are set', () => {
-      renderAt('station_1');
-
-      expect(
-        screen.queryByRole('link', { name: 'Agreement' }),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('heading', { name: /^Alert rules/ }),
       ).not.toBeInTheDocument();
     });
 
@@ -838,8 +728,144 @@ describe('Station', () => {
   });
 
   describe('its config', () => {
+    it('offers no paging where every alert fits', () => {
+      renderAt('station_2', 'config');
+
+      expect(
+        screen.queryByRole('button', { name: 'Next alert rule' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^Show page/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('pages through the station’s alerts where they overflow', async () => {
+      const user = userEvent.setup();
+      laidOut({ track: 200, slide: 180 });
+      renderAt('station_2', 'config');
+
+      const previous = screen.getByRole('button', {
+        name: 'Previous alert rule',
+      });
+      const next = screen.getByRole('button', { name: 'Next alert rule' });
+
+      expect(previous).toBeDisabled();
+
+      await user.click(next);
+      await user.click(next);
+
+      expect(next).toBeDisabled();
+      expect(
+        screen.getByRole('button', { name: 'Show page 3 of 3' }),
+      ).toHaveAttribute('aria-current', 'true');
+    });
+
+    it('counts only the pages the track can scroll to', () => {
+      laidOut({ track: 450, slide: 180 });
+      renderAt('station_2', 'config');
+
+      expect(
+        screen.getAllByRole('button', { name: /^Show page/ }),
+      ).toHaveLength(2);
+    });
+
+    it('links to the pull request that brought the live config', () => {
+      outcomes.mockReturnValue({
+        ...OUTCOMES,
+        groups: OUTCOMES.groups.map((group, at) =>
+          at === 0
+            ? {
+                ...group,
+                pullRequest: { url: 'https://github.com/acme/config/pull/42' },
+              }
+            : group,
+        ),
+      });
+
+      renderAt('station_2', 'config');
+
+      expect(
+        within(sectionTitled('Config fingerprint')).getByRole('link', {
+          name: 'View pull request',
+        }),
+      ).toHaveAttribute('href', 'https://github.com/acme/config/pull/42');
+    });
+
+    it('offers no pull request where none brought the config', () => {
+      renderAt('station_2', 'config');
+
+      expect(
+        screen.queryByRole('link', { name: 'View pull request' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('says which config fingerprint is live and since when, linking to its history', () => {
+      renderAt('station_2', 'config');
+
+      const fingerprint = within(sectionTitled('Config fingerprint'));
+
+      expect(fingerprint.getByText('Config aaaaaaaa')).toBeInTheDocument();
+      expect(
+        fingerprint.getByRole('img', { name: 'October 28, 2026' }),
+      ).toHaveTextContent('OCT28');
+      expect(
+        fingerprint.getByRole('link', { name: 'History' }),
+      ).toHaveAttribute('href', `${INSIGHTS}?tab=stations&stationId=station_2`);
+    });
+
+    it('lists the station’s alerts in the order they were written', () => {
+      renderAt('station_2', 'config');
+
+      expect(
+        within(screen.getByRole('list', { name: 'Alert rules' }))
+          .getAllByRole('listitem')
+          .map((each) => each.getAttribute('aria-label')),
+      ).toEqual([
+        'Alerts when the sent-back rate rises 20 points or more over 20 runs',
+        'Alerts when the cost per run goes above 2.00 over 10 runs',
+        'Alerts when the accepted rate falls 10 points or more over 20 runs',
+      ]);
+    });
+
+    it('says how far the judge agrees with people, linking to its agreement in Insights', () => {
+      renderAt('station_2', 'config');
+
+      expect(
+        document.querySelector('[data-slot="judge-calibration"]'),
+      ).toHaveTextContent('Cohen’s kappa0.71Qualified above 0.60 over 24 runs');
+      expect(screen.getByRole('link', { name: 'Agreement' })).toHaveAttribute(
+        'href',
+        `${INSIGHTS}?tab=stations&stationId=station_2#judge`,
+      );
+    });
+
+    it('leaves out how far the judge agrees with people where its agreement could not load', () => {
+      judged.mockReturnValue(undefined);
+      judgeFailing.mockReturnValue(true);
+
+      renderAt('station_2', 'config');
+
+      expect(
+        document.querySelector('[data-slot="judge-calibration"]'),
+      ).not.toBeInTheDocument();
+      expect(sectionTitled('Judge')).toHaveTextContent(
+        'Qualified from 0.60 agreement',
+      );
+    });
+
+    it('shows no alerts and no judge calibration where none are set', () => {
+      renderAt('station_1', 'config');
+
+      expect(
+        screen.queryByRole('link', { name: 'Agreement' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', { name: /^Alert rules/ }),
+      ).not.toBeInTheDocument();
+    });
+
     it('shows the harness, model and effort the station runs on', () => {
-      renderAt('station_2');
+      renderAt('station_2', 'config');
 
       expect(
         document.querySelector('[data-slot="station-agent"]'),
@@ -850,7 +876,7 @@ describe('Station', () => {
     });
 
     it('says no agent works the station where no harness is set', () => {
-      renderAt('station_1');
+      renderAt('station_1', 'config');
 
       expect(
         document.querySelector('[data-slot="station-agent"]'),
@@ -858,7 +884,7 @@ describe('Station', () => {
     });
 
     it('shows the skills the station enables for its runs', () => {
-      renderAt('station_2');
+      renderAt('station_2', 'config');
 
       expect(
         within(screen.getByRole('list', { name: 'Skills' }))
@@ -868,7 +894,7 @@ describe('Station', () => {
     });
 
     it('lists no skills where a station enables none', () => {
-      renderAt('station_1');
+      renderAt('station_1', 'config');
 
       expect(
         screen.queryByRole('list', { name: 'Skills' }),
@@ -876,7 +902,7 @@ describe('Station', () => {
     });
 
     it('renders the prompt rather than its markdown, without letting it be written', () => {
-      renderAt('station_2');
+      renderAt('station_2', 'config');
 
       expect(screen.getByLabelText('Agent prompt')).toHaveAttribute(
         'contenteditable',
@@ -888,13 +914,13 @@ describe('Station', () => {
     });
 
     it('says so where a station has no prompt', () => {
-      renderAt('station_1');
+      renderAt('station_1', 'config');
 
       expect(screen.getByText('No prompt.')).toBeInTheDocument();
     });
 
     it('shows the sample rate of the station’s judge, and the minimum agreement it needs', () => {
-      renderAt('station_2');
+      renderAt('station_2', 'config');
 
       const judge = sectionTitled('Judge');
 
@@ -907,7 +933,7 @@ describe('Station', () => {
     });
 
     it('shows the rubric read-only in the judge card', async () => {
-      renderAt('station_2');
+      renderAt('station_2', 'config');
 
       expect(
         await screen.findByLabelText('The judge’s rubric'),
@@ -918,7 +944,7 @@ describe('Station', () => {
     });
 
     it('says only people score runs where no judge is set', () => {
-      renderAt('station_1');
+      renderAt('station_1', 'config');
 
       expect(sectionTitled('Judge')).toHaveTextContent(
         'No judgeOnly people score runs here.',
@@ -927,21 +953,25 @@ describe('Station', () => {
 
     it('says how Spotlight improves the station on its own, with the rest on hover', async () => {
       const user = userEvent.setup();
-      renderAt('station_2');
+      renderAt('station_2', 'config');
 
       const improvement = sectionTitled('Automatic improvement');
 
+      expect(improvement).not.toHaveTextContent('On');
       expect(improvement).toHaveTextContent(
-        'OnUp to $10 a search · every 7 days',
+        'Up to $10 each, every 7 days5 of 5 fit',
       );
+      expect(
+        within(improvement).getByRole('img', {
+          name: "At most $50 in 30 days. 5 of 5 scheduled searches fit the line's $50 a month.",
+        }),
+      ).toBeInTheDocument();
 
       await user.hover(
-        improvement.querySelector('[data-slot="search-policy"]') as Element,
+        improvement.querySelector('svg.lucide-info')?.parentElement as Element,
       );
 
-      expect(
-        await screen.findByText('Line ceiling a month'),
-      ).toBeInTheDocument();
+      expect(await screen.findByText('Cooldown')).toBeInTheDocument();
     });
 
     it('shows no automatic improvement at the ends of the line', () => {
@@ -956,7 +986,7 @@ describe('Station', () => {
     });
 
     it('says no search runs where automatic improvement is off', () => {
-      renderAt('station_1');
+      renderAt('station_1', 'config');
 
       expect(sectionTitled('Automatic improvement')).toHaveTextContent(
         'OffNo automatic searches',
@@ -964,7 +994,7 @@ describe('Station', () => {
     });
 
     it('names the line of the station and its repositories', () => {
-      renderAt('station_2');
+      renderAt('station_2', 'config');
 
       const fromLine = within(sectionTitled('Line'));
 

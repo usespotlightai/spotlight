@@ -1,4 +1,3 @@
-import { StationConfig } from '@/components/features/stations/config/StationConfig';
 import { StationAttention } from '@/components/features/stations/overview/StationAttention';
 import { StationRuns } from '@/components/features/stations/overview/StationRuns';
 import { StationSummary } from '@/components/features/stations/overview/StationSummary';
@@ -22,13 +21,6 @@ export function StationOverview({
   return (
     <>
       <StationSummary {...at} />
-
-      <StationConfig
-        slug={slug}
-        teamId={teamId}
-        line={line}
-        station={station}
-      />
 
       <StationAttention line={line} station={station} at={at} />
 

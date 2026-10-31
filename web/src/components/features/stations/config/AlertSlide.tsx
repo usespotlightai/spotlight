@@ -28,7 +28,7 @@ export function AlertSlide({ alert }: { alert: AlertRule }) {
       aria-roledescription="slide"
       aria-label={alertPhrase(alert)}
       data-slot="alert-slide"
-      className="w-44 max-w-[85%] shrink-0"
+      className="w-[calc(50%-0.5rem)] shrink-0"
     >
       <div aria-hidden className="flex h-full flex-col justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5 text-foreground text-xs">

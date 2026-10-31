@@ -95,6 +95,14 @@ const DELIVERY_STATIONS: StationResponseDto[] = [
         below: null,
         over: 10,
       },
+      {
+        measure: 'merged_rate',
+        risesBy: null,
+        above: null,
+        fallsBy: 0.15,
+        below: null,
+        over: 20,
+      },
     ],
   }),
   station({

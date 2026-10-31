@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   durationWords,
+  periodDays,
   type SearchPolicy,
-  searchPolicyDetail,
+  searchMonth,
   searchPolicyNote,
 } from '@/lib/search-policy';
 
@@ -32,24 +33,57 @@ describe('durationWords', () => {
   });
 });
 
-describe('searchPolicyDetail', () => {
-  it('names the ceiling of one search and how often it runs', () => {
-    expect(searchPolicyDetail(POLICY)).toBe(
-      'Up to $10 a search · every 7 days',
+describe('periodDays', () => {
+  it('reads minutes, hours and days as days', () => {
+    expect(periodDays('7d')).toBe(7);
+    expect(periodDays('12h')).toBe(0.5);
+    expect(periodDays('90m')).toBe(0.0625);
+  });
+
+  it('reads nothing it cannot read, or a zero period', () => {
+    expect(periodDays('P7D')).toBeNull();
+    expect(periodDays('0d')).toBeNull();
+  });
+});
+
+describe('searchMonth', () => {
+  it('starts a search only while the month has room for its whole ceiling', () => {
+    expect(searchMonth({ ...POLICY, ceiling: 20 })).toEqual({
+      searches: [
+        { day: 0, fits: true },
+        { day: 7, fits: true },
+        { day: 14, fits: false },
+        { day: 21, fits: false },
+        { day: 28, fits: false },
+      ],
+      fitting: 2,
+      spent: 40,
+      asked: 100,
+    });
+  });
+
+  it('fits every search where the month has room for them all', () => {
+    expect(searchMonth(POLICY)).toMatchObject({
+      fitting: 5,
+      spent: 50,
+      asked: 50,
+    });
+  });
+
+  it('counts every search where searches are due more than once a day', () => {
+    expect(searchMonth({ ...POLICY, period: '12h' })?.searches).toHaveLength(
+      60,
     );
   });
 
-  it('says no search runs when automatic improvement is off', () => {
-    expect(searchPolicyDetail({ ...POLICY, enabled: false })).toBe(
-      'No automatic searches',
-    );
+  it('reads nothing where the period cannot be read', () => {
+    expect(searchMonth({ ...POLICY, period: 'P7D' })).toBeNull();
   });
 });
 
 describe('searchPolicyNote', () => {
   it('says what Spotlight picks where the station leaves it out', () => {
     expect(searchPolicyNote(POLICY).rows).toEqual([
-      ['Line ceiling a month', '$50'],
       ['After an alert', 'Starts a search'],
       ['Cooldown', '3 days'],
       ['Agent', 'Spotlight picks'],
@@ -74,7 +108,6 @@ describe('searchPolicyNote', () => {
         objective: 'cost',
       }).rows,
     ).toEqual([
-      ['Line ceiling a month', '$50'],
       ['After an alert', "Doesn't start a search"],
       ['Cooldown', '3 days'],
       ['Agent', 'claude-code, high'],

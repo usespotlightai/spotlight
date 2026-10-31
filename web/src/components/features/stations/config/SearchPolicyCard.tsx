@@ -1,32 +1,26 @@
 import { ConfigCard } from '@/components/features/stations/config/ConfigCard';
 import { ConfigCardValue } from '@/components/features/stations/config/ConfigCardValue';
-import { WithTooltip } from '@/components/shared/WithTooltip';
-import {
-  type SearchPolicy,
-  searchPolicyDetail,
-  searchPolicyNote,
-} from '@/lib/search-policy';
+import { SearchSchedule } from '@/components/features/stations/config/SearchSchedule';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
+import { type SearchPolicy, searchPolicyNote } from '@/lib/search-policy';
 
 export function SearchPolicyCard({ policy }: { policy: SearchPolicy }) {
-  const shown = (
-    <div data-slot="search-policy" className="w-fit min-w-0 cursor-default">
-      <ConfigCardValue detail={searchPolicyDetail(policy)}>
-        {policy.enabled ? (
-          'On'
-        ) : (
+  if (!policy.enabled) {
+    return (
+      <ConfigCard title="Automatic improvement">
+        <ConfigCardValue detail="No automatic searches">
           <span className="text-muted-foreground">Off</span>
-        )}
-      </ConfigCardValue>
-    </div>
-  );
+        </ConfigCardValue>
+      </ConfigCard>
+    );
+  }
 
   return (
-    <ConfigCard title="Automatic improvement">
-      {policy.enabled ? (
-        <WithTooltip tooltip={searchPolicyNote(policy)}>{shown}</WithTooltip>
-      ) : (
-        shown
-      )}
+    <ConfigCard
+      title="Automatic improvement"
+      action={<InfoTooltip tooltip={searchPolicyNote(policy)} />}
+    >
+      <SearchSchedule policy={policy} />
     </ConfigCard>
   );
 }

@@ -1,13 +1,13 @@
-import { StationOverviewSkeleton } from '@/components/features/stations/overview/StationOverviewSkeleton';
 import { StationPane } from '@/components/features/stations/StationPane';
+import { StationTabSkeleton } from '@/components/features/stations/StationTabSkeleton';
 import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
-import { STATION_TABS } from '@/lib/station';
+import { STATION_TABS, type StationTab } from '@/lib/station';
 import { cn } from '@/lib/utils';
 
-export function StationSkeleton() {
+export function StationSkeleton({ tab }: { tab: StationTab }) {
   return (
     <div
       role="status"
@@ -39,16 +39,16 @@ export function StationSkeleton() {
         </div>
 
         <div className="flex items-center gap-1 border-border border-b px-3">
-          {STATION_TABS.map((each, index) => (
+          {STATION_TABS.map((each) => (
             <span
               key={each.id}
               className={cn(
                 'relative flex h-9 items-center px-2 text-[0.8rem]',
-                index === 0 ? 'text-foreground' : 'text-muted-foreground',
+                each.id === tab ? 'text-foreground' : 'text-muted-foreground',
               )}
             >
               {each.label}
-              {index === 0 && (
+              {each.id === tab && (
                 <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-primary" />
               )}
             </span>
@@ -57,7 +57,7 @@ export function StationSkeleton() {
       </div>
 
       <StationPane>
-        <StationOverviewSkeleton />
+        <StationTabSkeleton tab={tab} />
       </StationPane>
     </div>
   );
