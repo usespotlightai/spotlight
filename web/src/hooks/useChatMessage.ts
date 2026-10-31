@@ -56,8 +56,9 @@ export function useChatMessage(
   initialReferences: readonly Reference[],
   initialText = '',
   shared: SharedDraft | null = null,
-  draft: DraftHandle | null = null,
+  persisted: DraftHandle | null = null,
 ) {
+  const draft = shared ? null : persisted;
   const [handedOver, setHandedOver] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -84,10 +85,11 @@ export function useChatMessage(
     restored,
   );
   const editor = useRef<LexicalEditor | null>(null);
-  const [written, setWritten] = useState<Written>(() => ({
+  const [seed] = useState<Written>(() => ({
     text: draft?.content?.text ?? initialText,
     references: draft?.content?.references ?? initialReferences,
   }));
+  const [written, setWritten] = useState<Written>(seed);
   const write = useCallback(
     (next: Written) => {
       setWritten(next);
@@ -260,6 +262,7 @@ export function useChatMessage(
 
   return {
     editor,
+    seed,
     written,
     setWritten: write,
     outgoing,

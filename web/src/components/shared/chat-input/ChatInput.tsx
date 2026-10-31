@@ -70,13 +70,12 @@ export function ChatInput({
   draft,
 }: ChatInputProps) {
   const cursors = useRef<HTMLDivElement>(null);
-  const saved = shared ? null : (draft ?? null);
   const message = useChatMessage(
     slug,
     initialReferences,
     initialText,
     shared,
-    saved,
+    draft,
   );
   const lifted = message.images.length > 0;
   const { inner, writing, height, expanded } = useOneLineFit(
@@ -145,10 +144,8 @@ export function ChatInput({
                 cursors={cursors}
                 label={label}
                 placeholder={placeholder}
-                initialReferences={
-                  saved?.content?.references ?? initialReferences
-                }
-                initialText={saved?.content?.text ?? initialText}
+                initialReferences={message.seed.references}
+                initialText={message.seed.text}
                 handle={message.editor}
                 editable={!pending && !disabled}
                 disabled={disabled}
