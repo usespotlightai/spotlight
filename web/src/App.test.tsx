@@ -23,6 +23,9 @@ vi.mock('@/hooks/api/useLines', () => ({
     isPending: false,
   }),
 }));
+vi.mock('@/hooks/useCommandSections', () => ({
+  useCommandSections: () => [],
+}));
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
   useInbox: () => ({ data: [] }),

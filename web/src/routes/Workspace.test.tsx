@@ -18,6 +18,9 @@ vi.mock('@/hooks/api/useLines', () => ({
 vi.mock('@/hooks/api/useTasks', () => ({
   useTasks: () => ({ data: [], isPending: false }),
 }));
+vi.mock('@/hooks/useCommandSections', () => ({
+  useCommandSections: () => [],
+}));
 vi.mock('@/hooks/api/useSignOut', () => ({
   useSignOut: () => ({ mutate: vi.fn(), isPending: false }),
 }));

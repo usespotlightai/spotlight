@@ -1,7 +1,9 @@
+import { useCallback, useState } from 'react';
 import { Link, useMatch, useParams } from 'react-router';
 import { SettingUpWorkspace } from '@/components/features/onboarding/SettingUpWorkspace';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
+import { CommandPalette } from '@/components/shell/command/CommandPalette';
 import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
 import { PageOutlet } from '@/components/shell/layout/PageOutlet';
 import { SettingsSidebar } from '@/components/shell/layout/SettingsSidebar';
@@ -12,6 +14,7 @@ import { buttonVariants } from '@/components/ui/button-variants';
 import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useAppTabs } from '@/hooks/useAppTabs';
+import { useCommandShortcut } from '@/hooks/useCommandShortcut';
 import { useLastPlace } from '@/hooks/useLastPlace';
 import { useSlideFrom } from '@/hooks/useSlideFrom';
 import { failed, loading } from '@/lib/query';
@@ -27,6 +30,9 @@ export function Workspace() {
   const settingUp = useSettingUp(slug, workspace.data);
   const slideFrom = useSlideFrom(inSettings);
   const tabs = useAppTabs(slug ?? '', workspace.data?.teams ?? []);
+  const [searching, setSearching] = useState(false);
+  const toggleSearch = useCallback(() => setSearching((open) => !open), []);
+  useCommandShortcut(toggleSearch);
   const strip = (
     <AppTabStrip
       tabs={tabs.tabs}
@@ -103,7 +109,11 @@ export function Workspace() {
               workspace={workspace.data}
             />
           ) : (
-            <WorkspaceSidebar slug={slug} workspace={workspace.data} />
+            <WorkspaceSidebar
+              slug={slug}
+              workspace={workspace.data}
+              onSearch={() => setSearching(true)}
+            />
           )}
         </SidebarSlide>
       }
@@ -112,6 +122,13 @@ export function Workspace() {
       <TabTitleContext value={tabs.report}>
         <PageOutlet />
       </TabTitleContext>
+
+      <CommandPalette
+        slug={slug}
+        workspace={workspace.data}
+        open={searching}
+        onOpenChange={setSearching}
+      />
     </DashboardLayout>
   );
 }
