@@ -6,6 +6,8 @@ const MOVE_TIMING: KeyframeAnimationOptions = {
   fill: 'forwards',
 };
 
+export type MoveEnd = 'finished' | 'cancelled';
+
 const transitionEnded = (expanding: HTMLElement | null): Promise<void> =>
   new Promise((resolve) => {
     if (!expanding) {
@@ -29,7 +31,7 @@ export const transitionMove = (
   from: DOMRect,
   to: HTMLElement,
   expanding: HTMLElement | null,
-  landed: () => void,
+  landed: (end: MoveEnd) => void,
 ): (() => void) | null => {
   if (!canAnimate(to)) {
     return null;
@@ -64,23 +66,22 @@ export const transitionMove = (
   );
   const expanded = transitionEnded(expanding);
   let done = false;
-  const land = (fade: () => void) => {
+  const land = (end: MoveEnd) => {
     if (!done) {
       done = true;
-      landed();
-      fade();
+      landed(end);
+      ghost.remove();
     }
   };
-  const afterPaint = () =>
-    requestAnimationFrame(() => requestAnimationFrame(() => ghost.remove()));
 
-  moving.oncancel = () => land(() => ghost.remove());
+  moving.oncancel = () => land('cancelled');
   moving.onfinish = () => {
-    void expanded.then(() => land(afterPaint));
+    void expanded.then(() => land('finished'));
   };
 
   return () => {
-    land(() => ghost.remove());
+    done = true;
     moving.cancel();
+    ghost.remove();
   };
 };

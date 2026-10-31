@@ -5,6 +5,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { flushSync } from 'react-dom';
 import { Collapsible } from '@/components/shared/Collapsible';
 import { ExpandChevron } from '@/components/shared/ExpandChevron';
 import { useRowClick } from '@/hooks/useRowClick';
@@ -72,13 +73,14 @@ export function IntegrationRowFrame({
             move.from,
             target,
             body.current?.firstElementChild as HTMLElement | null,
-            () => setTransitioning(false),
+            (end) =>
+              end === 'finished'
+                ? flushSync(() => setTransitioning(false))
+                : setTransitioning(false),
           )
         : null;
 
-    if (stopTransition.current) {
-      setTransitioning(true);
-    }
+    setTransitioning(stopTransition.current !== null);
   }, [open]);
 
   return (
@@ -87,7 +89,7 @@ export function IntegrationRowFrame({
       data-slot={slot}
       data-open={open || undefined}
       data-transitioning={transitioning || undefined}
-      className="cursor-pointer [&[data-transitioning]_[data-need]]:invisible [&[data-transitioning]_[data-need]]:transition-none"
+      className="cursor-pointer [&[data-transitioning]_[data-need]]:invisible [&_[data-need]]:transition-[color,background-color,border-color,box-shadow,opacity,translate]"
     >
       <div
         ref={head}
