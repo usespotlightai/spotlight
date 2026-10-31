@@ -7,6 +7,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useAssignTask } from '@/hooks/api/useAssignTask';
 import { useMembers } from '@/hooks/api/useMembers';
 import type { Task } from '@/lib/task';
@@ -21,15 +26,36 @@ type AssigneePickerProps = {
   className?: string;
 };
 
-function Unclaimed({ className }: { className?: string }) {
+const RING_WIDTH = { sm: 1.5, md: 1 } as const;
+
+function Unclaimed({ size = 'md' }: { size?: keyof typeof RING_WIDTH }) {
+  const width = RING_WIDTH[size];
+
   return (
     <span
       className={cn(
-        'flex size-6 shrink-0 items-center justify-center rounded-full border border-muted-foreground/60 border-dashed text-muted-foreground',
-        className,
+        'relative flex shrink-0 items-center justify-center text-muted-foreground',
+        size === 'sm' ? 'size-4' : 'size-6',
       )}
     >
-      <UserRound className="size-3" aria-hidden />
+      <svg
+        viewBox="0 0 24 24"
+        className="absolute inset-0 size-full -rotate-90 text-muted-foreground/40"
+        aria-hidden
+      >
+        <circle
+          cx="12"
+          cy="12"
+          r={12 - width / 2}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={width}
+          pathLength="30"
+          strokeDasharray="3 2"
+          strokeDashoffset="1.5"
+        />
+      </svg>
+      <UserRound className="size-2.5" aria-hidden />
     </span>
   );
 }
@@ -65,7 +91,7 @@ export function AssigneePicker({
               className="size-4 data-[size=sm]:size-4"
             />
           ) : (
-            <Unclaimed className="size-4" />
+            <Unclaimed size="sm" />
           )}
           <span
             className={cn(
@@ -81,16 +107,25 @@ export function AssigneePicker({
           />
         </DropdownMenuTrigger>
       ) : (
-        <DropdownMenuTrigger
-          onPointerDown={(event) => event.stopPropagation()}
-          aria-label={label}
-          className={cn(
-            'shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            className,
-          )}
-        >
-          {assignee ? <PersonAvatar person={assignee} /> : <Unclaimed />}
-        </DropdownMenuTrigger>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <DropdownMenuTrigger
+                onPointerDown={(event) => event.stopPropagation()}
+                aria-label={label}
+                className={cn(
+                  'shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  className,
+                )}
+              />
+            }
+          >
+            {assignee ? <PersonAvatar person={assignee} /> : <Unclaimed />}
+          </TooltipTrigger>
+          <TooltipContent>
+            {assignee ? assignee.name : 'Assign this task'}
+          </TooltipContent>
+        </Tooltip>
       )}
 
       <DropdownMenuContent
@@ -99,7 +134,7 @@ export function AssigneePicker({
       >
         <DropdownMenuGroup>
           <DropdownMenuItem closeOnClick onClick={() => assign(null)}>
-            <Unclaimed className="size-4" />
+            <Unclaimed size="sm" />
             <span className="flex-1 truncate text-foreground">No assignee</span>
             {!assignee && (
               <Check className="size-4 text-foreground" aria-hidden />
