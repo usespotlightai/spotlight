@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
-import { RunImage } from '@/components/features/runs/RunImage';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
@@ -35,7 +34,6 @@ export function RunBriefing({
     >
       <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
         <TimeMarker at={run.startedAt} />
-        <RunImage image={run.image} />
 
         <div className="mt-6">
           <InboxAsked

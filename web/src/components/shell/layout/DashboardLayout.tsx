@@ -29,16 +29,23 @@ export function DashboardLayout({
         className="relative hidden shrink-0 flex-col px-3 py-2 md:flex"
       >
         {sidebar}
-
-        <PaneHandle {...handleProps} edge="right" resizing={resizing} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col p-2 md:pl-0">
         {tabs}
 
-        <section className="flex min-h-0 flex-1 flex-col overflow-clip rounded-lg border-[0.5px] border-border bg-surface shadow-pane">
-          {children}
-        </section>
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <PaneHandle
+            {...handleProps}
+            edge="left"
+            resizing={resizing}
+            className="hidden md:block"
+          />
+
+          <section className="flex min-h-0 flex-1 flex-col overflow-clip rounded-lg border-[0.5px] border-border bg-surface shadow-pane">
+            {children}
+          </section>
+        </div>
       </div>
     </div>
   );
