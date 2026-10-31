@@ -68,6 +68,7 @@ export function ChatEditor({
               paragraph.append($createTextNode(initialText));
             }
             $getRoot().append(paragraph);
+            paragraph.selectEnd();
           }
         : undefined,
   }));

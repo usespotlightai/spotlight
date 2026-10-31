@@ -3,14 +3,11 @@ import { AgentPicker } from '@/components/features/stations/AgentPicker';
 import { RepositoriesSelect } from '@/components/features/stations/RepositoriesSelect';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
+import { useRepositories } from '@/hooks/api/useRepositories';
 import { useStartChat } from '@/hooks/api/useStartChat';
-import { useStoredState } from '@/hooks/useStoredState';
-import {
-  CHAT_HARNESS_KEY,
-  type ChatSetup,
-  type SharedTrace,
-  type TargetStation,
-} from '@/lib/chat';
+import { useChatDraft } from '@/hooks/useChatDraft';
+import type { ChatSetup, SharedTrace, TargetStation } from '@/lib/chat';
+import { prefillSignature, validSettings } from '@/lib/chat-draft';
 import { stationReference, traceReference } from '@/lib/chat-input';
 import { messageOf } from '@/lib/error';
 
@@ -36,26 +33,52 @@ export function NewChatComposer({
   onStarted,
 }: NewChatComposerProps) {
   const { data: harnesses } = useHarnesses();
-  const [stored, store] = useStoredState(CHAT_HARNESS_KEY, '');
-  const [model, setModel] = useState('');
-  const [effort, setEffort] = useState('');
-  const [repositories, setRepositories] = useState<string[]>([
-    ...defaultRepositories,
-  ]);
+  const { data: available } = useRepositories(slug);
   const start = useStartChat();
   const [references] = useState(() => [
     ...(defaultTargetStation ? [stationReference(defaultTargetStation)] : []),
     ...handed.map(traceReference),
   ]);
+  const draft = useChatDraft(
+    slug,
+    'new',
+    prefillSignature({
+      text: defaultPrompt,
+      references,
+      repositories: defaultRepositories,
+      setup,
+    }),
+  );
+  const [chosen, setChosen] = useState({
+    harness: draft.settings.harness ?? '',
+    model: draft.settings.model ?? '',
+    effort: draft.settings.effort ?? '',
+  });
+  const [picked, setPicked] = useState<readonly string[]>(() =>
+    draft.fresh && defaultRepositories.length > 0
+      ? defaultRepositories
+      : (draft.settings.repositories ?? defaultRepositories),
+  );
 
-  const harness = harnesses?.some((each) => each.id === stored)
-    ? stored
-    : (harnesses?.[0]?.id ?? '');
+  const { harness, model, effort } = harnesses
+    ? validSettings(chosen, harnesses, harnesses[0]?.id ?? '')
+    : { harness: '', model: '', effort: '' };
+  const offered = new Set([
+    ...defaultRepositories,
+    ...(available ?? []).map((each) => each.fullName),
+  ]);
+  const repositories = available
+    ? picked.filter((each) => offered.has(each))
+    : [...picked];
 
-  const choose = (next: string) => {
-    store(next);
-    setModel('');
-    setEffort('');
+  const choose = (patch: Partial<typeof chosen>) => {
+    setChosen((was) => ({ ...was, ...patch }));
+    draft.save(patch);
+  };
+
+  const chooseRepositories = (next: string[]) => {
+    setPicked(next);
+    draft.save({ repositories: next });
   };
 
   return (
@@ -64,6 +87,7 @@ export function NewChatComposer({
       label="Plan with the agent"
       placeholder="What do you want to plan?"
       pending={start.isPending || !harness}
+      draft={draft}
       initialReferences={references}
       initialText={defaultPrompt ?? undefined}
       settings={
@@ -71,9 +95,9 @@ export function NewChatComposer({
           harness={harness}
           model={model}
           effort={effort}
-          onHarness={choose}
-          onModel={setModel}
-          onEffort={setEffort}
+          onHarness={(next) => choose({ harness: next, model: '', effort: '' })}
+          onModel={(next) => choose({ model: next })}
+          onEffort={(next) => choose({ effort: next })}
         />
       }
       below={
@@ -81,7 +105,7 @@ export function NewChatComposer({
           <RepositoriesSelect
             slug={slug}
             value={repositories}
-            onChange={setRepositories}
+            onChange={chooseRepositories}
             className="h-6 w-auto"
           />
           {start.isError && (

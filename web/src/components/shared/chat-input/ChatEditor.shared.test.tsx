@@ -1,5 +1,5 @@
 import type { Provider } from '@lexical/yjs';
-import { act, render, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import {
   $createTextNode,
   $getRoot,
@@ -10,7 +10,10 @@ import { createRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { applyUpdate, Doc, encodeStateAsUpdate } from 'yjs';
 import { ChatEditor } from '@/components/shared/chat-input/ChatEditor';
+import { ChatInput } from '@/components/shared/chat-input/ChatInput';
+import type { DraftHandle } from '@/hooks/useChatDraft';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
+import { write } from '@/test/lexical';
 
 type State = Record<string, unknown>;
 
@@ -154,5 +157,35 @@ describe('ChatEditor on a shared draft', () => {
     );
     expect(ada.wrote).toHaveBeenCalled();
     expect(bea.wrote).not.toHaveBeenCalled();
+  });
+
+  it('leaves the local draft alone while the draft is shared', async () => {
+    const draft: DraftHandle = {
+      content: null,
+      fresh: true,
+      settings: {},
+      save: vi.fn(),
+      discard: vi.fn(),
+    };
+    const ada = draftFor(hubbed(), 'ada', new Map<number, State>());
+
+    render(
+      <ChatInput
+        slug="acme"
+        label="Answer as ada"
+        placeholder="Reply…"
+        pending={false}
+        settings={null}
+        onSend={vi.fn()}
+        shared={ada}
+        draft={draft}
+      />,
+    );
+    const box = await screen.findByRole('textbox', { name: 'Answer as ada' });
+    await waitFor(() => expect(box).toHaveAttribute('contenteditable', 'true'));
+    await write(box, 'Cap the retries at 500.');
+
+    expect(ada.wrote).toHaveBeenCalled();
+    expect(draft.save).not.toHaveBeenCalled();
   });
 });

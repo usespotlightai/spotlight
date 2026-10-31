@@ -20,7 +20,11 @@ const uniqueKey = (): string =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 type Outcome =
-  | { readonly state: 'ready'; readonly id: string }
+  | {
+      readonly state: 'ready';
+      readonly id: string;
+      readonly uploadedAt: number;
+    }
   | { readonly state: 'failed'; readonly problem: string };
 
 type Ready = PendingAttachment & { readonly state: 'ready' };
@@ -28,8 +32,11 @@ type Ready = PendingAttachment & { readonly state: 'ready' };
 export function useAttachments(
   slug: string,
   onReady?: (attachment: Ready) => void,
+  initial: readonly PendingAttachment[] = [],
 ) {
-  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>(() => [
+    ...initial,
+  ]);
   const ready = useRef(onReady);
 
   useEffect(() => {
@@ -65,8 +72,10 @@ export function useAttachments(
 
       uploadAttachment({ slug, file }).then(
         ({ id }) => {
-          finish(pending.key, { state: 'ready', id });
-          ready.current?.({ ...pending, state: 'ready', id });
+          const uploadedAt = Date.now();
+
+          finish(pending.key, { state: 'ready', id, uploadedAt });
+          ready.current?.({ ...pending, state: 'ready', id, uploadedAt });
         },
         () =>
           finish(pending.key, { state: 'failed', problem: 'Upload failed' }),

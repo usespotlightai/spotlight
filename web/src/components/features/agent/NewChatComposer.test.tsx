@@ -1,8 +1,9 @@
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NewChatComposer } from '@/components/features/agent/NewChatComposer';
 import type { SharedTrace, TargetStation } from '@/lib/chat';
+import { toast } from '@/lib/toast';
 import { erase, pressEnter, textOf, write } from '@/test/lexical';
 
 const started = vi.fn();
@@ -14,6 +15,10 @@ vi.mock('@/hooks/api/useHarnesses', () => ({
 }));
 vi.mock('@/hooks/api/useRepositories', () => ({
   useRepositories: () => ({ data: [{ fullName: 'acme/api' }] }),
+}));
+vi.mock('@/lib/thumbnail', async (original) => ({
+  ...(await original<typeof import('@/lib/thumbnail')>()),
+  thumbnailOf: () => Promise.resolve('data:image/jpeg;base64,AAAA'),
 }));
 vi.mock('@/lib/upload-attachment', () => ({
   uploadAttachment: () => Promise.resolve({ id: 'attachment_1' }),
@@ -305,5 +310,203 @@ describe('NewChatComposer', () => {
       expect.objectContaining({ body: '', attachments: ['attachment_1'] }),
       expect.anything(),
     );
+  });
+
+  describe('draft', () => {
+    const OPUS = { id: 'opus', name: 'Opus' };
+    const WITH_MODELS = { ...CLAUDE, models: [OPUS], efforts: ['high'] };
+    const DRAFTS = 'spotlight.chat-drafts.acme';
+
+    const seed = (record: object) =>
+      localStorage.setItem(
+        DRAFTS,
+        JSON.stringify({
+          new: {
+            text: '',
+            references: [],
+            attachments: [],
+            savedAt: Date.now(),
+            prefill: '',
+            ...record,
+          },
+        }),
+      );
+
+    const returning = async (prompt: string | null = null, write_?: string) => {
+      showing();
+      if (write_) {
+        await write(box(), write_);
+      }
+      cleanup();
+      showing(vi.fn(), [], null, prompt);
+    };
+
+    beforeEach(() => {
+      harnesses.mockReturnValue([WITH_MODELS]);
+    });
+
+    it('brings back the text, with the cursor at its end, after the composer mounts again', async () => {
+      await returning(null, 'Plan the retries');
+
+      expect(textOf(box())).toBe('Plan the retries');
+
+      await write(box(), ' now');
+
+      expect(textOf(box())).toBe('Plan the retries now');
+    });
+
+    it('starts with the settings it was left with', async () => {
+      seed({
+        text: 'Plan it',
+        harness: 'claude-code',
+        model: 'opus',
+        effort: 'high',
+        repositories: ['acme/api'],
+      });
+      showing();
+
+      await pressEnter(box());
+
+      expect(started).toHaveBeenCalledWith(
+        expect.objectContaining({
+          harness: 'claude-code',
+          model: 'opus',
+          effort: 'high',
+          repositories: ['acme/api'],
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('falls back to the defaults for settings that are no longer offered', async () => {
+      seed({
+        text: 'Plan it',
+        harness: 'gone',
+        model: 'retired',
+        effort: 'extreme',
+        repositories: ['acme/removed'],
+      });
+      showing();
+
+      await pressEnter(box());
+
+      expect(started).toHaveBeenCalledWith(
+        expect.objectContaining({
+          harness: 'claude-code',
+          model: null,
+          effort: null,
+          repositories: [],
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('brings back a file and an image that were attached', async () => {
+      URL.createObjectURL = vi.fn(() => 'blob:preview');
+      showing();
+      await userEvent.upload(
+        document.querySelector('input[type="file"]') as HTMLInputElement,
+        [
+          new File(['{}'], 'agent.json', { type: 'application/json' }),
+          new File(['png'], 'shot.png', { type: 'image/png' }),
+        ],
+      );
+      await vi.waitFor(() =>
+        expect(screen.getByRole('button', { name: 'Send' })).toBeEnabled(),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      cleanup();
+      showing();
+
+      expect(within(box()).getByText('agent.json')).toBeInTheDocument();
+      expect(
+        within(screen.getByRole('list', { name: 'Images' })).getByRole('img', {
+          name: 'shot.png',
+        }),
+      ).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+      expect(started).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attachments: ['attachment_1', 'attachment_1'],
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('removes an attachment that is older than an upload lives, with a notice', async () => {
+      const add = vi.spyOn(toast, 'add');
+      seed({
+        text: 'Plan it',
+        references: [{ kind: 'file', key: 'k1', name: 'agent.json' }],
+        attachments: [
+          {
+            key: 'k1',
+            id: 'att_1',
+            name: 'agent.json',
+            size: 2,
+            image: false,
+            uploadedAt: Date.now() - 21 * 60 * 60 * 1000,
+            thumbnail: null,
+          },
+        ],
+      });
+      showing();
+
+      expect(textOf(box())).toBe('Plan it');
+      expect(within(box()).queryByText('agent.json')).not.toBeInTheDocument();
+      expect(add).toHaveBeenCalledWith(
+        expect.objectContaining({ description: 'agent.json' }),
+      );
+
+      await pressEnter(box());
+
+      expect(started).toHaveBeenCalledWith(
+        expect.objectContaining({ attachments: [] }),
+        expect.anything(),
+      );
+    });
+
+    it('shows an empty box after a send, and keeps the settings', async () => {
+      started.mockImplementation((_input, { onSuccess }) =>
+        onSuccess({ id: 'chat_1' }),
+      );
+      seed({ text: 'Plan it', model: 'opus' });
+      showing();
+
+      await pressEnter(box());
+      cleanup();
+      showing();
+
+      expect(textOf(box())).toBe('');
+      expect(screen.getByRole('button', { name: /^Agent/ })).toHaveTextContent(
+        'Opus',
+      );
+    });
+
+    it('keeps the text after a send that fails', async () => {
+      await returning(null, 'Plan the retries');
+      await pressEnter(box());
+      cleanup();
+      showing();
+
+      expect(textOf(box())).toBe('Plan the retries');
+    });
+
+    it('replaces an older draft with a prefill that is new', async () => {
+      await returning('Why was it sent back?', 'Old words');
+
+      expect(textOf(box())).toBe('Why was it sent back?');
+    });
+
+    it('keeps the edited draft where the same prefill comes again', async () => {
+      showing(vi.fn(), [], null, 'Why was it sent back?');
+      await write(box(), ' Edited');
+      cleanup();
+      showing(vi.fn(), [], null, 'Why was it sent back?');
+
+      expect(textOf(box())).toBe('Why was it sent back? Edited');
+    });
   });
 });

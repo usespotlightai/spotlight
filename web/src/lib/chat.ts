@@ -121,8 +121,6 @@ export type ChatMoment =
       readonly steps: readonly JournalStep[];
     };
 
-export const CHAT_HARNESS_KEY = 'spotlight.chat-harness';
-
 export const CHAT_KEEPS_REPOSITORIES =
   'A chat keeps the repositories it started with. To use other repositories, start a new chat.';
 

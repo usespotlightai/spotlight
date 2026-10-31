@@ -6,6 +6,7 @@ import { ChatInputArea } from '@/components/shared/chat-input/ChatInputArea';
 import { DraftOffline } from '@/components/shared/chat-input/DraftOffline';
 import { ImageThumbs } from '@/components/shared/chat-input/ImageThumbs';
 import { SendOrStop } from '@/components/shared/chat-input/SendOrStop';
+import type { DraftHandle } from '@/hooks/useChatDraft';
 import { useChatMessage } from '@/hooks/useChatMessage';
 import { useChatSend } from '@/hooks/useChatSend';
 import { useOneLineFit } from '@/hooks/useOneLineFit';
@@ -36,6 +37,7 @@ type ChatInputProps = Sending & {
   settings: ReactNode;
   below?: ReactNode;
   shared?: SharedDraft | null;
+  draft?: DraftHandle;
 };
 
 const NO_REFERENCES: readonly Reference[] = [];
@@ -65,9 +67,16 @@ export function ChatInput({
   onSend,
   disabled = false,
   shared = null,
+  draft,
 }: ChatInputProps) {
   const cursors = useRef<HTMLDivElement>(null);
-  const message = useChatMessage(slug, initialReferences, initialText, shared);
+  const message = useChatMessage(
+    slug,
+    initialReferences,
+    initialText,
+    shared,
+    draft,
+  );
   const lifted = message.images.length > 0;
   const { inner, writing, height, expanded } = useOneLineFit(
     message.written,
@@ -135,8 +144,8 @@ export function ChatInput({
                 cursors={cursors}
                 label={label}
                 placeholder={placeholder}
-                initialReferences={initialReferences}
-                initialText={initialText}
+                initialReferences={message.seed.references}
+                initialText={message.seed.text}
                 handle={message.editor}
                 editable={!pending && !disabled}
                 disabled={disabled}
