@@ -1,12 +1,10 @@
 import { useEffect } from 'react';
+import { isCommandShortcut } from '@/lib/command';
 
 export function useCommandShortcut(onToggle: () => void) {
   useEffect(() => {
     const pressed = (event: KeyboardEvent) => {
-      if (
-        event.key.toLowerCase() !== 'k' ||
-        !(event.metaKey || event.ctrlKey)
-      ) {
+      if (!isCommandShortcut(event)) {
         return;
       }
 

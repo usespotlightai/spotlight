@@ -47,7 +47,7 @@ export function useCommandSections(
     {
       heading: 'Tasks',
       targets: teams.flatMap((team, at) =>
-        taskTargets(slug, team, tasks[at]?.data ?? []),
+        taskTargets(slug, team, tasks[at]?.data ?? [], lines[at]?.data ?? []),
       ),
     },
     {

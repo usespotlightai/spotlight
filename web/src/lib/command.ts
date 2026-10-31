@@ -55,10 +55,20 @@ export const commandMatch = (
   const text = keywords.join(' ').toLowerCase();
   const words = search.toLowerCase().split(/\s+/).filter(Boolean);
 
+  if (words.length === 0) {
+    return 1;
+  }
+
   return words.every((word) => text.includes(word))
-    ? defaultFilter(text, search)
+    ? Math.min(...words.map((word) => defaultFilter(text, word)))
     : 0;
 };
+
+export const isCommandShortcut = (event: KeyboardEvent): boolean =>
+  event.key.toLowerCase() === 'k' &&
+  (event.metaKey || event.ctrlKey) &&
+  !event.shiftKey &&
+  !event.altKey;
 
 export const navigationTargets = (
   slug: string,
@@ -108,14 +118,26 @@ export const taskTargets = (
   slug: string,
   team: Team,
   tasks: readonly Task[],
-): CommandTarget[] =>
-  tasks.map((task) => ({
-    id: `task:${task.id}`,
-    label: task.title,
-    context: team.name,
-    icon: CircleDashed,
-    to: taskPath(slug, team.id, task.id),
-  }));
+  lines: readonly LineResponseDto[],
+): CommandTarget[] => {
+  const completed = new Set(
+    lines.flatMap((line) =>
+      line.stations
+        .filter((station) => station.kind === 'completed')
+        .map((station) => station.id),
+    ),
+  );
+
+  return tasks
+    .filter((task) => !completed.has(task.stationId))
+    .map((task) => ({
+      id: `task:${task.id}`,
+      label: task.title,
+      context: team.name,
+      icon: CircleDashed,
+      to: taskPath(slug, team.id, task.id),
+    }));
+};
 
 export const settingsTargets = (
   slug: string,
