@@ -23,7 +23,6 @@ export class ChatOutcomes implements RunOutcomes {
     const ended = chat.runEnded(event.runId, {
       session: event.session,
       claimedBy: event.claimedBy,
-      stopped: event.outcome.stopped,
     });
 
     await this.chats.save(

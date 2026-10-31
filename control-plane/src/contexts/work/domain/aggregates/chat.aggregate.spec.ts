@@ -404,7 +404,6 @@ describe('Chat', () => {
       const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: SESSION,
         claimedBy: RUNNER,
-        stopped: false,
       });
 
       expect(ended.chat.running).toBe(false);
@@ -412,11 +411,20 @@ describe('Chat', () => {
       expect(ended.followsUp).toBe(true);
     });
 
-    it('does not follow up after a run with a stop request', () => {
+    it('follows up after a run with a stop request on the messages it did not take', () => {
       const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: SESSION,
         claimedBy: RUNNER,
-        stopped: true,
+      });
+
+      expect(ended.chat.running).toBe(false);
+      expect(ended.followsUp).toBe(true);
+    });
+
+    it('does not follow up after a run with a stop request that took every message', () => {
+      const ended = working().runEnded(RunId.of('run_1'), {
+        session: SESSION,
+        claimedBy: RUNNER,
       });
 
       expect(ended.chat.running).toBe(false);
@@ -427,7 +435,6 @@ describe('Chat', () => {
       const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: null,
         claimedBy: RUNNER,
-        stopped: false,
       });
 
       expect(ended.chat.running).toBe(false);
@@ -442,7 +449,6 @@ describe('Chat', () => {
       const ended = chat.runEnded(RunId.of('run_2'), {
         session: SESSION,
         claimedBy: RUNNER,
-        stopped: false,
       });
 
       expect(ended.chat).toBe(chat);
