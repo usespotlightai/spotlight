@@ -175,11 +175,21 @@ describe('ChatBriefing', () => {
     const briefed = brief(targetStationChat());
 
     expect(briefed).toContain('no longer on the team');
-    expect(briefed).not.toContain('spotlight history');
+    expect(briefed).not.toContain('spotlight history --line');
   });
 
   it('says nothing of a target station where none was shared', () => {
-    expect(brief(started())).not.toContain('spotlight history');
+    expect(brief(started())).not.toContain('spotlight history --line');
+  });
+
+  it('lists what the spotlight CLI can do, and requests a check of it before saying something cannot be known', () => {
+    const briefing = brief(started());
+
+    expect(briefing).toContain('## What the `spotlight` CLI can do');
+    expect(briefing).toContain('`spotlight history`');
+    expect(briefing).toContain('`spotlight trace`');
+    expect(briefing).toContain('`spotlight recall`');
+    expect(briefing).toContain('`spotlight --help`');
   });
 
   it('names the command for each shared trace, and how to read one', () => {
@@ -194,7 +204,7 @@ describe('ChatBriefing', () => {
   it('says nothing of traces where none was shared', () => {
     const briefed = brief(started());
 
-    expect(briefed).not.toContain('spotlight trace');
+    expect(briefed).not.toContain('spotlight trace --task');
     expect(briefed).not.toContain('## Reading a trace');
   });
 
@@ -255,7 +265,7 @@ describe('ChatBriefing', () => {
     expect(briefing).toContain('## The rest of what the team remembers');
     expect(briefing).toContain('`.spotlight/memory/`');
     expect(briefing).not.toContain('station/ ');
-    expect(briefing).not.toContain('spotlight remember');
+    expect(briefing).not.toContain('spotlight remember --kind');
   });
 
   it('says nothing of a memory folder where nothing applies', () => {

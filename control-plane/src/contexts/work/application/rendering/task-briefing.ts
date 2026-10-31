@@ -6,6 +6,7 @@ import type {
 } from '@work/application/ports/team-memories.port';
 import { Attached } from '@work/application/rendering/attached';
 import { Learned } from '@work/application/rendering/learned';
+import { SpotlightCli } from '@work/application/rendering/spotlight-cli';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
 import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
@@ -202,6 +203,7 @@ export const TaskBriefing = {
       Learned.remembering(),
       station?.decisions ? SAYING_DECISIONS : null,
       workspaceOf(input.task, input.line),
+      SpotlightCli.section,
       toolsOf(input.tools),
       listing(input.skills, input.listedIn),
       replying(input.task),

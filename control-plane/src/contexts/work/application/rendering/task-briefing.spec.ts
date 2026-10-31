@@ -189,6 +189,16 @@ describe('TaskBriefing', () => {
     );
   });
 
+  it('lists what the spotlight CLI can do, and requests a check of it before saying something cannot be known', () => {
+    const briefing = brief(triage());
+
+    expect(briefing).toContain('## What the `spotlight` CLI can do');
+    expect(briefing).toContain('`spotlight history`');
+    expect(briefing).toContain('`spotlight trace`');
+    expect(briefing).toContain('`spotlight recall`');
+    expect(briefing).toContain('`spotlight --help`');
+  });
+
   it('lists the decisions an earlier run recorded, and requests a check that they still apply', () => {
     const briefing = brief(triage(), undefined, [
       {
@@ -389,7 +399,7 @@ describe('TaskBriefing', () => {
           pullRequest ? [pullRequest] : [],
         ),
       ).not.toContain('## Tools');
-      expect(brief(triage())).not.toContain('spotlight tools');
+      expect(brief(triage())).not.toContain('spotlight tools search "');
     });
   });
 
@@ -558,7 +568,7 @@ describe('TaskBriefing', () => {
       expect(briefing).toContain(
         '`spotlight remember --kind <kind> --body "…" [--path <path>]`',
       );
-      expect(briefing).not.toContain('spotlight recall');
+      expect(briefing).not.toContain('spotlight recall "');
     });
 
     it('says nothing of a memory folder where nothing applies, but still how to propose one', () => {

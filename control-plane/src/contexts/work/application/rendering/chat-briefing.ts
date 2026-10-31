@@ -7,6 +7,7 @@ import { Attached } from '@work/application/rendering/attached';
 import { ImproveStation } from '@work/application/rendering/improve-station';
 import { Learned } from '@work/application/rendering/learned';
 import { SettingUp } from '@work/application/rendering/setting-up';
+import { SpotlightCli } from '@work/application/rendering/spotlight-cli';
 import { Traced } from '@work/application/rendering/traced';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
@@ -134,6 +135,7 @@ export const ChatBriefing = {
         folder: input.memoryFolder,
         briefed: input.memories.length > 0,
       }),
+      SpotlightCli.section,
       proposing,
       proposedSoFar(input.chat, input.lines),
       tracing(messages) ? Traced.reading : null,
