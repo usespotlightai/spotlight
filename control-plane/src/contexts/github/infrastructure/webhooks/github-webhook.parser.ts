@@ -169,9 +169,10 @@ const detailsOf = (
     : null;
 };
 
-const REQUESTED_BY_ANYONE: readonly PullRequestActivityKind[] = [
+const FROM_ANY_SENDER: readonly PullRequestActivityKind[] = [
   'opened',
   'labelled',
+  'checks-failed',
 ];
 
 const byBot = (payload: Payload): boolean =>
@@ -245,7 +246,7 @@ const pullRequestActivity = (
     details: detailsOf(payload.pull_request) ?? detailsOf(payload.issue),
     reviewComment:
       reviewCommentOf(payload.comment) ?? reviewCommentOf(payload.review),
-    byBot: !REQUESTED_BY_ANYONE.includes(activity) && byBot(payload),
+    byBot: !FROM_ANY_SENDER.includes(activity) && byBot(payload),
   };
 
   return [{ kind: 'pull-request-activity', activity: read }];

@@ -365,6 +365,19 @@ describe('GitHubWebhookParser', () => {
       });
     });
 
+    it('reads a failing check suite on a branch a bot pushed as news, not as its own', () => {
+      expect(
+        activity('check_suite', {
+          action: 'completed',
+          check_suite: {
+            conclusion: 'failure',
+            head_branch: 'spotlight/task_1',
+          },
+          sender: { type: 'Bot' },
+        }),
+      ).toMatchObject({ activity: 'checks-failed', byBot: false });
+    });
+
     it('says nothing of a check suite that passed', () => {
       expect(
         activity('check_suite', {
