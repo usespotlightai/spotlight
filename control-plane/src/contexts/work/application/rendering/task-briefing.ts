@@ -42,7 +42,7 @@ const closing = (line: Line, stationId: StationId): string => {
     offered.some((each) => each.kind === 'done')
       ? `Where the work is finished and nothing follows it, use \`--next "${DONE}"\`. That closes the task at its current station: nobody is asked anything, and no station takes it up again. Use it only when there is genuinely nothing left, not to get out of naming somewhere.`
       : null,
-    '`--note` is what the next station, or the person, needs to know.',
+    `\`--note\` is what the next station, or the person, needs to know. Write it in Markdown. Pipe a long note in, as \`${HANDOVER_COMMAND} --next "…" < note.md\`.`,
     'Running nothing puts the task in front of a person.',
     'Nobody is watching this terminal. If you need a decision, a missing detail, or an answer before you can finish, do not ask here and wait: hand the task over with `--next "' +
       REVIEW +
