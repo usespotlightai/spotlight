@@ -1,12 +1,16 @@
 import { ChevronsUpDown } from 'lucide-react';
-import type { ComponentType } from 'react';
-import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
+import { type ComponentType, useId } from 'react';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 type CheckboxSelectProps = {
@@ -18,7 +22,7 @@ type CheckboxSelectProps = {
   none: string;
   many: (count: number) => string;
   empty: string;
-  disabledBecause?: string;
+  readOnlyBecause?: string;
   className?: string;
 };
 
@@ -31,11 +35,12 @@ export function CheckboxSelect({
   none,
   many,
   empty,
-  disabledBecause,
+  readOnlyBecause,
   className,
 }: CheckboxSelectProps) {
   const chosen = new Set(value);
-  const disabled = Boolean(disabledBecause);
+  const readOnly = Boolean(readOnlyBecause);
+  const reasonId = useId();
 
   const toggle = (option: string, checked: boolean) =>
     onChange(
@@ -49,58 +54,68 @@ export function CheckboxSelect({
         ? (value[0] as string)
         : many(value.length);
 
+  const items =
+    options.length === 0 ? (
+      <div className="px-2 py-1.5 text-muted-foreground text-sm">{empty}</div>
+    ) : (
+      options.map((option) => (
+        <DropdownMenuCheckboxItem
+          key={option}
+          checked={chosen.has(option)}
+          closeOnClick={false}
+          disabled={readOnly}
+          className="data-checked:data-disabled:opacity-100"
+          onCheckedChange={(checked) => toggle(option, Boolean(checked))}
+        >
+          <span className="truncate">{option}</span>
+        </DropdownMenuCheckboxItem>
+      ))
+    );
+
   return (
     <DropdownMenu>
-      <DisabledReasonTooltip reason={disabledBecause}>
-        {(describedBy) => (
-          <DropdownMenuTrigger
-            aria-label={label}
-            aria-describedby={describedBy}
-            disabled={disabled}
-            className={cn(
-              'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-50 data-[popup-open]:bg-accent',
-              className,
-            )}
-          >
-            <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-            <span
-              className={cn(
-                'truncate',
-                value.length > 0 ? 'text-foreground' : 'text-muted-foreground',
-              )}
-            >
-              {shown}
-            </span>
-            {!disabled && (
-              <ChevronsUpDown
-                className="ml-auto size-3 shrink-0 text-muted-foreground"
-                aria-hidden
-              />
-            )}
-          </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        aria-label={label}
+        aria-describedby={readOnly ? reasonId : undefined}
+        className={cn(
+          'flex h-7 w-full items-center gap-2 rounded-md px-2 text-left text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent',
+          className,
         )}
-      </DisabledReasonTooltip>
+      >
+        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+        <span
+          className={cn(
+            'truncate',
+            value.length > 0 ? 'text-foreground' : 'text-muted-foreground',
+          )}
+        >
+          {shown}
+        </span>
+        <ChevronsUpDown
+          className="ml-auto size-3 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
+      </DropdownMenuTrigger>
+      {readOnly && (
+        <span id={reasonId} className="sr-only">
+          {readOnlyBecause}
+        </span>
+      )}
 
       <DropdownMenuContent
         align="start"
         sideOffset={6}
         className="w-max min-w-[max(var(--anchor-width),13rem)] max-w-(--available-width)"
       >
-        {options.length === 0 ? (
-          <div className="px-2 py-1.5 text-muted-foreground text-sm">
-            {empty}
-          </div>
+        {readOnly ? (
+          <Tooltip>
+            <TooltipTrigger render={<div />}>{items}</TooltipTrigger>
+            <TooltipContent side="right" align="start" sideOffset={10}>
+              {readOnlyBecause}
+            </TooltipContent>
+          </Tooltip>
         ) : (
-          options.map((option) => (
-            <DropdownMenuCheckboxItem
-              key={option}
-              checked={chosen.has(option)}
-              closeOnClick={false}
-              onCheckedChange={(checked) => toggle(option, Boolean(checked))}
-            >
-              <span className="truncate">{option}</span>
-            </DropdownMenuCheckboxItem>
-          ))
+          items
         )}
       </DropdownMenuContent>
     </DropdownMenu>

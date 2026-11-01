@@ -18,7 +18,7 @@ export function FixedRepositories({
       slug={slug}
       value={repositories}
       onChange={unchangeable}
-      disabledBecause={because}
+      readOnlyBecause={because}
       className="h-6 w-auto"
     />
   );
