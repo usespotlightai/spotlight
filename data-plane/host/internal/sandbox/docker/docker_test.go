@@ -10,11 +10,29 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"usespotlight.ai/data-plane/host/internal/sandbox"
 )
+
+type lockedBuffer struct {
+	mu     sync.Mutex
+	buffer bytes.Buffer
+}
+
+func (b *lockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buffer.Write(p)
+}
+
+func (b *lockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buffer.String()
+}
 
 func framed(stream byte, text string) []byte {
 	header := make([]byte, 8)
@@ -328,7 +346,7 @@ func TestExecGivesAStreamToACommandInTheSandboxWithAVolumeMounted(t *testing.T) 
 		t.Fatalf("start: %v", err)
 	}
 
-	var errs bytes.Buffer
+	var errs lockedBuffer
 	stream, err := engine.Exec(ctx, id, []string{"sh", "-c", "echo started >&2; tee /cache/kept"}, &errs)
 	if err != nil {
 		t.Fatalf("exec: %v", err)
@@ -340,6 +358,11 @@ func TestExecGivesAStreamToACommandInTheSandboxWithAVolumeMounted(t *testing.T) 
 	if _, err := io.ReadFull(stream, echoed); err != nil || string(echoed) != "over ssh\n" {
 		t.Fatalf("read %q: %v", echoed, err)
 	}
+	for deadline := time.Now().Add(5 * time.Second); !strings.Contains(errs.String(), "started"); time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("stderr %q", errs.String())
+		}
+	}
 	if err := stream.Close(); err != nil {
 		t.Errorf("close: %v", err)
 	}
@@ -348,10 +371,6 @@ func TestExecGivesAStreamToACommandInTheSandboxWithAVolumeMounted(t *testing.T) 
 	if err != nil || string(kept) != "over ssh\n" {
 		t.Errorf("the volume kept %q: %v", kept, err)
 	}
-	if !strings.Contains(errs.String(), "started") {
-		t.Errorf("stderr %q", errs.String())
-	}
-
 	if _, err := engine.Exec(ctx, "spotlight-no-such-sandbox", []string{"true"}, nil); !errors.Is(err, sandbox.ErrGone) {
 		t.Errorf("exec in a missing sandbox answered %v", err)
 	}
