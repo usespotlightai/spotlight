@@ -117,6 +117,7 @@ export function InboxNote({
         <div ref={written}>
           <MarkdownEditor
             readOnly
+            keepLineBreaks
             initialValue={note.body}
             placeholder=""
             ariaLabel={`What ${note.station} said`}

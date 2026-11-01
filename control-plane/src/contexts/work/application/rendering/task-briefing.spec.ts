@@ -340,6 +340,12 @@ describe('TaskBriefing', () => {
     );
   });
 
+  it('asks for the handover note in Markdown, piped in when it is long', () => {
+    expect(brief(triage())).toContain(
+      'Write it in Markdown. Pipe a long note in, as `spotlight handover --next "…" < note.md`.',
+    );
+  });
+
   it('says how to close work only where the station may close it', () => {
     const finishing = at(
       'station_1',

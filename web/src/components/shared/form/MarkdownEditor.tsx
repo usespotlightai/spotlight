@@ -92,6 +92,7 @@ type MarkdownEditorProps = {
   onChange?: (markdown: string) => void;
   onBlur?: () => void;
   readOnly?: boolean;
+  keepLineBreaks?: boolean;
   placeholder: string;
   ariaLabel: string;
   className?: string;
@@ -104,6 +105,7 @@ export function MarkdownEditor({
   onChange,
   onBlur,
   readOnly,
+  keepLineBreaks,
   placeholder,
   ariaLabel,
   className,
@@ -123,7 +125,7 @@ export function MarkdownEditor({
             TRANSFORMERS,
             undefined,
             false,
-            Boolean(readOnly),
+            Boolean(readOnly && !keepLineBreaks),
           ),
         onError: (error) => {
           throw error;
