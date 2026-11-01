@@ -24,4 +24,17 @@ export class RunCredentials implements Credentials {
       url,
     });
   }
+
+  standInsFor(
+    url: string,
+    secrets: readonly string[],
+  ): Promise<InjectedSecrets> {
+    return this.injection.standInsForRun({
+      workspaceId: this.run.workspaceId,
+      runId: this.run.runId,
+      attempt: this.run.attempt,
+      secrets,
+      url,
+    });
+  }
 }

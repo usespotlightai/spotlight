@@ -1,3 +1,4 @@
+import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { NetworkCall } from '@work/domain/aggregates/network-call.aggregate';
 import type { CallingHost } from '@work/domain/value-objects/calling-host.vo';
@@ -19,5 +20,6 @@ export interface NetworkCallRepository {
     workspaceId: WorkspaceId,
     by: CallingHost,
     now: Date,
+    secretsToken: TokenHash,
   ): Promise<NetworkCall | null>;
 }

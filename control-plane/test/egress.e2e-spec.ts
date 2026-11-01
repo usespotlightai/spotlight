@@ -1,12 +1,4 @@
-import {
-  createDecipheriv,
-  createPublicKey,
-  diffieHellman,
-  generateKeyPairSync,
-  hkdfSync,
-  type KeyObject,
-  randomUUID,
-} from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -24,6 +16,7 @@ import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
+import { opened, recipient } from './support/sealing';
 import { seatTeam } from './support/team';
 
 const HOST = 'host-egress-e2e-1';
@@ -33,55 +26,6 @@ const IMAGE = 'ghcr.io/acme/runner:main';
 const VALUE = 'lin_api_e2e_egress';
 
 const TOKEN = `${'e'.repeat(8)}${randomUUID().replaceAll('-', '')}`;
-
-const recipient = () => {
-  const pair = generateKeyPairSync('x25519');
-  const raw = Buffer.from(
-    pair.publicKey.export({ format: 'jwk' }).x ?? '',
-    'base64url',
-  );
-
-  return { privateKey: pair.privateKey, raw, written: raw.toString('base64') };
-};
-
-const opened = (
-  sealed: string,
-  to: { privateKey: KeyObject; raw: Buffer },
-  runId: string,
-  secret: string,
-): string => {
-  const [, ephemeral, iv, tag, encrypted] = sealed.split('.');
-  const ephemeralRaw = Buffer.from(ephemeral ?? '', 'base64');
-  const shared = diffieHellman({
-    privateKey: to.privateKey,
-    publicKey: createPublicKey({
-      key: { kty: 'OKP', crv: 'X25519', x: ephemeralRaw.toString('base64url') },
-      format: 'jwk',
-    }),
-  });
-  const decipher = createDecipheriv(
-    'aes-256-gcm',
-    Buffer.from(
-      hkdfSync(
-        'sha256',
-        shared,
-        Buffer.concat([ephemeralRaw, to.raw]),
-        'spotlight:egress-seal:v1',
-        32,
-      ),
-    ),
-    Buffer.from(iv ?? '', 'base64'),
-  );
-  decipher.setAAD(
-    Buffer.from(['spotlight:egress:v1', runId, secret].join('\u0000')),
-  );
-  decipher.setAuthTag(Buffer.from(tag ?? '', 'base64'));
-
-  return Buffer.concat([
-    decipher.update(Buffer.from(encrypted ?? '', 'base64')),
-    decipher.final(),
-  ]).toString('utf8');
-};
 
 describe('egress fetching a run’s secrets (e2e)', () => {
   let app: INestApplication;

@@ -1,5 +1,6 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   NetworkCallState,
@@ -33,6 +34,7 @@ export class NetworkCalls implements NetworkCallsPort {
       id: NetworkCallId.of(this.ids.generate()),
       workspaceId: WorkspaceId.of(workspaceId),
       request: NetworkRequest.of(request),
+      secrets: request.secrets.map((each) => SecretName.of(each)),
       expiresAt,
       now: this.clock.now(),
     });
@@ -128,9 +130,19 @@ export class NetworkCalls implements NetworkCallsPort {
 
     const state = call.stateAt(now);
 
-    return state === 'waiting' || state === 'claimed'
-      ? { kind: 'waiting' }
-      : { kind: 'expired' };
+    if (state === 'waiting' || state === 'claimed') {
+      return { kind: 'waiting' };
+    }
+
+    const { progress } = call;
+
+    return {
+      kind: 'expired',
+      claimed:
+        progress.kind === 'claimed' ||
+        ((progress.kind === 'expired' || progress.kind === 'cancelled') &&
+          progress.claimed),
+    };
   }
 
   private async stateOnceCompleted(

@@ -14,6 +14,7 @@ import type {
   HttpOutbound,
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-spec';
@@ -53,6 +54,7 @@ const runtimeWith = (
     callingNoServer(),
     unlimited,
     unscoped,
+    noNetwork,
   );
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');

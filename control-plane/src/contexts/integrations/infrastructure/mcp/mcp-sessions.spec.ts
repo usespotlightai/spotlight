@@ -23,6 +23,7 @@ const injectingKey = {
       InjectedSecrets.of([
         { location: 'query', name: 'key', value: 'k/live', bare: 'k/live' },
       ]),
+    standInsFor: async () => InjectedSecrets.none(),
   } as Credentials,
 };
 
@@ -43,6 +44,7 @@ const injectingNothing = {
   secrets: [],
   credentials: {
     injectedFor: async () => InjectedSecrets.none(),
+    standInsFor: async () => InjectedSecrets.none(),
   } as Credentials,
 };
 
@@ -269,7 +271,7 @@ describe('McpSessions', () => {
       {
         connection: 'the-token',
         secrets: ['TRACKER_KEY'],
-        credentials: { injectedFor },
+        credentials: { injectedFor, standInsFor: vi.fn() },
       },
     );
 
@@ -300,6 +302,7 @@ describe('McpSessions', () => {
                 bare: 'tk/live',
               },
             ]),
+          standInsFor: vi.fn(),
         },
       },
     );

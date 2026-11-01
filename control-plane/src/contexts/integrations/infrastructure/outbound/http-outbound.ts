@@ -79,16 +79,13 @@ export class HttpOutbound {
     }
 
     const { reply, injected } = sent;
-    const response = injected.redactedIn(await parse(reply));
-    const status = reply.status;
-    const beside: CelVariables = { ...against, response, status };
 
-    const capture: Record<string, unknown> = {};
-    for (const each of request.capture) {
-      capture[each.name] = value(each.value, beside);
-    }
-
-    return { ok: succeeded(request, beside), status, response, capture };
+    return answeredWith(
+      request,
+      against,
+      reply.status,
+      injected.redactedIn(await parse(reply)),
+    );
   }
 
   async bytes(
@@ -172,17 +169,14 @@ export class HttpOutbound {
     against: CelVariables,
     credentials: Credentials,
   ): Promise<Dispatched | null> {
-    const plain = this.render(request, against);
+    const plain = this.rendered(request, against);
 
     return plain
       ? this.dispatch(plain, request.auth, connectionOf(against), credentials)
       : null;
   }
 
-  private render(
-    request: RequestIR,
-    against: CelVariables,
-  ): PlainRequest | null {
+  rendered(request: RequestIR, against: CelVariables): PlainRequest | null {
     const url = this.templated(request.url, against);
 
     if (!url) {
@@ -317,6 +311,22 @@ export class HttpOutbound {
   }
 }
 
+export const answeredWith = (
+  request: RequestIR,
+  against: CelVariables,
+  status: number,
+  response: unknown,
+): OutboundResult => {
+  const beside: CelVariables = { ...against, response, status };
+
+  const capture: Record<string, unknown> = {};
+  for (const each of request.capture) {
+    capture[each.name] = value(each.value, beside);
+  }
+
+  return { ok: succeeded(request, beside), status, response, capture };
+};
+
 const succeeded = (request: RequestIR, beside: CelVariables): boolean => {
   const status = beside.status as number;
 
@@ -343,7 +353,7 @@ const parse = async (reply: Response): Promise<unknown> =>
     ),
   );
 
-const parsed = (body: string): unknown => {
+export const parsed = (body: string): unknown => {
   if (body === '') {
     return null;
   }

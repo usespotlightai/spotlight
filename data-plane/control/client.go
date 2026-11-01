@@ -24,6 +24,11 @@ const (
 
 var ErrUnauthorized = errors.New("the control plane did not accept the credential")
 
+var (
+	ErrCallSecretsTaken   = errors.New("the call's secrets were redeemed already or the call is not this host's")
+	ErrCallSecretsExpired = errors.New("the call's secrets can no longer be redeemed")
+)
+
 type ResponseError struct {
 	Status  int
 	Reason  string
@@ -83,6 +88,10 @@ func (b Bearer) Authorize(request *http.Request) error {
 	request.Header.Set("Authorization", "Bearer "+string(b))
 	return nil
 }
+
+type NoCredential struct{}
+
+func (NoCredential) Authorize(*http.Request) error { return nil }
 
 type Client struct {
 	base       *url.URL
@@ -374,6 +383,34 @@ func (c *Client) RecordCallResponse(ctx context.Context, id string, response pro
 	}
 
 	return nil
+}
+
+func (c *Client) RedeemCallSecrets(
+	ctx context.Context, id string, redeem protocol.HostCallSecretsRequest,
+) (protocol.EgressSecrets, error) {
+	var fetched protocol.EgressSecrets
+	path := strings.Replace(protocol.HostCallSecretsPath, "{id}", url.PathEscape(id), 1)
+	if err := c.do(ctx, http.MethodPost, path, redeem, &fetched); err != nil {
+		return protocol.EgressSecrets{}, fmt.Errorf("redeem the call's secrets: %w", callSecretsRefusal(err))
+	}
+
+	return fetched, nil
+}
+
+func callSecretsRefusal(err error) error {
+	var rejection *ResponseError
+	if !errors.As(err, &rejection) {
+		return err
+	}
+
+	switch rejection.Status {
+	case http.StatusConflict:
+		return fmt.Errorf("%w: %w", ErrCallSecretsTaken, err)
+	case http.StatusGone:
+		return fmt.Errorf("%w: %w", ErrCallSecretsExpired, err)
+	}
+
+	return err
 }
 
 func (c *Client) Messages(ctx context.Context, runID string) ([]protocol.Message, error) {

@@ -22,6 +22,13 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
+type Injecting = (secret: Secret) => Promise<InjectedSecret>;
+
+const standInFor =
+  (url: string): Injecting =>
+  async (secret) =>
+    secret.standInFor(url);
+
 export class SecretInjection implements SecretInjectionPort {
   constructor(
     private readonly secrets: SecretRepository,
@@ -45,20 +52,27 @@ export class SecretInjection implements SecretInjectionPort {
   }
 
   async forRun(request: RunRequest): Promise<InjectedSecrets> {
-    const lease = RunLease.of(RunId.of(request.runId), request.attempt);
-    const existing = await this.grants.find(lease.runId);
-
-    return this.injected(request, (secret) => {
-      const grant = secret.grantForUrl(lease.runId, request.url);
-
-      if (!existing?.allows(lease, grant)) {
-        throw new SecretNotGrantedError(secret.name.value, grant.host);
-      }
-    });
+    return this.injected(
+      request,
+      await this.grantedTo(request),
+      this.valueFor(request.url),
+    );
   }
 
   forSpotlight(request: SpotlightRequest): Promise<InjectedSecrets> {
-    return this.injected(request, () => undefined);
+    return this.injected(request, () => undefined, this.valueFor(request.url));
+  }
+
+  standInsFor(request: SpotlightRequest): Promise<InjectedSecrets> {
+    return this.injected(request, () => undefined, standInFor(request.url));
+  }
+
+  async standInsForRun(request: RunRequest): Promise<InjectedSecrets> {
+    return this.injected(
+      request,
+      await this.grantedTo(request),
+      standInFor(request.url),
+    );
   }
 
   async forVerifying(request: VerifyingRequest): Promise<VerifyingSecret> {
@@ -67,9 +81,30 @@ export class SecretInjection implements SecretInjectionPort {
     return VerifyingSecret.of((await this.sources.read(secret)).revealed());
   }
 
+  private async grantedTo(
+    request: RunRequest,
+  ): Promise<(secret: Secret) => void> {
+    const lease = RunLease.of(RunId.of(request.runId), request.attempt);
+    const existing = await this.grants.find(lease.runId);
+
+    return (secret) => {
+      const grant = secret.grantForUrl(lease.runId, request.url);
+
+      if (!existing?.allows(lease, grant)) {
+        throw new SecretNotGrantedError(secret.name.value, grant.host);
+      }
+    };
+  }
+
+  private valueFor(url: string): Injecting {
+    return async (secret) =>
+      secret.injectedFor(url, await this.sources.read(secret));
+  }
+
   private async injected(
     request: SpotlightRequest,
     allowed: (secret: Secret) => void,
+    injecting: Injecting,
   ): Promise<InjectedSecrets> {
     const injected: {
       readonly secret: string;
@@ -100,10 +135,7 @@ export class SecretInjection implements SecretInjectionPort {
       allowed(secret);
       injected.push({
         secret: secret.name.value,
-        injected: secret.injectedFor(
-          request.url,
-          await this.sources.read(secret),
-        ),
+        injected: await injecting(secret),
       });
     }
 

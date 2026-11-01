@@ -2293,6 +2293,60 @@
         ]
       }
     },
+    "/hosts/calls/{id}/secrets": {
+      "post": {
+        "description": "Called by the egress that sends the call, with the secretsToken that the claim gave and no other credential. The token redeems the secrets once, while the host that claimed the call has it. Values that Spotlight stores come back sealed to the recipient for this call alone. For a value in an external store, the response gives the external reference that egress reads.",
+        "operationId": "redeemCallSecrets",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedeemCallSecretsRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EgressSecretsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The token does not redeem the secrets of this call, or there is no such call. Use the secretsToken that the claim gave"
+          },
+          "409": {
+            "description": "The secrets were redeemed already, another host claimed the call, or the call has a response"
+          },
+          "410": {
+            "description": "The call expired, or Spotlight stopped waiting for it"
+          },
+          "422": {
+            "description": "The recipient is not an X25519 public key"
+          }
+        },
+        "summary": "The secrets of a claimed call, sealed to the egress that sends it",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/egress/secrets": {
       "post": {
         "description": "Called by an egress sidecar with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight stores come back sealed to the recipient. For a value in an external store, the response gives the external reference that egress reads.",
@@ -23238,6 +23292,11 @@
             "type": "number",
             "example": 10000,
             "description": "How long to wait for an answer, in milliseconds"
+          },
+          "secretsToken": {
+            "type": "string",
+            "example": "k3Jx9vQ2mT7wZ1pL5nR8yC4bH6dF0sGa",
+            "description": "Given only when the call names secrets. Egress redeems the secrets with it once, sealed to a key that it makes for this call alone"
           }
         },
         "required": [
@@ -23275,7 +23334,7 @@
           "body": {
             "type": "string",
             "example": "eyJyZWZ1c2UiOiAibm90IHRvZGF5In0=",
-            "description": "The body of the response, base64, at most 16 KiB"
+            "description": "The body of the response, base64, at most 256 KiB"
           },
           "ms": {
             "type": "number",
@@ -23294,20 +23353,28 @@
           "ms"
         ]
       },
-      "FetchRunSecretsRequestDto": {
+      "RedeemCallSecretsRequestDto": {
         "type": "object",
         "properties": {
+          "host": {
+            "type": "string",
+            "example": "K7Q2M4ZC3VYH6N5RB8WX1TDJ9P",
+            "description": "The host that claimed the call"
+          },
+          "token": {
+            "type": "string",
+            "example": "k3Jx9vQ2mT7wZ1pL5nR8yC4bH6dF0sGa",
+            "description": "The secrets token that the claim gave"
+          },
           "recipient": {
             "type": "string",
-            "example": "p8kX0q1cVJ3Q0x4yQ2a6m0dD6b8hT3n1gC9sZ7rW2Ek=",
-            "description": "The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it"
-          },
-          "proxyCredential": {
-            "type": "string",
-            "description": "The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; an egress sidecar leaves it out"
+            "example": "pQm3rT9xW2vY7zK1nB5cD8fG4hJ6kL0sA3eR9tU2iO8=",
+            "description": "The X25519 public key to seal the values to, 32 bytes in base64"
           }
         },
         "required": [
+          "host",
+          "token",
           "recipient"
         ]
       },
@@ -23481,6 +23548,23 @@
           "secrets",
           "denied",
           "spotlightApi"
+        ]
+      },
+      "FetchRunSecretsRequestDto": {
+        "type": "object",
+        "properties": {
+          "recipient": {
+            "type": "string",
+            "example": "p8kX0q1cVJ3Q0x4yQ2a6m0dD6b8hT3n1gC9sZ7rW2Ek=",
+            "description": "The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it"
+          },
+          "proxyCredential": {
+            "type": "string",
+            "description": "The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; an egress sidecar leaves it out"
+          }
+        },
+        "required": [
+          "recipient"
         ]
       },
       "AuthorizeRunnerRequestDto": {

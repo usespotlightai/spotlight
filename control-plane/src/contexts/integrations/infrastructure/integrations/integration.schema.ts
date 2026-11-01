@@ -148,6 +148,13 @@ const requestSchema = z.object({
 });
 
 const actionSchema = z.object({
+  from: z.enum(['spotlight', 'network']).optional(),
+  timeoutSeconds: z
+    .number()
+    .int()
+    .min(1, 'is 1 to 60 seconds')
+    .max(60, 'is 1 to 60 seconds')
+    .optional(),
   request: requestSchema,
 });
 
@@ -392,6 +399,7 @@ export type IntegrationFile = z.infer<typeof integrationSchema>;
 export type EventFile = z.infer<typeof eventSchema>;
 export type AuthFile = AuthOptions;
 export type RequestFile = z.infer<typeof requestSchema>;
+export type ActionFile = z.infer<typeof actionSchema>;
 export type RaiseFile = z.infer<typeof raiseSchema>;
 export type OpenApiFile = z.infer<typeof openapiSchema>;
 export type GraphQlFile = z.infer<typeof graphqlSchema>;

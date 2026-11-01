@@ -1,9 +1,16 @@
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { distinct } from '@shared-kernel/domain/services/distinct';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { CallSecretsExpiredError } from '@work/domain/exceptions/call-secrets-expired.error';
+import { CallSecretsRedeemedError } from '@work/domain/exceptions/call-secrets-redeemed.error';
 import { InvalidNetworkCallError } from '@work/domain/exceptions/invalid-network-call.error';
 import { InvalidNetworkCallTransitionError } from '@work/domain/exceptions/invalid-network-call-transition.error';
 import { NotThisHostsCallError } from '@work/domain/exceptions/not-this-hosts-call.error';
+import { WrongCallSecretsTokenError } from '@work/domain/exceptions/wrong-call-secrets-token.error';
+import { CallSecretsClaim } from '@work/domain/value-objects/call-secrets-claim.vo';
 import type { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import type { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
 import type { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
@@ -19,8 +26,12 @@ export type NetworkCallProgress =
       readonly at: Date;
       readonly response: NetworkResponse;
     }
-  | { readonly kind: 'expired'; readonly at: Date }
-  | { readonly kind: 'cancelled'; readonly at: Date };
+  | { readonly kind: 'expired'; readonly at: Date; readonly claimed: boolean }
+  | {
+      readonly kind: 'cancelled';
+      readonly at: Date;
+      readonly claimed: boolean;
+    };
 
 export type NetworkCallState = NetworkCallProgress['kind'];
 
@@ -28,6 +39,8 @@ interface State {
   readonly id: NetworkCallId;
   readonly workspaceId: WorkspaceId;
   readonly request: NetworkRequest;
+  readonly secrets: readonly SecretName[];
+  readonly secretsClaim: CallSecretsClaim | null;
   readonly queuedAt: Date;
   readonly expiresAt: Date;
   readonly progress: NetworkCallProgress;
@@ -35,6 +48,8 @@ interface State {
 }
 
 const RETENTION_MS = 7 * 24 * 60 * 60_000;
+
+const LEAST_TIMEOUT_MS = 1_000;
 
 const cancelledMessage = (id: string): string =>
   `Network call ${id} was cancelled. The hook stopped waiting for it.`;
@@ -51,6 +66,7 @@ export class NetworkCall extends EventRecorder {
     id: NetworkCallId;
     workspaceId: WorkspaceId;
     request: NetworkRequest;
+    secrets?: readonly SecretName[];
     expiresAt: Date;
     now: Date;
   }): NetworkCall {
@@ -64,6 +80,8 @@ export class NetworkCall extends EventRecorder {
       id: input.id,
       workspaceId: input.workspaceId,
       request: input.request,
+      secrets: distinct(input.secrets ?? []),
+      secretsClaim: null,
       queuedAt: input.now,
       expiresAt: input.expiresAt,
       progress: { kind: 'waiting' },
@@ -90,6 +108,16 @@ export class NetworkCall extends EventRecorder {
       );
     }
 
+    if (
+      state.secretsClaim &&
+      (state.progress.kind === 'waiting' || state.secrets.length === 0)
+    ) {
+      throw new InconsistentStateError(
+        'network call',
+        'has a token to redeem secrets that no host claimed',
+      );
+    }
+
     if (state.expiresAt < state.queuedAt) {
       throw new InconsistentStateError(
         'network call',
@@ -112,6 +140,18 @@ export class NetworkCall extends EventRecorder {
     return this.state.request;
   }
 
+  get secrets(): readonly SecretName[] {
+    return this.state.secrets;
+  }
+
+  get secretsClaim(): CallSecretsClaim | null {
+    return this.state.secretsClaim;
+  }
+
+  get namesSecrets(): boolean {
+    return this.state.secrets.length > 0;
+  }
+
   get queuedAt(): Date {
     return this.state.queuedAt;
   }
@@ -132,6 +172,16 @@ export class NetworkCall extends EventRecorder {
     return this.state.progress.kind === 'answered'
       ? this.state.progress.response
       : null;
+  }
+
+  timeoutAt(now: Date): number {
+    return Math.max(
+      LEAST_TIMEOUT_MS,
+      Math.min(
+        this.state.request.timeoutMs,
+        this.state.expiresAt.getTime() - now.getTime(),
+      ),
+    );
   }
 
   stateAt(now: Date): NetworkCallState {
@@ -184,7 +234,11 @@ export class NetworkCall extends EventRecorder {
     return this.state.workspaceId.equals(workspaceId);
   }
 
-  claimedBy(host: CallingHost, now: Date): NetworkCall {
+  claimedBy(
+    host: CallingHost,
+    now: Date,
+    secretsToken: TokenHash | null = null,
+  ): NetworkCall {
     const phase = this.stateAt(now);
 
     if (phase === 'cancelled') {
@@ -199,7 +253,54 @@ export class NetworkCall extends EventRecorder {
       );
     }
 
-    return this.with({ progress: { kind: 'claimed', by: host, at: now } });
+    if (this.namesSecrets && !secretsToken) {
+      throw new InvalidNetworkCallError(
+        'that names secrets must be claimed with a token to redeem them',
+      );
+    }
+
+    return this.with({
+      progress: { kind: 'claimed', by: host, at: now },
+      secretsClaim:
+        this.namesSecrets && secretsToken
+          ? CallSecretsClaim.issued(secretsToken)
+          : null,
+    });
+  }
+
+  redeemSecrets(
+    host: CallingHost,
+    tokenHash: TokenHash,
+    now: Date,
+  ): NetworkCall {
+    const { progress, secretsClaim } = this.state;
+    const id = this.state.id.value;
+
+    if (!secretsClaim?.isRedeemedBy(tokenHash)) {
+      throw new WrongCallSecretsTokenError(id);
+    }
+
+    const phase = this.stateAt(now);
+
+    if (phase === 'expired' || phase === 'cancelled') {
+      throw new CallSecretsExpiredError(id, phase);
+    }
+
+    if (progress.kind !== 'claimed') {
+      throw new InvalidNetworkCallTransitionError(
+        `Network call ${id} was already answered. Its secrets can no longer be redeemed.`,
+      );
+    }
+
+    if (!progress.by.equals(host)) {
+      throw new NotThisHostsCallError(id);
+    }
+
+    if (secretsClaim.isRedeemed) {
+      throw new CallSecretsRedeemedError(id);
+    }
+
+    return this.with({ secretsClaim: secretsClaim.redeemed(now) });
   }
 
   recordResponse(
@@ -263,7 +364,11 @@ export class NetworkCall extends EventRecorder {
 
     return this.with({
       request: this.state.request.spent(),
-      progress: { kind: 'expired', at: now },
+      progress: {
+        kind: 'expired',
+        at: now,
+        claimed: this.state.progress.kind === 'claimed',
+      },
     });
   }
 
@@ -274,7 +379,11 @@ export class NetworkCall extends EventRecorder {
 
     return this.with({
       request: this.state.request.spent(),
-      progress: { kind: 'cancelled', at: now },
+      progress: {
+        kind: 'cancelled',
+        at: now,
+        claimed: this.state.progress.kind === 'claimed',
+      },
     });
   }
 

@@ -1,5 +1,5 @@
 {
-  "id": "f05edd19-1e31-42a2-9a3c-e0650eb2fa33",
+  "id": "4e8b3c27-346e-4f15-8813-e1a1f310ce61",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -13699,6 +13699,25 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true
+        },
+        "secrets": {
+          "name": "secrets",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "secrets_token_hash": {
+          "name": "secrets_token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "secrets_redeemed_at": {
+          "name": "secrets_redeemed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         },
         "queued_at": {
           "name": "queued_at",

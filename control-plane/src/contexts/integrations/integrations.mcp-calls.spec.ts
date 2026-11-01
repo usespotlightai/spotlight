@@ -19,6 +19,7 @@ import {
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
@@ -98,6 +99,7 @@ const resolving = async (
     { call: vi.fn(call) } as unknown as McpSessions,
     unlimited,
     hosts,
+    noNetwork,
   );
   const resolved = await runtime.tool(
     [
@@ -134,7 +136,7 @@ const callAuthAs = (
       linkedAccount: '@ada',
       unauthorized,
     },
-    credentials: { injectedFor: vi.fn() },
+    credentials: { injectedFor: vi.fn(), standInsFor: vi.fn() },
   };
 };
 

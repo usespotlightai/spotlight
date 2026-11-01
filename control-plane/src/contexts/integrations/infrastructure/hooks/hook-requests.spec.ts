@@ -512,7 +512,10 @@ describe('HookRequests', () => {
 
   it('fails a request no host answered in time', async () => {
     const calls = network();
-    vi.mocked(calls.answered).mockResolvedValueOnce({ kind: 'expired' });
+    vi.mocked(calls.answered).mockResolvedValueOnce({
+      kind: 'expired',
+      claimed: false,
+    });
     const { requests: sending } = requests(
       async () => new Response('{}'),
       calls,

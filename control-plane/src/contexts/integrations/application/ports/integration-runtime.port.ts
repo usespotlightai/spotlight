@@ -42,6 +42,11 @@ export interface Credentials {
     url: string,
     secrets: readonly string[],
   ): Promise<InjectedSecrets>;
+
+  standInsFor(
+    url: string,
+    secrets: readonly string[],
+  ): Promise<InjectedSecrets>;
 }
 
 export interface SigningSecrets {

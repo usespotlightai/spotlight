@@ -3,6 +3,8 @@ import { SECRET_NAME_SHAPE } from '@shared-kernel/domain/value-objects/identifie
 
 const SHAPE = new RegExp(`^${SECRET_NAME_SHAPE}$`);
 
+const STAND_IN_PREFIX = 'spotlight-egress:';
+
 const REFERENCE = new RegExp(`^secret\\.(${SECRET_NAME_SHAPE})$`);
 
 export class SecretName {
@@ -25,6 +27,10 @@ export class SecretName {
     const named = REFERENCE.exec(written.trim())?.[1];
 
     return named ? new SecretName(named) : null;
+  }
+
+  get standIn(): string {
+    return `${STAND_IN_PREFIX}${this.value}`;
   }
 
   equals(other: SecretName): boolean {

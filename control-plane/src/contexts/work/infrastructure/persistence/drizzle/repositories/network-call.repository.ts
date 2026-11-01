@@ -5,6 +5,8 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   NetworkCall,
@@ -12,6 +14,7 @@ import {
 } from '@work/domain/aggregates/network-call.aggregate';
 import { NetworkCallVersionConflictError } from '@work/domain/exceptions/network-call-version-conflict.error';
 import type { NetworkCallRepository } from '@work/domain/repositories/network-call.repository';
+import { CallSecretsClaim } from '@work/domain/value-objects/call-secrets-claim.vo';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
 import { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
@@ -40,7 +43,11 @@ const progressOf = (row: Row): NetworkCallProgress => {
       );
     }
 
-    return { kind: row.state, at: row.expiredAt };
+    return {
+      kind: row.state,
+      at: row.expiredAt,
+      claimed: row.claimedBy !== null,
+    };
   }
 
   if (!row.claimedBy || !row.claimedAt) {
@@ -83,6 +90,29 @@ const progressOf = (row: Row): NetworkCallProgress => {
   };
 };
 
+const secretsClaimOf = (row: Row): CallSecretsClaim | null => {
+  if (row.secretsTokenHash === null) {
+    if (row.secretsRedeemedAt !== null) {
+      throw new InconsistentStateError(
+        'network call',
+        `had its secrets redeemed with no token (${row.id})`,
+      );
+    }
+
+    return null;
+  }
+
+  return CallSecretsClaim.rehydrate({
+    tokenHash: TokenHash.of(row.secretsTokenHash),
+    redeemedAt: row.secretsRedeemedAt,
+  });
+};
+
+const secretsClaimColumns = (claim: CallSecretsClaim | null) => ({
+  secretsTokenHash: claim?.tokenHash.value ?? null,
+  secretsRedeemedAt: claim?.redeemedAt ?? null,
+});
+
 const toCall = (row: Row): NetworkCall =>
   NetworkCall.rehydrate({
     id: NetworkCallId.of(row.id),
@@ -94,6 +124,8 @@ const toCall = (row: Row): NetworkCall =>
       body: bytesOf(row.body),
       timeoutMs: row.timeoutMs,
     }),
+    secrets: row.secrets.map((each) => SecretName.of(each)),
+    secretsClaim: secretsClaimOf(row),
     queuedAt: row.queuedAt,
     expiresAt: row.expiresAt,
     progress: progressOf(row),
@@ -148,6 +180,8 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
         headers: { ...added.request.headers },
         body: base64Of(added.request.body),
         timeoutMs: added.request.timeoutMs,
+        secrets: added.secrets.map((each) => each.value),
+        ...secretsClaimColumns(added.secretsClaim),
         queuedAt: added.queuedAt,
         expiresAt: added.expiresAt,
         ...progressColumns(added.progress),
@@ -174,6 +208,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
             .set({
               headers: { ...saved.request.headers },
               body: base64Of(saved.request.body),
+              ...secretsClaimColumns(saved.secretsClaim),
               ...progressColumns(saved.progress),
               version: saved.version + 1,
             })
@@ -239,6 +274,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
     workspaceId: WorkspaceId,
     by: CallingHost,
     now: Date,
+    secretsToken: TokenHash,
   ): Promise<NetworkCall | null> {
     return this.context.inTransaction(async () => {
       const [row] = await this.context.db
@@ -259,7 +295,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
         return null;
       }
 
-      const claimed = toCall(row).claimedBy(by, now);
+      const claimed = toCall(row).claimedBy(by, now, secretsToken);
       await this.save(claimed);
 
       return claimed;
