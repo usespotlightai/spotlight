@@ -6,6 +6,7 @@ import {
 import type { JwksResolver } from '@integrations/infrastructure/integrations/jwks';
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import {
   credentialsFor,
   signingFor,
@@ -56,6 +57,7 @@ const runtimeOf = (
     jwks,
     {} as HttpOutbound,
     credentialsFor(),
+    unlimited,
   );
 
 describe('verifying an ed25519 signature', () => {

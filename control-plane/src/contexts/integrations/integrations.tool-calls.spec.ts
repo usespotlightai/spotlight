@@ -1,5 +1,6 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
+import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
 import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
@@ -15,6 +16,7 @@ import {
   HttpOutbound,
   type OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
@@ -57,6 +59,7 @@ const runtimeWith = (
   outbound: unknown,
   exchange: unknown = {},
   clients: OAuth2ClientsPort = clientsFrom(),
+  limits: OutboundLimitsPort = unlimited,
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsContaining()),
@@ -65,6 +68,7 @@ const runtimeWith = (
     exchange as OAuth2Exchange,
     discoveringNothing(),
     callingNoServer(),
+    limits,
   );
 
 const LINEAR = `integration: linear
@@ -117,6 +121,7 @@ const using = (
     file?: string;
     schemas?: InMemoryInferredOutputSchemas;
     policies?: InMemoryPersonToolPolicies;
+    limits?: OutboundLimitsPort;
   } = {},
 ) => {
   const run = vi.fn(
@@ -128,7 +133,12 @@ const using = (
     {
       ofTeam: vi.fn(async () => [defined(over.file ?? LINEAR)]),
     } as unknown as DefinedIntegrationsPort,
-    runtimeWith({ run } as unknown as HttpOutbound),
+    runtimeWith(
+      { run } as unknown as HttpOutbound,
+      undefined,
+      undefined,
+      over.limits,
+    ),
     callAuthFor(),
     inferringInto(schemas),
     personRulesFrom(over.policies),
@@ -207,6 +217,19 @@ describe('IntegrationToolCalls', () => {
       },
       inputs: { issue: 'ENG-7', body: 'Fixed in the queue worker.', count: 2 },
     });
+  });
+
+  it('sends nothing when the workspace calls other services too often, and says so', async () => {
+    const { comment, run } = using(undefined, {
+      limits: { perSecond: 50, take: async () => false },
+    });
+
+    await expect(
+      comment({ issue: 'ENG-7', body: 'Fixed.', count: 1 }),
+    ).rejects.toThrow(
+      'calling a service: this workspace sends more than 50 requests each second to other services',
+    );
+    expect(run).not.toHaveBeenCalled();
   });
 
   describe('an action that injects a secret', () => {
@@ -530,6 +553,7 @@ graphql:
           {} as OAuth2Exchange,
           discoveringNothing(),
           callingNoServer(),
+          unlimited,
         ),
         callAuthFor(secrets.injection),
         inferringInto(),

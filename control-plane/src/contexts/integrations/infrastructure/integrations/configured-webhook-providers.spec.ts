@@ -6,6 +6,7 @@ import type {
 import { ConfiguredWebhookProviders } from '@integrations/infrastructure/integrations/configured-webhook-providers';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
@@ -68,6 +69,7 @@ const configured = (
       { keys: async () => new Map() },
       new HttpOutbound(allowingOutbound([])),
       injection,
+      unlimited,
     ),
   };
 };

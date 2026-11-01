@@ -32,6 +32,7 @@ import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-
 import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth2-registrar';
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { InMemoryIntegrationConnections } from '@integrations/integrations.connections.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
@@ -342,6 +343,7 @@ const settingUp = ({
     exchange,
     discoveringNothing(),
     callingNoServer(),
+    unlimited,
   );
   const connectionRefresh = new ConnectionRefresh(
     connections,

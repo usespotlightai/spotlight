@@ -13,6 +13,7 @@ import type {
   HttpOutbound,
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
@@ -45,6 +46,7 @@ const runtimeWith = (
     exchange as OAuth2Exchange,
     discoveringNothing(),
     callingNoServer(),
+    unlimited,
   );
 
 const NOW = new Date('2026-09-07T09:00:00.000Z');

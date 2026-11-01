@@ -17,6 +17,7 @@ const SPEC = ApiSpec.of({
 });
 
 const CALL_AUTH: CallAuth = {
+  workspace: async () => 'ws_1',
   connection: {
     token: AccessToken.of('the-token'),
     owner: ConnectionOwner.team(),

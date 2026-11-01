@@ -5,6 +5,7 @@ import {
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import {
   credentialsFor,
   signingFor,
@@ -114,6 +115,7 @@ const runtime = (secret: string | null = SIGNING) =>
     { keys: async () => new Map() },
     {} as HttpOutbound,
     credentialsFor(),
+    unlimited,
   );
 
 const raw = (body: unknown) => Buffer.from(JSON.stringify(body));
@@ -294,6 +296,7 @@ webhook:
         { keys: async () => new Map() },
         { run } as unknown as HttpOutbound,
         SLACK,
+        unlimited,
       );
 
       return { runtime, run };

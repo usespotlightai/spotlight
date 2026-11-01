@@ -3,6 +3,7 @@ import type {
   OfTeam,
 } from '@integrations/application/ports/configured-webhook-providers.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
 import { SpotlightSigningSecrets } from '@integrations/application/services/spotlight-signing-secrets';
@@ -21,6 +22,7 @@ export class ConfiguredWebhookProviders
     private readonly jwks: JwksResolver,
     private readonly outbound: HttpOutbound,
     private readonly injection: SecretInjectionPort,
+    private readonly limits: OutboundLimitsPort,
   ) {}
 
   async find(team: OfTeam, key: string): Promise<WebhookProviderPort | null> {
@@ -51,6 +53,7 @@ export class ConfiguredWebhookProviders
           this.jwks,
           this.outbound,
           credentials,
+          this.limits,
         ),
       );
     }

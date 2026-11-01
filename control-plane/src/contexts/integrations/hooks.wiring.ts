@@ -54,6 +54,10 @@ import {
   type OutboundHostsPort,
 } from '@integrations/application/ports/outbound-hosts.port';
 import {
+  OUTBOUND_LIMITS,
+  type OutboundLimitsPort,
+} from '@integrations/application/ports/outbound-limits.port';
+import {
   TASKS_FOR_HOOKS,
   type TasksForHooksPort,
 } from '@integrations/application/ports/tasks-for-hooks.port';
@@ -257,6 +261,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       HOOK_TOKENS,
       HookCallbackTokens,
       NETWORK_CALLS,
+      OUTBOUND_LIMITS,
     ],
     useFactory: (
       env: Env,
@@ -265,6 +270,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       tokens: HookTokensPort,
       callbacks: HookCallbackTokens,
       network: NetworkCallsPort,
+      limits: OutboundLimitsPort,
     ) =>
       new HookRequests(
         {
@@ -275,6 +281,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
         tokens,
         callbacks,
         network,
+        limits,
       ),
   },
 

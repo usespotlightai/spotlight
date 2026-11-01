@@ -9,6 +9,7 @@ import type {
 } from '@integrations/application/ports/hook-runtime.port';
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import type { HookTokensPort } from '@integrations/application/ports/hook-tokens.port';
+import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookReply } from '@integrations/domain/value-objects/hook-reply.vo';
@@ -148,6 +149,7 @@ export class HookRequests {
     private readonly tokens: HookTokensPort,
     private readonly callbacks: HookCallbackTokens,
     private readonly network: NetworkCallsPort,
+    private readonly limits: OutboundLimitsPort,
     private readonly fetch: Fetch = settings.policy.fetch,
   ) {
     this.policy = settings.policy;
@@ -158,6 +160,20 @@ export class HookRequests {
 
     if (request.resuming?.status === 'waiting') {
       return this.resumed(request, request.resuming, started);
+    }
+
+    if (
+      !request.fromNetwork &&
+      !(await this.limits.take(request.instance.task.workspaceId))
+    ) {
+      return this.notSent(
+        request,
+        HookFailure.of(
+          'throttled',
+          `this workspace sends more than ${this.limits.perSecond} requests each second to other services`,
+        ),
+        started,
+      );
     }
 
     let headers: Record<string, string>;

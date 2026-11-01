@@ -115,6 +115,10 @@ import {
   type OAuth2NoncesPort,
 } from '@integrations/application/ports/oauth2-nonces.port';
 import {
+  OUTBOUND_LIMITS,
+  type OutboundLimitsPort,
+} from '@integrations/application/ports/outbound-limits.port';
+import {
   SPEC_READER,
   type SpecReaderPort,
 } from '@integrations/application/ports/spec-reader.port';
@@ -197,6 +201,10 @@ import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-st
 import { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
 import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import {
+  InMemoryOutboundLimits,
+  RedisOutboundLimits,
+} from '@integrations/infrastructure/outbound/outbound-limits';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { DrizzleConnectedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/connected-integrations.reader';
 import { DrizzleDefinedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/defined-integrations.reader';
@@ -248,6 +256,7 @@ import {
 import { API_PREFIX } from '@platform/http/routes';
 import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { RedisConnection } from '@platform/redis/redis-connection';
 import {
   CREDENTIAL_ENCRYPTION,
   type CredentialEncryptionPort,
@@ -387,6 +396,22 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       new OperationCache(documents),
   },
 
+  {
+    provide: OUTBOUND_LIMITS,
+    inject: [RedisConnection, ENV, LOGGER],
+    useFactory: (
+      redis: RedisConnection,
+      env: Env,
+      logger: LoggerPort,
+    ): OutboundLimitsPort =>
+      redis.client
+        ? new RedisOutboundLimits(
+            redis.client,
+            env.SPOTLIGHT_OUTBOUND_RATE_LIMIT,
+            logger,
+          )
+        : new InMemoryOutboundLimits(env.SPOTLIGHT_OUTBOUND_RATE_LIMIT),
+  },
   {
     provide: OutboundPolicy,
     inject: [OutboundGuard],
@@ -811,6 +836,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       OAuth2Exchange,
       OAuth2Discovery,
       McpSessions,
+      OUTBOUND_LIMITS,
     ],
     useFactory: (
       reader: IntegrationReader,
@@ -819,6 +845,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       exchange: OAuth2Exchange,
       discovery: OAuth2Discovery,
       sessions: McpSessions,
+      limits: OutboundLimitsPort,
     ) =>
       new CompiledIntegrationRuntime(
         reader,
@@ -827,6 +854,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         exchange,
         discovery,
         sessions,
+        limits,
       ),
   },
 
@@ -948,6 +976,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       JwksCache,
       HttpOutbound,
       SECRET_INJECTION,
+      OUTBOUND_LIMITS,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
@@ -955,6 +984,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       jwks: JwksCache,
       outbound: HttpOutbound,
       injection: SecretInjectionPort,
+      limits: OutboundLimitsPort,
     ) =>
       new ConfiguredWebhookProviders(
         defined,
@@ -962,6 +992,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         jwks,
         outbound,
         injection,
+        limits,
       ),
   },
 

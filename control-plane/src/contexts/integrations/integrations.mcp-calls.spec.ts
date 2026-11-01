@@ -19,6 +19,7 @@ import {
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
@@ -85,6 +86,7 @@ const resolving = async (call: McpSessions['call']): Promise<ResolvedTool> => {
     {} as OAuth2Exchange,
     discoveringNothing(),
     { call: vi.fn(call) } as unknown as McpSessions,
+    unlimited,
   );
   const resolved = await runtime.tool(
     [
@@ -114,6 +116,7 @@ const callAuthAs = (
 
   return {
     unauthorized,
+    workspace: async () => 'ws_1',
     connection: {
       token: AccessToken.of(token),
       owner: ConnectionOwner.person(UserId.of('ada')),

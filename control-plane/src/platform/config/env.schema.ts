@@ -65,6 +65,7 @@ export const envSchema = databaseSchema
     // An empty value permits every public host. A private address is called only for a host the list names.
     SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK: z.stringbool().default(false),
+    SPOTLIGHT_OUTBOUND_RATE_LIMIT: z.coerce.number().min(1).default(50),
     HOOK_SIGNING_KEY: z.string().min(1).optional(),
     OAUTH_CLIENTS: z.string().default('{}'),
     // Lets several control-plane instances share live drafts, run streams, host tunnels, the leader lease and the sign-in rate limit.

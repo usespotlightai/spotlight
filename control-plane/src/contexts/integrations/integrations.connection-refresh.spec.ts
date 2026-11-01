@@ -11,6 +11,7 @@ import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integra
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { InMemoryIntegrationConnections } from '@integrations/integrations.connections.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
@@ -39,6 +40,7 @@ const runtimeWith = (
     exchange as OAuth2Exchange,
     discoveringNothing(),
     callingNoServer(),
+    unlimited,
   );
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');

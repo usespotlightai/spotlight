@@ -3,12 +3,14 @@ import type {
   HookEventInstance,
   ListeningHook,
 } from '@integrations/application/ports/hook-runtime.port';
+import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import {
   type HookRequest,
   HookRequests,
 } from '@integrations/infrastructure/hooks/hook-requests';
+import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type { NetworkCallsPort } from '@work/application/ports/network-calls.port';
@@ -88,6 +90,7 @@ const requests = (
   calls: NetworkCallsPort = network(),
   allowed = ['example.com', '*.example.com'],
   secret: HookSigningSecret | null = SECRET,
+  limits: OutboundLimitsPort = unlimited,
 ) => {
   const fetch = vi.fn(reply);
   const signed = vi.fn(async () => 'jwt');
@@ -112,6 +115,7 @@ const requests = (
       },
       { issued } as unknown as HookCallbackTokens,
       calls,
+      limits,
       fetch as unknown as typeof globalThis.fetch,
     ),
   };
@@ -307,6 +311,26 @@ describe('HookRequests', () => {
     await sending.sent(hookRequest(), NOW);
 
     expect(sentHeaders(fetch)['spotlight-cause']).toBeUndefined();
+  });
+
+  it('sends nothing when the workspace calls other services too often, and says so', async () => {
+    const { requests: sending, fetch } = requests(
+      async () => new Response('{}'),
+      network(),
+      undefined,
+      SECRET,
+      { perSecond: 50, take: async () => false },
+    );
+
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+      outcome: {
+        status: 'failed',
+        code: 'throttled',
+        reason:
+          'this workspace sends more than 50 requests each second to other services',
+      },
+    });
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('fails a step it could not send, saying why', async () => {

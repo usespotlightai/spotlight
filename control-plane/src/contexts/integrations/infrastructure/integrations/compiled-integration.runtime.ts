@@ -15,6 +15,7 @@ import type {
   ToolOutput,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
+import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { ToolAskedMidCallError } from '@integrations/domain/exceptions/tool-asked-mid-call.error';
@@ -138,6 +139,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     private readonly exchange: OAuth2Exchange,
     private readonly discovery: OAuth2Discovery,
     private readonly sessions: McpSessions,
+    private readonly limits: OutboundLimitsPort,
   ) {}
 
   integrations(
@@ -375,6 +377,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       ),
       defaultFor: () => undefined,
       call: async (inputs, callAuth) => {
+        await this.limited(callAuth);
         const request = operationRequest(operation, inputs);
         const connection = callAuth.connection;
         const answering = (token: AccessToken | null) =>
@@ -438,6 +441,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       ),
       defaultFor: () => undefined,
       call: async (inputs, callAuth) => {
+        await this.limited(callAuth);
         const connection = auth?.kind === 'oauth2' ? callAuth.connection : null;
         const calling = (token: AccessToken | null) =>
           this.sessions.call(
@@ -501,6 +505,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     bindings: Bindings,
     callAuth: CallAuth,
   ): Promise<Sent> {
+    await this.limited(callAuth);
     const connection = callAuth.connection;
     const first = connected(bindings, connection?.token ?? null);
     const result = await this.outbound.run(
@@ -529,6 +534,15 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       result: await this.outbound.run(request, again, callAuth.credentials),
       bindings: again,
     };
+  }
+
+  private async limited(callAuth: CallAuth): Promise<void> {
+    if (!(await this.limits.take(await callAuth.workspace()))) {
+      throw new UpstreamError(
+        'calling a service',
+        `this workspace sends more than ${this.limits.perSecond} requests each second to other services`,
+      );
+    }
   }
 
   private readable(

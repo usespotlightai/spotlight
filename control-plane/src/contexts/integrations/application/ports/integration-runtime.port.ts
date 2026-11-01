@@ -55,6 +55,7 @@ export interface ActiveConnection {
 }
 
 export interface CallAuth {
+  workspace(): Promise<string>;
   readonly connection: ActiveConnection | null;
   readonly credentials: Credentials;
 }
