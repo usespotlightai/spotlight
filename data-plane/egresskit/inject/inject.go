@@ -303,6 +303,13 @@ func (w *Injector) InjectsFor(host string) bool {
 	return len(w.byHost[allowlist.Normal(host)]) > 0
 }
 
+func (w *Injector) Holds(host, secret string) bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	return slices.ContainsFunc(w.byHost[allowlist.Normal(host)], func(each *injected) bool { return each.secret == secret })
+}
+
 func (w *Injector) Inject(host string, r *http.Request) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()

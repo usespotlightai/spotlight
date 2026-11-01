@@ -24,6 +24,7 @@ export const ExportableResourceMapper = {
       address: workspace.slug,
       slug: workspace.slug,
       name: workspace.name,
+      outboundHosts: workspace.outboundHosts,
     };
   },
 

@@ -29,6 +29,7 @@ export const workspace = pgTable('workspace', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
+  outboundHosts: text('outbound_hosts').array().notNull().default([]),
   version: integer('version').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at')

@@ -20,6 +20,7 @@ import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
+import { WORKSPACE_OUTBOUND_HOSTS } from '@identity/application/ports/workspace-outbound-hosts.port';
 import {
   WORKSPACE_READER,
   WorkspaceReaderPort,
@@ -122,6 +123,7 @@ import {
   SPEC_READER,
   type SpecReaderPort,
 } from '@integrations/application/ports/spec-reader.port';
+import { WORKSPACE_HOSTS } from '@integrations/application/ports/workspace-hosts.port';
 import { CheckExpressionQuery } from '@integrations/application/queries/check-expression.query';
 import { CheckExpressionHandler } from '@integrations/application/queries/handlers/check-expression.handler';
 import { ImportIntegrationHandler } from '@integrations/application/queries/handlers/import-integration.handler';
@@ -201,6 +203,7 @@ import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-st
 import { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
 import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { NetworkOutbound } from '@integrations/infrastructure/outbound/network-outbound';
 import {
   InMemoryOutboundLimits,
   RedisOutboundLimits,
@@ -288,6 +291,10 @@ import {
 } from '@shared-kernel/application/ports/telemetry.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
+  WORKSPACE_OUTBOUND_SCOPE,
+  type WorkspaceOutboundScopePort,
+} from '@shared-kernel/application/ports/workspace-outbound-scope.port';
+import {
   ENABLED_AT_STATIONS,
   type EnabledAtStationsPort,
 } from '@work/application/ports/enabled-at-stations.port';
@@ -296,6 +303,10 @@ import {
   HappeningReactionsPort,
 } from '@work/application/ports/happening-reactions.port';
 import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool-calls.port';
+import {
+  NETWORK_CALLS,
+  type NetworkCallsPort,
+} from '@work/application/ports/network-calls.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
 
@@ -412,6 +423,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
           )
         : new InMemoryOutboundLimits(env.SPOTLIGHT_OUTBOUND_RATE_LIMIT),
   },
+  { provide: WORKSPACE_HOSTS, useExisting: WORKSPACE_OUTBOUND_HOSTS },
   {
     provide: OutboundPolicy,
     inject: [OutboundGuard],
@@ -435,11 +447,16 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: SPEC_READER,
-    inject: [OutboundPolicy, McpSessions],
-    useFactory: (policy: OutboundPolicy, sessions: McpSessions) =>
+    inject: [OutboundPolicy, McpSessions, WORKSPACE_OUTBOUND_SCOPE],
+    useFactory: (
+      policy: OutboundPolicy,
+      sessions: McpSessions,
+      scope: WorkspaceOutboundScopePort,
+    ) =>
       new SpecReaders(
         new ThreadedSpecReader(new SpecFetch(policy)),
         new McpSpecReader(sessions),
+        scope,
       ),
   },
 
@@ -625,6 +642,16 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     provide: HttpOutbound,
     inject: [OutboundPolicy],
     useFactory: (policy: OutboundPolicy) => new HttpOutbound(policy),
+  },
+
+  {
+    provide: NetworkOutbound,
+    inject: [HttpOutbound, NETWORK_CALLS, CLOCK],
+    useFactory: (
+      outbound: HttpOutbound,
+      calls: NetworkCallsPort,
+      clock: ClockPort,
+    ) => new NetworkOutbound(outbound, calls, clock),
   },
 
   { provide: INTEGRATION_CURSORS, useClass: DrizzleIntegrationCursors },
@@ -837,6 +864,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       OAuth2Discovery,
       McpSessions,
       OUTBOUND_LIMITS,
+      WORKSPACE_OUTBOUND_SCOPE,
+      NetworkOutbound,
     ],
     useFactory: (
       reader: IntegrationReader,
@@ -846,6 +875,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       discovery: OAuth2Discovery,
       sessions: McpSessions,
       limits: OutboundLimitsPort,
+      scope: WorkspaceOutboundScopePort,
+      network: NetworkOutbound,
     ) =>
       new CompiledIntegrationRuntime(
         reader,
@@ -855,6 +886,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         discovery,
         sessions,
         limits,
+        scope,
+        network,
       ),
   },
 
@@ -896,6 +929,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       OAUTH2_NONCES,
       CLOCK,
       ENV,
+      WORKSPACE_OUTBOUND_SCOPE,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
@@ -909,6 +943,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       nonces: OAuth2NoncesPort,
       clock: ClockPort,
       env: Env,
+      scope: WorkspaceOutboundScopePort,
     ) =>
       new OAuth2Linking(
         defined,
@@ -923,6 +958,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         clock,
         publicUrlOf(env),
         callbackOf(env),
+        scope,
       ),
   },
 
@@ -977,6 +1013,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       HttpOutbound,
       SECRET_INJECTION,
       OUTBOUND_LIMITS,
+      WORKSPACE_OUTBOUND_SCOPE,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
@@ -985,6 +1022,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       outbound: HttpOutbound,
       injection: SecretInjectionPort,
       limits: OutboundLimitsPort,
+      scope: WorkspaceOutboundScopePort,
     ) =>
       new ConfiguredWebhookProviders(
         defined,
@@ -993,6 +1031,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         outbound,
         injection,
         limits,
+        scope,
       ),
   },
 

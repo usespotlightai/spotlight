@@ -11,6 +11,7 @@ import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integra
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { InMemoryIntegrationConnections } from '@integrations/integrations.connections.fake-spec';
@@ -21,7 +22,13 @@ import {
   discoveringNothing,
 } from '@integrations/integrations.mcp.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { OutboundScope } from '@platform/outbound/outbound-scope';
+import {
+  scopedTo,
+  unscoped,
+} from '@platform/outbound/outbound-scope.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -32,6 +39,7 @@ const runtimeWith = (
   outbound: unknown,
   exchange: unknown = {},
   clients: OAuth2ClientsPort = clientsFrom(),
+  hosts: WorkspaceOutboundScopePort = unscoped,
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsContaining()),
@@ -41,6 +49,8 @@ const runtimeWith = (
     discoveringNothing(),
     callingNoServer(),
     unlimited,
+    hosts,
+    noNetwork,
   );
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
@@ -95,12 +105,20 @@ const refreshing = (
     scopes: ['chat:write'],
     linkedAccount: 'Acme',
   }),
+  hosts: WorkspaceOutboundScopePort = unscoped,
 ) => {
   const connections = new InMemoryIntegrationConnections();
   for (const each of due) {
     connections.add(each);
   }
-  const refresh = vi.fn(async () => tokens);
+  const allowedWhileRefreshing: boolean[] = [];
+  const refresh = vi.fn(async () => {
+    allowedWhileRefreshing.push(
+      OutboundScope.allows('slack.com'),
+      OutboundScope.allows('elsewhere.example'),
+    );
+    return tokens;
+  });
   const clock = { now: () => NOW } as ClockPort;
   const warn = vi.fn();
 
@@ -113,6 +131,7 @@ const refreshing = (
         {},
         { refresh } as unknown as OAuth2Exchange,
         clientsFrom('{"slack":{"id":"c-1","secret":"s-1"}}'),
+        hosts,
       ),
       clock,
     ),
@@ -120,13 +139,25 @@ const refreshing = (
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
 
-  return { it, connections, refresh, warn };
+  return { it, connections, refresh, warn, allowedWhileRefreshing };
 };
 
 const storedNow = (connections: InMemoryIntegrationConnections) =>
   connections.of(TEAM, SLACK, ConnectionOwner.team());
 
 describe('RefreshConnections', () => {
+  it('refreshes within the outbound scope of the connection’s workspace', async () => {
+    const { it, allowedWhileRefreshing } = refreshing(
+      [nearing()],
+      undefined,
+      scopedTo('slack.com'),
+    );
+
+    await it.refresh();
+
+    expect(allowedWhileRefreshing).toEqual([true, false]);
+  });
+
   it('refreshes a connection near expiry and stores the fresh tokens', async () => {
     const { it, connections, refresh } = refreshing([nearing()]);
 

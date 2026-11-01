@@ -10,6 +10,7 @@ import type {
   HttpOutbound,
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
@@ -24,6 +25,7 @@ import {
 } from '@integrations/integrations.secrets.fake-spec';
 import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import { describe, expect, it, vi } from 'vitest';
@@ -43,6 +45,8 @@ const runtimeWith = (
     discoveringNothing(),
     callingNoServer(),
     unlimited,
+    unscoped,
+    noNetwork,
   );
 
 const _NOW = new Date('2026-09-07T10:00:00.000Z');

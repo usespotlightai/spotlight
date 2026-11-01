@@ -31,6 +31,7 @@ export class JwksCache implements JwksResolver {
     const hit = this.cache.get(url);
 
     if (hit && this.now() - hit.at < this.ttl) {
+      this.policy.allow(url);
       return hit.keys;
     }
 

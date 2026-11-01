@@ -17,6 +17,7 @@ import type {
   ExpectedWorkload,
   WorkloadTokensPort,
 } from '@shared-kernel/application/ports/workload-tokens.port';
+import { scopeRecorder } from '@shared-kernel/application/ports/workspace-outbound-scope.fake-spec';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
@@ -49,13 +50,17 @@ const authenticating = (
         : input.pool
       : null,
   );
-  const verify = vi.fn(async (token: string, _expected: ExpectedWorkload) =>
-    token === WORKLOAD_TOKEN
+  const recorder = scopeRecorder();
+  const verifiedIn: (string | null)[] = [];
+  const verify = vi.fn(async (token: string, _expected: ExpectedWorkload) => {
+    verifiedIn.push(recorder.current());
+
+    return token === WORKLOAD_TOKEN
       ? input.claims === undefined
         ? CLAIMS
         : input.claims
-      : null,
-  );
+      : null;
+  });
   const isOpen = vi.fn(async () => input.open ?? true);
 
   const authenticator = new RunnerAuthenticator(
@@ -72,9 +77,10 @@ const authenticating = (
       hash: (token: string) =>
         token === POOL_TOKEN ? 'a'.repeat(64) : 'f'.repeat(64),
     } as TokenIssuer,
+    recorder.scope,
   );
 
-  return { authenticator, findByTokenHash, verify, isOpen };
+  return { authenticator, findByTokenHash, verify, verifiedIn, isOpen };
 };
 
 const pooled = { bearer: POOL_TOKEN, trust: undefined };
@@ -119,6 +125,14 @@ describe('RunnerAuthenticator', () => {
   });
 
   describe('through a trust', () => {
+    it('verifies the workload within the outbound scope of the trust’s workspace', async () => {
+      const { authenticator, verifiedIn } = authenticating();
+
+      await authenticator.authenticate(trusted);
+
+      expect(verifiedIn).toEqual(['ws_1']);
+    });
+
     it('authenticates a workload whose token the trust’s issuer signed for it', async () => {
       const { authenticator, verify } = authenticating();
 
@@ -179,11 +193,12 @@ describe('RunnerAuthenticator', () => {
     expect(verify).not.toHaveBeenCalled();
   });
 
-  it('authenticates nobody to a workspace that is deleted', async () => {
-    const { authenticator, isOpen } = authenticating({ open: false });
+  it('authenticates nobody to a workspace that is deleted, and verifies no token for it', async () => {
+    const { authenticator, isOpen, verify } = authenticating({ open: false });
 
     await expect(authenticator.authenticate(pooled)).resolves.toBeNull();
     await expect(authenticator.authenticate(trusted)).resolves.toBeNull();
     expect(isOpen).toHaveBeenCalledWith('ws_1');
+    expect(verify).not.toHaveBeenCalled();
   });
 });

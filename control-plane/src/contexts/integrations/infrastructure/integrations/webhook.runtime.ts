@@ -35,6 +35,7 @@ import {
 } from '@platform/expressions/cel-variables';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
 import { evaluateText, isTrue, value } from '@platform/expressions/readings';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
@@ -59,6 +60,7 @@ export class WebhookRuntime implements WebhookProviderPort {
     private readonly outbound: HttpOutbound,
     private readonly credentials: Credentials,
     private readonly limits: OutboundLimitsPort,
+    private readonly scope: WorkspaceOutboundScopePort,
   ) {}
 
   get key(): string {
@@ -211,7 +213,7 @@ export class WebhookRuntime implements WebhookProviderPort {
       return false;
     }
 
-    const keys = await this.jwks.keys(auth.jwks);
+    const keys = await this.scoped(() => this.jwks.keys(auth.jwks));
     const key = header.kid ? keys.get(header.kid) : [...keys.values()][0];
 
     if (!key) {
@@ -306,10 +308,10 @@ export class WebhookRuntime implements WebhookProviderPort {
       this.bindings(delivered),
       (against) => (ignoreWhen ? isTrue(ignoreWhen, against) : false),
       (event, against) => this.enriched(event, against),
-      async (request, against) => {
-        await this.limited();
-        return this.outbound.bytes(request, against, this.credentials);
-      },
+      (request, against) =>
+        this.onBehalfOf(() =>
+          this.outbound.bytes(request, against, this.credentials),
+        ),
     );
   }
 
@@ -323,13 +325,11 @@ export class WebhookRuntime implements WebhookProviderPort {
 
     let result: Awaited<ReturnType<HttpOutbound['run']>>;
 
-    await this.limited();
+    const lookup = event.lookup;
 
     try {
-      result = await this.outbound.run(
-        event.lookup.request,
-        against,
-        this.credentials,
+      result = await this.onBehalfOf(() =>
+        this.outbound.run(lookup.request, against, this.credentials),
       );
     } catch (error) {
       if (error instanceof ExpressionFailedError) {
@@ -369,13 +369,19 @@ export class WebhookRuntime implements WebhookProviderPort {
     };
   }
 
-  private async limited(): Promise<void> {
+  private async onBehalfOf<T>(work: () => Promise<T>): Promise<T> {
     if (!(await this.limits.take(this.workspaceId.value))) {
       throw new UpstreamError(
         'calling a service',
         `this workspace sends more than ${this.limits.perSecond} requests each second to other services`,
       );
     }
+
+    return this.scoped(work);
+  }
+
+  private async scoped<T>(work: () => Promise<T>): Promise<T> {
+    return this.scope.within(this.workspaceId.value, work);
   }
 }
 

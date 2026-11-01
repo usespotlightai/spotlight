@@ -3,6 +3,8 @@ import type { RunnersPort } from '@runners/application/ports/runners.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { ClaimHostCallCommand } from '@work/application/commands/host-call.commands';
 import type { HostCallClaimDto } from '@work/application/dto/host-call.dto';
 import type { LongPoll } from '@work/application/services/long-poll';
@@ -18,6 +20,7 @@ export class ClaimHostCallHandler
     private readonly calls: NetworkCallRepository,
     private readonly clock: ClockPort,
     private readonly polls: LongPoll,
+    private readonly tokens: TokenIssuer,
   ) {}
 
   async execute(command: ClaimHostCallCommand): Promise<HostCallClaimDto> {
@@ -36,8 +39,14 @@ export class ClaimHostCallHandler
         return { outcome: 'host-unreported' };
       }
 
+      const secretsToken = this.tokens.issue();
       const claimed = await this.polls.polled(() =>
-        this.calls.claimNext(authenticated.workspaceId, host, this.clock.now()),
+        this.calls.claimNext(
+          authenticated.workspaceId,
+          host,
+          this.clock.now(),
+          TokenHash.of(secretsToken.hash),
+        ),
       );
 
       if (!claimed) {
@@ -54,7 +63,8 @@ export class ClaimHostCallHandler
           url: request.url,
           headers: request.headers,
           body: Buffer.from(request.body).toString('base64'),
-          timeoutMs: request.timeoutMs,
+          timeoutMs: claimed.timeoutAt(this.clock.now()),
+          secretsToken: claimed.secretsClaim ? secretsToken.token : null,
         },
       };
     } catch (error) {

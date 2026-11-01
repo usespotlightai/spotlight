@@ -1160,6 +1160,10 @@ export type HostCallResponseDto = {
    * How long to wait for an answer, in milliseconds
    */
   timeoutMs: number;
+  /**
+   * Given only when the call names secrets. Egress redeems the secrets with it once, sealed to a key that it makes for this call alone
+   */
+  secretsToken?: string;
 };
 
 export type RecordHostCallResponseRequestDto = {
@@ -1178,7 +1182,7 @@ export type RecordHostCallResponseRequestDto = {
     [key: string]: string;
   };
   /**
-   * The body of the response, base64, at most 16 KiB
+   * The body of the response, base64, at most 256 KiB
    */
   body?: string;
   /**
@@ -1191,15 +1195,19 @@ export type RecordHostCallResponseRequestDto = {
   error?: string;
 };
 
-export type FetchRunSecretsRequestDto = {
+export type RedeemCallSecretsRequestDto = {
   /**
-   * The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it
+   * The host that claimed the call
+   */
+  host: string;
+  /**
+   * The secrets token that the claim gave
+   */
+  token: string;
+  /**
+   * The X25519 public key to seal the values to, 32 bytes in base64
    */
   recipient: string;
-  /**
-   * The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; an egress sidecar leaves it out
-   */
-  proxyCredential?: string;
 };
 
 export type ExternalSecretRefResponseDto = {
@@ -1267,6 +1275,17 @@ export type EgressSecretsResponseDto = {
    * Where the run uses Spotlight’s own API, the token that it uses
    */
   spotlightApi: SpotlightApiResponseDto | null;
+};
+
+export type FetchRunSecretsRequestDto = {
+  /**
+   * The X25519 public key that egress holds for this run alone, in base64; values Spotlight stores are sealed to it
+   */
+  recipient: string;
+  /**
+   * The run proxy credential a runner presented to a shared egress. A shared egress sends it with its own egress token; an egress sidecar leaves it out
+   */
+  proxyCredential?: string;
 };
 
 export type AuthorizeRunnerRequestDto = {
@@ -2436,6 +2455,10 @@ export type WorkspaceResourceResponseDto = {
    * Where the workspace lives in the web app. Immutable: changing it means replacing the workspace
    */
   slug: string;
+  /**
+   * The hosts Spotlight may call for this workspace's configuration, as exact hosts or *.example.com patterns. The deployment's allowed list applies too. An empty list adds no limit. A change applies to calls in at most 30 seconds
+   */
+  outboundHosts: Array<string>;
 };
 
 export type WorkspaceResourceListResponseDto = {
@@ -9342,6 +9365,40 @@ export type RecordHostCallResponseResponses = {
 
 export type RecordHostCallResponseResponse = RecordHostCallResponseResponses[keyof RecordHostCallResponseResponses];
 
+export type RedeemCallSecretsData = {
+  body: RedeemCallSecretsRequestDto;
+  path: {
+    id: string;
+  };
+  query?: never;
+  url: '/hosts/calls/{id}/secrets';
+};
+
+export type RedeemCallSecretsErrors = {
+  /**
+   * The token does not redeem the secrets of this call, or there is no such call. Use the secretsToken that the claim gave
+   */
+  401: unknown;
+  /**
+   * The secrets were redeemed already, another host claimed the call, or the call has a response
+   */
+  409: unknown;
+  /**
+   * The call expired, or Spotlight stopped waiting for it
+   */
+  410: unknown;
+  /**
+   * The recipient is not an X25519 public key
+   */
+  422: unknown;
+};
+
+export type RedeemCallSecretsResponses = {
+  200: EgressSecretsResponseDto;
+};
+
+export type RedeemCallSecretsResponse = RedeemCallSecretsResponses[keyof RedeemCallSecretsResponses];
+
 export type FetchRunSecretsData = {
   body: FetchRunSecretsRequestDto;
   path?: never;
@@ -10653,6 +10710,7 @@ export type CreateWorkspaceData = {
   body: {
     name: string;
     slug: string;
+    outboundHosts?: Array<string>;
   };
   headers: {
     /**
@@ -10821,6 +10879,7 @@ export type UpdateWorkspaceData = {
   body: {
     name: string;
     slug: string;
+    outboundHosts?: Array<string>;
   };
   headers: {
     /**

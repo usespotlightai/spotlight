@@ -15,7 +15,9 @@ import (
 	"syscall"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/egresskit/guard"
+	"usespotlight.ai/data-plane/egresskit/inject"
 	"usespotlight.ai/data-plane/protocol"
 )
 
@@ -26,8 +28,15 @@ type Allowed interface {
 	ExplicitlyListed(host string) bool
 }
 
+type Injector interface {
+	Inject(host string, r *http.Request)
+	RedactAnswer(host string, response *http.Response) error
+	RedactText(host, text string) string
+}
+
 type Sender struct {
 	allowed   Allowed
+	injector  Injector
 	transport *http.Transport
 }
 
@@ -44,6 +53,12 @@ func New(allowed Allowed) *Sender {
 	}
 }
 
+func (s *Sender) Injecting(injector Injector) *Sender {
+	injecting := *s
+	injecting.injector = injector
+	return &injecting
+}
+
 func (s *Sender) Send(ctx context.Context, call protocol.HostCall) protocol.HostCallResponse {
 	timeout := time.Duration(call.TimeoutMs) * time.Millisecond
 	if timeout <= 0 {
@@ -54,10 +69,29 @@ func (s *Sender) Send(ctx context.Context, call protocol.HostCall) protocol.Host
 	result, err := s.sent(ctx, call, timeout)
 	result.Ms = int(time.Since(began).Milliseconds())
 	if err != nil {
-		return protocol.HostCallResponse{Ms: result.Ms, Error: plain(err, timeout)}
+		result = protocol.HostCallResponse{Ms: result.Ms, Error: plain(err, timeout)}
+	}
+	if s.injector != nil && result.Error != "" {
+		result.Error = s.injector.RedactText(hostOf(call.URL), result.Error)
 	}
 
 	return result
+}
+
+func hostOf(raw string) string {
+	if address, err := url.Parse(raw); err == nil {
+		return address.Hostname()
+	}
+	return ""
+}
+
+func sameHost(header, host string) bool {
+	if name, _, err := net.SplitHostPort(header); err == nil {
+		header = name
+	}
+	header = strings.TrimSuffix(strings.TrimPrefix(header, "["), "]")
+
+	return allowlist.Normal(header) == allowlist.Normal(host)
 }
 
 func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.Duration) (protocol.HostCallResponse, error) {
@@ -88,10 +122,18 @@ func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.
 	}
 	for name, value := range call.Headers {
 		if strings.EqualFold(name, "host") {
+			if s.injector != nil && !sameHost(value, host) {
+				return protocol.HostCallResponse{}, &guard.Blocked{Reason: fmt.Sprintf(
+					"The call's Host header names another host than its URL, so egress didn't send the call. Host: %s", value)}
+			}
 			request.Host = value
 			continue
 		}
 		request.Header.Set(name, value)
+	}
+	if s.injector != nil {
+		request.Header.Set("Accept-Encoding", "identity")
+		s.injector.Inject(host, request)
 	}
 
 	client := &http.Client{
@@ -103,6 +145,10 @@ func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.
 		return protocol.HostCallResponse{}, err
 	}
 	defer response.Body.Close()
+	var unredacted string
+	if s.injector != nil && errors.Is(s.injector.RedactAnswer(host, response), inject.ErrCompressed) {
+		unredacted = "The response was compressed, so egress couldn't redact it."
+	}
 
 	read, err := io.ReadAll(io.LimitReader(response.Body, protocol.MaxResponseBody))
 	if err != nil {
@@ -114,7 +160,7 @@ func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.
 		headers[strings.ToLower(name)] = strings.Join(values, ", ")
 	}
 
-	result := protocol.HostCallResponse{Status: response.StatusCode, Headers: headers}
+	result := protocol.HostCallResponse{Status: response.StatusCode, Headers: headers, Error: unredacted}
 	if len(read) > 0 {
 		result.Body = base64.StdEncoding.EncodeToString(read)
 	}

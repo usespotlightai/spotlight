@@ -34,11 +34,16 @@ const (
 	fetchBudget   = time.Minute
 	fetchFloor    = time.Second
 	fetchCeiling  = 10 * time.Second
+	redeemBudget  = 10 * time.Second
 	shutdownGrace = 5 * time.Second
 )
 
 type SecretFetcher interface {
 	FetchRunSecrets(ctx context.Context, recipient string) (protocol.EgressSecrets, error)
+}
+
+type CallSecretRedeemer interface {
+	RedeemCallSecrets(ctx context.Context, id string, redeem protocol.HostCallSecretsRequest) (protocol.EgressSecrets, error)
 }
 
 func Main(args []string, _ string) int {
@@ -78,7 +83,16 @@ func run() error {
 	}
 
 	if config.Send != nil {
-		return sent(ctx, *config.Send, send.New(allowed), protocol.EgressSendPath, log)
+		connect := func(url string) (CallSecretRedeemer, error) {
+			return control.Authorized(url, control.NoCredential{})
+		}
+		sending := func(injector send.Injector) Sender {
+			if injector == nil {
+				return send.New(allowed)
+			}
+			return send.New(allowed).Injecting(injector)
+		}
+		return sentWith(ctx, config, allowed, connect, sending, protocol.EgressSendPath, log)
 	}
 
 	controlPlane, err := url.Parse(config.URL)
@@ -270,6 +284,113 @@ func externalSecretReader(ctx context.Context) func() (inject.Reader, error) {
 
 type Sender interface {
 	Send(ctx context.Context, call protocol.HostCall) protocol.HostCallResponse
+}
+
+func sentWith(
+	ctx context.Context, config protocol.EgressConfig, allowed allowlist.List,
+	connect func(url string) (CallSecretRedeemer, error),
+	sending func(injector send.Injector) Sender, path string, log *slog.Logger,
+) error {
+	call := *config.Send
+	if config.SendSecrets == nil {
+		return sent(ctx, call, sending(nil), path, log)
+	}
+
+	began := time.Now()
+	injector, fetched, err := callInjector(ctx, config, allowed, connect, log)
+	if err != nil {
+		return sent(ctx, call, unsent{Ms: int(time.Since(began).Milliseconds()),
+			Error: fmt.Sprintf("Egress couldn't redeem the call's secrets, so it didn't send the call. Error: %v", err)}, path, log)
+	}
+	if secret, missing := uninjected(fetched, injector, call.URL); missing {
+		injector.Wipe()
+		return sent(ctx, call, unsent{Ms: int(time.Since(began).Milliseconds()),
+			Error: fmt.Sprintf("Egress couldn't inject secret %s, so it didn't send the call.", secret)}, path, log)
+	}
+	response := sending(injector).Send(ctx, call)
+	injector.Wipe()
+
+	return sent(ctx, call, unsent(response), path, log)
+}
+
+type unsent protocol.HostCallResponse
+
+func (u unsent) Send(context.Context, protocol.HostCall) protocol.HostCallResponse {
+	return protocol.HostCallResponse(u)
+}
+
+func uninjected(fetched protocol.EgressSecrets, injector *inject.Injector, target string) (string, bool) {
+	if len(fetched.Denied) > 0 {
+		return fetched.Denied[0].Secret, true
+	}
+
+	address, err := url.Parse(target)
+	if err != nil {
+		return "", false
+	}
+	host := allowlist.Normal(address.Hostname())
+	for _, secret := range fetched.Secrets {
+		if allowlist.Normal(secret.Host) == host && !injector.Holds(host, secret.Secret) {
+			return secret.Secret, true
+		}
+	}
+
+	return "", false
+}
+
+func callInjector(
+	ctx context.Context, config protocol.EgressConfig, allowed allowlist.List,
+	connect func(url string) (CallSecretRedeemer, error), log *slog.Logger,
+) (*inject.Injector, protocol.EgressSecrets, error) {
+	secrets := *config.SendSecrets
+
+	key, err := seal.NewKey()
+	if err != nil {
+		return nil, protocol.EgressSecrets{}, err
+	}
+
+	redeemer, err := connect(config.URL)
+	if err != nil {
+		return nil, protocol.EgressSecrets{}, err
+	}
+
+	fetched, err := redeemedBy(ctx, redeemer, secrets, key.Recipient(), log)
+	if err != nil {
+		return nil, protocol.EgressSecrets{}, err
+	}
+	fetched.RunID = secrets.CallID
+
+	limits := inject.Limits{Hosts: allowed, SecretAllow: config.SecretAllow}
+	return inject.From(ctx, fetched, nil, limits, key, externalSecretReader(ctx), log), fetched, nil
+}
+
+func redeemedBy(
+	ctx context.Context, redeemer CallSecretRedeemer, secrets protocol.CallSecrets, recipient string, log *slog.Logger,
+) (protocol.EgressSecrets, error) {
+	budget, cancel := context.WithTimeout(ctx, redeemBudget)
+	defer cancel()
+
+	redeem := protocol.HostCallSecretsRequest{Host: secrets.Host, Token: secrets.Token, Recipient: recipient}
+	backoff := fetchFloor
+	for {
+		fetched, err := redeemer.RedeemCallSecrets(budget, secrets.CallID, redeem)
+		if err == nil {
+			return fetched, nil
+		}
+
+		var rejection *control.ResponseError
+		if errors.As(err, &rejection) && rejection.Status < http.StatusInternalServerError {
+			return protocol.EgressSecrets{}, err
+		}
+
+		log.Warn("could not redeem the call's secrets, still trying", "call", secrets.CallID, "error", err, "retryIn", backoff)
+		select {
+		case <-budget.Done():
+			return protocol.EgressSecrets{}, err
+		case <-time.After(backoff):
+		}
+		backoff = min(backoff*2, fetchCeiling)
+	}
 }
 
 func sent(ctx context.Context, call protocol.HostCall, sender Sender, path string, log *slog.Logger) error {

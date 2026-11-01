@@ -11,6 +11,7 @@ import {
   signingFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -116,6 +117,7 @@ const runtime = (secret: string | null = SIGNING) =>
     {} as HttpOutbound,
     credentialsFor(),
     unlimited,
+    unscoped,
   );
 
 const raw = (body: unknown) => Buffer.from(JSON.stringify(body));
@@ -297,6 +299,7 @@ webhook:
         { run } as unknown as HttpOutbound,
         SLACK,
         unlimited,
+        unscoped,
       );
 
       return { runtime, run };

@@ -1,9 +1,15 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { NetworkCall } from '@work/domain/aggregates/network-call.aggregate';
+import { CallSecretsExpiredError } from '@work/domain/exceptions/call-secrets-expired.error';
+import { CallSecretsRedeemedError } from '@work/domain/exceptions/call-secrets-redeemed.error';
 import { InvalidNetworkCallError } from '@work/domain/exceptions/invalid-network-call.error';
 import { InvalidNetworkCallTransitionError } from '@work/domain/exceptions/invalid-network-call-transition.error';
 import { NotThisHostsCallError } from '@work/domain/exceptions/not-this-hosts-call.error';
+import { WrongCallSecretsTokenError } from '@work/domain/exceptions/wrong-call-secrets-token.error';
+import { CallSecretsClaim } from '@work/domain/value-objects/call-secrets-claim.vo';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
 import { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
@@ -146,7 +152,11 @@ describe('NetworkCall', () => {
   it('discards what it would have sent once it expires, and is never claimed again', () => {
     const expired = queued().expire(later(15_000));
 
-    expect(expired.progress).toEqual({ kind: 'expired', at: later(15_000) });
+    expect(expired.progress).toEqual({
+      kind: 'expired',
+      at: later(15_000),
+      claimed: false,
+    });
     expect(expired.request.headers).toEqual({});
     expect(expired.request.body.byteLength).toBe(0);
     expect(expired.stateAt(later(15_000))).toBe('expired');
@@ -160,7 +170,11 @@ describe('NetworkCall', () => {
       .claimedBy(HOST, later(1_000))
       .cancel(later(5_000));
 
-    expect(cancelled.progress).toEqual({ kind: 'cancelled', at: later(5_000) });
+    expect(cancelled.progress).toEqual({
+      kind: 'cancelled',
+      at: later(5_000),
+      claimed: true,
+    });
     expect(cancelled.stateAt(later(60_000))).toBe('cancelled');
     expect(cancelled.request.headers).toEqual({});
     expect(() => cancelled.recordResponse(HOST, OK, later(6_000))).toThrow(
@@ -217,9 +231,11 @@ describe('NetworkCall', () => {
         id: NetworkCallId.of('call_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         request: REQUEST,
+        secrets: [],
+        secretsClaim: null,
         queuedAt: NOW,
         expiresAt: later(15_000),
-        progress: { kind: 'expired', at: later(15_000) },
+        progress: { kind: 'expired', at: later(15_000), claimed: false },
         version: 1,
       }),
     ).toThrow(InconsistentStateError);
@@ -236,6 +252,8 @@ describe('NetworkCall', () => {
         id: NetworkCallId.of('call_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         request: REQUEST,
+        secrets: [],
+        secretsClaim: null,
         queuedAt: NOW,
         expiresAt: later(-1),
         progress: { kind: 'waiting' },
@@ -277,15 +295,121 @@ describe('NetworkRequest', () => {
   });
 });
 
+const TOKEN = TokenHash.of('a'.repeat(64));
+const OTHER_TOKEN = TokenHash.of('b'.repeat(64));
+const OTHER_HOST = CallingHost.of('01J8ZQ4Y7N3K5V2W9X6RTBHXXX');
+
+const naming = (...secrets: string[]) =>
+  NetworkCall.queue({
+    id: NetworkCallId.of('call_1'),
+    workspaceId: WorkspaceId.of('ws_1'),
+    request: REQUEST,
+    secrets: secrets.map((each) => SecretName.of(each)),
+    expiresAt: later(15_000),
+    now: NOW,
+  });
+
+describe('NetworkCall secrets', () => {
+  it('names each secret it injects once', () => {
+    expect(
+      naming(
+        'SLACK_BOT_TOKEN',
+        'SLACK_BOT_TOKEN',
+        'LINEAR_API_KEY',
+      ).secrets.map((each) => each.value),
+    ).toEqual(['SLACK_BOT_TOKEN', 'LINEAR_API_KEY']);
+  });
+
+  it('keeps the hash of a token to redeem its secrets only when it names secrets', () => {
+    const named = naming('SLACK_BOT_TOKEN').claimedBy(HOST, NOW, TOKEN);
+    const unnamed = queued().claimedBy(HOST, NOW, TOKEN);
+
+    expect(named.secretsClaim?.tokenHash).toEqual(TOKEN);
+    expect(named.secretsClaim?.redeemedAt).toBeNull();
+    expect(unnamed.secretsClaim).toBeNull();
+  });
+
+  it('is never claimed without a token when it names secrets', () => {
+    expect(() => naming('SLACK_BOT_TOKEN').claimedBy(HOST, NOW)).toThrow(
+      InvalidNetworkCallError,
+    );
+  });
+
+  it('redeems its secrets once, for the host that claimed it, with its token', () => {
+    const claimed = naming('SLACK_BOT_TOKEN').claimedBy(HOST, NOW, TOKEN);
+
+    const redeemed = claimed.redeemSecrets(HOST, TOKEN, later(1_000));
+
+    expect(redeemed.secretsClaim?.redeemedAt).toEqual(later(1_000));
+    expect(() => redeemed.redeemSecrets(HOST, TOKEN, later(2_000))).toThrow(
+      CallSecretsRedeemedError,
+    );
+  });
+
+  it('redeems nothing with another token, or with no token issued', () => {
+    const claimed = naming('SLACK_BOT_TOKEN').claimedBy(HOST, NOW, TOKEN);
+
+    expect(() => claimed.redeemSecrets(HOST, OTHER_TOKEN, NOW)).toThrow(
+      WrongCallSecretsTokenError,
+    );
+    expect(() =>
+      queued().claimedBy(HOST, NOW, TOKEN).redeemSecrets(HOST, TOKEN, NOW),
+    ).toThrow(WrongCallSecretsTokenError);
+    expect(() =>
+      naming('SLACK_BOT_TOKEN').redeemSecrets(HOST, TOKEN, NOW),
+    ).toThrow(WrongCallSecretsTokenError);
+  });
+
+  it('redeems nothing for a host that did not claim it', () => {
+    const claimed = naming('SLACK_BOT_TOKEN').claimedBy(HOST, NOW, TOKEN);
+
+    expect(() => claimed.redeemSecrets(OTHER_HOST, TOKEN, NOW)).toThrow(
+      NotThisHostsCallError,
+    );
+  });
+
+  it('redeems nothing once it expired, was cancelled, or was answered', () => {
+    const claimed = naming('SLACK_BOT_TOKEN').claimedBy(HOST, NOW, TOKEN);
+
+    expect(() => claimed.redeemSecrets(HOST, TOKEN, later(15_000))).toThrow(
+      CallSecretsExpiredError,
+    );
+    expect(() =>
+      claimed.cancel(later(1_000)).redeemSecrets(HOST, TOKEN, later(2_000)),
+    ).toThrow(CallSecretsExpiredError);
+    expect(() =>
+      claimed
+        .recordResponse(HOST, OK, later(1_000))
+        .redeemSecrets(HOST, TOKEN, later(2_000)),
+    ).toThrow(InvalidNetworkCallTransitionError);
+  });
+
+  it('will not be read back with a token that no host claimed', () => {
+    expect(() =>
+      NetworkCall.rehydrate({
+        id: NetworkCallId.of('call_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        request: REQUEST,
+        secrets: [SecretName.of('SLACK_BOT_TOKEN')],
+        secretsClaim: CallSecretsClaim.issued(TOKEN),
+        queuedAt: NOW,
+        expiresAt: later(15_000),
+        progress: { kind: 'waiting' },
+        version: 0,
+      }),
+    ).toThrow(InconsistentStateError);
+  });
+});
+
 describe('NetworkAnswer', () => {
-  it('keeps at most 16 KiB of what came back', () => {
+  it('keeps at most 256 KiB of what came back', () => {
     const response = NetworkResponse.of({
       status: 200,
-      body: new Uint8Array(20_000),
+      body: new Uint8Array(300_000),
       ms: 5,
     });
 
-    expect(response.body.byteLength).toBe(16 * 1024);
+    expect(response.body.byteLength).toBe(256 * 1024);
   });
 
   it('says why nothing answered', () => {

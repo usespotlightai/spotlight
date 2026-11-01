@@ -87,6 +87,7 @@ import {
   SANDBOXES,
   type SandboxesPort,
 } from '@runners/application/ports/sandboxes.port';
+import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetches.port';
 import {
   RUN_GRANTS,
   type RunGrantsPort,
@@ -117,6 +118,7 @@ import {
   TELEMETRY,
   type TelemetryPort,
 } from '@shared-kernel/application/ports/telemetry.port';
+import { TOKEN_ISSUER } from '@shared-kernel/application/ports/token-issuer.port';
 import {
   TRANSACTION,
   type TransactionPort,
@@ -179,6 +181,7 @@ import { RecordEgressConnectionsHandler } from '@work/application/commands/handl
 import { RecordHostCallResponseHandler } from '@work/application/commands/handlers/record-host-call-response.handler';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
 import { RecordStartingPointHandler } from '@work/application/commands/handlers/record-starting-point.handler';
+import { RedeemCallSecretsHandler } from '@work/application/commands/handlers/redeem-call-secrets.handler';
 import { RenewCheckLeaseHandler } from '@work/application/commands/handlers/renew-check-lease.handler';
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
 import { ReopenInboxItemHandler } from '@work/application/commands/handlers/reopen-inbox-item.handler';
@@ -198,6 +201,7 @@ import { UseToolHandler } from '@work/application/commands/handlers/use-tool.han
 import {
   ClaimHostCallCommand,
   RecordHostCallResponseCommand,
+  RedeemCallSecretsCommand,
 } from '@work/application/commands/host-call.commands';
 import { KeepTaskDraftCommand } from '@work/application/commands/keep-task-draft.command';
 import { MarkInboxItemReadCommand } from '@work/application/commands/mark-inbox-item-read.command';
@@ -692,6 +696,7 @@ import { EditorConnectionController } from '@work/presentation/http/controllers/
 import { EgressController } from '@work/presentation/http/controllers/egress.controller';
 import { GitController } from '@work/presentation/http/controllers/git.controller';
 import { HarnessController } from '@work/presentation/http/controllers/harness.controller';
+import { HostCallSecretsController } from '@work/presentation/http/controllers/host-call-secrets.controller';
 import { HostWorkController } from '@work/presentation/http/controllers/host-work.controller';
 import { InboxController } from '@work/presentation/http/controllers/inbox.controller';
 import { LineController } from '@work/presentation/http/controllers/line.controller';
@@ -731,6 +736,7 @@ export const WORK_CONTROLLERS: readonly Type[] = [
   SandboxArchiveController,
   PoolController,
   HostWorkController,
+  HostCallSecretsController,
   EgressController,
   RunnerActivityController,
   HarnessController,
@@ -2531,6 +2537,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     DrizzleNetworkCallRepository,
     CLOCK,
     LongPoll,
+    TOKEN_ISSUER,
   ]),
 
   ...bindCommandHandler(
@@ -2538,6 +2545,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RecordHostCallResponseHandler,
     [RUNNER_AUTHENTICATOR, DrizzleNetworkCallRepository, CLOCK],
   ),
+
+  ...bindCommandHandler(RedeemCallSecretsCommand, RedeemCallSecretsHandler, [
+    DrizzleNetworkCallRepository,
+    CALL_SECRET_FETCHES,
+    TOKEN_ISSUER,
+    CLOCK,
+  ]),
 
   {
     provide: EgressSecretFetches,

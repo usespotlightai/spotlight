@@ -22,6 +22,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, notInArray } from 'drizzle-orm';
@@ -81,6 +82,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
       id: WorkspaceId.of(found.id),
       name: WorkspaceName.of(found.name),
       slug: WorkspaceSlug.of(found.slug),
+      outboundHosts: HostAllowList.restored(found.outboundHosts),
       members: members.map((each) => ({
         userId: UserId.of(each.userId),
         role: WorkspaceRole.of(each.role),
@@ -108,6 +110,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
         .set({
           name: saved.name.value,
           slug: saved.slug.value,
+          outboundHosts: [...saved.outboundHosts.entries],
           version: saved.version + 1,
         })
         .where(
@@ -190,6 +193,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
           id: added.id.value,
           name: added.name.value,
           slug: added.slug.value,
+          outboundHosts: [...added.outboundHosts.entries],
         });
 
         await this.context.db.insert(workspaceMember).values(

@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   index,
   integer,
@@ -17,6 +18,9 @@ export const networkCall = pgTable(
     headers: jsonb('headers').$type<Record<string, string>>().notNull(),
     body: text('body').notNull(),
     timeoutMs: integer('timeout_ms').notNull(),
+    secrets: text('secrets').array().notNull().default(sql`'{}'::text[]`),
+    secretsTokenHash: text('secrets_token_hash'),
+    secretsRedeemedAt: timestamp('secrets_redeemed_at'),
     queuedAt: timestamp('queued_at').notNull(),
     expiresAt: timestamp('expires_at').notNull(),
     state: text('state').notNull(),

@@ -17,6 +17,7 @@ const REQUEST = {
   headers: { 'content-type': 'application/json' },
   body: new TextEncoder().encode('{}'),
   timeoutMs: 10_000,
+  secrets: [],
 };
 
 const calling = (
@@ -26,6 +27,7 @@ const calling = (
     body: new TextEncoder().encode('{"deny":"not today"}'),
     ms: 84,
   }),
+  { claimOnly = false } = {},
 ) => {
   let now = NOW;
   const clock: ClockPort = {
@@ -49,9 +51,10 @@ const calling = (
         now.getTime() - NOW.getTime() >= answerAfter &&
         stored.stateAt(now) === 'waiting'
       ) {
-        stored = stored
-          .claimedBy(HOST, now)
-          .recordResponse(HOST, response, now);
+        const claimed = stored.claimedBy(HOST, now);
+        stored = claimOnly
+          ? claimed
+          : claimed.recordResponse(HOST, response, now);
       }
       return stored;
     },
@@ -112,10 +115,12 @@ describe('NetworkCalls', () => {
 
     expect(await calls.answered('call_1', later(1_000))).toEqual({
       kind: 'expired',
+      claimed: false,
     });
     expect(stored()?.progress).toEqual({
       kind: 'cancelled',
       at: later(1_000),
+      claimed: false,
     });
     expect(stored()?.request.headers).toEqual({});
     expect(stored()?.request.body.byteLength).toBe(0);
@@ -140,6 +145,22 @@ describe('NetworkCalls', () => {
 
     expect(await calls.answered('call_1', later(10_000))).toEqual({
       kind: 'expired',
+      claimed: false,
+    });
+  });
+
+  it('says a host claimed the call it left unanswered', async () => {
+    const { calls, stored } = calling(500, undefined, { claimOnly: true });
+    await calls.queue('ws_1', REQUEST, later(2_000));
+
+    expect(await calls.answered('call_1', later(10_000))).toEqual({
+      kind: 'expired',
+      claimed: true,
+    });
+    expect(stored()?.progress).toEqual({
+      kind: 'expired',
+      at: later(2_000),
+      claimed: true,
     });
   });
 
@@ -160,7 +181,10 @@ describe('NetworkCalls', () => {
     await calls.queue('ws_1', REQUEST, later(1_000));
     await clock.sleep(2_000);
 
-    expect(await calls.stateOf('call_1')).toEqual({ kind: 'expired' });
+    expect(await calls.stateOf('call_1')).toEqual({
+      kind: 'expired',
+      claimed: false,
+    });
     expect(watching.saves).toBe(0);
   });
 

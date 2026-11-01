@@ -17,6 +17,8 @@ import type { HookSigningIR } from '@integrations/infrastructure/hooks/hook.comp
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { API_PREFIX, HOOK_CALLBACKS } from '@platform/http/routes';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
+import { OutboundHostsUnreadError } from '@shared-kernel/application/errors/outbound-hosts-unread.error';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import type {
   NetworkCallsPort,
   NetworkRequest,
@@ -150,6 +152,7 @@ export class HookRequests {
     private readonly callbacks: HookCallbackTokens,
     private readonly network: NetworkCallsPort,
     private readonly limits: OutboundLimitsPort,
+    private readonly scope: WorkspaceOutboundScopePort,
     private readonly fetch: Fetch = settings.policy.fetch,
   ) {
     this.policy = settings.policy;
@@ -192,6 +195,31 @@ export class HookRequests {
       return this.fromNetwork(request, headers, started);
     }
 
+    try {
+      return await this.scope.within(request.instance.task.workspaceId, () =>
+        this.sentFromHere(request, headers, started),
+      );
+    } catch (error) {
+      if (!(error instanceof OutboundHostsUnreadError)) {
+        throw error;
+      }
+
+      return this.notSent(
+        request,
+        HookFailure.of(
+          'errored',
+          `Spotlight could not read the workspace's allowed hosts: ${error.because}`,
+        ),
+        started,
+      );
+    }
+  }
+
+  private async sentFromHere(
+    request: HookRequest,
+    headers: Record<string, string>,
+    started: Date,
+  ): Promise<StepResult> {
     try {
       this.policy.allow(request.url);
     } catch (error) {
@@ -312,6 +340,7 @@ export class HookRequests {
         ),
         1_000,
       ),
+      secrets: [],
     };
     const call = await this.network.queue(
       request.instance.task.workspaceId,

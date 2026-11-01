@@ -35,7 +35,11 @@ const denied = (message: string) =>
 export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
   const granted = new Set<string>();
 
-  const injected = (request: SpotlightRequest, run: string | null) =>
+  const injected = (
+    request: SpotlightRequest,
+    run: string | null,
+    standIns = false,
+  ) =>
     InjectedSecrets.of(
       request.secrets.map((name) => {
         const secret = bound[name];
@@ -56,11 +60,13 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
           throw denied(`This run was not granted the ${name} secret`);
         }
 
+        const bare = standIns ? `spotlight-egress:${name}` : secret.value;
+
         return {
           location: secret.location ?? 'header',
           name: secret.name ?? 'authorization',
-          value: `${secret.prefix ?? ''}${secret.value}`,
-          bare: secret.value,
+          value: `${secret.prefix ?? ''}${bare}`,
+          bare,
         };
       }),
     );
@@ -79,6 +85,13 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
   );
   const forSpotlight = vi.fn(async (request: SpotlightRequest) =>
     injected(request, null),
+  );
+
+  const standInsFor = vi.fn(async (request: SpotlightRequest) =>
+    injected(request, null, true),
+  );
+  const standInsForRun = vi.fn(async (request: RunRequest) =>
+    injected(request, request.runId, true),
   );
 
   const forVerifying = vi.fn(async (request: VerifyingRequest) => {
@@ -100,10 +113,20 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
     grant,
     forRun,
     forSpotlight,
+    standInsFor,
+    standInsForRun,
     forVerifying,
   };
 
-  return { injection, grant, forRun, forSpotlight, forVerifying };
+  return {
+    injection,
+    grant,
+    forRun,
+    forSpotlight,
+    standInsFor,
+    standInsForRun,
+    forVerifying,
+  };
 };
 
 export const credentialsFor = (

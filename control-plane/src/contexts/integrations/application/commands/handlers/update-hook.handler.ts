@@ -62,7 +62,7 @@ export class UpdateHookHandler
           existing.update(
             compiled,
             signingSecretChange(compiled.secret),
-            await this.allowances.onTeam(existing.teamId),
+            await this.allowances.onTeam(existing.teamId, existing.workspaceId),
             ChangeActor.of(command.actor, permissions.workspaceId),
           ),
         ),

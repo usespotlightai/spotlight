@@ -26,6 +26,7 @@ const WORKSPACE_COLUMNS = {
   version: workspace.version,
   name: workspace.name,
   slug: workspace.slug,
+  outboundHosts: workspace.outboundHosts,
 };
 
 const TEAM_COLUMNS = {

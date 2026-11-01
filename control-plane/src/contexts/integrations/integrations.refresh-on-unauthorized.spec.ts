@@ -32,6 +32,7 @@ import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-
 import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth2-registrar';
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { InMemoryIntegrationConnections } from '@integrations/integrations.connections.fake-spec';
@@ -48,6 +49,7 @@ import {
 } from '@integrations/integrations.policies.fake-spec';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -344,6 +346,8 @@ const settingUp = ({
     discoveringNothing(),
     callingNoServer(),
     unlimited,
+    unscoped,
+    noNetwork,
   );
   const connectionRefresh = new ConnectionRefresh(
     connections,
@@ -380,6 +384,7 @@ const settingUp = ({
     clock,
     'https://app.example',
     CALLBACK,
+    unscoped,
   );
 
   const connectedAs = (accessToken: string, refreshToken = 'rt-1') =>

@@ -79,7 +79,14 @@ import {
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
 import { WORKSPACE_DEPENDENTS } from '@identity/application/ports/workspace-dependents.port';
-import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
+import {
+  WORKSPACE_OUTBOUND_HOSTS,
+  type WorkspaceOutboundHostsPort,
+} from '@identity/application/ports/workspace-outbound-hosts.port';
+import {
+  WORKSPACE_READER,
+  type WorkspaceReaderPort,
+} from '@identity/application/ports/workspace-reader.port';
 import { WORKSPACE_SETUP_STATUS } from '@identity/application/ports/workspace-setup-status.port';
 import { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.query';
 import { GetWorkspaceHandler } from '@identity/application/queries/handlers/get-workspace.handler';
@@ -149,6 +156,8 @@ import { InviteByMail } from '@identity/infrastructure/mail/invite.mail';
 import { LogMailTransport } from '@identity/infrastructure/mail/log.transport';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
 import { SmtpMail } from '@identity/infrastructure/mail/smtp.transport';
+import { CachedWorkspaceOutboundHosts } from '@identity/infrastructure/outbound/cached-workspace-outbound-hosts';
+import { WorkspaceOutboundScope } from '@identity/infrastructure/outbound/workspace-outbound-scope';
 import { DrizzleConfigurationAudit } from '@identity/infrastructure/persistence/drizzle/configuration-audit';
 import { DrizzleOidcTrustUsage } from '@identity/infrastructure/persistence/drizzle/oidc-trust-usage';
 import { DrizzleIdentityResources } from '@identity/infrastructure/persistence/drizzle/readers/identity-resources.reader';
@@ -212,6 +221,7 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
+import { WORKSPACE_OUTBOUND_SCOPE } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { WORKSPACE_TOKEN_IDENTITY } from '@shared-kernel/application/ports/workspace-token-identity.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -240,6 +250,18 @@ const adapters: Provider[] = [
   DrizzleOidcTrustRepository,
   DrizzleViewableWorkspaces,
   { provide: WORKSPACE_READER, useClass: DrizzleWorkspaceReader },
+  {
+    provide: WORKSPACE_OUTBOUND_HOSTS,
+    inject: [WORKSPACE_READER],
+    useFactory: (workspaces: WorkspaceReaderPort) =>
+      new CachedWorkspaceOutboundHosts(workspaces),
+  },
+  {
+    provide: WORKSPACE_OUTBOUND_SCOPE,
+    inject: [WORKSPACE_OUTBOUND_HOSTS],
+    useFactory: (hosts: WorkspaceOutboundHostsPort) =>
+      new WorkspaceOutboundScope(hosts),
+  },
   { provide: WORKSPACE_SETUP_STATUS, useClass: OutboxWorkspaceSetupStatus },
   { provide: PERSON_READER, useClass: DrizzlePersonReader },
   { provide: MEMBER_READER, useClass: DrizzleMemberReader },
@@ -368,6 +390,7 @@ const handlers: Provider[] = [
     IDENTITY_DEFINITIONS,
     DrizzleWorkspaceRepository,
     TRANSACTION,
+    WORKSPACE_OUTBOUND_HOSTS,
   ]),
   ...bindCommandHandler(DeleteWorkspaceCommand, DeleteWorkspaceHandler, [
     DrizzleWorkspaceRepository,
@@ -502,6 +525,7 @@ const handlers: Provider[] = [
       DrizzleOidcTrustRepository,
       DrizzleWorkspaceTokenRepository,
       WORKLOAD_TOKENS,
+      WORKSPACE_OUTBOUND_SCOPE,
       ID_GENERATOR,
       TOKEN_ISSUER,
       CLOCK,

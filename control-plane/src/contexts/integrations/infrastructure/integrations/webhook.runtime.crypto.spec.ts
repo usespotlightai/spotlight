@@ -12,6 +12,7 @@ import {
   signingFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
@@ -58,6 +59,7 @@ const runtimeOf = (
     {} as HttpOutbound,
     credentialsFor(),
     unlimited,
+    unscoped,
   );
 
 describe('verifying an ed25519 signature', () => {

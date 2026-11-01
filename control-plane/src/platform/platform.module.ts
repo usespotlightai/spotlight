@@ -30,9 +30,9 @@ import { DrizzleIdempotentCreates } from '@platform/idempotency/drizzle-idempote
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
 import { LoggingModule } from '@platform/logging/logging.module';
+import { DEPLOYMENT_HOSTS } from '@platform/outbound/deployment-hosts';
 import { OutboundCalls } from '@platform/outbound/outbound-calls';
 import { OutboundGuard } from '@platform/outbound/outbound-guard';
-import { OutboundHosts } from '@platform/outbound/outbound-hosts';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
@@ -62,6 +62,7 @@ import { TOKEN_ISSUER } from '@shared-kernel/application/ports/token-issuer.port
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
 import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types';
+import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 
 @Global()
 @Module({
@@ -105,15 +106,15 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     CollabServer,
     OutboundCalls,
     {
-      provide: OutboundHosts,
+      provide: DEPLOYMENT_HOSTS,
       inject: [ENV],
       useFactory: (env: Env) =>
-        OutboundHosts.listed(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS),
+        HostAllowList.listed(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS),
     },
     {
       provide: OutboundGuard,
-      inject: [OutboundHosts, ENV],
-      useFactory: (hosts: OutboundHosts, env: Env) =>
+      inject: [DEPLOYMENT_HOSTS, ENV],
+      useFactory: (hosts: HostAllowList, env: Env) =>
         new OutboundGuard(hosts, env.SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK),
     },
     ExpressionFailures,
@@ -164,11 +165,11 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
       provide: WORKLOAD_TOKENS,
       inject: [LOGGER, OutboundGuard],
       useFactory: (logger: LoggerPort, guard: OutboundGuard) =>
-        new JoseWorkloadTokens(logger, guard.fetch),
+        new JoseWorkloadTokens(logger, guard.fetch, (url) => guard.check(url)),
     },
   ],
   exports: [
-    OutboundHosts,
+    DEPLOYMENT_HOSTS,
     OutboundGuard,
     RedisConnection,
     Instance,

@@ -78,7 +78,7 @@ export class OAuth2Discovery {
   readonly #failed = new OncePer(CACHE_TTL_MS);
 
   constructor(
-    policy: OutboundPolicy,
+    private readonly policy: OutboundPolicy,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
     fetch: Fetch = policy.fetch,
@@ -125,7 +125,7 @@ export class OAuth2Discovery {
     const cached = this.#found.get(server);
 
     if (cached && cached.until > now) {
-      return cached.discovered;
+      return this.allows(server) ? cached.discovered : null;
     }
 
     const discovered = await this.discover(server).catch((error: unknown) => {
@@ -148,6 +148,15 @@ export class OAuth2Discovery {
     }
 
     return discovered;
+  }
+
+  private allows(server: string): boolean {
+    try {
+      this.policy.allow(server);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async discover(server: string): Promise<Discovered | null> {

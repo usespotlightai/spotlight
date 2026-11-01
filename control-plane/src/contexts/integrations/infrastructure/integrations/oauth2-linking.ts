@@ -20,8 +20,12 @@ import {
   type OAuth2Discovery,
 } from '@integrations/infrastructure/integrations/oauth2-discovery';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
-import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
+import {
+  OAuth2State,
+  type OpenedOAuth2Intent,
+} from '@integrations/infrastructure/integrations/oauth2-state';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const NONCE_BYTES = 32;
@@ -47,10 +51,19 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     private readonly clock: ClockPort,
     private readonly base: string,
     private readonly callback: string,
+    private readonly scope: WorkspaceOutboundScopePort,
   ) {}
 
-  async begin(input: OAuth2LinkInput): Promise<OAuth2Start | null> {
+  begin(input: OAuth2LinkInput): Promise<OAuth2Start | null> {
     const teamId = TeamId.of(input.teamId);
+
+    return this.onBehalfOf(teamId, () => this.begun(teamId, input));
+  }
+
+  private async begun(
+    teamId: TeamId,
+    input: OAuth2LinkInput,
+  ): Promise<OAuth2Start | null> {
     const oauth2 = await oauth2Of(
       this.defined,
       this.reader,
@@ -123,6 +136,17 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     }
 
     const teamId = TeamId.of(intent.teamId);
+
+    return this.onBehalfOf(teamId, () =>
+      this.exchanged(teamId, intent, returned),
+    );
+  }
+
+  private async exchanged(
+    teamId: TeamId,
+    intent: OpenedOAuth2Intent,
+    returned: OAuth2Returned,
+  ): Promise<OAuth2Authorized | null> {
     const oauth2 = await oauth2Of(
       this.defined,
       this.reader,
@@ -162,6 +186,15 @@ export class OAuth2Linking implements OAuth2LinkingPort {
       returnTo: intent.returnTo,
       tokens,
     };
+  }
+
+  private async onBehalfOf<T>(
+    teamId: TeamId,
+    work: () => Promise<T | null>,
+  ): Promise<T | null> {
+    const team = await this.teams.find(teamId);
+
+    return team ? this.scope.within(team.workspaceId.value, work) : null;
   }
 
   async landingFor(

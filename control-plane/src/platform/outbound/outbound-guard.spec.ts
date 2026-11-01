@@ -4,7 +4,8 @@ import {
   OutboundBlockedError,
   OutboundGuard,
 } from '@platform/outbound/outbound-guard';
-import { OutboundHosts } from '@platform/outbound/outbound-hosts';
+import { OutboundScope } from '@platform/outbound/outbound-scope';
+import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 let server: Server;
@@ -12,6 +13,12 @@ let port: number;
 
 beforeAll(async () => {
   server = createServer((request, response) => {
+    if (request.url === '/named') {
+      response.writeHead(302, { location: `http://localhost:${port}/` });
+      response.end();
+      return;
+    }
+
     if (request.url === '/elsewhere') {
       response.writeHead(302, { location: 'http://169.254.169.254/latest' });
       response.end();
@@ -29,7 +36,7 @@ afterAll(async () => {
 });
 
 const guard = (setting: string, loopbackAllowed = false) =>
-  new OutboundGuard(OutboundHosts.listed(setting), loopbackAllowed);
+  new OutboundGuard(HostAllowList.listed(setting), loopbackAllowed);
 
 describe('OutboundGuard', () => {
   it('never connects to a loopback address, even one the deployment names', async () => {
@@ -87,4 +94,92 @@ describe('OutboundGuard', () => {
       await expect(guard('').fetch(url)).rejects.toThrow(/loopback address/);
     },
   );
+
+  it('refuses a host the workspace in scope does not list, saying whose list it is', () => {
+    expect(() =>
+      OutboundScope.within(HostAllowList.of(['slack.com']), () =>
+        guard('').check('https://example.com/'),
+      ),
+    ).toThrow("Host is not on the workspace's allowed list.");
+  });
+
+  it('calls a host the workspace in scope lists, and any host outside a scope', () => {
+    expect(() =>
+      OutboundScope.within(HostAllowList.of(['*.slack.com']), () =>
+        guard('').check('https://files.slack.com/'),
+      ),
+    ).not.toThrow();
+    expect(() => guard('').check('https://example.com/')).not.toThrow();
+  });
+
+  it('narrows nothing for a workspace with an empty list', () => {
+    expect(() =>
+      OutboundScope.within(HostAllowList.none, () =>
+        guard('').check('https://example.com/'),
+      ),
+    ).not.toThrow();
+  });
+
+  it('still refuses a host the deployment does not list, whatever the workspace lists', () => {
+    expect(() =>
+      OutboundScope.within(HostAllowList.of(['example.com']), () =>
+        guard('slack.com').check('https://example.com/'),
+      ),
+    ).toThrow('Host is not on the allowed list.');
+  });
+
+  it('keeps every enclosing list when scopes nest', () => {
+    expect(() =>
+      OutboundScope.within(HostAllowList.of(['slack.com']), () =>
+        OutboundScope.within(HostAllowList.of(['example.com']), () =>
+          guard('').check('https://example.com/'),
+        ),
+      ),
+    ).toThrow(OutboundBlockedError);
+  });
+
+  it('refuses a request fetch makes for a host outside the workspace list, before it connects', async () => {
+    await expect(
+      OutboundScope.within(HostAllowList.of(['slack.com']), () =>
+        guard('127.0.0.1', true).fetch(`http://127.0.0.1:${port}/`),
+      ),
+    ).rejects.toThrow("Host is not on the workspace's allowed list.");
+  });
+
+  it('refuses a redirect fetch follows to a host outside the workspace list', async () => {
+    const reached = OutboundScope.within(HostAllowList.of(['127.0.0.1']), () =>
+      guard('127.0.0.1,localhost', true).fetch(
+        `http://127.0.0.1:${port}/named`,
+      ),
+    );
+
+    await expect(reached).rejects.toMatchObject({
+      host: 'localhost',
+      reason: "Host is not on the workspace's allowed list.",
+    });
+  });
+
+  it('keeps each of two interleaved scopes to its own list', async () => {
+    const checking = (allowed: string, other: string) =>
+      OutboundScope.within(HostAllowList.of([allowed]), async () => {
+        await new Promise((done) => setTimeout(done, 5));
+        const seen = [
+          OutboundScope.allows(allowed),
+          OutboundScope.allows(other),
+        ];
+        await new Promise((done) => setTimeout(done, 1));
+
+        return [...seen, OutboundScope.allows(allowed)];
+      });
+
+    await expect(
+      Promise.all([
+        checking('a.example.com', 'b.example.com'),
+        checking('b.example.com', 'a.example.com'),
+      ]),
+    ).resolves.toEqual([
+      [true, false, true],
+      [true, false, true],
+    ]);
+  });
 });

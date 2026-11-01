@@ -255,6 +255,10 @@ export class Secret extends EventRecorder {
     return this.bindingForUrl(url).inject(this.injectable(value));
   }
 
+  standInFor(url: string): InjectedSecret {
+    return this.bindingForUrl(url).standIn(this.name);
+  }
+
   injectable(value: SecretValue): SecretValue {
     if (!value.fitsOneLine) {
       throw new SecretNotInjectableError(this.name.value);
@@ -290,13 +294,7 @@ export class Secret extends EventRecorder {
   }
 
   grantTo(runId: RunId): readonly SecretGrant[] {
-    this.assertNotDeleted();
-
-    if (this.bindings.isEmpty) {
-      throw new SecretNotBoundError(this.name.value, 'any host');
-    }
-
-    return this.bindings.hosts.map((host) =>
+    return this.injectedBindings().map(({ host }) =>
       SecretGrant.of({
         runId,
         workspaceId: this.workspaceId,
@@ -304,6 +302,16 @@ export class Secret extends EventRecorder {
         host,
       }),
     );
+  }
+
+  injectedBindings(): readonly SecretBinding[] {
+    this.assertNotDeleted();
+
+    if (this.bindings.isEmpty) {
+      throw new SecretNotBoundError(this.name.value, 'any host');
+    }
+
+    return this.bindings.all;
   }
 
   get id(): SecretId {
