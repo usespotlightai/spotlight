@@ -27,6 +27,7 @@ const withinTime = <T>(read: Promise<T>): Promise<T | null> => {
 export function observeGauges<Name extends string>(
   specs: Record<Name, GaugeSpec>,
   read: () => Promise<Record<Name, readonly Observation[]>>,
+  reporting: () => boolean = () => true,
 ): () => void {
   const meter = metrics.getMeter(SCOPE);
   const names = Object.keys(specs) as Name[];
@@ -42,6 +43,10 @@ export function observeGauges<Name extends string>(
       attributes?: MetricAttributes,
     ): void;
   }) => {
+    if (!reporting()) {
+      return;
+    }
+
     const observed = await withinTime(read());
 
     if (!observed) {

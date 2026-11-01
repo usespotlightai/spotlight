@@ -7,4 +7,4 @@ import {
 
 const env = parseEnv();
 
-export const auth = createAuth(env, createDatabase(createPool(env)));
+export const auth = createAuth(env, createDatabase(createPool(env)), null);

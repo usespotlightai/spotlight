@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { Leadership } from '@platform/redis/leadership';
 import { observeGauges } from '@platform/telemetry/gauges';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { runnerHost } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
@@ -22,6 +23,7 @@ export class RunnerHostGauges implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    private readonly leadership: Leadership,
   ) {}
 
   onModuleInit(): void {
@@ -32,6 +34,7 @@ export class RunnerHostGauges implements OnModuleInit, OnModuleDestroy {
         },
       },
       () => this.read(),
+      () => this.leadership.held(),
     );
   }
 

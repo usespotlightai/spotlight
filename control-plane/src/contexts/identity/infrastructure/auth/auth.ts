@@ -1,4 +1,5 @@
 import { bearerSessions } from '@identity/infrastructure/auth/bearer-sessions';
+import type { RateLimitStorage } from '@identity/infrastructure/auth/redis-rate-limit';
 import * as schema from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
@@ -24,9 +25,14 @@ const refusesClientChosenFields = createAuthMiddleware(async (ctx) => {
   }
 });
 
-export const createAuth = (env: Env, db: DrizzleDatabase) =>
+export const createAuth = (
+  env: Env,
+  db: DrizzleDatabase,
+  rateLimit: RateLimitStorage | null,
+) =>
   betterAuth({
     database: drizzleAdapter(db, { provider: 'pg', schema }),
+    ...(rateLimit && { rateLimit: { customStorage: rateLimit } }),
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     socialProviders: {

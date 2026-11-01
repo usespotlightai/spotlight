@@ -1,4 +1,3 @@
-import type { OnApplicationShutdown } from '@nestjs/common';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type {
   RunEventView,
@@ -10,7 +9,6 @@ const CHANNEL = 'spotlight-run-stream:';
 
 export interface RedisPublisher {
   publish(channel: string, message: string): Promise<unknown>;
-  quit(): Promise<unknown>;
 }
 
 export interface RedisSubscriber {
@@ -20,10 +18,9 @@ export interface RedisSubscriber {
     event: 'message',
     listener: (channel: string, message: string) => void,
   ): unknown;
-  quit(): Promise<unknown>;
 }
 
-export class RedisRunStream implements RunStreamPort, OnApplicationShutdown {
+export class RedisRunStream implements RunStreamPort {
   private readonly local = new InMemoryRunStream();
   private readonly watched = new Map<string, number>();
 
@@ -94,9 +91,5 @@ export class RedisRunStream implements RunStreamPort, OnApplicationShutdown {
           this.logger.warn({ err: error, runId }, 'Unwatching run events'),
         );
     };
-  }
-
-  async onApplicationShutdown(): Promise<void> {
-    await Promise.allSettled([this.publisher.quit(), this.subscriber.quit()]);
   }
 }

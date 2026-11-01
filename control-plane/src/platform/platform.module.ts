@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { APP_FILTER, HttpAdapterHost } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
+import { Instance } from '@platform/cluster/instance';
 import { CollabServer } from '@platform/collab/collab-server';
 import { ENV } from '@platform/config/config.constants';
 import { ConfigModule } from '@platform/config/config.module';
@@ -33,6 +34,8 @@ import { OutboundCalls } from '@platform/outbound/outbound-calls';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
+import { Leadership } from '@platform/redis/leadership';
+import { RedisConnection } from '@platform/redis/redis-connection';
 import { OtelTelemetry } from '@platform/telemetry/otel-telemetry';
 import { OutboxGauges } from '@platform/telemetry/outbox-gauges';
 import { TelemetryShutdown } from '@platform/telemetry/telemetry-shutdown';
@@ -68,6 +71,31 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
       inject: [HttpAdapterHost, LOGGER],
       useFactory: (adapters: HttpAdapterHost, logger: LoggerPort) =>
         new GracefulShutdown(adapters, logger),
+    },
+    {
+      provide: RedisConnection,
+      inject: [ENV, LOGGER],
+      useFactory: (env: Env, logger: LoggerPort) =>
+        new RedisConnection(env.REDIS_URL, logger),
+    },
+    {
+      provide: Instance,
+      inject: [ENV],
+      useFactory: (env: Env) =>
+        Instance.of({
+          address: env.SPOTLIGHT_INSTANCE_URL,
+          port: env.PORT,
+          clustered: env.REDIS_URL !== undefined,
+        }),
+    },
+    {
+      provide: Leadership,
+      inject: [RedisConnection, Instance, LOGGER],
+      useFactory: (
+        redis: RedisConnection,
+        instance: Instance,
+        logger: LoggerPort,
+      ) => new Leadership(redis.client, instance, logger),
     },
     { provide: APP_FILTER, useClass: SentryGlobalFilter },
     { provide: APP_FILTER, useClass: InternalErrorFilter },
@@ -121,6 +149,9 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     { provide: WORKLOAD_TOKENS, useClass: JoseWorkloadTokens },
   ],
   exports: [
+    RedisConnection,
+    Instance,
+    Leadership,
     CollabServer,
     ERROR_REPORTS,
     TELEMETRY,

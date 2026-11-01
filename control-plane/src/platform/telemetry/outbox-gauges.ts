@@ -7,6 +7,7 @@ import {
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { eventDelivery } from '@platform/persistence/drizzle/schemas/event.schema';
+import { Leadership } from '@platform/redis/leadership';
 import { ageInSeconds, observeGauges } from '@platform/telemetry/gauges';
 import {
   CLOCK,
@@ -21,6 +22,7 @@ export class OutboxGauges implements OnModuleInit, OnModuleDestroy {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(CLOCK) private readonly clock: ClockPort,
+    private readonly leadership: Leadership,
   ) {}
 
   onModuleInit(): void {
@@ -37,6 +39,7 @@ export class OutboxGauges implements OnModuleInit, OnModuleDestroy {
         },
       },
       () => this.read(),
+      () => this.leadership.held(),
     );
   }
 
