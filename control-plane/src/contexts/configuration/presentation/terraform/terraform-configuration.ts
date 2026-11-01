@@ -75,7 +75,7 @@ const PROVIDER = 'spotlight';
 
 const PROVIDER_SOURCE = 'usespotlightai/spotlight';
 
-const PROVIDER_VERSION = '0.1.0-rc.2';
+const PROVIDER_VERSION = '0.1.0-rc.4';
 
 const TERRAFORM = 'terraform.tf';
 
