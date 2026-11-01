@@ -1,8 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
-import {
-  LOGGER,
-  type LoggerPort,
-} from '@shared-kernel/application/ports/logger.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type {
   ExpectedWorkload,
   WorkloadTokensPort,
@@ -10,10 +6,13 @@ import type {
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 import {
   createRemoteJWKSet,
+  customFetch,
   type JWTPayload,
   type JWTVerifyGetKey,
   jwtVerify,
 } from 'jose';
+
+type Fetch = typeof globalThis.fetch;
 
 const DISCOVERY_PATH = '/.well-known/openid-configuration';
 
@@ -37,14 +36,18 @@ const customClaimsIn = (payload: JWTPayload): Record<string, string> =>
 
 interface Discovered {
   readonly keys: JWTVerifyGetKey;
+  readonly urls: readonly string[];
   readonly until: number;
 }
 
-@Injectable()
 export class JoseWorkloadTokens implements WorkloadTokensPort {
   readonly #discovered = new Map<string, Discovered>();
 
-  constructor(@Inject(LOGGER) private readonly logger: LoggerPort) {}
+  constructor(
+    private readonly logger: LoggerPort,
+    private readonly fetch: Fetch,
+    private readonly check: (url: string) => void,
+  ) {}
 
   async verify(
     token: string,
@@ -86,13 +89,18 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
     const cached = this.#discovered.get(issuer);
 
     if (cached && cached.until > Date.now()) {
+      for (const url of cached.urls) {
+        this.check(url);
+      }
+
       return cached.keys;
     }
 
-    const response = await fetch(
-      `${issuer.replace(/\/+$/, '')}${DISCOVERY_PATH}`,
-      { signal: AbortSignal.timeout(TIMEOUT_MS), redirect: 'error' },
-    );
+    const discovery = `${issuer.replace(/\/+$/, '')}${DISCOVERY_PATH}`;
+    const response = await this.fetch(discovery, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      redirect: 'error',
+    });
 
     if (!response.ok) {
       throw new Error(`${issuer} returned ${response.status} for discovery`);
@@ -109,9 +117,14 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
 
     const keys = createRemoteJWKSet(new URL(document.jwks_uri), {
       timeoutDuration: TIMEOUT_MS,
+      [customFetch]: this.fetch,
     });
 
-    this.#discovered.set(issuer, { keys, until: Date.now() + KEYS_CACHE_MS });
+    this.#discovered.set(issuer, {
+      keys,
+      urls: [discovery, document.jwks_uri],
+      until: Date.now() + KEYS_CACHE_MS,
+    });
 
     return keys;
   }

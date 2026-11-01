@@ -11,7 +11,7 @@ import {
   fakeMcpServer,
 } from '@integrations/infrastructure/mcp/mcp-server.fake-spec';
 import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
-import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -23,6 +23,7 @@ const injectingKey = {
       InjectedSecrets.of([
         { location: 'query', name: 'key', value: 'k/live', bare: 'k/live' },
       ]),
+    standInsFor: async () => InjectedSecrets.none(),
   } as Credentials,
 };
 
@@ -43,6 +44,7 @@ const injectingNothing = {
   secrets: [],
   credentials: {
     injectedFor: async () => InjectedSecrets.none(),
+    standInsFor: async () => InjectedSecrets.none(),
   } as Credentials,
 };
 
@@ -52,7 +54,10 @@ describe('McpSessions', () => {
 
   beforeEach(async () => {
     server = await fakeMcpServer();
-    sessions = new McpSessions(new OutboundPolicy([new URL(server.url).host]));
+    sessions = new McpSessions(
+      allowingOutbound([new URL(server.url).hostname]),
+      globalThis.fetch,
+    );
   });
 
   afterEach(async () => {
@@ -130,7 +135,7 @@ describe('McpSessions', () => {
 
     try {
       const idling = new McpSessions(
-        new OutboundPolicy([new URL(server.url).host]),
+        allowingOutbound([new URL(server.url).hostname]),
         globalThis.fetch,
         1_000,
       );
@@ -158,7 +163,11 @@ describe('McpSessions', () => {
   it('keeps sessions of one key apart from another server’s', async () => {
     const other = await fakeMcpServer();
     const both = new McpSessions(
-      new OutboundPolicy([new URL(server.url).host, new URL(other.url).host]),
+      allowingOutbound([
+        new URL(server.url).hostname,
+        new URL(other.url).hostname,
+      ]),
+      globalThis.fetch,
     );
 
     try {
@@ -206,7 +215,7 @@ describe('McpSessions', () => {
 
     try {
       const idling = new McpSessions(
-        new OutboundPolicy([new URL(server.url).host]),
+        allowingOutbound([new URL(server.url).hostname]),
         globalThis.fetch,
         1_000,
       );
@@ -262,7 +271,7 @@ describe('McpSessions', () => {
       {
         connection: 'the-token',
         secrets: ['TRACKER_KEY'],
-        credentials: { injectedFor },
+        credentials: { injectedFor, standInsFor: vi.fn() },
       },
     );
 
@@ -293,6 +302,7 @@ describe('McpSessions', () => {
                 bare: 'tk/live',
               },
             ]),
+          standInsFor: vi.fn(),
         },
       },
     );
@@ -305,7 +315,8 @@ describe('McpSessions', () => {
   it('says when the server does not accept the connection it was handed', async () => {
     const guarded = await fakeMcpServer({ token: 'right' });
     const guardedSessions = new McpSessions(
-      new OutboundPolicy([new URL(guarded.url).host]),
+      allowingOutbound([new URL(guarded.url).hostname]),
+      globalThis.fetch,
     );
 
     try {
@@ -348,7 +359,8 @@ describe('McpSessions', () => {
       });
     });
     const listing = new McpSessions(
-      new OutboundPolicy([new URL(failing.origin).host]),
+      allowingOutbound([new URL(failing.origin).hostname]),
+      globalThis.fetch,
     );
 
     try {
@@ -377,10 +389,11 @@ describe('McpSessions', () => {
         .end();
     });
     const listing = new McpSessions(
-      new OutboundPolicy([
-        new URL(moving.origin).host,
-        new URL(elsewhere.origin).host,
+      allowingOutbound([
+        new URL(moving.origin).hostname,
+        new URL(elsewhere.origin).hostname,
       ]),
+      globalThis.fetch,
     );
 
     try {
@@ -398,7 +411,10 @@ describe('McpSessions', () => {
   });
 
   it('calls no server on a host the deployment does not allow', async () => {
-    const nowhere = new McpSessions(new OutboundPolicy(['elsewhere.example']));
+    const nowhere = new McpSessions(
+      allowingOutbound(['elsewhere.example']),
+      globalThis.fetch,
+    );
 
     await expect(
       nowhere.tools(server.url, injectingNothing),

@@ -20,6 +20,7 @@ import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
+import { WORKSPACE_OUTBOUND_HOSTS } from '@identity/application/ports/workspace-outbound-hosts.port';
 import {
   WORKSPACE_READER,
   WorkspaceReaderPort,
@@ -115,9 +116,14 @@ import {
   type OAuth2NoncesPort,
 } from '@integrations/application/ports/oauth2-nonces.port';
 import {
+  OUTBOUND_LIMITS,
+  type OutboundLimitsPort,
+} from '@integrations/application/ports/outbound-limits.port';
+import {
   SPEC_READER,
   type SpecReaderPort,
 } from '@integrations/application/ports/spec-reader.port';
+import { WORKSPACE_HOSTS } from '@integrations/application/ports/workspace-hosts.port';
 import { CheckExpressionQuery } from '@integrations/application/queries/check-expression.query';
 import { CheckExpressionHandler } from '@integrations/application/queries/handlers/check-expression.handler';
 import { ImportIntegrationHandler } from '@integrations/application/queries/handlers/import-integration.handler';
@@ -197,6 +203,11 @@ import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-st
 import { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
 import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { NetworkOutbound } from '@integrations/infrastructure/outbound/network-outbound';
+import {
+  InMemoryOutboundLimits,
+  RedisOutboundLimits,
+} from '@integrations/infrastructure/outbound/outbound-limits';
 import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { DrizzleConnectedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/connected-integrations.reader';
 import { DrizzleDefinedIntegrations } from '@integrations/infrastructure/persistence/drizzle/readers/defined-integrations.reader';
@@ -246,7 +257,9 @@ import {
   type ExpressionEnginePort,
 } from '@platform/expressions/expression-engine.port';
 import { API_PREFIX } from '@platform/http/routes';
+import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { RedisConnection } from '@platform/redis/redis-connection';
 import {
   CREDENTIAL_ENCRYPTION,
   type CredentialEncryptionPort,
@@ -278,6 +291,10 @@ import {
 } from '@shared-kernel/application/ports/telemetry.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
+  WORKSPACE_OUTBOUND_SCOPE,
+  type WorkspaceOutboundScopePort,
+} from '@shared-kernel/application/ports/workspace-outbound-scope.port';
+import {
   ENABLED_AT_STATIONS,
   type EnabledAtStationsPort,
 } from '@work/application/ports/enabled-at-stations.port';
@@ -286,6 +303,10 @@ import {
   HappeningReactionsPort,
 } from '@work/application/ports/happening-reactions.port';
 import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool-calls.port';
+import {
+  NETWORK_CALLS,
+  type NetworkCallsPort,
+} from '@work/application/ports/network-calls.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
 
@@ -387,36 +408,55 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: OUTBOUND_LIMITS,
+    inject: [RedisConnection, ENV, LOGGER],
+    useFactory: (
+      redis: RedisConnection,
+      env: Env,
+      logger: LoggerPort,
+    ): OutboundLimitsPort =>
+      redis.client
+        ? new RedisOutboundLimits(
+            redis.client,
+            env.SPOTLIGHT_OUTBOUND_RATE_LIMIT,
+            logger,
+          )
+        : new InMemoryOutboundLimits(env.SPOTLIGHT_OUTBOUND_RATE_LIMIT),
+  },
+  { provide: WORKSPACE_HOSTS, useExisting: WORKSPACE_OUTBOUND_HOSTS },
+  {
+    provide: OutboundPolicy,
+    inject: [OutboundGuard],
+    useFactory: (guard: OutboundGuard) => new OutboundPolicy(guard),
+  },
+  {
     provide: McpSessions,
-    inject: [ENV],
-    useFactory: (env: Env) =>
-      new McpSessions(
-        new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
-      ),
+    inject: [OutboundPolicy],
+    useFactory: (policy: OutboundPolicy) => new McpSessions(policy),
   },
 
   {
     provide: OAuth2Discovery,
-    inject: [ENV, CLOCK, LOGGER],
-    useFactory: (env: Env, clock: ClockPort, logger: LoggerPort) =>
-      new OAuth2Discovery(
-        new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
-        clock,
-        logger,
-      ),
+    inject: [OutboundPolicy, CLOCK, LOGGER],
+    useFactory: (
+      policy: OutboundPolicy,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) => new OAuth2Discovery(policy, clock, logger),
   },
 
   {
     provide: SPEC_READER,
-    inject: [ENV, McpSessions],
-    useFactory: (env: Env, sessions: McpSessions) =>
+    inject: [OutboundPolicy, McpSessions, WORKSPACE_OUTBOUND_SCOPE],
+    useFactory: (
+      policy: OutboundPolicy,
+      sessions: McpSessions,
+      scope: WorkspaceOutboundScopePort,
+    ) =>
       new SpecReaders(
-        new ThreadedSpecReader(
-          new SpecFetch(
-            new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
-          ),
-        ),
+        new ThreadedSpecReader(new SpecFetch(policy)),
         new McpSpecReader(sessions),
+        scope,
       ),
   },
 
@@ -600,9 +640,18 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: HttpOutbound,
-    inject: [ENV],
-    useFactory: (env: Env) =>
-      new HttpOutbound(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
+    inject: [OutboundPolicy],
+    useFactory: (policy: OutboundPolicy) => new HttpOutbound(policy),
+  },
+
+  {
+    provide: NetworkOutbound,
+    inject: [HttpOutbound, NETWORK_CALLS, CLOCK],
+    useFactory: (
+      outbound: HttpOutbound,
+      calls: NetworkCallsPort,
+      clock: ClockPort,
+    ) => new NetworkOutbound(outbound, calls, clock),
   },
 
   { provide: INTEGRATION_CURSORS, useClass: DrizzleIntegrationCursors },
@@ -725,11 +774,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: OAUTH2_CLIENT_REGISTRAR,
-    inject: [ENV],
-    useFactory: (env: Env) =>
-      new OAuth2Registrar(
-        new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
-      ),
+    inject: [OutboundPolicy],
+    useFactory: (policy: OutboundPolicy) => new OAuth2Registrar(policy),
   },
 
   {
@@ -762,12 +808,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: OAuth2Exchange,
-    inject: [ENV, CLOCK],
-    useFactory: (env: Env, clock: ClockPort) =>
-      new OAuth2Exchange(
-        new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
-        clock,
-      ),
+    inject: [OutboundPolicy, CLOCK],
+    useFactory: (policy: OutboundPolicy, clock: ClockPort) =>
+      new OAuth2Exchange(policy, clock),
   },
 
   {
@@ -820,6 +863,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       OAuth2Exchange,
       OAuth2Discovery,
       McpSessions,
+      OUTBOUND_LIMITS,
+      WORKSPACE_OUTBOUND_SCOPE,
+      NetworkOutbound,
     ],
     useFactory: (
       reader: IntegrationReader,
@@ -828,6 +874,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       exchange: OAuth2Exchange,
       discovery: OAuth2Discovery,
       sessions: McpSessions,
+      limits: OutboundLimitsPort,
+      scope: WorkspaceOutboundScopePort,
+      network: NetworkOutbound,
     ) =>
       new CompiledIntegrationRuntime(
         reader,
@@ -836,6 +885,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         exchange,
         discovery,
         sessions,
+        limits,
+        scope,
+        network,
       ),
   },
 
@@ -877,6 +929,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       OAUTH2_NONCES,
       CLOCK,
       ENV,
+      WORKSPACE_OUTBOUND_SCOPE,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
@@ -890,6 +943,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       nonces: OAuth2NoncesPort,
       clock: ClockPort,
       env: Env,
+      scope: WorkspaceOutboundScopePort,
     ) =>
       new OAuth2Linking(
         defined,
@@ -904,6 +958,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         clock,
         publicUrlOf(env),
         callbackOf(env),
+        scope,
       ),
   },
 
@@ -943,7 +998,11 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     ) => new IntegrationConfigs(resources, teams),
   },
 
-  { provide: JwksCache, useFactory: () => new JwksCache() },
+  {
+    provide: JwksCache,
+    inject: [OutboundPolicy],
+    useFactory: (policy: OutboundPolicy) => new JwksCache(policy),
+  },
 
   {
     provide: CONFIGURED_WEBHOOK_PROVIDERS,
@@ -953,6 +1012,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       JwksCache,
       HttpOutbound,
       SECRET_INJECTION,
+      OUTBOUND_LIMITS,
+      WORKSPACE_OUTBOUND_SCOPE,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
@@ -960,6 +1021,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       jwks: JwksCache,
       outbound: HttpOutbound,
       injection: SecretInjectionPort,
+      limits: OutboundLimitsPort,
+      scope: WorkspaceOutboundScopePort,
     ) =>
       new ConfiguredWebhookProviders(
         defined,
@@ -967,6 +1030,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         jwks,
         outbound,
         injection,
+        limits,
+        scope,
       ),
   },
 

@@ -55,7 +55,7 @@ const codeOf = (error: unknown): string => {
 export class SpecFetch {
   constructor(
     private readonly policy: OutboundPolicy,
-    private readonly fetch: Fetch = globalThis.fetch,
+    private readonly fetch: Fetch = policy.fetch,
   ) {}
 
   async text(request: SpecRequest, injection: SpecInjection): Promise<string> {

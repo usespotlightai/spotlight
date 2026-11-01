@@ -30,7 +30,9 @@ import { DrizzleIdempotentCreates } from '@platform/idempotency/drizzle-idempote
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
 import { LoggingModule } from '@platform/logging/logging.module';
+import { DEPLOYMENT_HOSTS } from '@platform/outbound/deployment-hosts';
 import { OutboundCalls } from '@platform/outbound/outbound-calls';
+import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
@@ -60,6 +62,7 @@ import { TOKEN_ISSUER } from '@shared-kernel/application/ports/token-issuer.port
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
 import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types';
+import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 
 @Global()
 @Module({
@@ -102,6 +105,18 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     { provide: APP_FILTER, useClass: ApplicationErrorFilter },
     CollabServer,
     OutboundCalls,
+    {
+      provide: DEPLOYMENT_HOSTS,
+      inject: [ENV],
+      useFactory: (env: Env) =>
+        HostAllowList.listed(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS),
+    },
+    {
+      provide: OutboundGuard,
+      inject: [DEPLOYMENT_HOSTS, ENV],
+      useFactory: (hosts: HostAllowList, env: Env) =>
+        new OutboundGuard(hosts, env.SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK),
+    },
     ExpressionFailures,
     OutboxGauges,
     ReadinessGauges,
@@ -146,9 +161,16 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     { provide: TOKEN_ISSUER, useClass: RandomTokenIssuer },
     { provide: IDEMPOTENT_CREATES, useClass: DrizzleIdempotentCreates },
     { provide: IDEMPOTENT_LOOKUPS, useExisting: IDEMPOTENT_CREATES },
-    { provide: WORKLOAD_TOKENS, useClass: JoseWorkloadTokens },
+    {
+      provide: WORKLOAD_TOKENS,
+      inject: [LOGGER, OutboundGuard],
+      useFactory: (logger: LoggerPort, guard: OutboundGuard) =>
+        new JoseWorkloadTokens(logger, guard.fetch, (url) => guard.check(url)),
+    },
   ],
   exports: [
+    DEPLOYMENT_HOSTS,
+    OutboundGuard,
     RedisConnection,
     Instance,
     Leadership,

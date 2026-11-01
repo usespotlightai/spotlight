@@ -1,5 +1,6 @@
 import type { UpdateWorkspaceCommand } from '@identity/application/commands/update-workspace.command';
 import type { IdentityDefinitionsPort } from '@identity/application/ports/identity-definitions.port';
+import type { WorkspaceOutboundHostsPort } from '@identity/application/ports/workspace-outbound-hosts.port';
 import {
   IdentityProblems,
   WORKSPACE,
@@ -24,6 +25,7 @@ export class UpdateWorkspaceHandler
     private readonly definitions: IdentityDefinitionsPort,
     private readonly workspaces: WorkspaceRepository,
     private readonly transaction: TransactionPort,
+    private readonly outboundHosts: WorkspaceOutboundHostsPort,
   ) {}
 
   async execute(
@@ -52,11 +54,17 @@ export class UpdateWorkspaceHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      await this.transaction.inTransaction(() =>
-        this.workspaces.save(
-          existing.update(compiled, ChangeActor.of(command.actor, id)),
-        ),
+      const updated = existing.update(
+        compiled,
+        ChangeActor.of(command.actor, id),
       );
+
+      if (updated !== existing) {
+        await this.transaction.inTransaction(() =>
+          this.workspaces.save(updated),
+        );
+        this.outboundHosts.forget(id.value);
+      }
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {

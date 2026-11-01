@@ -17,6 +17,7 @@ export const ResourceMapper = {
       address: workspace.slug,
       name: workspace.name,
       slug: workspace.slug,
+      outboundHosts: workspace.outboundHosts,
       warnings: [],
     };
   },

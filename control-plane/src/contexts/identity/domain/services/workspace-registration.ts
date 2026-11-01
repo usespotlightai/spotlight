@@ -5,6 +5,7 @@ import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import type { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
+import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -16,6 +17,7 @@ export class WorkspaceRegistration {
     id: WorkspaceId;
     name: WorkspaceName;
     slug: WorkspaceSlug;
+    outboundHosts?: HostAllowList;
     firstTeam?: { id: TeamId; name: TeamName };
     owner: UserId;
     by: ChangeActor;

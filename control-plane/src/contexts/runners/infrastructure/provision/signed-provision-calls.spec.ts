@@ -1,9 +1,11 @@
 import { createHmac } from 'node:crypto';
-import { OutboundHosts } from '@platform/outbound/outbound-hosts';
+import { OutboundGuard } from '@platform/outbound/outbound-guard';
+import { scopedTo } from '@platform/outbound/outbound-scope.fake-spec';
 import type { ProvisionCall } from '@runners/application/ports/provision-calls.port';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { SignedProvisionCalls } from '@runners/infrastructure/provision/signed-provision-calls';
+import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const SECRET = ProvisionSecret.of(
@@ -35,7 +37,7 @@ const calling = (
 
 const calls = (
   answer: () => Promise<Response>,
-  settings: { hosts?: string[] } = {},
+  settings: { hosts?: string[]; workspaceHosts?: string[] } = {},
 ) => {
   const fetch = vi.fn(answer);
 
@@ -44,7 +46,12 @@ const calls = (
     provision: new SignedProvisionCalls(
       {
         spotlightUrl: 'https://app.usespotlight.ai',
-        hosts: new OutboundHosts(settings.hosts ?? ['example.com']),
+        guard: new OutboundGuard(
+          HostAllowList.listed(
+            (settings.hosts ?? ['example.com', '*.example.com']).join(','),
+          ),
+        ),
+        scope: scopedTo(...(settings.workspaceHosts ?? [])),
       },
       fetch as unknown as typeof globalThis.fetch,
     ),
@@ -52,6 +59,20 @@ const calls = (
 };
 
 describe('SignedProvisionCalls', () => {
+  it('posts nothing to a host the workspace does not allow, and says so', async () => {
+    const { fetch, provision } = calls(
+      async () => new Response(null, { status: 202 }),
+      { workspaceHosts: ['hooks.example.com'] },
+    );
+
+    await expect(provision.call(calling())).resolves.toEqual({
+      outcome: 'not-allowed',
+      detail:
+        'This workspace’s outbound allow-list doesn’t include provision.example.com.',
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('posts the run, its labels, its image and a one-run token, signed with the pool secret', async () => {
     const { fetch, provision } = calls(
       async () => new Response(null, { status: 202 }),

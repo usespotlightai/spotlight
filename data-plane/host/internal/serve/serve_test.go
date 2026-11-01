@@ -2186,6 +2186,9 @@ func TestSendsACallThroughAnEgressOfItsOwnAndRecordsItsResponse(t *testing.T) {
 		config.Token != "" || config.Credential == "" || !slices.Equal(config.Allow, opts.Egress.Allow) {
 		t.Errorf("the call's egress got %+v", config)
 	}
+	if config.SendSecrets != nil {
+		t.Errorf("the call's egress got secrets to redeem for a call with none: %+v", config.SendSecrets)
+	}
 	eventually(t, "the call's egress destroyed", func() bool { return engine.wasDestroyed(id) })
 
 	engine.mu.Lock()
@@ -2194,6 +2197,26 @@ func TestSendsACallThroughAnEgressOfItsOwnAndRecordsItsResponse(t *testing.T) {
 		if strings.Contains(name, "call") {
 			t.Errorf("made the network %s for a call", name)
 		}
+	}
+}
+
+func TestGivesTheCallsEgressOnlyTheCallsTokenToRedeemItsSecrets(t *testing.T) {
+	engine, pool := harnessed(), newPool()
+	serving(t, options(t), engine, pool)
+
+	call := hookCall("call_1")
+	call.SecretsToken = "secrets-token"
+	pool.calls <- call
+	eventually(t, "the call response recorded", func() bool { _, ok := pool.responded("call_1"); return ok })
+
+	_, spec, _ := engine.egressFor("call_1")
+	config := egressConfigIn(t, spec)
+	if secrets := config.SendSecrets; secrets == nil ||
+		*secrets != (protocol.CallSecrets{CallID: "call_1", Host: "host_1", Token: "secrets-token"}) {
+		t.Errorf("the call's egress got %+v to redeem the call's secrets", config.SendSecrets)
+	}
+	if config.URL != "https://spotlight.test" {
+		t.Errorf("the call's egress redeems at %s", config.URL)
 	}
 }
 

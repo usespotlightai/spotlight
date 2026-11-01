@@ -17,7 +17,7 @@ interface RegistrationResponse {
 export class OAuth2Registrar implements OAuth2ClientRegistrarPort {
   constructor(
     private readonly policy: OutboundPolicy,
-    private readonly fetch: Fetch = globalThis.fetch,
+    private readonly fetch: Fetch = policy.fetch,
   ) {}
 
   async register(

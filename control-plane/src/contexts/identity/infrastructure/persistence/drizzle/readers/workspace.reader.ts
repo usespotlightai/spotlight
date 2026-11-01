@@ -41,7 +41,12 @@ export class DrizzleWorkspaceReader implements WorkspaceReaderPort {
 
   async profileOf(workspaceId: string): Promise<WorkspaceProfile | null> {
     const [found] = await this.db
-      .select({ id: workspace.id, name: workspace.name, slug: workspace.slug })
+      .select({
+        id: workspace.id,
+        name: workspace.name,
+        slug: workspace.slug,
+        outboundHosts: workspace.outboundHosts,
+      })
       .from(workspace)
       .where(eq(workspace.id, workspaceId))
       .limit(1);

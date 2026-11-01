@@ -12,6 +12,7 @@ import { CredentialSource } from '@runners/domain/value-objects/credential-sourc
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 export class RunnerAuthenticator implements RunnerAuthenticatorPort {
@@ -21,6 +22,7 @@ export class RunnerAuthenticator implements RunnerAuthenticatorPort {
     private readonly workloads: WorkloadTokensPort,
     private readonly workspaces: WorkspaceReaderPort,
     private readonly tokens: TokenIssuer,
+    private readonly scope: WorkspaceOutboundScopePort,
   ) {}
 
   async authenticate(
@@ -46,13 +48,7 @@ export class RunnerAuthenticator implements RunnerAuthenticatorPort {
       return null;
     }
 
-    const holder = trust?.trim()
-      ? await this.trusted(trust, bearer)
-      : await this.pooled(bearer);
-
-    return holder && (await this.workspaces.isOpen(holder.workspaceId.value))
-      ? holder
-      : null;
+    return trust?.trim() ? this.trusted(trust, bearer) : this.pooled(bearer);
   }
 
   private async pooled(token: string): Promise<RunnerPool | null> {
@@ -60,7 +56,11 @@ export class RunnerAuthenticator implements RunnerAuthenticatorPort {
       TokenHash.of(this.tokens.hash(token)),
     );
 
-    return pool?.mode === 'pull' && !pool.isDeleted ? pool : null;
+    return pool?.mode === 'pull' &&
+      !pool.isDeleted &&
+      (await this.workspaces.isOpen(pool.workspaceId.value))
+      ? pool
+      : null;
   }
 
   private async trusted(
@@ -69,14 +69,16 @@ export class RunnerAuthenticator implements RunnerAuthenticatorPort {
   ): Promise<RunnerTrust | null> {
     const trust = await this.trusts.find(RunnerTrustId.of(trustId));
 
-    if (!trust) {
+    if (!trust || !(await this.workspaces.isOpen(trust.workspaceId.value))) {
       return null;
     }
 
-    const claims = await this.workloads.verify(token, {
-      issuer: trust.workload.issuer,
-      audience: trust.workload.audience,
-    });
+    const claims = await this.scope.within(trust.workspaceId.value, () =>
+      this.workloads.verify(token, {
+        issuer: trust.workload.issuer,
+        audience: trust.workload.audience,
+      }),
+    );
 
     return claims && trust.matches(claims) ? trust : null;
   }

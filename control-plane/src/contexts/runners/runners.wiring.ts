@@ -17,7 +17,7 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import { OutboundHosts } from '@platform/outbound/outbound-hosts';
+import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { RedisConnection } from '@platform/redis/redis-connection';
@@ -202,6 +202,10 @@ import {
   WORKLOAD_TOKENS,
   type WorkloadTokensPort,
 } from '@shared-kernel/application/ports/workload-tokens.port';
+import {
+  WORKSPACE_OUTBOUND_SCOPE,
+  type WorkspaceOutboundScopePort,
+} from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 const RUNNERS_EVENTS = Symbol('RUNNERS_EVENTS');
@@ -452,6 +456,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       WORKLOAD_TOKENS,
       WORKSPACE_READER,
       TOKEN_ISSUER,
+      WORKSPACE_OUTBOUND_SCOPE,
     ],
     useFactory: (
       pools: DrizzleRunnerPoolRepository,
@@ -459,16 +464,30 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       workloads: WorkloadTokensPort,
       workspaces: WorkspaceReaderPort,
       tokens: TokenIssuer,
-    ) => new RunnerAuthenticator(pools, trusts, workloads, workspaces, tokens),
+      scope: WorkspaceOutboundScopePort,
+    ) =>
+      new RunnerAuthenticator(
+        pools,
+        trusts,
+        workloads,
+        workspaces,
+        tokens,
+        scope,
+      ),
   },
   { provide: RUNNER_AUTHENTICATOR, useExisting: RunnerAuthenticator },
   {
     provide: PROVISION_CALLS,
-    inject: [ENV],
-    useFactory: (env: Env) =>
+    inject: [ENV, OutboundGuard, WORKSPACE_OUTBOUND_SCOPE],
+    useFactory: (
+      env: Env,
+      guard: OutboundGuard,
+      scope: WorkspaceOutboundScopePort,
+    ) =>
       new SignedProvisionCalls({
         spotlightUrl: publicUrlOf(env),
-        hosts: OutboundHosts.listed(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS),
+        guard,
+        scope,
       }),
   },
   { provide: PROVISION_SECRETS, useClass: EncryptedProvisionSecrets },

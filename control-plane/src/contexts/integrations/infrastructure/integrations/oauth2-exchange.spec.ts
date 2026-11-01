@@ -4,7 +4,7 @@ import {
   type OAuth2Endpoints,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
-import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { describe, expect, it, vi } from 'vitest';
@@ -63,7 +63,7 @@ describe('OAuth2Exchange', () => {
       team: { name: 'Acme' },
     });
     const exchange = new OAuth2Exchange(
-      new OutboundPolicy(['slack.com']),
+      allowingOutbound(['slack.com']),
       clock,
       fetch,
     );
@@ -86,7 +86,7 @@ describe('OAuth2Exchange', () => {
   it('sends the code and the client credentials to the token endpoint', async () => {
     const fetch = replying({ access_token: 'xoxb-1' });
     const exchange = new OAuth2Exchange(
-      new OutboundPolicy(['slack.com']),
+      allowingOutbound(['slack.com']),
       clock,
       fetch,
     );
@@ -114,7 +114,7 @@ describe('OAuth2Exchange', () => {
   it('sends only the client id for a client registered without a secret', async () => {
     const fetch = replying({ access_token: 'xoxb-1' });
     const exchange = new OAuth2Exchange(
-      new OutboundPolicy(['slack.com']),
+      allowingOutbound(['slack.com']),
       clock,
       fetch,
     );
@@ -130,7 +130,7 @@ describe('OAuth2Exchange', () => {
   it('names the resource it wants a token for, where the file names one', async () => {
     const fetch = replying({ access_token: 'xoxb-1' });
     const exchange = new OAuth2Exchange(
-      new OutboundPolicy(['slack.com']),
+      allowingOutbound(['slack.com']),
       clock,
       fetch,
     );
@@ -151,7 +151,7 @@ describe('OAuth2Exchange', () => {
   it('falls back to the file’s scopes where the service names none', async () => {
     const fetch = replying({ access_token: 'xoxb-1' });
     const exchange = new OAuth2Exchange(
-      new OutboundPolicy(['slack.com']),
+      allowingOutbound(['slack.com']),
       clock,
       fetch,
     );
@@ -170,7 +170,7 @@ describe('OAuth2Exchange', () => {
   it('refreshes with the refresh token', async () => {
     const fetch = replying({ access_token: 'xoxb-2', refresh_token: 'xoxe-2' });
     const exchange = new OAuth2Exchange(
-      new OutboundPolicy(['slack.com']),
+      allowingOutbound(['slack.com']),
       clock,
       fetch,
     );
@@ -187,7 +187,7 @@ describe('OAuth2Exchange', () => {
   it('blocks a token endpoint the deployment did not allow', async () => {
     const fetch = replying({ access_token: 'xoxb-1' });
     const exchange = new OAuth2Exchange(
-      new OutboundPolicy(['example.com']),
+      allowingOutbound(['example.com']),
       clock,
       fetch,
     );
@@ -207,7 +207,7 @@ describe('OAuth2Exchange', () => {
   it('stores nothing when the service answers with an error', async () => {
     const fetch = replying({ error: 'bad_code' }, 400);
     const exchange = new OAuth2Exchange(
-      new OutboundPolicy(['slack.com']),
+      allowingOutbound(['slack.com']),
       clock,
       fetch,
     );
@@ -232,7 +232,7 @@ describe('OAuth2Exchange', () => {
         }),
     );
     const exchange = new OAuth2Exchange(
-      new OutboundPolicy(['slack.com']),
+      allowingOutbound(['slack.com']),
       clock,
       fetch,
     );

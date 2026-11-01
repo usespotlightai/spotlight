@@ -1,3 +1,5 @@
+import type { FetchedEgressSecrets } from '@work/application/dto/egress-secrets.dto';
+
 interface HostCallDto {
   readonly id: string;
   readonly method: string;
@@ -5,6 +7,7 @@ interface HostCallDto {
   readonly headers: Readonly<Record<string, string>>;
   readonly body: string;
   readonly timeoutMs: number;
+  readonly secretsToken: string | null;
 }
 
 export type HostCallClaimDto =
@@ -19,3 +22,9 @@ export type RecordHostCallResponseDto =
   | { readonly outcome: 'completed'; readonly reason: string }
   | { readonly outcome: 'not-theirs' }
   | { readonly outcome: 'answered' };
+
+export type RedeemCallSecretsDto =
+  | { readonly outcome: 'unauthorized' }
+  | { readonly outcome: 'expired'; readonly reason: string }
+  | { readonly outcome: 'taken'; readonly reason: string }
+  | FetchedEgressSecrets;

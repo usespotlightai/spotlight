@@ -23,3 +23,12 @@ export class RecordHostCallResponseCommand {
     readonly response: SentHostCallResponse,
   ) {}
 }
+
+export class RedeemCallSecretsCommand {
+  constructor(
+    readonly callId: string,
+    readonly host: unknown,
+    readonly token: unknown,
+    readonly recipient: unknown,
+  ) {}
+}

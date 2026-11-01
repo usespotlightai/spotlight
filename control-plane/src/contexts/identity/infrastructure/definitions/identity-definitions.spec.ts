@@ -30,6 +30,50 @@ describe('IdentityDefinitions', () => {
     ).toEqual(['name', 'slug']);
   });
 
+  it('reads a workspace with no outbound hosts of its own unless told', () => {
+    const compiled = definitions.workspace({ name: 'Acme', slug: 'acme' });
+
+    expect(compiled.ok && compiled.outboundHosts.isEmpty).toBe(true);
+  });
+
+  it('reads the outbound hosts of a workspace', () => {
+    const compiled = definitions.workspace({
+      name: 'Acme',
+      slug: 'acme',
+      outboundHosts: ['API.example.com', '*.acme.io'],
+    });
+
+    expect(compiled.ok && compiled.outboundHosts.entries).toEqual([
+      '*.acme.io',
+      'api.example.com',
+    ]);
+  });
+
+  it('points at each outbound host it cannot read', () => {
+    const compiled = definitions.workspace({
+      name: 'Acme',
+      slug: 'acme',
+      outboundHosts: ['api.example.com', '*', 'https://example.com'],
+    });
+
+    expect(invalidAt(compiled)).toEqual(['outboundHosts.1', 'outboundHosts.2']);
+    expect(!compiled.ok && compiled.problems[0]?.reason).toBe(
+      'permits every host. Leave the list empty to permit every public host',
+    );
+  });
+
+  it('points at outbound hosts that are not a list', () => {
+    expect(
+      invalidAt(
+        definitions.workspace({
+          name: 'Acme',
+          slug: 'acme',
+          outboundHosts: 'api.example.com',
+        }),
+      ),
+    ).toEqual(['outboundHosts']);
+  });
+
   it('rejects a slug that is not written the way it is stored', () => {
     expect(
       invalidAt(definitions.workspace({ name: 'Acme', slug: 'ACME' })),

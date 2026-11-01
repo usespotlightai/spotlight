@@ -18,6 +18,7 @@ import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo'
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import {
   PersonPrincipal,
   TokenPrincipal,
@@ -416,11 +417,16 @@ describe('Workspace', () => {
       );
     });
 
+    const definition = (
+      over: { name?: string; slug?: string; outboundHosts?: string[] } = {},
+    ) => ({
+      name: WorkspaceName.of(over.name ?? 'Acme Inc.'),
+      slug: WorkspaceSlug.of(over.slug ?? 'acme-inc'),
+      outboundHosts: HostAllowList.of(over.outboundHosts ?? []),
+    });
+
     it('takes a new name, and says so', () => {
-      const renamed = stored().update(
-        { name: WorkspaceName.of('Acme'), slug: WorkspaceSlug.of('acme-inc') },
-        BY,
-      );
+      const renamed = stored().update(definition({ name: 'Acme' }), BY);
 
       expect(renamed.name.value).toBe('Acme');
       expect(renamed.pullEvents()).toEqual([
@@ -434,11 +440,50 @@ describe('Workspace', () => {
 
     it('keeps its slug for its whole life', () => {
       expect(() =>
-        stored().update(
-          { name: WorkspaceName.of('Acme'), slug: WorkspaceSlug.of('acme') },
-          BY,
-        ),
+        stored().update(definition({ name: 'Acme', slug: 'acme' }), BY),
       ).toThrow(ImmutableFieldError);
+    });
+
+    it('starts with no outbound hosts of its own', () => {
+      expect(stored().outboundHosts.isEmpty).toBe(true);
+    });
+
+    it('takes a new list of outbound hosts, and says so', () => {
+      const listed = stored().update(
+        definition({ outboundHosts: ['api.example.com', '*.acme.io'] }),
+        BY,
+      );
+
+      expect(listed.outboundHosts.entries).toEqual([
+        '*.acme.io',
+        'api.example.com',
+      ]);
+      expect(listed.version).toBe(3);
+      expect(listed.pullEvents()).toEqual([
+        new WorkspaceUpdated(
+          WorkspaceId.of('ws_1'),
+          WorkspaceName.of('Acme Inc.'),
+          ConfigurationChange.updated(ACME, BY),
+        ),
+      ]);
+    });
+
+    it('stays as it is, and says nothing, when the definition changes nothing', () => {
+      const workspace = Workspace.rehydrate({
+        id: WorkspaceId.of('ws_1'),
+        name: WorkspaceName.of('Acme Inc.'),
+        slug: WorkspaceSlug.of('acme-inc'),
+        outboundHosts: HostAllowList.of(['api.example.com']),
+        members: [{ userId: UserId.of('user_1'), role: WorkspaceRole.owner }],
+        version: 3,
+      });
+      const unchanged = workspace.update(
+        definition({ outboundHosts: ['API.example.com'] }),
+        BY,
+      );
+
+      expect(unchanged).toBe(workspace);
+      expect(unchanged.pullEvents()).toEqual([]);
     });
 
     it('is deleted only once it has no team, no token, no OIDC trust, no issued token and nothing else', () => {

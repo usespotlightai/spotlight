@@ -3,13 +3,22 @@ import type {
   HookEventInstance,
   ListeningHook,
 } from '@integrations/application/ports/hook-runtime.port';
+import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import {
   type HookRequest,
   HookRequests,
 } from '@integrations/infrastructure/hooks/hook-requests';
+import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
+import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
+import {
+  scopedTo,
+  unscoped,
+} from '@platform/outbound/outbound-scope.fake-spec';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
+import { OutboundHostsUnreadError } from '@shared-kernel/application/errors/outbound-hosts-unread.error';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import type { NetworkCallsPort } from '@work/application/ports/network-calls.port';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -85,8 +94,10 @@ const network = (): NetworkCallsPort => ({
 const requests = (
   reply: () => Promise<Response>,
   calls: NetworkCallsPort = network(),
-  allowed = ['example.com'],
+  allowed = ['example.com', '*.example.com'],
   secret: HookSigningSecret | null = SECRET,
+  limits: OutboundLimitsPort = unlimited,
+  hosts: WorkspaceOutboundScopePort = unscoped,
 ) => {
   const fetch = vi.fn(reply);
   const signed = vi.fn(async () => 'jwt');
@@ -100,7 +111,7 @@ const requests = (
     requests: new HookRequests(
       {
         publicUrl: 'https://spotlight.example.com',
-        allowed,
+        policy: allowingOutbound(allowed),
       },
       { signingSecretOf: async () => secret },
       {
@@ -111,6 +122,8 @@ const requests = (
       },
       { issued } as unknown as HookCallbackTokens,
       calls,
+      limits,
+      hosts,
       fetch as unknown as typeof globalThis.fetch,
     ),
   };
@@ -308,6 +321,26 @@ describe('HookRequests', () => {
     expect(sentHeaders(fetch)['spotlight-cause']).toBeUndefined();
   });
 
+  it('sends nothing when the workspace calls other services too often, and says so', async () => {
+    const { requests: sending, fetch } = requests(
+      async () => new Response('{}'),
+      network(),
+      undefined,
+      SECRET,
+      { perSecond: 50, take: async () => false },
+    );
+
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+      outcome: {
+        status: 'failed',
+        code: 'throttled',
+        reason:
+          'this workspace sends more than 50 requests each second to other services',
+      },
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('fails a step it could not send, saying why', async () => {
     const { requests: sending } = requests(async () => {
       throw Object.assign(new TypeError('fetch failed'), {
@@ -336,6 +369,70 @@ describe('HookRequests', () => {
       outcome: { status: 'failed', code: 'not-allowed' },
     });
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('never sends to a host the workspace does not allow, and says so', async () => {
+    const { fetch, requests: sending } = requests(
+      async () => new Response('{}'),
+      network(),
+      undefined,
+      SECRET,
+      unlimited,
+      scopedTo('slack.com'),
+    );
+
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+      outcome: {
+        status: 'failed',
+        code: 'not-allowed',
+        reason:
+          "Outbound call to dba.example.com blocked. Host is not on the workspace's allowed list.",
+      },
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('fails the step, to try again, when it cannot read the workspace list', async () => {
+    const { fetch, requests: sending } = requests(
+      async () => new Response('{}'),
+      network(),
+      undefined,
+      SECRET,
+      unlimited,
+      {
+        within: async () => {
+          throw new OutboundHostsUnreadError('ws_1', 'connection lost');
+        },
+        withinFresh: async () => {
+          throw new OutboundHostsUnreadError('ws_1', 'connection lost');
+        },
+      },
+    );
+
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+      outcome: {
+        status: 'failed',
+        code: 'errored',
+        reason:
+          "Spotlight could not read the workspace's allowed hosts: connection lost",
+      },
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('sends to a host the workspace allows', async () => {
+    const { fetch, requests: sending } = requests(
+      async () => new Response('{}'),
+      network(),
+      undefined,
+      SECRET,
+      unlimited,
+      scopedTo('*.example.com'),
+    );
+
+    await sending.sent(hookRequest(), NOW);
+
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it('has a host of the workspace send a request from its network, and waits for it before an event', async () => {
@@ -415,7 +512,10 @@ describe('HookRequests', () => {
 
   it('fails a request no host answered in time', async () => {
     const calls = network();
-    vi.mocked(calls.answered).mockResolvedValueOnce({ kind: 'expired' });
+    vi.mocked(calls.answered).mockResolvedValueOnce({
+      kind: 'expired',
+      claimed: false,
+    });
     const { requests: sending } = requests(
       async () => new Response('{}'),
       calls,

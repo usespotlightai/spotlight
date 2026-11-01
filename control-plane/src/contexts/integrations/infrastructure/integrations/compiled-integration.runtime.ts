@@ -15,6 +15,7 @@ import type {
   ToolOutput,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
+import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { ToolAskedMidCallError } from '@integrations/domain/exceptions/tool-asked-mid-call.error';
@@ -50,12 +51,15 @@ import type {
   HttpOutbound,
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import type { NetworkOutbound } from '@integrations/infrastructure/outbound/network-outbound';
 import { operationRequest } from '@integrations/infrastructure/outbound/operation-request';
 import { taskBinding } from '@integrations/infrastructure/outbound/task-binding';
 import { sanitizedForCel } from '@platform/expressions/cel-variables';
 import { evaluateText, value } from '@platform/expressions/readings';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { TaskMark } from '@work/application/contracts/happenings.contract';
 
 const MAX_OUTPUT_CHARS = 500;
@@ -138,6 +142,9 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     private readonly exchange: OAuth2Exchange,
     private readonly discovery: OAuth2Discovery,
     private readonly sessions: McpSessions,
+    private readonly limits: OutboundLimitsPort,
+    private readonly scope: WorkspaceOutboundScopePort,
+    private readonly network: NetworkOutbound,
   ) {}
 
   integrations(
@@ -374,41 +381,44 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         readable.integration.name,
       ),
       defaultFor: () => undefined,
-      call: async (inputs, callAuth) => {
-        const request = operationRequest(operation, inputs);
-        const connection = callAuth.connection;
-        const answering = (token: AccessToken | null) =>
-          this.outbound.answer(
-            request,
-            auth,
-            token?.value ?? null,
-            callAuth.credentials,
-          );
-        const first = await answering(connection?.token ?? null);
-        const refreshed =
-          first.status === UNAUTHORIZED && auth?.kind === 'oauth2' && connection
-            ? await connection.unauthorized(connection.token)
-            : null;
-        const answered = refreshed ? await answering(refreshed) : first;
+      call: (inputs, callAuth) =>
+        this.onBehalfOf(callAuth, async () => {
+          const request = operationRequest(operation, inputs);
+          const connection = callAuth.connection;
+          const answering = (token: AccessToken | null) =>
+            this.outbound.answer(
+              request,
+              auth,
+              token?.value ?? null,
+              callAuth.credentials,
+            );
+          const first = await answering(connection?.token ?? null);
+          const refreshed =
+            first.status === UNAUTHORIZED &&
+            auth?.kind === 'oauth2' &&
+            connection
+              ? await connection.unauthorized(connection.token)
+              : null;
+          const answered = refreshed ? await answering(refreshed) : first;
 
-        if (!answered.ok) {
-          throw upstreamErrorUsing(tool, answered.status, answered.response);
-        }
+          if (!answered.ok) {
+            throw upstreamErrorUsing(tool, answered.status, answered.response);
+          }
 
-        const call = operation.call;
+          const call = operation.call;
 
-        if (call.kind !== 'graphql') {
-          return plainJson(answered.response);
-        }
+          if (call.kind !== 'graphql') {
+            return plainJson(answered.response);
+          }
 
-        const errors = graphqlErrorsOf(answered.response);
+          const errors = graphqlErrorsOf(answered.response);
 
-        if (errors) {
-          throw upstreamErrorUsing(tool, answered.status, errors);
-        }
+          if (errors) {
+            throw upstreamErrorUsing(tool, answered.status, errors);
+          }
 
-        return plainJson(dataOf(answered.response, call.field));
-      },
+          return plainJson(dataOf(answered.response, call.field));
+        }),
     };
   }
 
@@ -437,37 +447,50 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         readable.integration.name,
       ),
       defaultFor: () => undefined,
-      call: async (inputs, callAuth) => {
-        const connection = auth?.kind === 'oauth2' ? callAuth.connection : null;
-        const calling = (token: AccessToken | null) =>
-          this.sessions.call(
-            [
-              task.teamId,
-              readable.integration.key.value,
-              auth?.kind ?? 'none',
-              connection?.owner.key ?? 'team',
-              versionOf(token),
-            ].join(':'),
-            server,
-            call.tool,
-            inputs,
-            {
-              connection: token?.value ?? null,
-              secrets,
-              credentials: callAuth.credentials,
-            },
-          );
+      call: (inputs, callAuth) =>
+        this.onBehalfOf(callAuth, async () => {
+          const connection =
+            auth?.kind === 'oauth2' ? callAuth.connection : null;
+          const calling = (token: AccessToken | null) =>
+            this.sessions.call(
+              [
+                task.teamId,
+                readable.integration.key.value,
+                auth?.kind ?? 'none',
+                connection?.owner.key ?? 'team',
+                versionOf(token),
+              ].join(':'),
+              server,
+              call.tool,
+              inputs,
+              {
+                connection: token?.value ?? null,
+                secrets,
+                credentials: callAuth.credentials,
+              },
+            );
 
-        try {
-          return mcpOutput(await refreshingOnce(calling, connection), tool);
-        } catch (error) {
-          throw failedUsing(tool, server, error);
-        }
-      },
+          try {
+            return mcpOutput(await refreshingOnce(calling, connection), tool);
+          } catch (error) {
+            throw failedUsing(tool, server, error);
+          }
+        }),
     };
   }
 
   async refresh(
+    definitions: readonly DefinedIntegration[],
+    owner: { readonly teamId: TeamId; readonly workspaceId: WorkspaceId },
+    integration: IntegrationKey,
+    refreshToken: AccessToken,
+  ): Promise<RefreshResult> {
+    return this.scope.within(owner.workspaceId.value, () =>
+      this.refreshInScope(definitions, owner.teamId, integration, refreshToken),
+    );
+  }
+
+  private async refreshInScope(
     definitions: readonly DefinedIntegration[],
     teamId: TeamId,
     integration: IntegrationKey,
@@ -496,7 +519,48 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     return tokens ? { kind: 'refreshed', tokens } : { kind: 'failed' };
   }
 
-  private async sent(
+  private sent(
+    request: RequestIR,
+    bindings: Bindings,
+    callAuth: CallAuth,
+  ): Promise<Sent> {
+    const network = request.fromNetwork;
+
+    if (network) {
+      return this.sentFromNetwork(
+        request,
+        network.timeoutMs,
+        bindings,
+        callAuth,
+      );
+    }
+
+    return this.onBehalfOf(callAuth, () =>
+      this.sentInScope(request, bindings, callAuth),
+    );
+  }
+
+  private async sentFromNetwork(
+    request: RequestIR,
+    timeoutMs: number,
+    bindings: Bindings,
+    callAuth: CallAuth,
+  ): Promise<Sent> {
+    const workspace = await this.limited(callAuth);
+
+    return {
+      result: await this.network.run(
+        request,
+        bindings,
+        callAuth.credentials,
+        workspace,
+        timeoutMs,
+      ),
+      bindings,
+    };
+  }
+
+  private async sentInScope(
     request: RequestIR,
     bindings: Bindings,
     callAuth: CallAuth,
@@ -529,6 +593,26 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       result: await this.outbound.run(request, again, callAuth.credentials),
       bindings: again,
     };
+  }
+
+  private async onBehalfOf<T>(
+    callAuth: CallAuth,
+    work: () => Promise<T>,
+  ): Promise<T> {
+    return this.scope.within(await this.limited(callAuth), work);
+  }
+
+  private async limited(callAuth: CallAuth): Promise<string> {
+    const workspace = await callAuth.workspace();
+
+    if (!(await this.limits.take(workspace))) {
+      throw new UpstreamError(
+        'calling a service',
+        `this workspace sends more than ${this.limits.perSecond} requests each second to other services`,
+      );
+    }
+
+    return workspace;
   }
 
   private readable(

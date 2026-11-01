@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OAuth2LinkInput } from '@integrations/application/ports/oauth2-linking.port';
 import type { OAuth2NoncesPort } from '@integrations/application/ports/oauth2-nonces.port';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
@@ -14,7 +15,13 @@ import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { discoveringNothing } from '@integrations/integrations.mcp.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { OutboundScope } from '@platform/outbound/outbound-scope';
+import {
+  scopedTo,
+  unscoped,
+} from '@platform/outbound/outbound-scope.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -57,10 +64,36 @@ const TOKENS = OAuthTokens.of({
 });
 
 const linking = (
-  over: { clients?: string; exchanged?: OAuthTokens | null } = {},
+  over: {
+    clients?: string;
+    exchanged?: OAuthTokens | null;
+    hosts?: WorkspaceOutboundScopePort;
+    team?: boolean;
+  } = {},
 ) => {
+  const configured = clientsFrom(
+    over.clients ?? '{"slack":{"id":"c-1","secret":"s-1"}}',
+  );
+  const allowedWhileRegistering: boolean[] = [];
+  const clients: OAuth2ClientsPort = {
+    ...configured,
+    clientFor: async (...args) => {
+      allowedWhileRegistering.push(
+        OutboundScope.allows('slack.com'),
+        OutboundScope.allows('elsewhere.example'),
+      );
+      return configured.clientFor(...args);
+    },
+  };
   const exchanged = 'exchanged' in over ? over.exchanged : TOKENS;
-  const exchange = vi.fn(async () => exchanged);
+  const allowedWhileExchanging: boolean[] = [];
+  const exchange = vi.fn(async () => {
+    allowedWhileExchanging.push(
+      OutboundScope.allows('slack.com'),
+      OutboundScope.allows('elsewhere.example'),
+    );
+    return exchanged;
+  });
   const spent = new Set<string>();
   const nonces: OAuth2NoncesPort = {
     spend: async (nonce) => {
@@ -76,15 +109,18 @@ const linking = (
     { ofTeam: async () => config() } as unknown as DefinedIntegrationsPort,
     new IntegrationReader(expressions, operationsContaining()),
     discoveringNothing(),
-    clientsFrom(over.clients ?? '{"slack":{"id":"c-1","secret":"s-1"}}'),
+    clients,
     { exchange } as unknown as OAuth2Exchange,
     {
-      find: async () => ({
-        id: TEAM,
-        workspaceId: WorkspaceId.of('ws_1'),
-        name: 'Platform',
-        members: [],
-      }),
+      find: async () =>
+        over.team === false
+          ? null
+          : {
+              id: TEAM,
+              workspaceId: WorkspaceId.of('ws_1'),
+              name: 'Platform',
+              members: [],
+            },
     } as unknown as TeamDirectoryPort,
     { slugOf: async () => 'acme' } as unknown as WorkspaceReaderPort,
     new OAuth2State('a-secret'),
@@ -92,9 +128,10 @@ const linking = (
     { now: () => new Date() } as ClockPort,
     BASE,
     `${BASE}/api/integrations/oauth/callback`,
+    over.hosts ?? unscoped,
   );
 
-  return { it, exchange };
+  return { it, exchange, allowedWhileExchanging, allowedWhileRegistering };
 };
 
 const signed = (integration = 'slack', by = 'user_1', nonce = 'n-1') =>
@@ -181,6 +218,34 @@ describe('OAuth2Linking', () => {
     expect(authorized?.owner).toBe('person');
     expect(authorized?.returnTo).toBe('/w/acme/inbox/task_1');
     expect(authorized?.tokens.accessToken.value).toBe('xoxb-1');
+  });
+
+  it('exchanges the code within the outbound scope of the team’s workspace', async () => {
+    const { it, allowedWhileExchanging } = linking({
+      hosts: scopedTo('slack.com'),
+    });
+
+    await it.authorized(returned());
+
+    expect(allowedWhileExchanging).toEqual([true, false]);
+  });
+
+  it('begins, discovering and registering the app, within the outbound scope of the team’s workspace', async () => {
+    const { it, allowedWhileRegistering } = linking({
+      hosts: scopedTo('slack.com'),
+    });
+
+    expect(await it.begin(linkInput())).not.toBeNull();
+    expect(allowedWhileRegistering).toEqual([true, false]);
+  });
+
+  it('calls nothing for a team it cannot find', async () => {
+    const { it, exchange, allowedWhileRegistering } = linking({ team: false });
+
+    expect(await it.begin(linkInput())).toBeNull();
+    expect(await it.authorized(returned())).toBeNull();
+    expect(allowedWhileRegistering).toEqual([]);
+    expect(exchange).not.toHaveBeenCalled();
   });
 
   it('rejects a state it did not sign', async () => {
@@ -311,13 +376,16 @@ describe('OAuth2Linking', () => {
       discoveringNothing(),
       clientsFrom('{"slack":{"id":"c-1","secret":"s-1"}}'),
       {} as OAuth2Exchange,
-      {} as TeamDirectoryPort,
+      {
+        find: async () => ({ id: TEAM, workspaceId: WorkspaceId.of('ws_1') }),
+      } as unknown as TeamDirectoryPort,
       {} as WorkspaceReaderPort,
       new OAuth2State('a-secret'),
       { spend: async () => true },
       { now: () => new Date() } as ClockPort,
       BASE,
       `${BASE}/api/integrations/oauth/callback`,
+      unscoped,
     );
 
     const plain = new URL((await it.begin(linkInput()))?.url ?? '');

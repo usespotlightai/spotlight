@@ -29,6 +29,7 @@ import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import {
   PersonPrincipal,
   type Principal,
@@ -42,6 +43,12 @@ export interface WorkspaceMember {
   readonly role: WorkspaceRole;
 }
 
+export interface WorkspaceDefinition {
+  readonly name: WorkspaceName;
+  readonly slug: WorkspaceSlug;
+  readonly outboundHosts: HostAllowList;
+}
+
 interface TeamOfWorkspace {
   readonly id: TeamId;
   readonly workspaceId: WorkspaceId;
@@ -52,6 +59,7 @@ export class Workspace extends EventRecorder {
     readonly id: WorkspaceId,
     readonly name: WorkspaceName,
     readonly slug: WorkspaceSlug,
+    readonly outboundHosts: HostAllowList,
     readonly members: readonly WorkspaceMember[],
     readonly version: number = 0,
     readonly isDeleted: boolean = false,
@@ -63,13 +71,18 @@ export class Workspace extends EventRecorder {
     id: WorkspaceId;
     name: WorkspaceName;
     slug: WorkspaceSlug;
+    outboundHosts?: HostAllowList;
     owner: UserId;
     firstTeam?: { id: TeamId; name: TeamName };
     by: ChangeActor;
   }): Workspace {
-    const created = new Workspace(input.id, input.name, input.slug, [
-      { userId: input.owner, role: WorkspaceRole.owner },
-    ]);
+    const created = new Workspace(
+      input.id,
+      input.name,
+      input.slug,
+      input.outboundHosts ?? HostAllowList.none,
+      [{ userId: input.owner, role: WorkspaceRole.owner }],
+    );
 
     created.record(
       new WorkspaceCreated(
@@ -87,6 +100,7 @@ export class Workspace extends EventRecorder {
     id: WorkspaceId;
     name: WorkspaceName;
     slug: WorkspaceSlug;
+    outboundHosts?: HostAllowList;
     members: readonly WorkspaceMember[];
     version: number;
   }): Workspace {
@@ -101,6 +115,7 @@ export class Workspace extends EventRecorder {
       input.id,
       input.name,
       input.slug,
+      input.outboundHosts ?? HostAllowList.none,
       input.members,
       input.version,
     );
@@ -112,10 +127,7 @@ export class Workspace extends EventRecorder {
     }
   }
 
-  update(
-    definition: { name: WorkspaceName; slug: WorkspaceSlug },
-    by: ChangeActor,
-  ): Workspace {
+  update(definition: WorkspaceDefinition, by: ChangeActor): Workspace {
     this.assertNotDeleted();
 
     if (!definition.slug.equals(this.slug)) {
@@ -128,9 +140,14 @@ export class Workspace extends EventRecorder {
       );
     }
 
+    if (this.hasDefinition(definition)) {
+      return this;
+    }
+
     const updated = this.with({
       members: this.members,
       name: definition.name,
+      outboundHosts: definition.outboundHosts,
     });
 
     updated.record(
@@ -176,6 +193,13 @@ export class Workspace extends EventRecorder {
     );
 
     return deleted;
+  }
+
+  private hasDefinition(definition: WorkspaceDefinition): boolean {
+    return (
+      definition.name.equals(this.name) &&
+      definition.outboundHosts.equals(this.outboundHosts)
+    );
   }
 
   private assertNotDeleted(): void {
@@ -314,12 +338,14 @@ export class Workspace extends EventRecorder {
   private with(over: {
     members: readonly WorkspaceMember[];
     name?: WorkspaceName;
+    outboundHosts?: HostAllowList;
     deleted?: boolean;
   }): Workspace {
     const next = new Workspace(
       this.id,
       over.name ?? this.name,
       this.slug,
+      over.outboundHosts ?? this.outboundHosts,
       over.members,
       this.version,
       over.deleted ?? this.isDeleted,

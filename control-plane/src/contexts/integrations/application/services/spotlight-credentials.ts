@@ -18,4 +18,15 @@ export class SpotlightCredentials implements Credentials {
       url,
     });
   }
+
+  async standInsFor(
+    url: string,
+    secrets: readonly string[],
+  ): Promise<InjectedSecrets> {
+    return this.injection.standInsFor({
+      workspaceId: await this.workspaceOf(),
+      secrets,
+      url,
+    });
+  }
 }

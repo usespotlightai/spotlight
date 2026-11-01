@@ -1,5 +1,6 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
+import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
 import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
@@ -15,6 +16,9 @@ import {
   HttpOutbound,
   type OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
+import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
+import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
@@ -35,6 +39,11 @@ import {
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import {
+  scopedTo,
+  unscoped,
+} from '@platform/outbound/outbound-scope.fake-spec';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -56,6 +65,7 @@ const runtimeWith = (
   outbound: unknown,
   exchange: unknown = {},
   clients: OAuth2ClientsPort = clientsFrom(),
+  limits: OutboundLimitsPort = unlimited,
 ) =>
   new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operationsContaining()),
@@ -64,6 +74,9 @@ const runtimeWith = (
     exchange as OAuth2Exchange,
     discoveringNothing(),
     callingNoServer(),
+    limits,
+    unscoped,
+    noNetwork,
   );
 
 const LINEAR = `integration: linear
@@ -116,6 +129,7 @@ const using = (
     file?: string;
     schemas?: InMemoryInferredOutputSchemas;
     policies?: InMemoryPersonToolPolicies;
+    limits?: OutboundLimitsPort;
   } = {},
 ) => {
   const run = vi.fn(
@@ -127,7 +141,12 @@ const using = (
     {
       ofTeam: vi.fn(async () => [defined(over.file ?? LINEAR)]),
     } as unknown as DefinedIntegrationsPort,
-    runtimeWith({ run } as unknown as HttpOutbound),
+    runtimeWith(
+      { run } as unknown as HttpOutbound,
+      undefined,
+      undefined,
+      over.limits,
+    ),
     callAuthFor(),
     inferringInto(schemas),
     personRulesFrom(over.policies),
@@ -208,6 +227,19 @@ describe('IntegrationToolCalls', () => {
     });
   });
 
+  it('sends nothing when the workspace calls other services too often, and says so', async () => {
+    const { comment, run } = using(undefined, {
+      limits: { perSecond: 50, take: async () => false },
+    });
+
+    await expect(
+      comment({ issue: 'ENG-7', body: 'Fixed.', count: 1 }),
+    ).rejects.toThrow(
+      'calling a service: this workspace sends more than 50 requests each second to other services',
+    );
+    expect(run).not.toHaveBeenCalled();
+  });
+
   describe('an action that injects a secret', () => {
     const INJECTS_A_SECRET = LINEAR.replace(
       '      url: https://api.linear.app/graphql\n',
@@ -229,7 +261,7 @@ describe('IntegrationToolCalls', () => {
         {
           ofTeam: vi.fn(async () => [defined(INJECTS_A_SECRET)]),
         } as unknown as DefinedIntegrationsPort,
-        runtimeWith(new HttpOutbound(allowed, fetch)),
+        runtimeWith(new HttpOutbound(allowingOutbound(allowed), fetch)),
         callAuthFor(secrets.injection),
         inferringInto(),
         personRulesFrom(),
@@ -489,6 +521,7 @@ graphql:
       text: string,
       operation: SpecOperation,
       answering: Response,
+      hosts: WorkspaceOutboundScopePort = unscoped,
     ) => {
       const fetch = vi.fn(async () => answering);
       const secrets = injecting({
@@ -521,11 +554,17 @@ graphql:
               }),
             ),
           ),
-          new HttpOutbound(['petstore3.swagger.io', 'api.linear.app'], fetch),
+          new HttpOutbound(
+            allowingOutbound(['petstore3.swagger.io', 'api.linear.app']),
+            fetch,
+          ),
           clientsFrom(),
           {} as OAuth2Exchange,
           discoveringNothing(),
           callingNoServer(),
+          unlimited,
+          hosts,
+          noNetwork,
         ),
         callAuthFor(secrets.injection),
         inferringInto(),
@@ -594,6 +633,35 @@ graphql:
           }),
         }),
       );
+    });
+
+    it('never calls a host the workspace does not allow, and says so', async () => {
+      const { fetch, resolving } = generated(
+        PETSTORE,
+        ADD_PET,
+        new Response('{}'),
+        scopedTo('api.linear.app'),
+      );
+      const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
+
+      await expect(resolved.call({ body: { name: 'doggie' } })).rejects.toThrow(
+        "Outbound call to petstore3.swagger.io blocked. Host is not on the workspace's allowed list.",
+      );
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('calls a host the workspace allows', async () => {
+      const { fetch, resolving } = generated(
+        PETSTORE,
+        ADD_PET,
+        new Response('{}'),
+        scopedTo('*.swagger.io'),
+      );
+      const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
+
+      await resolved.call({ body: { name: 'doggie' } });
+
+      expect(fetch).toHaveBeenCalledOnce();
     });
 
     it('answers with the field a GraphQL operation selects, and fails on an answer carrying errors', async () => {

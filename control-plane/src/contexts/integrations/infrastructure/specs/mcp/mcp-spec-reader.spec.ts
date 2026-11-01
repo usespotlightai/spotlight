@@ -17,13 +17,14 @@ const SPEC = ApiSpec.of({
 });
 
 const CALL_AUTH: CallAuth = {
+  workspace: async () => 'ws_1',
   connection: {
     token: AccessToken.of('the-token'),
     owner: ConnectionOwner.team(),
     linkedAccount: null,
     unauthorized: async () => null,
   },
-  credentials: { injectedFor: vi.fn() },
+  credentials: { injectedFor: vi.fn(), standInsFor: vi.fn() },
 };
 
 const tool = (name: string): Tool => ({

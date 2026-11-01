@@ -6,11 +6,13 @@ import {
 import type { JwksResolver } from '@integrations/infrastructure/integrations/jwks';
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import {
   credentialsFor,
   signingFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 import { parse as parseYaml } from 'yaml';
@@ -56,6 +58,8 @@ const runtimeOf = (
     jwks,
     {} as HttpOutbound,
     credentialsFor(),
+    unlimited,
+    unscoped,
   );
 
 describe('verifying an ed25519 signature', () => {

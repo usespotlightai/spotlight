@@ -53,11 +53,19 @@ export class CallAuthResolver {
         )
       : null;
 
+    let found: Promise<string> | null = null;
+    const workspace = () => {
+      found ??= this.workspaceOf(teamId).catch((error: unknown) => {
+        found = null;
+        throw error;
+      });
+      return found;
+    };
+
     return {
+      workspace,
       connection: connection ? this.active(connection) : null,
-      credentials: new SpotlightCredentials(this.injection, () =>
-        this.workspaceOf(teamId),
-      ),
+      credentials: new SpotlightCredentials(this.injection, workspace),
     };
   }
 
@@ -114,6 +122,7 @@ export class CallAuthResolver {
     const credentials: Credentials = new RunCredentials(this.injection, run);
 
     return {
+      workspace: async () => run.workspaceId,
       connection: connection ? this.active(connection) : null,
       credentials,
     };

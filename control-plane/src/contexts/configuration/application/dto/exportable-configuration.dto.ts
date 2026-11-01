@@ -49,6 +49,7 @@ export type ExportableResourceDto =
       readonly kind: 'workspace';
       readonly slug: string;
       readonly name: string;
+      readonly outboundHosts: readonly string[];
     })
   | (WorkspaceOwned & {
       readonly kind: 'team';

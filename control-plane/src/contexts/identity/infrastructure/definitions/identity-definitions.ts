@@ -27,6 +27,7 @@ import {
   problemsIn,
   refinedBy,
 } from '@platform/definitions/definition-schema';
+import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { TokenScope } from '@shared-kernel/domain/value-objects/token-scope.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { z } from 'zod';
@@ -34,6 +35,15 @@ import { z } from 'zod';
 const workspaceSchema = z.object({
   name: madeBy(WorkspaceName.of),
   slug: madeBy(WorkspaceSlug.exactly),
+  outboundHosts: z
+    .array(
+      madeBy((entry) => HostAllowList.of([entry])),
+      {
+        error:
+          'lists the hosts the workspace may call, as in ["api.example.com", "*.example.com"]',
+      },
+    )
+    .default([]),
 });
 
 const teamSchema = z.object({
@@ -107,6 +117,7 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
           ok: true,
           name: WorkspaceName.of(read.data.name),
           slug: WorkspaceSlug.exactly(read.data.slug),
+          outboundHosts: HostAllowList.of(read.data.outboundHosts),
         }
       : { ok: false, problems: problemsIn(WORKSPACE, read.error) };
   }

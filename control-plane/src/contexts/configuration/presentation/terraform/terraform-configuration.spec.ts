@@ -262,6 +262,17 @@ describe('workspaceTerraform', () => {
     expect(main.match(/to = spotlight_workspace\./g)).toHaveLength(1);
   });
 
+  it('writes the outbound hosts of a workspace that lists them', () => {
+    const workspace = {
+      ...resourceOf('workspace'),
+      outboundHosts: ['api.example.com', '*.acme.io'],
+    };
+
+    expect(resourceHcl(CONFIGURATION, workspace).hcl).toContain(
+      'resource "spotlight_workspace" "acme" {\n  name           = "Acme"\n  slug           = "acme"\n  outbound_hosts = ["api.example.com", "*.acme.io"]\n}\n',
+    );
+  });
+
   it('imports every other resource by its workspace id and address', () => {
     const main = mainOf(CONFIGURATION);
     const imports = fileOf(CONFIGURATION, 'imports.tf');

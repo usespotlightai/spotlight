@@ -3,6 +3,7 @@ import type {
   OfTeam,
 } from '@integrations/application/ports/configured-webhook-providers.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
 import { SpotlightSigningSecrets } from '@integrations/application/services/spotlight-signing-secrets';
@@ -11,6 +12,7 @@ import type { JwksResolver } from '@integrations/infrastructure/integrations/jwk
 import { WebhookRuntime } from '@integrations/infrastructure/integrations/webhook.runtime';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 
 export class ConfiguredWebhookProviders
   implements ConfiguredWebhookProvidersPort
@@ -21,6 +23,8 @@ export class ConfiguredWebhookProviders
     private readonly jwks: JwksResolver,
     private readonly outbound: HttpOutbound,
     private readonly injection: SecretInjectionPort,
+    private readonly limits: OutboundLimitsPort,
+    private readonly scope: WorkspaceOutboundScopePort,
   ) {}
 
   async find(team: OfTeam, key: string): Promise<WebhookProviderPort | null> {
@@ -51,6 +55,8 @@ export class ConfiguredWebhookProviders
           this.jwks,
           this.outbound,
           credentials,
+          this.limits,
+          this.scope,
         ),
       );
     }

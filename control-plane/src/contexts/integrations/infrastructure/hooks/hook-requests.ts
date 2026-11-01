@@ -9,13 +9,16 @@ import type {
 } from '@integrations/application/ports/hook-runtime.port';
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import type { HookTokensPort } from '@integrations/application/ports/hook-tokens.port';
+import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookReply } from '@integrations/domain/value-objects/hook-reply.vo';
 import type { HookSigningIR } from '@integrations/infrastructure/hooks/hook.compile';
-import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { API_PREFIX, HOOK_CALLBACKS } from '@platform/http/routes';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
+import { OutboundHostsUnreadError } from '@shared-kernel/application/errors/outbound-hosts-unread.error';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import type {
   NetworkCallsPort,
   NetworkRequest,
@@ -49,7 +52,7 @@ interface Answered {
 
 export interface HookRequestSettings {
   readonly publicUrl: string;
-  readonly allowed: readonly string[];
+  readonly policy: OutboundPolicy;
 }
 
 const PLAINLY: Readonly<Record<string, string>> = {
@@ -148,9 +151,11 @@ export class HookRequests {
     private readonly tokens: HookTokensPort,
     private readonly callbacks: HookCallbackTokens,
     private readonly network: NetworkCallsPort,
-    private readonly fetch: Fetch = globalThis.fetch,
+    private readonly limits: OutboundLimitsPort,
+    private readonly scope: WorkspaceOutboundScopePort,
+    private readonly fetch: Fetch = settings.policy.fetch,
   ) {
-    this.policy = new OutboundPolicy(settings.allowed);
+    this.policy = settings.policy;
   }
 
   async sent(request: HookRequest, now: Date): Promise<StepResult> {
@@ -158,6 +163,20 @@ export class HookRequests {
 
     if (request.resuming?.status === 'waiting') {
       return this.resumed(request, request.resuming, started);
+    }
+
+    if (
+      !request.fromNetwork &&
+      !(await this.limits.take(request.instance.task.workspaceId))
+    ) {
+      return this.notSent(
+        request,
+        HookFailure.of(
+          'throttled',
+          `this workspace sends more than ${this.limits.perSecond} requests each second to other services`,
+        ),
+        started,
+      );
     }
 
     let headers: Record<string, string>;
@@ -176,6 +195,31 @@ export class HookRequests {
       return this.fromNetwork(request, headers, started);
     }
 
+    try {
+      return await this.scope.within(request.instance.task.workspaceId, () =>
+        this.sentFromHere(request, headers, started),
+      );
+    } catch (error) {
+      if (!(error instanceof OutboundHostsUnreadError)) {
+        throw error;
+      }
+
+      return this.notSent(
+        request,
+        HookFailure.of(
+          'errored',
+          `Spotlight could not read the workspace's allowed hosts: ${error.because}`,
+        ),
+        started,
+      );
+    }
+  }
+
+  private async sentFromHere(
+    request: HookRequest,
+    headers: Record<string, string>,
+    started: Date,
+  ): Promise<StepResult> {
     try {
       this.policy.allow(request.url);
     } catch (error) {
@@ -296,6 +340,7 @@ export class HookRequests {
         ),
         1_000,
       ),
+      secrets: [],
     };
     const call = await this.network.queue(
       request.instance.task.workspaceId,

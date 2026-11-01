@@ -54,9 +54,17 @@ import {
   type OutboundHostsPort,
 } from '@integrations/application/ports/outbound-hosts.port';
 import {
+  OUTBOUND_LIMITS,
+  type OutboundLimitsPort,
+} from '@integrations/application/ports/outbound-limits.port';
+import {
   TASKS_FOR_HOOKS,
   type TasksForHooksPort,
 } from '@integrations/application/ports/tasks-for-hooks.port';
+import {
+  WORKSPACE_HOSTS,
+  type WorkspaceHostsPort,
+} from '@integrations/application/ports/workspace-hosts.port';
 import { CallbackTaskQuery } from '@integrations/application/queries/callback-task.query';
 import { CallbackTaskHandler } from '@integrations/application/queries/handlers/callback-task.handler';
 import { HookIssuerHandler } from '@integrations/application/queries/handlers/hook-issuer.handler';
@@ -97,6 +105,7 @@ import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.run
 import { HookCompiler } from '@integrations/infrastructure/hooks/hook-compiler';
 import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { JoseHookTokens } from '@integrations/infrastructure/hooks/jose-hook-tokens';
+import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { DrizzleHookFiringHistory } from '@integrations/infrastructure/persistence/drizzle/readers/hook-firing-history.reader';
 import { DrizzleHookResources } from '@integrations/infrastructure/persistence/drizzle/readers/hook-resources.reader';
 import { DrizzleHookCallbackTokens } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-callback-tokens.repository';
@@ -117,7 +126,7 @@ import {
   type ExpressionEnginePort,
 } from '@platform/expressions/expression-engine.port';
 import { API_PREFIX } from '@platform/http/routes';
-import { OutboundHosts } from '@platform/outbound/outbound-hosts';
+import { DEPLOYMENT_HOSTS } from '@platform/outbound/deployment-hosts';
 import {
   CAUSATION,
   type CausationPort,
@@ -144,6 +153,11 @@ import {
   type TokenIssuer,
 } from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
+import {
+  WORKSPACE_OUTBOUND_SCOPE,
+  type WorkspaceOutboundScopePort,
+} from '@shared-kernel/application/ports/workspace-outbound-scope.port';
+import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import {
   HOOK_TRACES,
   type HookTracesPort,
@@ -225,24 +239,26 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: OUTBOUND_HOSTS,
-    inject: [ENV],
-    useFactory: (env: Env): OutboundHostsPort => {
-      const hosts = new OutboundHosts(
-        env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(','),
-      );
-
-      return { allows: (host) => hosts.allow(host) };
-    },
+    inject: [DEPLOYMENT_HOSTS],
+    useFactory: (hosts: HostAllowList): OutboundHostsPort => ({
+      allows: (host) => hosts.allows(host),
+    }),
   },
 
   {
     provide: HookAllowancesService,
-    inject: [INTEGRATION_DEFINITIONS, HOOK_TOKENS, OUTBOUND_HOSTS],
+    inject: [
+      INTEGRATION_DEFINITIONS,
+      HOOK_TOKENS,
+      OUTBOUND_HOSTS,
+      WORKSPACE_HOSTS,
+    ],
     useFactory: (
       integrations: IntegrationDefinitionRepository,
       tokens: HookTokensPort,
       hosts: OutboundHostsPort,
-    ) => new HookAllowancesService(integrations, tokens, hosts),
+      workspaceHosts: WorkspaceHostsPort,
+    ) => new HookAllowancesService(integrations, tokens, hosts, workspaceHosts),
   },
 
   {
@@ -255,27 +271,35 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
     provide: HookRequests,
     inject: [
       ENV,
+      OutboundPolicy,
       HOOK_SIGNING_SECRETS,
       HOOK_TOKENS,
       HookCallbackTokens,
       NETWORK_CALLS,
+      OUTBOUND_LIMITS,
+      WORKSPACE_OUTBOUND_SCOPE,
     ],
     useFactory: (
       env: Env,
+      policy: OutboundPolicy,
       secrets: HookSigningSecretsPort,
       tokens: HookTokensPort,
       callbacks: HookCallbackTokens,
       network: NetworkCallsPort,
+      limits: OutboundLimitsPort,
+      scope: WorkspaceOutboundScopePort,
     ) =>
       new HookRequests(
         {
           publicUrl: publicUrlOf(env),
-          allowed: env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(','),
+          policy,
         },
         secrets,
         tokens,
         callbacks,
         network,
+        limits,
+        scope,
       ),
   },
 
