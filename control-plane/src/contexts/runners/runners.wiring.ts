@@ -8,6 +8,7 @@ import {
   type WorkspaceReaderPort,
 } from '@identity/application/ports/workspace-reader.port';
 import type { Provider, Type } from '@nestjs/common';
+import { Instance } from '@platform/cluster/instance';
 import { ENV } from '@platform/config/config.constants';
 import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
@@ -19,6 +20,12 @@ import { PayloadTypes } from '@platform/events/payload-types';
 import { OutboundHosts } from '@platform/outbound/outbound-hosts';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { RedisConnection } from '@platform/redis/redis-connection';
+import { RedisTunnelDirectory } from '@platform/websocket/redis-tunnel-directory';
+import {
+  NO_TUNNEL_DIRECTORY,
+  type TunnelDirectory,
+} from '@platform/websocket/tunnel-directory';
 import { CreateEgressHandler } from '@runners/application/commands/handlers/create-egress.handler';
 import { CreateRunnerPoolHandler } from '@runners/application/commands/handlers/create-runner-pool.handler';
 import { CreateRunnerTrustHandler } from '@runners/application/commands/handlers/create-runner-trust.handler';
@@ -153,7 +160,10 @@ import { DrizzleWorkspaceRunnersRepository } from '@runners/infrastructure/persi
 import { EncryptedProvisionSecrets } from '@runners/infrastructure/provision/encrypted-provision-secrets';
 import { SignedProvisionCalls } from '@runners/infrastructure/provision/signed-provision-calls';
 import { RunnerHostGauges } from '@runners/infrastructure/telemetry/runner-host-gauges';
-import { HostSandboxTunnels } from '@runners/infrastructure/tunnels/host-sandbox-tunnels';
+import {
+  HOST_TUNNEL_DIRECTORY,
+  HostSandboxTunnels,
+} from '@runners/infrastructure/tunnels/host-sandbox-tunnels';
 import { runnersSubscribers } from '@runners/presentation/events/runners.subscribers';
 import { EgressResourceController } from '@runners/presentation/http/controllers/egress-resource.controller';
 import { HostController } from '@runners/presentation/http/controllers/host.controller';
@@ -367,6 +377,26 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       authenticator: RunnerAuthenticatorPort,
       hosts: DrizzleRunnerHostRepository,
     ) => new HostAdmission(authenticator, hosts),
+  },
+  {
+    provide: HOST_TUNNEL_DIRECTORY,
+    inject: [RedisConnection, Instance, LOGGER],
+    useFactory: (
+      redis: RedisConnection,
+      instance: Instance,
+      logger: LoggerPort,
+    ): TunnelDirectory => {
+      const pubSub = redis.pubSub();
+
+      return pubSub
+        ? new RedisTunnelDirectory(
+            pubSub,
+            instance.address,
+            'host-tunnels',
+            logger,
+          )
+        : NO_TUNNEL_DIRECTORY;
+    },
   },
   HostSandboxTunnels,
   { provide: SANDBOX_TUNNELS, useExisting: HostSandboxTunnels },

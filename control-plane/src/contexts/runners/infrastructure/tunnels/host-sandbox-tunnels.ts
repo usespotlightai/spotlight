@@ -13,6 +13,7 @@ import {
   DialBackTunnels,
   type TunnelRoute,
 } from '@platform/websocket/dial-back-tunnels';
+import type { TunnelDirectory } from '@platform/websocket/tunnel-directory';
 import type { SandboxTunnelsPort } from '@runners/application/ports/sandbox-tunnels.port';
 import { HostAdmission } from '@runners/application/services/host-admission.service';
 import {
@@ -28,6 +29,8 @@ const header = (request: IncomingMessage, name: string): string | undefined => {
   const value = request.headers[name];
   return Array.isArray(value) ? value[0] : value;
 };
+
+export const HOST_TUNNEL_DIRECTORY = Symbol('HOST_TUNNEL_DIRECTORY');
 
 const routeOf = (pathname: string): TunnelRoute | null => {
   const matched = TUNNEL_PATH.exec(pathname);
@@ -52,9 +55,11 @@ export class HostSandboxTunnels
   constructor(
     private readonly adapters: HttpAdapterHost,
     admission: HostAdmission,
+    @Inject(HOST_TUNNEL_DIRECTORY) directory: TunnelDirectory,
     @Inject(LOGGER) logger: LoggerPort,
   ) {
     this.tunnels = new DialBackTunnels({
+      directory,
       route: routeOf,
       admit: (request, hostId) =>
         admission.admit(
@@ -80,8 +85,8 @@ export class HostSandboxTunnels
     this.tunnels.listen(this.adapters);
   }
 
-  beforeApplicationShutdown(): void {
-    this.tunnels.close();
+  beforeApplicationShutdown(): Promise<void> {
+    return this.tunnels.close();
   }
 
   open(hostId: string, sandboxId: string): Promise<Duplex | null> {

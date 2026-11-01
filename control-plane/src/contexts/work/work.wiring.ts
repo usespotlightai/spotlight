@@ -65,6 +65,7 @@ import { ReadinessChecks } from '@platform/health/readiness-checks';
 import { AuthenticatedGuard } from '@platform/http/guards/authenticated.guard';
 import { RunnerGuard } from '@platform/http/guards/runner.guard';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
+import { RedisConnection } from '@platform/redis/redis-connection';
 import { s3ClientsOf } from '@platform/storage/s3-clients';
 import { EDITOR_LEASES } from '@runners/application/ports/editor-leases.port';
 import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
@@ -711,7 +712,6 @@ import { ProvisionWorkWorker } from '@work/presentation/workers/provision-work.w
 import { RunConnectionsWorker } from '@work/presentation/workers/run-connections.worker';
 import { RunLeasesWorker } from '@work/presentation/workers/run-leases.worker';
 import { WorkspaceArchivesWorker } from '@work/presentation/workers/workspace-archives.worker';
-import IORedis from 'ioredis';
 
 const WORK_EVENTS = Symbol('WORK_EVENTS');
 
@@ -1119,15 +1119,14 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: RUN_STREAM,
-    inject: [ENV, LOGGER],
-    useFactory: (env: Env, logger: LoggerPort): RunStreamPort =>
-      env.REDIS_URL
-        ? new RedisRunStream(
-            new IORedis(env.REDIS_URL),
-            new IORedis(env.REDIS_URL),
-            logger,
-          )
-        : new InMemoryRunStream(),
+    inject: [RedisConnection, LOGGER],
+    useFactory: (redis: RedisConnection, logger: LoggerPort): RunStreamPort => {
+      const pubSub = redis.pubSub();
+
+      return pubSub
+        ? new RedisRunStream(pubSub.client, pubSub.subscriber, logger)
+        : new InMemoryRunStream();
+    },
   },
 
   {

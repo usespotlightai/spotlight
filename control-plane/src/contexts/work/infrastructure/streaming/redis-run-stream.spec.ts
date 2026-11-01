@@ -28,7 +28,6 @@ const bus = () => {
         }
       }
     },
-    quit: async () => 'OK',
   });
 
   const subscriber = (): RedisSubscriber & { channels: Set<string> } => {
@@ -47,7 +46,6 @@ const bus = () => {
       on: (_event, listener) => {
         entry.deliver = listener;
       },
-      quit: async () => 'OK',
     };
   };
 
