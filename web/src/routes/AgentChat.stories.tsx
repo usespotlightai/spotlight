@@ -27,6 +27,14 @@ export default meta;
 
 export const Chat: StoryObj<typeof meta> = {};
 
+export const Repositories: StoryObj<typeof meta> = {
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(
+      await canvas.findByRole('button', { name: 'Repositories' }),
+    );
+  },
+};
+
 export const LongMessage: StoryObj<typeof meta> = {
   args: { chat: 'chat_pasted_log' },
 };
