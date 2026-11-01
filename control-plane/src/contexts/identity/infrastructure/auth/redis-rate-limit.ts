@@ -20,7 +20,7 @@ local count = redis.call('incr', KEYS[1])
 if count == 1 then redis.call('pexpire', KEYS[1], ARGV[1]) end
 if count > tonumber(ARGV[2]) then
   redis.call('decr', KEYS[1])
-  return redis.call('pttl', KEYS[1])
+  return math.max(redis.call('pttl', KEYS[1]), 1)
 end
 return -1`;
 

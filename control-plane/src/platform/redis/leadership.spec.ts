@@ -1,6 +1,8 @@
 import { Instance } from '@platform/cluster/instance';
 import { Leadership, type LeaseStore } from '@platform/redis/leadership';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { Redis } from 'ioredis';
+import RedisMock from 'ioredis-mock';
 import { describe, expect, it, vi } from 'vitest';
 
 const logger = {
@@ -92,5 +94,37 @@ describe('Leadership', () => {
       'spotlight:leader',
       expect.any(String),
     );
+  });
+
+  it('gives the lease back when it stops even after its own deadline passed', async () => {
+    const store = { eval: vi.fn(async () => 1) };
+    const { leadership, elapse } = leading(store);
+    await leadership.renew();
+    elapse(60_000);
+
+    await leadership.beforeApplicationShutdown();
+
+    expect(store.eval).toHaveBeenLastCalledWith(
+      expect.stringContaining("'del'"),
+      1,
+      'spotlight:leader',
+      expect.any(String),
+    );
+  });
+
+  it('lets one instance lead on a shared store, and the next one after it stops', async () => {
+    const redis = new RedisMock() as unknown as Redis;
+    await redis.flushall();
+    const first = leading(redis).leadership;
+    const second = leading(redis).leadership;
+
+    await first.renew();
+    await second.renew();
+    expect([first.held(), second.held()]).toEqual([true, false]);
+
+    await first.beforeApplicationShutdown();
+    await second.renew();
+    expect(second.held()).toBe(true);
+    await redis.quit();
   });
 });

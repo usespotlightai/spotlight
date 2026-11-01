@@ -62,7 +62,7 @@ export class Leadership
     clearInterval(this.#timer);
     await this.#renewing;
 
-    if (!this.store || !this.held()) {
+    if (!this.store) {
       return;
     }
 
