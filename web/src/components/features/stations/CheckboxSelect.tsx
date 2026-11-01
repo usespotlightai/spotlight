@@ -54,11 +54,15 @@ export function CheckboxSelect({
         ? (value[0] as string)
         : many(value.length);
 
+  const listed = readOnly ? [...value].sort() : options;
+
   const items =
-    options.length === 0 ? (
-      <div className="px-2 py-1.5 text-muted-foreground text-sm">{empty}</div>
+    listed.length === 0 ? (
+      <div className="px-2 py-1.5 text-muted-foreground text-sm">
+        {readOnly ? none : empty}
+      </div>
     ) : (
-      options.map((option) => (
+      listed.map((option) => (
         <DropdownMenuCheckboxItem
           key={option}
           checked={chosen.has(option)}
