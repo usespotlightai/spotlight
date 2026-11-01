@@ -136,7 +136,7 @@ export class EventDelivery {
         return 'delivered' as const;
       });
 
-      if (outcome && claimed.due) {
+      if (outcome && outcome !== 'lost' && claimed.due) {
         this.counted(claimed.due, outcome);
       }
 
@@ -149,12 +149,28 @@ export class EventDelivery {
       }
 
       const failure = claimed.failure ? claimed.failure.error : error;
+      const outcome = await this.context
+        .inTransaction(() => this.failed(due, failure))
+        .catch((written: unknown) => {
+          this.reported(due, failure);
+          throw written;
+        });
+
+      if (outcome === 'lost') {
+        this.logger.warn(
+          {
+            err: failure,
+            eventId: due.eventId,
+            subscriber: due.subscriber,
+            ...idsOf(due.payload),
+          },
+          'Another instance settled this domain event delivery first',
+        );
+        return true;
+      }
 
       this.reported(due, failure);
-      this.counted(
-        due,
-        await this.context.inTransaction(() => this.failed(due, failure)),
-      );
+      this.counted(due, outcome);
       return true;
     }
   }
@@ -217,12 +233,12 @@ export class EventDelivery {
   private async failed(
     due: Due,
     error: unknown,
-  ): Promise<'retried' | 'dead_lettered'> {
+  ): Promise<'retried' | 'dead_lettered' | 'lost'> {
     const attempts = due.attempts + 1;
     const now = this.clock.now();
     const deadLettering = attempts >= MAX_ATTEMPTS;
 
-    await this.context.db
+    const written = await this.context.db
       .update(eventDelivery)
       .set({
         attempts,
@@ -236,7 +252,12 @@ export class EventDelivery {
           isNull(eventDelivery.deliveredAt),
           eq(eventDelivery.attempts, due.attempts),
         ),
-      );
+      )
+      .returning({ eventId: eventDelivery.eventId });
+
+    if (written.length === 0) {
+      return 'lost';
+    }
 
     return deadLettering ? 'dead_lettered' : 'retried';
   }

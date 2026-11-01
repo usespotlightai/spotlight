@@ -24,6 +24,7 @@ class FakeContext {
   readonly steps: string[] = [];
   readonly updates: Record<string, unknown>[] = [];
   failingUpdates = 0;
+  settledElsewhere = false;
   private committed: (() => void)[] = [];
   private claimable = true;
 
@@ -52,14 +53,25 @@ class FakeContext {
       },
       update: () => ({
         set: (values: Record<string, unknown>) => ({
-          where: async () => {
-            if (this.failingUpdates > 0) {
-              this.failingUpdates -= 1;
-              this.steps.push('update failed');
-              throw new Error('connection terminated');
-            }
-            this.steps.push('update');
-            this.updates.push(values);
+          where: () => {
+            const written = async () => {
+              if (this.failingUpdates > 0) {
+                this.failingUpdates -= 1;
+                this.steps.push('update failed');
+                throw new Error('connection terminated');
+              }
+              if (this.settledElsewhere && this.updates.length > 0) {
+                this.steps.push('update matched nothing');
+                return [];
+              }
+              this.steps.push('update');
+              this.updates.push(values);
+              return [{ eventId: 'event_1' }];
+            };
+
+            const rows = written();
+
+            return Object.assign(rows, { returning: () => rows });
           },
         }),
       }),
@@ -108,6 +120,11 @@ const delivering = (handle: () => Promise<void>, attempts = 0) => {
     error: vi.fn(() => context.steps.push('logged')),
   };
   const reports = { report: vi.fn() };
+  const telemetry = {
+    inSpan: <T>(_name: string, _attributes: unknown, work: () => Promise<T>) =>
+      work(),
+    count: vi.fn(),
+  };
   const delivery = new EventDelivery(
     context as unknown as DrizzleContext,
     {
@@ -119,17 +136,10 @@ const delivering = (handle: () => Promise<void>, attempts = 0) => {
     logger,
     { runWith: (_chain, work) => work() } as CausationPort,
     reports,
-    {
-      inSpan: <T>(
-        _name: string,
-        _attributes: unknown,
-        work: () => Promise<T>,
-      ) => work(),
-      count: () => undefined,
-    } as unknown as TelemetryPort,
+    telemetry as unknown as TelemetryPort,
   );
 
-  return { delivery, context, logger, reports };
+  return { delivery, context, logger, reports, telemetry };
 };
 
 describe('EventDelivery', () => {
@@ -221,6 +231,28 @@ describe('EventDelivery', () => {
     expect(reports.report).toHaveBeenCalledExactlyOnceWith(
       new Error('nobody home'),
       { source: 'test.door' },
+    );
+  });
+
+  it('counts and reports nothing when another instance settled the delivery before the fallback wrote it', async () => {
+    const { delivery, context, logger, reports, telemetry } = delivering(
+      async () => {
+        throw new Error('nobody home');
+      },
+      MAX_ATTEMPTS - 1,
+    );
+    context.failingUpdates = 1;
+    context.settledElsewhere = true;
+    context.updates.push({ deliveredAt: NOW });
+
+    await delivery.processDue();
+
+    expect(logger.error).not.toHaveBeenCalled();
+    expect(reports.report).not.toHaveBeenCalled();
+    expect(telemetry.count).not.toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ err: new Error('nobody home') }),
+      'Another instance settled this domain event delivery first',
     );
   });
 });
