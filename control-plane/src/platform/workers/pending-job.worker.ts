@@ -7,7 +7,7 @@ const EVERY_MS = 2_000;
 
 @Injectable()
 export class PendingJobWorker implements OnModuleDestroy {
-  #ticking = false;
+  #ticking: Promise<void> | null = null;
   #stopped = false;
 
   constructor(
@@ -15,8 +15,10 @@ export class PendingJobWorker implements OnModuleDestroy {
     private readonly logger: LoggerPort,
   ) {}
 
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
+    await this.#ticking;
+    await Promise.all(this.jobs.map((source) => source.idle?.()));
   }
 
   @Interval(EVERY_MS)
@@ -25,18 +27,18 @@ export class PendingJobWorker implements OnModuleDestroy {
       return;
     }
 
-    this.#ticking = true;
+    this.#ticking = this.processDue();
+    await this.#ticking;
+    this.#ticking = null;
+  }
 
-    try {
-      for (const source of this.jobs) {
-        await source
-          .processDue()
-          .catch((error: unknown) =>
-            this.logger.error({ err: error }, source.name),
-          );
-      }
-    } finally {
-      this.#ticking = false;
+  private async processDue(): Promise<void> {
+    for (const source of this.jobs) {
+      await source
+        .processDue()
+        .catch((error: unknown) =>
+          this.logger.error({ err: error }, source.name),
+        );
     }
   }
 }

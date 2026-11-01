@@ -1,10 +1,10 @@
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import {
+  type BeforeApplicationShutdown,
   Inject,
   Injectable,
   type OnApplicationBootstrap,
-  type OnApplicationShutdown,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { bearerIn } from '@platform/http/bearer';
@@ -42,7 +42,7 @@ const ticketOf = (url: URL): EditorConnectionDto | null => {
 
 @Injectable()
 export class SandboxEditorGateway
-  implements OnApplicationBootstrap, OnApplicationShutdown
+  implements OnApplicationBootstrap, BeforeApplicationShutdown
 {
   private readonly sockets = new WebSocketServer({
     noServer: true,
@@ -66,7 +66,7 @@ export class SandboxEditorGateway
     });
   }
 
-  onApplicationShutdown(): void {
+  beforeApplicationShutdown(): void {
     for (const session of this.sessions) {
       session.close(1001, 'Spotlight restarts. Please connect again.');
     }

@@ -7,7 +7,7 @@ const EVERY_MS = 5_000;
 
 @Injectable()
 export class ReviewOutboxWorker implements OnModuleDestroy {
-  #ticking = false;
+  #ticking: Promise<void> | null = null;
   #stopped = false;
 
   constructor(
@@ -15,8 +15,9 @@ export class ReviewOutboxWorker implements OnModuleDestroy {
     private readonly logger: LoggerPort,
   ) {}
 
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
+    await this.#ticking;
   }
 
   @Interval(EVERY_MS)
@@ -25,14 +26,16 @@ export class ReviewOutboxWorker implements OnModuleDestroy {
       return;
     }
 
-    this.#ticking = true;
+    this.#ticking = this.sync();
+    await this.#ticking;
+    this.#ticking = null;
+  }
 
+  private async sync(): Promise<void> {
     try {
       await this.work.syncDue();
     } catch (error) {
       this.logger.error({ err: error }, 'Syncing reviews with GitHub');
-    } finally {
-      this.#ticking = false;
     }
   }
 }

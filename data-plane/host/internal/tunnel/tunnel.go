@@ -2,6 +2,7 @@ package tunnel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -25,8 +26,13 @@ const (
 	pingEvery    = 30 * time.Second
 	pingWait     = 10 * time.Second
 	dialWait     = 30 * time.Second
+	restartWait  = time.Second
+	dialBackWait = 200 * time.Millisecond
+	dialBacks    = 10
 	readLimit    = 1 << 20
 )
+
+var errUnknownStream = errors.New("the control plane has no editor that waits for this stream")
 
 type Open func(ctx context.Context, sandboxID string) (io.ReadWriteCloser, error)
 
@@ -36,8 +42,9 @@ type Tunnel struct {
 	credential control.Credential
 	log        *slog.Logger
 
-	RetryFloor time.Duration
-	PingEvery  time.Duration
+	RetryFloor  time.Duration
+	RestartWait time.Duration
+	PingEvery   time.Duration
 }
 
 func New(baseURL, hostID string, credential control.Credential, log *slog.Logger) (*Tunnel, error) {
@@ -64,6 +71,19 @@ func (t *Tunnel) Serve(ctx context.Context, open func(ctx context.Context, sandb
 		err := t.connect(ctx, open, &streams)
 		if ctx.Err() != nil {
 			return
+		}
+
+		if websocket.CloseStatus(err) == websocket.StatusGoingAway {
+			wait := t.RestartWait
+			if wait <= 0 {
+				wait = restartWait
+			}
+			t.log.Info("the control plane restarts; the tunnel opens again", "retryIn", wait)
+			if !sleep(ctx, jitter(wait)) {
+				return
+			}
+			backoff = floor
+			continue
 		}
 
 		if time.Since(connected) > steady {
@@ -133,7 +153,7 @@ func (t *Tunnel) stream(ctx context.Context, asked protocol.TunnelStream, open O
 	streaming, stop := context.WithCancel(ctx)
 	defer stop()
 
-	conn, err := t.dial(streaming, asked.Stream)
+	conn, err := t.dialBack(streaming, asked.Stream)
 	if err != nil {
 		log.Warn("could not join an editor stream", "error", err)
 		return
@@ -169,6 +189,15 @@ func (t *Tunnel) stream(ctx context.Context, asked protocol.TunnelStream, open O
 	log.Info("an editor left the sandbox")
 }
 
+func (t *Tunnel) dialBack(ctx context.Context, stream string) (*websocket.Conn, error) {
+	for tries := 1; ; tries++ {
+		conn, err := t.dial(ctx, stream)
+		if !errors.Is(err, errUnknownStream) || tries == dialBacks || !sleep(ctx, dialBackWait) {
+			return conn, err
+		}
+	}
+}
+
 func (t *Tunnel) dial(ctx context.Context, stream string) (*websocket.Conn, error) {
 	path := "api/hosts/" + url.PathEscape(t.hostID) + "/tunnel"
 	if stream != "" {
@@ -190,6 +219,9 @@ func (t *Tunnel) dial(ctx context.Context, stream string) (*websocket.Conn, erro
 	if err != nil {
 		if response != nil && response.StatusCode == http.StatusUnauthorized {
 			return nil, fmt.Errorf("%w: %w", control.ErrUnauthorized, err)
+		}
+		if stream != "" && response != nil && response.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("%w: %w", errUnknownStream, err)
 		}
 		return nil, err
 	}

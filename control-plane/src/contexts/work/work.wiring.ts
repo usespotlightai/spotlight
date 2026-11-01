@@ -681,6 +681,7 @@ import { S3Readiness } from '@work/infrastructure/storage/s3-readiness';
 import { S3WorkspaceArchiveStore } from '@work/infrastructure/storage/s3-workspace-archive.store';
 import { StorageHosts } from '@work/infrastructure/storage/storage-hosts';
 import { InMemoryRunStream } from '@work/infrastructure/streaming/in-memory-run-stream';
+import { RedisRunStream } from '@work/infrastructure/streaming/redis-run-stream';
 import { RunGauges } from '@work/infrastructure/telemetry/run-gauges';
 import { HashedTraceParent } from '@work/infrastructure/tracing/hashed-trace-parent';
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
@@ -703,12 +704,14 @@ import { RunnerActivityController } from '@work/presentation/http/controllers/ru
 import { SandboxArchiveController } from '@work/presentation/http/controllers/sandbox-archive.controller';
 import { TaskController } from '@work/presentation/http/controllers/task.controller';
 import { WorkspaceArchiveController } from '@work/presentation/http/controllers/workspace-archive.controller';
+import { LongPollShutdown } from '@work/presentation/http/long-poll-shutdown';
 import { NetworkCallsWorker } from '@work/presentation/workers/network-calls.worker';
 import { ProcessedEventsWorker } from '@work/presentation/workers/processed-events.worker';
 import { ProvisionWorkWorker } from '@work/presentation/workers/provision-work.worker';
 import { RunConnectionsWorker } from '@work/presentation/workers/run-connections.worker';
 import { RunLeasesWorker } from '@work/presentation/workers/run-leases.worker';
 import { WorkspaceArchivesWorker } from '@work/presentation/workers/workspace-archives.worker';
+import IORedis from 'ioredis';
 
 const WORK_EVENTS = Symbol('WORK_EVENTS');
 
@@ -992,6 +995,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: LongPollShutdown,
+    inject: [LongPoll],
+    useFactory: (polls: LongPoll) => new LongPollShutdown(polls),
+  },
+
+  {
     provide: RunStartHooks,
     inject: [DrizzleRunRepository, TASK_VIEWS, LIFECYCLE_HOOKS, CLOCK, LOGGER],
     useFactory: (
@@ -1108,7 +1117,18 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   { provide: RUN_EVENT_READER, useClass: DrizzleRunEventReader },
 
-  { provide: RUN_STREAM, useClass: InMemoryRunStream },
+  {
+    provide: RUN_STREAM,
+    inject: [ENV, LOGGER],
+    useFactory: (env: Env, logger: LoggerPort): RunStreamPort =>
+      env.REDIS_URL
+        ? new RedisRunStream(
+            new IORedis(env.REDIS_URL),
+            new IORedis(env.REDIS_URL),
+            logger,
+          )
+        : new InMemoryRunStream(),
+  },
 
   {
     provide: RunLeases,

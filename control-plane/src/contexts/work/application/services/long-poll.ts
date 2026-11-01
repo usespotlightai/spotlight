@@ -5,12 +5,17 @@ const POLL_INTERVAL_MS = 500;
 
 export class LongPoll {
   private readonly intervalMs: number;
+  #stopped = false;
 
   constructor(
     private readonly clock: ClockPort,
     private readonly windowMs: number = POLL_WINDOW_MS,
   ) {
     this.intervalMs = Math.min(POLL_INTERVAL_MS, windowMs);
+  }
+
+  stop(): void {
+    this.#stopped = true;
   }
 
   deadline(): Date {
@@ -24,6 +29,10 @@ export class LongPoll {
     const deadline = until.getTime();
 
     for (;;) {
+      if (this.#stopped) {
+        return null;
+      }
+
       const found = await attempt();
 
       if (found || this.clock.now().getTime() >= deadline) {
