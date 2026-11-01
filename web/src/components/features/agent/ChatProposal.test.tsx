@@ -45,7 +45,6 @@ const proposing = (proposal: Proposal) => (
 const showing = (proposal: Proposal = OPEN) => render(proposing(proposal));
 
 const accepting = async () => {
-  created.mockImplementation((_input, options) => options?.onSuccess?.());
   const shown = showing();
 
   await userEvent.click(screen.getByRole('button', { name: 'Create task' }));
@@ -163,6 +162,42 @@ describe('ChatProposal', () => {
     const add = vi.spyOn(toast, 'add');
     const shown = showing({ ...OPEN, state: 'accepted' });
 
+    shown.rerender(proposing({ ...OPEN, state: 'created', taskId: 'task_1' }));
+
+    expect(add).not.toHaveBeenCalled();
+  });
+
+  it('confirms the task when the proposal update beats the accept response', async () => {
+    const add = vi.spyOn(toast, 'add');
+    const shown = showing();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create task' }));
+    shown.rerender(proposing({ ...OPEN, state: 'created', taskId: 'task_1' }));
+
+    expect(add).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'success', title: 'Task created' }),
+    );
+  });
+
+  it('waits for the task id before it confirms the task', async () => {
+    const add = vi.spyOn(toast, 'add');
+    const shown = await accepting();
+
+    shown.rerender(proposing({ ...OPEN, state: 'created' }));
+    expect(add).not.toHaveBeenCalled();
+
+    shown.rerender(proposing({ ...OPEN, state: 'created', taskId: 'task_1' }));
+    expect(add).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'success', title: 'Task created' }),
+    );
+  });
+
+  it('stays quiet when the accept request fails', async () => {
+    created.mockImplementation((_input, options) => options?.onError?.());
+    const add = vi.spyOn(toast, 'add');
+    const shown = showing();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create task' }));
     shown.rerender(proposing({ ...OPEN, state: 'created', taskId: 'task_1' }));
 
     expect(add).not.toHaveBeenCalled();
