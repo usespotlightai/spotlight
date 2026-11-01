@@ -15,6 +15,7 @@ import {
   HttpOutbound,
   type OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
@@ -229,7 +230,7 @@ describe('IntegrationToolCalls', () => {
         {
           ofTeam: vi.fn(async () => [defined(INJECTS_A_SECRET)]),
         } as unknown as DefinedIntegrationsPort,
-        runtimeWith(new HttpOutbound(allowed, fetch)),
+        runtimeWith(new HttpOutbound(allowingOutbound(allowed), fetch)),
         callAuthFor(secrets.injection),
         inferringInto(),
         personRulesFrom(),
@@ -521,7 +522,10 @@ graphql:
               }),
             ),
           ),
-          new HttpOutbound(['petstore3.swagger.io', 'api.linear.app'], fetch),
+          new HttpOutbound(
+            allowingOutbound(['petstore3.swagger.io', 'api.linear.app']),
+            fetch,
+          ),
           clientsFrom(),
           {} as OAuth2Exchange,
           discoveringNothing(),

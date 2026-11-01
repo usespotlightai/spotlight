@@ -246,6 +246,7 @@ import {
   type ExpressionEnginePort,
 } from '@platform/expressions/expression-engine.port';
 import { API_PREFIX } from '@platform/http/routes';
+import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   CREDENTIAL_ENCRYPTION,
@@ -387,35 +388,32 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: OutboundPolicy,
+    inject: [OutboundGuard],
+    useFactory: (guard: OutboundGuard) => new OutboundPolicy(guard),
+  },
+  {
     provide: McpSessions,
-    inject: [ENV],
-    useFactory: (env: Env) =>
-      new McpSessions(
-        new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
-      ),
+    inject: [OutboundPolicy],
+    useFactory: (policy: OutboundPolicy) => new McpSessions(policy),
   },
 
   {
     provide: OAuth2Discovery,
-    inject: [ENV, CLOCK, LOGGER],
-    useFactory: (env: Env, clock: ClockPort, logger: LoggerPort) =>
-      new OAuth2Discovery(
-        new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
-        clock,
-        logger,
-      ),
+    inject: [OutboundPolicy, CLOCK, LOGGER],
+    useFactory: (
+      policy: OutboundPolicy,
+      clock: ClockPort,
+      logger: LoggerPort,
+    ) => new OAuth2Discovery(policy, clock, logger),
   },
 
   {
     provide: SPEC_READER,
-    inject: [ENV, McpSessions],
-    useFactory: (env: Env, sessions: McpSessions) =>
+    inject: [OutboundPolicy, McpSessions],
+    useFactory: (policy: OutboundPolicy, sessions: McpSessions) =>
       new SpecReaders(
-        new ThreadedSpecReader(
-          new SpecFetch(
-            new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
-          ),
-        ),
+        new ThreadedSpecReader(new SpecFetch(policy)),
         new McpSpecReader(sessions),
       ),
   },
@@ -600,9 +598,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: HttpOutbound,
-    inject: [ENV],
-    useFactory: (env: Env) =>
-      new HttpOutbound(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
+    inject: [OutboundPolicy],
+    useFactory: (policy: OutboundPolicy) => new HttpOutbound(policy),
   },
 
   { provide: INTEGRATION_CURSORS, useClass: DrizzleIntegrationCursors },
@@ -725,11 +722,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: OAUTH2_CLIENT_REGISTRAR,
-    inject: [ENV],
-    useFactory: (env: Env) =>
-      new OAuth2Registrar(
-        new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
-      ),
+    inject: [OutboundPolicy],
+    useFactory: (policy: OutboundPolicy) => new OAuth2Registrar(policy),
   },
 
   {
@@ -762,12 +756,9 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: OAuth2Exchange,
-    inject: [ENV, CLOCK],
-    useFactory: (env: Env, clock: ClockPort) =>
-      new OAuth2Exchange(
-        new OutboundPolicy(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(',')),
-        clock,
-      ),
+    inject: [OutboundPolicy, CLOCK],
+    useFactory: (policy: OutboundPolicy, clock: ClockPort) =>
+      new OAuth2Exchange(policy, clock),
   },
 
   {
@@ -943,7 +934,11 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     ) => new IntegrationConfigs(resources, teams),
   },
 
-  { provide: JwksCache, useFactory: () => new JwksCache() },
+  {
+    provide: JwksCache,
+    inject: [OutboundPolicy],
+    useFactory: (policy: OutboundPolicy) => new JwksCache(policy),
+  },
 
   {
     provide: CONFIGURED_WEBHOOK_PROVIDERS,

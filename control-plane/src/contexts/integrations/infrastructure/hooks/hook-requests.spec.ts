@@ -9,6 +9,7 @@ import {
   type HookRequest,
   HookRequests,
 } from '@integrations/infrastructure/hooks/hook-requests';
+import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type { NetworkCallsPort } from '@work/application/ports/network-calls.port';
 import { describe, expect, it, vi } from 'vitest';
@@ -85,7 +86,7 @@ const network = (): NetworkCallsPort => ({
 const requests = (
   reply: () => Promise<Response>,
   calls: NetworkCallsPort = network(),
-  allowed = ['example.com'],
+  allowed = ['example.com', '*.example.com'],
   secret: HookSigningSecret | null = SECRET,
 ) => {
   const fetch = vi.fn(reply);
@@ -100,7 +101,7 @@ const requests = (
     requests: new HookRequests(
       {
         publicUrl: 'https://spotlight.example.com',
-        allowed,
+        policy: allowingOutbound(allowed),
       },
       { signingSecretOf: async () => secret },
       {

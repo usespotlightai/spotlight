@@ -1,8 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
-import {
-  LOGGER,
-  type LoggerPort,
-} from '@shared-kernel/application/ports/logger.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type {
   ExpectedWorkload,
   WorkloadTokensPort,
@@ -10,10 +6,13 @@ import type {
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 import {
   createRemoteJWKSet,
+  customFetch,
   type JWTPayload,
   type JWTVerifyGetKey,
   jwtVerify,
 } from 'jose';
+
+type Fetch = typeof globalThis.fetch;
 
 const DISCOVERY_PATH = '/.well-known/openid-configuration';
 
@@ -40,11 +39,13 @@ interface Discovered {
   readonly until: number;
 }
 
-@Injectable()
 export class JoseWorkloadTokens implements WorkloadTokensPort {
   readonly #discovered = new Map<string, Discovered>();
 
-  constructor(@Inject(LOGGER) private readonly logger: LoggerPort) {}
+  constructor(
+    private readonly logger: LoggerPort,
+    private readonly fetch: Fetch,
+  ) {}
 
   async verify(
     token: string,
@@ -89,7 +90,7 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
       return cached.keys;
     }
 
-    const response = await fetch(
+    const response = await this.fetch(
       `${issuer.replace(/\/+$/, '')}${DISCOVERY_PATH}`,
       { signal: AbortSignal.timeout(TIMEOUT_MS), redirect: 'error' },
     );
@@ -109,6 +110,7 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
 
     const keys = createRemoteJWKSet(new URL(document.jwks_uri), {
       timeoutDuration: TIMEOUT_MS,
+      [customFetch]: this.fetch,
     });
 
     this.#discovered.set(issuer, { keys, until: Date.now() + KEYS_CACHE_MS });

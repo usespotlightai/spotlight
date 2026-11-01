@@ -17,7 +17,7 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import { OutboundHosts } from '@platform/outbound/outbound-hosts';
+import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { RedisConnection } from '@platform/redis/redis-connection';
@@ -464,12 +464,9 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   { provide: RUNNER_AUTHENTICATOR, useExisting: RunnerAuthenticator },
   {
     provide: PROVISION_CALLS,
-    inject: [ENV],
-    useFactory: (env: Env) =>
-      new SignedProvisionCalls({
-        spotlightUrl: publicUrlOf(env),
-        hosts: OutboundHosts.listed(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS),
-      }),
+    inject: [ENV, OutboundGuard],
+    useFactory: (env: Env, guard: OutboundGuard) =>
+      new SignedProvisionCalls({ spotlightUrl: publicUrlOf(env), guard }),
   },
   { provide: PROVISION_SECRETS, useClass: EncryptedProvisionSecrets },
   {

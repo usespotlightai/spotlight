@@ -185,7 +185,7 @@ describe('an integration providing tools from an API spec (e2e)', () => {
       upstream.server.listen(0, '127.0.0.1', resolve),
     );
     origin = `http://127.0.0.1:${(upstream.server.address() as AddressInfo).port}`;
-    vi.stubEnv('SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS', new URL(origin).host);
+    vi.stubEnv('SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS', new URL(origin).hostname);
     app = await openApp();
     db = app.get<DrizzleDatabase>(DRIZZLE);
   });

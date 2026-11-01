@@ -10,13 +10,16 @@ import {
   requiredValueOf,
   type Templated,
 } from '@integrations/infrastructure/integrations/templating';
-import { cappedText } from '@integrations/infrastructure/outbound/capped-body';
+import {
+  cappedReply,
+  cappedText,
+} from '@integrations/infrastructure/outbound/capped-body';
 import {
   type Dressed,
   followed,
   sameHost,
 } from '@integrations/infrastructure/outbound/followed-redirects';
-import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import type { CelVariables } from '@platform/expressions/cel-variables';
 import { isTrue, value } from '@platform/expressions/readings';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
@@ -51,20 +54,18 @@ interface Dispatched {
 
 export const MAX_ANSWER_BYTES = 4 * 1024 * 1024;
 
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+
 const connectionOf = (against: CelVariables): string | null =>
   typeof against.connection === 'string' && against.connection !== ''
     ? against.connection
     : null;
 
 export class HttpOutbound {
-  private readonly policy: OutboundPolicy;
-
   constructor(
-    allowed: readonly string[],
-    private readonly fetch: Fetch = globalThis.fetch,
-  ) {
-    this.policy = new OutboundPolicy(allowed);
-  }
+    private readonly policy: OutboundPolicy,
+    private readonly fetch: Fetch = policy.fetch,
+  ) {}
 
   async run(
     request: RequestIR,
@@ -120,7 +121,17 @@ export class HttpOutbound {
       );
     }
 
-    return new Uint8Array(await reply.arrayBuffer());
+    const capped = cappedReply(
+      reply,
+      MAX_FILE_BYTES,
+      () =>
+        new UpstreamError(
+          'fetching a file',
+          `it is larger than the ${MAX_FILE_BYTES / 1024 / 1024} MB Spotlight keeps of a file`,
+        ),
+    );
+
+    return new Uint8Array(await capped.arrayBuffer());
   }
 
   async answer(
@@ -320,7 +331,17 @@ const has = (headers: Record<string, string>, name: string): boolean =>
   Object.keys(headers).some((key) => key.toLowerCase() === name);
 
 const parse = async (reply: Response): Promise<unknown> =>
-  parsed(await reply.text());
+  parsed(
+    await cappedText(
+      reply,
+      MAX_ANSWER_BYTES,
+      () =>
+        new UpstreamError(
+          'reading an answer',
+          `it is larger than the ${MAX_ANSWER_BYTES / 1024 / 1024} MB Spotlight reads from a call`,
+        ),
+    ),
+  );
 
 const parsed = (body: string): unknown => {
   if (body === '') {

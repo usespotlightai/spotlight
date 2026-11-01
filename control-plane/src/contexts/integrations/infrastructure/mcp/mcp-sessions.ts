@@ -83,7 +83,7 @@ export class McpSessions implements OnModuleDestroy {
 
   constructor(
     policy: OutboundPolicy,
-    fetch: Fetch = globalThis.fetch,
+    fetch: Fetch = policy.fetch,
     private readonly idleMs = IDLE_MS,
   ) {
     const guarded = guardedFetch(fetch, policy, (hop, request) =>

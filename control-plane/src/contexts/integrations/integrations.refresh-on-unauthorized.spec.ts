@@ -32,7 +32,7 @@ import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-
 import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth2-registrar';
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
-import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { InMemoryIntegrationConnections } from '@integrations/integrations.connections.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
@@ -322,7 +322,7 @@ const settingUp = ({
     }),
   );
   const expressions = new CelExpressionEngine();
-  const policy = new OutboundPolicy(['linear.app', 'api.linear.app']);
+  const policy = allowingOutbound(['linear.app', 'api.linear.app']);
   const clients = new OAuth2ClientResolution(
     OAuth2Clients.from('{}'),
     registrations,
@@ -334,7 +334,10 @@ const settingUp = ({
   const exchange = new OAuth2Exchange(policy, clock, linear.fetch);
   const runtime = new CompiledIntegrationRuntime(
     new IntegrationReader(expressions, operations),
-    new HttpOutbound(['linear.app', 'api.linear.app'], linear.fetch),
+    new HttpOutbound(
+      allowingOutbound(['linear.app', 'api.linear.app']),
+      linear.fetch,
+    ),
     clients,
     exchange,
     discoveringNothing(),

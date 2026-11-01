@@ -1,6 +1,6 @@
 import type { OAuth2IR } from '@integrations/infrastructure/integrations/integration.compile';
 import { OAuth2Discovery } from '@integrations/infrastructure/integrations/oauth2-discovery';
-import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -70,7 +70,7 @@ const discovery = (
   allowed = ['mcp.tracker.example', 'auth.tracker.example'],
 ) =>
   new OAuth2Discovery(
-    new OutboundPolicy(allowed),
+    allowingOutbound(allowed),
     clock,
     { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     fetch,

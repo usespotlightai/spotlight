@@ -31,6 +31,8 @@ import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
 import { LoggingModule } from '@platform/logging/logging.module';
 import { OutboundCalls } from '@platform/outbound/outbound-calls';
+import { OutboundGuard } from '@platform/outbound/outbound-guard';
+import { OutboundHosts } from '@platform/outbound/outbound-hosts';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
@@ -102,6 +104,18 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     { provide: APP_FILTER, useClass: ApplicationErrorFilter },
     CollabServer,
     OutboundCalls,
+    {
+      provide: OutboundHosts,
+      inject: [ENV],
+      useFactory: (env: Env) =>
+        OutboundHosts.listed(env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS),
+    },
+    {
+      provide: OutboundGuard,
+      inject: [OutboundHosts, ENV],
+      useFactory: (hosts: OutboundHosts, env: Env) =>
+        new OutboundGuard(hosts, env.SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK),
+    },
     ExpressionFailures,
     OutboxGauges,
     ReadinessGauges,
@@ -146,9 +160,16 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     { provide: TOKEN_ISSUER, useClass: RandomTokenIssuer },
     { provide: IDEMPOTENT_CREATES, useClass: DrizzleIdempotentCreates },
     { provide: IDEMPOTENT_LOOKUPS, useExisting: IDEMPOTENT_CREATES },
-    { provide: WORKLOAD_TOKENS, useClass: JoseWorkloadTokens },
+    {
+      provide: WORKLOAD_TOKENS,
+      inject: [LOGGER, OutboundGuard],
+      useFactory: (logger: LoggerPort, guard: OutboundGuard) =>
+        new JoseWorkloadTokens(logger, guard.fetch),
+    },
   ],
   exports: [
+    OutboundHosts,
+    OutboundGuard,
     RedisConnection,
     Instance,
     Leadership,

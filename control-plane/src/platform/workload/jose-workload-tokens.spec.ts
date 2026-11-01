@@ -23,7 +23,7 @@ describe('JoseWorkloadTokens', () => {
 
   beforeAll(async () => {
     platform = await openWorkloadIssuer();
-    tokens = new JoseWorkloadTokens(quiet);
+    tokens = new JoseWorkloadTokens(quiet, globalThis.fetch);
   });
 
   afterAll(async () => {

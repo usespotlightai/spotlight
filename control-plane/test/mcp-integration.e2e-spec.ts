@@ -268,7 +268,7 @@ beforeAll(async () => {
   });
   vi.stubEnv(
     'SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS',
-    [new URL(tracker.url).host, new URL(guarded.url).host].join(','),
+    [new URL(tracker.url).hostname, new URL(guarded.url).hostname].join(','),
   );
   app = await openApp();
   db = app.get<DrizzleDatabase>(DRIZZLE);

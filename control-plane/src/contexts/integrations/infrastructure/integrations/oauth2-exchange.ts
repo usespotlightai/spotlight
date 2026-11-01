@@ -22,7 +22,7 @@ export class OAuth2Exchange {
   constructor(
     private readonly policy: OutboundPolicy,
     private readonly clock: ClockPort,
-    private readonly fetch: Fetch = globalThis.fetch,
+    private readonly fetch: Fetch = policy.fetch,
   ) {}
 
   async exchange(

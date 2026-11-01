@@ -81,7 +81,7 @@ export class OAuth2Discovery {
     policy: OutboundPolicy,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
-    fetch: Fetch = globalThis.fetch,
+    fetch: Fetch = policy.fetch,
   ) {
     const guarded = guardedFetch(fetch, policy);
 

@@ -1,4 +1,4 @@
-import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import {
   MAX_READ_BYTES,
   SpecFetch,
@@ -40,7 +40,7 @@ const answering = (...replies: Response[]) => {
   return {
     fetch,
     fetching: new SpecFetch(
-      new OutboundPolicy(['specs.example', 'api.linear.app']),
+      allowingOutbound(['specs.example', 'api.linear.app']),
       fetch as unknown as typeof globalThis.fetch,
     ),
     headersAt: (call: number) =>
@@ -175,7 +175,7 @@ describe('SpecFetch', () => {
 
   it('says it could not reach a host that refused the connection', async () => {
     const fetching = new SpecFetch(
-      new OutboundPolicy(['specs.example']),
+      allowingOutbound(['specs.example']),
       (async () => {
         throw Object.assign(new TypeError('fetch failed'), {
           cause: Object.assign(new Error('connect ECONNREFUSED'), {

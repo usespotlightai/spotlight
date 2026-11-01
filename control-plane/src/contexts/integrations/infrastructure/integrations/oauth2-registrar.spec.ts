@@ -1,6 +1,6 @@
 import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth2-registrar';
-import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const ENDPOINT = 'https://mcp.example/register';
@@ -11,7 +11,7 @@ const registering = (reply: Response) => {
 
   return {
     fetch,
-    registrar: new OAuth2Registrar(new OutboundPolicy(['mcp.example']), fetch),
+    registrar: new OAuth2Registrar(allowingOutbound(['mcp.example']), fetch),
   };
 };
 

@@ -13,7 +13,7 @@ import type { HookCallbackTokens } from '@integrations/application/services/hook
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookReply } from '@integrations/domain/value-objects/hook-reply.vo';
 import type { HookSigningIR } from '@integrations/infrastructure/hooks/hook.compile';
-import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { API_PREFIX, HOOK_CALLBACKS } from '@platform/http/routes';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type {
@@ -49,7 +49,7 @@ interface Answered {
 
 export interface HookRequestSettings {
   readonly publicUrl: string;
-  readonly allowed: readonly string[];
+  readonly policy: OutboundPolicy;
 }
 
 const PLAINLY: Readonly<Record<string, string>> = {
@@ -148,9 +148,9 @@ export class HookRequests {
     private readonly tokens: HookTokensPort,
     private readonly callbacks: HookCallbackTokens,
     private readonly network: NetworkCallsPort,
-    private readonly fetch: Fetch = globalThis.fetch,
+    private readonly fetch: Fetch = settings.policy.fetch,
   ) {
-    this.policy = new OutboundPolicy(settings.allowed);
+    this.policy = settings.policy;
   }
 
   async sent(request: HookRequest, now: Date): Promise<StepResult> {

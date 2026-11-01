@@ -96,11 +96,11 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
       step.kind === 'request' &&
       !step.fromNetwork &&
       step.url &&
-      !allowances.allowsHost(step.url.host)
+      !allowances.allowsHost(step.url.hostname)
     ) {
       throw new InvalidHookError(
         FieldPath.of(['steps', index, 'request', 'url']),
-        `sends to ${step.url.host}, which is not an allowed outbound host`,
+        `sends to ${step.url.hostname}, which is not an allowed outbound host`,
       );
     }
   });

@@ -97,6 +97,7 @@ import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.run
 import { HookCompiler } from '@integrations/infrastructure/hooks/hook-compiler';
 import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { JoseHookTokens } from '@integrations/infrastructure/hooks/jose-hook-tokens';
+import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { DrizzleHookFiringHistory } from '@integrations/infrastructure/persistence/drizzle/readers/hook-firing-history.reader';
 import { DrizzleHookResources } from '@integrations/infrastructure/persistence/drizzle/readers/hook-resources.reader';
 import { DrizzleHookCallbackTokens } from '@integrations/infrastructure/persistence/drizzle/repositories/hook-callback-tokens.repository';
@@ -225,14 +226,10 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: OUTBOUND_HOSTS,
-    inject: [ENV],
-    useFactory: (env: Env): OutboundHostsPort => {
-      const hosts = new OutboundHosts(
-        env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(','),
-      );
-
-      return { allows: (host) => hosts.allow(host) };
-    },
+    inject: [OutboundHosts],
+    useFactory: (hosts: OutboundHosts): OutboundHostsPort => ({
+      allows: (host) => hosts.allows(host),
+    }),
   },
 
   {
@@ -255,6 +252,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
     provide: HookRequests,
     inject: [
       ENV,
+      OutboundPolicy,
       HOOK_SIGNING_SECRETS,
       HOOK_TOKENS,
       HookCallbackTokens,
@@ -262,6 +260,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       env: Env,
+      policy: OutboundPolicy,
       secrets: HookSigningSecretsPort,
       tokens: HookTokensPort,
       callbacks: HookCallbackTokens,
@@ -270,7 +269,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       new HookRequests(
         {
           publicUrl: publicUrlOf(env),
-          allowed: env.SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS.split(','),
+          policy,
         },
         secrets,
         tokens,

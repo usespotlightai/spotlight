@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import { OutboundHosts } from '@platform/outbound/outbound-hosts';
 import type { ProvisionCall } from '@runners/application/ports/provision-calls.port';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
@@ -44,7 +45,11 @@ const calls = (
     provision: new SignedProvisionCalls(
       {
         spotlightUrl: 'https://app.usespotlight.ai',
-        hosts: new OutboundHosts(settings.hosts ?? ['example.com']),
+        guard: new OutboundGuard(
+          OutboundHosts.listed(
+            (settings.hosts ?? ['example.com', '*.example.com']).join(','),
+          ),
+        ),
       },
       fetch as unknown as typeof globalThis.fetch,
     ),

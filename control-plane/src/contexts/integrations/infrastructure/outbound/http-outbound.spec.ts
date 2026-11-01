@@ -8,6 +8,7 @@ import {
   HttpOutbound,
   MAX_ANSWER_BYTES,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import {
   credentialsFor,
   injecting,
@@ -61,7 +62,7 @@ const SLACK = credentialsFor({
 describe('HttpOutbound', () => {
   it('makes the call the file describes, with the templated body and headers', async () => {
     const fetch = replying({ ok: true, ts: '170.5' });
-    const out = new HttpOutbound(['slack.com'], fetch);
+    const out = new HttpOutbound(allowingOutbound(['slack.com']), fetch);
 
     await out.run(action(), against, SLACK);
 
@@ -79,7 +80,7 @@ describe('HttpOutbound', () => {
 
   it('says the body is JSON so a host parses it rather than reading form data', async () => {
     const fetch = replying({ ok: true, ts: '1' });
-    const out = new HttpOutbound(['slack.com'], fetch);
+    const out = new HttpOutbound(allowingOutbound(['slack.com']), fetch);
 
     await out.run(action(), against, SLACK);
 
@@ -109,7 +110,7 @@ actions:
         })();
 
     const fetch = replying({ ok: true });
-    const out = new HttpOutbound(['slack.com'], fetch);
+    const out = new HttpOutbound(allowingOutbound(['slack.com']), fetch);
 
     await out.run(request, against, SLACK);
 
@@ -119,9 +120,26 @@ actions:
     );
   });
 
+  it('refuses an answer larger than 4 MB', async () => {
+    const out = new HttpOutbound(
+      allowingOutbound(['slack.com']),
+      vi.fn(
+        async () =>
+          new Response('{}', {
+            status: 200,
+            headers: { 'content-length': String(5 * 1024 * 1024) },
+          }),
+      ),
+    );
+
+    await expect(out.run(action(), against, SLACK)).rejects.toThrow(
+      /larger than the 4 MB/,
+    );
+  });
+
   it('reads success and captures from the reply', async () => {
     const out = new HttpOutbound(
-      ['slack.com'],
+      allowingOutbound(['slack.com']),
       replying({ ok: true, ts: '170.5' }),
     );
 
@@ -133,7 +151,7 @@ actions:
 
   it('reports not-ok when the host says so, even on a 200', async () => {
     const out = new HttpOutbound(
-      ['slack.com'],
+      allowingOutbound(['slack.com']),
       replying({ ok: false, error: 'channel_not_found' }),
     );
 
@@ -142,7 +160,7 @@ actions:
 
   it('sends nothing where the body cannot be read, and says where', async () => {
     const fetch = replying({ ok: true });
-    const out = new HttpOutbound(['slack.com'], fetch);
+    const out = new HttpOutbound(allowingOutbound(['slack.com']), fetch);
 
     await expect(
       out.run(action(), { ...against, ask: {} }, SLACK),
@@ -158,7 +176,7 @@ actions:
 
   it('sends nothing where the secret that it injects is not bound to the host', async () => {
     const fetch = replying({ ok: true });
-    const out = new HttpOutbound(['slack.com'], fetch);
+    const out = new HttpOutbound(allowingOutbound(['slack.com']), fetch);
 
     await expect(
       out.run(
@@ -175,7 +193,7 @@ actions:
     const { injection, forSpotlight } = injecting({
       TOKEN: { host: 'slack.com', value: 'xoxb-1' },
     });
-    const out = new HttpOutbound(['example.com'], fetch);
+    const out = new HttpOutbound(allowingOutbound(['example.com']), fetch);
 
     await expect(
       out.run(
@@ -192,7 +210,10 @@ actions:
       TOKEN: { host: 'slack.com', value: 'xoxb-1' },
     });
 
-    await new HttpOutbound(['slack.com'], replying({ ok: true })).run(
+    await new HttpOutbound(
+      allowingOutbound(['slack.com']),
+      replying({ ok: true }),
+    ).run(
       action(),
       against,
       new SpotlightCredentials(injection, async () => 'ws_1'),
@@ -216,7 +237,7 @@ actions:
     );
 
     await new HttpOutbound(
-      ['slack.com', 'slack-edge.com'],
+      allowingOutbound(['slack.com', '*.slack-edge.com']),
       fetch as unknown as typeof globalThis.fetch,
     ).run(action(), against, SLACK);
 
@@ -245,7 +266,11 @@ actions:
     );
 
     await expect(
-      new HttpOutbound(['slack.com'], fetch).run(action(), against, SLACK),
+      new HttpOutbound(allowingOutbound(['slack.com']), fetch).run(
+        action(),
+        against,
+        SLACK,
+      ),
     ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(fetch).toHaveBeenCalledTimes(1);
   });
@@ -259,7 +284,7 @@ actions:
     );
 
     await expect(
-      new HttpOutbound(['slack.com'], fetch).answer(
+      new HttpOutbound(allowingOutbound(['slack.com']), fetch).answer(
         { method: 'GET', url: 'https://slack.com/api/x', headers: {} },
         null,
         null,
@@ -270,7 +295,7 @@ actions:
 
   it('blocks a host the deployment did not allow', async () => {
     const fetch = replying({ ok: true });
-    const out = new HttpOutbound(['example.com'], fetch);
+    const out = new HttpOutbound(allowingOutbound(['example.com']), fetch);
 
     await expect(out.run(action(), against, SLACK)).rejects.toBeInstanceOf(
       EgressBlockedError,
@@ -280,7 +305,7 @@ actions:
 
   it('allows a subdomain of an allowed host', async () => {
     const fetch = replying({ ok: true, ts: '1' });
-    const out = new HttpOutbound(['slack.com'], fetch);
+    const out = new HttpOutbound(allowingOutbound(['slack.com']), fetch);
 
     await out.run(action(), against, SLACK);
     expect(fetch).toHaveBeenCalled();
@@ -310,7 +335,7 @@ actions:
         })();
 
     const fetch = replying({ ok: true });
-    const out = new HttpOutbound(['slack.com'], fetch);
+    const out = new HttpOutbound(allowingOutbound(['slack.com']), fetch);
 
     await out.run(request, { ...against, connection: 'xoxb-live' }, SLACK);
 
@@ -365,7 +390,10 @@ actions:
       const fetch = answering(new Uint8Array([1, 2, 3]), 'image/png');
 
       await expect(
-        new HttpOutbound(['slack.com'], fetch).bytes(fetching(), named, FILES),
+        new HttpOutbound(
+          allowingOutbound(['slack.com', '*.slack.com']),
+          fetch,
+        ).bytes(fetching(), named, FILES),
       ).resolves.toEqual(new Uint8Array([1, 2, 3]));
 
       const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
@@ -381,13 +409,36 @@ actions:
       );
 
       await expect(
-        new HttpOutbound(['slack.com'], fetch).bytes(fetching(), named, FILES),
+        new HttpOutbound(
+          allowingOutbound(['slack.com', '*.slack.com']),
+          fetch,
+        ).bytes(fetching(), named, FILES),
       ).rejects.toThrow(UpstreamError);
+    });
+
+    it('refuses a file larger than 25 MB', async () => {
+      const fetch = vi.fn(
+        async () =>
+          new Response(new Uint8Array([1]), {
+            status: 200,
+            headers: {
+              'content-type': 'image/png',
+              'content-length': String(26 * 1024 * 1024),
+            },
+          }),
+      );
+
+      await expect(
+        new HttpOutbound(
+          allowingOutbound(['slack.com', '*.slack.com']),
+          fetch,
+        ).bytes(fetching(), named, FILES),
+      ).rejects.toThrow(/larger than the 25 MB/);
     });
 
     it('blocks a host the deployment does not allow', async () => {
       await expect(
-        new HttpOutbound(['github.com'], vi.fn()).bytes(
+        new HttpOutbound(allowingOutbound(['github.com']), vi.fn()).bytes(
           fetching(),
           named,
           FILES,
@@ -439,7 +490,11 @@ actions:
   it('sends the structure the file wrote, each piece read in', async () => {
     const fetch = replying({ ok: true });
 
-    await new HttpOutbound(['slack.com'], fetch).run(written(), payload, SLACK);
+    await new HttpOutbound(allowingOutbound(['slack.com']), fetch).run(
+      written(),
+      payload,
+      SLACK,
+    );
 
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('https://slack.com/api/chat.postMessage');
@@ -458,7 +513,7 @@ actions:
     const fetch = replying({ ok: true });
 
     await expect(
-      new HttpOutbound(['slack.com'], fetch).run(
+      new HttpOutbound(allowingOutbound(['slack.com']), fetch).run(
         written(),
         { ...payload, ask: { station: 'Triage' } },
         SLACK,
@@ -488,7 +543,10 @@ describe('HttpOutbound, a secret injected in the query', () => {
 
   it('calls the host with the key in its parameter, and leaves the rest of the query unchanged', async () => {
     const fetch = replying({ results: [] });
-    const out = new HttpOutbound(['maps.googleapis.com'], fetch);
+    const out = new HttpOutbound(
+      allowingOutbound(['maps.googleapis.com']),
+      fetch,
+    );
 
     await out.answer(geocode, auth, null, GOOGLE);
 
@@ -509,7 +567,10 @@ describe('HttpOutbound, a secret injected in the query', () => {
       },
       400,
     );
-    const out = new HttpOutbound(['maps.googleapis.com'], fetch);
+    const out = new HttpOutbound(
+      allowingOutbound(['maps.googleapis.com']),
+      fetch,
+    );
 
     const answered = await out.answer(geocode, auth, null, GOOGLE);
 
@@ -522,7 +583,10 @@ describe('HttpOutbound, a secret injected in the query', () => {
     const fetch = vi.fn(async (url: string | URL | Request) => {
       throw new TypeError(`fetch failed for ${String(url)}`);
     });
-    const out = new HttpOutbound(['maps.googleapis.com'], fetch);
+    const out = new HttpOutbound(
+      allowingOutbound(['maps.googleapis.com']),
+      fetch,
+    );
 
     const failed = await out
       .answer(geocode, auth, null, GOOGLE)
@@ -545,7 +609,7 @@ describe('HttpOutbound, a secret injected in the query', () => {
       )
       .mockResolvedValueOnce(new Response('{}', { status: 200 }));
     const out = new HttpOutbound(
-      ['maps.googleapis.com', 'cdn.example.com'],
+      allowingOutbound(['maps.googleapis.com', 'cdn.example.com']),
       fetch,
     );
 

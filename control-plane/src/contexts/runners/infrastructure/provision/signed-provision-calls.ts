@@ -1,4 +1,7 @@
-import { OutboundHosts } from '@platform/outbound/outbound-hosts';
+import {
+  OutboundBlockedError,
+  type OutboundGuard,
+} from '@platform/outbound/outbound-guard';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type {
   ProvisionAnswer,
@@ -14,7 +17,7 @@ const MAX_DETAIL = 500;
 
 export interface ProvisionSettings {
   readonly spotlightUrl: string;
-  readonly hosts: OutboundHosts;
+  readonly guard: OutboundGuard;
 }
 
 const bodyOf = (call: ProvisionCall, spotlightUrl: string): string =>
@@ -59,11 +62,13 @@ const described = (error: unknown): string => {
 export class SignedProvisionCalls implements ProvisionCallsPort {
   constructor(
     private readonly settings: ProvisionSettings,
-    private readonly fetch: Fetch = globalThis.fetch,
+    private readonly fetch: Fetch = settings.guard.fetch,
   ) {}
 
   async call(call: ProvisionCall): Promise<ProvisionAnswer> {
-    if (!this.settings.hosts.allow(call.url.hostname)) {
+    try {
+      this.settings.guard.check(call.url.value);
+    } catch {
       return {
         outcome: 'not-allowed',
         detail: `This deployment’s outbound allow-list doesn’t include ${call.url.hostname}.`,
@@ -94,6 +99,10 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
     } catch (error) {
+      if (error instanceof OutboundBlockedError) {
+        return { outcome: 'not-allowed', detail: error.message };
+      }
+
       return { outcome: 'unreachable', detail: described(error) };
     }
 
