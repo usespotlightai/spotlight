@@ -148,7 +148,7 @@ const requestSchema = z.object({
 });
 
 const actionSchema = z.object({
-  from: z.enum(['spotlight', 'network']).default('spotlight'),
+  from: z.enum(['spotlight', 'network']).optional(),
   timeoutSeconds: z
     .number()
     .int()

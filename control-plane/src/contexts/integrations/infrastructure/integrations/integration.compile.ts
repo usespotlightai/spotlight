@@ -617,7 +617,7 @@ class Compiler {
   action(action: ActionFile, at: Place, field: FieldPath): RequestIR {
     const request = this.request(action.request, at);
 
-    if (action.from === 'spotlight') {
+    if (action.from !== 'network') {
       if (action.timeoutSeconds !== undefined) {
         this.refuse(
           field.to('timeoutSeconds'),
