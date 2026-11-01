@@ -1107,8 +1107,12 @@ func TestReKeysTheEgressForEachRunAndHandsTheSandboxItsAuthority(t *testing.T) {
 	if !engine.wasDestroyed(firstEgress) {
 		t.Error("the last run's egress is still there")
 	}
-	authority, ok := engine.putIn(id, serve.AuthorityPath)
-	if !ok || !strings.Contains(string(authority.Body), "BEGIN CERTIFICATE") || authority.Mode != 0o644 {
+	eventually(t, "the sandbox got the new egress's authority", func() bool {
+		_, ok := engine.putIn(id, serve.AuthorityPath)
+		return ok
+	})
+	authority, _ := engine.putIn(id, serve.AuthorityPath)
+	if !strings.Contains(string(authority.Body), "BEGIN CERTIFICATE") || authority.Mode != 0o644 {
 		t.Errorf("the sandbox got %+v for the new egress's authority", authority)
 	}
 }
