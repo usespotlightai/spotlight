@@ -112,9 +112,9 @@ export function CheckboxSelect({
         className="w-max min-w-[max(var(--anchor-width),13rem)] max-w-(--available-width)"
       >
         {readOnly ? (
-          <Tooltip>
+          <Tooltip trackCursorAxis="both">
             <TooltipTrigger render={<div />}>{items}</TooltipTrigger>
-            <TooltipContent side="right" align="start" sideOffset={10}>
+            <TooltipContent side="right" align="start" sideOffset={12}>
               {readOnlyBecause}
             </TooltipContent>
           </Tooltip>
