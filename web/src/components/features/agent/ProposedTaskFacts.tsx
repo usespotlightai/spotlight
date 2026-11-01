@@ -30,7 +30,7 @@ export function ProposedTaskFacts({
             <TrailLink
               id={titleId}
               to={taskPath(slug, teamId, proposal.taskId)}
-              className={`${FACT_VALUE} underline-offset-2 hover:underline`}
+              className={`${FACT_VALUE} -mx-1.5 rounded-md box-decoration-clone px-1.5 py-0.5 outline-none transition-colors hover:bg-accent focus-visible:bg-accent`}
             >
               {proposal.title}
             </TrailLink>
