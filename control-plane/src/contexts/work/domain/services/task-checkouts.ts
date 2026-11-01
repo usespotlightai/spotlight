@@ -3,6 +3,10 @@ import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 import type { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import {
+  REMOTE_VIA_GIT_PROXY,
+  type RunCheckout,
+} from '@work/domain/value-objects/run-spec.vo';
 
 type CheckoutDiff = 'worktree' | 'commits';
 
@@ -46,3 +50,18 @@ export const checkoutsOf = (
     setup: line.repositories.setupOf(repository),
   }));
 };
+
+export const runCheckoutsFor = (task: Task, line: Line): RunCheckout[] =>
+  runCheckoutsOf(checkoutsOf(task, line));
+
+export const runCheckoutsOf = (
+  checkouts: readonly TaskCheckout[],
+): RunCheckout[] =>
+  checkouts.map((checkout) => ({
+    remote: REMOTE_VIA_GIT_PROXY,
+    path: checkout.repository.name,
+    ...(checkout.branch ? { branch: checkout.branch.value } : {}),
+    ...(checkout.ref ? { ref: checkout.ref } : {}),
+    ...(checkout.diffOf === 'commits' ? { diffOf: checkout.diffOf } : {}),
+    ...(checkout.setup ? { setup: checkout.setup.value } : {}),
+  }));

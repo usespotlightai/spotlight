@@ -1,5 +1,4 @@
 import {
-  REMOTE_VIA_GIT_PROXY,
   RunSpecContract,
   TRACE_PARENT_VAR,
 } from '@work/application/contracts/run-spec.contract';
@@ -29,6 +28,7 @@ import {
   orderAt,
   type RunOrder,
 } from '@work/domain/services/run-order';
+import { runCheckoutsOf } from '@work/domain/services/task-checkouts';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
@@ -56,19 +56,11 @@ export interface Laid {
   readonly settingFiles: readonly string[];
 }
 
-// Do not send a host address to a runner. Name each remote as Spotlight serves it.
 const laidOut = (
   { order, prepared, home, folders }: Ordered,
   laid: Laid,
 ): RunSpecParts => ({
-  checkouts: order.checkouts.map((checkout) => ({
-    remote: REMOTE_VIA_GIT_PROXY,
-    path: checkout.repository.name,
-    ...(checkout.branch ? { branch: checkout.branch.value } : {}),
-    ...(checkout.ref ? { ref: checkout.ref } : {}),
-    ...(checkout.diffOf === 'commits' ? { diffOf: checkout.diffOf } : {}),
-    ...(checkout.setup ? { setup: checkout.setup.value } : {}),
-  })),
+  checkouts: runCheckoutsOf(order.checkouts),
   command: prepared.command.started({ [TRACE_PARENT_VAR]: laid.naming }),
   briefing: laid.briefing,
   handover: {

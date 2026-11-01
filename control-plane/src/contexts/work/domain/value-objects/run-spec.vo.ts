@@ -5,6 +5,9 @@ import type { HarnessSession } from '@work/domain/value-objects/harness-session.
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 
+// Do not send a host address to a runner. Name each remote as Spotlight serves it.
+export const REMOTE_VIA_GIT_PROXY = 'spotlight:repository';
+
 export interface RunCheckout {
   readonly remote: string;
   readonly path?: string;
@@ -534,6 +537,28 @@ export class RunSpec {
         },
       }),
     );
+  }
+
+  join(checkouts: readonly RunCheckout[]): RunSpec {
+    const folders = new Set(this.checkoutFolders);
+    const joining = checkouts.filter((each) => {
+      if (
+        each.path === undefined ||
+        blank(each.path) ||
+        folders.has(each.path)
+      ) {
+        return false;
+      }
+      folders.add(each.path);
+      return true;
+    });
+
+    return joining.length === 0
+      ? this
+      : RunSpec.of({
+          ...this.parts,
+          checkouts: [...(this.parts.checkouts ?? []), ...joining],
+        });
   }
 
   get injectedSecrets(): readonly SecretName[] {

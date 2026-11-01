@@ -1,4 +1,5 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -12,21 +13,26 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
+import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
@@ -51,18 +57,31 @@ const station = (
     ...extra,
   });
 
-const line = Line.rehydrate({
-  id: LineId.of('line_1'),
-  workspaceId: WorkspaceId.of('ws_1'),
-  teamId: TeamId.of('team_1'),
-  key: LineKey.of('delivery'),
-  name: LineName.of('Delivery'),
-  stations: [
-    station('station_backlog', 'backlog', 0, { kind: 'backlog' }),
-    station('station_build', 'build', 1, { harness: HarnessId.of('dev') }),
-    station('station_completed', 'completed', 2, { kind: 'completed' }),
-  ],
-});
+const WIDGETS = Repository.of('acme/widgets');
+const CONFIG = Repository.of('acme/config');
+
+const lineWith = (repositories: readonly Repository[]) =>
+  Line.rehydrate({
+    id: LineId.of('line_1'),
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: TeamId.of('team_1'),
+    key: LineKey.of('delivery'),
+    name: LineName.of('Delivery'),
+    stations: [
+      station('station_backlog', 'backlog', 0, { kind: 'backlog' }),
+      station('station_build', 'build', 1, { harness: HarnessId.of('dev') }),
+      station('station_completed', 'completed', 2, { kind: 'completed' }),
+    ],
+    repositories: repositories.map((each) =>
+      LineRepositoryConfig.of(each, {
+        setup: each.equals(CONFIG)
+          ? RepositorySetup.of('terraform version')
+          : null,
+      }),
+    ),
+  });
+
+const line = lineWith([WIDGETS]);
 
 const note = (body: string, voice: Voice) => ({
   station: StationName.of('build'),
@@ -95,11 +114,19 @@ const suspended = () =>
     id: RUN,
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
+    subject: RunSubject.task(TaskId.of('task_1'), BUILD, TaskRevision.of(0)),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
       resume: { key: 'task_1:station_build' },
+      checkouts: [
+        {
+          remote: 'spotlight:repository',
+          path: 'widgets',
+          branch: answered().branch.value,
+        },
+      ],
     }),
   })
     .claim(RUNNER, NOW)
@@ -110,7 +137,14 @@ const suspended = () =>
       NOW,
     );
 
-const taking = (task: Task, run: Run | null, conflictsFirst = false) => {
+const taking = (
+  task: Task,
+  run: Run | null,
+  {
+    conflictsFirst = false,
+    current = line,
+  }: { conflictsFirst?: boolean; current?: Line | null } = {},
+) => {
   const saved: Run[] = [];
   let conflicted = !conflictsFirst;
 
@@ -126,6 +160,7 @@ const taking = (task: Task, run: Run | null, conflictsFirst = false) => {
         saved.push(each);
       },
     } as unknown as RunRepository,
+    { findByStation: async () => current } as unknown as LineRepository,
   );
 
   return {
@@ -147,8 +182,42 @@ describe('PausedRuns', () => {
     expect(saved[0]?.attempt).toBe(2);
   });
 
+  it('checks out the repositories its line gained while the run waited, beside the ones it has', async () => {
+    const { takeUp, saved } = taking(answered(), suspended(), {
+      current: lineWith([WIDGETS, CONFIG]),
+    });
+
+    await takeUp();
+
+    expect(saved[0]?.spec.value.checkouts).toEqual([
+      {
+        remote: 'spotlight:repository',
+        path: 'widgets',
+        branch: answered().branch.value,
+      },
+      {
+        remote: 'spotlight:repository',
+        path: 'config',
+        branch: answered().branch.value,
+        setup: 'terraform version',
+      },
+    ]);
+  });
+
+  it('keeps the checkouts it has when its line is gone', async () => {
+    const { takeUp, saved } = taking(answered(), suspended(), {
+      current: null,
+    });
+
+    await takeUp();
+
+    expect(saved[0]?.spec.equals(suspended().spec)).toBe(true);
+  });
+
   it('tries again when the run changed while it was being taken up', async () => {
-    const { takeUp, saved } = taking(answered(), suspended(), true);
+    const { takeUp, saved } = taking(answered(), suspended(), {
+      conflictsFirst: true,
+    });
 
     await takeUp();
 

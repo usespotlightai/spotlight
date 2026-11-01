@@ -43,7 +43,10 @@ import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
-import type { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+import type {
+  RunCheckout,
+  RunSpec,
+} from '@work/domain/value-objects/run-spec.vo';
 import {
   LEASED_RUN_STATES,
   type RunState,
@@ -856,14 +859,16 @@ export class Run extends EventRecorder {
     return resumable(this.state, this.stopRequested);
   }
 
-  resumed(): Run {
+  resumed(joining: readonly RunCheckout[]): Run {
     if (!this.resumable) {
       throw new InvalidRunTransitionError(
         `Run ${this.id.value} is ${this.state}${this.stopRequested ? ' and has a stop request' : ''}. It cannot be taken up again.`,
       );
     }
 
-    const resumed = this.backOnTheQueue();
+    const resumed = this.with({
+      spec: this.spec.join(joining),
+    }).backOnTheQueue();
 
     resumed.record(
       new RunResumed(this.id, this.workspaceId, this.subject, resumed.attempt),

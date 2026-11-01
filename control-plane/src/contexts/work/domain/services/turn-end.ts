@@ -7,6 +7,7 @@ import {
   putsItToAPerson,
   routeAfterRun,
 } from '@work/domain/services/route-after-run';
+import { runCheckoutsFor } from '@work/domain/services/task-checkouts';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -76,7 +77,7 @@ export const turnEnded = (turn: {
     return {
       run: run
         .suspend(by, outcome, report, now, { resumesAtOnce: true })
-        .resumed(),
+        .resumed(line ? runCheckoutsFor(task, line) : []),
       task: null,
     };
   }

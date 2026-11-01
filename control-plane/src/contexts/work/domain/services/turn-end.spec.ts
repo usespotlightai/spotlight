@@ -1,4 +1,5 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -19,6 +20,7 @@ import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -76,26 +78,30 @@ const station = (
     ...extra,
   });
 
-const line = Line.rehydrate({
-  id: LineId.of('line_1'),
-  workspaceId: WorkspaceId.of('ws_1'),
-  teamId: TeamId.of('team_1'),
-  key: LineKey.of('delivery'),
-  name: LineName.of('Delivery'),
-  stations: [
-    station(StationId.of('station_backlog'), 'backlog', 0, {
-      kind: 'backlog',
-    }),
-    station(BUILD, 'build', 1, {
-      harness: HarnessId.of('dev'),
-      routes: StationRoutes.of({ stations: [SHIP] }),
-    }),
-    station(SHIP, 'ship', 2, { harness: HarnessId.of('dev') }),
-    station(StationId.of('station_completed'), 'completed', 3, {
-      kind: 'completed',
-    }),
-  ],
-});
+const lineWith = (repositories: readonly LineRepositoryConfig[]) =>
+  Line.rehydrate({
+    id: LineId.of('line_1'),
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: TeamId.of('team_1'),
+    key: LineKey.of('delivery'),
+    name: LineName.of('Delivery'),
+    stations: [
+      station(StationId.of('station_backlog'), 'backlog', 0, {
+        kind: 'backlog',
+      }),
+      station(BUILD, 'build', 1, {
+        harness: HarnessId.of('dev'),
+        routes: StationRoutes.of({ stations: [SHIP] }),
+      }),
+      station(SHIP, 'ship', 2, { harness: HarnessId.of('dev') }),
+      station(StationId.of('station_completed'), 'completed', 3, {
+        kind: 'completed',
+      }),
+    ],
+    repositories,
+  });
+
+const line = lineWith([]);
 
 const run = () =>
   Run.enqueue({
@@ -144,12 +150,13 @@ const ending = (input: {
   outcome?: RunOutcome;
   handover?: { next?: string; note?: string } | null;
   ran?: Run;
+  on?: Line;
 }) =>
   turnEnded({
     run: input.ran ?? run(),
     by: RUNNER,
     task: input.task === undefined ? handed() : input.task,
-    line,
+    line: input.on ?? line,
     outcome: input.outcome ?? CLEAN,
     report: HandoverReport.of({
       handover: input.handover ? Handover.of(input.handover) : null,
@@ -205,6 +212,22 @@ describe('turnEnded', () => {
         .find((event): event is RunPaused => event instanceof RunPaused)
         ?.resumesAtOnce,
     ).toBe(true);
+  });
+
+  it('checks out the repositories its line gained when it puts the run back on the queue at once', () => {
+    const answered = approvalAsked().answer(NotePosition.of(0), {
+      station: StationName.of('build'),
+      body: TaskNoteBody.of('Yes.'),
+      at: NOW,
+      voice: Voice.person(UserId.of('user_1')),
+    });
+
+    const ended = ending({
+      task: answered,
+      on: lineWith([LineRepositoryConfig.of(Repository.of('acme/widgets'))]),
+    });
+
+    expect(ended.run.spec.checkoutFolders).toEqual(['widgets']);
   });
 
   it('says the run waits for a person when no answer came in during the turn', () => {

@@ -477,7 +477,7 @@ describe('a run that asks a person', () => {
 
     await runs.save(read.requestStop(new Date()));
 
-    await expect(runs.save(read.resumed())).rejects.toBeInstanceOf(
+    await expect(runs.save(read.resumed([]))).rejects.toBeInstanceOf(
       RunVersionConflictError,
     );
     expect((await runRow(runId))?.state).toBe('completed');

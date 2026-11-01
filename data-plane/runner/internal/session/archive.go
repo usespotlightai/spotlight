@@ -33,6 +33,7 @@ type archiver struct {
 	baseline     string
 	leftOut      []string
 	current      string
+	inherits     bool
 }
 
 type kept struct {
@@ -63,6 +64,7 @@ func (a *archiver) keep() kept {
 func (a *archiver) carry(from kept) {
 	a.restoredFrom, a.current = from.archive, from.archive
 	a.baseline, a.leftOut = from.baseline, from.leftOut
+	a.inherits = true
 	if from.archive != "" {
 		a.report(restoreStep, "Kept the workspace this sandbox restored or the last run left in it")
 	}
@@ -138,6 +140,7 @@ func (a *archiver) unpacked(ctx context.Context, stored protocol.StoredArchive) 
 	}
 
 	a.restoredFrom, a.current = stored.ID, stored.ID
+	a.inherits = true
 	return nil
 }
 

@@ -30,8 +30,6 @@ export type AttachmentShape = RunAttachment;
 export type RunSpecShape = RunSpecParts;
 export type HarnessSetupShape = RunHarnessSetup;
 
-export const REMOTE_VIA_GIT_PROXY = 'spotlight:repository';
-
 export const TRACE_PARENT_VAR = 'TRACEPARENT';
 
 export const SKILL_FILE = 'SKILL.md';

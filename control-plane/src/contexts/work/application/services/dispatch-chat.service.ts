@@ -6,7 +6,6 @@ import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.p
 import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import {
-  REMOTE_VIA_GIT_PROXY,
   RunSpecContract,
   TRACE_PARENT_VAR,
 } from '@work/application/contracts/run-spec.contract';
@@ -36,7 +35,10 @@ import {
 import { CHAT_PRIORITY } from '@work/domain/services/chat-priority';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
+import {
+  REMOTE_VIA_GIT_PROXY,
+  RunSpec,
+} from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 
 export class DispatchChat implements ChatDispatching {
