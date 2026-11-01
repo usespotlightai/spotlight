@@ -58,7 +58,11 @@ import {
 } from '@runners/application/commands/runner-resource.commands';
 import { OpenSandboxCommand } from '@runners/application/commands/sandbox.commands';
 import { RUNNERS_EVENT_MAPPERS } from '@runners/application/integration-events/runners.event-mappers';
-import { EDITOR_SANDBOXES } from '@runners/application/ports/editor-sandboxes.port';
+import { EDITOR_LEASES } from '@runners/application/ports/editor-leases.port';
+import {
+  EDITOR_SANDBOXES,
+  type EditorSandboxesPort,
+} from '@runners/application/ports/editor-sandboxes.port';
 import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import {
@@ -84,7 +88,10 @@ import {
   type RunnerResourcesPort,
 } from '@runners/application/ports/runner-resources.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
-import { SANDBOX_TUNNELS } from '@runners/application/ports/sandbox-tunnels.port';
+import {
+  SANDBOX_TUNNELS,
+  type SandboxTunnelsPort,
+} from '@runners/application/ports/sandbox-tunnels.port';
 import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
 import { ImportEgressHandler } from '@runners/application/queries/handlers/import-egress.handler';
 import { ImportRunnerPoolHandler } from '@runners/application/queries/handlers/import-runner-pool.handler';
@@ -124,6 +131,7 @@ import { RunnerEgress } from '@runners/application/services/runner-egress.servic
 import { RunnerHeartbeats } from '@runners/application/services/runner-heartbeats.service';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
 import { Runners } from '@runners/application/services/runners.service';
+import { SandboxEditors } from '@runners/application/services/sandbox-editors.service';
 import { Sandboxes } from '@runners/application/services/sandboxes.service';
 import { RUNNERS_PAYLOAD_TYPES } from '@runners/domain/payload-types';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
@@ -155,6 +163,7 @@ import { RunnerPoolResourceController } from '@runners/presentation/http/control
 import { RunnerRegistrationController } from '@runners/presentation/http/controllers/runner-registration.controller';
 import { RunnerTrustResourceController } from '@runners/presentation/http/controllers/runner-trust-resource.controller';
 import { WorkspaceRunnersResourceController } from '@runners/presentation/http/controllers/workspace-runners-resource.controller';
+import { SandboxEditorGateway } from '@runners/presentation/websocket/sandbox-editor.gateway';
 import { SandboxesWorker } from '@runners/presentation/workers/sandboxes.worker';
 import { StaleHostsWorker } from '@runners/presentation/workers/stale-hosts.worker';
 import {
@@ -361,6 +370,18 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   },
   HostSandboxTunnels,
   { provide: SANDBOX_TUNNELS, useExisting: HostSandboxTunnels },
+  {
+    provide: SandboxEditors,
+    inject: [EDITOR_SANDBOXES, SANDBOX_TUNNELS, ID_GENERATOR, CLOCK],
+    useFactory: (
+      sandboxes: EditorSandboxesPort,
+      tunnels: SandboxTunnelsPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+    ) => new SandboxEditors(sandboxes, tunnels, ids, clock),
+  },
+  { provide: EDITOR_LEASES, useExisting: SandboxEditors },
+  SandboxEditorGateway,
   {
     provide: SandboxesWorker,
     inject: [Sandboxes, CLOCK, LOGGER],

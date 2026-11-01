@@ -8,7 +8,6 @@ import { RunnersModule } from '@runners/runners.module';
 import { SecretsModule } from '@secrets/secrets.module';
 import { WorkModule } from '@work/work.module';
 import { ContextBindingsModule } from './context-bindings.module';
-import { SandboxEditorsModule } from './sandbox-editors.module';
 
 @Module({
   imports: [
@@ -21,7 +20,6 @@ import { SandboxEditorsModule } from './sandbox-editors.module';
     CatalogModule,
     GitHubModule,
     ContextBindingsModule,
-    SandboxEditorsModule,
   ],
 })
 export class AppModule {}

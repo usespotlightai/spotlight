@@ -1,6 +1,10 @@
 package ssh
 
-import "testing"
+import (
+	"testing"
+
+	"usespotlight.ai/data-plane/protocol"
+)
 
 func TestParsesATaskAndAChatAlias(t *testing.T) {
 	for raw, want := range map[string]Alias{
@@ -33,19 +37,32 @@ func TestRefusesAnAliasThatNamesNoTaskOrChat(t *testing.T) {
 	}
 }
 
-func TestConnectsToTheTaskInTheWorkspace(t *testing.T) {
+func TestAsksForTheTaskInTheWorkspace(t *testing.T) {
+	got := Alias{Kind: "task", ID: "abc", Workspace: "acme"}.connection()
+	if len(got) != 2 || got["task"] != "abc" || got["workspace"] != "acme" {
+		t.Errorf("connection() = %v", got)
+	}
+
+	got = Alias{Kind: "chat", ID: "c1", Workspace: "acme"}.connection()
+	if len(got) != 2 || got["chat"] != "c1" || got["workspace"] != "acme" {
+		t.Errorf("connection() for a chat = %v", got)
+	}
+}
+
+func TestConnectsWithTheEditorLease(t *testing.T) {
+	lease := protocol.EditorConnection{SandboxID: "sandbox_1", Holder: "holder_1"}
 	for address, want := range map[string]string{
-		"https://app.usespotlight.ai": "wss://app.usespotlight.ai/api/sandboxes/connect?task=abc&workspace=acme",
-		"http://localhost:3000":       "ws://localhost:3000/api/sandboxes/connect?task=abc&workspace=acme",
+		"https://app.usespotlight.ai": "wss://app.usespotlight.ai/api/sandboxes/connect?holder=holder_1&sandbox=sandbox_1",
+		"http://localhost:3000":       "ws://localhost:3000/api/sandboxes/connect?holder=holder_1&sandbox=sandbox_1",
 	} {
-		got, err := Alias{Kind: "task", ID: "abc", Workspace: "acme"}.connectURL(address)
+		got, err := socketURL(address, lease)
 		if err != nil || got != want {
-			t.Errorf("connectURL(%q) = %q, %v; want %q", address, got, err, want)
+			t.Errorf("socketURL(%q) = %q, %v; want %q", address, got, err, want)
 		}
 	}
 
-	got, _ := Alias{Kind: "chat", ID: "c1", Workspace: "acme"}.connectURL("https://app.usespotlight.ai")
-	if got != "wss://app.usespotlight.ai/api/sandboxes/connect?chat=c1&workspace=acme" {
-		t.Errorf("connectURL for a chat = %q", got)
+	got, err := connectionsURL("https://app.usespotlight.ai")
+	if err != nil || got != "https://app.usespotlight.ai/api/editor-connections" {
+		t.Errorf("connectionsURL = %q, %v", got, err)
 	}
 }

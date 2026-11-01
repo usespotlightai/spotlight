@@ -1,4 +1,9 @@
-import type { EditorTarget } from '@runners/application/ports/editor-access.port';
+type EditorTargetKind = 'task' | 'chat';
+
+export interface EditorTarget {
+  readonly kind: EditorTargetKind;
+  readonly id: string;
+}
 
 export class ConnectEditorCommand {
   constructor(

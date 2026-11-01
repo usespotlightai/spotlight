@@ -13,6 +13,13 @@ const TunnelNoSandbox = 4404
 
 const EditorConnectPath = "/api/sandboxes/connect"
 
+const EditorConnectionsPath = "/api/editor-connections"
+
+type EditorConnection struct {
+	SandboxID string `json:"sandboxId"`
+	Holder    string `json:"holder"`
+}
+
 const (
 	EditorStartTimedOut  = 4408
 	EditorSandboxStopped = 4410

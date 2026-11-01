@@ -11,6 +11,7 @@ import {
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
+import { EDITOR_LEASE_MS } from '@runners/domain/value-objects/sandbox-lease.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -492,6 +493,28 @@ describe('Sandboxes', () => {
         await service.holdForEditor('sandbox_none', 'conn_1', later(1)),
       ).toBeNull();
       expect(await service.stateOf('sandbox_none')).toBeNull();
+    });
+
+    it('admits a holder only while its editor lease is live', async () => {
+      const { service } = serving({ known: [idleReady()] });
+      await service.holdForEditor('sandbox_e', 'conn_1', later(1_000));
+
+      expect(
+        await service.heldByEditor('sandbox_e', 'conn_1', later(2_000)),
+      ).toBe(true);
+      expect(
+        await service.heldByEditor('sandbox_e', 'conn_2', later(2_000)),
+      ).toBe(false);
+      expect(
+        await service.heldByEditor(
+          'sandbox_e',
+          'conn_1',
+          later(1_000 + EDITOR_LEASE_MS),
+        ),
+      ).toBe(false);
+      expect(
+        await service.heldByEditor('sandbox_none', 'conn_1', later(2_000)),
+      ).toBe(false);
     });
 
     it('keeps the sandbox past the grace while it holds it, and the grace starts again once it leaves', async () => {

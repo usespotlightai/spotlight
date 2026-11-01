@@ -1,9 +1,14 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { EditorLeasesPort } from '@runners/application/ports/editor-leases.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { EditorAccess } from '@work/application/services/editor-access.service';
+import {
+  ConnectEditorCommand,
+  type EditorTarget,
+} from '@work/application/commands/connect-editor.command';
+import { ConnectEditorHandler } from '@work/application/commands/handlers/connect-editor.handler';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -17,7 +22,10 @@ const OUTSIDER = 'user_outsider';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 
-const editorAccess = () => {
+const TASK: EditorTarget = { kind: 'task', id: 'task_1' };
+const CHAT: EditorTarget = { kind: 'chat', id: 'chat_1' };
+
+const setUp = () => {
   const chat = Chat.start({
     workspaceId: WORKSPACE,
     teamId: TeamId.of('team_1'),
@@ -55,41 +63,45 @@ const editorAccess = () => {
       id.value === 'chat_1' ? chat : null,
     ),
   } as unknown as ChatRepository;
+  const leases = {
+    hold: vi.fn(async () => ({ sandboxId: 'sandbox_1', holder: 'conn_1' })),
+  } satisfies EditorLeasesPort;
+  const handler = new ConnectEditorHandler(tasks, chats, access, leases);
 
-  return new EditorAccess(tasks, chats, access);
+  return {
+    leases,
+    connect: (viewer: string, target: EditorTarget, slug: string | null) =>
+      handler.execute(new ConnectEditorCommand(viewer, target, slug)),
+  };
 };
 
-describe('EditorAccess', () => {
-  it('names the workspace and resume key of a task for a person who may view it', async () => {
-    expect(
-      await editorAccess().editorAccessFor(
-        BEA,
-        { kind: 'task', id: 'task_1' },
-        'acme',
-      ),
-    ).toEqual({ workspaceId: 'ws_1', key: 'task-task_1' });
+describe('ConnectEditorHandler', () => {
+  it('holds the sandbox of a task’s workspace and resume key for a person who may view it', async () => {
+    const { connect, leases } = setUp();
+
+    expect(await connect(BEA, TASK, 'acme')).toEqual({
+      sandboxId: 'sandbox_1',
+      holder: 'conn_1',
+    });
+    expect(leases.hold).toHaveBeenCalledWith('ws_1', 'task-task_1');
   });
 
-  it('names the workspace and resume key of a chat for the person who started it only', async () => {
-    const access = editorAccess();
+  it('holds the sandbox of a chat for the person who started it only', async () => {
+    const { connect, leases } = setUp();
 
-    expect(
-      await access.editorAccessFor(ADA, { kind: 'chat', id: 'chat_1' }, null),
-    ).toEqual({ workspaceId: 'ws_1', key: 'chat-chat_1' });
-    expect(
-      await access.editorAccessFor(BEA, { kind: 'chat', id: 'chat_1' }, null),
-    ).toBeNull();
+    expect(await connect(ADA, CHAT, null)).not.toBeNull();
+    expect(leases.hold).toHaveBeenCalledWith('ws_1', 'chat-chat_1');
+    expect(await connect(BEA, CHAT, null)).toBeNull();
+    expect(leases.hold).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses a person outside the workspace, an unknown task, and another workspace’s name', async () => {
-    const access = editorAccess();
-    const task = { kind: 'task', id: 'task_1' } as const;
+  it('holds nothing for a person outside the workspace, an unknown task, or another workspace’s name', async () => {
+    const { connect, leases } = setUp();
 
-    expect(await access.editorAccessFor(OUTSIDER, task, null)).toBeNull();
-    expect(
-      await access.editorAccessFor(BEA, { kind: 'task', id: 'task_9' }, null),
-    ).toBeNull();
-    expect(await access.editorAccessFor(BEA, task, 'other')).toBeNull();
-    expect(await access.editorAccessFor(BEA, task, 'missing')).toBeNull();
+    expect(await connect(OUTSIDER, TASK, null)).toBeNull();
+    expect(await connect(BEA, { kind: 'task', id: 'task_9' }, null)).toBeNull();
+    expect(await connect(BEA, TASK, 'other')).toBeNull();
+    expect(await connect(BEA, TASK, 'missing')).toBeNull();
+    expect(leases.hold).not.toHaveBeenCalled();
   });
 });
