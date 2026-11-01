@@ -1,10 +1,10 @@
 import type { IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
 import {
+  type BeforeApplicationShutdown,
   Inject,
   Injectable,
   type OnApplicationBootstrap,
-  type OnApplicationShutdown,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import { bearerIn, TRUST_HEADER } from '@platform/http/bearer';
@@ -42,7 +42,10 @@ const routeOf = (pathname: string): TunnelRoute | null => {
 
 @Injectable()
 export class HostSandboxTunnels
-  implements SandboxTunnelsPort, OnApplicationBootstrap, OnApplicationShutdown
+  implements
+    SandboxTunnelsPort,
+    OnApplicationBootstrap,
+    BeforeApplicationShutdown
 {
   private readonly tunnels: DialBackTunnels;
 
@@ -77,7 +80,7 @@ export class HostSandboxTunnels
     this.tunnels.listen(this.adapters);
   }
 
-  onApplicationShutdown(): void {
+  beforeApplicationShutdown(): void {
     this.tunnels.close();
   }
 

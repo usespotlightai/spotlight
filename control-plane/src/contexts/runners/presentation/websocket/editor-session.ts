@@ -14,6 +14,7 @@ export interface EditorTiming {
   readonly renewMs: number;
   readonly pollMs: number;
   readonly startWaitMs: number;
+  readonly hostWaitMs: number;
   readonly activityMs: number;
   readonly pingMs: number;
 }
@@ -22,6 +23,7 @@ const EDITOR_TIMING: EditorTiming = {
   renewMs: 30_000,
   pollMs: 1_000,
   startWaitMs: 10 * 60_000,
+  hostWaitMs: 15_000,
   activityMs: 30 * 60_000,
   pingMs: 30_000,
 };
@@ -60,7 +62,7 @@ export class EditorSession {
         return;
       }
 
-      const host = await this.editors.stream(this.connection);
+      const host = await this.reached();
 
       if (!host) {
         this.close(
@@ -122,6 +124,22 @@ export class EditorSession {
     }
 
     return false;
+  }
+
+  private async reached(): Promise<Duplex | null> {
+    const until = Date.now() + this.timing.hostWaitMs;
+
+    while (!this.closed) {
+      const host = await this.editors.stream(this.connection);
+
+      if (host || Date.now() >= until) {
+        return host;
+      }
+
+      await new Promise((done) => setTimeout(done, this.timing.pollMs));
+    }
+
+    return null;
   }
 
   private join(host: Duplex): Promise<void> {

@@ -2,10 +2,10 @@ import type { IncomingMessage } from 'node:http';
 import { Redis } from '@hocuspocus/extension-redis';
 import { type Extension, Hocuspocus } from '@hocuspocus/server';
 import {
+  type BeforeApplicationShutdown,
   Inject,
   Injectable,
   type OnApplicationBootstrap,
-  type OnApplicationShutdown,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
 import type { CollabDocuments } from '@platform/collab/collab-documents';
@@ -64,7 +64,7 @@ const headersOf = (request: IncomingMessage): Headers => {
 
 @Injectable()
 export class CollabServer
-  implements OnApplicationBootstrap, OnApplicationShutdown
+  implements OnApplicationBootstrap, BeforeApplicationShutdown
 {
   private readonly served = new Map<string, CollabDocuments>();
   private readonly sockets = new WebSocketServer({
@@ -195,7 +195,7 @@ export class CollabServer
     });
   }
 
-  async onApplicationShutdown(): Promise<void> {
+  async beforeApplicationShutdown(): Promise<void> {
     clearInterval(this.recheck);
 
     const unloaded = new Promise<void>((done) => {

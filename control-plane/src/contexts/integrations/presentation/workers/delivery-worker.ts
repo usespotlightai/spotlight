@@ -7,7 +7,7 @@ const EVERY_MS = 500;
 
 @Injectable()
 export class DeliveryWorker implements OnModuleDestroy {
-  #ticking = false;
+  #ticking: Promise<void> | null = null;
   #stopped = false;
 
   constructor(
@@ -15,8 +15,9 @@ export class DeliveryWorker implements OnModuleDestroy {
     private readonly logger: LoggerPort,
   ) {}
 
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
+    await this.#ticking;
   }
 
   @Interval(EVERY_MS)
@@ -25,14 +26,16 @@ export class DeliveryWorker implements OnModuleDestroy {
       return;
     }
 
-    this.#ticking = true;
+    this.#ticking = this.deliver();
+    await this.#ticking;
+    this.#ticking = null;
+  }
 
+  private async deliver(): Promise<void> {
     try {
       await this.work.processDue();
     } catch (error) {
       this.logger.error({ err: error }, 'Working off deliveries');
-    } finally {
-      this.#ticking = false;
     }
   }
 }

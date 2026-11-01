@@ -7,7 +7,7 @@ const EVERY_MS = 15_000;
 
 @Injectable()
 export class ScheduleWorker implements OnModuleDestroy {
-  #ticking = false;
+  #ticking: Promise<void> | null = null;
   #stopped = false;
 
   constructor(
@@ -15,8 +15,9 @@ export class ScheduleWorker implements OnModuleDestroy {
     private readonly logger: LoggerPort,
   ) {}
 
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
+    await this.#ticking;
   }
 
   @Interval(EVERY_MS)
@@ -25,14 +26,16 @@ export class ScheduleWorker implements OnModuleDestroy {
       return;
     }
 
-    this.#ticking = true;
+    this.#ticking = this.runDue();
+    await this.#ticking;
+    this.#ticking = null;
+  }
 
+  private async runDue(): Promise<void> {
     try {
       await this.schedules.runDue();
     } catch (error) {
       this.logger.error({ err: error }, 'Running due schedules');
-    } finally {
-      this.#ticking = false;
     }
   }
 }

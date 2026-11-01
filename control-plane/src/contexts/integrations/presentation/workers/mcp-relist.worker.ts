@@ -7,7 +7,7 @@ const EVERY_MS = 60_000;
 
 @Injectable()
 export class McpRelistWorker implements OnModuleDestroy {
-  #ticking = false;
+  #ticking: Promise<void> | null = null;
   #stopped = false;
 
   constructor(
@@ -15,8 +15,9 @@ export class McpRelistWorker implements OnModuleDestroy {
     private readonly logger: LoggerPort,
   ) {}
 
-  onModuleDestroy(): void {
+  async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
+    await this.#ticking;
   }
 
   @Interval(EVERY_MS)
@@ -25,14 +26,16 @@ export class McpRelistWorker implements OnModuleDestroy {
       return;
     }
 
-    this.#ticking = true;
+    this.#ticking = this.relist();
+    await this.#ticking;
+    this.#ticking = null;
+  }
 
+  private async relist(): Promise<void> {
     try {
       await this.servers.processDue();
     } catch (error) {
       this.logger.error({ err: error }, 'Listing MCP servers again');
-    } finally {
-      this.#ticking = false;
     }
   }
 }

@@ -27,6 +27,8 @@ type controlPlane struct {
 	streams  chan *websocket.Conn
 	connects atomic.Int32
 	dropOnce atomic.Bool
+	goneOnce atomic.Bool
+	refusals atomic.Int32
 }
 
 func newControlPlane(t *testing.T) *controlPlane {
@@ -45,7 +47,12 @@ func newControlPlane(t *testing.T) *controlPlane {
 		}
 		defer conn.CloseNow()
 
-		if cp.connects.Add(1) == 1 && cp.dropOnce.Load() {
+		first := cp.connects.Add(1) == 1
+		if first && cp.dropOnce.Load() {
+			return
+		}
+		if first && cp.goneOnce.Load() {
+			_ = conn.Close(websocket.StatusGoingAway, "The control plane stops.")
 			return
 		}
 		for {
@@ -64,6 +71,10 @@ func newControlPlane(t *testing.T) *controlPlane {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
+		if cp.refusals.Add(-1) >= 0 {
+			http.Error(w, "No editor waits for this stream.", http.StatusNotFound)
+			return
+		}
 		conn, err := websocket.Accept(w, r, nil)
 		if err != nil {
 			return
@@ -77,7 +88,7 @@ func newControlPlane(t *testing.T) *controlPlane {
 	return cp
 }
 
-func serving(t *testing.T, cp *controlPlane, open Open) {
+func serving(t *testing.T, cp *controlPlane, open Open, configure ...func(*Tunnel)) {
 	t.Helper()
 
 	tunnel, err := New(cp.server.URL, "host_1", control.Bearer("pool-token"), quiet)
@@ -85,6 +96,9 @@ func serving(t *testing.T, cp *controlPlane, open Open) {
 		t.Fatal(err)
 	}
 	tunnel.RetryFloor = 10 * time.Millisecond
+	for _, change := range configure {
+		change(tunnel)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -178,5 +192,36 @@ func TestOpensTheTunnelAgainAfterItCloses(t *testing.T) {
 
 	if cp.connects.Load() < 2 {
 		t.Errorf("connected %d times", cp.connects.Load())
+	}
+}
+
+func TestOpensTheTunnelAgainSoonWhenTheControlPlaneRestarts(t *testing.T) {
+	cp := newControlPlane(t)
+	cp.goneOnce.Store(true)
+	var opened atomic.Int32
+	serving(t, cp, echoing(&opened), func(tunnel *Tunnel) {
+		tunnel.RetryFloor = time.Minute
+		tunnel.RestartWait = 10 * time.Millisecond
+	})
+
+	cp.asks <- protocol.TunnelStream{Stream: "stream_4", SandboxID: "sandbox_a"}
+	stream(t, cp)
+
+	if cp.connects.Load() < 2 {
+		t.Errorf("connected %d times", cp.connects.Load())
+	}
+}
+
+func TestDialsAStreamBackAgainWhenAControlPlaneDoesNotKnowIt(t *testing.T) {
+	cp := newControlPlane(t)
+	cp.refusals.Store(3)
+	var opened atomic.Int32
+	serving(t, cp, echoing(&opened))
+
+	cp.asks <- protocol.TunnelStream{Stream: "stream_5", SandboxID: "sandbox_a"}
+	stream(t, cp)
+
+	if left := cp.refusals.Load(); left != -1 {
+		t.Errorf("%d refusals were left", left+1)
 	}
 }
