@@ -51,4 +51,40 @@ describe('work in a savepoint inside a transaction', () => {
 
     expect(await stored(id)).toEqual({ n: 1 });
   });
+
+  it('runs what the savepoint work defers to the commit only when the savepoint work succeeds', async () => {
+    const ran: string[] = [];
+
+    await context.inTransaction(async () => {
+      await context
+        .inSavepoint(async () => {
+          context.afterCommit(() => ran.push('rolled back'));
+          throw new Error('the savepoint work failed');
+        })
+        .catch(() => null);
+      await context.inSavepoint(async () => {
+        context.afterCommit(() => ran.push('kept'));
+      });
+    });
+
+    expect(ran).toEqual(['kept']);
+  });
+
+  it('runs nothing an inner savepoint defers to the commit once its outer savepoint rolls back', async () => {
+    const ran: string[] = [];
+
+    await context.inTransaction(async () => {
+      await context
+        .inSavepoint(async () => {
+          await context.inSavepoint(async () => {
+            context.afterCommit(() => ran.push('inner'));
+          });
+          throw new Error('the outer savepoint work failed');
+        })
+        .catch(() => null);
+      context.afterCommit(() => ran.push('transaction'));
+    });
+
+    expect(ran).toEqual(['transaction']);
+  });
 });

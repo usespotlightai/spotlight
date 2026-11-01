@@ -15,6 +15,7 @@ import { DispatchSearch } from '@work/application/services/dispatch-search.servi
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
+import { RunAlreadyExistsError } from '@work/domain/exceptions/run-already-exists.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { SEARCH_PRIORITY } from '@work/domain/services/search-priority';
@@ -71,13 +72,23 @@ const ORDER: SearchOrder = {
   briefing: 'Find a Build station that passes more of its checks.',
 };
 
-const dispatching = (over: { launches?: boolean; line?: Line | null } = {}) => {
+const dispatching = (
+  over: {
+    launches?: boolean;
+    line?: Line | null;
+    addedElsewhere?: (run: Run) => Run;
+  } = {},
+) => {
   const runs = new Map<string, Run>();
   const chosen: Chosen[] = [];
   const dispatch = new DispatchSearch(
     {
       findById: async (id: RunId) => runs.get(id.value) ?? null,
       add: async (run: Run) => {
+        if (over.addedElsewhere) {
+          runs.set(run.id.value, over.addedElsewhere(run));
+          throw new RunAlreadyExistsError(run.id.value);
+        }
         runs.set(run.id.value, run);
       },
       save: async (run: Run) => {
@@ -209,6 +220,26 @@ describe('DispatchSearch', () => {
     expect(await dispatch.enqueue(ORDER)).toEqual({ outcome: 'queued' });
     expect(runs.get('run_9')).toBe(first);
     await expect(dispatch.enqueue({ ...ORDER, iteration: 3 })).rejects.toThrow(
+      InconsistentStateError,
+    );
+  });
+
+  it('takes an iteration as queued when another control plane queued the same run first', async () => {
+    const { dispatch, runs } = dispatching({ addedElsewhere: (run) => run });
+
+    expect(await dispatch.enqueue(ORDER)).toEqual({ outcome: 'queued' });
+    expect(runs.get('run_9')?.subject?.iteration?.value).toBe(2);
+  });
+
+  it('refuses a run id another control plane queued for something else', async () => {
+    const { dispatch: elsewhere, runs: queuedElsewhere } = dispatching();
+    await elsewhere.enqueue({ ...ORDER, iteration: 3 });
+    const other = queuedElsewhere.get('run_9');
+    const { dispatch } = dispatching({
+      addedElsewhere: (run) => other ?? run,
+    });
+
+    await expect(dispatch.enqueue(ORDER)).rejects.toThrow(
       InconsistentStateError,
     );
   });

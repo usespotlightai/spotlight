@@ -2,6 +2,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { placementMatches } from '@platform/persistence/drizzle/placement-matches';
 import {
+  UNIQUE_VIOLATION,
+  violates,
+} from '@platform/persistence/drizzle/violations';
+import {
   activeTraceparent,
   linkActiveSpanTo,
 } from '@platform/telemetry/trace-context';
@@ -27,6 +31,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { RunAlreadyExistsError } from '@work/domain/exceptions/run-already-exists.error';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type {
   Claimant,
@@ -139,37 +144,46 @@ export class DrizzleRunRepository implements RunRepository {
   }
 
   private async inserted(added: Run, extras: RunExtras): Promise<void> {
-    await this.context.db.insert(run).values({
-      id: added.id.value,
-      workspaceId: added.workspaceId.value,
-      harness: added.harness.value,
-      priority: added.priority.value,
-      taskId: added.taskId?.value ?? null,
-      stationId: added.stationId?.value ?? null,
-      chatId: added.chatId?.value ?? null,
-      replayOfRunId: added.replayOf?.value ?? null,
-      ranForTeamId: added.ranFor?.value ?? null,
-      searchId: added.subject?.searchId?.value ?? null,
-      searchIteration: added.subject?.iteration?.value ?? null,
-      taskRevision: added.subject?.revision?.value ?? null,
-      state: added.state,
-      spec: RunSpecContract.toWire(added.spec),
-      exitCode: added.outcome?.exitCode ?? null,
-      message: added.outcome?.message ?? null,
-      failure: added.outcome?.failure?.code ?? null,
-      stopped: added.outcome?.stopped ?? false,
-      placement: added.placement.labelGroups,
-      placementImage: added.placement.image?.value ?? null,
-      briefedMemories: added.briefedWith.value,
-      endedAt: endedAtFor(added.state, sql`now()`),
-      stationFingerprint: added.configuredAs?.fingerprint ?? null,
-      stationConfig: added.configuredAs?.parts ?? null,
-      briefedTask: extras.briefed?.parts ?? null,
-      askedAPerson: added.askedAPerson,
-      traceparent: activeTraceparent(),
-      ...startOf(added),
-      ...reservationOf(added),
-    });
+    await this.context
+      .inSavepoint(() =>
+        this.context.db.insert(run).values({
+          id: added.id.value,
+          workspaceId: added.workspaceId.value,
+          harness: added.harness.value,
+          priority: added.priority.value,
+          taskId: added.taskId?.value ?? null,
+          stationId: added.stationId?.value ?? null,
+          chatId: added.chatId?.value ?? null,
+          replayOfRunId: added.replayOf?.value ?? null,
+          ranForTeamId: added.ranFor?.value ?? null,
+          searchId: added.subject?.searchId?.value ?? null,
+          searchIteration: added.subject?.iteration?.value ?? null,
+          taskRevision: added.subject?.revision?.value ?? null,
+          state: added.state,
+          spec: RunSpecContract.toWire(added.spec),
+          exitCode: added.outcome?.exitCode ?? null,
+          message: added.outcome?.message ?? null,
+          failure: added.outcome?.failure?.code ?? null,
+          stopped: added.outcome?.stopped ?? false,
+          placement: added.placement.labelGroups,
+          placementImage: added.placement.image?.value ?? null,
+          briefedMemories: added.briefedWith.value,
+          endedAt: endedAtFor(added.state, sql`now()`),
+          stationFingerprint: added.configuredAs?.fingerprint ?? null,
+          stationConfig: added.configuredAs?.parts ?? null,
+          briefedTask: extras.briefed?.parts ?? null,
+          askedAPerson: added.askedAPerson,
+          traceparent: activeTraceparent(),
+          ...startOf(added),
+          ...reservationOf(added),
+        }),
+      )
+      .catch((error: unknown) => {
+        if (violates(error, UNIQUE_VIOLATION, 'run_pkey')) {
+          throw new RunAlreadyExistsError(added.id.value);
+        }
+        throw error;
+      });
   }
 
   async claimNext(by: Claimant, now: Date): Promise<Run | null> {
