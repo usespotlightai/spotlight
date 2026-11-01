@@ -14,7 +14,11 @@ import { credentialsFor } from '@integrations/integrations.secrets.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 import { stringify as yamlOf } from 'yaml';
 
-const CALL_AUTH: CallAuth = { connection: null, credentials: credentialsFor() };
+const CALL_AUTH: CallAuth = {
+  workspace: async () => 'ws_1',
+  connection: null,
+  credentials: credentialsFor(),
+};
 
 const fetchingNothing = {
   text: vi.fn(async () => {
@@ -110,6 +114,7 @@ describe('ThreadedSpecReader', () => {
         refreshed ? AccessToken.of(refreshed) : null,
       );
       const callAuth: CallAuth = {
+        workspace: async () => 'ws_1',
         connection: {
           token: AccessToken.of('lin-old'),
           owner: ConnectionOwner.team(),

@@ -233,6 +233,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       address: 'acme',
       slug: 'acme',
       name: 'Acme',
+      outboundHosts: [],
     },
     {
       kind: 'secret',

@@ -19,6 +19,7 @@ type EgressConfig struct {
 	SecretAllow []string     `json:"secretAllow,omitempty"`
 	HarnessKeys []HarnessKey `json:"harnessKeys,omitempty"`
 	Send        *HostCall    `json:"send,omitempty"`
+	SendSecrets *CallSecrets `json:"sendSecrets,omitempty"`
 	// Do not merge SandboxHosts into Allow: an empty Allow lets every host through.
 	SandboxHosts []string `json:"sandboxHosts,omitempty"`
 }

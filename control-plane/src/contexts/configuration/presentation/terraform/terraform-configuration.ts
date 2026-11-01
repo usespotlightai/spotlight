@@ -1002,6 +1002,9 @@ const rendered = (
       return withImportBlock(resource, nameOf(resource.slug), importedAs, [
         attribute('name', resource.name),
         attribute('slug', resource.slug),
+        ...(resource.outboundHosts.length === 0
+          ? []
+          : [attribute('outbound_hosts', [...resource.outboundHosts])]),
       ]);
     case 'team':
       return withImportBlock(resource, nameOf(resource.key), importedAs, [

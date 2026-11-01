@@ -47,6 +47,12 @@ const DEFINITION = ApiBody({
     properties: {
       name: { type: 'string', example: 'Acme' },
       slug: { type: 'string', example: 'acme' },
+      outboundHosts: {
+        type: 'array',
+        items: { type: 'string' },
+        default: [],
+        example: ['api.example.com', '*.example.com'],
+      },
     },
   },
 });

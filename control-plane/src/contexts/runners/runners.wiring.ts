@@ -202,6 +202,10 @@ import {
   WORKLOAD_TOKENS,
   type WorkloadTokensPort,
 } from '@shared-kernel/application/ports/workload-tokens.port';
+import {
+  WORKSPACE_OUTBOUND_SCOPE,
+  type WorkspaceOutboundScopePort,
+} from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 const RUNNERS_EVENTS = Symbol('RUNNERS_EVENTS');
@@ -452,6 +456,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       WORKLOAD_TOKENS,
       WORKSPACE_READER,
       TOKEN_ISSUER,
+      WORKSPACE_OUTBOUND_SCOPE,
     ],
     useFactory: (
       pools: DrizzleRunnerPoolRepository,
@@ -459,14 +464,31 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       workloads: WorkloadTokensPort,
       workspaces: WorkspaceReaderPort,
       tokens: TokenIssuer,
-    ) => new RunnerAuthenticator(pools, trusts, workloads, workspaces, tokens),
+      scope: WorkspaceOutboundScopePort,
+    ) =>
+      new RunnerAuthenticator(
+        pools,
+        trusts,
+        workloads,
+        workspaces,
+        tokens,
+        scope,
+      ),
   },
   { provide: RUNNER_AUTHENTICATOR, useExisting: RunnerAuthenticator },
   {
     provide: PROVISION_CALLS,
-    inject: [ENV, OutboundGuard],
-    useFactory: (env: Env, guard: OutboundGuard) =>
-      new SignedProvisionCalls({ spotlightUrl: publicUrlOf(env), guard }),
+    inject: [ENV, OutboundGuard, WORKSPACE_OUTBOUND_SCOPE],
+    useFactory: (
+      env: Env,
+      guard: OutboundGuard,
+      scope: WorkspaceOutboundScopePort,
+    ) =>
+      new SignedProvisionCalls({
+        spotlightUrl: publicUrlOf(env),
+        guard,
+        scope,
+      }),
   },
   { provide: PROVISION_SECRETS, useClass: EncryptedProvisionSecrets },
   {

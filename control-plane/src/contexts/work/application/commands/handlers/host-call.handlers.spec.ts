@@ -1,15 +1,22 @@
+import { createHash } from 'node:crypto';
 import type {
   HostCredentials,
   RunnerAuthenticatorPort,
 } from '@runners/application/ports/runner-authenticator.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
+import type { CallSecretFetch } from '@secrets/application/ports/call-secret-fetches.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ClaimHostCallHandler } from '@work/application/commands/handlers/claim-host-call.handler';
 import { RecordHostCallResponseHandler } from '@work/application/commands/handlers/record-host-call-response.handler';
+import { RedeemCallSecretsHandler } from '@work/application/commands/handlers/redeem-call-secrets.handler';
 import {
   ClaimHostCallCommand,
   RecordHostCallResponseCommand,
+  RedeemCallSecretsCommand,
   type SentHostCallResponse,
 } from '@work/application/commands/host-call.commands';
 import { LongPoll } from '@work/application/services/long-poll';
@@ -27,10 +34,11 @@ const later = (ms: number) => new Date(NOW.getTime() + ms);
 const HOST = '01J8ZQ4Y7N3K5V2W9X6RTBHCDE';
 const POOL = { bearer: 'pool-token', trust: undefined };
 
-const queued = (workspace = 'ws_1') =>
+const queued = (workspace = 'ws_1', secrets: readonly string[] = []) =>
   NetworkCall.queue({
     id: NetworkCallId.of('call_1'),
     workspaceId: WorkspaceId.of(workspace),
+    secrets: secrets.map((each) => SecretName.of(each)),
     request: NetworkRequest.of({
       method: 'POST',
       url: 'http://audit.internal:8080/hooks',
@@ -42,8 +50,16 @@ const queued = (workspace = 'ws_1') =>
     now: NOW,
   });
 
-const claimedCall = (workspace = 'ws_1') =>
-  queued(workspace).claimedBy(CallingHost.of(HOST), NOW);
+const SECRETS_TOKEN_HASH = TokenHash.of(
+  createHash('sha256').update('secrets-token').digest('hex'),
+);
+
+const claimedCall = (workspace = 'ws_1', secrets: readonly string[] = []) =>
+  queued(workspace, secrets).claimedBy(
+    CallingHost.of(HOST),
+    NOW,
+    SECRETS_TOKEN_HASH,
+  );
 
 const hosting = (
   over: {
@@ -71,6 +87,21 @@ const hosting = (
     ),
   };
   const saved: NetworkCall[] = [];
+  const tokens = issuing();
+  const fetches = {
+    sealedForCall: vi.fn(async (request: CallSecretFetch) => ({
+      secrets: request.secrets.map((secret) => ({
+        secret,
+        host: 'slack.com',
+        location: 'header',
+        name: 'authorization',
+        prefix: 'Bearer ',
+        sealed: `v1.sealed-for-${request.callId}`,
+        externalRef: null,
+      })),
+      denied: [],
+    })),
+  };
   const runners = {
     reports: vi.fn(async () => over.reported ?? true),
   } as unknown as RunnersPort;
@@ -97,14 +128,30 @@ const hosting = (
       calls as unknown as NetworkCallRepository,
       clock,
       new LongPoll(clock),
+      tokens,
     ),
     response: new RecordHostCallResponseHandler(
       authenticator,
       calls as unknown as NetworkCallRepository,
       clock,
     ),
+    fetches,
+    redeem: new RedeemCallSecretsHandler(
+      calls as unknown as NetworkCallRepository,
+      fetches,
+      tokens,
+      clock,
+    ),
   };
 };
+
+const hashOf = (token: string) =>
+  createHash('sha256').update(token).digest('hex');
+
+const issuing = (): TokenIssuer => ({
+  issue: () => ({ token: 'secrets-token', hash: hashOf('secrets-token') }),
+  hash: hashOf,
+});
 
 const RESPONSE: SentHostCallResponse = {
   host: HOST,
@@ -139,13 +186,58 @@ describe('ClaimHostCallHandler', () => {
         headers: { 'content-type': 'application/json' },
         body: Buffer.from('{"hook":"core/audit"}').toString('base64'),
         timeoutMs: 10_000,
+        secretsToken: null,
       },
     });
     expect(calls.claimNext).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
       CallingHost.of(HOST),
       NOW,
+      TokenHash.of(hashOf('secrets-token')),
     );
+  });
+
+  it('gives the host only the time left until the call expires, at least a second', async () => {
+    const expiringIn = (ms: number) =>
+      NetworkCall.queue({
+        id: NetworkCallId.of('call_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        secrets: [],
+        request: NetworkRequest.of({
+          method: 'POST',
+          url: 'http://audit.internal:8080/hooks',
+          headers: {},
+          body: new Uint8Array(),
+          timeoutMs: 10_000,
+        }),
+        expiresAt: later(ms),
+        now: later(-20_000),
+      }).claimedBy(CallingHost.of(HOST), NOW);
+
+    for (const [left, timeoutMs] of [
+      [4_000, 4_000],
+      [300, 1_000],
+      [30_000, 10_000],
+    ]) {
+      expect(
+        await hosting({ next: expiringIn(left as number) }).claim.execute(
+          new ClaimHostCallCommand(POOL, HOST),
+        ),
+      ).toMatchObject({ outcome: 'claimed', call: { timeoutMs } });
+    }
+  });
+
+  it('hands over a token to redeem the secrets of a call that names secrets', async () => {
+    const { claim } = hosting({
+      next: claimedCall('ws_1', ['SLACK_BOT_TOKEN']),
+    });
+
+    expect(
+      await claim.execute(new ClaimHostCallCommand(POOL, HOST)),
+    ).toMatchObject({
+      outcome: 'claimed',
+      call: { id: 'call_1', secretsToken: 'secrets-token' },
+    });
   });
 
   it('answers a host that never reported through this pool or trust as host-unreported', async () => {
@@ -172,6 +264,7 @@ describe('ClaimHostCallHandler', () => {
       WorkspaceId.of('ws_1'),
       CallingHost.of(HOST),
       later(10_000),
+      TokenHash.of(hashOf('secrets-token')),
     );
   });
 
@@ -334,6 +427,128 @@ describe('AnswerHostCallHandler', () => {
       outcome: 'completed',
       reason:
         'The network call completed while the host recorded its response.',
+    });
+  });
+});
+
+describe('RedeemCallSecretsHandler', () => {
+  const RECIPIENT = Buffer.alloc(32, 7).toString('base64');
+
+  const redeeming = (over: { host?: unknown; token?: unknown } = {}) =>
+    new RedeemCallSecretsCommand(
+      'call_1',
+      over.host ?? HOST,
+      over.token ?? 'secrets-token',
+      RECIPIENT,
+    );
+
+  it('seals the secrets the call names to the recipient, bound to the call, once', async () => {
+    const { redeem, fetches, saved } = hosting({
+      found: claimedCall('ws_1', ['SLACK_BOT_TOKEN']),
+    });
+
+    expect(await redeem.execute(redeeming())).toEqual({
+      outcome: 'fetched',
+      runId: 'call_1',
+      extraAllowedHosts: [],
+      bound: ['slack.com'],
+      secrets: [
+        {
+          secret: 'SLACK_BOT_TOKEN',
+          host: 'slack.com',
+          location: 'header',
+          name: 'authorization',
+          prefix: 'Bearer ',
+          sealed: 'v1.sealed-for-call_1',
+          externalRef: null,
+        },
+      ],
+      denied: [],
+      spotlightApi: null,
+    });
+    expect(fetches.sealedForCall).toHaveBeenCalledWith({
+      workspaceId: 'ws_1',
+      callId: 'call_1',
+      secrets: ['SLACK_BOT_TOKEN'],
+      recipient: RECIPIENT,
+    });
+    expect(saved[0]?.secretsClaim?.redeemedAt).toEqual(NOW);
+  });
+
+  it('refuses a call that is not there, or has no id it could have, as it refuses a wrong token', async () => {
+    const { redeem } = hosting({ found: null });
+
+    expect(await redeem.execute(redeeming())).toEqual({
+      outcome: 'unauthorized',
+    });
+    expect(
+      await redeem.execute(
+        new RedeemCallSecretsCommand('../call', HOST, 'secrets-token', ''),
+      ),
+    ).toEqual({ outcome: 'unauthorized' });
+  });
+
+  it('seals nothing for another token, no token, or a host with no name', async () => {
+    const { redeem, fetches, saved } = hosting({
+      found: claimedCall('ws_1', ['SLACK_BOT_TOKEN']),
+    });
+
+    for (const command of [
+      redeeming({ token: 'stolen' }),
+      redeeming({ token: 7 }),
+      redeeming({ host: '' }),
+    ]) {
+      expect(await redeem.execute(command)).toEqual({
+        outcome: 'unauthorized',
+      });
+    }
+    expect(fetches.sealedForCall).not.toHaveBeenCalled();
+    expect(saved).toEqual([]);
+  });
+
+  it('seals nothing a second time, or for a host that did not claim the call', async () => {
+    const redeemedOnce = claimedCall('ws_1', ['SLACK_BOT_TOKEN']).redeemSecrets(
+      CallingHost.of(HOST),
+      SECRETS_TOKEN_HASH,
+      NOW,
+    );
+
+    expect(
+      await hosting({ found: redeemedOnce }).redeem.execute(redeeming()),
+    ).toMatchObject({ outcome: 'taken' });
+    expect(
+      await hosting({
+        found: claimedCall('ws_1', ['SLACK_BOT_TOKEN']),
+      }).redeem.execute(redeeming({ host: '01J8ZQ4Y7N3K5V2W9X6RTBHXXX' })),
+    ).toMatchObject({ outcome: 'taken' });
+  });
+
+  it('seals nothing once the call expired', async () => {
+    const { redeem, fetches } = hosting({
+      found: NetworkCall.queue({
+        id: NetworkCallId.of('call_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        request: claimedCall().request,
+        secrets: [SecretName.of('SLACK_BOT_TOKEN')],
+        expiresAt: later(-1),
+        now: later(-20_000),
+      }).claimedBy(CallingHost.of(HOST), later(-10_000), SECRETS_TOKEN_HASH),
+    });
+
+    expect(await redeem.execute(redeeming())).toMatchObject({
+      outcome: 'expired',
+    });
+    expect(fetches.sealedForCall).not.toHaveBeenCalled();
+  });
+
+  it('hands over nothing sealed when the call was redeemed meanwhile', async () => {
+    const { redeem } = hosting({
+      found: claimedCall('ws_1', ['SLACK_BOT_TOKEN']),
+      clash: true,
+    });
+
+    expect(await redeem.execute(redeeming())).toMatchObject({
+      outcome: 'taken',
     });
   });
 });

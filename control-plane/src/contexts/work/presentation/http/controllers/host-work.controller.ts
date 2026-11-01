@@ -266,6 +266,7 @@ export class HostWorkController {
       call.headers,
       call.body,
       call.timeoutMs,
+      call.secretsToken,
     );
   }
 

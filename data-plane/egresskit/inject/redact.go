@@ -3,6 +3,7 @@ package inject
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime"
 	"net/http"
@@ -79,7 +80,9 @@ func textual(contentType string) bool {
 		slices.Contains([]string{"application/json", "application/xml", "application/x-www-form-urlencoded"}, kind)
 }
 
-func (w *Injector) Redact(host string, response *http.Response) {
+var ErrCompressed = errors.New("the response was compressed")
+
+func (w *Injector) swapsFor(host string) []swap {
 	w.mu.RLock()
 	var swaps []swap
 	for _, each := range w.byHost[allowlist.Normal(host)] {
@@ -87,10 +90,31 @@ func (w *Injector) Redact(host string, response *http.Response) {
 	}
 	w.mu.RUnlock()
 
+	slices.SortStableFunc(swaps, func(one, other swap) int { return len(other.injected) - len(one.injected) })
+	return swaps
+}
+
+func bodiless(response *http.Response) bool {
+	return response.Body == nil || response.StatusCode == http.StatusNotModified || response.StatusCode == http.StatusNoContent ||
+		(response.Request != nil && response.Request.Method == http.MethodHead)
+}
+
+func compressed(response *http.Response) bool {
+	encoding := response.Header.Get("Content-Encoding")
+	return encoding != "" && !strings.EqualFold(encoding, "identity")
+}
+
+func redactBody(response *http.Response, swaps []swap) {
+	response.Body = &redactingReader{from: response.Body, swaps: swaps}
+	response.ContentLength = -1
+	response.Header.Del("Content-Length")
+}
+
+func (w *Injector) Redact(host string, response *http.Response) {
+	swaps := w.swapsFor(host)
 	if len(swaps) == 0 {
 		return
 	}
-	slices.SortStableFunc(swaps, func(one, other swap) int { return len(other.injected) - len(one.injected) })
 
 	for _, name := range echoedIn {
 		values := response.Header.Values(name)
@@ -99,16 +123,45 @@ func (w *Injector) Redact(host string, response *http.Response) {
 		}
 	}
 
-	encoding := response.Header.Get("Content-Encoding")
-	bodiless := response.StatusCode == http.StatusNotModified || response.StatusCode == http.StatusNoContent ||
-		(response.Request != nil && response.Request.Method == http.MethodHead)
-	if bodiless || response.Body == nil || !textual(response.Header.Get("Content-Type")) || (encoding != "" && encoding != "identity") {
+	if bodiless(response) || !textual(response.Header.Get("Content-Type")) || compressed(response) {
 		return
 	}
+	redactBody(response, swaps)
+}
 
-	response.Body = &redactingReader{from: response.Body, swaps: swaps}
-	response.ContentLength = -1
-	response.Header.Del("Content-Length")
+func (w *Injector) RedactAnswer(host string, response *http.Response) error {
+	swaps := w.swapsFor(host)
+	if len(swaps) == 0 {
+		return nil
+	}
+
+	for _, values := range response.Header {
+		for at, value := range values {
+			values[at] = string(swapped([]byte(value), swaps))
+		}
+	}
+
+	if bodiless(response) {
+		return nil
+	}
+	if compressed(response) {
+		_ = response.Body.Close()
+		response.Body = http.NoBody
+		response.ContentLength = 0
+		response.Header.Del("Content-Length")
+		return ErrCompressed
+	}
+	redactBody(response, swaps)
+
+	return nil
+}
+
+func (w *Injector) RedactText(host, text string) string {
+	swaps := w.swapsFor(host)
+	if len(swaps) == 0 {
+		return text
+	}
+	return string(swapped([]byte(text), swaps))
 }
 
 func swapped(text []byte, swaps []swap) []byte {

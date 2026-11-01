@@ -36,6 +36,7 @@ const customClaimsIn = (payload: JWTPayload): Record<string, string> =>
 
 interface Discovered {
   readonly keys: JWTVerifyGetKey;
+  readonly urls: readonly string[];
   readonly until: number;
 }
 
@@ -45,6 +46,7 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
   constructor(
     private readonly logger: LoggerPort,
     private readonly fetch: Fetch,
+    private readonly check: (url: string) => void,
   ) {}
 
   async verify(
@@ -87,13 +89,18 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
     const cached = this.#discovered.get(issuer);
 
     if (cached && cached.until > Date.now()) {
+      for (const url of cached.urls) {
+        this.check(url);
+      }
+
       return cached.keys;
     }
 
-    const response = await this.fetch(
-      `${issuer.replace(/\/+$/, '')}${DISCOVERY_PATH}`,
-      { signal: AbortSignal.timeout(TIMEOUT_MS), redirect: 'error' },
-    );
+    const discovery = `${issuer.replace(/\/+$/, '')}${DISCOVERY_PATH}`;
+    const response = await this.fetch(discovery, {
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      redirect: 'error',
+    });
 
     if (!response.ok) {
       throw new Error(`${issuer} returned ${response.status} for discovery`);
@@ -113,7 +120,11 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
       [customFetch]: this.fetch,
     });
 
-    this.#discovered.set(issuer, { keys, until: Date.now() + KEYS_CACHE_MS });
+    this.#discovered.set(issuer, {
+      keys,
+      urls: [discovery, document.jwks_uri],
+      until: Date.now() + KEYS_CACHE_MS,
+    });
 
     return keys;
   }

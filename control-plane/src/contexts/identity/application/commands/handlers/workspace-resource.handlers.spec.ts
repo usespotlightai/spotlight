@@ -4,6 +4,7 @@ import { CreateWorkspaceHandler } from '@identity/application/commands/handlers/
 import { DeleteWorkspaceHandler } from '@identity/application/commands/handlers/delete-workspace.handler';
 import { UpdateWorkspaceHandler } from '@identity/application/commands/handlers/update-workspace.handler';
 import { UpdateWorkspaceCommand } from '@identity/application/commands/update-workspace.command';
+import type { WorkspaceOutboundHostsPort } from '@identity/application/ports/workspace-outbound-hosts.port';
 import { DependentsRegistry } from '@identity/application/services/dependents-registry.service';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
@@ -26,7 +27,7 @@ import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const ACME = { name: 'Acme', slug: 'acme' };
 
@@ -113,10 +114,12 @@ describe('CreateWorkspaceHandler', () => {
 describe('UpdateWorkspaceHandler', () => {
   const updating = (over: Parameters<typeof workspaces>[0] = {}) => {
     const stored = workspaces({ existing: workspaceAt(3), ...over });
+    const forget = vi.fn();
     const handler = new UpdateWorkspaceHandler(
       new IdentityDefinitions(),
       stored,
       transaction,
+      { forget } as unknown as WorkspaceOutboundHostsPort,
     );
 
     return {
@@ -130,6 +133,7 @@ describe('UpdateWorkspaceHandler', () => {
           ),
         ),
       stored,
+      forget,
     };
   };
 
@@ -144,6 +148,32 @@ describe('UpdateWorkspaceHandler', () => {
     const [saved] = stored.save.mock.calls[0] as [Workspace];
 
     expect(saved.name.value).toBe('Acme Inc');
+  });
+
+  it('keeps the outbound hosts in the request', async () => {
+    const { update, stored } = updating();
+
+    await update({ ...ACME, outboundHosts: ['api.example.com'] });
+
+    const [saved] = stored.save.mock.calls[0] as [Workspace];
+
+    expect(saved.outboundHosts.entries).toEqual(['api.example.com']);
+  });
+
+  it('saves nothing when the request changes nothing', async () => {
+    const { update, stored, forget } = updating();
+
+    expect(await update(ACME)).toEqual({ outcome: 'updated', id: 'ws_1' });
+    expect(stored.save).not.toHaveBeenCalled();
+    expect(forget).not.toHaveBeenCalled();
+  });
+
+  it('forgets the outbound hosts it held for the workspace once it saves', async () => {
+    const { update, forget } = updating();
+
+    await update({ ...ACME, outboundHosts: ['api.example.com'] });
+
+    expect(forget).toHaveBeenCalledWith('ws_1');
   });
 
   it('points at the slug when a request moves it', async () => {
@@ -167,7 +197,7 @@ describe('UpdateWorkspaceHandler', () => {
       await updating({
         throwing: new WorkspaceVersionConflictError('acme'),
         thenAt: workspaceAt(4),
-      }).update(ACME),
+      }).update({ name: 'Acme Inc', slug: 'acme' }),
     ).toEqual({ outcome: 'version-conflict', currentVersion: 4 });
   });
 

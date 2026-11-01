@@ -7,6 +7,7 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
@@ -53,6 +54,7 @@ export const SHARED_KERNEL_PAYLOAD_TYPES = [
   FieldPath,
   HarnessId,
   HarnessModel,
+  HostAllowList,
   IdempotencyKey,
   InputSchema,
   LatencyHistogram,

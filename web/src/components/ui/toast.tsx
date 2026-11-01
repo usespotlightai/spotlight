@@ -2,6 +2,7 @@ import * as React from "react"
 import { Toast as ToastPrimitive } from "@base-ui/react/toast"
 import { cn } from "@/lib/utils"
 
+import { PillButton } from "@/components/shared/PillButton"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/lib/toast"
 import {
@@ -39,7 +40,7 @@ function Toast({ className, ...props }: ToastPrimitive.Root.Props) {
     <ToastPrimitive.Root
       data-slot="toast"
       className={cn(
-        "group/toast pointer-events-auto absolute right-0 bottom-0 z-[calc(1000-var(--toast-index))] w-full origin-bottom rounded-2xl border bg-popover text-popover-foreground shadow-lg will-change-transform outline-none select-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        "group/toast pointer-events-auto absolute right-0 bottom-0 z-[calc(1000-var(--toast-index))] w-full origin-bottom rounded-xl border-[0.5px] border-border bg-popover text-popover-foreground shadow-overlay will-change-transform outline-none select-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
         "[--gap:0.75rem] [--height:var(--toast-frontmost-height,var(--toast-height))] [--offset-y:calc(var(--toast-offset-y)*-1+calc(var(--toast-index)*var(--gap)*-1)+var(--toast-swipe-movement-y))] [--peek:0.75rem] [--scale:calc(max(0,1-(var(--toast-index)*0.1)))] [--shrink:calc(1-var(--scale))]",
         "h-(--height) [transform:translateX(var(--toast-swipe-movement-x))_translateY(calc(var(--toast-swipe-movement-y)-(var(--toast-index)*var(--peek))-(var(--shrink)*var(--height))))_scale(var(--scale))] [transition:transform_500ms_cubic-bezier(0.22,1,0.36,1),opacity_500ms,height_150ms]",
         "after:absolute after:top-full after:left-0 after:h-[calc(var(--gap)+1px)] after:w-full after:content-['']",
@@ -66,7 +67,7 @@ function ToastContent({ className, ...props }: ToastPrimitive.Content.Props) {
     <ToastPrimitive.Content
       data-slot="toast-content"
       className={cn(
-        "flex h-full items-center gap-3 overflow-hidden px-3 py-2.5 transition-opacity duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] data-behind:opacity-0 data-expanded:opacity-100",
+        "flex items-center gap-2.5 overflow-hidden py-2.5 pr-2.5 pl-3 transition-opacity duration-250 ease-[cubic-bezier(0.22,1,0.36,1)] data-behind:opacity-0 data-expanded:opacity-100",
         className
       )}
       {...props}
@@ -105,7 +106,7 @@ function ToastAction({
   return (
     <ToastPrimitive.Action
       data-slot="toast-action"
-      render={render ?? <Button variant="outline" size="sm" />}
+      render={render ?? <PillButton />}
       className={cn("shrink-0", className)}
       {...props}
     />
@@ -128,7 +129,7 @@ function ToastClose({
         )
       }
       className={cn(
-        "relative -my-0.5 -mr-1 shrink-0 text-muted-foreground after:absolute after:-inset-2 after:content-[''] hover:text-foreground",
+        "relative shrink-0 text-faint opacity-0 transition-opacity group-hover/toast:opacity-100 hover:text-foreground focus-visible:opacity-100 after:absolute after:-inset-2 after:content-[''] pointer-coarse:opacity-100",
         className
       )}
       {...props}
@@ -145,7 +146,7 @@ function ToastIcon({ type }: { type: string | undefined }) {
 
   if (type === "success") {
     icon = (
-      <CircleCheckIcon aria-hidden="true" />
+      <CircleCheckIcon className="text-chart-success" aria-hidden="true" />
     )
   }
 
@@ -157,7 +158,7 @@ function ToastIcon({ type }: { type: string | undefined }) {
 
   if (type === "warning") {
     icon = (
-      <TriangleAlertIcon aria-hidden="true" />
+      <TriangleAlertIcon className="text-amber-600 dark:text-amber-400" aria-hidden="true" />
     )
   }
 
@@ -180,7 +181,7 @@ function ToastIcon({ type }: { type: string | undefined }) {
   return (
     <span
       data-slot="toast-icon"
-      className="shrink-0 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4"
+      className="flex h-5 shrink-0 items-center [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4"
     >
       {icon}
     </span>
@@ -192,16 +193,16 @@ function ToastList() {
 
   return toasts.map((toastItem) => (
     <Toast key={toastItem.id} toast={toastItem}>
-      <ToastContent className="items-start">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <ToastIcon type={toastItem.type} />
+      <ToastContent className="flex-col items-stretch">
+        <div className="flex items-start gap-2.5">
+          <ToastIcon type={toastItem.type} />
+          <div className="flex min-w-0 flex-1 flex-col gap-2.5">
             <ToastTitle />
+            <ToastDescription />
+            <ToastAction className="self-start" />
           </div>
-          <ToastDescription />
+          <ToastClose />
         </div>
-        <ToastAction />
-        <ToastClose />
       </ToastContent>
     </Toast>
   ))

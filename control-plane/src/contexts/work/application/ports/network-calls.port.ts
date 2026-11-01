@@ -6,6 +6,7 @@ export interface NetworkRequest {
   readonly headers: Readonly<Record<string, string>>;
   readonly body: Uint8Array;
   readonly timeoutMs: number;
+  readonly secrets: readonly string[];
 }
 
 export interface NetworkResponse {
@@ -19,7 +20,7 @@ export interface NetworkResponse {
 export type NetworkCallState =
   | { readonly kind: 'waiting' }
   | { readonly kind: 'answered'; readonly response: NetworkResponse }
-  | { readonly kind: 'expired' };
+  | { readonly kind: 'expired'; readonly claimed: boolean };
 
 export interface NetworkCallsPort {
   queue(

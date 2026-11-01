@@ -1,14 +1,20 @@
 import { type LookupAddress, lookup } from 'node:dns';
 import type { OnApplicationShutdown } from '@nestjs/common';
-import type { OutboundHosts } from '@platform/outbound/outbound-hosts';
+import { OutboundScope } from '@platform/outbound/outbound-scope';
 import { isAddress, unreachable } from '@platform/outbound/reachable-addresses';
-import { Agent, buildConnector } from 'undici';
+import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+import { Agent, buildConnector, type Dispatcher } from 'undici';
 
 type Fetch = typeof globalThis.fetch;
 
 const CONNECT_WITHIN_MS = 10_000;
 const HEADERS_WITHIN_MS = 120_000;
 const IDLE_BODY_MS = 120_000;
+
+const UNLISTED = 'Host is not on the allowed list.';
+
+export const UNLISTED_FOR_WORKSPACE =
+  "Host is not on the workspace's allowed list.";
 
 export class OutboundBlockedError extends Error {
   constructor(
@@ -31,7 +37,7 @@ export class OutboundGuard implements OnApplicationShutdown {
   private readonly agent: Agent;
 
   constructor(
-    private readonly hosts: OutboundHosts,
+    private readonly hosts: HostAllowList,
     private readonly loopbackAllowed = false,
   ) {
     const connector = buildConnector({
@@ -59,11 +65,25 @@ export class OutboundGuard implements OnApplicationShutdown {
     });
     this.agent = agent;
 
+    const scoped: Dispatcher = agent.compose(
+      (dispatch) => (options, handler) => {
+        const refused = this.refusedFor(
+          new URL(String(options.origin)).hostname,
+        );
+
+        if (refused) {
+          throw refused;
+        }
+
+        return dispatch(options, handler);
+      },
+    );
+
     this.fetch = (async (url: Parameters<Fetch>[0], init?: RequestInit) => {
       try {
         return await globalThis.fetch(url, {
           ...init,
-          dispatcher: agent,
+          dispatcher: scoped,
         } as RequestInit);
       } catch (error) {
         throw blockedIn(error) ?? error;
@@ -76,11 +96,22 @@ export class OutboundGuard implements OnApplicationShutdown {
   }
 
   check(url: string): void {
-    const refused = this.unlisted(new URL(url).hostname);
+    const refused = this.refusedFor(new URL(url).hostname);
 
     if (refused) {
       throw refused;
     }
+  }
+
+  private refusedFor(hostname: string): OutboundBlockedError | null {
+    const host = hostname.toLowerCase();
+
+    return (
+      this.unlisted(host) ??
+      (OutboundScope.allows(host)
+        ? null
+        : new OutboundBlockedError(host, UNLISTED_FOR_WORKSPACE))
+    );
   }
 
   private unlisted(hostname: string): OutboundBlockedError | null {
@@ -88,7 +119,7 @@ export class OutboundGuard implements OnApplicationShutdown {
 
     return this.hosts.allows(host)
       ? null
-      : new OutboundBlockedError(host, 'Host is not on the allowed list.');
+      : new OutboundBlockedError(host, UNLISTED);
   }
 
   private refusal(hostname: string): OutboundBlockedError | null {

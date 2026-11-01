@@ -11,6 +11,7 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
@@ -23,6 +24,7 @@ export class ExchangeWorkloadTokenHandler
     private readonly trusts: OidcTrustRepository,
     private readonly tokens: WorkspaceTokenRepository,
     private readonly workloads: WorkloadTokensPort,
+    private readonly scope: WorkspaceOutboundScopePort,
     private readonly ids: IdGeneratorPort,
     private readonly issuer: TokenIssuer,
     private readonly clock: ClockPort,
@@ -43,10 +45,12 @@ export class ExchangeWorkloadTokenHandler
         return null;
       }
 
-      const workload = await this.workloads.verify(command.workloadToken, {
-        issuer: trust.workload.issuer,
-        audience: trust.workload.audience,
-      });
+      const workload = await this.scope.within(trust.workspaceId.value, () =>
+        this.workloads.verify(command.workloadToken, {
+          issuer: trust.workload.issuer,
+          audience: trust.workload.audience,
+        }),
+      );
 
       if (!workload) {
         return null;

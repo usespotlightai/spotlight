@@ -1,6 +1,8 @@
 import { generateKeyPairSync } from 'node:crypto';
 import { JwksCache } from '@integrations/infrastructure/integrations/jwks';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
+import { OutboundScope } from '@platform/outbound/outbound-scope';
+import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const jwk = () => {
@@ -28,6 +30,23 @@ describe('JwksCache', () => {
     await cache.keys('https://issuer/jwks.json');
 
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('refuses its cached keys to a workspace that may not call the host', async () => {
+    const cache = new JwksCache(
+      allowingOutbound([]),
+      1000,
+      answering(),
+      () => 0,
+    );
+
+    await cache.keys('https://issuer.example/jwks.json');
+
+    await expect(
+      OutboundScope.within(HostAllowList.of(['elsewhere.example']), () =>
+        cache.keys('https://issuer.example/jwks.json'),
+      ),
+    ).rejects.toThrow("Host is not on the workspace's allowed list.");
   });
 
   it('fetches again once the window has passed', async () => {

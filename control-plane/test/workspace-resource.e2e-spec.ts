@@ -159,6 +159,67 @@ describe('a workspace, created through the resource API (e2e)', () => {
     ]);
   });
 
+  it('keeps the outbound hosts it is given, through every way it is read', async () => {
+    const made = await as(fixture.admin).create({
+      ...fixture.valid,
+      outboundHosts: ['API.example.com', '*.acme.io'],
+    });
+
+    expect(made.status).toBe(201);
+    expect(made.body.outboundHosts).toEqual(['*.acme.io', 'api.example.com']);
+
+    const read = await served(app)
+      .get(fixture.item(made.body.id))
+      .set(TEST_USER_HEADER, fixture.admin);
+
+    expect(read.body.outboundHosts).toEqual(['*.acme.io', 'api.example.com']);
+
+    const cleared = await as(fixture.admin).put(
+      made.body.id,
+      made.body.version,
+      { ...fixture.valid, outboundHosts: [] },
+    );
+
+    expect(cleared.status).toBe(200);
+    expect(cleared.body).toMatchObject({
+      version: made.body.version + 1,
+      outboundHosts: [],
+    });
+
+    const relisted = await as(fixture.admin).put(
+      made.body.id,
+      cleared.body.version,
+      { ...fixture.valid, outboundHosts: ['hooks.example.com'] },
+    );
+    const imported = await served(app)
+      .get(fixture.importing(fixture.address))
+      .set(TEST_USER_HEADER, fixture.admin);
+
+    expect(relisted.body.outboundHosts).toEqual(['hooks.example.com']);
+    expect(imported.body).toMatchObject({
+      id: made.body.id,
+      outboundHosts: ['hooks.example.com'],
+    });
+  });
+
+  it('starts with no outbound hosts of its own', async () => {
+    const made = await as(fixture.admin).create(fixture.valid);
+
+    expect(made.body.outboundHosts).toEqual([]);
+  });
+
+  it('points at an outbound host it cannot read, and creates nothing', async () => {
+    const rejected = await as(fixture.admin).create({
+      ...fixture.valid,
+      outboundHosts: ['api.example.com', '*'],
+    });
+
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
+      expect.objectContaining({ path: 'outboundHosts[1]' }),
+    ]);
+  });
+
   it('will not be deleted while it has a team', async () => {
     const made = await as(fixture.admin).create(fixture.valid);
 

@@ -11,6 +11,7 @@ export interface WorkspaceRecord {
   readonly version: number;
   readonly name: string;
   readonly slug: string;
+  readonly outboundHosts: readonly string[];
 }
 
 export interface TeamRecord {

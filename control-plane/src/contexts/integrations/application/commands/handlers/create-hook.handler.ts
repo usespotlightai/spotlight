@@ -88,7 +88,10 @@ export class CreateHookHandler
               workspaceId: permissions.workspaceId,
               teamId: permissions.teamId,
               secret: signingSecretChange(compiled.secret),
-              allowances: await this.allowances.onTeam(permissions.teamId),
+              allowances: await this.allowances.onTeam(
+                permissions.teamId,
+                permissions.workspaceId,
+              ),
               by: ChangeActor.of(command.actor, permissions.workspaceId),
             });
 
