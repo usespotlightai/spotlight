@@ -5,6 +5,7 @@ import type {
   MemoryFolder,
 } from '@work/application/ports/team-memories.port';
 import { Attached } from '@work/application/rendering/attached';
+import { ConfiguringSpotlight } from '@work/application/rendering/configuring-spotlight';
 import { Learned } from '@work/application/rendering/learned';
 import { SpotlightCli } from '@work/application/rendering/spotlight-cli';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
@@ -204,6 +205,7 @@ export const TaskBriefing = {
       station?.decisions ? SAYING_DECISIONS : null,
       workspaceOf(input.task, input.line),
       SpotlightCli.section,
+      ConfiguringSpotlight.section,
       toolsOf(input.tools),
       listing(input.skills, input.listedIn),
       replying(input.task),

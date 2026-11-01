@@ -189,6 +189,18 @@ describe('TaskBriefing', () => {
     );
   });
 
+  it('tells where Spotlight’s configuration and docs are, and asks to follow the docs to set Spotlight up', () => {
+    const briefing = brief(triage());
+
+    expect(briefing).toContain('## Configuring Spotlight');
+    expect(briefing).toContain('`usespotlightai/spotlight`');
+    expect(briefing).toContain('`usespotlightai/slack/spotlight`');
+    expect(briefing).toContain('https://docs.usespotlight.ai/llms.txt');
+    expect(briefing).toContain('how to configure their Spotlight');
+    expect(briefing).toContain('first read the docs page for it');
+    expect(briefing).toContain('If you cannot open the docs, say so');
+  });
+
   it('lists what the spotlight CLI can do, and requests a check of it before saying something cannot be known', () => {
     const briefing = brief(triage());
 

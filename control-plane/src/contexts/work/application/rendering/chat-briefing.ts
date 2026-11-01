@@ -4,6 +4,7 @@ import type {
   MemoryFolder,
 } from '@work/application/ports/team-memories.port';
 import { Attached } from '@work/application/rendering/attached';
+import { ConfiguringSpotlight } from '@work/application/rendering/configuring-spotlight';
 import { ImproveStation } from '@work/application/rendering/improve-station';
 import { Learned } from '@work/application/rendering/learned';
 import { SettingUp } from '@work/application/rendering/setting-up';
@@ -136,6 +137,7 @@ export const ChatBriefing = {
         briefed: input.memories.length > 0,
       }),
       SpotlightCli.section,
+      ConfiguringSpotlight.section,
       proposing,
       proposedSoFar(input.chat, input.lines),
       tracing(messages) ? Traced.reading : null,
