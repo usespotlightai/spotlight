@@ -42,6 +42,7 @@ import {
   type Shape,
 } from '@integrations/infrastructure/integrations/hints';
 import {
+  type ActionFile,
   type AuthFile,
   type EventFile,
   type GraphQlFile,
@@ -128,6 +129,7 @@ export interface RequestIR {
     readonly status: readonly number[] | null;
   } | null;
   readonly capture: readonly { name: string; value: Expression }[];
+  readonly fromNetwork: { readonly timeoutMs: number } | null;
 }
 
 export interface RaiseIR {
@@ -278,6 +280,8 @@ const becauseOf = (error: unknown): string =>
   error instanceof InvalidIdentifierError
     ? error.because
     : reasoned(error);
+
+const NETWORK_TIMEOUT_SECONDS = 30;
 
 const READS_A_SECRET = /(^|[^A-Za-z0-9_.])secret\s*(\.|\[)/;
 
@@ -606,7 +610,59 @@ class Compiler {
           place.to('capture').each(name),
         ) as Expression,
       })),
+      fromNetwork: null,
     };
+  }
+
+  action(action: ActionFile, at: Place, field: FieldPath): RequestIR {
+    const request = this.request(action.request, at);
+
+    if (action.from === 'spotlight') {
+      if (action.timeoutSeconds !== undefined) {
+        this.refuse(
+          field.to('timeoutSeconds'),
+          'is how long Spotlight waits for a host to send the action. Only an action sent from the network has it. Please set from: network, or remove timeoutSeconds',
+        );
+      }
+
+      return request;
+    }
+
+    if (action.request.auth?.oauth2) {
+      this.refuse(
+        field.to('request', 'auth'),
+        'cannot use an OAuth connection. An action sent from the network authenticates only with auth.secrets',
+      );
+    }
+
+    for (const name of Object.keys(action.request.headers)) {
+      if (name.toLowerCase() === 'host') {
+        this.refuse(
+          field.to('request', 'headers', name),
+          'is a Host header. Egress sends an action from the network to the host its URL names. Please remove the Host header',
+        );
+      }
+    }
+
+    if (action.request.auth?.secrets && /^http:/i.test(action.request.url)) {
+      this.refuse(
+        field.to('request', 'url'),
+        'is an http address. Egress injects secrets only into https requests. Please use an https address',
+      );
+    }
+
+    return {
+      ...request,
+      fromNetwork: {
+        timeoutMs: (action.timeoutSeconds ?? NETWORK_TIMEOUT_SECONDS) * 1_000,
+      },
+    };
+  }
+
+  refuse(at: FieldPath, reason: string): void {
+    this.problems.push(
+      ConfigurationProblem.of({ path: this.path, at, reason }),
+    );
   }
 
   event(event: EventFile, place: Place): EventIR {
@@ -947,13 +1003,14 @@ export const compileIntegration = (
 
     actions.set(
       name,
-      compiler.request(
-        action.request,
+      compiler.action(
+        action,
         root
           .to('actions')
           .each(name)
           .to('request')
           .adding(inputs ? { inputs } : {}),
+        FieldPath.of(['actions', name]),
       ),
     );
   }

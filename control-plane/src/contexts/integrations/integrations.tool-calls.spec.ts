@@ -16,6 +16,7 @@ import {
   HttpOutbound,
   type OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
@@ -75,6 +76,7 @@ const runtimeWith = (
     callingNoServer(),
     limits,
     unscoped,
+    noNetwork,
   );
 
 const LINEAR = `integration: linear
@@ -562,6 +564,7 @@ graphql:
           callingNoServer(),
           unlimited,
           hosts,
+          noNetwork,
         ),
         callAuthFor(secrets.injection),
         inferringInto(),

@@ -19,6 +19,7 @@ import { CreateSecretHandler } from '@secrets/application/commands/handlers/crea
 import { DeleteSecretHandler } from '@secrets/application/commands/handlers/delete-secret.handler';
 import { UpdateSecretHandler } from '@secrets/application/commands/handlers/update-secret.handler';
 import { UpdateSecretCommand } from '@secrets/application/commands/update-secret.command';
+import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetches.port';
 import { CREDENTIAL_ENCRYPTION } from '@secrets/application/ports/credential-encryption.port';
 import { DEFINED_SECRETS } from '@secrets/application/ports/defined-secrets.port';
 import { RUN_GRANTS } from '@secrets/application/ports/run-grants.port';
@@ -43,6 +44,7 @@ import { ReadSecretHandler } from '@secrets/application/queries/handlers/read-se
 import { ImportSecretQuery } from '@secrets/application/queries/import-secret.query';
 import { ListSecretResourcesQuery } from '@secrets/application/queries/list-secret-resources.query';
 import { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
+import { CallSecretFetches } from '@secrets/application/services/call-secret-fetches.service';
 import { DeleteWorkspaceSecrets } from '@secrets/application/services/delete-workspace-secrets.service';
 import { PurgeRunGrants } from '@secrets/application/services/purge-run-grants.service';
 import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
@@ -205,6 +207,16 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
       sources: SecretSources,
       sealing: RunSealingPort,
     ) => new RunSecretFetches(secrets, unitOfWork, sources, sealing),
+  },
+  {
+    provide: CALL_SECRET_FETCHES,
+    inject: [SECRETS, SecretSources, RUN_SEALING, LOGGER],
+    useFactory: (
+      secrets: SecretRepository,
+      sources: SecretSources,
+      sealing: RunSealingPort,
+      logger: LoggerPort,
+    ) => new CallSecretFetches(secrets, sources, sealing, logger),
   },
   { provide: SECRET_USES, useFactory: () => new SecretUsesRegistry() },
   {

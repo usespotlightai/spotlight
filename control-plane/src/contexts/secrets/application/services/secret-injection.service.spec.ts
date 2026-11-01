@@ -22,7 +22,7 @@ import {
   readingFrom,
   WORKSPACE,
 } from '@secrets/secrets.fakes.fake-spec';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const URL = 'https://api.linear.app/graphql';
 
@@ -69,6 +69,7 @@ const setUp = async () => {
     ),
     secrets,
     grants,
+    sources,
   };
 };
 
@@ -185,6 +186,137 @@ describe('SecretInjection', () => {
           }),
         ),
       ).toEqual({ authorization: 'Bearer lin_api_2' });
+    });
+  });
+
+  describe('for a request that a host of the workspace sends', () => {
+    it('places a stand-in where the binding injects the secret, and reads no value', async () => {
+      const { injection, sources } = await setUp();
+      const read = vi.spyOn(sources, 'read');
+
+      expect(
+        await headersOf(
+          injection.standInsFor({
+            workspaceId: WORKSPACE.value,
+            secrets: ['LINEAR_API_KEY'],
+            url: URL,
+          }),
+        ),
+      ).toEqual({ authorization: 'Bearer spotlight-egress:LINEAR_API_KEY' });
+      expect(
+        await headersOf(
+          injection.standInsFor({
+            workspaceId: WORKSPACE.value,
+            secrets: ['SENTRY_TOKEN'],
+            url: 'https://sentry.io/api/0/issues/',
+          }),
+        ),
+      ).toEqual({ 'x-sentry-token': 'spotlight-egress:SENTRY_TOKEN' });
+      expect(read).not.toHaveBeenCalled();
+    });
+
+    it('places a stand-in in the query where the binding says', async () => {
+      const { injection, secrets } = await setUp();
+      await secrets.save(
+        Secret.create(
+          definition({
+            name: 'MAPS_KEY',
+            bindings: [
+              { host: 'maps.example.com', location: 'query', name: 'key' },
+            ],
+          }),
+          {
+            id: SecretId.of('secret_maps'),
+            workspaceId: WORKSPACE,
+            by: BY,
+            at: NOW,
+          },
+        ),
+      );
+      const url = new globalThis.URL('https://maps.example.com/geo?q=x');
+
+      (
+        await injection.standInsFor({
+          workspaceId: WORKSPACE.value,
+          secrets: ['MAPS_KEY'],
+          url: url.href,
+        })
+      ).applyTo({ url, headers: {} });
+
+      expect(url.search).toBe('?q=x&key=spotlight-egress%3AMAPS_KEY');
+    });
+
+    it('refuses as injection does: a missing secret, a host it is not bound to, two secrets in one header', async () => {
+      const { injection, secrets } = await setUp();
+      await secrets.save(
+        Secret.create(definition({ name: 'LINEAR_OTHER' }), {
+          id: SecretId.of('secret_other'),
+          workspaceId: WORKSPACE,
+          by: BY,
+          at: NOW,
+        }),
+      );
+
+      await expect(
+        injection.standInsFor({
+          workspaceId: WORKSPACE.value,
+          secrets: ['NOWHERE'],
+          url: URL,
+        }),
+      ).rejects.toThrow(NoSuchSecretError);
+      await expect(
+        injection.standInsFor({
+          workspaceId: WORKSPACE.value,
+          secrets: ['LINEAR_API_KEY'],
+          url: 'https://sentry.io/api/0/issues/',
+        }),
+      ).rejects.toThrow(SecretNotBoundError);
+      await expect(
+        injection.standInsFor({
+          workspaceId: WORKSPACE.value,
+          secrets: ['LINEAR_API_KEY'],
+          url: 'http://api.linear.app/graphql',
+        }),
+      ).rejects.toThrow(SecretNotBoundError);
+      await expect(
+        injection.standInsFor({
+          workspaceId: WORKSPACE.value,
+          secrets: ['LINEAR_API_KEY', 'LINEAR_OTHER'],
+          url: URL,
+        }),
+      ).rejects.toThrow(SecretTargetConflictError);
+    });
+
+    it('places stand-ins for a run only for what the run was granted', async () => {
+      const { injection } = await setUp();
+
+      await injection.grant({
+        workspaceId: WORKSPACE.value,
+        runId: 'run_1',
+        attempt: 1,
+        secrets: ['LINEAR_API_KEY'],
+      });
+
+      expect(
+        await headersOf(
+          injection.standInsForRun({
+            workspaceId: WORKSPACE.value,
+            runId: 'run_1',
+            attempt: 1,
+            secrets: ['LINEAR_API_KEY'],
+            url: URL,
+          }),
+        ),
+      ).toEqual({ authorization: 'Bearer spotlight-egress:LINEAR_API_KEY' });
+      await expect(
+        injection.standInsForRun({
+          workspaceId: WORKSPACE.value,
+          runId: 'run_2',
+          attempt: 1,
+          secrets: ['LINEAR_API_KEY'],
+          url: URL,
+        }),
+      ).rejects.toThrow(SecretNotGrantedError);
     });
   });
 

@@ -2,6 +2,7 @@ import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.er
 import { SecretTarget } from '@secrets/domain/value-objects/secret-target.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import type { SecretLocation } from '@shared-kernel/domain/value-objects/secret-locations';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 const LABEL = '[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?';
 
@@ -56,11 +57,19 @@ export class SecretBinding {
   }
 
   inject(value: SecretValue): InjectedSecret {
+    return this.injected(value.revealed());
+  }
+
+  standIn(secret: SecretName): InjectedSecret {
+    return this.injected(secret.standIn);
+  }
+
+  private injected(bare: string): InjectedSecret {
     return {
       location: this.target.location,
       name: this.target.name,
-      value: `${this.prefix}${value.revealed()}`,
-      bare: value.revealed(),
+      value: `${this.prefix}${bare}`,
+      bare,
     };
   }
 

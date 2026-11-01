@@ -51,6 +51,7 @@ import type {
   HttpOutbound,
   OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import type { NetworkOutbound } from '@integrations/infrastructure/outbound/network-outbound';
 import { operationRequest } from '@integrations/infrastructure/outbound/operation-request';
 import { taskBinding } from '@integrations/infrastructure/outbound/task-binding';
 import { sanitizedForCel } from '@platform/expressions/cel-variables';
@@ -143,6 +144,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     private readonly sessions: McpSessions,
     private readonly limits: OutboundLimitsPort,
     private readonly scope: WorkspaceOutboundScopePort,
+    private readonly network: NetworkOutbound,
   ) {}
 
   integrations(
@@ -522,9 +524,40 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     bindings: Bindings,
     callAuth: CallAuth,
   ): Promise<Sent> {
+    const network = request.fromNetwork;
+
+    if (network) {
+      return this.sentFromNetwork(
+        request,
+        network.timeoutMs,
+        bindings,
+        callAuth,
+      );
+    }
+
     return this.onBehalfOf(callAuth, () =>
       this.sentInScope(request, bindings, callAuth),
     );
+  }
+
+  private async sentFromNetwork(
+    request: RequestIR,
+    timeoutMs: number,
+    bindings: Bindings,
+    callAuth: CallAuth,
+  ): Promise<Sent> {
+    const workspace = await this.limited(callAuth);
+
+    return {
+      result: await this.network.run(
+        request,
+        bindings,
+        callAuth.credentials,
+        workspace,
+        timeoutMs,
+      ),
+      bindings,
+    };
   }
 
   private async sentInScope(
@@ -566,6 +599,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     callAuth: CallAuth,
     work: () => Promise<T>,
   ): Promise<T> {
+    return this.scope.within(await this.limited(callAuth), work);
+  }
+
+  private async limited(callAuth: CallAuth): Promise<string> {
     const workspace = await callAuth.workspace();
 
     if (!(await this.limits.take(workspace))) {
@@ -575,7 +612,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       );
     }
 
-    return this.scope.within(workspace, work);
+    return workspace;
   }
 
   private readable(

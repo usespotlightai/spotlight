@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class HostCallResponseDto {
   @ApiProperty({
@@ -36,6 +36,13 @@ export class HostCallResponseDto {
   })
   readonly timeoutMs: number;
 
+  @ApiPropertyOptional({
+    example: 'k3Jx9vQ2mT7wZ1pL5nR8yC4bH6dF0sGa',
+    description:
+      'Given only when the call names secrets. Egress redeems the secrets with it once, sealed to a key that it makes for this call alone',
+  })
+  readonly secretsToken?: string;
+
   constructor(
     id: string,
     method: string,
@@ -43,6 +50,7 @@ export class HostCallResponseDto {
     headers: Readonly<Record<string, string>>,
     body: string,
     timeoutMs: number,
+    secretsToken: string | null,
   ) {
     this.id = id;
     this.method = method;
@@ -50,5 +58,8 @@ export class HostCallResponseDto {
     this.headers = headers;
     this.body = body;
     this.timeoutMs = timeoutMs;
+    if (secretsToken !== null) {
+      this.secretsToken = secretsToken;
+    }
   }
 }

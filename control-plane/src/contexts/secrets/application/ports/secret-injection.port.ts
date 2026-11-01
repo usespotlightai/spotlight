@@ -33,5 +33,9 @@ export interface SecretInjectionPort {
 
   forSpotlight(request: SpotlightRequest): Promise<InjectedSecrets>;
 
+  standInsFor(request: SpotlightRequest): Promise<InjectedSecrets>;
+
+  standInsForRun(request: RunRequest): Promise<InjectedSecrets>;
+
   forVerifying(request: VerifyingRequest): Promise<VerifyingSecret>;
 }

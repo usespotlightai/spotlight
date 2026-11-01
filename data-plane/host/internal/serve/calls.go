@@ -106,15 +106,19 @@ func (h *Host) sent(ctx context.Context, call protocol.HostCall, log *slog.Logge
 		return noResponse(fmt.Sprintf("The host couldn't get its egress image. Error: %v", err))
 	}
 
+	config := protocol.EgressConfig{
+		URL:         h.now().SandboxURL,
+		Credential:  rand.Text(),
+		Allow:       h.now().Egress.Allow,
+		SecretAllow: h.now().Egress.SecretAllow,
+		Send:        &call,
+	}
+	if call.SecretsToken != "" {
+		config.SendSecrets = &protocol.CallSecrets{CallID: call.ID, Host: h.opts.HostID, Token: call.SecretsToken}
+	}
+
 	container, err := h.startEgress(sending, image, "call-"+call.ID,
-		map[string]string{LabelHost: h.opts.HostID, LabelCall: call.ID},
-		protocol.EgressConfig{
-			URL:         h.now().SandboxURL,
-			Credential:  rand.Text(),
-			Allow:       h.now().Egress.Allow,
-			SecretAllow: h.now().Egress.SecretAllow,
-			Send:        &call,
-		}, nil)
+		map[string]string{LabelHost: h.opts.HostID, LabelCall: call.ID}, config, nil)
 	defer h.destroy(container)
 	if err != nil {
 		log.Warn("could not start an egress to send the call", "error", err)

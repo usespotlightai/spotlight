@@ -1387,3 +1387,162 @@ mcp:
     ).toContainEqual(expect.stringMatching(/Unrecognized key: "token"/));
   });
 });
+
+describe('an action sent from the network', () => {
+  const ACTION = `integration: audit
+actions:
+  record:
+    from: network
+    request:
+      method: POST
+      url: https://audit.internal/records
+      auth:
+        secrets: [secret.AUDIT_TOKEN]
+      capture:
+        id: \${{ response.id }}
+`;
+
+  const compiled = (text: string) =>
+    compileIntegration(parseYaml(text), expressions);
+
+  const action = (text: string) => {
+    const read = compiled(text);
+
+    return read.ok ? read.readable.actions.get('record') : undefined;
+  };
+
+  const refused = (text: string) => {
+    const read = compiled(text);
+
+    return read.ok
+      ? []
+      : read.problems.map((each) => [dottedOf(each.field), each.reason]);
+  };
+
+  it('waits 30 seconds for a host to send it, unless it says how long', () => {
+    expect(action(ACTION)?.fromNetwork).toEqual({ timeoutMs: 30_000 });
+    expect(
+      action(
+        ACTION.replace(
+          'from: network',
+          'from: network\n    timeoutSeconds: 45',
+        ),
+      )?.fromNetwork,
+    ).toEqual({ timeoutMs: 45_000 });
+  });
+
+  it('waits at most a minute', () => {
+    expect(
+      refused(
+        ACTION.replace(
+          'from: network',
+          'from: network\n    timeoutSeconds: 61',
+        ),
+      ),
+    ).toEqual([['actions.record.timeoutSeconds', 'is 1 to 60 seconds']]);
+  });
+
+  it('is sent from Spotlight unless it says otherwise', () => {
+    expect(
+      action(ACTION.replace('    from: network\n', ''))?.fromNetwork,
+    ).toBeNull();
+  });
+
+  it('says how long to wait only when it is sent from the network', () => {
+    expect(
+      refused(ACTION.replace('from: network', 'timeoutSeconds: 10')),
+    ).toEqual([
+      [
+        'actions.record.timeoutSeconds',
+        expect.stringContaining('Only an action sent from the network has it'),
+      ],
+    ]);
+  });
+
+  it('cannot use an OAuth connection', () => {
+    expect(
+      refused(
+        ACTION.replace(
+          'secrets: [secret.AUDIT_TOKEN]',
+          'oauth2:\n          connection: true',
+        ),
+      ),
+    ).toEqual([
+      [
+        'actions.record.request.auth',
+        expect.stringContaining('cannot use an OAuth connection'),
+      ],
+    ]);
+  });
+
+  it('cannot set a Host header', () => {
+    expect(
+      refused(
+        ACTION.replace(
+          '      auth:\n',
+          '      headers:\n        Host: admin.internal\n      auth:\n',
+        ),
+      ),
+    ).toEqual([
+      [
+        'actions.record.request.headers.Host',
+        expect.stringContaining('is a Host header'),
+      ],
+    ]);
+    expect(
+      action(
+        ACTION.replace('    from: network\n', '').replace(
+          '      auth:\n',
+          '      headers:\n        host: audit.internal\n      auth:\n',
+        ),
+      )?.fromNetwork,
+    ).toBeNull();
+  });
+
+  it('injects secrets only into an https request', () => {
+    expect(
+      refused(
+        ACTION.replace('https://audit.internal', 'http://audit.internal'),
+      ),
+    ).toEqual([
+      [
+        'actions.record.request.url',
+        expect.stringContaining(
+          'Egress injects secrets only into https requests',
+        ),
+      ],
+    ]);
+    expect(
+      action(
+        ACTION.replace(
+          'https://audit.internal',
+          'http://audit.internal',
+        ).replace('      auth:\n        secrets: [secret.AUDIT_TOKEN]\n', ''),
+      )?.fromNetwork,
+    ).toEqual({ timeoutMs: 30_000 });
+  });
+
+  it('is an action alone: a poll sends its request from Spotlight', () => {
+    const read = compiled(`integration: linear
+poll:
+  every: 60s
+  request:
+    from: network
+    method: GET
+    url: https://api.linear.app/issues
+  events:
+    - forEach: \${{ body.issues }}
+      when: \${{ item.done }}
+      raise:
+        happening: linear.issue.completed
+        label: Issue completed
+        summary: The issue was moved to Done.
+        marks:
+          - kind: linear.issue
+            value: \${{ item.id }}
+`);
+
+    expect(read.ok ? [] : read.problems.map((each) => each.reason)).toEqual([]);
+    expect(read.ok && read.readable.poll?.request.fromNetwork).toBeNull();
+  });
+});

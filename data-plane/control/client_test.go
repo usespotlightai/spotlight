@@ -915,3 +915,76 @@ func TestACallContinuesTheTraceOfItsContext(t *testing.T) {
 		t.Errorf("a call without a trace sent traceparent %q", seen[1])
 	}
 }
+
+func TestRedeemCallSecretsNamesTheHostAndTokenAndReadsTheSealedSecrets(t *testing.T) {
+	var path, auth string
+	var received protocol.HostCallSecretsRequest
+	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		path, auth = r.URL.Path, r.Header.Get("Authorization")
+		_ = json.NewDecoder(r.Body).Decode(&received)
+		_ = json.NewEncoder(w).Encode(protocol.EgressSecrets{
+			RunID: "call_1",
+			Secrets: []protocol.FetchedSecret{{
+				Secret: "SLACK_BOT_TOKEN", Host: "slack.com", Location: protocol.LocationHeader, Name: "Authorization",
+				Prefix: "Bearer ", Sealed: "v1.a.b.c.d",
+			}},
+		})
+	})
+
+	fetched, err := client.RedeemCallSecrets(context.Background(), "call 1", protocol.HostCallSecretsRequest{
+		Host: "host_1", Token: "secrets-token", Recipient: "recipient-key",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != "/api/hosts/calls/call 1/secrets" || auth != "Bearer tok" ||
+		received != (protocol.HostCallSecretsRequest{Host: "host_1", Token: "secrets-token", Recipient: "recipient-key"}) {
+		t.Errorf("received %s with %q for %+v", path, auth, received)
+	}
+	if fetched.RunID != "call_1" || len(fetched.Secrets) != 1 || fetched.Secrets[0].Sealed != "v1.a.b.c.d" {
+		t.Errorf("redeemed %+v", fetched)
+	}
+}
+
+func TestRedeemCallSecretsTellsWhyTheControlPlaneRefused(t *testing.T) {
+	for status, want := range map[int]error{
+		http.StatusUnauthorized: control.ErrUnauthorized,
+		http.StatusForbidden:    control.ErrUnauthorized,
+		http.StatusConflict:     control.ErrCallSecretsTaken,
+		http.StatusGone:         control.ErrCallSecretsExpired,
+	} {
+		client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "no", status)
+		})
+
+		_, err := client.RedeemCallSecrets(context.Background(), "call_1", protocol.HostCallSecretsRequest{Host: "host_1"})
+		var rejection *control.ResponseError
+		if !errors.Is(err, want) || !errors.As(err, &rejection) || rejection.Status != status {
+			t.Errorf("%d came back as %v", status, err)
+		}
+	}
+}
+
+func TestRedeemCallSecretsWithNoCredentialSendsNoAuthorization(t *testing.T) {
+	var auth, trust string
+	var received protocol.HostCallSecretsRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth, trust = r.Header.Get("Authorization"), r.Header.Get(protocol.TrustHeader)
+		_ = json.NewDecoder(r.Body).Decode(&received)
+		_ = json.NewEncoder(w).Encode(protocol.EgressSecrets{RunID: "call_1"})
+	}))
+	t.Cleanup(server.Close)
+
+	client, err := control.Authorized(server.URL, control.NoCredential{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.RedeemCallSecrets(context.Background(), "call_1", protocol.HostCallSecretsRequest{
+		Host: "host_1", Token: "secrets-token", Recipient: "key",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if auth != "" || trust != "" || received.Token != "secrets-token" {
+		t.Errorf("redeemed with %q through %q for %+v", auth, trust, received)
+	}
+}

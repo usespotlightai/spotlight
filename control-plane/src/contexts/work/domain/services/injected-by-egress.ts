@@ -6,9 +6,6 @@ export interface InjectedByEgress {
   readonly injectedSecrets: readonly SecretName[];
 }
 
-const placeholderFor = (secret: SecretName): string =>
-  `spotlight-egress:${secret.value}`;
-
 export const injectedByEgress = (
   env: Readonly<Record<string, string>>,
 ): InjectedByEgress => {
@@ -23,7 +20,7 @@ export const injectedByEgress = (
       }
 
       injected.push(secret);
-      return [name, placeholderFor(secret)];
+      return [name, secret.standIn];
     }),
   );
 

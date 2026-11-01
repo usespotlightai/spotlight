@@ -42,14 +42,11 @@ import {
   RecordEgressConnectionsRequestDto,
 } from '@work/presentation/http/dto/egress.request.dto';
 import {
-  DeniedSecretResponseDto,
   EgressActiveRunsResponseDto,
   EgressAuthorizationResponseDto,
   EgressSecretsResponseDto,
-  ExternalSecretRefResponseDto,
-  FetchedSecretResponseDto,
-  SpotlightApiResponseDto,
 } from '@work/presentation/http/dto/egress.response.dto';
+import { EgressSecretsHttpMapper } from '@work/presentation/http/mappers/egress-secrets.http.mapper';
 
 const UNAUTHORIZED =
   'Missing or unknown egress token, or its runner no longer has a lease on work';
@@ -135,35 +132,7 @@ export class EgressController {
       throw new ConflictException(WAITING);
     }
 
-    return new EgressSecretsResponseDto(
-      fetched.runId,
-      fetched.extraAllowedHosts,
-      fetched.bound,
-      fetched.secrets.map(
-        (each) =>
-          new FetchedSecretResponseDto(
-            each.secret,
-            each.host,
-            each.location,
-            each.name,
-            each.prefix,
-            each.sealed,
-            each.externalRef
-              ? new ExternalSecretRefResponseDto(
-                  each.externalRef.kind,
-                  each.externalRef.secretId,
-                  each.externalRef.field,
-                )
-              : null,
-          ),
-      ),
-      fetched.denied.map(
-        (each) => new DeniedSecretResponseDto(each.secret, each.reason),
-      ),
-      fetched.spotlightApi
-        ? new SpotlightApiResponseDto(fetched.spotlightApi.sealed)
-        : null,
-    );
+    return EgressSecretsHttpMapper.toResponse(fetched);
   }
 
   @Post('authorize')

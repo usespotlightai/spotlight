@@ -1,6 +1,6 @@
 import { InvalidNetworkCallError } from '@work/domain/exceptions/invalid-network-call.error';
 
-const MAX_BODY_BYTES = 16 * 1024;
+const MAX_BODY_BYTES = 256 * 1024;
 
 const MAX_ERROR = 1_000;
 

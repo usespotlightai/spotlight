@@ -203,6 +203,7 @@ import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-st
 import { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
 import { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { NetworkOutbound } from '@integrations/infrastructure/outbound/network-outbound';
 import {
   InMemoryOutboundLimits,
   RedisOutboundLimits,
@@ -302,6 +303,10 @@ import {
   HappeningReactionsPort,
 } from '@work/application/ports/happening-reactions.port';
 import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool-calls.port';
+import {
+  NETWORK_CALLS,
+  type NetworkCallsPort,
+} from '@work/application/ports/network-calls.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
 
@@ -639,6 +644,16 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     useFactory: (policy: OutboundPolicy) => new HttpOutbound(policy),
   },
 
+  {
+    provide: NetworkOutbound,
+    inject: [HttpOutbound, NETWORK_CALLS, CLOCK],
+    useFactory: (
+      outbound: HttpOutbound,
+      calls: NetworkCallsPort,
+      clock: ClockPort,
+    ) => new NetworkOutbound(outbound, calls, clock),
+  },
+
   { provide: INTEGRATION_CURSORS, useClass: DrizzleIntegrationCursors },
 
   {
@@ -850,6 +865,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       McpSessions,
       OUTBOUND_LIMITS,
       WORKSPACE_OUTBOUND_SCOPE,
+      NetworkOutbound,
     ],
     useFactory: (
       reader: IntegrationReader,
@@ -860,6 +876,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       sessions: McpSessions,
       limits: OutboundLimitsPort,
       scope: WorkspaceOutboundScopePort,
+      network: NetworkOutbound,
     ) =>
       new CompiledIntegrationRuntime(
         reader,
@@ -870,6 +887,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         sessions,
         limits,
         scope,
+        network,
       ),
   },
 

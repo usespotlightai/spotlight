@@ -340,6 +340,7 @@ export class HookRequests {
         ),
         1_000,
       ),
+      secrets: [],
     };
     const call = await this.network.queue(
       request.instance.task.workspaceId,

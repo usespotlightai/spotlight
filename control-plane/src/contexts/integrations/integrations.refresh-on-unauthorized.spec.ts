@@ -32,6 +32,7 @@ import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-
 import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth2-registrar';
 import { OAuth2State } from '@integrations/infrastructure/integrations/oauth2-state';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
+import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { InMemoryIntegrationConnections } from '@integrations/integrations.connections.fake-spec';
@@ -346,6 +347,7 @@ const settingUp = ({
     callingNoServer(),
     unlimited,
     unscoped,
+    noNetwork,
   );
   const connectionRefresh = new ConnectionRefresh(
     connections,

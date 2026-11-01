@@ -24,7 +24,7 @@ const CALL_AUTH: CallAuth = {
     linkedAccount: null,
     unauthorized: async () => null,
   },
-  credentials: { injectedFor: vi.fn() },
+  credentials: { injectedFor: vi.fn(), standInsFor: vi.fn() },
 };
 
 const tool = (name: string): Tool => ({
