@@ -25,6 +25,13 @@ import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { discoveringNothing } from '@integrations/integrations.mcp.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { OutboundScope } from '@platform/outbound/outbound-scope';
+import {
+  scopedTo,
+  unscoped,
+} from '@platform/outbound/outbound-scope.fake-spec';
+import { scopeRecorder } from '@shared-kernel/application/ports/workspace-outbound-scope.fake-spec';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -67,7 +74,10 @@ const TASK: IntegrationTaskView = {
   waiting: null,
 };
 
-const resolving = async (call: McpSessions['call']): Promise<ResolvedTool> => {
+const resolving = async (
+  call: McpSessions['call'],
+  hosts: WorkspaceOutboundScopePort = unscoped,
+): Promise<ResolvedTool> => {
   const runtime = new CompiledIntegrationRuntime(
     new IntegrationReader(
       expressions,
@@ -87,6 +97,7 @@ const resolving = async (call: McpSessions['call']): Promise<ResolvedTool> => {
     discoveringNothing(),
     { call: vi.fn(call) } as unknown as McpSessions,
     unlimited,
+    hosts,
   );
   const resolved = await runtime.tool(
     [
@@ -183,6 +194,33 @@ describe('a tool an MCP server offers', () => {
     await expect(
       resolved.call({}, callAuthAs('ada-token')),
     ).rejects.toBeInstanceOf(ToolAskedMidCallError);
+  });
+
+  it('calls the server within the workspace list, so each request it makes honours it', async () => {
+    const allowed: boolean[] = [];
+    const resolved = await resolving(async () => {
+      allowed.push(
+        OutboundScope.allows('mcp.tracker.example'),
+        OutboundScope.allows('elsewhere.example'),
+      );
+      return { content: [{ type: 'text' as const, text: 'done' }] };
+    }, scopedTo('mcp.tracker.example'));
+
+    await resolved.call({}, callAuthAs('ada-token'));
+
+    expect(allowed).toEqual([true, false]);
+  });
+
+  it('calls within the cached workspace list, never a fresh read', async () => {
+    const recorder = scopeRecorder();
+    const resolved = await resolving(
+      async () => ({ content: [{ type: 'text' as const, text: 'done' }] }),
+      recorder.scope,
+    );
+
+    await resolved.call({}, callAuthAs('ada-token'));
+
+    expect(recorder.entered()).toEqual(['cached']);
   });
 
   it('lets a blocked call to the host through as it is', async () => {

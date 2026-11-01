@@ -409,6 +409,7 @@ CREATE TABLE "workspace" (
 	"id" text PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"slug" text NOT NULL,
+	"outbound_hosts" text[] DEFAULT '{}' NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,

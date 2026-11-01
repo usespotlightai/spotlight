@@ -20,6 +20,7 @@ import {
   WORKSPACE_ACCESS,
   type WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
+import { WORKSPACE_OUTBOUND_HOSTS } from '@identity/application/ports/workspace-outbound-hosts.port';
 import {
   WORKSPACE_READER,
   WorkspaceReaderPort,
@@ -122,6 +123,7 @@ import {
   SPEC_READER,
   type SpecReaderPort,
 } from '@integrations/application/ports/spec-reader.port';
+import { WORKSPACE_HOSTS } from '@integrations/application/ports/workspace-hosts.port';
 import { CheckExpressionQuery } from '@integrations/application/queries/check-expression.query';
 import { CheckExpressionHandler } from '@integrations/application/queries/handlers/check-expression.handler';
 import { ImportIntegrationHandler } from '@integrations/application/queries/handlers/import-integration.handler';
@@ -288,6 +290,10 @@ import {
 } from '@shared-kernel/application/ports/telemetry.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
+  WORKSPACE_OUTBOUND_SCOPE,
+  type WorkspaceOutboundScopePort,
+} from '@shared-kernel/application/ports/workspace-outbound-scope.port';
+import {
   ENABLED_AT_STATIONS,
   type EnabledAtStationsPort,
 } from '@work/application/ports/enabled-at-stations.port';
@@ -412,6 +418,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
           )
         : new InMemoryOutboundLimits(env.SPOTLIGHT_OUTBOUND_RATE_LIMIT),
   },
+  { provide: WORKSPACE_HOSTS, useExisting: WORKSPACE_OUTBOUND_HOSTS },
   {
     provide: OutboundPolicy,
     inject: [OutboundGuard],
@@ -435,11 +442,16 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: SPEC_READER,
-    inject: [OutboundPolicy, McpSessions],
-    useFactory: (policy: OutboundPolicy, sessions: McpSessions) =>
+    inject: [OutboundPolicy, McpSessions, WORKSPACE_OUTBOUND_SCOPE],
+    useFactory: (
+      policy: OutboundPolicy,
+      sessions: McpSessions,
+      scope: WorkspaceOutboundScopePort,
+    ) =>
       new SpecReaders(
         new ThreadedSpecReader(new SpecFetch(policy)),
         new McpSpecReader(sessions),
+        scope,
       ),
   },
 
@@ -837,6 +849,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       OAuth2Discovery,
       McpSessions,
       OUTBOUND_LIMITS,
+      WORKSPACE_OUTBOUND_SCOPE,
     ],
     useFactory: (
       reader: IntegrationReader,
@@ -846,6 +859,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       discovery: OAuth2Discovery,
       sessions: McpSessions,
       limits: OutboundLimitsPort,
+      scope: WorkspaceOutboundScopePort,
     ) =>
       new CompiledIntegrationRuntime(
         reader,
@@ -855,6 +869,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         discovery,
         sessions,
         limits,
+        scope,
       ),
   },
 
@@ -896,6 +911,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       OAUTH2_NONCES,
       CLOCK,
       ENV,
+      WORKSPACE_OUTBOUND_SCOPE,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
@@ -909,6 +925,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       nonces: OAuth2NoncesPort,
       clock: ClockPort,
       env: Env,
+      scope: WorkspaceOutboundScopePort,
     ) =>
       new OAuth2Linking(
         defined,
@@ -923,6 +940,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         clock,
         publicUrlOf(env),
         callbackOf(env),
+        scope,
       ),
   },
 
@@ -977,6 +995,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       HttpOutbound,
       SECRET_INJECTION,
       OUTBOUND_LIMITS,
+      WORKSPACE_OUTBOUND_SCOPE,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
@@ -985,6 +1004,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       outbound: HttpOutbound,
       injection: SecretInjectionPort,
       limits: OutboundLimitsPort,
+      scope: WorkspaceOutboundScopePort,
     ) =>
       new ConfiguredWebhookProviders(
         defined,
@@ -993,6 +1013,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         outbound,
         injection,
         limits,
+        scope,
       ),
   },
 

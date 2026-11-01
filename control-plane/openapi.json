@@ -4462,6 +4462,17 @@
                   "slug": {
                     "type": "string",
                     "example": "acme"
+                  },
+                  "outboundHosts": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": [],
+                    "example": [
+                      "api.example.com",
+                      "*.example.com"
+                    ]
                   }
                 }
               }
@@ -4739,6 +4750,17 @@
                   "slug": {
                     "type": "string",
                     "example": "acme"
+                  },
+                  "outboundHosts": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "default": [],
+                    "example": [
+                      "api.example.com",
+                      "*.example.com"
+                    ]
                   }
                 }
               }
@@ -26465,6 +26487,17 @@
             "type": "string",
             "example": "acme",
             "description": "Where the workspace lives in the web app. Immutable: changing it means replacing the workspace"
+          },
+          "outboundHosts": {
+            "example": [
+              "api.example.com",
+              "*.example.com"
+            ],
+            "description": "The hosts Spotlight may call for this workspace's configuration, as exact hosts or *.example.com patterns. The deployment's allowed list applies too. An empty list adds no limit. A change applies to calls in at most 30 seconds",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
@@ -26473,7 +26506,8 @@
           "address",
           "warnings",
           "name",
-          "slug"
+          "slug",
+          "outboundHosts"
         ]
       },
       "WorkspaceResourceListResponseDto": {

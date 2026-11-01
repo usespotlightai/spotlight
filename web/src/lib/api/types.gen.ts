@@ -2436,6 +2436,10 @@ export type WorkspaceResourceResponseDto = {
    * Where the workspace lives in the web app. Immutable: changing it means replacing the workspace
    */
   slug: string;
+  /**
+   * The hosts Spotlight may call for this workspace's configuration, as exact hosts or *.example.com patterns. The deployment's allowed list applies too. An empty list adds no limit. A change applies to calls in at most 30 seconds
+   */
+  outboundHosts: Array<string>;
 };
 
 export type WorkspaceResourceListResponseDto = {
@@ -10653,6 +10657,7 @@ export type CreateWorkspaceData = {
   body: {
     name: string;
     slug: string;
+    outboundHosts?: Array<string>;
   };
   headers: {
     /**
@@ -10821,6 +10826,7 @@ export type UpdateWorkspaceData = {
   body: {
     name: string;
     slug: string;
+    outboundHosts?: Array<string>;
   };
   headers: {
     /**

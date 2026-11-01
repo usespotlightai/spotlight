@@ -25,6 +25,7 @@ export interface WorkspaceProfile {
   readonly id: string;
   readonly name: string;
   readonly slug: string;
+  readonly outboundHosts: readonly string[];
 }
 
 export const WORKSPACE_READER = Symbol('WORKSPACE_READER');

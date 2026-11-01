@@ -8,6 +8,7 @@ import type { ProvidedTool } from '@integrations/domain/value-objects/provided-t
 import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import type { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   Happened,
   TaskMark,
@@ -152,7 +153,7 @@ export interface IntegrationRuntimePort {
 
   refresh(
     definitions: readonly DefinedIntegration[],
-    teamId: TeamId,
+    owner: { readonly teamId: TeamId; readonly workspaceId: WorkspaceId },
     integration: IntegrationKey,
     refreshToken: AccessToken,
   ): Promise<RefreshResult>;

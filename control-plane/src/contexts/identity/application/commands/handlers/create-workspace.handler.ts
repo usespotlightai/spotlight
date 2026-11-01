@@ -66,6 +66,7 @@ export class CreateWorkspaceHandler
               id,
               name: compiled.name,
               slug: compiled.slug,
+              outboundHosts: compiled.outboundHosts,
               owner: principal.userId,
               by: ChangeActor.of(command.actor, id),
             });

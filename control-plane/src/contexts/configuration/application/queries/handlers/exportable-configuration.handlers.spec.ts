@@ -131,6 +131,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
       id: WORKSPACE.value,
       name: 'Acme',
       slug: 'acme',
+      outboundHosts: [],
     })),
   } as unknown as WorkspaceReaderPort;
   const teams = {

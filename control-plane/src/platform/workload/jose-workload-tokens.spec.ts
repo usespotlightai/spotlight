@@ -18,12 +18,17 @@ const quiet: LoggerPort = {
 describe('JoseWorkloadTokens', () => {
   let platform: WorkloadIssuer;
   let tokens: JoseWorkloadTokens;
+  let refusing = false;
 
   const expected = () => ({ issuer: platform.issuer, audience: 'spotlight' });
 
   beforeAll(async () => {
     platform = await openWorkloadIssuer();
-    tokens = new JoseWorkloadTokens(quiet, globalThis.fetch);
+    tokens = new JoseWorkloadTokens(quiet, globalThis.fetch, (url) => {
+      if (refusing && new URL(url).hostname === '127.0.0.1') {
+        throw new Error('Host is not on the allowed list.');
+      }
+    });
   });
 
   afterAll(async () => {
@@ -45,6 +50,20 @@ describe('JoseWorkloadTokens', () => {
       audiences: ['spotlight'],
       customClaims: { repository: 'acme/platform' },
     });
+  });
+
+  it('checks the cached issuer and key URLs again before it trusts its cached keys', async () => {
+    const token = await platform.issue({ sub: SUBJECT, aud: 'spotlight' });
+
+    await expect(tokens.verify(token, expected())).resolves.not.toBeNull();
+
+    refusing = true;
+
+    try {
+      await expect(tokens.verify(token, expected())).resolves.toBeNull();
+    } finally {
+      refusing = false;
+    }
   });
 
   it('rejects a token signed with any other key', async () => {

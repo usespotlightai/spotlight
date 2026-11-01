@@ -9,6 +9,7 @@ import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo'
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
+import { scopeRecorder } from '@shared-kernel/application/ports/workspace-outbound-scope.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
@@ -59,9 +60,12 @@ const exchanging = (
       throw over.adding;
     }
   });
-  const verify = vi.fn(async () =>
-    over.claims === undefined ? CLAIMS : over.claims,
-  );
+  const recorder = scopeRecorder();
+  const verifiedIn: (string | null)[] = [];
+  const verify = vi.fn(async () => {
+    verifiedIn.push(recorder.current());
+    return over.claims === undefined ? CLAIMS : over.claims;
+  });
   const handler = new ExchangeWorkloadTokenHandler(
     {
       find: vi.fn(async () => (over.trust === undefined ? TRUST : over.trust)),
@@ -71,6 +75,7 @@ const exchanging = (
     } as unknown as OidcTrustRepository,
     { add } as unknown as WorkspaceTokenRepository,
     { verify } satisfies WorkloadTokensPort,
+    recorder.scope,
     { generate: () => 'token_1' },
     {
       issue: () => ({ token: 'issued-token', hash: 'c'.repeat(64) }),
@@ -82,6 +87,7 @@ const exchanging = (
   return {
     add,
     verify,
+    verifiedIn,
     exchange: (token = 'oidc-token') =>
       handler.execute(
         new ExchangeWorkloadTokenCommand('trust_1', token, Client.named('web')),
@@ -105,6 +111,14 @@ describe('ExchangeWorkloadTokenHandler', () => {
       audience: 'spotlight',
     });
     expect(add).toHaveBeenCalledOnce();
+  });
+
+  it('verifies the workload within the outbound scope of the trust’s workspace', async () => {
+    const { exchange, verifiedIn } = exchanging();
+
+    await exchange();
+
+    expect(verifiedIn).toEqual(['ws_1']);
   });
 
   it('issues nothing through a trust that does not exist', async () => {

@@ -24,6 +24,7 @@ import {
 } from '@integrations/integrations.secrets.fake-spec';
 import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import { describe, expect, it, vi } from 'vitest';
@@ -43,6 +44,7 @@ const runtimeWith = (
     discoveringNothing(),
     callingNoServer(),
     unlimited,
+    unscoped,
   );
 
 const _NOW = new Date('2026-09-07T10:00:00.000Z');

@@ -61,6 +61,10 @@ import {
   TASKS_FOR_HOOKS,
   type TasksForHooksPort,
 } from '@integrations/application/ports/tasks-for-hooks.port';
+import {
+  WORKSPACE_HOSTS,
+  type WorkspaceHostsPort,
+} from '@integrations/application/ports/workspace-hosts.port';
 import { CallbackTaskQuery } from '@integrations/application/queries/callback-task.query';
 import { CallbackTaskHandler } from '@integrations/application/queries/handlers/callback-task.handler';
 import { HookIssuerHandler } from '@integrations/application/queries/handlers/hook-issuer.handler';
@@ -122,7 +126,7 @@ import {
   type ExpressionEnginePort,
 } from '@platform/expressions/expression-engine.port';
 import { API_PREFIX } from '@platform/http/routes';
-import { OutboundHosts } from '@platform/outbound/outbound-hosts';
+import { DEPLOYMENT_HOSTS } from '@platform/outbound/deployment-hosts';
 import {
   CAUSATION,
   type CausationPort,
@@ -149,6 +153,11 @@ import {
   type TokenIssuer,
 } from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
+import {
+  WORKSPACE_OUTBOUND_SCOPE,
+  type WorkspaceOutboundScopePort,
+} from '@shared-kernel/application/ports/workspace-outbound-scope.port';
+import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import {
   HOOK_TRACES,
   type HookTracesPort,
@@ -230,20 +239,26 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: OUTBOUND_HOSTS,
-    inject: [OutboundHosts],
-    useFactory: (hosts: OutboundHosts): OutboundHostsPort => ({
+    inject: [DEPLOYMENT_HOSTS],
+    useFactory: (hosts: HostAllowList): OutboundHostsPort => ({
       allows: (host) => hosts.allows(host),
     }),
   },
 
   {
     provide: HookAllowancesService,
-    inject: [INTEGRATION_DEFINITIONS, HOOK_TOKENS, OUTBOUND_HOSTS],
+    inject: [
+      INTEGRATION_DEFINITIONS,
+      HOOK_TOKENS,
+      OUTBOUND_HOSTS,
+      WORKSPACE_HOSTS,
+    ],
     useFactory: (
       integrations: IntegrationDefinitionRepository,
       tokens: HookTokensPort,
       hosts: OutboundHostsPort,
-    ) => new HookAllowancesService(integrations, tokens, hosts),
+      workspaceHosts: WorkspaceHostsPort,
+    ) => new HookAllowancesService(integrations, tokens, hosts, workspaceHosts),
   },
 
   {
@@ -262,6 +277,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       HookCallbackTokens,
       NETWORK_CALLS,
       OUTBOUND_LIMITS,
+      WORKSPACE_OUTBOUND_SCOPE,
     ],
     useFactory: (
       env: Env,
@@ -271,6 +287,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       callbacks: HookCallbackTokens,
       network: NetworkCallsPort,
       limits: OutboundLimitsPort,
+      scope: WorkspaceOutboundScopePort,
     ) =>
       new HookRequests(
         {
@@ -282,6 +299,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
         callbacks,
         network,
         limits,
+        scope,
       ),
   },
 

@@ -38,6 +38,11 @@ import {
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import {
+  scopedTo,
+  unscoped,
+} from '@platform/outbound/outbound-scope.fake-spec';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -69,6 +74,7 @@ const runtimeWith = (
     discoveringNothing(),
     callingNoServer(),
     limits,
+    unscoped,
   );
 
 const LINEAR = `integration: linear
@@ -513,6 +519,7 @@ graphql:
       text: string,
       operation: SpecOperation,
       answering: Response,
+      hosts: WorkspaceOutboundScopePort = unscoped,
     ) => {
       const fetch = vi.fn(async () => answering);
       const secrets = injecting({
@@ -554,6 +561,7 @@ graphql:
           discoveringNothing(),
           callingNoServer(),
           unlimited,
+          hosts,
         ),
         callAuthFor(secrets.injection),
         inferringInto(),
@@ -622,6 +630,35 @@ graphql:
           }),
         }),
       );
+    });
+
+    it('never calls a host the workspace does not allow, and says so', async () => {
+      const { fetch, resolving } = generated(
+        PETSTORE,
+        ADD_PET,
+        new Response('{}'),
+        scopedTo('api.linear.app'),
+      );
+      const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
+
+      await expect(resolved.call({ body: { name: 'doggie' } })).rejects.toThrow(
+        "Outbound call to petstore3.swagger.io blocked. Host is not on the workspace's allowed list.",
+      );
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('calls a host the workspace allows', async () => {
+      const { fetch, resolving } = generated(
+        PETSTORE,
+        ADD_PET,
+        new Response('{}'),
+        scopedTo('*.swagger.io'),
+      );
+      const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
+
+      await resolved.call({ body: { name: 'doggie' } });
+
+      expect(fetch).toHaveBeenCalledOnce();
     });
 
     it('answers with the field a GraphQL operation selects, and fails on an answer carrying errors', async () => {

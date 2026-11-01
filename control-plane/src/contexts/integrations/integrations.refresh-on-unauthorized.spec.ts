@@ -48,6 +48,7 @@ import {
 } from '@integrations/integrations.policies.fake-spec';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
+import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -344,6 +345,7 @@ const settingUp = ({
     discoveringNothing(),
     callingNoServer(),
     unlimited,
+    unscoped,
   );
   const connectionRefresh = new ConnectionRefresh(
     connections,
@@ -380,6 +382,7 @@ const settingUp = ({
     clock,
     'https://app.example',
     CALLBACK,
+    unscoped,
   );
 
   const connectedAs = (accessToken: string, refreshToken = 'rt-1') =>

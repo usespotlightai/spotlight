@@ -1,5 +1,5 @@
 {
-  "id": "9f7b3a8a-75e4-4989-909e-9e01b6879e54",
+  "id": "f05edd19-1e31-42a2-9a3c-e0650eb2fa33",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -3181,6 +3181,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "outbound_hosts": {
+          "name": "outbound_hosts",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
         },
         "version": {
           "name": "version",

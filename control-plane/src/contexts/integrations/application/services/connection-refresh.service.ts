@@ -142,7 +142,7 @@ export class ConnectionRefresh {
     try {
       result = await this.runtime.refresh(
         await this.defined.ofTeam(claimed.teamId),
-        claimed.teamId,
+        { teamId: claimed.teamId, workspaceId: claimed.workspaceId },
         claimed.integration,
         refreshToken,
       );

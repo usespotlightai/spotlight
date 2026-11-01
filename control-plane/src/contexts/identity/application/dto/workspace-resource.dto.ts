@@ -6,5 +6,6 @@ export interface WorkspaceResourceDto {
   readonly address: string;
   readonly name: string;
   readonly slug: string;
+  readonly outboundHosts: readonly string[];
   readonly warnings: readonly ConfigurationProblem[];
 }
