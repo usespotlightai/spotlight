@@ -20,25 +20,52 @@ import (
 )
 
 type fakeSpotlight struct {
-	server *httptest.Server
-	asked  chan *http.Request
-	serve  func(r *http.Request, w http.ResponseWriter)
+	server     *httptest.Server
+	connected  chan connectRequest
+	asked      chan *http.Request
+	connecting func(r *http.Request, w http.ResponseWriter)
+	serve      func(r *http.Request, w http.ResponseWriter)
+}
+
+type connectRequest struct {
+	header http.Header
+	body   map[string]string
+}
+
+func leasing(_ *http.Request, w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(protocol.EditorConnection{SandboxID: "sandbox_1", Holder: "holder_1"})
 }
 
 func newFakeSpotlight(t *testing.T, serve func(r *http.Request, w http.ResponseWriter)) *fakeSpotlight {
 	t.Helper()
 
-	fake := &fakeSpotlight{asked: make(chan *http.Request, 1), serve: serve}
+	fake := &fakeSpotlight{
+		connected:  make(chan connectRequest, 1),
+		asked:      make(chan *http.Request, 1),
+		connecting: leasing,
+		serve:      serve,
+	}
 	fake.server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != protocol.EditorConnectPath {
-			http.NotFound(w, r)
-			return
-		}
-		select {
-		case fake.asked <- r:
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == protocol.EditorConnectionsPath:
+			var body map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			select {
+			case fake.connected <- connectRequest{header: r.Header.Clone(), body: body}:
+			default:
+			}
+			fake.connecting(r, w)
+		case r.URL.Path == protocol.EditorConnectPath:
+			select {
+			case fake.asked <- r:
+			default:
+			}
+			fake.serve(r, w)
 		default:
+			http.NotFound(w, r)
 		}
-		fake.serve(r, w)
 	}))
 	t.Cleanup(fake.server.Close)
 
@@ -141,11 +168,19 @@ func TestProxyPipesBytesBothWaysWithTheLogin(t *testing.T) {
 	done := make(chan int, 1)
 	go func() { done <- run.proxy(t, within(t), "task-abc.acme.spotlight") }()
 
+	connected := <-fake.connected
+	if got := connected.header.Get("Authorization"); got != "Bearer session-token" {
+		t.Errorf("connect Authorization = %q", got)
+	}
+	if len(connected.body) != 2 || connected.body["task"] != "abc" || connected.body["workspace"] != "acme" {
+		t.Errorf("connect body = %v", connected.body)
+	}
+
 	asked := <-fake.asked
 	if got := asked.Header.Get("Authorization"); got != "Bearer session-token" {
 		t.Errorf("Authorization = %q", got)
 	}
-	if got := asked.URL.RawQuery; got != "task=abc&workspace=acme" {
+	if got := asked.URL.RawQuery; got != "holder=holder_1&sandbox=sandbox_1" {
 		t.Errorf("query = %q", got)
 	}
 
@@ -209,7 +244,8 @@ func TestProxyNamesEachRefusal(t *testing.T) {
 		http.StatusServiceUnavailable: "the sandbox could not be opened",
 		http.StatusTeapot:             "answered 418: refused",
 	} {
-		fake := newFakeSpotlight(t, refusing(status))
+		fake := newFakeSpotlight(t, refusing(http.StatusTeapot))
+		fake.connecting = refusing(status)
 		run := newProxy(t, fake.server.URL, true, strings.NewReader(""))
 
 		code := run.proxy(t, within(t), "task-abc.acme.spotlight")
@@ -217,6 +253,25 @@ func TestProxyNamesEachRefusal(t *testing.T) {
 		lines := strings.Split(strings.TrimSpace(run.errs.String()), "\n")
 		if code != 1 || len(lines) != 1 || !strings.Contains(lines[0], want) || !strings.HasPrefix(lines[0], "spotlight ssh proxy: Sorry, ") {
 			t.Errorf("%d: exit %d, stderr %q; want one line with %q", status, code, run.errs.String(), want)
+		}
+		select {
+		case <-fake.asked:
+			t.Errorf("%d: the proxy opened a socket without an editor lease", status)
+		default:
+		}
+	}
+}
+
+func TestProxyNamesAnEditorLeaseThatEndedBeforeTheSocket(t *testing.T) {
+	for _, status := range []int{http.StatusNotFound, http.StatusConflict} {
+		fake := newFakeSpotlight(t, refusing(status))
+		run := newProxy(t, fake.server.URL, true, strings.NewReader(""))
+
+		code := run.proxy(t, within(t), "task-abc.acme.spotlight")
+
+		want := "spotlight ssh proxy: Sorry, the editor lease ended before the connection opened. Please try again\n"
+		if code != 1 || run.errs.String() != want {
+			t.Errorf("%d: exit %d, stderr %q; want %q", status, code, run.errs.String(), want)
 		}
 	}
 }
@@ -232,6 +287,8 @@ func TestProxyAsksForALoginBeforeItConnects(t *testing.T) {
 		t.Errorf("exit %d, stderr %q; want %q", code, run.errs.String(), want)
 	}
 	select {
+	case <-fake.connected:
+		t.Error("the proxy connected without a login")
 	case <-fake.asked:
 		t.Error("the proxy connected without a login")
 	default:

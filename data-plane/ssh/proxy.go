@@ -1,7 +1,9 @@
 package ssh
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,12 +18,13 @@ import (
 )
 
 const (
-	connectPath  = protocol.EditorConnectPath
-	clientHeader = "Spotlight-Client"
-	dialWait     = time.Minute
-	closeWait    = 5 * time.Second
-	readLimit    = 16 << 20
-	chunk        = 32 << 10
+	connectPath     = protocol.EditorConnectPath
+	connectionsPath = protocol.EditorConnectionsPath
+	clientHeader    = "Spotlight-Client"
+	dialWait        = time.Minute
+	closeWait       = 5 * time.Second
+	readLimit       = 16 << 20
+	chunk           = 32 << 10
 )
 
 func (c cli) proxy(ctx context.Context, args []string) error {
@@ -46,28 +49,73 @@ func (c cli) proxy(ctx context.Context, args []string) error {
 		return notSignedIn(address)
 	}
 
-	target, err := alias.connectURL(address)
-	if err != nil {
-		return err
-	}
-
 	header := http.Header{}
 	header.Set("Authorization", "Bearer "+token)
 	header.Set(clientHeader, "cli/"+c.version)
 
 	dialing, cancel := context.WithTimeout(ctx, dialWait)
 	defer cancel()
+
+	connection, err := connect(dialing, address, alias, header)
+	if err != nil {
+		if ctx.Err() != nil {
+			return errStopped
+		}
+		return err
+	}
+
+	target, err := socketURL(address, connection)
+	if err != nil {
+		return err
+	}
+
 	conn, response, err := websocket.Dial(dialing, target, &websocket.DialOptions{HTTPHeader: header})
 	if err != nil {
 		if ctx.Err() != nil {
 			return errStopped
 		}
-		return refused(address, alias, response, err)
+		return socketRefused(address, alias, response, err)
 	}
 	defer conn.CloseNow()
 	conn.SetReadLimit(readLimit)
 
 	return c.pipe(ctx, conn, address)
+}
+
+func connect(ctx context.Context, address string, alias Alias, header http.Header) (protocol.EditorConnection, error) {
+	target, err := connectionsURL(address)
+	if err != nil {
+		return protocol.EditorConnection{}, err
+	}
+
+	body, err := json.Marshal(alias.connection())
+	if err != nil {
+		return protocol.EditorConnection{}, err
+	}
+
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, target, bytes.NewReader(body))
+	if err != nil {
+		return protocol.EditorConnection{}, err
+	}
+	request.Header = header.Clone()
+	request.Header.Set("Content-Type", "application/json")
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return protocol.EditorConnection{}, refused(address, alias, nil, err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusCreated {
+		return protocol.EditorConnection{}, refused(address, alias, response, nil)
+	}
+
+	var connection protocol.EditorConnection
+	if err := json.NewDecoder(response.Body).Decode(&connection); err != nil || connection.SandboxID == "" || connection.Holder == "" {
+		return protocol.EditorConnection{}, fmt.Errorf("Sorry, Spotlight at %s answered without an editor lease", address)
+	}
+
+	return connection, nil
 }
 
 func (c cli) pipe(ctx context.Context, conn *websocket.Conn, address string) error {
@@ -172,6 +220,14 @@ func refused(address string, alias Alias, response *http.Response, err error) er
 	default:
 		return fmt.Errorf("Sorry, Spotlight at %s answered %d: %s", address, response.StatusCode, said(response))
 	}
+}
+
+func socketRefused(address string, alias Alias, response *http.Response, err error) error {
+	if response != nil && (response.StatusCode == http.StatusNotFound || response.StatusCode == http.StatusConflict) {
+		return errors.New("Sorry, the editor lease ended before the connection opened. Please try again")
+	}
+
+	return refused(address, alias, response, err)
 }
 
 func said(response *http.Response) string {

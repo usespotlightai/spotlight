@@ -18,3 +18,5 @@ export const HOOK_CALLBACKS = 'hook-callbacks';
 export const COLLAB = 'collab';
 
 export const SANDBOX_CONNECT = 'sandboxes/connect';
+
+export const EDITOR_CONNECTIONS = 'editor-connections';

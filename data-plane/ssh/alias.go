@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"usespotlight.ai/data-plane/protocol"
 )
 
 const domain = ".spotlight"
@@ -40,7 +42,20 @@ func (a Alias) String() string {
 	return a.Kind + "-" + a.ID + "." + a.Workspace + domain
 }
 
-func (a Alias) connectURL(address string) (string, error) {
+func (a Alias) connection() map[string]string {
+	return map[string]string{a.Kind: a.ID, "workspace": a.Workspace}
+}
+
+func connectionsURL(address string) (string, error) {
+	target, err := url.Parse(address)
+	if err != nil {
+		return "", err
+	}
+
+	return target.JoinPath(connectionsPath).String(), nil
+}
+
+func socketURL(address string, connection protocol.EditorConnection) (string, error) {
 	target, err := url.Parse(address)
 	if err != nil {
 		return "", err
@@ -55,8 +70,8 @@ func (a Alias) connectURL(address string) (string, error) {
 
 	target = target.JoinPath(connectPath)
 	query := url.Values{}
-	query.Set(a.Kind, a.ID)
-	query.Set("workspace", a.Workspace)
+	query.Set("sandbox", connection.SandboxID)
+	query.Set("holder", connection.Holder)
 	target.RawQuery = query.Encode()
 
 	return target.String(), nil

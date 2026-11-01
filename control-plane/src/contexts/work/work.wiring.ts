@@ -66,7 +66,7 @@ import { AuthenticatedGuard } from '@platform/http/guards/authenticated.guard';
 import { RunnerGuard } from '@platform/http/guards/runner.guard';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { s3ClientsOf } from '@platform/storage/s3-clients';
-import { EDITOR_ACCESS } from '@runners/application/ports/editor-access.port';
+import { EDITOR_LEASES } from '@runners/application/ports/editor-leases.port';
 import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
 import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.port';
@@ -132,6 +132,7 @@ import {
   StartChatCommand,
   StopChatCommand,
 } from '@work/application/commands/chat.commands';
+import { ConnectEditorCommand } from '@work/application/commands/connect-editor.command';
 import { CreateLineCommand } from '@work/application/commands/create-line.command';
 import { DeleteLineCommand } from '@work/application/commands/delete-line.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
@@ -158,6 +159,7 @@ import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.h
 import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
 import { CompleteSandboxArchiveHandler } from '@work/application/commands/handlers/complete-sandbox-archive.handler';
 import { CompleteWorkspaceArchiveHandler } from '@work/application/commands/handlers/complete-workspace-archive.handler';
+import { ConnectEditorHandler } from '@work/application/commands/handlers/connect-editor.handler';
 import { CreateLineHandler } from '@work/application/commands/handlers/create-line.handler';
 import { DeleteLineHandler } from '@work/application/commands/handlers/delete-line.handler';
 import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-task.handler';
@@ -433,10 +435,7 @@ import {
   TASK_VIEWS,
   type TaskViewsPort,
 } from '@work/application/ports/task-views.port';
-import {
-  TASK_WORKSPACES,
-  type TaskWorkspacesPort,
-} from '@work/application/ports/task-workspaces.port';
+import { TASK_WORKSPACES } from '@work/application/ports/task-workspaces.port';
 import {
   TEAM_INTEGRATIONS,
   type TeamIntegrationsPort,
@@ -561,7 +560,6 @@ import { DispatchReplay } from '@work/application/services/dispatch-replay.servi
 import { DispatchSearch } from '@work/application/services/dispatch-search.service';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { DraftSending } from '@work/application/services/draft-sending.service';
-import { EditorAccess } from '@work/application/services/editor-access.service';
 import { EgressSecretFetches } from '@work/application/services/egress-secret-fetches.service';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { HoldStartingPoints } from '@work/application/services/hold-starting-points.service';
@@ -688,6 +686,7 @@ import { HashedTraceParent } from '@work/infrastructure/tracing/hashed-trace-par
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
 import { AttachmentController } from '@work/presentation/http/controllers/attachment.controller';
 import { ChatController } from '@work/presentation/http/controllers/chat.controller';
+import { EditorConnectionController } from '@work/presentation/http/controllers/editor-connection.controller';
 import { EgressController } from '@work/presentation/http/controllers/egress.controller';
 import { GitController } from '@work/presentation/http/controllers/git.controller';
 import { HarnessController } from '@work/presentation/http/controllers/harness.controller';
@@ -737,6 +736,7 @@ export const WORK_CONTROLLERS: readonly Type[] = [
   GitController,
   TaskController,
   ChatController,
+  EditorConnectionController,
   OnboardingController,
 ];
 
@@ -2211,17 +2211,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
   ]),
 
-  {
-    provide: EditorAccess,
-    inject: [TASK_WORKSPACES, DrizzleChatRepository, WORKSPACE_ACCESS],
-    useFactory: (
-      tasks: TaskWorkspacesPort,
-      chats: DrizzleChatRepository,
-      access: WorkspaceAccessPort,
-    ) => new EditorAccess(tasks, chats, access),
-  },
-
-  { provide: EDITOR_ACCESS, useExisting: EditorAccess },
+  ...bindCommandHandler(ConnectEditorCommand, ConnectEditorHandler, [
+    TASK_WORKSPACES,
+    DrizzleChatRepository,
+    WORKSPACE_ACCESS,
+    EDITOR_LEASES,
+  ]),
 
   ...bindQueryHandler(ReadTaskDraftQuery, ReadTaskDraftHandler, [
     TASK_DRAFT_STATES,

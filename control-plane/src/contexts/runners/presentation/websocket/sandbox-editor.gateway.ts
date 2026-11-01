@@ -7,7 +7,6 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
-import { CommandBus } from '@nestjs/cqrs';
 import { bearerIn } from '@platform/http/bearer';
 import { API_PREFIX, SANDBOX_CONNECT } from '@platform/http/routes';
 import {
@@ -16,9 +15,7 @@ import {
   sameOrigin,
   upgradeUrl,
 } from '@platform/websocket/upgrades';
-import { ConnectEditorCommand } from '@runners/application/commands/sandbox-editor.commands';
 import type { EditorConnectionDto } from '@runners/application/dto/sandbox-editor.dto';
-import type { EditorTarget } from '@runners/application/ports/editor-access.port';
 import { SandboxEditors } from '@runners/application/services/sandbox-editors.service';
 import { EditorSession } from '@runners/presentation/websocket/editor-session';
 import {
@@ -36,15 +33,11 @@ const CONNECT_PATH = `/${API_PREFIX}/${SANDBOX_CONNECT}`;
 
 const MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
 
-const targetOf = (url: URL): EditorTarget | null => {
-  const task = url.searchParams.get('task')?.trim() ?? '';
-  const chat = url.searchParams.get('chat')?.trim() ?? '';
+const ticketOf = (url: URL): EditorConnectionDto | null => {
+  const sandboxId = url.searchParams.get('sandbox')?.trim() ?? '';
+  const holder = url.searchParams.get('holder')?.trim() ?? '';
 
-  if ((task === '') === (chat === '')) {
-    return null;
-  }
-
-  return task ? { kind: 'task', id: task } : { kind: 'chat', id: chat };
+  return sandboxId && holder ? { sandboxId, holder } : null;
 };
 
 @Injectable()
@@ -56,10 +49,10 @@ export class SandboxEditorGateway
     maxPayload: MAX_MESSAGE_BYTES,
   });
   private readonly sessions = new Set<EditorSession>();
+  private readonly connected = new Set<string>();
 
   constructor(
     private readonly adapters: HttpAdapterHost,
-    private readonly commandBus: CommandBus,
     private readonly editors: SandboxEditors,
     @Inject(SESSION_READER) private readonly people: SessionReaderPort,
     @Inject(LOGGER) private readonly logger: LoggerPort,
@@ -94,14 +87,13 @@ export class SandboxEditorGateway
       return;
     }
 
-    const url = upgradeUrl(request);
-    const target = targetOf(url);
+    const held = ticketOf(upgradeUrl(request));
 
-    if (!target) {
+    if (!held) {
       refuseUpgrade(
         socket,
         400,
-        'Name one task or one chat: ?task=<id> or ?chat=<id>.',
+        'Name a sandbox and a holder: ?sandbox=<id>&holder=<holder>.',
       );
       return;
     }
@@ -117,22 +109,25 @@ export class SandboxEditorGateway
       return;
     }
 
-    let connection: EditorConnectionDto | null;
-    try {
-      connection = await this.commandBus.execute<
-        ConnectEditorCommand,
-        EditorConnectionDto | null
-      >(
-        new ConnectEditorCommand(
-          person.id,
-          target,
-          url.searchParams.get('workspace')?.trim() || null,
-        ),
+    if (this.connected.has(held.holder)) {
+      refuseUpgrade(
+        socket,
+        409,
+        `The editor lease ${held.holder} has a socket already. Please connect again.`,
       );
+      return;
+    }
+
+    this.connected.add(held.holder);
+
+    let admitted: boolean;
+    try {
+      admitted = await this.editors.admits(held);
     } catch (error) {
+      this.connected.delete(held.holder);
       this.logger.warn(
-        { target, error },
-        'Could not open a sandbox for an editor',
+        { sandboxId: held.sandboxId, error },
+        'Could not read the editor lease of a sandbox',
       );
       refuseUpgrade(
         socket,
@@ -142,17 +137,18 @@ export class SandboxEditorGateway
       return;
     }
 
-    if (!connection) {
+    if (!admitted) {
+      this.connected.delete(held.holder);
       refuseUpgrade(
         socket,
         404,
-        `No ${target.kind} ${target.id} that you may open in an editor.`,
+        `No editor lease ${held.holder} on sandbox ${held.sandboxId}. Please connect again.`,
       );
       return;
     }
 
-    const held = connection;
     if (!socket.writable) {
+      this.connected.delete(held.holder);
       socket.destroy();
       await this.editors.release(held).catch(() => {});
       return;
@@ -161,6 +157,7 @@ export class SandboxEditorGateway
     let upgraded = false;
     socket.once('close', () => {
       if (!upgraded) {
+        this.connected.delete(held.holder);
         void this.editors.release(held).catch(() => {});
       }
     });
@@ -174,7 +171,10 @@ export class SandboxEditorGateway
         this.logger,
       );
       this.sessions.add(session);
-      void session.run().finally(() => this.sessions.delete(session));
+      void session.run().finally(() => {
+        this.sessions.delete(session);
+        this.connected.delete(held.holder);
+      });
     });
   }
 

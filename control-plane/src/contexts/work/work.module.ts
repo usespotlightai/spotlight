@@ -3,7 +3,6 @@ import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { EDITOR_ACCESS } from '@runners/application/ports/editor-access.port';
 import { RunnersModule } from '@runners/runners.module';
 import { SecretsModule } from '@secrets/secrets.module';
 import { BUILT_IN_SKILL_KEYS } from '@work/application/ports/built-in-skills.port';
@@ -62,7 +61,6 @@ import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
     SEARCH_DISPATCH,
     SEARCH_RUNS,
     STARTING_POINT_HOLDS,
-    EDITOR_ACCESS,
   ],
 })
 export class WorkModule {}

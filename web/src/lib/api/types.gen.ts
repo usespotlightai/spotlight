@@ -2317,6 +2317,29 @@ export type SendChatMessageRequestDto = {
   effort?: string | null;
 };
 
+export type ConnectEditorRequestDto = {
+  /**
+   * The task whose sandbox to open. Name a task or a chat.
+   */
+  task?: string;
+  /**
+   * The chat whose sandbox to open. Name a task or a chat.
+   */
+  chat?: string;
+  /**
+   * The workspace the task or chat must be in
+   */
+  workspace?: string;
+};
+
+export type EditorConnectionResponseDto = {
+  sandboxId: string;
+  /**
+   * The editor lease to name when the socket opens; it expires two minutes after it is held unless a socket renews it
+   */
+  holder: string;
+};
+
 export type SetupStepResponseDto = {
   /**
    * Which step this is
@@ -10484,6 +10507,34 @@ export type DismissProposalResponses = {
 };
 
 export type DismissProposalResponse = DismissProposalResponses[keyof DismissProposalResponses];
+
+export type ConnectEditorData = {
+  body: ConnectEditorRequestDto;
+  path?: never;
+  query?: never;
+  url: '/editor-connections';
+};
+
+export type ConnectEditorErrors = {
+  /**
+   * No task and no chat, or both
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task or chat that the caller may open in an editor
+   */
+  404: unknown;
+};
+
+export type ConnectEditorResponses = {
+  201: EditorConnectionResponseDto;
+};
+
+export type ConnectEditorResponse = ConnectEditorResponses[keyof ConnectEditorResponses];
 
 export type ReadOnboardingData = {
   body?: never;

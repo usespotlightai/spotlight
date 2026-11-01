@@ -1,6 +1,6 @@
 import { IdentityModule } from '@identity/identity.module';
 import { Module } from '@nestjs/common';
-import { EDITOR_SANDBOXES } from '@runners/application/ports/editor-sandboxes.port';
+import { EDITOR_LEASES } from '@runners/application/ports/editor-leases.port';
 import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.port';
 import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_CONFIGURATION } from '@runners/application/ports/runner-configuration.port';
@@ -9,7 +9,6 @@ import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
-import { SANDBOX_TUNNELS } from '@runners/application/ports/sandbox-tunnels.port';
 import { SANDBOXES } from '@runners/application/ports/sandboxes.port';
 import {
   RUNNERS_CONTROLLERS,
@@ -31,8 +30,7 @@ import { RUNNER_IDENTITY } from '@shared-kernel/application/ports/runner-identit
     RUNNER_POOLS,
     RUNNERS,
     SANDBOXES,
-    EDITOR_SANDBOXES,
-    SANDBOX_TUNNELS,
+    EDITOR_LEASES,
     RUNNER_AUTHENTICATOR,
     RUNNER_EGRESS,
   ],

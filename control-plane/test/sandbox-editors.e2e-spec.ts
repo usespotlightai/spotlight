@@ -61,10 +61,27 @@ describe('sandbox editors (e2e)', () => {
       );
     });
 
-  const editor = (query: string, headers?: Record<string, string>) =>
+  interface Ticket {
+    readonly sandboxId: string;
+    readonly holder: string;
+  }
+
+  const owner = () => ({ [TEST_USER_HEADER]: team.owner.value });
+
+  const asking = (
+    body: Record<string, string>,
+    headers: Record<string, string> = owner(),
+  ) => http().post('/api/editor-connections').set(headers).send(body);
+
+  const lease = async (
+    body: Record<string, string> = { task: taskId() },
+    headers?: Record<string, string>,
+  ): Promise<Ticket> => (await asking(body, headers).expect(201)).body;
+
+  const editor = (ticket: Ticket, headers: Record<string, string> = owner()) =>
     socket(
-      `/api/sandboxes/connect?${query}`,
-      headers ?? { [TEST_USER_HEADER]: team.owner.value },
+      `/api/sandboxes/connect?sandbox=${ticket.sandboxId}&holder=${ticket.holder}`,
+      headers,
     );
 
   const taskId = () => team.list.id.value;
@@ -156,34 +173,55 @@ describe('sandbox editors (e2e)', () => {
     await app?.close();
   });
 
-  it('refuses a socket with no session, a person outside the workspace, another site’s page, and a socket that names no task', async () => {
-    expect(await refusal(editor(`task=${taskId()}`, {}))).toBe(401);
-    expect(
-      await refusal(
-        editor(`task=${taskId()}`, { [TEST_USER_HEADER]: randomUUID() }),
-      ),
-    ).toBe(404);
-    expect(
-      await refusal(
-        editor(`task=${taskId()}`, {
-          [TEST_USER_HEADER]: team.owner.value,
-          origin: 'https://elsewhere.example',
-        }),
-      ),
-    ).toBe(403);
-    expect(await refusal(editor(`workspace=${team.slug}`))).toBe(400);
-    expect(
-      await refusal(editor(`task=${taskId()}&workspace=not-${team.slug}`)),
-    ).toBe(404);
+  it('leases no sandbox with no session, for a person outside the workspace or another workspace, or without one task or one chat', async () => {
+    await asking({ task: taskId() }, {}).expect(401);
+    await asking(
+      { task: taskId() },
+      { [TEST_USER_HEADER]: randomUUID() },
+    ).expect(404);
+    await asking({ workspace: team.slug }).expect(400);
+    await asking({ task: taskId(), chat: randomUUID() }).expect(400);
+    await asking({ task: taskId(), workspace: `not-${team.slug}` }).expect(404);
     expect(await sandboxOf(`task-${taskId()}`)).toBeNull();
   });
 
-  it('holds the task’s sandbox with an editor lease while connected, with a session or a login token, and lets go on close', async () => {
-    const cookie = editor(`task=${taskId()}&workspace=${team.slug}`);
-    await opening(cookie);
-    const cli = editor(`task=${taskId()}`, {
-      authorization: `Bearer ${LOGIN}`,
+  it('refuses a socket with no session, another site’s page, no lease, an unknown lease, and a second socket on one lease', async () => {
+    const ticket = await lease({ task: taskId(), workspace: team.slug });
+
+    expect(await refusal(editor(ticket, {}))).toBe(401);
+    expect(
+      await refusal(
+        editor(ticket, { ...owner(), origin: 'https://elsewhere.example' }),
+      ),
+    ).toBe(403);
+    expect(
+      await refusal(
+        socket(`/api/sandboxes/connect?sandbox=${ticket.sandboxId}`, owner()),
+      ),
+    ).toBe(400);
+    expect(await refusal(editor({ ...ticket, holder: randomUUID() }))).toBe(
+      404,
+    );
+
+    const first = editor(ticket);
+    await opening(first);
+    expect(await refusal(editor(ticket))).toBe(409);
+
+    first.close();
+    await eventually(async () => {
+      const found = await sandboxOf(`task-${taskId()}`);
+      return found?.leases.length === 0 ? true : null;
     });
+    expect(await refusal(editor(ticket))).toBe(404);
+  });
+
+  it('holds the task’s sandbox with an editor lease while connected, with a session or a login token, and lets go on close', async () => {
+    const cookie = editor(
+      await lease({ task: taskId(), workspace: team.slug }),
+    );
+    await opening(cookie);
+    const login = { authorization: `Bearer ${LOGIN}` };
+    const cli = editor(await lease({ task: taskId() }, login), login);
     await opening(cli);
 
     const held = await eventually(async () => {
@@ -210,7 +248,7 @@ describe('sandbox editors (e2e)', () => {
       tunnel.once('message', (data) => done(JSON.parse(data.toString()))),
     );
 
-    const ssh = editor(`task=${taskId()}`);
+    const ssh = editor(await lease());
     const echoed = new Promise<string>((done) =>
       ssh.once('message', (data: Buffer) => done(data.toString())),
     );
@@ -247,9 +285,10 @@ describe('sandbox editors (e2e)', () => {
   it('lets go of the editor lease when the upgrade itself fails', async () => {
     const port = ((app.getHttpServer() as Server).address() as { port: number })
       .port;
+    const ticket = await lease();
     const raw = connect(port, '127.0.0.1');
     raw.write(
-      `GET /api/sandboxes/connect?task=${taskId()} HTTP/1.1\r\n` +
+      `GET /api/sandboxes/connect?sandbox=${ticket.sandboxId}&holder=${ticket.holder} HTTP/1.1\r\n` +
         `Host: 127.0.0.1:${port}\r\n` +
         `${TEST_USER_HEADER}: ${team.owner.value}\r\n` +
         'Upgrade: websocket\r\nConnection: Upgrade\r\n\r\n',

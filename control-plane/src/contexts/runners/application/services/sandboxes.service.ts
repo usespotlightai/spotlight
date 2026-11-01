@@ -271,6 +271,18 @@ export class Sandboxes implements SandboxesPort, EditorSandboxesPort {
     return held?.holdsEditor(holder) ? held.current : null;
   }
 
+  async heldByEditor(
+    sandboxId: string,
+    holder: string,
+    at: Date,
+  ): Promise<boolean> {
+    const found = await this.sandboxes.find(SandboxId.of(sandboxId));
+
+    return (
+      !!found?.isOpen && found.withoutExpiredEditors(at).holdsEditor(holder)
+    );
+  }
+
   async releaseEditor(
     sandboxId: string,
     holder: string,

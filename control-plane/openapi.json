@@ -4151,6 +4151,47 @@
         ]
       }
     },
+    "/editor-connections": {
+      "post": {
+        "operationId": "connectEditor",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectEditorRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EditorConnectionResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No task and no chat, or both"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task or chat that the caller may open in an editor"
+          }
+        },
+        "summary": "Hold the sandbox of a task or a chat for an editor, and get the lease that opens its socket",
+        "tags": [
+          "editor-connections"
+        ]
+      }
+    },
     "/teams/{teamId}/configuration/onboarding": {
       "get": {
         "operationId": "readOnboarding",
@@ -26202,6 +26243,44 @@
         },
         "required": [
           "body"
+        ]
+      },
+      "ConnectEditorRequestDto": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string",
+            "example": "4f1d2b9e-7c3a-4e8b-a6d5-0b9c8e7f6a51",
+            "description": "The task whose sandbox to open. Name a task or a chat."
+          },
+          "chat": {
+            "type": "string",
+            "example": "7a3c1e9d-2b4f-4d6a-8c5e-1f0b9a8d7c62",
+            "description": "The chat whose sandbox to open. Name a task or a chat."
+          },
+          "workspace": {
+            "type": "string",
+            "example": "acme",
+            "description": "The workspace the task or chat must be in"
+          }
+        }
+      },
+      "EditorConnectionResponseDto": {
+        "type": "object",
+        "properties": {
+          "sandboxId": {
+            "type": "string",
+            "example": "0b6f3c2e-6c55-4b8e-9d7a-2f4e1a9c8d31"
+          },
+          "holder": {
+            "type": "string",
+            "example": "5d8e2a1c-9f3b-4c7d-a6e0-3b2f1d9c8a74",
+            "description": "The editor lease to name when the socket opens; it expires two minutes after it is held unless a socket renews it"
+          }
+        },
+        "required": [
+          "sandboxId",
+          "holder"
         ]
       },
       "SetupStepResponseDto": {
