@@ -147,6 +147,11 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		run.Spec.Checkouts = viaGitProxy(run.Spec.Checkouts, serving.Remote)
 	}
 
+	var joined []string
+	if archiver.inherits {
+		joined = missingCheckouts(space.Dir, run.Spec.Checkouts)
+	}
+
 	// Prepare as the runner, before the handover, so the agent finds nothing that prepare keeps.
 	if err := opts.prepare(ctx, space.Dir, run, journal); err != nil {
 		return setupFailed(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
@@ -347,6 +352,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		run:       run,
 		harness:   harness,
 		sessionID: sessionID,
+		joined:    joined,
 		journal:   journal,
 		control:   opts.Journal,
 		archiver:  archiver,
@@ -979,6 +985,19 @@ func granted(
 	granted[StateVar] = state
 
 	return granted
+}
+
+func missingCheckouts(dir string, checkouts []protocol.Checkout) []string {
+	var missing []string
+	for _, checkout := range checkouts {
+		if checkout.Path == "" {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(dir, checkout.Path, ".git")); err != nil {
+			missing = append(missing, checkout.Path)
+		}
+	}
+	return missing
 }
 
 func viaGitProxy(checkouts []protocol.Checkout, remote string) []protocol.Checkout {

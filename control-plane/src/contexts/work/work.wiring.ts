@@ -1830,7 +1830,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
             taskDispatch,
             clock,
           ),
-          pausedRuns: new PausedRuns(tasks, runs),
+          pausedRuns: new PausedRuns(tasks, runs, lines),
           pauseMarks: new PauseMarks(journal),
           chatOutcomes: new ChatOutcomes(chats, chatDispatch),
           usages: new RecordRunUsage(usageWriter, usages, tools, spends),

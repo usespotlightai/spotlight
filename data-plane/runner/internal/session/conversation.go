@@ -16,6 +16,7 @@ type conversation struct {
 	run          protocol.Run
 	harness      *acp.Client
 	sessionID    string
+	joined       []string
 	journal      *journalWriter
 	control      Journal
 	archiver     *archiver
@@ -46,14 +47,21 @@ func (c *conversation) opening(ctx context.Context) string {
 	message, received := c.pollMessages(ctx)
 	switch {
 	case received && resumed:
-		return message
+		return newRepositoriesNote(c.joined) + message
 	case received:
 		return briefing + "\n\n" + message
 	case resumed:
-		return resumeAfterLostRunner
+		return newRepositoriesNote(c.joined) + resumeAfterLostRunner
 	default:
 		return briefing
 	}
+}
+
+func newRepositoriesNote(folders []string) string {
+	if len(folders) == 0 {
+		return ""
+	}
+	return "The workspace has repositories that it did not have before: " + strings.Join(folders, ", ") + ". Each is a folder in the workspace.\n\n"
 }
 
 func (c *conversation) work(ctx context.Context, prompt string) error {

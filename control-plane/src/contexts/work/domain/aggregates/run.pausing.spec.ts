@@ -136,7 +136,7 @@ describe('a run that asks a person', () => {
 
   describe('answered', () => {
     it('goes back on the queue as its next attempt, to resume its session', () => {
-      const run = suspended().resumed();
+      const run = suspended().resumed([]);
 
       expect(run.state).toBe('queued');
       expect(run.attempt).toBe(2);
@@ -148,8 +148,17 @@ describe('a run that asks a person', () => {
       );
     });
 
+    it('checks out on its new attempt the repositories its line gained, beside the ones it has', () => {
+      const joining = [{ remote: 'spotlight:repository', path: 'config' }];
+
+      expect(suspended().resumed(joining).spec.checkoutFolders).toEqual([
+        ...suspended().spec.checkoutFolders,
+        'config',
+      ]);
+    });
+
     it('is claimed by a runner on its new attempt', () => {
-      const run = suspended().resumed().claim(OTHER, later(120_000));
+      const run = suspended().resumed([]).claim(OTHER, later(120_000));
 
       expect(run.isLeasedBy(OTHER)).toBe(true);
       expect(run.journalFor(OTHER)).toEqual(
@@ -158,20 +167,20 @@ describe('a run that asks a person', () => {
     });
 
     it('cannot be taken up twice by one answer', () => {
-      const run = suspended().resumed();
+      const run = suspended().resumed([]);
 
       expect(run.resumable).toBe(false);
-      expect(() => run.resumed()).toThrow(InvalidRunTransitionError);
+      expect(() => run.resumed([])).toThrow(InvalidRunTransitionError);
     });
 
     it('does not count waiting for a person against the attempts a lost runner is given', () => {
-      let run = suspended().resumed();
+      let run = suspended().resumed([]);
 
       for (let times = 0; times < 2; times++) {
         run = run
           .claim(RUNNER, NOW)
           .suspend(RUNNER, CLEAN, ASKED, NOW)
-          .resumed();
+          .resumed([]);
       }
 
       const lost = run.claim(RUNNER, NOW);
@@ -182,7 +191,7 @@ describe('a run that asks a person', () => {
   });
 
   it('says how many runners it lost, not how many attempts it made, when it is exhausted', () => {
-    let run = suspended().resumed();
+    let run = suspended().resumed([]);
 
     for (let lost = 0; lost < 3; lost++) {
       run.pullEvents();

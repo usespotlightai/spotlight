@@ -10,6 +10,7 @@ import {
   checkoutsOf,
   repositoriesForTask,
   repositoryForTaskNamed,
+  runCheckoutsFor,
 } from '@work/domain/services/task-checkouts';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -115,6 +116,34 @@ describe('the repositories a task works on', () => {
     ]);
     expect(repositoryForTaskNamed('api', task, LINE)).toEqual(API);
     expect(repositoryForTaskNamed('web', task, LINE)).toBeNull();
+  });
+
+  it('are sent to a runner through Spotlight’s git proxy, never by a host address', () => {
+    const task = added();
+    const review = reviewing('https://github.com/acme/api/pull/42');
+
+    expect(runCheckoutsFor(task, LINE)).toEqual([
+      {
+        remote: 'spotlight:repository',
+        path: 'api',
+        branch: task.branch.value,
+        setup: 'npm ci',
+      },
+      {
+        remote: 'spotlight:repository',
+        path: 'web',
+        branch: task.branch.value,
+      },
+    ]);
+    expect(runCheckoutsFor(review, LINE)).toEqual([
+      {
+        remote: 'spotlight:repository',
+        path: 'api',
+        ref: 'refs/pull/42/head',
+        diffOf: 'commits',
+        setup: 'npm ci',
+      },
+    ]);
   });
 
   it('are exactly the repositories checked out, whatever the task', () => {

@@ -88,6 +88,33 @@ describe('RunSpec', () => {
     ).toThrow(InvalidRunSpecError);
   });
 
+  it('is joined by the checkouts it does not have yet, and keeps the ones it has', () => {
+    const widgets = {
+      remote: 'spotlight:repository',
+      path: 'widgets',
+      branch: 'spotlight/task-1',
+    };
+    const config = {
+      remote: 'spotlight:repository',
+      path: 'config',
+      branch: 'spotlight/task-1',
+      setup: 'terraform version',
+    };
+    const spec = RunSpec.of(parts({ checkouts: [widgets] }));
+
+    expect(
+      spec.join([{ ...widgets, setup: 'npm ci' }, config]).value.checkouts,
+    ).toEqual([widgets, config]);
+    expect(
+      spec.join([config, { ...config, branch: 'other' }]).value.checkouts,
+    ).toEqual([widgets, config]);
+    expect(spec.join([widgets])).toBe(spec);
+    expect(spec.join([{ remote: 'spotlight:repository' }])).toBe(spec);
+    expect(spec.join([{ remote: 'spotlight:repository', path: ' ' }])).toBe(
+      spec,
+    );
+  });
+
   it('rejects a skill or attachment laid outside the workspace', () => {
     expect(() =>
       RunSpec.of(parts({ skills: [{ path: '/root/SKILL.md', text: '' }] })),
