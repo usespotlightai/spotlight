@@ -1370,8 +1370,6 @@ func TestReportsWhatItIsRunning(t *testing.T) {
 	if first.BootID == "" {
 		t.Errorf("reported no boot id: %+v", first)
 	}
-
-	engine.found = nil
 }
 
 func TestReportsTheHarnessesItsImagesOffer(t *testing.T) {
