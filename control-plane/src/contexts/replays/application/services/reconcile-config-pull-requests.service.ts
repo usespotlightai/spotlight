@@ -1,5 +1,6 @@
 import type { ConfigRepositoryPort } from '@replays/application/ports/config-repository.port';
 import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
+import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -39,38 +40,45 @@ export class ReconcileConfigPullRequests implements PendingJobsPort {
 
   private async reconciled(due: ConfigPullRequest): Promise<void> {
     const at = due.gitHubPullRequest;
+    const claimed = at ? await this.claimed(due) : null;
 
-    if (!at) {
+    if (!at || !claimed) {
       return;
     }
 
-    const status = await this.configs
-      .statusOf(due.workspaceId, at)
-      .catch(async (error: unknown) => {
-        await this.settled(due, (current) => current.checked(this.clock.now()));
-        throw error;
-      });
+    const status = await this.configs.statusOf(due.workspaceId, at);
 
-    await this.settled(due, (current) =>
-      status.state === 'open'
-        ? current.checked(this.clock.now())
-        : current.recordGitHubClose({
-            merged: status.state === 'merged',
-            at: status.closedAt ?? this.clock.now(),
-          }),
+    if (status.state === 'open') {
+      return;
+    }
+
+    await this.saved(
+      claimed.recordGitHubClose({
+        merged: status.state === 'merged',
+        at: status.closedAt ?? this.clock.now(),
+      }),
     );
   }
 
-  private settled(
+  private async claimed(
     due: ConfigPullRequest,
-    change: (current: ConfigPullRequest) => ConfigPullRequest,
-  ): Promise<void> {
-    return this.transaction.inTransaction(async () => {
-      const current = await this.pullRequests.find(due.id);
+  ): Promise<ConfigPullRequest | null> {
+    return (await this.saved(due.checked(this.clock.now())))
+      ? this.pullRequests.find(due.id)
+      : null;
+  }
 
-      if (current?.current === 'opened' && current.version === due.version) {
-        await this.pullRequests.save(change(current));
+  private async saved(changed: ConfigPullRequest): Promise<boolean> {
+    try {
+      await this.transaction.inTransaction(() =>
+        this.pullRequests.save(changed),
+      );
+      return true;
+    } catch (error) {
+      if (error instanceof ConfigPullRequestVersionConflictError) {
+        return false;
       }
-    });
+      throw error;
+    }
   }
 }

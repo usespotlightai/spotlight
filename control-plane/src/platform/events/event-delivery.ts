@@ -104,37 +104,73 @@ export class EventDelivery {
   }
 
   private async deliverOne(): Promise<boolean> {
-    const claimed: { due: Due | null } = { due: null };
+    const claimed: { due: Due | null; failure: { error: unknown } | null } = {
+      due: null,
+      failure: null,
+    };
 
     try {
-      const delivered = await this.context.inTransaction(async () => {
+      const outcome = await this.context.inTransaction(async () => {
         const due = await this.nextDue();
         claimed.due = due;
 
         if (!due) {
-          return false;
+          return null;
         }
 
-        await this.handle(due);
+        try {
+          await this.context.inSavepoint(() => this.handle(due));
+        } catch (error) {
+          claimed.failure = { error };
+          const failed = await this.failed(due, error);
+          this.context.afterCommit(() => this.reported(due, error));
+
+          return failed;
+        }
+
         await this.context.db
           .update(eventDelivery)
           .set({ deliveredAt: this.clock.now(), attempts: due.attempts + 1 })
           .where(this.at(due));
 
-        return true;
+        return 'delivered' as const;
       });
 
-      if (delivered && claimed.due) {
-        this.counted(claimed.due, 'delivered');
+      if (outcome && outcome !== 'lost' && claimed.due) {
+        this.counted(claimed.due, outcome);
       }
 
-      return delivered;
+      return outcome !== null;
     } catch (error) {
-      if (!claimed.due) {
+      const due = claimed.due;
+
+      if (!due) {
         throw error;
       }
 
-      await this.failed(claimed.due, error);
+      const failure = claimed.failure ? claimed.failure.error : error;
+      const outcome = await this.context
+        .inTransaction(() => this.failed(due, failure))
+        .catch((written: unknown) => {
+          this.reported(due, failure);
+          throw written;
+        });
+
+      if (outcome === 'lost') {
+        this.logger.warn(
+          {
+            err: failure,
+            eventId: due.eventId,
+            subscriber: due.subscriber,
+            ...idsOf(due.payload),
+          },
+          'Another instance settled this domain event delivery first',
+        );
+        return true;
+      }
+
+      this.reported(due, failure);
+      this.counted(due, outcome);
       return true;
     }
   }
@@ -194,9 +230,40 @@ export class EventDelivery {
     );
   }
 
-  private async failed(due: Due, error: unknown): Promise<void> {
+  private async failed(
+    due: Due,
+    error: unknown,
+  ): Promise<'retried' | 'dead_lettered' | 'lost'> {
     const attempts = due.attempts + 1;
     const now = this.clock.now();
+    const deadLettering = attempts >= MAX_ATTEMPTS;
+
+    const written = await this.context.db
+      .update(eventDelivery)
+      .set({
+        attempts,
+        lastError: because(error).slice(0, 2000),
+        dueAt: new Date(now.getTime() + backoffMs(attempts)),
+        deadLetteredAt: deadLettering ? now : null,
+      })
+      .where(
+        and(
+          this.at(due),
+          isNull(eventDelivery.deliveredAt),
+          eq(eventDelivery.attempts, due.attempts),
+        ),
+      )
+      .returning({ eventId: eventDelivery.eventId });
+
+    if (written.length === 0) {
+      return 'lost';
+    }
+
+    return deadLettering ? 'dead_lettered' : 'retried';
+  }
+
+  private reported(due: Due, error: unknown): void {
+    const attempts = due.attempts + 1;
     const deadLettering = attempts >= MAX_ATTEMPTS;
 
     this.logger.error(
@@ -213,27 +280,12 @@ export class EventDelivery {
         : 'Delivering a domain event',
     );
 
-    this.counted(due, deadLettering ? 'dead_lettered' : 'retried');
-
     if (deadLettering) {
       this.reports.report(error, {
         source: due.subscriber,
         ...idsOf(due.payload),
       });
     }
-
-    await this.context.inTransaction(() =>
-      this.context.db
-        .update(eventDelivery)
-        .set({
-          attempts,
-          lastError: because(error).slice(0, 2000),
-          dueAt: new Date(now.getTime() + backoffMs(attempts)),
-          deadLetteredAt: deadLettering ? now : null,
-        })
-        .where(this.at(due))
-        .then(() => undefined),
-    );
   }
 
   private counted(

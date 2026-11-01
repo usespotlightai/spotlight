@@ -16,6 +16,7 @@ import type {
 } from '@work/application/ports/search-dispatch.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { RunAlreadyExistsError } from '@work/domain/exceptions/run-already-exists.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { SEARCH_PRIORITY } from '@work/domain/services/search-priority';
@@ -91,7 +92,54 @@ export class DispatchSearch implements SearchDispatchPort {
     return null;
   }
 
-  enqueue(order: SearchOrder): Promise<SearchDispatched> {
+  async enqueue(order: SearchOrder): Promise<SearchDispatched> {
+    try {
+      return await this.enqueuedOnce(order);
+    } catch (error) {
+      if (error instanceof RunAlreadyExistsError) {
+        return this.enqueuedOnce(order);
+      }
+      throw error;
+    }
+  }
+
+  cancel(runId: string): Promise<void> {
+    return this.transaction.inTransaction(async () => {
+      const run = await this.runs.findById(RunId.of(runId));
+
+      if (!run?.isSearch || run.hasEnded) {
+        return;
+      }
+
+      const changed =
+        run.state === 'queued'
+          ? run.cancelQueued(STOPPED)
+          : run.cancel(this.clock.now());
+
+      if (changed !== run) {
+        await this.runs.save(changed);
+      }
+    });
+  }
+
+  cancelUnclaimed(runId: string): Promise<UnclaimedCancellation> {
+    return this.transaction.inTransaction(async () => {
+      const run = await this.runs.findById(RunId.of(runId));
+
+      if (!run?.isSearch || run.hasEnded) {
+        return ENDED;
+      }
+      if (run.state !== 'queued') {
+        return CLAIMED;
+      }
+
+      await this.runs.save(run.cancelQueued(LEFT_UNCLAIMED));
+
+      return { outcome: 'cancelled', started: run.attempt > 1 } as const;
+    });
+  }
+
+  private enqueuedOnce(order: SearchOrder): Promise<SearchDispatched> {
     return this.transaction.inTransaction(async () => {
       const id = RunId.of(order.id);
       const searchId = SearchId.of(order.searchId);
@@ -150,42 +198,6 @@ export class DispatchSearch implements SearchDispatchPort {
       );
 
       return QUEUED;
-    });
-  }
-
-  cancel(runId: string): Promise<void> {
-    return this.transaction.inTransaction(async () => {
-      const run = await this.runs.findById(RunId.of(runId));
-
-      if (!run?.isSearch || run.hasEnded) {
-        return;
-      }
-
-      const changed =
-        run.state === 'queued'
-          ? run.cancelQueued(STOPPED)
-          : run.cancel(this.clock.now());
-
-      if (changed !== run) {
-        await this.runs.save(changed);
-      }
-    });
-  }
-
-  cancelUnclaimed(runId: string): Promise<UnclaimedCancellation> {
-    return this.transaction.inTransaction(async () => {
-      const run = await this.runs.findById(RunId.of(runId));
-
-      if (!run?.isSearch || run.hasEnded) {
-        return ENDED;
-      }
-      if (run.state !== 'queued') {
-        return CLAIMED;
-      }
-
-      await this.runs.save(run.cancelQueued(LEFT_UNCLAIMED));
-
-      return { outcome: 'cancelled', started: run.attempt > 1 } as const;
     });
   }
 

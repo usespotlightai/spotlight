@@ -1,5 +1,6 @@
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
@@ -143,6 +144,14 @@ export class DispatchReplayRuns implements PendingJobsPort {
     entry: ReplayEntry,
     error: unknown,
   ): Promise<void> {
+    if (error instanceof ReplayVersionConflictError) {
+      this.logger.info(
+        { replayId: replay.id.value, runId: entry.run?.value },
+        'A replay changed before its run could be confirmed',
+      );
+      return;
+    }
+
     this.logger.warn(
       {
         err: error,

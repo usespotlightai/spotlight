@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { UnknownSearchRunError } from '@replays/domain/exceptions/unknown-search-run.error';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -765,6 +766,47 @@ describe('a search run ending', () => {
         (await published('work.search-run-ended.v1', queued.id)).length === 1,
     );
     expect(await published('work.run-ended.v1', queued.id)).toEqual([]);
+  });
+
+  it('takes a run another control plane queued first as queued, and leaves the transaction it was asked in usable', async () => {
+    const queued = order();
+    const dispatch = app.get<SearchDispatchPort>(SEARCH_DISPATCH);
+    const context = app.get(DrizzleContext);
+    const firstQueued = { done: false };
+    let commitFirst = () => {};
+    const firstCommits = new Promise<void>((resolve) => {
+      commitFirst = resolve;
+    });
+    const first = context.inTransaction(async () => {
+      await dispatch.enqueue(queued);
+      firstQueued.done = true;
+      await firstCommits;
+    });
+
+    await eventually(async () => firstQueued.done);
+
+    const second = context.inTransaction(async () => {
+      const dispatched = await dispatch.enqueue(queued);
+      await context.db.execute(sql`select 1`);
+
+      return dispatched;
+    });
+
+    await eventually(async () => {
+      const { rows } = await db.execute<{ waiting: number }>(
+        sql`select count(*)::int as waiting from pg_stat_activity
+          where datname = current_database()
+            and wait_event_type = 'Lock'
+            and query ilike 'insert into "run"%'`,
+      );
+
+      return (rows[0]?.waiting ?? 0) > 0;
+    });
+    commitFirst();
+    await first;
+
+    expect(await second).toEqual({ outcome: 'queued' });
+    expect((await runRow(queued.id))?.searchIteration).toBe(1);
   });
 });
 

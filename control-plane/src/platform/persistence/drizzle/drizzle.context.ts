@@ -51,15 +51,17 @@ export class DrizzleContext implements TransactionPort, SavepointPort {
       return this.inTransaction(work);
     }
 
-    return current.db.transaction((savepoint) =>
+    const committed: (() => void)[] = [];
+    const result = await current.db.transaction((savepoint) =>
       this.asyncLocal.run(
-        {
-          db: savepoint as unknown as DrizzleDatabase,
-          committed: current.committed,
-        },
+        { db: savepoint as unknown as DrizzleDatabase, committed },
         work,
       ),
     );
+
+    current.committed.push(...committed);
+
+    return result;
   }
 
   afterCommit(then: () => void): void {

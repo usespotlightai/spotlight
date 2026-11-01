@@ -77,6 +77,7 @@ class FakeConfigs implements ConfigRepositoryPort {
   readonly closings: number[] = [];
   readonly comments: { number: number; body: string }[] = [];
   readonly statuses = new Map<number, ConfigPullRequestStatus>();
+  readonly statusChecks: number[] = [];
   closeFailing: Error | null = null;
   commentFailing: Error | null = null;
   failing: Error | null = null;
@@ -130,6 +131,8 @@ class FakeConfigs implements ConfigRepositoryPort {
   }
 
   async statusOf(_workspace: unknown, at: ConfigPullRequestAt) {
+    this.statusChecks.push(at.number);
+
     if (this.closeFailing) {
       throw this.closeFailing;
     }
@@ -769,6 +772,36 @@ describe('following a config pull request after it opened', () => {
     now = new Date(now.getTime() + 6 * 60 * 60_000 + 1);
     await reconciling().processDue();
 
+    expect(only()).toMatchObject({ current: 'opened', checkedAt: now });
+  });
+
+  it('asks GitHub once about a pull request that two control planes find due at the same time', async () => {
+    await opened();
+    now = new Date(now.getTime() + 6 * 60 * 60_000 + 1);
+    configs.statuses.set(1, { state: 'merged', closedAt: later(50) });
+    configs.statusChecks.length = 0;
+
+    await Promise.all([reconciling().processDue(), reconciling().processDue()]);
+
+    expect(configs.statusChecks).toEqual([1]);
+    expect(only().current).toBe('merged');
+  });
+
+  it('records the check before it asks GitHub, so a failed ask waits six hours like any other', async () => {
+    await opened();
+    now = new Date(now.getTime() + 6 * 60 * 60_000 + 1);
+    const checkedWhenAsked: (Date | null)[] = [];
+    configs.statusOf = async () => {
+      checkedWhenAsked.push(only().checkedAt);
+      throw new Error('GitHub is down');
+    };
+    await reconciling().processDue();
+
+    expect(checkedWhenAsked).toEqual([now]);
+
+    await reconciling().processDue();
+
+    expect(checkedWhenAsked).toHaveLength(1);
     expect(only()).toMatchObject({ current: 'opened', checkedAt: now });
   });
 

@@ -30,6 +30,7 @@ import { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-f
 import type { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
 import { ReplaySetStationCheckRequested } from '@replays/domain/events/replay-set-station-check-requested.event';
 import type { ReplayStackRecheckRequested } from '@replays/domain/events/replay-stack-recheck-requested.event';
+import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import {
   aBudget,
   aReplay,
@@ -222,6 +223,57 @@ describe('DispatchReplayRuns when Work fails', () => {
     expect(first?.queued).toBe(false);
     expect(second?.queued).toBe(true);
     expect(second?.fingerprint).not.toBeNull();
+  });
+
+  it('counts no failure when Work queued the run but another write changed the replay first, and confirms it on the next turn', async () => {
+    await memory.replayRepository.add(aReplay({ count: 1 }));
+    const repository = memory.replayRepository;
+    const save = repository.save;
+    let saves = 0;
+    repository.save = async (replay) => {
+      saves += 1;
+      if (saves === 2) {
+        throw new ReplayVersionConflictError(replay.id.value);
+      }
+      return save(replay);
+    };
+    const warned: string[] = [];
+    const noted: unknown[] = [];
+    const dispatcher = new DispatchReplayRuns(
+      repository,
+      memory.candidateRepository,
+      memory.searchRepository,
+      work,
+      IDS,
+      CLOCK,
+      TRANSACTION,
+      {
+        debug: () => {},
+        info: (fields: unknown) => {
+          noted.push(fields);
+        },
+        warn: (_fields: unknown, message: string) => {
+          warned.push(message);
+        },
+        error: () => {},
+      },
+    );
+
+    await dispatcher.processDue();
+
+    expect(warned).toEqual([]);
+    expect(noted).toEqual([
+      { replayId: 'replay_1', runId: work.dispatched[0]?.run.value },
+    ]);
+    expect(work.dispatched).toHaveLength(1);
+    expect(memory.replays.get('replay_1')?.entries[0]).toMatchObject({
+      queued: false,
+      queueAttempts: 0,
+    });
+
+    await dispatcher.processDue();
+
+    expect(memory.replays.get('replay_1')?.entries[0]?.queued).toBe(true);
   });
 
   it('requests Work to cancel a run reserved for a replay stopped before it was queued, freeing its slot only once Work says it never was', async () => {
