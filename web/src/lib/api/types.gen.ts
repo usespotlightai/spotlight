@@ -2937,7 +2937,7 @@ export type UserEmailResponseDto = {
   id: string;
   email: string;
   /**
-   * Verified addresses identify you, for example in Slack. A pending address waits for its link. An expired link needs a resend.
+   * Spotlight recognizes you by a verified address across connected services. A pending address waits for its link. An expired link needs a resend.
    */
   status: 'verified' | 'pending' | 'expired';
   addedAt: string;
@@ -2960,7 +2960,7 @@ export type UserEmailsResponseDto = {
 
 export type AddUserEmailRequestDto = {
   /**
-   * Another address of yours, for example the one your Slack account uses. Spotlight sends a verification link to it.
+   * Another email address you use across connected services. Spotlight sends a verification link to it.
    */
   email: string;
 };

@@ -26,7 +26,7 @@ export class UserEmailVerificationByMail implements UserEmailMailPort {
       subject: SUBJECT,
       text: [
         `The Spotlight account ${verification.signInEmail} added this email address.`,
-        'Spotlight then knows you by this address too, for example in Slack.',
+        'Once verified, Spotlight can recognize you by this email across connected services.',
         '',
         'Verify the email:',
         link,
@@ -51,7 +51,7 @@ export class UserEmailVerificationByMail implements UserEmailMailPort {
             The Spotlight account <strong>${account}</strong> added this email address.
           </p>
           <p style="margin:0 0 24px;font-size:14px;line-height:22px;color:#52525b;">
-            Spotlight then knows you by this address too, for example in Slack.
+            Once verified, Spotlight can recognize you by this email across connected services.
           </p>
           <a href="${escaped(link)}"
              style="display:inline-block;padding:10px 20px;border-radius:999px;background:#18181b;color:#ffffff;font-size:14px;font-weight:500;text-decoration:none;">

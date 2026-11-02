@@ -1099,7 +1099,7 @@ export const listMyEmails = <ThrowOnError extends boolean = false>(options?: Opt
 /**
  * Add an email address and send a verification link to it
  *
- * Spotlight matches a verified address to you, for example when you mention Spotlight in Slack. Adding an address that waits for verification sends a fresh link.
+ * Once verified, Spotlight can recognize you by the address across connected services. Adding an address that waits for verification sends a fresh link.
  */
 export const addMyEmail = <ThrowOnError extends boolean = false>(options: Options<AddMyEmailData, ThrowOnError>): RequestResult<AddMyEmailResponses, AddMyEmailErrors, ThrowOnError> => (options.client ?? client).post<AddMyEmailResponses, AddMyEmailErrors, ThrowOnError>({
   url: '/me/emails',
