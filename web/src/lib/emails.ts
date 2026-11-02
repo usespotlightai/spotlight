@@ -1,9 +1,7 @@
-import type { UserEmailResponseDto, UserEmailsResponseDto } from '@/lib/api';
+import type { UserEmailResponseDto } from '@/lib/api';
 import { settingsPath } from '@/lib/settings';
 
 export type UserEmail = UserEmailResponseDto;
-
-export type UserEmails = UserEmailsResponseDto;
 
 export type UserEmailStatus = UserEmail['status'];
 
