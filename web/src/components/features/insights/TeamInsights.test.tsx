@@ -573,6 +573,46 @@ describe('TeamInsights', () => {
     expect(screen.getByText('No priced runs')).toBeInTheDocument();
   });
 
+  it('keeps a long repository legend inside the scroll container with every row', () => {
+    const byRepository = Array.from({ length: 12 }, (_, at) => ({
+      key: `acme/repo-${at}`,
+      amount: 12 - at,
+      share: (12 - at) / 78,
+      runs: at + 1,
+    }));
+    answers.cost = queried({
+      ...MIXED_COST,
+      cost: {
+        ...MIXED_COST.cost,
+        spend: { amount: 78, currency: 'USD' },
+        byRepository,
+      },
+    });
+
+    showing('?tab=cost');
+
+    const legend = screen.getByRole('list', { name: 'Spend by repository' });
+    expect(legend.closest('[data-slot="scroll-area"]')).not.toBeNull();
+    expect(within(legend).getAllByRole('listitem')).toHaveLength(12);
+  });
+
+  it('keeps a single-row legend inside the scroll container', () => {
+    answers.cost = queried({
+      ...MIXED_COST,
+      cost: {
+        ...MIXED_COST.cost,
+        spend: { amount: 5, currency: 'USD' },
+        byRepository: [{ key: 'acme/only', amount: 5, share: 1, runs: 1 }],
+      },
+    });
+
+    showing('?tab=cost');
+
+    const legend = screen.getByRole('list', { name: 'Spend by repository' });
+    expect(legend.closest('[data-slot="scroll-area"]')).not.toBeNull();
+    expect(within(legend).getAllByRole('listitem')).toHaveLength(1);
+  });
+
   it('reads cache share as not reported where it is unknown', () => {
     answers.cost = queried({
       ...MIXED_COST,
