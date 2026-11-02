@@ -8,12 +8,17 @@ import { ConnectionOwner } from '@integrations/domain/value-objects/connection-o
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import type { INestApplication } from '@nestjs/common';
+import { ENV } from '@platform/config/config.constants';
+import type { Env } from '@platform/config/env.schema';
+import { DEPLOYMENT_HOSTS } from '@platform/outbound/deployment-hosts';
+import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
   RUN_GRANTS,
   type RunGrantsPort,
 } from '@secrets/application/ports/run-grants.port';
+import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
@@ -121,8 +126,6 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     return resolved.call({ body: 'Fixed in the queue worker.' });
   };
 
-  const passedOn = globalThis.fetch;
-
   const hostOf = (url: string | URL | Request): string =>
     new URL(url instanceof Request ? url.url : String(url)).hostname;
 
@@ -133,16 +136,29 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
         .filter(Boolean)
         .join(','),
     );
-    vi.stubGlobal('fetch', (url: string | URL | Request, init?: RequestInit) =>
-      hostOf(url) === 'api.linear.app' ? fetch(url, init) : passedOn(url, init),
+    app = await openApp((module) =>
+      module.overrideProvider(OutboundGuard).useFactory({
+        inject: [DEPLOYMENT_HOSTS, ENV],
+        factory: (hosts: HostAllowList, env: Env) => {
+          const guard = new OutboundGuard(
+            hosts,
+            env.SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK,
+          );
+
+          return Object.assign(Object.create(guard), {
+            fetch: (url: string | URL | Request, init?: RequestInit) =>
+              hostOf(url) === 'api.linear.app'
+                ? fetch(url, init)
+                : guard.fetch(url, init),
+          });
+        },
+      }),
     );
-    app = await openApp();
     db = app.get<DrizzleDatabase>(DRIZZLE);
   });
 
   afterAll(async () => {
     await app.close();
-    vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
 
