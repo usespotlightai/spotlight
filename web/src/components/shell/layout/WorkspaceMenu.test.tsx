@@ -65,9 +65,8 @@ const stubMedia = (dark: boolean) =>
 
 const chooseTheme = async (name: string) => {
   const user = await open();
-  await user.click(screen.getByRole('menuitem', { name: 'Theme' }));
-  (await screen.findByRole('menuitemradio', { name })).focus();
-  await user.keyboard('{Enter}');
+  await user.click(screen.getByRole('radio', { name }));
+  return user;
 };
 
 beforeEach(() => {
@@ -86,21 +85,51 @@ describe('WorkspaceMenu', () => {
   it('lists Theme before Settings', async () => {
     await open();
 
-    const items = screen
-      .getAllByRole('menuitem')
-      .map((item) => item.textContent);
+    const theme = screen.getByRole('radiogroup', { name: 'Theme' });
+    const settings = screen.getByRole('menuitem', { name: 'Settings' });
 
-    expect(items.indexOf('Theme')).toBe(0);
-    expect(items.indexOf('Theme')).toBeLessThan(items.indexOf('Settings'));
+    expect(
+      theme.compareDocumentPosition(settings) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('marks System as the theme by default', async () => {
-    const user = await open();
-    await user.click(screen.getByRole('menuitem', { name: 'Theme' }));
+    await open();
 
-    expect(
-      await screen.findByRole('menuitemradio', { name: 'System' }),
-    ).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'System' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  it('moves the checked mark to the chosen theme', async () => {
+    await chooseTheme('Dark');
+
+    expect(screen.getByRole('radio', { name: 'Dark' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('radio', { name: 'System' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+  });
+
+  it('keeps the menu open after a theme is chosen', async () => {
+    await chooseTheme('Dark');
+
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Settings' })).toBeVisible();
+  });
+
+  it('moves between themes with the arrow keys', async () => {
+    const user = await chooseTheme('Light');
+
+    await user.keyboard('{ArrowRight}');
+
+    expect(document.documentElement).toHaveClass('dark');
+    expect(localStorage.getItem('theme')).toBe('dark');
   });
 
   it('turns dark on and stores the choice', async () => {

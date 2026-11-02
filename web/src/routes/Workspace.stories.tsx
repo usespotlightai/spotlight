@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { THEME_STORAGE_KEY } from '@/hooks/useTheme';
 import { APP_TABS_KEY } from '@/lib/app-tabs';
 import { inboxPath } from '@/lib/inbox';
 import { runnersPath } from '@/lib/runner';
@@ -74,3 +75,20 @@ const meta = {
 export default meta;
 
 export const Shell: StoryObj<typeof meta> = {};
+
+const openThemeMenu = (theme: 'light' | 'dark'): StoryObj<typeof meta> => ({
+  beforeEach: () => {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+
+    return () => localStorage.removeItem(THEME_STORAGE_KEY);
+  },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(
+      await canvas.findByRole('button', { name: new RegExp(WORKSPACE.name) }),
+    );
+  },
+});
+
+export const ThemeMenuLight = openThemeMenu('light');
+
+export const ThemeMenuDark = openThemeMenu('dark');
