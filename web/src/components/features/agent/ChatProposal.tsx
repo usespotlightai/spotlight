@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { ProposedTaskCard } from '@/components/features/agent/ProposedTaskCard';
 import { useAcceptProposal } from '@/hooks/api/useAcceptProposal';
 import { useDismissProposal } from '@/hooks/api/useDismissProposal';
+import type { Attachment } from '@/lib/attachment';
 import type { Proposal } from '@/lib/chat';
 import { taskPath } from '@/lib/task';
 import { toast } from '@/lib/toast';
@@ -14,6 +15,7 @@ type ChatProposalProps = {
   chatId: string;
   position: number;
   proposal: Proposal;
+  attachments: readonly Attachment[];
 };
 
 export function ChatProposal({
@@ -22,6 +24,7 @@ export function ChatProposal({
   chatId,
   position,
   proposal,
+  attachments,
 }: ChatProposalProps) {
   const accept = useAcceptProposal();
   const dismiss = useDismissProposal();
@@ -69,6 +72,7 @@ export function ChatProposal({
       slug={slug}
       teamId={teamId}
       proposal={proposal}
+      attachments={attachments}
       pending={accept.isPending || dismiss.isPending}
       onCreate={() => {
         awaiting.current = true;

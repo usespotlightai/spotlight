@@ -1,5 +1,7 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
+import { Attached } from '@work/application/rendering/attached';
+import type { AttachmentCopies } from '@work/application/services/attachment-copies';
 import type { BuiltInToolUse } from '@work/application/services/built-in-tools.service';
 import { UnknownChatError } from '@work/domain/exceptions/unknown-chat.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -16,6 +18,7 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
   constructor(
     private readonly chats: ChatRepository,
     private readonly lines: LineRepository,
+    private readonly copies: AttachmentCopies,
     private readonly clock: ClockPort,
   ) {}
 
@@ -39,6 +42,14 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
     const placement = proposalPlacementWithin(lines, named);
     const title = TaskTitle.of(inputs.text('title') ?? '');
     const description = inputs.text('description')?.trim();
+    const position = chat.proposalPositionFor(runId).value;
+    const attachments = await this.copies.copy(
+      chat.workspaceId,
+      chat.attachmentsOf(
+        inputs.texts('attach').map((each) => Attached.idIn(each)),
+      ),
+      (place) => `${chat.id.value}-${position}-${place}`,
+    );
 
     await this.chats.save(
       chat.propose({
@@ -46,6 +57,7 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
         placement,
         title,
         description: description ? TaskDescription.of(description) : null,
+        attachments,
         at: this.clock.now(),
       }),
     );

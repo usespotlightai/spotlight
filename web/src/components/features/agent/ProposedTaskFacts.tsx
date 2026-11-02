@@ -1,7 +1,9 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import type { Attachment } from '@/lib/attachment';
 import { type Proposal, proposedStationOf } from '@/lib/chat';
 import { stationShare } from '@/lib/station';
 import { taskPath } from '@/lib/task';
@@ -10,6 +12,7 @@ type ProposedTaskFactsProps = {
   slug: string;
   teamId: string;
   proposal: Proposal;
+  attachments: readonly Attachment[];
   titleId: string;
 };
 
@@ -17,6 +20,7 @@ export function ProposedTaskFacts({
   slug,
   teamId,
   proposal,
+  attachments,
   titleId,
 }: ProposedTaskFactsProps) {
   const station = proposedStationOf(proposal);
@@ -76,6 +80,15 @@ export function ProposedTaskFacts({
               ariaLabel={`What ${proposal.title} is about`}
               className="border-none bg-transparent p-0 text-sm"
             />
+          </dd>
+        </FactRow>
+      )}
+
+      {attachments.length > 0 && (
+        <FactRow>
+          <dt className={FACT_LABEL}>Files</dt>
+          <dd>
+            <AttachmentTiles attachments={attachments} />
           </dd>
         </FactRow>
       )}

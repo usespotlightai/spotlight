@@ -99,6 +99,15 @@ describe('InputSchema', () => {
     expect(InputSchema.ofType('number').coerce('-1.5e3')).toBe(-1500);
   });
 
+  it('takes one text for a list of text as a list of one', () => {
+    const paths = InputSchema.of({ type: 'array', items: { type: 'string' } });
+    const counts = InputSchema.of({ type: 'array', items: { type: 'number' } });
+
+    expect(paths.coerce('a.png')).toEqual(['a.png']);
+    expect(paths.coerce('["a.png","b.png"]')).toEqual(['a.png', 'b.png']);
+    expect(counts.coerce('three')).toBe('three');
+  });
+
   it('leaves a value that already fits as it is', () => {
     expect(InputSchema.of({ type: ['string', 'number'] }).coerce('12')).toBe(
       '12',

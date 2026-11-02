@@ -1,6 +1,7 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
@@ -17,6 +18,7 @@ export class ProposalAccepted implements DomainEvent {
     readonly placement: ProposalPlacement,
     readonly title: TaskTitle,
     readonly description: TaskDescription | null,
+    readonly attachments: readonly Attachment[],
     readonly acceptedBy: UserId,
   ) {}
 }

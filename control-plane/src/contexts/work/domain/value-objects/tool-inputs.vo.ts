@@ -13,6 +13,14 @@ export class ToolInputs {
     return typeof value === 'string' ? value : null;
   }
 
+  texts(name: string): string[] {
+    const value = this.values[name];
+
+    return Array.isArray(value)
+      ? value.filter((each): each is string => typeof each === 'string')
+      : [];
+  }
+
   number(name: string): number | null {
     const value = this.values[name];
 

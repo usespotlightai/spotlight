@@ -19,6 +19,7 @@ import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
+import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
 import { InvalidSetupBranchError } from '@work/domain/exceptions/invalid-setup-branch.error';
 import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.error';
@@ -27,6 +28,7 @@ import { UnknownStationError } from '@work/domain/exceptions/unknown-station.err
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { TraceAccess } from '@work/domain/services/trace-access';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
@@ -239,6 +241,30 @@ export class Chat extends EventRecorder {
 
   get allAttachments(): readonly Attachment[] {
     return this.messages.flatMap((message) => message.attachments);
+  }
+
+  get sharedAttachments(): readonly Attachment[] {
+    return this.messages
+      .filter((message) => message.kind === 'message')
+      .flatMap((message) => message.attachments);
+  }
+
+  attachmentsOf(ids: readonly AttachmentId[]): readonly Attachment[] {
+    const distinct = ids.filter(
+      (id, at) => ids.findIndex((each) => each.equals(id)) === at,
+    );
+
+    return distinct.map((id) => {
+      const found = this.sharedAttachments.find((each) => each.id.equals(id));
+
+      if (!found) {
+        throw new InvalidAttachmentError(
+          `${id.value} is not attached to chat ${this.id.value}`,
+        );
+      }
+
+      return found;
+    });
   }
 
   messagesAt(positions: readonly MessagePosition[]): readonly ChatMessage[] {
@@ -473,23 +499,28 @@ export class Chat extends EventRecorder {
     placement: ProposalPlacement;
     title: TaskTitle;
     description: TaskDescription | null;
+    attachments?: readonly Attachment[];
     at: Date;
   }): Chat {
-    if (!this.currentRunId?.equals(input.runId)) {
-      throw new InvalidChatTransitionError(
-        `Only the run working chat ${this.id.value} can propose tasks.`,
-      );
-    }
-
     const message = ChatMessage.propose({
       ...input,
-      position: this.nextPosition,
+      position: this.proposalPositionFor(input.runId),
     });
     const next = this.with({ messages: [...this.messages, message] });
 
     next.record(new TaskProposed(this.id, message.position, input.placement));
 
     return next;
+  }
+
+  proposalPositionFor(runId: RunId): MessagePosition {
+    if (!this.currentRunId?.equals(runId)) {
+      throw new InvalidChatTransitionError(
+        `Only the run working chat ${this.id.value} can propose tasks.`,
+      );
+    }
+
+    return this.nextPosition;
   }
 
   proposalAt(position: MessagePosition): TaskProposal {
@@ -518,6 +549,7 @@ export class Chat extends EventRecorder {
         proposal.placement,
         proposal.title,
         proposal.description,
+        this.messages[position.value]?.attachments ?? [],
         by,
       ),
     );

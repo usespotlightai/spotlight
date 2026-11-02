@@ -182,6 +182,7 @@ const store = {
   ),
   save: vi.fn(),
   taken: vi.fn(),
+  copy: vi.fn(),
   link: vi.fn(),
   open: vi.fn(),
 } satisfies AttachmentStorePort;
