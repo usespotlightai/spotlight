@@ -185,4 +185,34 @@ describe('ClaimOrder', () => {
       ).toBe('expired');
     });
   });
+
+  describe('for a sandbox an editor requested', () => {
+    it('starts it when its key has no run, or its newest run is not queued', () => {
+      expect(ClaimOrder.forRequested(null, BY)).toBe('start');
+      expect(
+        ClaimOrder.forRequested(
+          waiting('taken').run.claim(RunnerId.of('runner_2'), NOW),
+          BY,
+        ),
+      ).toBe('start');
+    });
+
+    it('takes the queued run of its key first, which then starts in it', () => {
+      expect(ClaimOrder.forRequested(waiting('queued').run, BY)).toBe(
+        'run-of-its-key',
+      );
+    });
+
+    it('leaves it to another runner when the newest run of its key does not fit this one', () => {
+      expect(
+        ClaimOrder.forRequested(waiting('other', { harness: 'other' }).run, BY),
+      ).toBe('skip');
+      expect(
+        ClaimOrder.forRequested(
+          waiting('placed', { placement: ['gpu'] }).run,
+          BY,
+        ),
+      ).toBe('skip');
+    });
+  });
 });

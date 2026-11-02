@@ -415,6 +415,25 @@ describe('sandboxes (e2e)', () => {
     });
   });
 
+  it('keeps a replay’s sandbox for the retry when its run’s lease expires', async () => {
+    const runId = await queue({ key: 'replay-run_retried' });
+    const claimed = await claim().expect(200);
+    const sandboxId: string = claimed.body.sandboxId;
+    await heartbeat([sandboxId]).expect(200);
+
+    await db
+      .update(schema.run)
+      .set({ leaseExpiresAt: new Date(Date.now() - 1_000) })
+      .where(eq(schema.run.id, runId));
+    await claim().expect(204);
+
+    const released = await eventually(async () => {
+      const row = await sandboxRow(sandboxId);
+      return row?.idleSince ? row : null;
+    });
+    expect(released).toMatchObject({ state: 'ready', leases: [] });
+  });
+
   it('drains a ready sandbox whose image lacks the harness of the next run of its key, and the run starts afresh', async () => {
     const sandboxId = await idleAndReady('task-task_9');
     const next = await queue({ key: 'task-task_9', harness: 'other' });

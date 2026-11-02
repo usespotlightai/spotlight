@@ -2116,9 +2116,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: SandboxLeases,
-    inject: [SANDBOXES, CLOCK],
-    useFactory: (sandboxes: SandboxesPort, clock: ClockPort) =>
-      new SandboxLeases(sandboxes, clock),
+    inject: [SANDBOXES, DrizzleRunRepository, CLOCK],
+    useFactory: (
+      sandboxes: SandboxesPort,
+      runs: DrizzleRunRepository,
+      clock: ClockPort,
+    ) => new SandboxLeases(sandboxes, runs, clock),
   },
 
   {

@@ -170,17 +170,14 @@ export const workSubscribers = (reactions: {
     ['run.completed', 'run.exhausted', 'run.cancelled'],
     (event) => reactions.runners.runEnded(event.runId),
   ),
-  subscribing<
-    RunCompleted | RunExhausted | RunCancelled | RunLeaseExpired | RunSuspended
-  >(
+  subscribing<RunCompleted | RunExhausted | RunCancelled>(
+    'work.release-sandbox-of-ended-run',
+    ['run.completed', 'run.exhausted', 'run.cancelled'],
+    (event) => reactions.sandboxes.runEnded(event.runId),
+  ),
+  subscribing<RunLeaseExpired | RunSuspended>(
     'work.release-sandbox-of-left-run',
-    [
-      'run.completed',
-      'run.exhausted',
-      'run.cancelled',
-      'run.lease-expired',
-      'run.suspended',
-    ],
+    ['run.lease-expired', 'run.suspended'],
     (event) => reactions.sandboxes.runLeft(event.runId),
   ),
   subscribing<ToolUsed>(

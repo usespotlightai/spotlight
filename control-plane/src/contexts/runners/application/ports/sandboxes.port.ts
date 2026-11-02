@@ -54,6 +54,8 @@ export interface SandboxesPort {
 
   releaseRun(runId: string, at: Date): Promise<void>;
 
+  retireRun(runId: string, at: Date): Promise<void>;
+
   open(workspaceId: string, key: string, at: Date): Promise<OpenedSandbox>;
 
   requestedIn(workspaceId: string): Promise<readonly RequestedSandbox[]>;

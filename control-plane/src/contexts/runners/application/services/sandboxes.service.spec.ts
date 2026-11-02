@@ -124,6 +124,21 @@ describe('Sandboxes', () => {
     expect(stored.get('sandbox_2')?.holdsRun('run_2')).toBe(true);
   });
 
+  it('drains the sandbox of a run that retires it, and leaves other sandboxes alone', async () => {
+    const { stored, service } = serving({
+      known: [
+        placed('sandbox_1').reported(),
+        placed('sandbox_2', { key: 'chat-chat_1', runId: 'run_2' }).reported(),
+      ],
+    });
+
+    await service.retireRun('run_1', later(5_000));
+    await service.retireRun('run_9', later(5_000));
+
+    expect(stored.get('sandbox_1')?.current).toBe('draining');
+    expect(stored.get('sandbox_2')?.current).toBe('ready');
+  });
+
   it('marks reported sandboxes ready, loses unreported ones, and drains what it should not keep', async () => {
     const { stored, service } = serving({
       known: [
