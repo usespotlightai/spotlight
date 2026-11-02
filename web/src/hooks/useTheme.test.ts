@@ -98,4 +98,28 @@ describe('index.html', () => {
 
     expect(html).toContain(`localStorage.getItem('${THEME_STORAGE_KEY}')`);
   });
+
+  describe('inline script', () => {
+    const runScript = () => {
+      const html = readFileSync('index.html', 'utf8');
+      const match = /<script>([\s\S]*?)<\/script>/.exec(html);
+      new Function(match?.[1] ?? '')();
+    };
+
+    it('does not override a stored light theme on OS change', () => {
+      media.matches = false;
+      runScript();
+      localStorage.setItem(THEME_STORAGE_KEY, 'light');
+      prefer(true);
+
+      expect(isDark()).toBe(false);
+    });
+
+    it('follows OS change while the theme is unset', () => {
+      runScript();
+      prefer(true);
+
+      expect(isDark()).toBe(true);
+    });
+  });
 });
