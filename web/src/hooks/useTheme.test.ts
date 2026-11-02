@@ -102,8 +102,8 @@ describe('index.html', () => {
   describe('inline script', () => {
     const runScript = () => {
       const html = readFileSync('index.html', 'utf8');
-      const match = /<script>([\s\S]*?)<\/script>/.exec(html);
-      new Function(match?.[1] ?? '')();
+      const start = html.indexOf('<script>') + '<script>'.length;
+      new Function(html.slice(start, html.indexOf('</script>', start)))();
     };
 
     it('does not override a stored light theme on OS change', () => {
