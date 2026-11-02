@@ -4,7 +4,6 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   Arriving,
@@ -243,9 +242,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       task,
       line,
       attachments,
-      happened.authorEmail
-        ? await this.members.byEmail(task.workspaceId, happened.authorEmail)
-        : null,
+      happened.authorEmail,
     );
 
     if (!updated) {
@@ -427,11 +424,15 @@ export class ReactToHappenings implements HappeningReactionsPort {
     task: Task,
     line: Line,
     attachments: readonly Attachment[],
-    author: UserId | null,
+    authorEmail: string | null,
   ): Promise<Task | null> {
     if (reaction.kind === 'nothing') {
       return null;
     }
+
+    const author = authorEmail
+      ? await this.members.byEmail(task.workspaceId, authorEmail)
+      : null;
 
     const newNote = {
       station: reaction.station,

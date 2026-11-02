@@ -645,6 +645,33 @@ describe('ReactToHappenings', () => {
     expect(dispatched).toHaveLength(0);
   });
 
+  it('looks for no author where no rule takes the happening', async () => {
+    const byEmail = vi.fn(async () => UserId.of('user_9'));
+
+    await new ReactToHappenings(
+      tasks(taskAt()),
+      tasks(taskAt()),
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      { byEmail },
+      files,
+      processedEventsInMemory(),
+      logger,
+      channels,
+    ).react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [{ ...news(COMMENTED, null), authorEmail: 'ada@example.com' }],
+      'received-as',
+    );
+
+    expect(saved).toBeUndefined();
+    expect(byEmail).not.toHaveBeenCalled();
+  });
+
   it('says nothing of a review submitted with nothing written on it', async () => {
     await receive(COMMENTED, taskAt(), null);
 
