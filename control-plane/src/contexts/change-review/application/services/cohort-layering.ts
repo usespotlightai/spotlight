@@ -1,10 +1,16 @@
 import type { ChangeStackGeneratorPort } from '@change-review/application/ports/change-stack-generator.port';
-import { attempted } from '@change-review/application/services/generation-attempt';
+import {
+  ATTEMPTS,
+  attempted,
+} from '@change-review/application/services/generation-attempt';
 import {
   InvalidChangeStackError,
   type StackProblem,
 } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import type { DiffFacts } from '@change-review/domain/services/diff-facts';
+import {
+  type DiffFacts,
+  placedHunks,
+} from '@change-review/domain/services/diff-facts';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
 import { StackOutline } from '@change-review/domain/services/stack-outline';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
@@ -15,12 +21,10 @@ import type {
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
-const ATTEMPTS = 2;
-
 const SPLIT_ABOVE = 80;
 
 export const splits = (facts: DiffFacts): boolean =>
-  facts.hunks.filter((each) => !each.incidental).length > SPLIT_ABOVE;
+  placedHunks(facts).length > SPLIT_ABOVE;
 
 export type CohortLayering =
   | {
@@ -91,61 +95,57 @@ export const layerCohort = async (
   return { outcome: 'broken', problems, usage };
 };
 
-const LAYERINGS_AT_ONCE = 4;
+const LAYERINGS_PER_ROUND = 4;
 
-export const layeredConcurrently = async (
+export const layeredInRounds = async (
   layerings: readonly (() => Promise<CohortLayering>)[],
+  rounds: {
+    readonly before: () => Promise<void>;
+    readonly after: (round: readonly CohortLayering[]) => void;
+  },
 ): Promise<CohortLayering[]> => {
   const done: CohortLayering[] = [];
-  let next = 0;
-  let crashed = false;
 
-  const worker = async () => {
-    while (!crashed && next < layerings.length) {
-      const at = next;
-      next += 1;
-      const layering = layerings[at];
-
-      if (layering) {
-        try {
-          done[at] = await layering();
-        } catch (error) {
-          crashed = true;
-          throw error;
-        }
-      }
-    }
-  };
-
-  await Promise.all(
-    Array.from(
-      { length: Math.min(LAYERINGS_AT_ONCE, layerings.length) },
-      worker,
-    ),
-  );
+  for (let at = 0; at < layerings.length; at += LAYERINGS_PER_ROUND) {
+    await rounds.before();
+    const round = await Promise.all(
+      layerings
+        .slice(at, at + LAYERINGS_PER_ROUND)
+        .map((layering) => layering()),
+    );
+    rounds.after(round);
+    done.push(...round);
+  }
 
   return done;
 };
 
 export type CombinedLayerings =
-  | Exclude<CohortLayering, { readonly outcome: 'layered' }>
+  | { readonly outcome: 'layered'; readonly cohorts: readonly ProposedCohort[] }
   | {
-      readonly outcome: 'layered';
-      readonly cohorts: readonly ProposedCohort[];
-      readonly usage: readonly ModelCall[];
+      readonly outcome: 'unanswered';
+      readonly truncated: boolean;
+      readonly error: unknown;
+    }
+  | {
+      readonly outcome: 'broken';
+      readonly problems: readonly StackProblem[];
     };
 
 export const combined = (
   layerings: readonly CohortLayering[],
 ): CombinedLayerings => {
-  const usage = layerings.flatMap((each) => each.usage);
   const unanswered = layerings.flatMap((each) =>
     each.outcome === 'unanswered' ? [each] : [],
   );
   const failure = unanswered.find((each) => each.truncated) ?? unanswered[0];
 
   if (failure) {
-    return { ...failure, usage };
+    return {
+      outcome: 'unanswered',
+      truncated: failure.truncated,
+      error: failure.error,
+    };
   }
 
   const problems = layerings.flatMap((each) =>
@@ -153,12 +153,11 @@ export const combined = (
   );
 
   return problems.length > 0
-    ? { outcome: 'broken', problems, usage }
+    ? { outcome: 'broken', problems }
     : {
         outcome: 'layered',
         cohorts: layerings.flatMap((each) =>
           each.outcome === 'layered' ? [each.cohort] : [],
         ),
-        usage,
       };
 };

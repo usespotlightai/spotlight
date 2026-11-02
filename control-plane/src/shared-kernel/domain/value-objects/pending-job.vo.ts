@@ -48,6 +48,13 @@ export class PendingJob {
     );
   }
 
+  renewLease(now: Date): PendingJob {
+    return new PendingJob(
+      this.attempts,
+      new Date(now.getTime() + JOB_LEASE_MS),
+    );
+  }
+
   scheduleRetryAt(at: Date): PendingJob {
     return new PendingJob(this.attempts, at);
   }

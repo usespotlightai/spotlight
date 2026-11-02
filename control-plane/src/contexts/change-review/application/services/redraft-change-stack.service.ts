@@ -2,13 +2,15 @@ import type { ChangeStackGeneratorPort } from '@change-review/application/ports/
 import {
   combined,
   layerCohort,
-  layeredConcurrently,
+  layeredInRounds,
   splits,
 } from '@change-review/application/services/cohort-layering';
 import {
+  ATTEMPTS,
   attempted,
   settleBroken,
   settleUnanswered,
+  withRenewedLease,
 } from '@change-review/application/services/generation-attempt';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
@@ -16,6 +18,7 @@ import {
   InvalidChangeStackError,
   type StackProblem,
 } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import {
   cohortRedraft,
   type RedraftRequest,
@@ -25,10 +28,9 @@ import { StackOutline } from '@change-review/domain/services/stack-outline';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
-const ATTEMPTS = 2;
-
 export class RedraftChangeStack {
   constructor(
+    private readonly stacks: ChangeStackRepository,
     private readonly generator: ChangeStackGeneratorPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
@@ -41,16 +43,18 @@ export class RedraftChangeStack {
 
     const redraft = redraftRequestOf(stack, check);
 
-    if (!splits(stack.facts)) {
-      return this.whole(stack, redraft);
+    if (!redraft) {
+      return stack.stopRedrafting();
     }
 
-    return redraft ? this.byCohort(stack, redraft) : stack.stopRedrafting();
+    return splits(stack.facts)
+      ? this.byCohort(stack, redraft)
+      : this.whole(stack, redraft);
   }
 
   private async whole(
     stack: ChangeStack,
-    redraft: RedraftRequest | null,
+    redraft: RedraftRequest,
   ): Promise<ChangeStack> {
     const { diff, facts } = stack;
     let problems: readonly StackProblem[] = [];
@@ -96,8 +100,9 @@ export class RedraftChangeStack {
     stack: ChangeStack,
     redraft: RedraftRequest,
   ): Promise<ChangeStack> {
+    let redrafting = stack;
     const layered = combined(
-      await layeredConcurrently(
+      await layeredInRounds(
         stack.cohorts.map((cohort, c) => {
           const scoped = cohortRedraft(redraft, c);
 
@@ -116,14 +121,22 @@ export class RedraftChangeStack {
                 usage: [],
               });
         }),
+        {
+          before: async () => {
+            redrafting = await withRenewedLease(
+              this.stacks,
+              redrafting,
+              this.clock.now(),
+            );
+          },
+          after: (round) => {
+            for (const call of round.flatMap((each) => each.usage)) {
+              redrafting = redrafting.recordModel(call);
+            }
+          },
+        },
       ),
     );
-
-    let redrafting = stack;
-
-    for (const call of layered.usage) {
-      redrafting = redrafting.recordModel(call);
-    }
 
     if (layered.outcome === 'unanswered') {
       return settleUnanswered(

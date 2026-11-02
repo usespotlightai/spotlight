@@ -8,13 +8,15 @@ import type { SymbolIndexerPort } from '@change-review/application/ports/symbol-
 import {
   combined,
   layerCohort,
-  layeredConcurrently,
+  layeredInRounds,
   splits,
 } from '@change-review/application/services/cohort-layering';
 import {
+  ATTEMPTS,
   attempted,
   settleBroken,
   settleUnanswered,
+  withRenewedLease,
 } from '@change-review/application/services/generation-attempt';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { ChangeStacksUnavailableError } from '@change-review/domain/exceptions/change-stacks-unavailable.error';
@@ -39,8 +41,6 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-
-const ATTEMPTS = 2;
 
 export interface GenerationRun {
   readonly id: RunId;
@@ -208,7 +208,7 @@ export class GenerateChangeStack {
     }
 
     const layered = combined(
-      await layeredConcurrently(
+      await layeredInRounds(
         outline.map(
           (cohort) => () =>
             layerCohort(this.generator, {
@@ -218,12 +218,22 @@ export class GenerateChangeStack {
               cohort,
             }),
         ),
+        {
+          before: async () => {
+            generating = await withRenewedLease(
+              this.stacks,
+              generating,
+              this.clock.now(),
+            );
+          },
+          after: (round) => {
+            for (const call of round.flatMap((each) => each.usage)) {
+              generating = generating.recordModel(call);
+            }
+          },
+        },
       ),
     );
-
-    for (const call of layered.usage) {
-      generating = generating.recordModel(call);
-    }
 
     if (layered.outcome === 'unanswered') {
       return settleUnanswered(

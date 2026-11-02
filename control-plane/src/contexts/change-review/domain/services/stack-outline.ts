@@ -3,11 +3,13 @@ import {
   type StackProblem,
   shapeProblem,
 } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import type { DiffFacts } from '@change-review/domain/services/diff-facts';
+import {
+  type DiffFacts,
+  placedHunks,
+} from '@change-review/domain/services/diff-facts';
 import { factProblems } from '@change-review/domain/services/fact-rules';
 import {
-  MAX_PROSE,
-  MAX_TITLE,
+  cohortHeaderProblems,
   StackProposal,
 } from '@change-review/domain/services/stack-proposal';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
@@ -45,9 +47,7 @@ const shapeProblems = (
 ): StackProblem[] => {
   const problems: string[] = [];
   const known = new Set(diff.hunks.map((hunk) => hunk.id));
-  const placed = facts.hunks
-    .filter((each) => !each.incidental)
-    .map((each) => each.hunk);
+  const placed = placedHunks(facts);
   const assigned = new Map<string, number>();
 
   if (cohorts.length === 0) {
@@ -57,16 +57,7 @@ const shapeProblems = (
   cohorts.forEach((cohort, c) => {
     const where = `cohort ${c + 1}`;
 
-    if (!cohort.title.trim() || cohort.title.length > MAX_TITLE) {
-      problems.push(
-        `${where} needs a title of at most ${MAX_TITLE} characters`,
-      );
-    }
-    if (!cohort.intent.trim() || cohort.intent.length > MAX_PROSE) {
-      problems.push(
-        `${where} needs an intent of at most ${MAX_PROSE} characters`,
-      );
-    }
+    problems.push(...cohortHeaderProblems(cohort, where));
     if (cohort.hunks.length === 0) {
       problems.push(`${where} has no hunks`);
     }

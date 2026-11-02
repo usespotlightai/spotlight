@@ -149,7 +149,7 @@ const working = (
       clock,
       QUIET,
     ),
-    new RedraftChangeStack(generator, clock, QUIET),
+    new RedraftChangeStack(stacks, generator, clock, QUIET),
     clock,
     QUIET,
     { report: () => undefined },

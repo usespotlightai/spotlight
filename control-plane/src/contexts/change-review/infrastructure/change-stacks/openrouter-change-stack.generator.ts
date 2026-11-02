@@ -11,7 +11,10 @@ import type {
   StackProblem,
   StackProblemCode,
 } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import type { DiffFacts } from '@change-review/domain/services/diff-facts';
+import {
+  type DiffFacts,
+  placedHunks,
+} from '@change-review/domain/services/diff-facts';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
@@ -242,8 +245,7 @@ const described = (diff: Diff, facts: DiffFacts): string => {
     .join('\n\n');
 };
 
-const placedIn = (facts: DiffFacts): number =>
-  facts.hunks.filter((each) => !each.incidental).length;
+const placedIn = (facts: DiffFacts): number => placedHunks(facts).length;
 
 const MAX_OUTPUT_LINES = 25;
 
@@ -405,7 +407,9 @@ export class OpenRouterChangeStackGenerator
       reasoning: REASONING,
     }).catch((error: unknown) => {
       throw error instanceof OpenRouterEmptyCompletionError
-        ? new GenerationError(error.message, error.usage, error.truncated)
+        ? new GenerationError(error.message, error.usage, {
+            truncated: error.truncated,
+          })
         : error;
     });
   }

@@ -447,7 +447,7 @@ describe('GenerateChangeStack', () => {
             outputTokens: 65_536,
             cost: { amount: 0.2, currency: 'USD' },
           },
-          true,
+          { truncated: true },
         ),
       ],
     });
@@ -573,7 +573,7 @@ describe('GenerateChangeStack', () => {
         outlines: [HALVES],
         layers: (request) =>
           request.cohort.title === 'Second half'
-            ? new GenerationError('length', null, true)
+            ? new GenerationError('length', null, { truncated: true })
             : oneLayer(request),
       });
       const stack = await service.begin(RUN, LARGE_INPUT);
@@ -870,6 +870,7 @@ describe('RedraftChangeStack', () => {
     generated.saved.push(redrafting);
 
     const service = new RedraftChangeStack(
+      generated.stacks,
       generated.generator,
       {
         now: () => new Date('2026-09-16T10:05:00Z'),
@@ -970,6 +971,7 @@ describe('RedraftChangeStack', () => {
     const before = generated.layered.length;
 
     const redrafted = await new RedraftChangeStack(
+      generated.stacks,
       generated.generator,
       {
         now: () => new Date('2026-09-16T10:05:00Z'),
@@ -1000,7 +1002,7 @@ describe('RedraftChangeStack', () => {
           outputTokens: 65_536,
           cost: { amount: 0.2, currency: 'USD' },
         },
-        true,
+        { truncated: true },
       ),
     ]);
 

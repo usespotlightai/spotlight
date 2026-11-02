@@ -357,8 +357,23 @@ export class ChangeStack
     return this.stopWith(NOT_GENERATED, now);
   }
 
-  stopForTruncatedAnswer(now: Date): ChangeStack {
-    return this.stopWith(TOO_LARGE, now);
+  renewJobLease(now: Date): ChangeStack {
+    if (!this.hasPendingJob) {
+      throw InvalidChangeStackError.because(
+        'has nothing to generate or redraft',
+      );
+    }
+
+    return this.with({ job: this.job.renewLease(now) });
+  }
+
+  settleFailedCall(
+    failure: { readonly truncated: boolean },
+    now: Date,
+  ): ChangeStack {
+    return failure.truncated
+      ? this.stopWith(TOO_LARGE, now)
+      : this.scheduleRetry(now);
   }
 
   stopForBrokenRules(now: Date): ChangeStack {

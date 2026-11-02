@@ -58,6 +58,7 @@ export const awaitingCheck = async (
         kind: 'change',
         title: 'Say it anew',
         intent: 'Reword the readme',
+        joinedBecause: null,
         layers: [
           {
             id: 'c1.l1',

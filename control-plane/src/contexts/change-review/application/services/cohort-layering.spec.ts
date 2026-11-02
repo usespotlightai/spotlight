@@ -1,7 +1,7 @@
 import {
   type CohortLayering,
   combined,
-  layeredConcurrently,
+  layeredInRounds,
 } from '@change-review/application/services/cohort-layering';
 import { describe, expect, it } from 'vitest';
 
@@ -17,52 +17,47 @@ const layered = (title: string): CohortLayering => ({
   usage: [CALL],
 });
 
-describe('layeredConcurrently', () => {
-  it('layers at most four cohorts at once and keeps their order', async () => {
+describe('layeredInRounds', () => {
+  it('layers at most four cohorts at once, in rounds that each begin with a call to prepare, and keeps their order', async () => {
+    const events: string[] = [];
+    const rounds: number[] = [];
     let running = 0;
     let most = 0;
 
-    const done = await layeredConcurrently(
+    const done = await layeredInRounds(
       Array.from({ length: 10 }, (_, at) => async () => {
         running += 1;
         most = Math.max(most, running);
+        events.push(`layer ${at + 1}`);
         await new Promise((resolve) => setTimeout(resolve, 10 - at));
         running -= 1;
         return layered(`Cohort ${at + 1}`);
       }),
+      {
+        before: async () => {
+          events.push('round');
+        },
+        after: (round) => {
+          rounds.push(round.length);
+        },
+      },
     );
 
     expect(most).toBe(4);
+    expect(events.filter((each) => each === 'round')).toHaveLength(3);
+    expect(events.indexOf('layer 5')).toBeGreaterThan(
+      events.indexOf('layer 4'),
+    );
+    expect(events[5]).toBe('round');
+    expect(rounds).toEqual([4, 4, 2]);
     expect(
       done.map((each) => each.outcome === 'layered' && each.cohort.title),
     ).toEqual(Array.from({ length: 10 }, (_, at) => `Cohort ${at + 1}`));
   });
 });
 
-describe('layeredConcurrently, when a layering crashes', () => {
-  it('starts no more layerings', async () => {
-    let started = 0;
-
-    await expect(
-      layeredConcurrently(
-        Array.from({ length: 10 }, (_, at) => async () => {
-          started += 1;
-          if (at === 0) {
-            throw new Error('a bug');
-          }
-          await new Promise((resolve) => setTimeout(resolve, 5));
-          return layered(`Cohort ${at + 1}`);
-        }),
-      ),
-    ).rejects.toThrow('a bug');
-    await new Promise((resolve) => setTimeout(resolve, 30));
-
-    expect(started).toBeLessThanOrEqual(4);
-  });
-});
-
 describe('combined', () => {
-  it('reports a cut-off answer before any other failure, with the usage of every call', () => {
+  it('reports a cut-off answer before any other failure', () => {
     const result = combined([
       layered('One'),
       { outcome: 'unanswered', truncated: false, error: 'busy', usage: [] },
@@ -75,8 +70,11 @@ describe('combined', () => {
       },
     ]);
 
-    expect(result).toMatchObject({ outcome: 'unanswered', truncated: true });
-    expect(result.usage).toHaveLength(3);
+    expect(result).toEqual({
+      outcome: 'unanswered',
+      truncated: true,
+      error: 'length',
+    });
   });
 
   it('collects the problems of every broken cohort', () => {
