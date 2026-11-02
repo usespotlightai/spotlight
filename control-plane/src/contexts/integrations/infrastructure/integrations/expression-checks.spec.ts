@@ -444,6 +444,7 @@ describe('the positions an expression is written at', () => {
       raise: {
         happening,
         message: NOPE,
+        author: { email: NOPE },
         opens: {
           lineRole: 'core',
           title: NOPE,

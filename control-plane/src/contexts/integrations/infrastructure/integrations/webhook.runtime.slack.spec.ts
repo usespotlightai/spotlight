@@ -291,6 +291,8 @@ webhook:
           email: '\${{ response.user.profile.email }}'
       raise:
         happening: slack.app_mention
+        author:
+          email: '\${{ email }}'
         opens:
           lineRole: delivery
           title: '\${{ body.event.text }}'
@@ -353,6 +355,37 @@ webhook:
       expect(read?.opens?.assignEmail).toBe('dev@acme.test');
     });
 
+    it('names the author of the message by the email it found', async () => {
+      const { runtime } = looking({
+        ok: true,
+        user: { profile: { email: 'dev@acme.test' } },
+      });
+
+      const [read] = await runtime.read({
+        headers: {},
+        body: mentioning,
+        raw: null,
+      });
+
+      expect(read?.authorEmail).toBe('dev@acme.test');
+    });
+
+    it('names no author where the Slack user has no email', async () => {
+      const { runtime } = looking({
+        ok: true,
+        user: { profile: { email: '' } },
+      });
+
+      const [read] = await runtime.read({
+        headers: {},
+        body: mentioning,
+        raw: null,
+      });
+
+      expect(read).toBeDefined();
+      expect(read?.authorEmail).toBeNull();
+    });
+
     it('opens unassigned where the lookup fails', async () => {
       const { runtime } = looking(null, false);
 
@@ -363,6 +396,7 @@ webhook:
       });
 
       expect(read?.opens?.assignEmail).toBeNull();
+      expect(read?.authorEmail).toBeNull();
     });
   });
 });

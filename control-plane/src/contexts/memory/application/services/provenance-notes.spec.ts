@@ -31,4 +31,21 @@ describe('provenanceNotes', () => {
       { position: 2, by: 'world', author: null, text: 'B.' },
     ]);
   });
+
+  it('names the teammate who wrote words that came in from another tool, which stay from outside', async () => {
+    const found = await provenanceNotes(
+      [{ position: 1, by: 'world', author: UserId.of('user_1'), text: 'A.' }],
+      [1],
+      lookUpOnce(people),
+    );
+
+    expect(found).toEqual([
+      {
+        position: 1,
+        by: 'world',
+        author: { id: 'user_1', name: 'Maya Chen', image: 'https://a/1.png' },
+        text: 'A.',
+      },
+    ]);
+  });
 });

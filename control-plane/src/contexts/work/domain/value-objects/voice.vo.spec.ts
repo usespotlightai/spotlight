@@ -38,10 +38,20 @@ describe('Voice', () => {
     expect(Voice.world().run).toBeNull();
   });
 
+  it('is the world speaking through a member who wrote outside Spotlight', () => {
+    const world = Voice.world(UserId.of('user_1'));
+
+    expect(world.isWorld).toBe(true);
+    expect(world.author?.value).toBe('user_1');
+  });
+
   describe('read back from storage', () => {
     it('takes the three back apart', () => {
       expect(Voice.of({ by: 'person', author: 'user_1' }).isPerson).toBe(true);
       expect(Voice.of({ by: 'world' }).isWorld).toBe(true);
+      expect(Voice.of({ by: 'world', author: 'user_1' }).author?.value).toBe(
+        'user_1',
+      );
       expect(Voice.of({ by: 'station', run: 'run_1' }).run?.value).toBe(
         'run_1',
       );
@@ -51,10 +61,7 @@ describe('Voice', () => {
       expect(() => Voice.of({ by: 'person' })).toThrow(InvalidVoiceError);
     });
 
-    it('rejects a name on a voice that is not a person’s', () => {
-      expect(() => Voice.of({ by: 'world', author: 'user_1' })).toThrow(
-        InvalidVoiceError,
-      );
+    it('rejects a name on a voice the station spoke', () => {
       expect(() => Voice.of({ by: 'station', author: 'user_1' })).toThrow(
         InvalidVoiceError,
       );

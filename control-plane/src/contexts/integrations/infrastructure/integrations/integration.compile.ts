@@ -136,6 +136,7 @@ export interface RaiseIR {
   readonly happening: string;
   readonly answers: boolean;
   readonly message: Expression | null;
+  readonly author: { readonly email: Expression } | null;
   readonly opens: {
     readonly lineRole: string;
     readonly station: string | null;
@@ -711,6 +712,14 @@ class Compiler {
       answers: raise.answers,
       message: raise.message
         ? this.expression(raise.message, place.to('message'))
+        : null,
+      author: raise.author
+        ? {
+            email: this.expression(
+              raise.author.email,
+              place.to('author.email'),
+            ) as Expression,
+          }
         : null,
       opens: opens
         ? {

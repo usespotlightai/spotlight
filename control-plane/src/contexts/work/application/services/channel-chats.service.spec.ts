@@ -57,6 +57,7 @@ const mentioned = (
   },
   correlationKeys: CorrelationKeys.of({ marks: [THREAD] }) as CorrelationKeys,
   anchor: said ? Anchor.of({ body: said }) : null,
+  authorEmail: null,
   ourOwn: false,
   opens: null,
   chat: { email, harness, marks: MARKS },

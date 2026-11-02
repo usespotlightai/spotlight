@@ -259,6 +259,7 @@ const raiseSchema = z.object({
   summary: z.string().min(1).optional(),
   answers: z.boolean().default(false),
   message: expression.optional(),
+  author: z.object({ email: expression }).optional(),
   opens: z
     .union([
       z.object({

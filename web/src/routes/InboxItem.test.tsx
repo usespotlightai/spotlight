@@ -356,6 +356,33 @@ describe('InboxItem', () => {
     expect(shown.closest('li')).not.toHaveTextContent('Triage');
   });
 
+  it('signs what came from outside with the member who wrote it', () => {
+    waiting.mockReturnValue(
+      item([
+        note(),
+        note({
+          position: 1,
+          kind: 'message',
+          voice: 'world',
+          body: 'Try again, the CI results are readable now.',
+          author: { id: 'user_2', name: 'Maya', image: null },
+          coAuthors: [],
+        }),
+      ]),
+    );
+
+    renderItem();
+
+    const shown = screen.getByText(
+      'Try again, the CI results are readable now.',
+    );
+    expect(
+      within(shown.closest('li') as HTMLElement).getByLabelText(
+        'Maya wrote this',
+      ),
+    ).toBeInTheDocument();
+  });
+
   it('shows the message of a person without naming them', () => {
     waiting.mockReturnValue(
       item([

@@ -440,6 +440,61 @@ describe('ReactToHappenings', () => {
     expect(dispatched).toHaveLength(1);
   });
 
+  it('signs a reply with the member who has the email of its author', async () => {
+    const asked = taskAt().askedAbout(
+      {
+        voice: Voice.station(),
+        station: StationName.of('Code Review'),
+        body: TaskNoteBody.of('Which repository should this live in?'),
+        at: NOW,
+      },
+      null,
+    );
+    const byEmail = vi.fn(async () => UserId.of('user_9'));
+
+    await new ReactToHappenings(
+      tasks(asked),
+      tasks(asked),
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      { byEmail },
+      files,
+      processedEventsInMemory(),
+      logger,
+      channels,
+    ).react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [
+        {
+          happening: 'slack.message.replied',
+          summary: 'Replied in a Slack thread.',
+          answers: true,
+          state: 'raised',
+          correlationKeys: {
+            branch: null,
+            marks: [{ kind: 'slack.thread', value: '1789022375.833389' }],
+          },
+          message: { body: 'In the example repository, please.' },
+          authorEmail: 'ada@example.com',
+          ourOwn: false,
+          opens: null,
+        },
+      ],
+      'received-as',
+    );
+
+    expect(byEmail).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      'ada@example.com',
+    );
+    expect(saved?.notes[1]?.voice.isWorld).toBe(true);
+    expect(saved?.notes[1]?.voice.author?.value).toBe('user_9');
+  });
+
   it('takes a Slack thread reply as the answer a paused run waits for, so that same run is taken up', async () => {
     const paused = taskAt()
       .assignRun(RunId.of('run_1'), line())
@@ -588,6 +643,33 @@ describe('ReactToHappenings', () => {
     expect(saved?.notes.map((each) => each.kind)).toEqual(['asked', 'message']);
     expect(saved?.awaitingReview).toBe(true);
     expect(dispatched).toHaveLength(0);
+  });
+
+  it('looks for no author where no rule takes the happening', async () => {
+    const byEmail = vi.fn(async () => UserId.of('user_9'));
+
+    await new ReactToHappenings(
+      tasks(taskAt()),
+      tasks(taskAt()),
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      { byEmail },
+      files,
+      processedEventsInMemory(),
+      logger,
+      channels,
+    ).react(
+      WorkspaceId.of('ws_1'),
+      null,
+      [{ ...news(COMMENTED, null), authorEmail: 'ada@example.com' }],
+      'received-as',
+    );
+
+    expect(saved).toBeUndefined();
+    expect(byEmail).not.toHaveBeenCalled();
   });
 
   it('says nothing of a review submitted with nothing written on it', async () => {

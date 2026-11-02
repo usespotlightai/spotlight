@@ -87,6 +87,7 @@ const raiseAt = (prefix: string, scope: Scope) => {
       prefix,
       [
         'message',
+        'author.email',
         'opens.title',
         'opens.description',
         'opens.assignBy.email',

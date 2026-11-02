@@ -242,6 +242,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       task,
       line,
       attachments,
+      happened.authorEmail,
     );
 
     if (!updated) {
@@ -423,16 +424,21 @@ export class ReactToHappenings implements HappeningReactionsPort {
     task: Task,
     line: Line,
     attachments: readonly Attachment[],
+    authorEmail: string | null,
   ): Promise<Task | null> {
     if (reaction.kind === 'nothing') {
       return null;
     }
 
+    const author = authorEmail
+      ? await this.members.byEmail(task.workspaceId, authorEmail)
+      : null;
+
     const newNote = {
       station: reaction.station,
       body: reaction.body,
       at: this.clock.now(),
-      voice: Voice.world(),
+      voice: Voice.world(author),
       anchor: reaction.anchor,
       attachments,
     };

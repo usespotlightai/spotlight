@@ -28,8 +28,8 @@ export class Voice {
     return new Voice('person', author, null, others);
   }
 
-  static world(): Voice {
-    return new Voice('world', null, null);
+  static world(author: UserId | null = null): Voice {
+    return new Voice('world', author, null);
   }
 
   static of(input: {
@@ -55,18 +55,18 @@ export class Voice {
       );
     }
 
-    if (input.author) {
-      throw new InvalidVoiceError(
-        `with a name belongs to a person, not to ${input.by}`,
-      );
-    }
-
     if (input.by === 'world') {
       if (input.run) {
         throw new InvalidVoiceError('of the world names no run');
       }
 
-      return Voice.world();
+      return Voice.world(input.author ? UserId.of(input.author) : null);
+    }
+
+    if (input.author) {
+      throw new InvalidVoiceError(
+        `with a name belongs to a person, not to ${input.by}`,
+      );
     }
 
     if (input.by !== 'station') {
