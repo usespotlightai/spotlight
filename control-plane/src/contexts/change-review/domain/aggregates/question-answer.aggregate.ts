@@ -27,7 +27,7 @@ export interface GradedReply {
   readonly usage: ModelCall | null;
 }
 
-export const MAX_REPLY = 4_000;
+const MAX_REPLY = 4_000;
 
 export const MAX_FEEDBACK = 2_000;
 

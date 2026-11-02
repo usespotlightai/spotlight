@@ -50,7 +50,7 @@ export interface QuestionAnswerDto {
   readonly expected: string;
 }
 
-export interface LayerQuestionDto {
+interface LayerQuestionDto {
   readonly id: string;
   readonly question: string;
   readonly hunks: readonly string[];
