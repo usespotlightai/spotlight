@@ -22,10 +22,10 @@ const answering = (status: number, body: unknown) => ({
   ok: status >= 200 && status < 300,
   headers: new Headers(),
   json: async () => body,
-  text: async () => String(body),
 });
 
 const RUNS = {
+  total_count: 3,
   check_runs: [
     {
       id: 11,
@@ -60,15 +60,21 @@ const LOG = [
 
 const requested: string[] = [];
 
-const github = (over: { logs?: number } = {}) =>
+const github = (
+  over: { logs?: number; unreachable?: boolean; runs?: typeof RUNS } = {},
+) =>
   vi.stubGlobal('fetch', async (url: string) => {
     requested.push(url);
+
+    if (over.unreachable && url.includes('/actions/jobs/')) {
+      throw new TypeError('fetch failed');
+    }
 
     if (url.endsWith('/pulls/7')) {
       return answering(200, { head: { sha: 'abc123' } });
     }
     if (url.includes('/commits/abc123/check-runs')) {
-      return answering(200, RUNS);
+      return answering(200, over.runs ?? RUNS);
     }
     if (url.includes('/check-suites/42/check-runs')) {
       return answering(200, RUNS);
@@ -82,7 +88,7 @@ const github = (over: { logs?: number } = {}) =>
       });
     }
     if (url.endsWith('/actions/jobs/11/logs')) {
-      return answering(over.logs ?? 200, LOG);
+      return new Response(LOG, { status: over.logs ?? 200 });
     }
 
     return answering(404, { message: 'Not Found' });
@@ -126,7 +132,7 @@ describe('GitHubCheckRuns', () => {
         ],
       });
       expect(requested).toContain(
-        'https://api.github.com/repos/acme/api/commits/abc123/check-runs?filter=latest&per_page=100',
+        'https://api.github.com/repos/acme/api/commits/abc123/check-runs?filter=latest&per_page=100&page=1',
       );
     });
 
@@ -139,6 +145,75 @@ describe('GitHubCheckRuns', () => {
       );
 
       expect(failed[0]).toMatchObject({ name: 'web / build', log: null });
+    });
+
+    it('still names a failed job when GitHub cannot be reached for its step or log', async () => {
+      github({ unreachable: true });
+
+      const { failed } = await new GitHubCheckRuns(access).failedOn(
+        WORKSPACE,
+        PULL_REQUEST,
+      );
+
+      expect(failed[0]).toMatchObject({
+        name: 'web / build',
+        step: null,
+        log: null,
+      });
+    });
+
+    it('reads every page of checks', async () => {
+      const passed = Array.from({ length: 100 }, (_, index) => ({
+        id: 100 + index,
+        name: `test ${index}`,
+        conclusion: 'success',
+      }));
+      vi.stubGlobal('fetch', async (url: string) => {
+        requested.push(url);
+
+        if (url.endsWith('/pulls/7')) {
+          return answering(200, { head: { sha: 'abc123' } });
+        }
+
+        return answering(200, {
+          total_count: 101,
+          check_runs: url.endsWith('&page=1')
+            ? passed
+            : [{ id: 99, name: 'lint', conclusion: 'failure' }],
+        });
+      });
+
+      const { failed } = await new GitHubCheckRuns(access).failedOn(
+        WORKSPACE,
+        PULL_REQUEST,
+      );
+
+      expect(failed.map((each) => each.name)).toEqual(['lint']);
+    });
+
+    it('keeps the end of a long log', async () => {
+      const lines = Array.from(
+        { length: 5_000 },
+        (_, index) => `line ${index}`,
+      );
+      vi.stubGlobal('fetch', async (url: string) =>
+        url.endsWith('/logs')
+          ? new Response(lines.join('\n'))
+          : url.endsWith('/pulls/7')
+            ? answering(200, { head: { sha: 'abc123' } })
+            : url.endsWith('/actions/jobs/11')
+              ? answering(200, { steps: [] })
+              : answering(200, RUNS),
+      );
+
+      const { failed } = await new GitHubCheckRuns(access).failedOn(
+        WORKSPACE,
+        PULL_REQUEST,
+      );
+      const log = failed[0]?.log?.split('\n') ?? [];
+
+      expect(log).toHaveLength(200);
+      expect(log[log.length - 1]).toBe('line 4999');
     });
 
     it('refuses a pull request that is not on GitHub', async () => {

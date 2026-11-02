@@ -16,11 +16,17 @@ const ACTIONS = 'github-actions';
 
 const RUNS_PER_PAGE = 100;
 
+const MAX_PAGES = 10;
+
+const SUITE_TIMEOUT_MS = 5_000;
+
 const LOGS_READ = 5;
 
 const LOG_LINES = 200;
 
 const LOG_CHARACTERS = 16_000;
+
+const LOG_KEPT_WHILE_READING = LOG_CHARACTERS * 4;
 
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z ?/;
 
@@ -37,6 +43,7 @@ interface CheckRun {
 }
 
 interface CheckRuns {
+  readonly total_count: number;
   readonly check_runs: readonly CheckRun[];
 }
 
@@ -47,13 +54,28 @@ interface Job {
   }[];
 }
 
-const failed = (runs: CheckRuns): readonly CheckRun[] =>
-  runs.check_runs.filter((run) => FAILED.includes(run.conclusion ?? ''));
+const failed = (runs: readonly CheckRun[]): readonly CheckRun[] =>
+  runs.filter((run) => FAILED.includes(run.conclusion ?? ''));
 
 const summaryOf = (run: CheckRun): string | null =>
   [run.output?.title, run.output?.summary]
     .filter((each): each is string => Boolean(each?.trim()))
     .join('\n\n') || null;
+
+const lastOf = async (
+  body: ReadableStream<Uint8Array> | null,
+): Promise<string> => {
+  const decoder = new TextDecoder();
+  let kept = '';
+
+  for await (const chunk of body ?? []) {
+    kept = (kept + decoder.decode(chunk, { stream: true })).slice(
+      -LOG_KEPT_WHILE_READING,
+    );
+  }
+
+  return kept + decoder.decode();
+};
 
 const tailOf = (log: string): string =>
   log
@@ -85,11 +107,9 @@ export class GitHubCheckRuns implements CheckRunsPort {
       `GitHub would not return ${repository.value}#${number}`,
     );
     const runs = failed(
-      await answered<CheckRuns>(
-        await call(
-          `${this.at(repository)}/commits/${head.sha}/check-runs?filter=latest&per_page=${RUNS_PER_PAGE}`,
-          token,
-        ),
+      await this.runs(
+        `${this.at(repository)}/commits/${head.sha}/check-runs`,
+        token,
         `GitHub would not list the checks of ${repository.value}#${number}`,
       ),
     );
@@ -109,15 +129,44 @@ export class GitHubCheckRuns implements CheckRunsPort {
     repository: Repository,
     suite: number,
   ): Promise<readonly string[]> {
-    const runs = await answered<CheckRuns>(
-      await call(
-        `${this.at(repository)}/check-suites/${suite}/check-runs?filter=latest&per_page=${RUNS_PER_PAGE}`,
-        await this.tokenFor(workspaceId),
-      ),
+    const runs = await this.runs(
+      `${this.at(repository)}/check-suites/${suite}/check-runs`,
+      await this.tokenFor(workspaceId),
       `GitHub would not list the checks of suite ${suite} in ${repository.value}`,
+      { signal: AbortSignal.timeout(SUITE_TIMEOUT_MS) },
     );
 
     return failed(runs).map((run) => run.name);
+  }
+
+  private async runs(
+    path: string,
+    token: string,
+    operation: string,
+    init: RequestInit = {},
+  ): Promise<readonly CheckRun[]> {
+    const runs: CheckRun[] = [];
+
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const answer = await answered<CheckRuns>(
+        await call(
+          `${path}?filter=latest&per_page=${RUNS_PER_PAGE}&page=${page}`,
+          token,
+          init,
+        ),
+        operation,
+      );
+      runs.push(...answer.check_runs);
+
+      if (
+        answer.check_runs.length < RUNS_PER_PAGE ||
+        runs.length >= answer.total_count
+      ) {
+        break;
+      }
+    }
+
+    return runs;
   }
 
   private async detailed(
@@ -129,8 +178,8 @@ export class GitHubCheckRuns implements CheckRunsPort {
     const fromActions = withLog && run.app?.slug === ACTIONS;
     const [step, log] = fromActions
       ? await Promise.all([
-          this.failedStep(repository, run.id, token),
-          this.log(repository, run.id, token),
+          this.failedStep(repository, run.id, token).catch(() => null),
+          this.log(repository, run.id, token).catch(() => null),
         ])
       : [null, null];
 
@@ -176,7 +225,7 @@ export class GitHubCheckRuns implements CheckRunsPort {
       token,
     );
 
-    return response.ok ? tailOf(await response.text()) : null;
+    return response.ok ? tailOf(await lastOf(response.body)) : null;
   }
 
   private at(repository: Repository): string {
