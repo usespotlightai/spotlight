@@ -115,12 +115,11 @@ const toApprovalRow = (approval: Approval): ApprovalRow => ({
 });
 
 const toDeferredMove = (row: DeferredMoveRow): DeferredMove =>
-  row.kind === 'moves'
-    ? DeferredMove.moveTo(StationId.of(row.to))
-    : DeferredMove.cleared();
+  DeferredMove.moveTo(StationId.of(row.to));
 
-const toDeferredMoveRow = (move: DeferredMove): DeferredMoveRow =>
-  move.to ? { kind: 'moves', to: move.to.value } : { kind: 'cleared' };
+const toDeferredMoveRow = (move: DeferredMove): DeferredMoveRow => ({
+  to: move.to.value,
+});
 
 const toConnectionAsk = (row: ConnectionAskRow): ConnectionAsk =>
   ConnectionAsk.of({

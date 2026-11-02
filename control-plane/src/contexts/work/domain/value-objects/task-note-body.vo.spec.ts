@@ -75,30 +75,11 @@ describe('TaskNoteBody.interrupted', () => {
 });
 
 describe('TaskNoteBody for a task on no station of its line', () => {
-  it('says its station was working or waiting', () => {
+  it('says its station was working', () => {
     expect(
       TaskNoteBody.interrupted('The pull request was merged.', null).value,
     ).toBe(
       'The pull request was merged while its station was working. Close the task, or reply to carry on.',
-    );
-    expect(
-      TaskNoteBody.interruptedWhileWaiting('The pull request was merged.', null)
-        .value,
-    ).toBe(
-      'The pull request was merged while its station was waiting for an answer. Close the task, or reply to carry on.',
-    );
-  });
-});
-
-describe('TaskNoteBody.interruptedWhileWaiting', () => {
-  it('says what happened while the station waited for an answer, and what a person can do about it', () => {
-    expect(
-      TaskNoteBody.interruptedWhileWaiting(
-        'The pull request was merged.',
-        StationName.of('Implementation'),
-      ).value,
-    ).toBe(
-      'The pull request was merged while Implementation was waiting for an answer. Close the task, or reply to carry on.',
     );
   });
 });

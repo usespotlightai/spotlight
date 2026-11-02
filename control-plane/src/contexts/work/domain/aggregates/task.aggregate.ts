@@ -323,13 +323,21 @@ export class Task extends EventRecorder {
   }
 
   react(line: Line, to: StationId, rank: TaskRank, newNote: NewNote): Task {
-    if (this.running) {
+    if (!this.movableByHappeningTo(line, to)) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} has a run in progress. A happening cannot move it.`,
       );
     }
 
-    return this.relocated(line, to, rank, newNote, null);
+    return this.relocated(line, to, rank, newNote, null).detachRun(
+      this.currentRunId,
+    );
+  }
+
+  movableByHappeningTo(line: Line, to: StationId): boolean {
+    return (
+      !this.running || (this.awaitsAnAnswer && line.completed.id.equals(to))
+    );
   }
 
   deferMove(line: Line, to: StationId, newNote: NewNote): Task {
@@ -444,8 +452,8 @@ export class Task extends EventRecorder {
     }
 
     if (this.awaitsAnAnswer) {
-      return this.with(
-        this.appendNote(newNote, 'message', DeferredMove.cleared()),
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} is already waiting on a person.`,
       );
     }
 

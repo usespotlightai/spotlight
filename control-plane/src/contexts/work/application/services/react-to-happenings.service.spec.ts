@@ -830,34 +830,31 @@ describe('ReactToHappenings', () => {
         ]);
       });
 
-      it('adds to the question the paused run put to a person, asking nothing again and leaving the run alone', async () => {
+      it('finishes a task whose paused run waits on a person, detaching the run', async () => {
         await receive(MERGED, paused('station_2'));
 
-        expect(saved?.stationId).toEqual(StationId.of('station_2'));
-        expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
-        expect(saved?.awaitingReview).toBe(true);
+        expect(saved?.stationId).toEqual(StationId.of('station_3'));
+        expect(saved?.finished).toBe(true);
+        expect(saved?.currentRunId).toBeNull();
+        expect(saved?.awaitingReview).toBe(false);
         expect(
-          saved?.notes.map((each) => [each.kind, each.body.value]),
-        ).toEqual([
-          ['asked', 'Which queue should I drain?'],
-          [
-            'message',
-            'The pull request was merged while Code Review was waiting for an answer. Close the task, or reply to carry on.',
-          ],
-        ]);
-        expect(saved?.pullEvents()).toEqual([]);
+          saved
+            ?.pullEvents()
+            .filter((each) => each.kind === 'task.run-detached')
+            .map((each) => (each as RunDetached).runId),
+        ).toEqual([RunId.of('run_1')]);
         expect(dispatched).toHaveLength(0);
       });
 
-      it('drops the moves stored back before it once the paused run’s question is open, leaving the person to decide', async () => {
+      it('finishes a paused task even with a move deferred before it', async () => {
         await receive(COMMENTED, paused('station_1'), 'This retries forever.');
         expect(saved?.deferredMoveTo).toEqual(StationId.of('station_2'));
 
         await receive(MERGED, saved as Task);
 
-        expect(saved?.deferredMoveTo).toBeNull();
-        expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
-        expect(saved?.awaitingReview).toBe(true);
+        expect(saved?.stationId).toEqual(StationId.of('station_3'));
+        expect(saved?.finished).toBe(true);
+        expect(saved?.awaitingReview).toBe(false);
       });
 
       it('finishes a task that has no current run, as before', async () => {
