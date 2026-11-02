@@ -55,6 +55,7 @@ export const HandoverFor = {
       return ResolvedHandover.review(
         bodyOf(handover, 'The run asked for someone to look at this.'),
         ownWords(handover),
+        handover.attachments,
       );
     }
 
@@ -63,12 +64,14 @@ export const HandoverFor = {
         ? ResolvedHandover.done(
             bodyOf(handover, 'The work is done.'),
             ownWords(handover),
+            handover.attachments,
           )
         : ResolvedHandover.review(
             TaskNoteBody.of(
               'The run handed over the task as done. The task is not at the end of its line.',
             ),
             ownWords(handover),
+            handover.attachments,
           );
     }
 
@@ -80,6 +83,7 @@ export const HandoverFor = {
           `The run requested station "${handover.next}". This line has no such station.`,
         ),
         ownWords(handover),
+        handover.attachments,
       );
     }
 
@@ -89,12 +93,14 @@ export const HandoverFor = {
       return ResolvedHandover.review(
         TaskNoteBody.of(DENIALS[denial](named.key.value)),
         ownWords(handover),
+        handover.attachments,
       );
     }
 
     return ResolvedHandover.pass(
       named.id,
       bodyOf(handover, `Passed on to ${named.name.value}.`),
+      handover.attachments,
     );
   },
 

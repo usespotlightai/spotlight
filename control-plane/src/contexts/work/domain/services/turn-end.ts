@@ -88,6 +88,8 @@ export const turnEnded = (turn: {
     ? task.recordSession(report.session, by)
     : task;
 
+  const resolved = handoverOf(task, ending);
+
   return {
     run: suspended,
     task: recorded.awaitingReview
@@ -95,9 +97,10 @@ export const turnEnded = (turn: {
       : recorded.putToAPerson(run.id, {
           station:
             line?.stationAt(task.stationId)?.name ?? StationName.unknown(),
-          body: handoverOf(task, ending).body,
+          body: resolved.body,
           at: now,
           voice: Voice.station(run.id),
+          attachments: resolved.attachments,
         }),
   };
 };

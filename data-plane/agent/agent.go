@@ -6,15 +6,22 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"usespotlight.ai/data-plane/protocol"
 )
 
-var client = &http.Client{Timeout: 2 * time.Minute}
+const (
+	answerWithin     = 2 * time.Minute
+	attachEachWithin = 5 * time.Minute
+)
+
+var client = &http.Client{Timeout: answerWithin}
 
 func Main(args []string) int {
 	if err := run(args, os.Stdin, os.Stdout); err != nil {
@@ -73,6 +80,8 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 
 	next := flags.String("next", "", "where the task goes now")
 	note := flags.String("note", "", "what the next hands need to know")
+	var attached paths
+	flags.Var(&attached, "attach", "a file to attach to the note")
 
 	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("%v\n%s", err, handoverHelp.Synopsis())
@@ -88,12 +97,17 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 	}
 	*note = noted
 
+	files, err := handedFiles(attached)
+	if err != nil {
+		return err
+	}
+
 	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return fmt.Errorf("no run to hand over: spotlight runs inside a Spotlight workspace")
 	}
 
-	handedTo, err := postHandover(endpoint, token, protocol.Handover{Next: *next, Note: *note})
+	handedTo, err := postHandover(endpoint, token, protocol.Handover{Next: *next, Note: *note, Files: files})
 	if err != nil {
 		return err
 	}
@@ -108,6 +122,47 @@ func handover(args []string, in io.Reader, out io.Writer) error {
 	}
 
 	return nil
+}
+
+func handedFiles(attached []string) ([]protocol.HandedFile, error) {
+	if len(attached) > protocol.MaxHandoverFiles {
+		return nil, fmt.Errorf("attach at most %d files", protocol.MaxHandoverFiles)
+	}
+
+	files := make([]protocol.HandedFile, 0, len(attached))
+	for _, path := range attached {
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, fmt.Errorf("attach %s: %w", path, err)
+		}
+		if !info.Mode().IsRegular() {
+			return nil, fmt.Errorf("attach %s: not a file", path)
+		}
+		if info.Size() > protocol.MaxHandoverFileBytes {
+			return nil, fmt.Errorf("attach %s: larger than %d MB", path, protocol.MaxHandoverFileBytes/1024/1024)
+		}
+
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("attach %s: %w", path, err)
+		}
+
+		files = append(files, protocol.HandedFile{
+			Name:        filepath.Base(path),
+			ContentType: contentTypeOf(path, data),
+			Data:        data,
+		})
+	}
+
+	return files, nil
+}
+
+func contentTypeOf(path string, data []byte) string {
+	if byExtension := mime.TypeByExtension(filepath.Ext(path)); byExtension != "" {
+		return byExtension
+	}
+
+	return http.DetectContentType(data)
 }
 
 func reply(args []string, in io.Reader, out io.Writer) error {
@@ -169,7 +224,8 @@ func postHandover(endpoint, token string, handedOver protocol.Handover) (string,
 		return "", err
 	}
 
-	if _, err := post(endpoint, token, body); err != nil {
+	attaching := &http.Client{Timeout: answerWithin + time.Duration(len(handedOver.Files))*attachEachWithin}
+	if _, err := postWith(attaching, endpoint, token, body); err != nil {
 		return "", err
 	}
 
@@ -177,6 +233,10 @@ func postHandover(endpoint, token string, handedOver protocol.Handover) (string,
 }
 
 func post(url, token string, body []byte) (string, error) {
+	return postWith(client, url, token, body)
+}
+
+func postWith(client *http.Client, url, token string, body []byte) (string, error) {
 	request, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return "", err

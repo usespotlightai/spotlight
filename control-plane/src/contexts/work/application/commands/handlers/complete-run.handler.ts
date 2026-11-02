@@ -8,6 +8,7 @@ import type { CompleteRunCommand } from '@work/application/commands/runner.comma
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TaskViewsPort } from '@work/application/ports/task-views.port';
+import type { FilesLoader } from '@work/application/services/files-loader.service';
 import { lastWordsIn } from '@work/application/services/last-words';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
@@ -16,6 +17,7 @@ import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { turnEnded } from '@work/domain/services/turn-end';
+import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
@@ -39,6 +41,7 @@ export class CompleteRunHandler
     private readonly hooks: LifecycleHooksPort,
     private readonly clock: ClockPort,
     private readonly journals: RunJournalReaderPort,
+    private readonly files: FilesLoader,
   ) {}
 
   async execute(command: CompleteRunCommand): Promise<void> {
@@ -58,16 +61,19 @@ export class CompleteRunHandler
             setupFailed: command.setupFailed,
             message: command.message,
           });
+      const attachments = outcome.handsOver
+        ? await this.attachedTo(runId, command.handover?.attachments ?? [])
+        : [];
+      const handed = command.handover
+        ? Handover.of({
+            ...command.handover,
+            attachments,
+          })
+        : null;
       const handover =
-        command.handover && outcome.handsOver
-          ? await this.handingOver(
-              runId,
-              runnerId,
-              Handover.of(command.handover),
-            )
-          : command.handover
-            ? Handover.of(command.handover)
-            : null;
+        handed && outcome.handsOver
+          ? await this.handingOver(runId, runnerId, handed)
+          : handed;
 
       const report = HandoverReport.of({
         handover,
@@ -83,6 +89,34 @@ export class CompleteRunHandler
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private async attachedTo(
+    runId: RunId,
+    ids: readonly string[],
+  ): Promise<Attachment[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const run = await this.runs.findById(runId);
+
+    if (!run) {
+      throw new UnknownRunError(`Run ${runId.value} not found.`);
+    }
+
+    if (!run.firesHooks) {
+      return [];
+    }
+
+    const attachments = await this.files.uploadedBy(
+      runId,
+      run.workspaceId,
+      ids,
+    );
+    await this.files.takenIn(run.workspaceId, attachments);
+
+    return attachments;
   }
 
   private async lastWordsOf(runId: RunId): Promise<string | null> {

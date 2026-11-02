@@ -18,6 +18,7 @@ import type {
   DecisionOnRecord,
 } from '@work/domain/value-objects/briefed-task.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
+import { MAX_HANDOVER_ATTACHMENTS } from '@work/domain/value-objects/handover.vo';
 import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
 import { ReviewCommentHandle } from '@work/domain/value-objects/review-comment-handle.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
@@ -43,6 +44,7 @@ const closing = (line: Line, stationId: StationId): string => {
       ? `Where the work is finished and nothing follows it, use \`--next "${DONE}"\`. That closes the task at its current station: nobody is asked anything, and no station takes it up again. Use it only when there is genuinely nothing left, not to get out of naming somewhere.`
       : null,
     `\`--note\` is what the next station, or the person, needs to know. Write it in Markdown. Pipe a long note in, as \`${HANDOVER_COMMAND} --next "…" < note.md\`.`,
+    `To show something the note cannot say in words, such as a screenshot, add \`--attach <file>\` for each file, up to ${MAX_HANDOVER_ATTACHMENTS}. The files go on the note.`,
     'Running nothing puts the task in front of a person.',
     'Nobody is watching this terminal. If you need a decision, a missing detail, or an answer before you can finish, do not ask here and wait: hand the task over with `--next "' +
       REVIEW +

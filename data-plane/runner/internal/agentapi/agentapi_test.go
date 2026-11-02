@@ -66,6 +66,127 @@ func TestRecordsTheAgentsHandover(t *testing.T) {
 	}
 }
 
+func handingOverFiles(t *testing.T, files ...protocol.HandedFile) string {
+	t.Helper()
+
+	encoded, err := json.Marshal(protocol.Handover{Next: "review", Note: "Look.", Files: files})
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+
+	return string(encoded)
+}
+
+func TestAttachesTheHandedFilesAndKeepsOnlyTheirIDs(t *testing.T) {
+	server := serve(t)
+	var uploaded []protocol.HandedFile
+	server.Attachments(func(_ context.Context, file protocol.HandedFile) (string, error) {
+		uploaded = append(uploaded, file)
+		return "file_" + file.Name, nil
+	})
+
+	status, body := post(t, server, server.Token(), handingOverFiles(t,
+		protocol.HandedFile{Name: "light.png", ContentType: "image/png", Data: []byte{1, 2}},
+		protocol.HandedFile{Name: "dark.png", ContentType: "image/png", Data: []byte{3}},
+	))
+	if status != http.StatusNoContent {
+		t.Fatalf("status %d: %s", status, body)
+	}
+
+	handover := server.TakeHandover()
+	if strings.Join(handover.Attachments, ",") != "file_light.png,file_dark.png" || handover.Files != nil {
+		t.Fatalf("got %+v", handover)
+	}
+	if len(uploaded) != 2 || !bytes.Equal(uploaded[0].Data, []byte{1, 2}) || uploaded[1].ContentType != "image/png" {
+		t.Fatalf("uploaded %+v", uploaded)
+	}
+}
+
+func TestSaysWhichFileCouldNotBeAttached(t *testing.T) {
+	server := serve(t)
+	server.Attachments(func(context.Context, protocol.HandedFile) (string, error) {
+		return "", errors.New("storage answered 403 Forbidden")
+	})
+
+	status, body := post(t, server, server.Token(), handingOverFiles(t, protocol.HandedFile{Name: "light.png", Data: []byte{1}}))
+	if status != http.StatusBadGateway || !strings.Contains(body, "attach light.png: storage answered 403 Forbidden") {
+		t.Fatalf("status %d: %s", status, body)
+	}
+	if handover := server.TakeHandover(); handover != nil {
+		t.Fatalf("expected no handover, got %+v", handover)
+	}
+}
+
+func TestRejectsMoreFilesThanTheLimit(t *testing.T) {
+	server := serve(t)
+	attached := 0
+	server.Attachments(func(context.Context, protocol.HandedFile) (string, error) {
+		attached++
+		return "file", nil
+	})
+
+	files := make([]protocol.HandedFile, protocol.MaxHandoverFiles+1)
+	for i := range files {
+		files[i] = protocol.HandedFile{Name: "shot.png", Data: []byte{1}}
+	}
+
+	status, body := post(t, server, server.Token(), handingOverFiles(t, files...))
+	if status != http.StatusUnprocessableEntity || !strings.Contains(body, "the limit is 10") || attached != 0 {
+		t.Fatalf("status %d, attached %d: %s", status, attached, body)
+	}
+}
+
+func TestKeepsNoIDsTheAgentNamedItself(t *testing.T) {
+	server := serve(t)
+
+	status, body := post(t, server, server.Token(), `{"next":"review","attachments":["file_of_someone_else"]}`)
+	if status != http.StatusNoContent {
+		t.Fatalf("status %d: %s", status, body)
+	}
+	if handover := server.TakeHandover(); handover.Attachments != nil {
+		t.Fatalf("got %+v", handover)
+	}
+}
+
+func TestRejectsAHandoverLargerThanItsFilesMayBe(t *testing.T) {
+	server := serve(t)
+	attached := 0
+	server.Attachments(func(context.Context, protocol.HandedFile) (string, error) {
+		attached++
+		return "file", nil
+	})
+
+	oversized := `{"next":"review","note":"` + strings.Repeat("x", protocol.MaxHandoverBodyBytes) + `"}`
+
+	status, body := post(t, server, server.Token(), oversized)
+	if status != http.StatusRequestEntityTooLarge || !strings.Contains(body, "too large") || attached != 0 {
+		t.Fatalf("status %d, attached %d: %s", status, attached, body)
+	}
+}
+
+func TestRejectsAFileLargerThanTheLimit(t *testing.T) {
+	server := serve(t)
+
+	status, body := post(t, server, server.Token(), handingOverFiles(t,
+		protocol.HandedFile{Name: "big.png", Data: make([]byte, protocol.MaxHandoverFileBytes+1)},
+	))
+	if status != http.StatusUnprocessableEntity || !strings.Contains(body, "big.png is larger than 25 MB") {
+		t.Fatalf("status %d: %s", status, body[:min(len(body), 200)])
+	}
+}
+
+func TestDropsTheFilesWhereTheRunCannotAttach(t *testing.T) {
+	server := serve(t)
+
+	status, body := post(t, server, server.Token(), handingOverFiles(t, protocol.HandedFile{Name: "light.png", Data: []byte{1}}))
+	if status != http.StatusNoContent {
+		t.Fatalf("status %d: %s", status, body)
+	}
+	if handover := server.TakeHandover(); handover.Next != "review" || handover.Attachments != nil {
+		t.Fatalf("got %+v", handover)
+	}
+}
+
 func TestAnswersInTheSpellingTheControlPlaneSent(t *testing.T) {
 	server := serve(t)
 

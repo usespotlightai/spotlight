@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -43,6 +45,83 @@ func TestHandsOver(t *testing.T) {
 
 	if !strings.Contains(out.String(), "spec") {
 		t.Fatalf("wrote nothing useful: %q", out)
+	}
+}
+
+func TestAttachesFilesToTheHandover(t *testing.T) {
+	server := inARun(t)
+	dir := t.TempDir()
+	png := filepath.Join(dir, "light.png")
+	if err := os.WriteFile(png, []byte("\x89PNG\r\n\x1a\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	plain := filepath.Join(dir, "notes")
+	if err := os.WriteFile(plain, []byte("plain words"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	args := []string{"handover", "--next", "review", "--note", "Look.", "--attach", png, "--attach", plain}
+	if err := run(args, strings.NewReader(""), new(bytes.Buffer)); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	files := server.Handover().Files
+	if len(files) != 2 {
+		t.Fatalf("got %+v", files)
+	}
+	if files[0].Name != "light.png" || files[0].ContentType != "image/png" || string(files[0].Data) != "\x89PNG\r\n\x1a\n" {
+		t.Fatalf("got %+v", files[0])
+	}
+	if files[1].Name != "notes" || files[1].ContentType != "text/plain; charset=utf-8" {
+		t.Fatalf("got %+v", files[1])
+	}
+}
+
+func TestTellsTheTypeOfAFileWithAnUnknownExtensionByItsBytes(t *testing.T) {
+	server := inARun(t)
+	shot := filepath.Join(t.TempDir(), "shot.unknownext")
+	if err := os.WriteFile(shot, []byte("\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := run([]string{"handover", "--next", "review", "--attach", shot}, strings.NewReader(""), new(bytes.Buffer)); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if got := server.Handover().Files[0].ContentType; got != "image/png" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestRefusesToAttachWhatIsNotAFile(t *testing.T) {
+	server := inARun(t)
+	dir := t.TempDir()
+
+	for _, attached := range []string{filepath.Join(dir, "missing.png"), dir} {
+		err := run([]string{"handover", "--next", "review", "--attach", attached}, strings.NewReader(""), new(bytes.Buffer))
+		if err == nil || !strings.Contains(err.Error(), "attach "+attached) {
+			t.Fatalf("attaching %s: got %v", attached, err)
+		}
+	}
+	if server.Handover() != nil {
+		t.Fatalf("handed over %+v", server.Handover())
+	}
+}
+
+func TestRefusesMoreFilesThanTheLimit(t *testing.T) {
+	inARun(t)
+	shot := filepath.Join(t.TempDir(), "shot.png")
+	if err := os.WriteFile(shot, []byte{1}, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	args := []string{"handover", "--next", "review"}
+	for range protocol.MaxHandoverFiles + 1 {
+		args = append(args, "--attach", shot)
+	}
+
+	if err := run(args, strings.NewReader(""), new(bytes.Buffer)); err == nil || !strings.Contains(err.Error(), "at most 10 files") {
+		t.Fatalf("got %v", err)
 	}
 }
 

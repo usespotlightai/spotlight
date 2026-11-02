@@ -18,6 +18,7 @@ import type {
   TaskViewDto,
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
+import type { FilesLoader } from '@work/application/services/files-loader.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -30,6 +31,7 @@ import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-c
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -135,6 +137,7 @@ const completing = (
     tasks: Task[];
     run?: () => Run;
     journals?: readonly RunJournal[];
+    files?: FilesLoader;
   } = { tasks: [] },
 ) => {
   const hookCalls: BeforeHookEvent[] = [];
@@ -164,9 +167,44 @@ const completing = (
     {
       attemptsOfRun: async () => stored.journals ?? [],
     } as unknown as RunJournalReaderPort,
+    stored.files ??
+      ({
+        uploadedBy: async () => [],
+        takenIn: async () => {},
+      } as unknown as FilesLoader),
   );
 
   return Object.assign(handler, { hookCalls });
+};
+
+const attaching = () => {
+  const asked: [string, readonly string[]][] = [];
+  const taken: [string, readonly string[]][] = [];
+
+  return {
+    asked,
+    taken,
+    uploadedBy: async (
+      run: RunId,
+      workspaceId: WorkspaceId,
+      ids: readonly string[],
+    ) => {
+      asked.push([`${run.value}@${workspaceId.value}`, ids]);
+      return ids.map((id) =>
+        Attachment.of({
+          id,
+          name: `${id.replace('file_', '')}.png`,
+          contentType: 'image/png',
+          size: 3,
+        }),
+      );
+    },
+    takenIn: async (workspaceId: WorkspaceId, files: readonly Attachment[]) =>
+      void taken.push([workspaceId.value, files.map((each) => each.id.value)]),
+  } as unknown as FilesLoader & {
+    asked: [string, readonly string[]][];
+    taken: [string, readonly string[]][];
+  };
 };
 
 const journalOf = (attempt: number, said: readonly string[]): RunJournal =>
@@ -221,6 +259,44 @@ describe('CompleteRunHandler', () => {
       const events = saved[0]?.pullEvents() ?? [];
       expect(events.some((each) => each instanceof RunPaused)).toBe(true);
       expect(events.some((each) => each instanceof RunSuspended)).toBe(true);
+    });
+
+    it('attaches the files the run handed over to the note it puts to the person', async () => {
+      const stored = {
+        tasks: [] as Task[],
+        files: attaching(),
+      };
+
+      await completing(
+        async () => {},
+        { kind: 'allowed' },
+        claimedByTheRun(),
+        stored,
+      ).execute(
+        new CompleteRunCommand(
+          'run_1',
+          'runner_1',
+          0,
+          false,
+          undefined,
+          {
+            next: 'review',
+            note: 'Here is the selector.',
+            attachments: ['file_light', 'file_dark'],
+          },
+          'session_1',
+        ),
+      );
+
+      expect(stored.files.asked).toEqual([
+        ['run_1@ws_1', ['file_light', 'file_dark']],
+      ]);
+      expect(
+        stored.tasks[0]?.notes[0]?.attachments.map((each) => each.name),
+      ).toEqual(['light.png', 'dark.png']);
+      expect(stored.files.taken).toEqual([
+        ['ws_1', ['file_light', 'file_dark']],
+      ]);
     });
 
     it('puts the last words of the latest attempt to the person when the turn names no next step', async () => {
@@ -284,6 +360,43 @@ describe('CompleteRunHandler', () => {
       );
 
       expect(saved[0]?.state).toBe('completed');
+    });
+
+    it('takes no files from a turn that failed', async () => {
+      const files = attaching();
+
+      await completing(async () => {}, { kind: 'allowed' }, claimedByTheRun(), {
+        tasks: [],
+        files,
+      }).execute(
+        new CompleteRunCommand('run_1', 'runner_1', 1, true, 'boom', {
+          next: 'review',
+          attachments: ['file_light'],
+        }),
+      );
+
+      expect(files.asked).toEqual([]);
+      expect(files.taken).toEqual([]);
+    });
+
+    it('carries the files the run handed over when it passes the task to a station', async () => {
+      const saved: Run[] = [];
+
+      await completing(
+        async (run) => void saved.push(run),
+        { kind: 'allowed' },
+        claimedByTheRun(),
+        { tasks: [], files: attaching() },
+      ).execute(
+        new CompleteRunCommand('run_1', 'runner_1', 0, false, undefined, {
+          next: 'deploy',
+          attachments: ['file_light'],
+        }),
+      );
+
+      expect(
+        handoverOn(saved[0])?.attachments.map((each) => each.id.value),
+      ).toEqual(['file_light']);
     });
 
     it('ends a failed turn even where it would have asked a person', async () => {

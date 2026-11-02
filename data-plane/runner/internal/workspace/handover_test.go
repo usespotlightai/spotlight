@@ -37,6 +37,20 @@ func TestHandoverReadsWhatTheAgentLeft(t *testing.T) {
 	}
 }
 
+func TestHandoverLeftInTheWorkspaceAttachesNothing(t *testing.T) {
+	space, err := workspace.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("create the workspace: %v", err)
+	}
+
+	write(t, space.Dir, `{"next":"review","note":"Look.","attachments":["file_of_someone_else"],"files":[{"name":"a.png","data":"AQ=="}]}`)
+
+	handover := space.TakeHandover()
+	if handover == nil || handover.Next != "review" || handover.Attachments != nil || handover.Files != nil {
+		t.Fatalf("read back %+v", handover)
+	}
+}
+
 func TestAHandoverIsTakenOncePerTurn(t *testing.T) {
 	space, err := workspace.Open(t.TempDir())
 	if err != nil {

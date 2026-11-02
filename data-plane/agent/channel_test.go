@@ -249,7 +249,7 @@ func (h *channel) recordHandover(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.mu.Lock()
-	h.handover = &protocol.Handover{Next: h.options[at], Note: handover.Note}
+	h.handover = &protocol.Handover{Next: h.options[at], Note: handover.Note, Files: handover.Files}
 	h.mu.Unlock()
 
 	w.WriteHeader(http.StatusNoContent)

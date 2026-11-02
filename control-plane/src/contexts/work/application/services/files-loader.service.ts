@@ -1,3 +1,4 @@
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -13,6 +14,18 @@ export class FilesLoader {
     return this.files.received(
       workspaceId,
       ids.map((each) => AttachmentId.of(each)),
+    );
+  }
+
+  async uploadedBy(
+    run: RunId,
+    workspaceId: WorkspaceId,
+    ids: readonly string[],
+  ): Promise<Attachment[]> {
+    return this.files.received(
+      workspaceId,
+      ids.map((each) => AttachmentId.of(each)),
+      run,
     );
   }
 

@@ -19,14 +19,17 @@ func (w *Workspace) TakeHandover() *protocol.Handover {
 	}
 	_ = os.Remove(path)
 
-	var handover protocol.Handover
-	if err := json.Unmarshal(raw, &handover); err != nil {
+	var written struct {
+		Next string `json:"next"`
+		Note string `json:"note"`
+	}
+	if err := json.Unmarshal(raw, &written); err != nil {
 		return nil
 	}
 
-	if handover.Next == "" {
+	if written.Next == "" {
 		return nil
 	}
 
-	return &handover
+	return &protocol.Handover{Next: written.Next, Note: written.Note}
 }

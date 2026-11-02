@@ -1,3 +1,4 @@
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -20,13 +21,14 @@ export interface AttachmentContent {
 export interface AttachmentStorePort {
   grant(
     workspaceId: WorkspaceId,
-    uploader: UserId,
+    uploader: UserId | RunId,
     file: Attachment,
   ): Promise<UploadGrant>;
 
   received(
     workspaceId: WorkspaceId,
     ids: readonly AttachmentId[],
+    uploadedBy?: RunId,
   ): Promise<Attachment[]>;
 
   taken(workspaceId: WorkspaceId, files: readonly Attachment[]): Promise<void>;

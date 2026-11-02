@@ -5,6 +5,7 @@ import {
   type S3Client,
 } from '@aws-sdk/client-s3';
 import type { S3Clients } from '@platform/storage/s3-clients';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -27,7 +28,7 @@ const notThere = () =>
 const headOutput = () => ({
   ContentType: 'image/png',
   ContentLength: 4096,
-  Metadata: { name: encodeURIComponent('queue.png') },
+  Metadata: { name: encodeURIComponent('queue.png'), uploader: 'run_1' },
 });
 
 type Command = HeadObjectCommand | CopyObjectCommand | DeleteObjectCommand;
@@ -96,6 +97,36 @@ describe('S3AttachmentStore', () => {
         ['HeadObjectCommand', STORED],
         ['HeadObjectCommand', PENDING],
       ]);
+    });
+
+    it('reads an id named twice once', async () => {
+      const { store } = bucketWith([STORED]);
+
+      await expect(
+        store.received(WORKSPACE, [
+          AttachmentId.of('file_1'),
+          AttachmentId.of('file_1'),
+        ]),
+      ).resolves.toEqual([FILE]);
+    });
+
+    it('takes a file from a run only when that run uploaded it', async () => {
+      const { store } = bucketWith([PENDING]);
+
+      await expect(
+        store.received(
+          WORKSPACE,
+          [AttachmentId.of('file_1')],
+          RunId.of('run_1'),
+        ),
+      ).resolves.toEqual([FILE]);
+      await expect(
+        store.received(
+          WORKSPACE,
+          [AttachmentId.of('file_1')],
+          RunId.of('run_2'),
+        ),
+      ).rejects.toThrow('was not uploaded by this run');
     });
 
     it('rejects an id nothing was uploaded for', async () => {

@@ -20,3 +20,9 @@ const (
 	HandoverReview = "review"
 	HandoverDone   = "done"
 )
+
+const (
+	MaxHandoverFiles     = 10
+	MaxHandoverFileBytes = 25 * 1024 * 1024
+	MaxHandoverBodyBytes = MaxHandoverFiles*MaxHandoverFileBytes*4/3 + 1024*1024
+)
