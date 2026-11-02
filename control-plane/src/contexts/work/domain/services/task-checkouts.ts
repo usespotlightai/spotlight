@@ -18,10 +18,15 @@ export interface TaskCheckout {
   readonly setup: RepositorySetup | null;
 }
 
+export const reviewedOrAll = <T>(
+  reviewing: T | null,
+  all: readonly T[],
+): readonly T[] => (reviewing ? [reviewing] : all);
+
 export const repositoriesReviewedOrAll = (
   reviewing: Repository | null,
   line: Line,
-): readonly Repository[] => (reviewing ? [reviewing] : line.repositories.all);
+): readonly Repository[] => reviewedOrAll(reviewing, line.repositories.all);
 
 export const repositoriesForTask = (
   task: Task | null,
