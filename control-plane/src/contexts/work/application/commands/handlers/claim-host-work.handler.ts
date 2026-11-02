@@ -27,11 +27,25 @@ import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type {
   Claimant,
   RunRepository,
+  SandboxRouting,
 } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 
 const CLAIM_WINDOW_MS = 60_000;
+
+const claimantOf = (
+  runner: RunnerId,
+  heartbeat: RunnerHeartbeat,
+  sandbox: SandboxRouting,
+): Claimant => ({
+  runner,
+  workspaceId: heartbeat.workspaceId,
+  harnesses: heartbeat.harnesses,
+  offer: heartbeat.offer,
+  claims: 'any',
+  sandbox,
+});
 
 type Claimed =
   | {
@@ -166,53 +180,31 @@ export class ClaimHostWorkHandler
     await this.leases.expireLeases(this.clock.now());
 
     const found = await this.polls.polled<Claimed | 'requeued'>(async () => {
+      const requested = await this.claimedForRequested(
+        runner,
+        heartbeat,
+        host,
+        until,
+      );
+
+      if (requested) {
+        return requested;
+      }
+
       const held = await this.sandboxes.liveKeysIn(
         heartbeat.workspaceId.value,
         this.clock.now(),
       );
-      const claimant: Claimant = {
-        runner,
-        workspaceId: heartbeat.workspaceId,
-        harnesses: heartbeat.harnesses,
-        offer: heartbeat.offer,
-        claims: 'any',
-        sandbox: { avoiding: held.map((each) => ResumeKey.of(each)) },
-      };
-      const run = await this.runs.claimNext(claimant, this.clock.now());
-      const start = run
-        ? await this.starting.mayStart(run, runner, until)
-        : null;
+      const run = await this.startedRun(
+        claimantOf(runner, heartbeat, {
+          avoiding: held.map((each) => ResumeKey.of(each)),
+        }),
+        host,
+        until,
+      );
 
-      if (start === 'requeued') {
-        return start;
-      }
-
-      if (run && start === 'starts') {
-        await this.taken.run(run, runner);
-
-        const sandbox = await this.sandboxes.holdForRun(
-          {
-            workspaceId: run.workspaceId.value,
-            key: run.resumeKey?.value ?? null,
-            hostId: host,
-            runId: run.id.value,
-          },
-          this.clock.now(),
-        );
-
-        return {
-          kind: 'work',
-          work: claimedRun(run),
-          sandboxId: sandbox.id,
-          sandboxToken: sandbox.token,
-          reused: false,
-        };
-      }
-
-      const requested = await this.requestedSandbox(heartbeat, host);
-
-      if (requested) {
-        return { kind: 'sandbox', sandbox: requested };
+      if (run) {
+        return run;
       }
 
       const check = await this.checks.claimNext(
@@ -240,20 +232,71 @@ export class ClaimHostWorkHandler
     return found === 'requeued' ? null : found;
   }
 
-  private async requestedSandbox(
+  private async startedRun(
+    claimant: Claimant,
+    host: string,
+    until: Date,
+  ): Promise<Claimed | 'requeued' | null> {
+    const run = await this.runs.claimNext(claimant, this.clock.now());
+    const start = run
+      ? await this.starting.mayStart(run, claimant.runner, until)
+      : null;
+
+    if (start === 'requeued') {
+      return start;
+    }
+
+    if (!run || start !== 'starts') {
+      return null;
+    }
+
+    await this.taken.run(run, claimant.runner);
+
+    const sandbox = await this.sandboxes.holdForRun(
+      {
+        workspaceId: run.workspaceId.value,
+        key: run.resumeKey?.value ?? null,
+        hostId: host,
+        runId: run.id.value,
+      },
+      this.clock.now(),
+    );
+
+    return {
+      kind: 'work',
+      work: claimedRun(run),
+      sandboxId: sandbox.id,
+      sandboxToken: sandbox.token,
+      reused: false,
+    };
+  }
+
+  private async claimedForRequested(
+    runner: RunnerId,
     heartbeat: RunnerHeartbeat,
     host: string,
-  ): Promise<StartedSandbox | null> {
+    until: Date,
+  ): Promise<Claimed | 'requeued' | null> {
     for (const requested of await this.sandboxes.requestedIn(
       heartbeat.workspaceId.value,
     )) {
-      const newest = await this.runs.newestWithKey(
-        heartbeat.workspaceId,
-        ResumeKey.of(requested.key),
-      );
+      const key = ResumeKey.of(requested.key);
+      const newest = await this.runs.newestWithKey(heartbeat.workspaceId, key);
 
       if (newest && !ClaimOrder.fits(newest, heartbeat)) {
         continue;
+      }
+
+      if (newest?.state === 'queued') {
+        const run = await this.startedRun(
+          claimantOf(runner, heartbeat, { into: key }),
+          host,
+          until,
+        );
+
+        if (run) {
+          return run;
+        }
       }
 
       const started = await this.sandboxes.startRequested(
@@ -263,7 +306,7 @@ export class ClaimHostWorkHandler
       );
 
       if (started) {
-        return started;
+        return { kind: 'sandbox', sandbox: started };
       }
     }
 
@@ -284,14 +327,9 @@ export class ClaimHostWorkHandler
 
     await this.leases.expireLeases(this.clock.now());
 
-    const claimant: Claimant = {
-      runner,
-      workspaceId: heartbeat.workspaceId,
-      harnesses: heartbeat.harnesses,
-      offer: heartbeat.offer,
-      claims: 'any',
-      sandbox: { into: ResumeKey.of(into.key) },
-    };
+    const claimant = claimantOf(runner, heartbeat, {
+      into: ResumeKey.of(into.key),
+    });
 
     const queued = await this.runs.queuedWithKey(
       heartbeat.workspaceId,

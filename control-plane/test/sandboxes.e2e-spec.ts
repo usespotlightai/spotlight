@@ -363,6 +363,23 @@ describe('sandboxes (e2e)', () => {
       });
     });
 
+    it('starts before a queued run of another key', async () => {
+      const waiting = await queue({ key: 'replay-run_waiting' });
+      const opened = await open('task-task_13');
+
+      const started = await claim().expect(200);
+
+      expect(started.body).toMatchObject({
+        sandboxId: opened.id,
+        work: { kind: 'sandbox' },
+      });
+
+      const next = await claim().expect(200);
+      expect(next.body).toMatchObject({
+        work: { kind: 'run', run: { id: waiting } },
+      });
+    });
+
     it('is the sandbox a queued run of its key starts in', async () => {
       const opened = await open('task-task_8');
       const runId = await queue({ key: 'task-task_8' });
@@ -379,6 +396,22 @@ describe('sandboxes (e2e)', () => {
         hostId: HOST,
         leases: [{ kind: 'run', holder: runId, renewedAt: expect.any(String) }],
       });
+    });
+  });
+
+  it('drains a replay’s sandbox as soon as its run ends, with no grace', async () => {
+    const runId = await queue({ key: 'replay-run_ended' });
+    const claimed = await claim().expect(200);
+    const sandboxId: string = claimed.body.sandboxId;
+    await heartbeat([sandboxId]).expect(200);
+
+    await complete(runId, claimed.body.token);
+
+    await eventually(async () =>
+      (await sandboxRow(sandboxId))?.state === 'draining' ? true : null,
+    );
+    await expect(heartbeat([sandboxId]).expect(200)).resolves.toMatchObject({
+      body: { drain: [sandboxId] },
     });
   });
 

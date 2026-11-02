@@ -516,16 +516,38 @@ describe('ClaimHostWorkHandler', () => {
       expect(runners.release).toHaveBeenCalledWith(POOLED, NOW);
     });
 
-    it('comes after a run that waits', async () => {
-      const { handler, sandboxes } = pulling({
+    it('comes before a run that waits, as a person waits for it', async () => {
+      const { handler, claimNext, sandboxes } = pulling({
         run: taken(),
         requested: [requested],
+      });
+
+      expect(await handler.execute(pull())).toMatchObject({
+        outcome: 'sandbox',
+        sandboxId: 'sandbox_r',
+      });
+      expect(sandboxes.startRequested).toHaveBeenCalled();
+      expect(claimNext).not.toHaveBeenCalled();
+    });
+
+    it('takes a queued run of its key before other runs, and the run starts in it', async () => {
+      const { handler, claimNext, sandboxes } = pulling({
+        run: taken(),
+        requested: [requested],
+        newest: queued(),
       });
 
       expect(await handler.execute(pull())).toMatchObject({
         outcome: 'claimed',
         work: { kind: 'run' },
       });
+      expect(claimNext).toHaveBeenCalledTimes(1);
+      expect(claimNext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sandbox: { into: ResumeKey.of('task-task_1') },
+        }),
+        NOW,
+      );
       expect(sandboxes.startRequested).not.toHaveBeenCalled();
     });
 
