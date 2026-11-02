@@ -325,7 +325,7 @@ export class Task extends EventRecorder {
   react(line: Line, to: StationId, rank: TaskRank, newNote: NewNote): Task {
     if (!this.movableByHappeningTo(line, to)) {
       throw new InvalidTaskTransitionError(
-        `Task ${this.id.value} has a run in progress. A happening cannot move it.`,
+        `Task ${this.id.value} has a run in progress. A happening can move it only to the completed station, and only while the run waits on an answer.`,
       );
     }
 
