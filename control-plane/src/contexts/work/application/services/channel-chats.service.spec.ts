@@ -102,6 +102,7 @@ const channels = ({
   const added: Chat[] = [];
   const saved: Chat[] = [];
   const notify = vi.fn(async () => undefined);
+  const warn = vi.fn();
   const service = new ChannelChats(
     {
       findByMarks: vi.fn(async () => existing),
@@ -146,10 +147,10 @@ const channels = ({
     { notify } satisfies ChannelNoticesPort,
     { now: () => NOW } as ClockPort,
     { generate: () => 'chat_1' } as IdGeneratorPort,
-    { info: vi.fn() } as unknown as LoggerPort,
+    { info: vi.fn(), warn } as unknown as LoggerPort,
   );
 
-  return { service, added, saved, notify };
+  return { service, added, saved, notify, warn };
 };
 
 const refusalOf = (refusal: ChannelRefusal | null) => refusal?.body ?? null;
@@ -334,6 +335,21 @@ describe('ChannelChats', () => {
         ),
       ),
     ).toBe(ChannelReplies.noSuch(2));
+  });
+
+  it('logs a refusal it cannot post, and goes on', async () => {
+    const { service, notify, warn } = channels();
+    notify.mockRejectedValueOnce(new Error('no definitions'));
+
+    await expect(
+      service.refuse({
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        happened: mentioned('Why?'),
+        body: ChannelReplies.notInTeam,
+      }),
+    ).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledOnce();
   });
 
   it('posts a refusal back to where it came from', async () => {

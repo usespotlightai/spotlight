@@ -140,6 +140,31 @@ describe('Chat', () => {
     expect(chat.openProposals).toEqual([]);
   });
 
+  it('keeps each mark once, as a finding mark when it is given both ways', () => {
+    const thread = Mark.of('slack.thread', 'C1:1700.1');
+    const channel = Mark.of('slack.channel', 'C1');
+    const chat = Chat.start({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      startedBy: LEON,
+      harness: HarnessId.of('claude-code'),
+      body: ChatMessageBody.fromInput('Why do retries fail?'),
+      marks: [
+        ChatMark.ambient(thread),
+        ChatMark.ambient(channel),
+        ChatMark.finding(thread),
+        ChatMark.ambient(channel),
+      ],
+      now: NOW,
+      newId: () => 'chat_1',
+    });
+
+    expect(chat.marks).toEqual([
+      ChatMark.finding(thread),
+      ChatMark.ambient(channel),
+    ]);
+  });
+
   it('lists only its open proposals', () => {
     const chat = proposing();
 

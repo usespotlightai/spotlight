@@ -124,7 +124,7 @@ export class Chat extends EventRecorder {
       input.targetStation ?? null,
       input.setup ?? null,
       [opening],
-      input.marks ?? [],
+      Chat.distinctMarks(input.marks ?? []),
       null,
       null,
       null,
@@ -190,6 +190,21 @@ export class Chat extends EventRecorder {
       input.runnerId,
       input.createdAt,
       input.version,
+    );
+  }
+
+  private static distinctMarks(
+    marks: readonly ChatMark[],
+  ): readonly ChatMark[] {
+    const finding = marks.filter((each) => each.finds);
+    const ambient = marks.filter(
+      (each) =>
+        !each.finds && !finding.some((other) => other.mark.equals(each.mark)),
+    );
+
+    return [...finding, ...ambient].filter(
+      (each, at, all) =>
+        all.findIndex((other) => other.mark.equals(each.mark)) === at,
     );
   }
 

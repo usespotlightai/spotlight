@@ -96,21 +96,32 @@ export class ChannelChats {
   }
 
   async refuse(refusal: ChannelRefusal): Promise<void> {
-    await this.notices.notify(
-      {
-        workspaceId: refusal.workspaceId.value,
-        teamId: refusal.teamId.value,
-        marks:
-          refusal.happened.chat?.marks.map((each) => ({
-            kind: each.mark.kind,
-            value: each.mark.value,
-          })) ?? [],
-        body: refusal.body,
-        chatId: null,
-        taskId: null,
-      } satisfies ChannelNoticeDto,
-      'chat.refused',
-    );
+    try {
+      await this.notices.notify(
+        {
+          workspaceId: refusal.workspaceId.value,
+          teamId: refusal.teamId.value,
+          marks:
+            refusal.happened.chat?.marks.map((each) => ({
+              kind: each.mark.kind,
+              value: each.mark.value,
+            })) ?? [],
+          body: refusal.body,
+          chatId: null,
+          taskId: null,
+        } satisfies ChannelNoticeDto,
+        'chat.refused',
+      );
+    } catch (error) {
+      this.logger.warn(
+        {
+          err: error,
+          workspaceId: refusal.workspaceId.value,
+          happening: refusal.happened.payload.happening.value,
+        },
+        'Could not post why a word did not reach a chat',
+      );
+    }
   }
 
   private async continued(
