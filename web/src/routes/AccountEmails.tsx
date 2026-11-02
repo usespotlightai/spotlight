@@ -62,8 +62,8 @@ export function AccountEmails() {
             >
               {emails.data.additional.length === 0 ? (
                 <li className="px-4 py-4 text-muted-foreground text-sm">
-                  No additional emails. Add the address your Slack account uses
-                  if it is not your sign-in email.
+                  No additional email addresses yet. Add any other email
+                  addresses you use across connected services.
                 </li>
               ) : (
                 emails.data.additional.map((email) => (
