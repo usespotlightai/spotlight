@@ -46,6 +46,13 @@ const STACK = new JsonSchema(
             ),
             ranges: z.array(z.object({ hunk: z.string() })),
             files: z.array(z.object({ path: z.string(), note: z.string() })),
+            questions: z.array(
+              z.object({
+                question: z.string(),
+                answer: z.string(),
+                hunks: z.array(z.string()),
+              }),
+            ),
           }),
         ),
       }),
@@ -78,6 +85,12 @@ The diff is split into hunks, each with an id such as h7. Rules the stack must f
 3. Every dependency names in "because" the symbols (types, functions, tables, routes, components) the later layer uses from the earlier one.
 4. Titles are short imperative phrases ("Add the invitation data model"). A cohort's intent and a layer's summary say what changed and why in one to three plain sentences.
 5. Give a layer exactly one entry in "files" for every file its ranges touch, and none for any other file. Its path is the file's path exactly as its ## heading shows it, and its note says in one or two plain sentences what changed in that file for this layer and why. A note never restates the path or the layer's summary.
+6. Give each layer of kind "change" at most two questions in "questions", and give incidental layers none. The reviewer answers each question in their own words after reading the layer, so they find out what they did not understand. A question is good only when all three are true:
+   - The answer is not in one hunk: the reviewer must connect two places in the change, or connect a change with code it leaves as it was.
+   - A wrong answer means a real risk if the change ships, not only missing knowledge.
+   - No tool finds the answer: the compiler, the linter and the existing tests cannot answer it.
+   Ask about behaviour ("What happens when the member has left the workspace?") and about what silently changes for code that calls the changed code. Never ask about names, file paths, layer order or anything a reader can copy from the diff. Ask no question rather than a weak one.
+   The answer is what a reviewer who understood the change would say, in one to three plain sentences. Its "hunks" are the hunk ids that show the answer, from this layer or an earlier layer of the same cohort.
 
 Order cohorts by how much a reviewer needs to see them, most significant first, with incidental cohorts last.`;
 
@@ -245,10 +258,14 @@ export class OpenRouterChangeStackGenerator
     return {
       cohorts: answer.cohorts.map((cohort) => ({
         ...cohort,
-        layers: cohort.layers.map(({ files, ranges, ...layer }) => ({
+        layers: cohort.layers.map(({ files, ranges, questions, ...layer }) => ({
           ...layer,
           hunks: ranges.map((range) => ({ hunk: HunkId.of(range.hunk) })),
           notes: files,
+          questions: questions.map((each) => ({
+            ...each,
+            hunks: each.hunks.flatMap((hunk) => HunkId.parsed(hunk) ?? []),
+          })),
         })),
       })),
       usage,

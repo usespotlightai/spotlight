@@ -84,6 +84,7 @@ const stackOf = (
                 dependsOn: [],
                 hunks: [{ hunk: HunkId.of('h1') }],
                 notes: [{ path: 'api.ts', note: 'Drains' }],
+                questions: [],
               },
             ],
           },

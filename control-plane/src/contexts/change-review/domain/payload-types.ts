@@ -36,6 +36,7 @@ import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-
 import { DecisionStatus } from '@change-review/domain/value-objects/decision-status.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
+import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
@@ -52,6 +53,7 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   Diff,
   RepositoryName,
   ReviewAnchor,
+  QuestionAnswerId,
   ReviewCommentId,
   ReviewId,
   ReviewAuthor,

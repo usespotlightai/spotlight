@@ -101,6 +101,7 @@ const cohort = (
       path: DIFF.fileOf(hunk)?.path ?? hunk,
       note: 'Why it changes',
     })),
+    questions: [],
   })),
 });
 

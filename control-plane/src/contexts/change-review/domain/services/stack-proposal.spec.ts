@@ -9,6 +9,7 @@ import type {
   CohortKind,
   FileNote,
   ProposedCohort,
+  ProposedQuestion,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { describe, expect, it } from 'vitest';
@@ -42,6 +43,7 @@ const DIFF = Diff.of([
 const proposal = (
   notes: FileNote[],
   kind: CohortKind = 'change',
+  questions: ProposedQuestion[] = [],
 ): ProposedCohort[] => [
   {
     kind,
@@ -58,10 +60,17 @@ const proposal = (
           { hunk: HunkId.of('h3') },
         ],
         notes,
+        questions,
       },
     ],
   },
 ];
+
+const ASKED: ProposedQuestion = {
+  question: ' What happens when the route gets no team? ',
+  answer: ' It answers 404 before it invites anyone. ',
+  hunks: [HunkId.of('h3'), HunkId.of('h1'), HunkId.of('h3')],
+};
 
 const NOTED: FileNote[] = [
   { path: 'src/invite.ts', note: ' Adds the function that invites. ' },
@@ -151,5 +160,48 @@ describe('StackProposal', () => {
     ).toEqual([
       'cohort 1, layer 1 notes src/mail.ts, which none of its hunks touch',
     ]);
+  });
+
+  it('numbers the questions of a layer and keeps each cited hunk once', () => {
+    const [cohort] = validated(proposal(NOTED, 'change', [ASKED]));
+
+    expect(cohort?.layers[0]?.questions).toEqual([
+      {
+        id: 'c1.l1.q1',
+        question: 'What happens when the route gets no team?',
+        answer: 'It answers 404 before it invites anyone.',
+        hunks: [HunkId.of('h3'), HunkId.of('h1')],
+      },
+    ]);
+  });
+
+  it('keeps at most two questions on a layer, and none on incidental changes', () => {
+    const asked = (question: string) => ({ ...ASKED, question });
+
+    expect(
+      validated(
+        proposal(NOTED, 'change', [asked('A?'), asked('B?'), asked('C?')]),
+      )[0]?.layers[0]?.questions.map((each) => each.question),
+    ).toEqual(['A?', 'B?']);
+    expect(
+      validated(proposal([], 'incidental', [ASKED]))[0]?.layers[0]?.questions,
+    ).toEqual([]);
+  });
+
+  it('drops a question without an answer, or with hunks it cannot cite, and keeps the stack', () => {
+    const [cohort] = validated(
+      proposal(NOTED, 'change', [
+        { question: 'Why?', answer: ' ', hunks: [] },
+        { ...ASKED, hunks: [HunkId.of('h9')] },
+        ASKED,
+      ]),
+    );
+
+    expect(cohort?.layers[0]?.questions.map((each) => each.id)).toEqual([
+      'c1.l1.q1',
+    ]);
+    expect(cohort?.layers[0]?.questions[0]?.question).toBe(
+      'What happens when the route gets no team?',
+    );
   });
 });

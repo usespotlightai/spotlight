@@ -2,6 +2,8 @@ import type {
   ChangeStackResponseDto,
   DiffFileResponseDto,
   DiffHunkResponseDto,
+  LayerQuestionResponseDto,
+  QuestionAnswerResponseDto,
   RunChangeStacksResponseDto,
   StackCohortResponseDto,
   StackLayerResponseDto,
@@ -19,6 +21,18 @@ export type StackLayer = StackLayerResponseDto;
 export type DiffFile = DiffFileResponseDto;
 
 export type DiffHunk = DiffHunkResponseDto;
+
+export type LayerQuestion = LayerQuestionResponseDto;
+
+export type QuestionAnswer = QuestionAnswerResponseDto;
+
+export type AnswerVerdict = QuestionAnswer['verdict'];
+
+export interface CitedPlace {
+  readonly path: string;
+  readonly line: number;
+  readonly layerId: string | null;
+}
 
 export interface LayerFile {
   readonly file: DiffFile;
@@ -145,6 +159,71 @@ export const tallyOf = (
 
   return { added, removed };
 };
+
+export const VERDICT_LABELS: Record<AnswerVerdict, string> = {
+  right: 'Right',
+  'partly-right': 'Partly right',
+  missed: 'Missed',
+};
+
+export const citedBy = (
+  stack: ChangeStack,
+  question: LayerQuestion,
+): CitedPlace[] => {
+  const places = new Map<string, CitedPlace>();
+  const layers = layersOf(stack);
+
+  for (const id of question.hunks) {
+    const file = stack.files.find((each) =>
+      each.hunks.some((hunk) => hunk.id === id),
+    );
+    const hunk = file?.hunks.find((each) => each.id === id);
+    const layer = layers.find((each) =>
+      each.layer.hunks.some((entry) => entry.hunk === id),
+    );
+
+    if (file && hunk && !places.has(file.path)) {
+      places.set(file.path, {
+        path: file.path,
+        line: hunk.newStart,
+        layerId: layer?.layer.id ?? null,
+      });
+    }
+  }
+
+  return [...places.values()];
+};
+
+export const toReadAgain = (layer: StackLayer): boolean =>
+  layer.questions.some(
+    (each) => each.answered !== null && each.answered.verdict !== 'right',
+  );
+
+export const answeredIn = (
+  stacks: RunChangeStacks,
+  stackId: string,
+  answer: QuestionAnswer,
+): RunChangeStacks => ({
+  ...stacks,
+  stacks: stacks.stacks.map((stack) =>
+    stack.id === stackId
+      ? {
+          ...stack,
+          cohorts: stack.cohorts.map((cohort) => ({
+            ...cohort,
+            layers: cohort.layers.map((layer) => ({
+              ...layer,
+              questions: layer.questions.map((each) =>
+                each.id === answer.questionId
+                  ? { ...each, answered: answer }
+                  : each,
+              ),
+            })),
+          })),
+        }
+      : stack,
+  ),
+});
 
 export const STACK_NAV_PANE = {
   storageKey: 'spotlight.change-stack-nav-width',
