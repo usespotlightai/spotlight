@@ -22,6 +22,9 @@ export const ChannelReplies = {
 
   nothingSaid: 'Please write your question after the mention.',
 
+  taskCompleted:
+    'This task is completed, so Spotlight cannot reopen it. To ask for more, mention Spotlight in a new message.',
+
   failed: 'Sorry, Spotlight could not finish this answer. Please try again.',
 
   mixedImages:

@@ -14,6 +14,7 @@ import type { Happened } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import type { ChannelChats } from '@work/application/services/channel-chats.service';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
@@ -49,7 +50,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const channels = {
   reached: async () => null,
-  refuse: async () => {},
+  answer: async () => {},
 } as unknown as ChannelChats;
 
 const NOW = new Date('2026-08-31T12:00:00.000Z');
@@ -107,7 +108,7 @@ const sends = (happening: Happening, to: string, from?: string) =>
     to: StationId.of(to),
   });
 
-const line = () =>
+const line = (more: readonly Reaction[] = []) =>
   Line.rehydrate({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -125,6 +126,7 @@ const line = () =>
       sends(COMMENTED, 'station_2'),
       sends(CHECKS_FAILED, 'station_2'),
       sends(MERGED, 'station_3'),
+      ...more,
     ],
   });
 
@@ -1317,21 +1319,31 @@ describe('ReactToHappenings with a word for a chat', () => {
     },
   });
 
-  const reacting = (found: Task | null) => {
+  const MENTIONED = Happening.of('slack.app_mention');
+
+  const reacting = (
+    found: Task | null,
+    over: { member?: boolean; mentionedTo?: string } = {},
+  ) => {
     const refusal = { body: 'Sorry.' };
     const chatting = {
       reached: vi.fn(async () => refusal),
-      refuse: vi.fn(async () => undefined),
+      answer: vi.fn(async () => undefined),
     };
+    const ruled = line(
+      over.mentionedTo ? [sends(MENTIONED, over.mentionedTo)] : [],
+    );
     const reactions = new ReactToHappenings(
       tasks(found),
       tasks(found),
-      lines(),
+      { ...lines(), findByStation: vi.fn(async () => ruled) },
       dispatch,
       transaction,
       clock,
       ids,
-      members,
+      {
+        byEmail: async () => (over.member === false ? null : UserId.of('ada')),
+      },
       files,
       processedEventsInMemory(),
       logger,
@@ -1341,8 +1353,12 @@ describe('ReactToHappenings with a word for a chat', () => {
     return { reactions, chatting, refusal };
   };
 
+  const finishedAt = (stationId: string) =>
+    Task.rehydrate({ ...taskAt(stationId), finishedAt: NOW });
+
   beforeEach(() => {
     saved = undefined;
+    dispatched.length = 0;
   });
 
   it('hands it to the chats when no task wears its marks, and posts the refusal after', async () => {
@@ -1351,7 +1367,7 @@ describe('ReactToHappenings with a word for a chat', () => {
     await reactions.react(WorkspaceId.of('ws_1'), null, [mention()], null);
 
     expect(chatting.reached).toHaveBeenCalledOnce();
-    expect(chatting.refuse).toHaveBeenCalledWith(refusal);
+    expect(chatting.answer).toHaveBeenCalledWith(refusal);
   });
 
   it('keeps it away from the chats and out of the notes of a task that wears its marks', async () => {
@@ -1363,5 +1379,83 @@ describe('ReactToHappenings with a word for a chat', () => {
     expect(
       saved?.notes.some((note) => note.body.value.includes('retries')) ?? false,
     ).toBe(false);
+  });
+
+  describe('on a finished task', () => {
+    it('reopens it at the station it finished at, as the person who wrote, and starts a run', async () => {
+      const { reactions, chatting } = reacting(finishedAt('station_2'));
+
+      await reactions.react(WorkspaceId.of('ws_1'), null, [mention()], null);
+
+      expect(saved?.finished).toBe(false);
+      expect(saved?.stationId).toEqual(StationId.of('station_2'));
+      expect(saved?.notes[saved.notes.length - 1]?.body.value).toContain(
+        'Why do retries fail?',
+      );
+      expect(saved?.notes[saved.notes.length - 1]?.voice.author).toEqual(
+        UserId.of('ada'),
+      );
+      expect(dispatched).toHaveLength(1);
+      expect(chatting.answer).toHaveBeenCalledWith(
+        expect.objectContaining({ event: 'chat.acknowledged', body: '' }),
+      );
+    });
+
+    it('reopens it at the station the line sends a mention to', async () => {
+      const { reactions } = reacting(finishedAt('station_2'), {
+        mentionedTo: 'station_1',
+      });
+
+      await reactions.react(WorkspaceId.of('ws_1'), null, [mention()], null);
+
+      expect(saved?.stationId).toEqual(StationId.of('station_1'));
+      expect(saved?.finished).toBe(false);
+      expect(dispatched).toHaveLength(1);
+    });
+
+    it('refuses a task at the completed station, and leaves it alone', async () => {
+      const { reactions, chatting } = reacting(finishedAt('station_3'));
+
+      await reactions.react(WorkspaceId.of('ws_1'), null, [mention()], null);
+
+      expect(saved).toBeUndefined();
+      expect(chatting.answer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'chat.refused',
+          body: ChannelReplies.taskCompleted,
+        }),
+      );
+    });
+
+    it('refuses a person who is not a member, and leaves the task alone', async () => {
+      const { reactions, chatting } = reacting(finishedAt('station_2'), {
+        member: false,
+      });
+
+      await reactions.react(WorkspaceId.of('ws_1'), null, [mention()], null);
+
+      expect(saved).toBeUndefined();
+      expect(chatting.answer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event: 'chat.refused',
+          body: ChannelReplies.unknownPerson,
+        }),
+      );
+    });
+
+    it('leaves a thread reply without a mention to the task as before', async () => {
+      const { reactions, chatting } = reacting(finishedAt('station_2'));
+      const { chat: _, ...replied } = mention();
+
+      await reactions.react(
+        WorkspaceId.of('ws_1'),
+        null,
+        [{ ...replied, happening: 'slack.message.replied', answers: true }],
+        null,
+      );
+
+      expect(saved).toBeUndefined();
+      expect(chatting.answer).not.toHaveBeenCalled();
+    });
   });
 });

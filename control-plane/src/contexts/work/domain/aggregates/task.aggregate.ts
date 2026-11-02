@@ -690,6 +690,44 @@ export class Task extends EventRecorder {
     return withMessage;
   }
 
+  reopenableOn(line: Line): boolean {
+    return this.finished && !line.completed.id.equals(this.stationId);
+  }
+
+  reopen(line: Line, to: StationId, rank: TaskRank, newNote: NewNote): Task {
+    if (!this.reopenableOn(line)) {
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} is not finished, or it is completed. A word cannot reopen it.`,
+      );
+    }
+
+    const sender = newNote.voice.isPerson ? newNote.voice.author : null;
+
+    if (!sender) {
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} can be reopened only by a person.`,
+      );
+    }
+
+    const reopened = this.stationId.equals(to)
+      ? this.addMessage(newNote)
+      : this.react(line, to, rank, newNote);
+
+    reopened.record(
+      new TaskActedOn(
+        this.id,
+        this.workspaceId,
+        this.stationId,
+        'sent-back',
+        sender,
+        this.lastRun,
+        newNote.at,
+      ),
+    );
+
+    return reopened;
+  }
+
   get awaitsAnAnswer(): boolean {
     return this.running && this.awaitingReview && !this.decisionPending;
   }

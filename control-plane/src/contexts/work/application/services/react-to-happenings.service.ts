@@ -17,9 +17,10 @@ import type { AttachmentStorePort } from '@work/application/ports/attachment-sto
 import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import {
+  type ChannelAnswer,
   ChannelChats,
-  type ChannelRefusal,
 } from '@work/application/services/channel-chats.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { reassignTaskMarks } from '@work/application/services/task-marks';
@@ -39,6 +40,7 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
+import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -102,15 +104,15 @@ export class ReactToHappenings implements HappeningReactionsPort {
         happened.attachments,
       );
 
-      const refusal = await this.transaction.inTransaction(async () =>
+      const answer = await this.transaction.inTransaction(async () =>
         !key ||
         (await this.processed.markProcessed(workspaceId, key, this.clock.now()))
           ? this.reactTo(workspaceId, teamId, happened, attachments)
           : null,
       );
 
-      if (refusal) {
-        await this.channels.refuse(refusal);
+      if (answer) {
+        await this.channels.answer(answer);
       }
     }
   }
@@ -178,7 +180,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     teamId: TeamId | null,
     happened: ReceivedHappening,
     attachments: readonly Attachment[],
-  ): Promise<ChannelRefusal | null> {
+  ): Promise<ChannelAnswer | null> {
     if (happened.opens?.review) {
       await this.reviewRequested(
         workspaceId,
@@ -196,14 +198,12 @@ export class ReactToHappenings implements HappeningReactionsPort {
       happened.correlationKeys,
     );
 
+    if (task && ChannelChats.reaches(happened)) {
+      return this.mentionedOn(task, happened, attachments);
+    }
+
     if (task) {
-      await this.receivedBy(
-        task,
-        ChannelChats.reaches(happened)
-          ? { ...happened, anchor: null }
-          : happened,
-        attachments,
-      );
+      await this.receivedBy(task, happened, attachments);
 
       return null;
     }
@@ -259,6 +259,76 @@ export class ReactToHappenings implements HappeningReactionsPort {
       : null;
 
     await this.tasks.save(runId ? updated.assignRun(runId, line) : updated);
+  }
+
+  private async mentionedOn(
+    task: Task,
+    happened: ReceivedHappening,
+    attachments: readonly Attachment[],
+  ): Promise<ChannelAnswer | null> {
+    const line = await this.lines.findByStation(task.stationId);
+
+    if (!line || !task.finished) {
+      await this.receivedBy(task, { ...happened, anchor: null }, attachments);
+
+      return null;
+    }
+
+    const answered = (
+      event: ChannelAnswer['event'],
+      body = '',
+    ): ChannelAnswer => ({
+      workspaceId: task.workspaceId,
+      teamId: line.teamId,
+      happened,
+      event,
+      body,
+    });
+
+    if (!task.reopenableOn(line)) {
+      return answered('chat.refused', ChannelReplies.taskCompleted);
+    }
+
+    const email = happened.chat?.email;
+    const speaker = email
+      ? await this.members.byEmail(task.workspaceId, email)
+      : null;
+
+    if (!speaker) {
+      return answered('chat.refused', ChannelReplies.unknownPerson);
+    }
+
+    const anchor = anchorOf(happened, attachments);
+
+    if (!anchor) {
+      return answered('chat.refused', ChannelReplies.nothingSaid);
+    }
+
+    const rule = line.reactionTo(happened.payload.happening, task.stationId);
+    const to = (rule && line.stationAt(rule.to)?.id) ?? task.stationId;
+    const reopened = task.reopen(
+      line,
+      to,
+      Placement.atTheTop(
+        (await this.placements.placementsAt(to)).map((each) => each.rank),
+      ),
+      {
+        station: line.stationAt(task.stationId)?.name ?? StationName.unknown(),
+        body: TaskNoteBody.receivedHappening(happened.payload.summary, anchor),
+        at: this.clock.now(),
+        voice: Voice.person(speaker),
+        anchor,
+        attachments,
+      },
+    );
+
+    const runId = reopened.wantsRun(line)
+      ? await this.dispatch.runIdFor({ task: reopened, line })
+      : null;
+
+    await this.tasks.save(runId ? reopened.assignRun(runId, line) : reopened);
+
+    return answered('chat.acknowledged');
   }
 
   private async reviewRequested(
