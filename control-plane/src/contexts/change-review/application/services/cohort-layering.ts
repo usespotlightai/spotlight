@@ -108,12 +108,22 @@ export const layeredInRounds = async (
 
   for (let at = 0; at < layerings.length; at += LAYERINGS_PER_ROUND) {
     await rounds.before();
-    const round = await Promise.all(
+    const settled = await Promise.allSettled(
       layerings
         .slice(at, at + LAYERINGS_PER_ROUND)
         .map((layering) => layering()),
     );
+    const round = settled.flatMap((each) =>
+      each.status === 'fulfilled' ? [each.value] : [],
+    );
     rounds.after(round);
+
+    const crash = settled.find((each) => each.status === 'rejected');
+
+    if (crash) {
+      throw crash.reason;
+    }
+
     done.push(...round);
   }
 

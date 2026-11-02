@@ -10,8 +10,8 @@ import {
   attempted,
   settleBroken,
   settleUnanswered,
-  withRenewedLease,
 } from '@change-review/application/services/generation-attempt';
+import { withRenewedLease } from '@change-review/application/services/job-lease';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import {

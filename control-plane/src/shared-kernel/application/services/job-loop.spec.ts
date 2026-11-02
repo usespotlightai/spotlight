@@ -38,10 +38,7 @@ class Item implements HasPendingJob<Item> {
   }
 }
 
-const looping = (
-  start: Item,
-  processed: (item: Item, saved: (item: Item) => void) => Promise<Item>,
-) => {
+const looping = (start: Item, processed: (item: Item) => Promise<Item>) => {
   let stored = start;
   const report = vi.fn();
   const error = vi.fn();
@@ -60,10 +57,7 @@ const looping = (
       keyOf: () => 'item',
       ids: () => ({ workspaceId: 'workspace-1', runId: 'run-1' }),
       about: (item) => ({ attempts: item.attempts }),
-      process: (item) =>
-        processed(item, (saved) => {
-          stored = saved;
-        }),
+      process: processed,
       stale: () => false,
     },
     { inTransaction: <T>(work: () => Promise<T>) => work() },
@@ -164,17 +158,6 @@ describe('JobLoop', () => {
     expect(loop.stored().state).toBe('pending');
     expect(loop.error).toHaveBeenCalledOnce();
     expect(loop.report).not.toHaveBeenCalled();
-  });
-
-  it('retries a failed job from what it last saved, not from what it leased', async () => {
-    const loop = looping(new Item(0, 'pending', false), async (item, saved) => {
-      saved(new Item(item.attempts + 5, 'leased', false));
-      throw new Error('the model did not answer');
-    });
-
-    await loop.processOnce();
-
-    expect(loop.stored()).toMatchObject({ state: 'pending', attempts: 6 });
   });
 
   it('reports the failure that dead-letters the job', async () => {

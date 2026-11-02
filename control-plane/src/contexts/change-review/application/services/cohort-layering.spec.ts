@@ -56,6 +56,34 @@ describe('layeredInRounds', () => {
   });
 });
 
+describe('layeredInRounds, when a layering crashes', () => {
+  it('records the round’s finished layerings before it throws, and starts no later round', async () => {
+    const rounds: number[] = [];
+    let started = 0;
+
+    await expect(
+      layeredInRounds(
+        Array.from({ length: 6 }, (_, at) => async () => {
+          started += 1;
+          if (at === 1) {
+            throw new Error('a bug');
+          }
+          return layered(`Cohort ${at + 1}`);
+        }),
+        {
+          before: async () => undefined,
+          after: (round) => {
+            rounds.push(round.length);
+          },
+        },
+      ),
+    ).rejects.toThrow('a bug');
+
+    expect(rounds).toEqual([3]);
+    expect(started).toBe(4);
+  });
+});
+
 describe('combined', () => {
   it('reports a cut-off answer before any other failure', () => {
     const result = combined([

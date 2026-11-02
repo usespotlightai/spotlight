@@ -136,16 +136,7 @@ export class JobLoop<Job extends HasPendingJob<Job>, Key> {
         return;
       }
 
-      const current = await this.source
-        .find(this.source.keyOf(job))
-        .catch(() => job);
-
-      if (!current?.hasPendingJob) {
-        this.counted('stale');
-        return;
-      }
-
-      const later = current.scheduleRetry(this.clock.now());
+      const later = job.scheduleRetry(this.clock.now());
 
       await this.source
         .save(later)

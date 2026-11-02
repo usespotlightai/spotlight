@@ -1,8 +1,6 @@
 import { GenerationError } from '@change-review/application/errors/generation.error';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
-import { ChangeStackVersionConflictError } from '@change-review/domain/exceptions/change-stack-version-conflict.error';
 import type { StackProblem } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
@@ -53,21 +51,6 @@ export const settleUnanswered = (
   }
 
   return stack.settleFailedCall(failure, now);
-};
-
-export const withRenewedLease = async (
-  stacks: ChangeStackRepository,
-  stack: ChangeStack,
-  now: Date,
-): Promise<ChangeStack> => {
-  await stacks.save(stack.renewJobLease(now));
-  const renewed = await stacks.find(stack.id);
-
-  if (!renewed) {
-    throw new ChangeStackVersionConflictError(stack.id.value);
-  }
-
-  return renewed;
 };
 
 export const settleBroken = (

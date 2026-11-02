@@ -16,8 +16,8 @@ import {
   attempted,
   settleBroken,
   settleUnanswered,
-  withRenewedLease,
 } from '@change-review/application/services/generation-attempt';
+import { withRenewedLease } from '@change-review/application/services/job-lease';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { ChangeStacksUnavailableError } from '@change-review/domain/exceptions/change-stacks-unavailable.error';
 import {
