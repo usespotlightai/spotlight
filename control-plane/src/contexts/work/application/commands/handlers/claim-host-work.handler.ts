@@ -282,12 +282,13 @@ export class ClaimHostWorkHandler
     )) {
       const key = ResumeKey.of(requested.key);
       const newest = await this.runs.newestWithKey(heartbeat.workspaceId, key);
+      const claim = ClaimOrder.forRequested(newest, heartbeat);
 
-      if (newest && !ClaimOrder.fits(newest, heartbeat)) {
+      if (claim === 'skip') {
         continue;
       }
 
-      if (newest?.state === 'queued') {
+      if (claim === 'run-of-its-key') {
         const run = await this.startedRun(
           claimantOf(runner, heartbeat, { into: key }),
           host,

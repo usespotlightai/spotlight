@@ -153,6 +153,14 @@ export class Sandboxes implements SandboxesPort, EditorSandboxesPort {
     }
   }
 
+  async retireRun(runId: string, at: Date): Promise<void> {
+    for (const holding of await this.sandboxes.holdingRun(runId)) {
+      await reviseSandbox(this.sandboxes, holding, (sandbox) =>
+        sandbox.retireRun(runId, at),
+      );
+    }
+  }
+
   async open(
     workspaceId: string,
     key: string,

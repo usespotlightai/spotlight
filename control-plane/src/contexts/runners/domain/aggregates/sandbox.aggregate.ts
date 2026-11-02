@@ -269,18 +269,20 @@ export class Sandbox extends EventRecorder {
       (each) => !each.isHeldBy('run', runId),
     );
 
-    const released = this.with({
+    return this.with({
       leases,
       idleSince: leases.some((each) => each.kind === 'run') ? null : at,
     });
-
-    return leases.length === 0 && !this.isRejoinable
-      ? released.drain()
-      : released;
   }
 
-  private get isRejoinable(): boolean {
-    return this.state.key?.isRejoinable ?? false;
+  retireRun(runId: string, at: Date): Sandbox {
+    if (!this.holdsRun(runId)) {
+      return this;
+    }
+
+    const released = this.releaseRun(runId, at);
+
+    return released.leases.length === 0 ? released.drain() : released;
   }
 
   holdEditor(holder: string, at: Date): Sandbox {

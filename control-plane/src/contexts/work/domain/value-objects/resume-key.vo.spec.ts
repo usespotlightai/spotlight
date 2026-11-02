@@ -37,4 +37,11 @@ describe('ResumeKey', () => {
     expect(ResumeKey.of('task-').archiveHolder).toBeNull();
     expect(ResumeKey.of('workspace').archiveHolder).toBeNull();
   });
+
+  it('is rejoined by later runs and editors only for a task or a chat', () => {
+    expect(ResumeKey.forTask('task_1').isRejoinable).toBe(true);
+    expect(ResumeKey.forChat('chat_1').isRejoinable).toBe(true);
+    expect(ResumeKey.forReplay('run_1').isRejoinable).toBe(false);
+    expect(ResumeKey.of('task-').isRejoinable).toBe(false);
+  });
 });

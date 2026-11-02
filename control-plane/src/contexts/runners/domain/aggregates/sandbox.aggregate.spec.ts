@@ -70,37 +70,28 @@ describe('Sandbox', () => {
     expect(released.idleSince).toEqual(later(1_000));
   });
 
-  it.each([
-    ['a replay key', 'replay-run_1'],
-    ['no key', null],
-  ])(
-    'drains when its last run ends and it has %s, which nothing rejoins',
-    (_, key) => {
-      const sandbox = aSandbox({
-        workspaceId: WorkspaceId.of('ws_1'),
-        hostId: HOST,
-        key,
-        at: STARTED_AT,
-      }).reported();
+  it('drains when the run that retires it holds its last lease, and ignores a run that does not hold it', () => {
+    const sandbox = started().reported();
 
-      const released = sandbox.releaseRun('run_1', later(1_000));
+    expect(sandbox.retireRun('run_2', later(1_000))).toBe(sandbox);
 
-      expect(released.current).toBe('draining');
-      expect(released.mustDrain).toBe(true);
-    },
-  );
+    const retired = sandbox.retireRun('run_1', later(1_000));
 
-  it('stays ready when a run ends while another run holds a sandbox nothing rejoins', () => {
-    const sandbox = aSandbox({
-      workspaceId: WorkspaceId.of('ws_1'),
-      hostId: HOST,
-      key: 'replay-run_1',
-      at: STARTED_AT,
-    })
-      .reported()
-      .holdRun('run_2', later(500));
+    expect(retired.current).toBe('draining');
+    expect(retired.mustDrain).toBe(true);
+    expect(retired.leases).toEqual([]);
+  });
 
-    expect(sandbox.releaseRun('run_1', later(1_000)).current).toBe('ready');
+  it('stays ready when a run retires it while another run holds it', () => {
+    const shared = started().reported().holdRun('run_2', later(500));
+
+    expect(shared.retireRun('run_1', later(1_000)).current).toBe('ready');
+  });
+
+  it('stays ready when a run retires it while an editor holds it', () => {
+    const edited = started().reported().holdEditor('conn_1', later(500));
+
+    expect(edited.retireRun('run_1', later(1_000)).current).toBe('ready');
   });
 
   it('takes the next run on its host once ready and idle, and holds it', () => {

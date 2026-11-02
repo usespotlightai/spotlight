@@ -160,6 +160,7 @@ const pulling = (
     holdInSandbox: vi.fn(async () => over.holds ?? true),
     liveKeysIn: vi.fn(async () => over.liveKeys ?? []),
     releaseRun: vi.fn(async () => {}),
+    retireRun: vi.fn(async () => {}),
     open: vi.fn(async () => ({ id: 'sandbox_1', state: 'starting' as const })),
     requestedIn: vi.fn(async () => over.requested ?? []),
     startRequested: vi.fn(async (id: string) =>
@@ -528,6 +529,32 @@ describe('ClaimHostWorkHandler', () => {
       });
       expect(sandboxes.startRequested).toHaveBeenCalled();
       expect(claimNext).not.toHaveBeenCalled();
+    });
+
+    it('is started alone when the queued run of its key cannot be taken now', async () => {
+      const { handler, claimNext, sandboxes } = pulling({
+        requested: [requested],
+        newest: queued(),
+      });
+
+      expect(await handler.execute(pull())).toMatchObject({
+        outcome: 'sandbox',
+        sandboxId: 'sandbox_r',
+      });
+      expect(claimNext).toHaveBeenCalledTimes(1);
+      expect(sandboxes.startRequested).toHaveBeenCalled();
+    });
+
+    it('stops the claim, starting nothing, when the run of its key had to be requeued', async () => {
+      const { handler, sandboxes } = pulling({
+        run: taken(),
+        requested: [requested],
+        newest: queued(),
+        starts: 'requeued',
+      });
+
+      expect(await handler.execute(pull())).toEqual({ outcome: 'nothing' });
+      expect(sandboxes.startRequested).not.toHaveBeenCalled();
     });
 
     it('takes a queued run of its key before other runs, and the run starts in it', async () => {
