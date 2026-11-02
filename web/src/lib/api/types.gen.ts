@@ -2933,6 +2933,38 @@ export type JoinedWorkspaceResponseDto = {
   workspaceSlug: string;
 };
 
+export type UserEmailResponseDto = {
+  id: string;
+  email: string;
+  /**
+   * Verified addresses identify you, for example in Slack. A pending address waits for its link. An expired link needs a resend.
+   */
+  status: 'verified' | 'pending' | 'expired';
+  addedAt: string;
+  /**
+   * When Spotlight last sent the verification link.
+   */
+  sentAt: string;
+};
+
+export type UserEmailsResponseDto = {
+  /**
+   * The address you sign in with.
+   */
+  signInEmail: string;
+  /**
+   * Your other addresses, oldest first.
+   */
+  additional: Array<UserEmailResponseDto>;
+};
+
+export type AddUserEmailRequestDto = {
+  /**
+   * Another address of yours, for example the one your Slack account uses. Spotlight sends a verification link to it.
+   */
+  email: string;
+};
+
 export type SecretSourceResponseDto = {
   /**
    * Where the value lives: stored by Spotlight, or read from AWS Secrets Manager when it is used
@@ -12437,6 +12469,159 @@ export type AcceptInviteResponses = {
 };
 
 export type AcceptInviteResponse = AcceptInviteResponses[keyof AcceptInviteResponses];
+
+export type ListMyEmailsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/me/emails';
+};
+
+export type ListMyEmailsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+};
+
+export type ListMyEmailsResponses = {
+  200: UserEmailsResponseDto;
+};
+
+export type ListMyEmailsResponse = ListMyEmailsResponses[keyof ListMyEmailsResponses];
+
+export type AddMyEmailData = {
+  body: AddUserEmailRequestDto;
+  path?: never;
+  query?: never;
+  url: '/me/emails';
+};
+
+export type AddMyEmailErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * The address is already verified, was just added, or got a link less than a minute ago, or your account got 10 links in the last hour
+   */
+  409: unknown;
+  /**
+   * Not an email address, your sign-in email, or one more than the 10 allowed
+   */
+  422: unknown;
+  /**
+   * The email could not be sent
+   */
+  502: unknown;
+};
+
+export type AddMyEmailResponses = {
+  200: UserEmailResponseDto;
+};
+
+export type AddMyEmailResponse = AddMyEmailResponses[keyof AddMyEmailResponses];
+
+export type ResendMyEmailVerificationData = {
+  body?: never;
+  path: {
+    userEmailId: string;
+  };
+  query?: never;
+  url: '/me/emails/{userEmailId}/resend';
+};
+
+export type ResendMyEmailVerificationErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such address of yours
+   */
+  404: unknown;
+  /**
+   * The address is already verified, or got a link less than a minute ago, or your account got 10 links in the last hour
+   */
+  409: unknown;
+  /**
+   * The email could not be sent
+   */
+  502: unknown;
+};
+
+export type ResendMyEmailVerificationResponses = {
+  200: UserEmailResponseDto;
+};
+
+export type ResendMyEmailVerificationResponse = ResendMyEmailVerificationResponses[keyof ResendMyEmailVerificationResponses];
+
+export type RemoveMyEmailData = {
+  body?: never;
+  path: {
+    userEmailId: string;
+  };
+  query?: never;
+  url: '/me/emails/{userEmailId}';
+};
+
+export type RemoveMyEmailErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such address of yours
+   */
+  404: unknown;
+  /**
+   * The address changed meanwhile
+   */
+  409: unknown;
+};
+
+export type RemoveMyEmailResponses = {
+  /**
+   * The address is removed
+   */
+  204: void;
+};
+
+export type RemoveMyEmailResponse = RemoveMyEmailResponses[keyof RemoveMyEmailResponses];
+
+export type VerifyMyEmailData = {
+  body?: never;
+  path: {
+    token: string;
+  };
+  query?: never;
+  url: '/me/email-verifications/{token}';
+};
+
+export type VerifyMyEmailErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * Another account added the address
+   */
+  403: unknown;
+  /**
+   * No verification by that link
+   */
+  404: unknown;
+  /**
+   * The link expired, or another account has the address
+   */
+  409: unknown;
+};
+
+export type VerifyMyEmailResponses = {
+  200: UserEmailResponseDto;
+};
+
+export type VerifyMyEmailResponse = VerifyMyEmailResponses[keyof VerifyMyEmailResponses];
 
 export type ListSecretsData = {
   body?: never;

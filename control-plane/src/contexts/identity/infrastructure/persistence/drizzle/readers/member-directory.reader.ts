@@ -1,12 +1,13 @@
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
+import { userEmail } from '@identity/infrastructure/persistence/drizzle/schemas/user-email.schema';
 import { workspaceMember } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, or, sql } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleMemberDirectory implements MemberDirectoryPort {
@@ -29,9 +30,22 @@ export class DrizzleMemberDirectory implements MemberDirectoryPort {
       .where(
         and(
           eq(workspaceMember.workspaceId, workspaceId.value),
-          sql`lower(${user.email}) = lower(${wanted})`,
+          or(
+            sql`lower(${user.email}) = lower(${wanted})`,
+            sql`exists (${this.db
+              .select({ one: sql`1` })
+              .from(userEmail)
+              .where(
+                and(
+                  eq(userEmail.userId, user.id),
+                  isNotNull(userEmail.verifiedAt),
+                  sql`lower(${userEmail.email}) = lower(${wanted})`,
+                ),
+              )})`,
+          ),
         ),
       )
+      .orderBy(sql`lower(${user.email}) = lower(${wanted}) desc`)
       .limit(1);
 
     return found ? UserId.of(found.id) : null;

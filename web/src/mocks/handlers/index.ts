@@ -1,4 +1,5 @@
 import { authHandlers } from '@/mocks/handlers/auth';
+import { emailsHandlers } from '@/mocks/handlers/emails';
 import { inboxHandlers } from '@/mocks/handlers/inbox';
 import { insightsHandlers } from '@/mocks/handlers/insights';
 import { membersHandlers } from '@/mocks/handlers/members';
@@ -18,4 +19,5 @@ export const handlers = [
   ...teamHandlers,
   ...settingsHandlers,
   ...membersHandlers,
+  ...emailsHandlers,
 ];

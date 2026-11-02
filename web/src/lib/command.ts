@@ -5,12 +5,14 @@ import {
   Inbox,
   KeyRound,
   type LucideIcon,
+  Mail,
   Package,
   Server,
   Settings2,
   Users,
 } from 'lucide-react';
 import type { LineResponseDto } from '@/lib/api';
+import { emailsPath } from '@/lib/emails';
 import { inboxPath } from '@/lib/inbox';
 import { membersPath } from '@/lib/members';
 import { isAdmin, type Role } from '@/lib/role';
@@ -144,6 +146,12 @@ export const settingsTargets = (
   role: Role,
   teams: readonly Team[],
 ): CommandTarget[] => [
+  {
+    id: 'settings:emails',
+    label: 'Go to your emails',
+    icon: Mail,
+    to: emailsPath(slug),
+  },
   {
     id: 'settings:general',
     label: 'Go to workspace settings',
