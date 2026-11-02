@@ -1,14 +1,13 @@
 import type { BindableChatEvent } from '@work/application/contracts/bindable-chat-events.contract';
+import type { ListedProposal } from '@work/application/contracts/listed-proposal.contract';
 import type { ChannelNoticesPort } from '@work/application/ports/channel-notices.port';
-import {
-  ChannelReplies,
-  type ListedProposal,
-} from '@work/application/rendering/channel-replies';
+import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type {
   Chat,
   NumberedProposal,
 } from '@work/domain/aggregates/chat.aggregate';
+import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import type { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
@@ -34,6 +33,14 @@ export class NotifyChannel implements RunOutcomes {
     }
   }
 
+  async onChatDispatched(event: ChatDispatched): Promise<void> {
+    const chat = await this.fromChannel(event.chatId);
+
+    if (chat) {
+      await this.post(chat, 'chat.dispatched', '');
+    }
+  }
+
   async onRunCompleted(event: RunCompleted): Promise<void> {
     const chat = await this.fromChannel(event.chatId);
 
@@ -41,13 +48,14 @@ export class NotifyChannel implements RunOutcomes {
       return;
     }
 
+    const proposals = await this.listed(chat.openProposals);
     const body = ChannelReplies.answered(
       event.lastWords?.trim() || null,
-      await this.listed(chat.openProposals),
+      proposals,
     );
 
     if (body) {
-      await this.post(chat, 'chat.replied', body);
+      await this.post(chat, 'chat.replied', body, null, proposals);
     }
   }
 
@@ -129,6 +137,7 @@ export class NotifyChannel implements RunOutcomes {
     event: BindableChatEvent,
     body: string,
     taskId: string | null = null,
+    proposals: readonly ListedProposal[] = [],
   ): Promise<void> {
     await this.notices.notify(
       {
@@ -139,6 +148,7 @@ export class NotifyChannel implements RunOutcomes {
           value: each.mark.value,
         })),
         body,
+        proposals,
         chatId: chat.id.value,
         taskId,
       },

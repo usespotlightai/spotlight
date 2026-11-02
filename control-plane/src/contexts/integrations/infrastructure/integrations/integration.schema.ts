@@ -381,12 +381,16 @@ export const integrationSchema = z
     on: z
       .record(
         z.string(),
-        z.object({
-          action: key('post-message'),
-          to: z.record(z.string(), expression).default({}),
-          routes: z.record(z.string(), z.string()).default({}),
-          mark: z.array(markSchema).default([]),
-        }),
+        z
+          .array(
+            z.object({
+              action: key('post-message'),
+              to: z.record(z.string(), expression).default({}),
+              routes: z.record(z.string(), z.string()).default({}),
+              mark: z.array(markSchema).default([]),
+            }),
+          )
+          .min(1, 'runs at least one action'),
       )
       .default({}),
   })

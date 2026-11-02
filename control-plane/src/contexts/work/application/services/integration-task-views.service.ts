@@ -27,6 +27,8 @@ export class IntegrationTaskViews {
       taskId: task.id.value,
       workspaceId: task.workspaceId.value,
       teamId: line.teamId.value,
+      title: task.title.value,
+      pullRequest: task.pullRequest?.value ?? null,
       line: line.key.value,
       station: station?.name.value ?? '',
       stationKey: station?.key.value ?? '',

@@ -84,15 +84,15 @@ actions:
 
 on:
   task.asked:
-    action: post-message
-    to:
-      channel: '\${{ task.marks["slack.channel"] }}'
-      thread: '\${{ task.marks["slack.thread"] }}'
-    routes:
-      delivery: C0DELIVERY
-    mark:
-      - kind: slack.thread
-        value: '\${{ capture.thread }}'
+    - action: post-message
+      to:
+        channel: '\${{ task.marks["slack.channel"] }}'
+        thread: '\${{ task.marks["slack.thread"] }}'
+      routes:
+        delivery: C0DELIVERY
+      mark:
+        - kind: slack.thread
+          value: '\${{ capture.thread }}'
 `;
 
 const CHATTING = SLACK.replace(

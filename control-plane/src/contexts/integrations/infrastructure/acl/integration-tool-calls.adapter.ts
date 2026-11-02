@@ -34,7 +34,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
     const resolved = await this.runtime.tool(
       definitions,
       tool,
-      IntegrationTaskViewMapper.toView(task),
+      IntegrationTaskViewMapper.toView(task, null),
     );
 
     if (!resolved) {

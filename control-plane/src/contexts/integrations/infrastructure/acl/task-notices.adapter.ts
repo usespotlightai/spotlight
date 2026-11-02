@@ -47,13 +47,16 @@ export class TaskNotices implements TaskNoticesPort {
       return [];
     }
 
-    const view = IntegrationTaskViewMapper.toView(task);
+    const view = IntegrationTaskViewMapper.toView(
+      task,
+      await this.links.task(task.workspaceId, task.teamId, task.taskId),
+    );
     const payload: TaskPayload = { task: view, ask: await this.asking(view) };
     const addedMarks: TaskMark[] = [];
 
     for (const integration of posting) {
       try {
-        const posted = await this.runtime.post(
+        const results = await this.runtime.post(
           definitions,
           integration,
           event,
@@ -61,20 +64,22 @@ export class TaskNotices implements TaskNoticesPort {
           await this.callAuthResolver.of(teamId, integration),
         );
 
-        if (posted.kind === 'posted') {
-          addedMarks.push(...posted.marks);
-        }
+        for (const posted of results) {
+          if (posted.kind === 'posted') {
+            addedMarks.push(...posted.marks);
+          }
 
-        if (posted.kind === 'failed') {
-          this.log.warn(
-            {
-              task: task.taskId,
-              error: posted.error,
-              target: posted.target,
-              marks: task.marks,
-            },
-            'A service answered a task’s word with an error',
-          );
+          if (posted.kind === 'failed') {
+            this.log.warn(
+              {
+                task: task.taskId,
+                error: posted.error,
+                target: posted.target,
+                marks: task.marks,
+              },
+              'A service answered a task’s word with an error',
+            );
+          }
         }
       } catch (error) {
         this.log.warn(

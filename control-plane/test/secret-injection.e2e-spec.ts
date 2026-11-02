@@ -106,6 +106,8 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     taskId: 'task_1',
     workspaceId,
     teamId: workspaceId,
+    title: 'Drain the queue',
+    pullRequest: null,
     line: 'delivery',
     station: 'Implementation',
     stationKey: 'implementation',

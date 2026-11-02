@@ -72,22 +72,22 @@ ${headers}      body: '\${{ {"channel": target.channel, "thread_ts": target.thre
         success: '\${{ response.ok }}'
 on:
   task.opened:
-    action: acknowledge
-    to:
-      channel: '\${{ task.marks["slack.channel"] }}'
-      thread: '\${{ task.marks["slack.thread"] }}'
-    routes:
-      delivery: C0DELIVERY
+    - action: acknowledge
+      to:
+        channel: '\${{ task.marks["slack.channel"] }}'
+        thread: '\${{ task.marks["slack.thread"] }}'
+      routes:
+        delivery: C0DELIVERY
   task.asked:
-    action: post-message
-    to:
-      channel: '\${{ task.marks["slack.channel"] }}'
-      thread: '\${{ task.marks["slack.thread"] }}'
-    routes:
-      delivery: C0DELIVERY
-    mark:
-      - kind: slack.thread
-        value: '\${{ capture.thread }}'
+    - action: post-message
+      to:
+        channel: '\${{ task.marks["slack.channel"] }}'
+        thread: '\${{ task.marks["slack.thread"] }}'
+      routes:
+        delivery: C0DELIVERY
+      mark:
+        - kind: slack.thread
+          value: '\${{ capture.thread }}'
 `;
 
 const READS_A_SECRET = `      auth:
@@ -101,6 +101,8 @@ const asked = (
   taskId: 'task_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
+  title: 'Drain the queue',
+  pullRequest: null,
   line: 'delivery',
   station: 'Triage',
   stationKey: 'triage',
@@ -160,6 +162,22 @@ describe('TaskNotices', () => {
     expect(action.target.thread).toBeUndefined();
     expect(action.ask.body).toBe('Which queue should I drain?');
     expect(action.ask.link).toContain('/w/acme/inbox/task_1:');
+  });
+
+  it('gives the action the task’s title, address and pull request', async () => {
+    const { notifier, run } = notifying();
+
+    await notifier.notify(
+      { ...asked(), pullRequest: 'https://github.com/acme/api/pull/9' },
+      'task.asked',
+    );
+
+    const action = run.mock.calls[0]?.[1] as {
+      task: { title: string; url: string | null; pullRequest: string | null };
+    };
+    expect(action.task.title).toBe('Drain the queue');
+    expect(action.task.url).toContain('/tasks/task_1');
+    expect(action.task.pullRequest).toBe('https://github.com/acme/api/pull/9');
   });
 
   it('tells the service where to approve or reject a tool call, since it cannot be decided there', async () => {

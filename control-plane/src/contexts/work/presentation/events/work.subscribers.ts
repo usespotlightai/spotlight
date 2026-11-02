@@ -76,6 +76,8 @@ import type { SetupPullRequestOpened } from '@work/domain/events/setup-pull-requ
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskDispatched } from '@work/domain/events/task-dispatched.event';
+import type { TaskFailed } from '@work/domain/events/task-failed.event';
+import type { TaskFinished } from '@work/domain/events/task-finished.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ToolUsed } from '@work/domain/events/tool-used.event';
 
@@ -235,6 +237,11 @@ export const workSubscribers = (reactions: {
     ['chat.started'],
     (event) => reactions.channel.onChatStarted(event),
   ),
+  subscribing<ChatDispatched>(
+    'work.notify-channel.dispatched',
+    ['chat.dispatched'],
+    (event) => reactions.channel.onChatDispatched(event),
+  ),
   subscribing<ChatRunNotStarted>(
     'work.notify-channel.run-not-started',
     ['chat.run-not-started'],
@@ -285,10 +292,10 @@ export const workSubscribers = (reactions: {
     ['task.opened'],
     (event) => reactions.acceptances.onTaskOpened(event),
   ),
-  subscribing<TaskOpened | PullRequestOpened | TaskAsked>(
-    'work.notify-outside-tools',
-    BINDABLE_TASK_EVENTS,
-    (event) => reactions.outsideTools.on(event),
+  subscribing<
+    TaskOpened | PullRequestOpened | TaskAsked | TaskFinished | TaskFailed
+  >('work.notify-outside-tools', BINDABLE_TASK_EVENTS, (event) =>
+    reactions.outsideTools.on(event),
   ),
   subscribing<TaskDispatched>(
     'work.enqueue-task-run',

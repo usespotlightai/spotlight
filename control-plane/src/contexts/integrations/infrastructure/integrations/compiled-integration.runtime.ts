@@ -23,6 +23,7 @@ import type { AccessToken } from '@integrations/domain/value-objects/access-toke
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { readEvents } from '@integrations/infrastructure/integrations/happenings';
 import type {
+  OnBindingIR,
   ReadableIntegration,
   RequestIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
@@ -71,6 +72,9 @@ const serviceErrorOf = (result: OutboundResult): ServiceError => ({
   status: result.status,
   output: asJson(result.response ?? null).slice(0, MAX_OUTPUT_CHARS),
 });
+
+const reasonOf = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
 
 const upstreamErrorUsing = (
   tool: string,
@@ -226,15 +230,29 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     event: string,
     payload: NoticePayload,
     callAuth: CallAuth,
-  ): Promise<PostResult> {
+  ): Promise<readonly PostResult[]> {
     const readable = this.find(definitions, integration.key);
-    const bound = readable?.integration.bindingFor(event);
-    const binding = bound
-      ? readable?.on.find((each) => each.event === bound.event)
-      : undefined;
-    const action = bound ? readable?.actions.get(bound.action) : undefined;
 
-    if (!binding || !action) {
+    const results: PostResult[] = [];
+
+    for (const binding of readable?.on ?? []) {
+      if (readable && binding.event === event) {
+        results.push(await this.posted(readable, binding, payload, callAuth));
+      }
+    }
+
+    return results;
+  }
+
+  private async posted(
+    readable: ReadableIntegration,
+    binding: OnBindingIR,
+    payload: NoticePayload,
+    callAuth: CallAuth,
+  ): Promise<PostResult> {
+    const action = readable.actions.get(binding.action);
+
+    if (!action) {
       return { kind: 'unaddressed' };
     }
 
@@ -262,11 +280,19 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return { kind: 'unaddressed' };
     }
 
-    const { result, bindings } = await this.sent(
-      action,
-      { ...against, target },
-      callAuth,
-    );
+    let sent: Awaited<ReturnType<typeof this.sent>>;
+
+    try {
+      sent = await this.sent(action, { ...against, target }, callAuth);
+    } catch (error) {
+      return {
+        kind: 'failed',
+        error: { status: 0, output: reasonOf(error) },
+        target,
+      };
+    }
+
+    const { result, bindings } = sent;
 
     if (!result.ok) {
       return { kind: 'failed', error: serviceErrorOf(result), target };

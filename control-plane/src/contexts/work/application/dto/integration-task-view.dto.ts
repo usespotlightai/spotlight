@@ -8,6 +8,8 @@ export interface IntegrationTaskViewDto {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly teamId: string;
+  readonly title: string;
+  readonly pullRequest: string | null;
   readonly line: string;
   readonly station: string;
   readonly stationKey: string;

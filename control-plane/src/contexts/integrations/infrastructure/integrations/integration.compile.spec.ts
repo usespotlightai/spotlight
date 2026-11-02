@@ -208,10 +208,20 @@ describe('compiling an integration', () => {
     it('rejects an on-binding to an action that is not defined', () => {
       const text = `${WHOLE}on:
   task.asked:
-    action: missing
+    - action: missing
 `;
 
-      expect(complaining(text, 'on.task.asked.action')).toHaveLength(1);
+      expect(complaining(text, 'on.task.asked.0.action')).toHaveLength(1);
+    });
+
+    it('rejects an event bound to no action', () => {
+      const text = `${WHOLE}on:
+  task.asked: []
+`;
+
+      expect(complaining(text, 'on.task.asked')[0]?.reason).toMatch(
+        /runs at least one action/,
+      );
     });
 
     it('rejects an on-binding to an event Spotlight never raises', () => {
@@ -221,11 +231,11 @@ describe('compiling an integration', () => {
       url: https://example.com
 on:
   task.moved:
-    action: post
+    - action: post
 `;
 
       const [problem] = problems(text).filter(
-        (each) => dottedOf(each.field) === 'on.task.moved',
+        (each) => dottedOf(each.field) === 'on.task.moved.0',
       );
 
       expect(problem?.reason).toMatch(/must be one of/);
@@ -568,9 +578,9 @@ webhook:
       body: '\${{ {"text": ask.body, "thread": target.thread} }}'
 on:
   task.asked:
-    action: post
-    to:
-      thread: \${{ task.marks["slack.thread"] }}
+    - action: post
+      to:
+        thread: \${{ task.marks["slack.thread"] }}
 `;
 
     it('has nothing to say about one that reads only what is there', () => {
@@ -584,7 +594,7 @@ on:
       expect(read.ok).toBe(true);
       expect(warnings(text)).toHaveLength(1);
       expect(warnings(text)[0]?.field.rendered).toBe(
-        'on["task.asked"].to.thread',
+        'on["task.asked"][0].to.thread',
       );
       expect(warnings(text)[0]?.reason).toMatch(
         /No such key: makrs\. Did you mean task\.marks\?/,

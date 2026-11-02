@@ -28,11 +28,13 @@ const DEFINITION = {
     comment: { request: { url: 'https://api.linear.app/graphql' } },
   },
   on: {
-    'task.opened': {
-      action: 'comment',
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: the definition's own expression syntax
-      to: { thread: '${{ ask.body }}' },
-    },
+    'task.opened': [
+      {
+        action: 'comment',
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: the definition's own expression syntax
+        to: { thread: '${{ ask.body }}' },
+      },
+    ],
   },
 };
 
@@ -79,7 +81,7 @@ describe('checking expressions for a plan', () => {
 
   it('points at a misspelt field, at a key Terraform quotes', async () => {
     const answer = await check({
-      position: 'integration.on["task.opened"].to.thread',
+      position: 'integration.on["task.opened"][0].to.thread',
       expression: 'task.marks["slack.thread"] + ask.bdoy',
     });
 

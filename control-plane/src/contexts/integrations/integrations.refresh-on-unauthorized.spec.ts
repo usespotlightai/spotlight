@@ -227,6 +227,8 @@ const TASK: IntegrationTaskViewDto = {
   taskId: 'task_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
+  title: 'Drain the queue',
+  pullRequest: null,
   line: 'delivery',
   station: 'Implementation',
   stationKey: 'implementation',

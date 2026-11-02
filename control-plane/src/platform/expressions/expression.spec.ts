@@ -44,6 +44,29 @@ describe('compiling an expression', () => {
   });
 });
 
+describe('reading a JSON text', () => {
+  const form = {
+    body: sanitizedForCel({
+      payload: '{"type":"block_actions","actions":[{"value":"accept 2"}]}',
+    }),
+  };
+
+  it('reads the value inside a form field', () => {
+    expect(
+      compile('parseJson(body.payload).actions[0].value').evaluate(form),
+    ).toBe('accept 2');
+  });
+
+  it('checks against a scope', () => {
+    expect(
+      expressions.check(
+        'parseJson(body.payload).type == "block_actions"',
+        Scope.of({ body: 'dyn' }),
+      ).valid,
+    ).toBe(true);
+  });
+});
+
 describe('whether an expression is true', () => {
   it('is true only where it is plainly true', () => {
     expect(isTrue(compile('body.type == "Issue"'), payload)).toBe(true);

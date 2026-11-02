@@ -24,6 +24,18 @@ import { SESSION_READER } from '@shared-kernel/application/ports/session.port';
 
 const JOURNAL_LIMIT = '64mb';
 
+// The library keeps the raw body only for JSON; webhooks verify signed forms too.
+const formKeepingRawBody = {
+  extended: true,
+  verify: (
+    request: { rawBody?: Buffer },
+    _response: unknown,
+    buffer: Buffer,
+  ) => {
+    request.rawBody = buffer;
+  },
+};
+
 import { AuthModule as BetterAuthModule } from '@thallesp/nestjs-better-auth';
 
 @Module({
@@ -58,7 +70,11 @@ class AuthCoreModule {}
       inject: [AUTH, LOGGING],
       useFactory: (auth: AppAuth, logging: Logging) => ({
         auth,
-        bodyParser: { rawBody: true, json: { limit: JOURNAL_LIMIT } },
+        bodyParser: {
+          rawBody: true,
+          json: { limit: JOURNAL_LIMIT },
+          urlencoded: formKeepingRawBody,
+        },
         middleware: (req, res, next) => logging.httpLogger(req, res, next),
       }),
     }),

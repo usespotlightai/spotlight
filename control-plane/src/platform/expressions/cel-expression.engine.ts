@@ -1,6 +1,9 @@
 import { Environment } from '@marcbachmann/cel-js';
 import { Injectable } from '@nestjs/common';
-import type { CelVariables } from '@platform/expressions/cel-variables';
+import {
+  type CelVariables,
+  sanitizedForCel,
+} from '@platform/expressions/cel-variables';
 import {
   ExpressionError,
   firstLine,
@@ -17,10 +20,19 @@ import { suggestionFor } from '@platform/expressions/suggestion';
 
 const LONGEST_EXPRESSION = 2_000;
 
-const PERMISSIVE = new Environment({
-  unlistedVariablesAreDyn: true,
-  homogeneousAggregateLiterals: false,
-});
+const withFunctions = (environment: Environment): Environment =>
+  environment.registerFunction(
+    'parseJson(string): dyn',
+    (text: string) => sanitizedForCel(JSON.parse(text)),
+    { description: 'Reads a JSON text as a value.' },
+  );
+
+const PERMISSIVE = withFunctions(
+  new Environment({
+    unlistedVariablesAreDyn: true,
+    homogeneousAggregateLiterals: false,
+  }),
+);
 
 const spanOf = (error: unknown): ExpressionSpan | null => {
   const range = (error as { range?: { start?: unknown; end?: unknown } })
@@ -100,10 +112,12 @@ export class CelExpressionEngine implements ExpressionEnginePort {
       return cached;
     }
 
-    const environment = new Environment({
-      unlistedVariablesAreDyn: false,
-      homogeneousAggregateLiterals: false,
-    });
+    const environment = withFunctions(
+      new Environment({
+        unlistedVariablesAreDyn: false,
+        homogeneousAggregateLiterals: false,
+      }),
+    );
 
     for (const [name, fields] of scope.types) {
       environment.registerType({ name, schema: fields });

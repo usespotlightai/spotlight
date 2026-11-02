@@ -12,6 +12,7 @@ import type {
 } from '@work/application/ports/channel-notices.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
+import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
@@ -120,6 +121,7 @@ describe('NotifyChannel', () => {
           { kind: 'slack.channel', value: 'C1' },
         ],
         body: 'They time out.',
+        proposals: [],
         chatId: 'chat_1',
         taskId: null,
       },
@@ -133,15 +135,30 @@ describe('NotifyChannel', () => {
 
     await handler.onRunCompleted(completed(chat, 'Here is a plan.'));
 
+    const listed = [
+      {
+        number: 1,
+        title: 'Back off exponentially',
+        line: 'Delivery',
+        station: 'Implementation',
+      },
+    ];
+
     expect(notify.mock.calls[0]?.[0].body).toBe(
-      ChannelReplies.answered('Here is a plan.', [
-        {
-          number: 1,
-          title: 'Back off exponentially',
-          line: 'Delivery',
-          station: 'Implementation',
-        },
-      ]),
+      ChannelReplies.answered('Here is a plan.', listed),
+    );
+    expect(notify.mock.calls[0]?.[0].proposals).toEqual(listed);
+  });
+
+  it('says when a run is dispatched for the chat', async () => {
+    const chat = started();
+    const { handler, notify } = notifying(chat);
+
+    await handler.onChatDispatched(new ChatDispatched(chat.id, RUN, []));
+
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({ body: '', chatId: 'chat_1', proposals: [] }),
+      'chat.dispatched',
     );
   });
 

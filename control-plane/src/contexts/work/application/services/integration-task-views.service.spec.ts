@@ -121,6 +121,8 @@ describe('IntegrationTaskViews', () => {
       taskId: 'task_1',
       workspaceId: 'ws_1',
       teamId: 'team_1',
+      title: 'Fix the queue',
+      pullRequest: null,
       line: 'delivery',
       station: 'Triage',
       stationKey: 'triage',
