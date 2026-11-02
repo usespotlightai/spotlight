@@ -3,7 +3,7 @@ import type { OnApplicationShutdown } from '@nestjs/common';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
 import { isAddress, unreachable } from '@platform/outbound/reachable-addresses';
 import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
-import { Agent, buildConnector, type Dispatcher } from 'undici';
+import { Agent, buildConnector, type Dispatcher, fetch } from 'undici';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -81,10 +81,13 @@ export class OutboundGuard implements OnApplicationShutdown {
 
     this.fetch = (async (url: Parameters<Fetch>[0], init?: RequestInit) => {
       try {
-        return await globalThis.fetch(url, {
-          ...init,
-          dispatcher: scoped,
-        } as RequestInit);
+        return await fetch(
+          url as Parameters<typeof fetch>[0],
+          {
+            ...init,
+            dispatcher: scoped,
+          } as Parameters<typeof fetch>[1],
+        );
       } catch (error) {
         throw blockedIn(error) ?? error;
       }
