@@ -26,12 +26,15 @@ import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
+import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -188,6 +191,13 @@ const toTask = (
       : null,
     createdBy: row.createdById ? UserId.of(row.createdById) : null,
     openedFrom: TaskOrigin.of(row.openedFrom),
+    proposedIn:
+      row.proposedInChatId !== null && row.proposedInPosition !== null
+        ? ProposalOrigin.of({
+            chatId: ChatId.of(row.proposedInChatId),
+            position: MessagePosition.of(row.proposedInPosition),
+          })
+        : null,
     assignee: row.assigneeId ? UserId.of(row.assigneeId) : null,
     finishedAt: row.finishedAt,
     revision: TaskRevision.of(row.revision),
@@ -239,6 +249,8 @@ export class DrizzleTaskRepository implements TaskRepository {
         originStationId: added.originStationId?.value ?? null,
         createdById: added.createdBy?.value ?? null,
         openedFrom: added.openedFrom.value,
+        proposedInChatId: added.proposedIn?.chatId.value ?? null,
+        proposedInPosition: added.proposedIn?.position.value ?? null,
         assigneeId: added.assignee?.value ?? null,
         pullRequest: added.pullRequest?.value ?? null,
         reviewing: added.reviewing,

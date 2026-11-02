@@ -25,6 +25,6 @@ export class EnqueueChatRun {
       return;
     }
 
-    await this.chats.save(chat.runEndedWithoutSession(event.runId));
+    await this.chats.save(chat.runNotStarted(event.runId));
   }
 }

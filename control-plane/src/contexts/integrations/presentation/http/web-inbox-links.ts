@@ -19,4 +19,30 @@ export class WebInboxLinks implements InboxLinksPort {
 
     return slug ? `${this.base}/w/${slug}/inbox/${conversationId}` : null;
   }
+
+  async chat(
+    workspaceId: string,
+    teamId: string,
+    chatId: string,
+  ): Promise<string | null> {
+    return this.inTeam(workspaceId, teamId, `agent/${chatId}`);
+  }
+
+  async task(
+    workspaceId: string,
+    teamId: string,
+    taskId: string,
+  ): Promise<string | null> {
+    return this.inTeam(workspaceId, teamId, `tasks/${taskId}`);
+  }
+
+  private async inTeam(
+    workspaceId: string,
+    teamId: string,
+    path: string,
+  ): Promise<string | null> {
+    const slug = await this.workspaces.slugOf(workspaceId);
+
+    return slug ? `${this.base}/w/${slug}/team/${teamId}/${path}` : null;
+  }
 }

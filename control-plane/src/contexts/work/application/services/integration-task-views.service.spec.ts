@@ -1,19 +1,27 @@
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ApprovalAsked } from '@work/application/rendering/approval-asked';
 import { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
+import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
+import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
+import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
+import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
+import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -72,12 +80,56 @@ const line = {
   stationAt: () => ({ name: { value: 'Triage' }, key: { value: 'triage' } }),
 } as unknown as Line;
 
-const taskViews = (found: Line | null = line) =>
-  new IntegrationTaskViews({
-    findByStation: async () => found,
-  } as unknown as LineRepository);
+const taskViews = (found: Line | null = line, from: Chat | null = null) =>
+  new IntegrationTaskViews(
+    {
+      findByStation: async () => found,
+    } as unknown as LineRepository,
+    { find: async () => from } as unknown as ChatRepository,
+  );
 
 describe('IntegrationTaskViews', () => {
+  it('addresses a task from a chat by the ambient marks of the chat, under its own marks', async () => {
+    const chat = Chat.start({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      startedBy: UserId.of('user_1'),
+      harness: HarnessId.of('claude-code'),
+      body: ChatMessageBody.fromInput('Why do retries fail?'),
+      marks: [
+        ChatMark.finding(Mark.of('slack.thread', 'C1:1700.1')),
+        ChatMark.ambient(Mark.of('slack.channel', 'C1')),
+        ChatMark.ambient(Mark.of('slack.thread_ts', '1700.1')),
+      ],
+      now: NOW,
+      newId: () => 'chat_1',
+    });
+
+    const proposed = Task.add({
+      line: delivery(),
+      at: StationId.of('station_1'),
+      title: TaskTitle.of('Fix the queue'),
+      rank: TaskRank.of('i'),
+      proposedIn: ProposalOrigin.of({
+        chatId: chat.id,
+        position: MessagePosition.of(1),
+      }),
+      now: NOW,
+      newId: () => 'task_1',
+    }).markedBy(Mark.of('slack.thread', '170.1'));
+
+    const view = await taskViews(line, chat).of(proposed);
+    const plain = await taskViews(line, chat).of(task());
+
+    expect(plain?.marks).toEqual({ 'slack.thread': '170.1' });
+
+    expect(view?.marks).toEqual({
+      'slack.channel': 'C1',
+      'slack.thread_ts': '1700.1',
+      'slack.thread': '170.1',
+    });
+  });
+
   it('says where a task is, in words an integration can use', async () => {
     await expect(taskViews().of(task())).resolves.toEqual({
       taskId: 'task_1',

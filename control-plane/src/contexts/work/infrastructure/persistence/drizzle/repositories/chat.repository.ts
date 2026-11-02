@@ -21,15 +21,18 @@ import { ChatVersionConflictError } from '@work/domain/exceptions/chat-version-c
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
+import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -44,14 +47,16 @@ import {
   type ChatSetupRow,
   chat,
   chatAttachment,
+  chatMark,
   chatMessage,
   type ProposalRow,
 } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, or } from 'drizzle-orm';
 
 type Row = typeof chat.$inferSelect;
 type MessageRow = typeof chatMessage.$inferSelect;
 type AttachmentRow = typeof chatAttachment.$inferSelect;
+type MarkRow = typeof chatMark.$inferSelect;
 
 const toProposal = (
   row: ProposalRow | null,
@@ -141,6 +146,7 @@ const toChat = (
   row: Row,
   messages: readonly MessageRow[],
   attachments: readonly AttachmentRow[],
+  marks: readonly MarkRow[],
 ): Chat =>
   Chat.rehydrate({
     id: ChatId.of(row.id),
@@ -174,6 +180,9 @@ const toChat = (
         })
       : null,
     messages: messages.map((each) => toMessage(each, attachments)),
+    marks: marks.map((each) =>
+      ChatMark.of(Mark.of(each.kind, each.value), each.finds),
+    ),
     currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
     sessionId: row.sessionId ? HarnessSession.of(row.sessionId) : null,
     runnerId: row.runnerId ? RunnerId.of(row.runnerId) : null,
@@ -224,6 +233,18 @@ export class DrizzleChatRepository implements ChatRepository {
       createdAt: added.createdAt,
     });
 
+    if (added.marks.length > 0) {
+      await this.context.db.insert(chatMark).values(
+        added.marks.map((each) => ({
+          workspaceId: added.workspaceId.value,
+          chatId: added.id.value,
+          kind: each.mark.kind,
+          value: each.mark.value,
+          finds: each.finds,
+        })),
+      );
+    }
+
     await this.writeMessages(added);
   }
 
@@ -263,10 +284,48 @@ export class DrizzleChatRepository implements ChatRepository {
       .where(eq(chat.id, id.value))
       .limit(1);
 
-    if (!found) {
+    return found ? this.whole(found) : null;
+  }
+
+  async findByMarks(
+    workspaceId: WorkspaceId,
+    correlationKeys: CorrelationKeys,
+  ): Promise<Chat | null> {
+    if (correlationKeys.marks.length === 0) {
       return null;
     }
 
+    const [marked] = await this.context.db
+      .select({ chatId: chatMark.chatId })
+      .from(chatMark)
+      .where(
+        and(
+          eq(chatMark.workspaceId, workspaceId.value),
+          eq(chatMark.finds, true),
+          or(
+            ...correlationKeys.marks.map((mark) =>
+              and(eq(chatMark.kind, mark.kind), eq(chatMark.value, mark.value)),
+            ),
+          ),
+        ),
+      )
+      .limit(1);
+
+    if (!marked) {
+      return null;
+    }
+
+    const [found] = await this.context.db
+      .select()
+      .from(chat)
+      .where(eq(chat.id, marked.chatId))
+      .limit(1)
+      .for('update');
+
+    return found ? this.whole(found) : null;
+  }
+
+  private async whole(found: Row): Promise<Chat> {
     const messages = await this.context.db
       .select()
       .from(chatMessage)
@@ -277,7 +336,12 @@ export class DrizzleChatRepository implements ChatRepository {
       .from(chatAttachment)
       .where(eq(chatAttachment.chatId, found.id));
 
-    return toChat(found, messages, attachments);
+    const marks = await this.context.db
+      .select()
+      .from(chatMark)
+      .where(eq(chatMark.chatId, found.id));
+
+    return toChat(found, messages, attachments, marks);
   }
 
   private async writeMessages(written: Chat): Promise<void> {

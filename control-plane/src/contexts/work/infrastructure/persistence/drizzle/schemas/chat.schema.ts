@@ -1,6 +1,8 @@
 import type { ChatMessageKind } from '@work/domain/entities/chat-message.entity';
 import type { ProposalState } from '@work/domain/entities/task-proposal.entity';
+import { sql } from 'drizzle-orm';
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -8,6 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export interface ProposalRow {
@@ -119,5 +122,24 @@ export const chatAttachment = pgTable(
   },
   (table) => [
     index('chat_attachment_chat_idx').on(table.chatId, table.messagePosition),
+  ],
+);
+
+export const chatMark = pgTable(
+  'chat_mark',
+  {
+    workspaceId: text('workspace_id').notNull(),
+    chatId: text('chat_id')
+      .notNull()
+      .references(() => chat.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    value: text('value').notNull(),
+    finds: boolean('finds').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.chatId, table.kind, table.value] }),
+    uniqueIndex('chat_mark_finding_uidx')
+      .on(table.workspaceId, table.kind, table.value)
+      .where(sql`${table.finds}`),
   ],
 );

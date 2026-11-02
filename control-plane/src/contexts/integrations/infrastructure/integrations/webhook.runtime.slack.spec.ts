@@ -95,8 +95,21 @@ on:
         value: '\${{ capture.thread }}'
 `;
 
-const compiled = (): ReadableIntegration => {
-  const read = compileIntegration(parseYaml(SLACK), expressions);
+const CHATTING = SLACK.replace(
+  `        opens:
+          lineRole: delivery
+          station: triage
+          title: '\${{ body.event.text }}'`,
+  `        message: '\${{ body.event.text }}'
+        opens:
+          chat:
+            by:
+              email: '\${{ "ada@example.com" }}'
+            harness: codex`,
+);
+
+const compiled = (file = SLACK): ReadableIntegration => {
+  const read = compileIntegration(parseYaml(file), expressions);
 
   if (!read.ok) {
     throw new Error(
@@ -107,9 +120,9 @@ const compiled = (): ReadableIntegration => {
   return read.readable;
 };
 
-const runtime = (secret: string | null = SIGNING) =>
+const runtime = (secret: string | null = SIGNING, file = SLACK) =>
   new WebhookRuntime(
-    compiled(),
+    compiled(file),
     WORKSPACE,
     signingFor(secret === null ? {} : { SLACK_SIGNING_SECRET: secret }),
     () => NOW * 1000,
@@ -202,6 +215,21 @@ describe('the Slack webhook runtime', () => {
       expect(read?.correlationKeys.marks).toEqual([
         { kind: 'slack.thread', value: 'C0REQ:170.1' },
       ]);
+    });
+
+    it('starts a chat from a mention, by the email of the person', async () => {
+      const [read] = await runtime(SIGNING, CHATTING).read(delivered(mention));
+
+      expect(read?.opens).toBeNull();
+      expect(read?.message?.body).toBe('do it');
+      expect(read?.chat).toEqual({
+        email: 'ada@example.com',
+        harness: 'codex',
+        marks: [
+          { kind: 'slack.thread', value: 'C0REQ:170.1', finds: true },
+          { kind: 'slack.channel', value: 'C0REQ', finds: false },
+        ],
+      });
     });
 
     it('has an ambient mark without finding a task by it', async () => {

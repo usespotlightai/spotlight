@@ -143,6 +143,10 @@ export interface RaiseIR {
     readonly description: Expression | null;
     readonly assignBy: { readonly email: Expression } | null;
   } | null;
+  readonly chat: {
+    readonly by: { readonly email: Expression };
+    readonly harness: string | null;
+  } | null;
   readonly branch: Expression | null;
   readonly marks: readonly {
     kind: MarkKind;
@@ -327,7 +331,7 @@ class Compiler {
     const happening = this.part(where.to('raise', 'happening'), () =>
       integration.claim(HappeningName.of(event.raise.happening)),
     );
-    const opens = event.raise.opens;
+    const opens = linesOpened(event.raise);
     const opening = opens
       ? this.part(where.to('raise', 'opens'), () =>
           Opening.of({
@@ -699,34 +703,48 @@ class Compiler {
   }
 
   raise(raise: RaiseFile, place: Place): RaiseIR {
+    const opens = linesOpened(raise);
+    const chat = chatOpened(raise);
+
     return {
       happening: raise.happening,
       answers: raise.answers,
       message: raise.message
         ? this.expression(raise.message, place.to('message'))
         : null,
-      opens: raise.opens
+      opens: opens
         ? {
-            lineRole: raise.opens.lineRole,
-            station: raise.opens.station ?? null,
+            lineRole: opens.lineRole,
+            station: opens.station ?? null,
             title: this.expression(
-              raise.opens.title,
+              opens.title,
               place.to('opens.title'),
             ) as Expression,
-            description: raise.opens.description
+            description: opens.description
               ? this.expression(
-                  raise.opens.description,
+                  opens.description,
                   place.to('opens.description'),
                 )
               : null,
-            assignBy: raise.opens.assignBy
+            assignBy: opens.assignBy
               ? {
                   email: this.expression(
-                    raise.opens.assignBy.email,
+                    opens.assignBy.email,
                     place.to('opens.assignBy.email'),
                   ) as Expression,
                 }
               : null,
+          }
+        : null,
+      chat: chat
+        ? {
+            by: {
+              email: this.expression(
+                chat.by.email,
+                place.to('opens.chat.by.email'),
+              ) as Expression,
+            },
+            harness: chat.harness ?? null,
           }
         : null,
       branch: raise.branch
@@ -1353,6 +1371,22 @@ const hintProblemsOf = (
     }),
   );
 };
+
+type LinesOpened = Extract<
+  NonNullable<RaiseFile['opens']>,
+  { lineRole: string }
+>;
+
+type ChatOpened = Extract<
+  NonNullable<RaiseFile['opens']>,
+  { chat: unknown }
+>['chat'];
+
+const linesOpened = (raise: RaiseFile): LinesOpened | null =>
+  raise.opens && 'lineRole' in raise.opens ? raise.opens : null;
+
+const chatOpened = (raise: RaiseFile): ChatOpened | null =>
+  raise.opens && 'chat' in raise.opens ? raise.opens.chat : null;
 
 export class IntegrationCompiler implements IntegrationCompilerPort {
   constructor(private readonly expressions: ExpressionEnginePort) {}

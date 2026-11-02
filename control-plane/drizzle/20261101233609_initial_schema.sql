@@ -1531,6 +1531,15 @@ CREATE TABLE "chat_attachment" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "chat_mark" (
+	"workspace_id" text NOT NULL,
+	"chat_id" text NOT NULL,
+	"kind" text NOT NULL,
+	"value" text NOT NULL,
+	"finds" boolean NOT NULL,
+	CONSTRAINT "chat_mark_chat_id_kind_value_pk" PRIMARY KEY("chat_id","kind","value")
+);
+--> statement-breakpoint
 CREATE TABLE "chat_message" (
 	"chat_id" text NOT NULL,
 	"position" integer NOT NULL,
@@ -1826,6 +1835,8 @@ CREATE TABLE "task" (
 	"origin_station_id" text,
 	"created_by_id" text,
 	"opened_from" text NOT NULL,
+	"proposed_in_chat_id" text,
+	"proposed_in_position" integer,
 	"assignee_id" text,
 	"current_run_id" text,
 	"session_id" text,
@@ -1930,6 +1941,7 @@ ALTER TABLE "secret_value" ADD CONSTRAINT "secret_value_secret_id_secret_id_fk" 
 ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_chat_id_chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "chat_attachment" ADD CONSTRAINT "chat_attachment_chat_id_chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "chat_mark" ADD CONSTRAINT "chat_mark_chat_id_chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "chat_message" ADD CONSTRAINT "chat_message_chat_id_chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "inbox_request" ADD CONSTRAINT "inbox_request_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "inbox_request_read" ADD CONSTRAINT "inbox_request_read_inbox_request_id_inbox_request_id_fk" FOREIGN KEY ("inbox_request_id") REFERENCES "public"."inbox_request"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -2116,6 +2128,7 @@ CREATE INDEX "attachment_claim_task_idx" ON "attachment_claim" USING btree ("tas
 CREATE INDEX "attachment_claim_chat_idx" ON "attachment_claim" USING btree ("chat_id");--> statement-breakpoint
 CREATE INDEX "chat_team_starter_idx" ON "chat" USING btree ("team_id","started_by_id","updated_at");--> statement-breakpoint
 CREATE INDEX "chat_attachment_chat_idx" ON "chat_attachment" USING btree ("chat_id","message_position");--> statement-breakpoint
+CREATE UNIQUE INDEX "chat_mark_finding_uidx" ON "chat_mark" USING btree ("workspace_id","kind","value") WHERE "chat_mark"."finds";--> statement-breakpoint
 CREATE UNIQUE INDEX "inbox_request_about_idx" ON "inbox_request" USING btree ("task_id","form","about");--> statement-breakpoint
 CREATE INDEX "inbox_request_workspace_idx" ON "inbox_request" USING btree ("workspace_id","resolved_at");--> statement-breakpoint
 CREATE INDEX "line_team_idx" ON "line" USING btree ("team_id");--> statement-breakpoint

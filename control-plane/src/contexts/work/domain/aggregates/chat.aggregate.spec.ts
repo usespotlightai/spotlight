@@ -23,6 +23,7 @@ import { UnknownStationError } from '@work/domain/exceptions/unknown-station.err
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
+import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
@@ -30,6 +31,7 @@ import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -102,6 +104,51 @@ const proposing = () => {
 };
 
 describe('Chat', () => {
+  it('comes from a channel when it wears the marks it was started with', () => {
+    const thread = Mark.of('slack.thread', 'C1:1700.1');
+    const channel = Mark.of('slack.channel', 'C1');
+    const chat = Chat.start({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      startedBy: LEON,
+      harness: HarnessId.of('claude-code'),
+      body: ChatMessageBody.fromInput('Why do retries fail?'),
+      marks: [ChatMark.finding(thread), ChatMark.ambient(channel)],
+      now: NOW,
+      newId: () => 'chat_1',
+    });
+
+    expect(chat.fromChannel).toBe(true);
+    expect(chat.ambientMarks).toEqual([channel]);
+    expect(started().fromChannel).toBe(false);
+  });
+
+  it('says when its run could not start, and wants following up', () => {
+    const chat = working().runNotStarted(RunId.of('run_1'));
+
+    expect(chat.running).toBe(false);
+    expect(chat.wantsFollowUp).toBe(true);
+    expect(chat.pullEvents().map((each) => each.kind)).toEqual([
+      'chat.run-not-started',
+    ]);
+  });
+
+  it('numbers its proposals for good, and lists only the open ones', () => {
+    const chat = proposing().dismiss(SECOND, LEON, LATER);
+
+    expect(chat.proposals.map((each) => each.number)).toEqual([1]);
+    expect(chat.openProposals).toEqual([]);
+  });
+
+  it('lists only its open proposals', () => {
+    const chat = proposing();
+
+    expect(chat.openProposals.map((each) => each.proposal.title.value)).toEqual(
+      ['Back off exponentially'],
+    );
+    expect(chat.dismiss(SECOND, LEON, LATER).openProposals).toHaveLength(0);
+  });
+
   it('is named by the first line of what opened it, and says it started', () => {
     const chat = started();
 

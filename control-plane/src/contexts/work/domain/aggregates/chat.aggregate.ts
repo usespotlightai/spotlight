@@ -13,6 +13,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import { ChatMessage } from '@work/domain/entities/chat-message.entity';
 import type { TaskProposal } from '@work/domain/entities/task-proposal.entity';
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
@@ -28,11 +29,13 @@ import { TraceAccess } from '@work/domain/services/trace-access';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import type { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import type { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
@@ -41,6 +44,11 @@ import type { TargetStation } from '@work/domain/value-objects/target-station.vo
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import type { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
+
+export interface NumberedProposal {
+  readonly number: number;
+  readonly proposal: TaskProposal;
+}
 
 export interface ChatAfterRun {
   readonly chat: Chat;
@@ -61,6 +69,7 @@ export class Chat extends EventRecorder {
     readonly targetStation: TargetStation | null,
     readonly setup: ConfigFolder | null,
     readonly messages: readonly ChatMessage[],
+    readonly marks: readonly ChatMark[],
     readonly currentRunId: RunId | null,
     readonly sessionId: HarnessSession | null,
     readonly runnerId: RunnerId | null,
@@ -83,6 +92,7 @@ export class Chat extends EventRecorder {
     traces?: readonly TraceReference[];
     targetStation?: TargetStation | null;
     setup?: ConfigFolder | null;
+    marks?: readonly ChatMark[];
     now: Date;
     newId: () => string;
   }): Chat {
@@ -114,6 +124,7 @@ export class Chat extends EventRecorder {
       input.targetStation ?? null,
       input.setup ?? null,
       [opening],
+      input.marks ?? [],
       null,
       null,
       null,
@@ -147,6 +158,7 @@ export class Chat extends EventRecorder {
     targetStation?: TargetStation | null;
     setup?: ConfigFolder | null;
     messages: readonly ChatMessage[];
+    marks?: readonly ChatMark[];
     currentRunId: RunId | null;
     sessionId: HarnessSession | null;
     runnerId: RunnerId | null;
@@ -172,6 +184,7 @@ export class Chat extends EventRecorder {
       input.targetStation ?? null,
       input.setup ?? null,
       input.messages,
+      input.marks ?? [],
       input.currentRunId,
       input.sessionId,
       input.runnerId,
@@ -231,6 +244,24 @@ export class Chat extends EventRecorder {
     const named = this.repositoryNamed(name);
 
     return named && this.setup?.repository.equals(named) ? named : null;
+  }
+
+  get fromChannel(): boolean {
+    return this.marks.length > 0;
+  }
+
+  get ambientMarks(): readonly Mark[] {
+    return this.marks.filter((each) => !each.finds).map((each) => each.mark);
+  }
+
+  get proposals(): readonly NumberedProposal[] {
+    return this.messages
+      .flatMap((message) => (message.proposal ? [message.proposal] : []))
+      .map((proposal, at) => ({ number: at + 1, proposal }));
+  }
+
+  get openProposals(): readonly NumberedProposal[] {
+    return this.proposals.filter((each) => each.proposal.isOpen);
   }
 
   addMessage(input: {
@@ -342,6 +373,18 @@ export class Chat extends EventRecorder {
         message.wasAcknowledgedBy(runId) ? message.unacknowledge() : message,
       ),
     });
+  }
+
+  runNotStarted(runId: RunId): Chat {
+    if (!this.hasCurrentRun(runId)) {
+      return this;
+    }
+
+    const next = this.runEndedWithoutSession(runId);
+
+    next.record(new ChatRunNotStarted(this.id, runId));
+
+    return next;
   }
 
   runEnded(
@@ -555,6 +598,7 @@ export class Chat extends EventRecorder {
       this.targetStation,
       part.setup !== undefined ? part.setup : this.setup,
       part.messages ?? this.messages,
+      this.marks,
       part.currentRunId !== undefined ? part.currentRunId : this.currentRunId,
       part.sessionId !== undefined ? part.sessionId : this.sessionId,
       part.runnerId !== undefined ? part.runnerId : this.runnerId,

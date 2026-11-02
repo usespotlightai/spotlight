@@ -7,6 +7,7 @@ import type {
 } from '@work/application/contracts/happenings.contract';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
+import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import {
   Happening,
@@ -28,7 +29,14 @@ export interface ReceivedHappening {
   readonly anchor: Anchor | null;
   readonly ourOwn: boolean;
   readonly opens: OpensWith | null;
+  readonly chat: StartsChat | null;
   readonly attachments: readonly Arriving[];
+}
+
+export interface StartsChat {
+  readonly email: string | null;
+  readonly harness: string | null;
+  readonly marks: readonly ChatMark[];
 }
 
 const reviewOf = (
@@ -85,6 +93,15 @@ export const HappenedMapper = {
             assignEmail: opens.assignEmail,
             marks: opens.marks.map(HappenedMapper.markOf),
             review: reviewOf(opens.review),
+          }
+        : null,
+      chat: happened.chat
+        ? {
+            email: happened.chat.email?.trim() || null,
+            harness: happened.chat.harness,
+            marks: happened.chat.marks.map((each) =>
+              ChatMark.of(HappenedMapper.markOf(each), each.finds),
+            ),
           }
         : null,
       attachments: happened.attachments ?? [],

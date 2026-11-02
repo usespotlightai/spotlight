@@ -12,6 +12,7 @@ import {
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { SecretsModule } from '@secrets/secrets.module';
+import { CHANNEL_NOTICES } from '@work/application/ports/channel-notices.port';
 import { INTEGRATION_TOOL_CALLS } from '@work/application/ports/integration-tool-calls.port';
 import { LIFECYCLE_HOOKS } from '@work/application/ports/lifecycle-hooks.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
@@ -35,6 +36,7 @@ import { WorkModule } from '@work/work.module';
     INTEGRATION_CONFIGS,
     HOOK_CONFIGS,
     TASK_NOTICES,
+    CHANNEL_NOTICES,
     INTEGRATION_TOOL_CALLS,
     LIFECYCLE_HOOKS,
   ],

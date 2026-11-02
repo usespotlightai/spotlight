@@ -101,6 +101,13 @@ export interface TaskPayload {
   };
 }
 
+export interface ChatPayload {
+  readonly chat: { readonly marks: Readonly<Record<string, string>> };
+  readonly reply: { readonly body: string; readonly link: string | null };
+}
+
+export type NoticePayload = TaskPayload | ChatPayload;
+
 export type PostResult =
   | { readonly kind: 'posted'; readonly marks: readonly TaskMark[] }
   | { readonly kind: 'unaddressed' }
@@ -146,7 +153,7 @@ export interface IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     integration: Integration,
     event: string,
-    payload: TaskPayload,
+    payload: NoticePayload,
     callAuth: CallAuth,
   ): Promise<PostResult>;
 

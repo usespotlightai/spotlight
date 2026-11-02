@@ -1,5 +1,5 @@
 {
-  "id": "4e8b3c27-346e-4f15-8813-e1a1f310ce61",
+  "id": "53f47751-065b-4b74-93d1-e8ace91ca4c2",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -12598,6 +12598,101 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.chat_mark": {
+      "name": "chat_mark",
+      "schema": "",
+      "columns": {
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chat_id": {
+          "name": "chat_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value": {
+          "name": "value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "finds": {
+          "name": "finds",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "chat_mark_finding_uidx": {
+          "name": "chat_mark_finding_uidx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "value",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"chat_mark\".\"finds\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "chat_mark_chat_id_chat_id_fk": {
+          "name": "chat_mark_chat_id_chat_id_fk",
+          "tableFrom": "chat_mark",
+          "tableTo": "chat",
+          "columnsFrom": [
+            "chat_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "chat_mark_chat_id_kind_value_pk": {
+          "name": "chat_mark_chat_id_kind_value_pk",
+          "columns": [
+            "chat_id",
+            "kind",
+            "value"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.chat_message": {
       "name": "chat_message",
       "schema": "",
@@ -15199,6 +15294,18 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "proposed_in_chat_id": {
+          "name": "proposed_in_chat_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "proposed_in_position": {
+          "name": "proposed_in_position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "assignee_id": {
           "name": "assignee_id",

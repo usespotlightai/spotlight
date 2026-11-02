@@ -46,6 +46,16 @@ interface OpensPayload {
   readonly review?: ReviewPayload | null;
 }
 
+interface StartsChatPayload {
+  readonly email: string | null;
+  readonly harness: string | null;
+  readonly marks: readonly ChatMarkPayload[];
+}
+
+export interface ChatMarkPayload extends TaskMark {
+  readonly finds: boolean;
+}
+
 export interface Arriving {
   readonly name: string;
   readonly contentType: string | null;
@@ -62,5 +72,6 @@ export interface Happened {
   readonly message: MessagePayload | null;
   readonly ourOwn: boolean;
   readonly opens: OpensPayload | null;
+  readonly chat?: StartsChatPayload | null;
   readonly attachments?: readonly Arriving[];
 }

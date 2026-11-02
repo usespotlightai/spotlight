@@ -17,6 +17,10 @@ import type { AttachmentStorePort } from '@work/application/ports/attachment-sto
 import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import {
+  ChannelChats,
+  type ChannelRefusal,
+} from '@work/application/services/channel-chats.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { reassignTaskMarks } from '@work/application/services/task-marks';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
@@ -55,6 +59,7 @@ const identityOf = (happened: Happened): string =>
     happened.correlationKeys,
     happened.message,
     happened.opens,
+    happened.chat,
     (happened.attachments ?? []).map((each) => each.name),
   ]);
 
@@ -71,6 +76,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     private readonly files: AttachmentStorePort,
     private readonly processed: ProcessedEventsPort,
     private readonly logger: LoggerPort,
+    private readonly channels: ChannelChats,
   ) {}
 
   async react(
@@ -96,18 +102,16 @@ export class ReactToHappenings implements HappeningReactionsPort {
         happened.attachments,
       );
 
-      await this.transaction.inTransaction(async () => {
-        if (
-          !key ||
-          (await this.processed.markProcessed(
-            workspaceId,
-            key,
-            this.clock.now(),
-          ))
-        ) {
-          await this.reactTo(workspaceId, teamId, happened, attachments);
-        }
-      });
+      const refusal = await this.transaction.inTransaction(async () =>
+        !key ||
+        (await this.processed.markProcessed(workspaceId, key, this.clock.now()))
+          ? this.reactTo(workspaceId, teamId, happened, attachments)
+          : null,
+      );
+
+      if (refusal) {
+        await this.channels.refuse(refusal);
+      }
     }
   }
 
@@ -174,7 +178,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     teamId: TeamId | null,
     happened: ReceivedHappening,
     attachments: readonly Attachment[],
-  ): Promise<void> {
+  ): Promise<ChannelRefusal | null> {
     if (happened.opens?.review) {
       await this.reviewRequested(
         workspaceId,
@@ -184,7 +188,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
         attachments,
       );
 
-      return;
+      return null;
     }
 
     const task = await this.tasks.findByMarks(
@@ -192,13 +196,25 @@ export class ReactToHappenings implements HappeningReactionsPort {
       happened.correlationKeys,
     );
 
-    if (!task) {
-      await this.opened(workspaceId, teamId, happened, attachments);
+    if (task) {
+      await this.receivedBy(
+        task,
+        ChannelChats.reaches(happened)
+          ? { ...happened, anchor: null }
+          : happened,
+        attachments,
+      );
 
-      return;
+      return null;
     }
 
-    await this.receivedBy(task, happened, attachments);
+    if (ChannelChats.reaches(happened)) {
+      return this.channels.reached(workspaceId, teamId, happened, attachments);
+    }
+
+    await this.opened(workspaceId, teamId, happened, attachments);
+
+    return null;
   }
 
   private async receivedBy(

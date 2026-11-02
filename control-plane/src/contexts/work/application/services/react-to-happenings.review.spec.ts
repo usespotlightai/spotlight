@@ -17,6 +17,7 @@ import {
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import type { ChannelChats } from '@work/application/services/channel-chats.service';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -38,6 +39,11 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
+
+const channels = {
+  reached: async () => null,
+  refuse: async () => {},
+} as unknown as ChannelChats;
 
 const NOW = new Date('2026-09-18T12:00:00.000Z');
 const PULL = 'https://github.com/acme/api/pull/7';
@@ -203,6 +209,7 @@ const world = (input: {
     files,
     processedEventsInMemory(),
     logger,
+    channels,
   );
 
   let deliveries = 0;
