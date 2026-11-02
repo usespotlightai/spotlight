@@ -73,6 +73,7 @@ const completed = () =>
             dependsOn: [],
             hunks: [{ hunk: HunkId.of('h1') }],
             notes: [{ path: 'schema.ts', note: 'Why' }],
+            questions: [],
           },
         ],
       },

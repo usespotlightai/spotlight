@@ -3733,6 +3733,36 @@ export type FileNoteResponseDto = {
   note: string;
 };
 
+export type QuestionAnswerResponseDto = {
+  questionId: string;
+  /**
+   * What the reviewer answered; null when they did not know
+   */
+  reply: string | null;
+  verdict: 'right' | 'partly-right' | 'missed';
+  /**
+   * What the answer missed or got wrong, or one fact it left out
+   */
+  feedback: string | null;
+  /**
+   * The answer that Spotlight expected
+   */
+  expected: string;
+};
+
+export type LayerQuestionResponseDto = {
+  id: string;
+  question: string;
+  /**
+   * The hunks that show the answer
+   */
+  hunks: Array<string>;
+  /**
+   * The caller’s answer, with the expected answer; null until the caller answers
+   */
+  answered: QuestionAnswerResponseDto | null;
+};
+
 export type StackLayerResponseDto = {
   id: string;
   title: string;
@@ -3742,6 +3772,10 @@ export type StackLayerResponseDto = {
    * One note per file the layer touches; empty for incidental changes
    */
   notes: Array<FileNoteResponseDto>;
+  /**
+   * Questions that test whether the reviewer understood the layer; empty for incidental changes
+   */
+  questions: Array<LayerQuestionResponseDto>;
 };
 
 export type StackCohortResponseDto = {
@@ -3794,6 +3828,13 @@ export type RunChangeStacksResponseDto = {
    * Newest first
    */
   stacks: Array<ChangeStackResponseDto>;
+};
+
+export type AnswerQuestionRequestDto = {
+  /**
+   * The answer in the reviewer’s own words; null to say they do not know
+   */
+  reply: string | null;
 };
 
 export type LatestChangeStackResponseDto = {
@@ -15691,6 +15732,43 @@ export type ListRunChangeStacksResponses = {
 };
 
 export type ListRunChangeStacksResponse = ListRunChangeStacksResponses[keyof ListRunChangeStacksResponses];
+
+export type AnswerStackQuestionData = {
+  body: AnswerQuestionRequestDto;
+  path: {
+    teamId: string;
+    runId: string;
+    stackId: string;
+    questionId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}/change-stacks/{stackId}/questions/{questionId}/answers';
+};
+
+export type AnswerStackQuestionErrors = {
+  /**
+   * The reply is not words or null, or it is too long
+   */
+  400: unknown;
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such change stack or question for this caller
+   */
+  404: unknown;
+  /**
+   * The caller already answered it
+   */
+  409: unknown;
+};
+
+export type AnswerStackQuestionResponses = {
+  201: QuestionAnswerResponseDto;
+};
+
+export type AnswerStackQuestionResponse = AnswerStackQuestionResponses[keyof AnswerStackQuestionResponses];
 
 export type ReadTaskChangeStackData = {
   body?: never;

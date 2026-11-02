@@ -28,6 +28,13 @@ interface StoredNote {
   readonly note: string;
 }
 
+interface StoredQuestion {
+  readonly id: string;
+  readonly question: string;
+  readonly answer: string;
+  readonly hunks: readonly string[];
+}
+
 interface StoredLayer {
   readonly id: string;
   readonly title: string;
@@ -38,6 +45,7 @@ interface StoredLayer {
   }[];
   readonly hunks: readonly { readonly hunk: string }[];
   readonly notes: readonly StoredNote[];
+  readonly questions?: readonly StoredQuestion[];
 }
 
 export interface StoredCohort {

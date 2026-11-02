@@ -58,6 +58,7 @@ const ready = () =>
             dependsOn: [],
             hunks: [{ hunk: HunkId.of('h1') }],
             notes: [{ path: 'a.ts', note: 'Adds labels' }],
+            questions: [],
           },
         ],
       },

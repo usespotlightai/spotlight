@@ -1,6 +1,7 @@
 import type { RequestHandler } from 'msw';
 import type {
   AddTaskRequestDto,
+  AnswerQuestionRequestDto,
   AssignTaskRequestDto,
   AttachmentResponseDto,
   GrantAttachmentUploadRequestDto,
@@ -15,6 +16,7 @@ import { SAM } from '@/mocks/world/people';
 import { runNetworkOf } from '@/mocks/world/run-network';
 import {
   addMessage,
+  answerStackQuestion,
   changeStacksOf,
   conversationOf,
   findTask,
@@ -204,6 +206,28 @@ export const workHandlers: RequestHandler[] = [
       ? json({ stacks: changeStacksOf(located.run.id) })
       : notFound();
   }),
+
+  api.post(
+    '/teams/:teamId/runs/:runId/change-stacks/:stackId/questions/:questionId/answers',
+    async ({ params, request }) => {
+      const located = locateRun(String(params.teamId), String(params.runId));
+
+      if (!located) {
+        return notFound();
+      }
+
+      const body = (await request.json()) as AnswerQuestionRequestDto;
+
+      return json(
+        answerStackQuestion(
+          String(params.stackId),
+          String(params.questionId),
+          body.reply,
+        ),
+        201,
+      );
+    },
+  ),
 
   api.get('/teams/:teamId/runs/:runId/memories', ({ params }) => {
     const located = locateRun(String(params.teamId), String(params.runId));

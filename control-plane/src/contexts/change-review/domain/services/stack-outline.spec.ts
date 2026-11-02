@@ -16,6 +16,7 @@ import {
   CohortId,
   HunkId,
   LayerId,
+  QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
 import { describe, expect, it } from 'vitest';
 
@@ -168,6 +169,7 @@ describe('StackOutline', () => {
         { path: 'src/invite.ts', note: 'Adds the function.' },
         { path: 'src/routes.ts', note: 'Mounts it.' },
       ],
+      questions: [],
     };
 
     expect(StackOutline.layered(part, outlined, [layer])).toEqual({
@@ -202,6 +204,17 @@ describe('StackOutline', () => {
             : [],
         hunks: [{ hunk: HunkId.at(place) }],
         notes: [{ path: 'src/invite.ts', note: 'Why it changes' }],
+        questions:
+          place === 2
+            ? [
+                {
+                  id: QuestionId.in(LayerId.in(c1, 2), 1),
+                  question: 'What happens to a pending invite?',
+                  answer: 'It expires.',
+                  hunks: [HunkId.at(1)],
+                },
+              ]
+            : [],
       })),
     };
 
@@ -210,7 +223,16 @@ describe('StackOutline', () => {
       joinedBecause: 'One feature',
       layers: [
         { dependsOn: [] },
-        { dependsOn: [{ layer: 1, because: ['invite'] }] },
+        {
+          dependsOn: [{ layer: 1, because: ['invite'] }],
+          questions: [
+            {
+              question: 'What happens to a pending invite?',
+              answer: 'It expires.',
+              hunks: ['h1'],
+            },
+          ],
+        },
       ],
     });
   });

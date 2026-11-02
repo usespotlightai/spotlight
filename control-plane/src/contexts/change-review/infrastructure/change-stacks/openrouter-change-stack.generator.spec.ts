@@ -40,6 +40,13 @@ const COHORTS = [
             note: 'Adds the function that sends an invitation.',
           },
         ],
+        questions: [
+          {
+            question: 'What happens when the address is already a member?',
+            answer: 'It sends no invitation and answers 409.',
+            hunks: ['h1', 'H7 '],
+          },
+        ],
       },
     ],
   },
@@ -118,6 +125,13 @@ describe('OpenRouterChangeStackGenerator', () => {
                 note: 'Adds the function that sends an invitation.',
               },
             ],
+            questions: [
+              {
+                question: 'What happens when the address is already a member?',
+                answer: 'It sends no invitation and answers 409.',
+                hunks: ['h1'],
+              },
+            ],
           },
         ],
       },
@@ -148,8 +162,17 @@ describe('OpenRouterChangeStackGenerator', () => {
       type: 'string',
     });
     expect(layer.properties.files.items.required).toEqual(['path', 'note']);
+    expect(layer.required).toContain('questions');
+    expect(layer.properties.questions.items.required).toEqual([
+      'question',
+      'answer',
+      'hunks',
+    ]);
     expect(body.messages[0].content).toContain(
       'exactly one entry in "files" for every file its ranges touch',
+    );
+    expect(body.messages[0].content).toContain(
+      'No tool finds the answer: the compiler, the linter and the existing tests cannot answer it.',
     );
     expect(body.messages[1].content).toContain('Repository: web');
     expect(body.messages[1].content).toContain('- leaves h2 out');

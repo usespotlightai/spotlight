@@ -156,6 +156,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
               note: 'Adds the invitation table. The token is unique, so accepting can look an invitation up by token alone.',
             },
           ],
+          questions: [],
         },
         {
           id: 'c1.l2',
@@ -173,6 +174,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
               note: 'Adds the email an invited person receives, carrying the link that accepts the invitation.',
             },
           ],
+          questions: [],
         },
         {
           id: 'c1.l3',
@@ -186,6 +188,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
               note: 'Shows admins the invite form on the members page, and lists invitations still waiting to be accepted.',
             },
           ],
+          questions: [],
         },
       ],
     },
@@ -201,6 +204,7 @@ export const INVITATIONS: ChangeStackResponseDto = {
           summary: 'A patch release of zod, with no code depending on it.',
           hunks: [{ hunk: 'h5' }],
           notes: [],
+          questions: [],
         },
       ],
     },
@@ -253,6 +257,7 @@ export const LARGE_FILE: ChangeStackResponseDto = {
                       note: 'Regenerates the API client for the new endpoints.',
                     },
                   ],
+                  questions: [],
                 }
               : layer,
           ),

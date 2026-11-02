@@ -142,6 +142,7 @@ const oneLayer = ({ part }: CohortLayersRequest): ProposedLayer[] => [
       path: file.path,
       note: 'Why it changes',
     })),
+    questions: [],
   },
 ];
 
@@ -156,6 +157,7 @@ const splitInTwo = ({ part }: CohortLayersRequest): ProposedLayer[] => {
       file.hunks.map((hunk) => ({ hunk: hunk.id })),
     ),
     notes: files.map((file) => ({ path: file.path, note: 'Why it changes' })),
+    questions: [],
   }));
 };
 
@@ -192,6 +194,7 @@ const cohort = (
         path: paths[Number(hunk.slice(1)) - 1] ?? hunk,
         note: 'Why it changes',
       })),
+      questions: [],
     },
   ],
 });
@@ -808,6 +811,7 @@ describe('RedraftChangeStack', () => {
         dependsOn: [],
         hunks: [{ hunk: HunkId.of('h1') }],
         notes: [{ path: 'schema.ts', note: 'Adds the table' }],
+        questions: [],
       },
       {
         title: 'Add the endpoint',
@@ -815,6 +819,7 @@ describe('RedraftChangeStack', () => {
         dependsOn: [],
         hunks: [{ hunk: HunkId.of('h2') }],
         notes: [{ path: 'api.ts', note: 'Adds the endpoint' }],
+        questions: [],
       },
     ],
   };

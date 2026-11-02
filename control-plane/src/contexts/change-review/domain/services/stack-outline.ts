@@ -33,6 +33,7 @@ const asOneLayer = (cohort: OutlinedCohort): ProposedCohort => ({
       dependsOn: [],
       hunks: cohort.hunks.map((hunk) => ({ hunk })),
       notes: [],
+      questions: [],
     },
   ],
 });
@@ -161,6 +162,11 @@ export const StackOutline = {
         }),
         hunks: layer.hunks.map((entry) => ({ hunk: entry.hunk })),
         notes: layer.notes.map((note) => ({ ...note })),
+        questions: layer.questions.map(({ question, answer, hunks }) => ({
+          question,
+          answer,
+          hunks: [...hunks],
+        })),
       })),
     };
   },

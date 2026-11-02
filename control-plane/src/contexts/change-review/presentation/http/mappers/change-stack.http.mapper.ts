@@ -1,6 +1,7 @@
 import type {
   ChangeStackDto,
   CheckedStepDto,
+  QuestionAnswerDto,
   RunChangeStacksDto,
   StackCheckDto,
 } from '@change-review/application/dto/change-stack.dto';
@@ -10,6 +11,8 @@ import {
   DiffFileResponseDto,
   DiffHunkResponseDto,
   FileNoteResponseDto,
+  LayerQuestionResponseDto,
+  QuestionAnswerResponseDto,
   RunChangeStacksResponseDto,
   StackCheckResponseDto,
   StackCohortResponseDto,
@@ -23,6 +26,15 @@ const stepOf = (step: CheckedStepDto): CheckedStepResponseDto =>
     step.passed,
     step.output,
     step.durationMs,
+  );
+
+const answerOf = (answer: QuestionAnswerDto): QuestionAnswerResponseDto =>
+  new QuestionAnswerResponseDto(
+    answer.questionId,
+    answer.reply,
+    answer.verdict,
+    answer.feedback,
+    answer.expected,
   );
 
 const checkOf = (check: StackCheckDto): StackCheckResponseDto =>
@@ -79,6 +91,15 @@ const toStack = (stack: ChangeStackDto): ChangeStackResponseDto =>
                 layer.notes.map(
                   (each) => new FileNoteResponseDto(each.path, each.note),
                 ),
+                layer.questions.map(
+                  (each) =>
+                    new LayerQuestionResponseDto(
+                      each.id,
+                      each.question,
+                      each.hunks,
+                      each.answered && answerOf(each.answered),
+                    ),
+                ),
               ),
           ),
         ),
@@ -87,6 +108,8 @@ const toStack = (stack: ChangeStackDto): ChangeStackResponseDto =>
   );
 
 export const ChangeStackHttpMapper = {
+  toAnswer: answerOf,
+
   toResponse(found: RunChangeStacksDto): RunChangeStacksResponseDto {
     return new RunChangeStacksResponseDto(found.stacks.map(toStack));
   },

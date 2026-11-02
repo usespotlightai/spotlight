@@ -10,7 +10,9 @@ import {
 } from '@change-review/domain/services/fact-rules';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
+  asksQuestions,
   type LayerDependency,
+  MAX_QUESTIONS,
   needsFileNotes,
   type ProposedCohort,
   type ProposedLayer,
@@ -19,6 +21,7 @@ import {
 import {
   CohortId,
   LayerId,
+  QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
 
 export const MAX_TITLE = 120;
@@ -67,6 +70,35 @@ const noteProblems = (
   }
 
   return problems;
+};
+
+const keptQuestions = (
+  cohort: ProposedCohort,
+  l: number,
+): ProposedLayer['questions'] => {
+  const layer = cohort.layers[l];
+
+  if (!layer || !asksQuestions(cohort.kind)) {
+    return [];
+  }
+
+  const shown = new Set(
+    cohort.layers
+      .slice(0, l + 1)
+      .flatMap((each) => each.hunks.map((entry) => entry.hunk)),
+  );
+
+  return layer.questions
+    .filter(
+      (each) =>
+        each.question.trim() &&
+        each.question.length <= MAX_PROSE &&
+        each.answer.trim() &&
+        each.answer.length <= MAX_PROSE &&
+        each.hunks.length > 0 &&
+        each.hunks.every((hunk) => shown.has(hunk)),
+    )
+    .slice(0, MAX_QUESTIONS);
 };
 
 const shapeProblems = (
@@ -207,21 +239,31 @@ const numbered = (
       title: cohort.title.trim(),
       intent: cohort.intent.trim(),
       joinedBecause: cohort.joinedBecause?.trim() || null,
-      layers: cohort.layers.map((layer, l) => ({
-        id: LayerId.in(cohortId, l + 1),
-        title: layer.title.trim(),
-        summary: layer.summary.trim(),
-        dependsOn: mergedDependencies(
-          cohortId,
-          layer.dependsOn,
-          derived.get(`${c}.${l}`),
-        ),
-        hunks: layer.hunks.map((entry) => ({ hunk: entry.hunk })),
-        notes: layer.notes.map((each) => ({
-          path: each.path,
-          note: each.note.trim(),
-        })),
-      })),
+      layers: cohort.layers.map((layer, l) => {
+        const layerId = LayerId.in(cohortId, l + 1);
+
+        return {
+          id: layerId,
+          title: layer.title.trim(),
+          summary: layer.summary.trim(),
+          dependsOn: mergedDependencies(
+            cohortId,
+            layer.dependsOn,
+            derived.get(`${c}.${l}`),
+          ),
+          hunks: layer.hunks.map((entry) => ({ hunk: entry.hunk })),
+          notes: layer.notes.map((each) => ({
+            path: each.path,
+            note: each.note.trim(),
+          })),
+          questions: keptQuestions(cohort, l).map((each, q) => ({
+            id: QuestionId.in(layerId, q + 1),
+            question: each.question.trim(),
+            answer: each.answer.trim(),
+            hunks: [...new Set(each.hunks)],
+          })),
+        };
+      }),
     };
   });
 };

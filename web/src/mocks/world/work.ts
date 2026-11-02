@@ -20,6 +20,7 @@ import {
 import { SAM } from '@/mocks/world/people';
 import { egressEnforcementOf, errorsIn } from '@/mocks/world/run-network';
 import {
+  answerStackQuestion,
   changeStacksOf,
   endOf,
   finished,
@@ -34,7 +35,7 @@ import { runStationOf } from '@/mocks/world/stations';
 import { addedIn, removedIn } from '@/mocks/world/work-changes';
 import type { NoteScript, RunStory } from '@/mocks/world/work-stories';
 
-export { changeStacksOf };
+export { answerStackQuestion, changeStacksOf };
 
 const SECOND = 1_000;
 

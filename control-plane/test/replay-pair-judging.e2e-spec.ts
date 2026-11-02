@@ -126,6 +126,7 @@ const generator: ChangeStackGeneratorPort = {
                 diff.hunks.flatMap((each) => diff.fileOf(each.id)?.path ?? []),
               ),
             ].map((path) => ({ path, note: 'Drains the queue' })),
+            questions: [],
           },
         ],
       },

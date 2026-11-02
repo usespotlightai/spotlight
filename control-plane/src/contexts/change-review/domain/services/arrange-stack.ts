@@ -39,7 +39,15 @@ const withoutHunks = (
         (each) => still.has(each.path) || !before.has(each.path),
       );
 
-      remaining.push({ layer: { ...layer, hunks, notes }, from: place + 1 });
+      const questions = layer.questions.flatMap((each) => {
+        const cited = each.hunks.filter((hunk) => !leaving.has(hunk));
+        return cited.length > 0 ? [{ ...each, hunks: cited }] : [];
+      });
+
+      remaining.push({
+        layer: { ...layer, hunks, notes, questions },
+        from: place + 1,
+      });
     }
   });
 
@@ -111,6 +119,7 @@ export const arranged = (
             .sort((a, b) => (order.get(a.hunk) ?? 0) - (order.get(b.hunk) ?? 0))
             .map((each) => ({ hunk: each.hunk })),
           notes: [],
+          questions: [],
         },
       ],
     },

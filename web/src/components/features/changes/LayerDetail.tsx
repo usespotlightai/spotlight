@@ -1,10 +1,13 @@
 import { useVirtualizer } from '@pierre/diffs/react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { LayerFileCard } from '@/components/features/changes/LayerFileCard';
+import { LayerQuestions } from '@/components/features/changes/LayerQuestions';
 import { Button } from '@/components/ui/button';
 import {
   type ChangeStack,
+  type CitedPlace,
   filesOf,
   type LayerFile,
   type LocatedLayer,
@@ -49,6 +52,7 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
   const previous = layers[at - 1];
   const next = layers[at + 1];
   const files = filesOf(stack, layer);
+  const content = useRef<HTMLDivElement>(null);
   const [collapsedFiles, setCollapsedFiles] = useState<CollapsedFiles>(() =>
     collapsedFilesFor(located, files),
   );
@@ -82,8 +86,26 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
     setCollapsedPaths(next);
   };
 
+  const reveal = (place: CitedPlace) => {
+    if (place.layerId && place.layerId !== layer.id) {
+      onPick(place.layerId);
+      return;
+    }
+
+    const next = new Set(collapsed);
+    next.delete(place.path);
+    flushSync(() => setCollapsedPaths(next));
+
+    content.current
+      ?.querySelector(`article[aria-label="${CSS.escape(place.path)}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-8 py-8">
+    <div
+      ref={content}
+      className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-8 py-8"
+    >
       <header className="flex flex-col gap-2">
         <h2 className="font-medium text-foreground text-lg">{layer.title}</h2>
         <p className="text-muted-foreground text-sm">{layer.summary}</p>
@@ -118,6 +140,8 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
           />
         ))}
       </section>
+
+      <LayerQuestions stack={stack} layer={layer} onReveal={reveal} />
 
       <nav
         aria-label="Layers"

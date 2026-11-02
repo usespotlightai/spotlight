@@ -1,6 +1,7 @@
 export * from '@catalog/infrastructure/persistence/drizzle/schemas/catalog.schema';
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/decision.schema';
+export * from '@change-review/infrastructure/persistence/drizzle/schemas/question-answer.schema';
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';
 export * from '@change-review/infrastructure/persistence/drizzle/schemas/stack-check.schema';
 export * from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';

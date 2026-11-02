@@ -1,6 +1,8 @@
 import type {
   ChangeStackDto,
+  QuestionAnswerDto,
   StackCheckDto,
+  StackCohortDto,
 } from '@change-review/application/dto/change-stack.dto';
 import type {
   ChangeStackReaderPort,
@@ -17,13 +19,16 @@ import {
   checkedStepOf,
   diffOf,
 } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.mapping';
+import type { StoredCohort } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
 import { changeStack } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
+import { questionAnswer } from '@change-review/infrastructure/persistence/drizzle/schemas/question-answer.schema';
 import { stackCheck } from '@change-review/infrastructure/persistence/drizzle/schemas/stack-check.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { and, asc, desc, eq, ne } from 'drizzle-orm';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
 
 const PROGRESS = {
   state: changeStack.state,
@@ -80,6 +85,55 @@ const checkOf = (row: CheckRow | null, now: Date): StackCheckDto | null => {
   };
 };
 
+type AnswerRow = Pick<
+  typeof questionAnswer.$inferSelect,
+  | 'stackId'
+  | 'questionId'
+  | 'asked'
+  | 'reply'
+  | 'verdict'
+  | 'feedback'
+  | 'expected'
+>;
+
+const cohortDtosOf = (
+  cohorts: readonly StoredCohort[],
+  answered: (questionId: string, asked: string) => QuestionAnswerDto | null,
+): StackCohortDto[] =>
+  cohorts.map((cohort) => ({
+    ...cohort,
+    layers: cohort.layers.map(({ questions, ...layer }) => ({
+      ...layer,
+      questions: (questions ?? []).map((each) => ({
+        id: each.id,
+        question: each.question,
+        hunks: each.hunks,
+        answered: answered(each.id, each.question),
+      })),
+    })),
+  }));
+
+const answeredFrom =
+  (rows: readonly AnswerRow[], stackId: string) =>
+  (questionId: string, asked: string): QuestionAnswerDto | null => {
+    const row = rows.find(
+      (each) =>
+        each.stackId === stackId &&
+        each.questionId === questionId &&
+        each.asked === asked,
+    );
+
+    return row
+      ? {
+          questionId: row.questionId,
+          reply: row.reply,
+          verdict: row.verdict,
+          feedback: row.feedback,
+          expected: row.expected,
+        }
+      : null;
+  };
+
 @Injectable()
 export class DrizzleChangeStackReader implements ChangeStackReaderPort {
   constructor(private readonly context: DrizzleContext) {}
@@ -120,14 +174,21 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       runId: row.runId,
       repository: row.repository,
       state: row.state,
-      cohorts: row.cohorts,
+      cohorts: row.cohorts.map((cohort) => ({
+        ...cohort,
+        layers: cohort.layers.map(({ questions: _, ...layer }) => layer),
+      })),
       check: checkOf(row.check, now),
       added: tally.added,
       removed: tally.removed,
     };
   }
 
-  async ofRun(runId: RunId, now: Date): Promise<ChangeStackDto[]> {
+  async ofRun(
+    runId: RunId,
+    viewerId: UserId,
+    now: Date,
+  ): Promise<ChangeStackDto[]> {
     const rows = await this.context.db
       .select({
         id: changeStack.id,
@@ -142,6 +203,30 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       .where(eq(changeStack.runId, runId.value))
       .orderBy(asc(changeStack.startedAt));
 
+    const answers =
+      rows.length > 0
+        ? await this.context.db
+            .select({
+              stackId: questionAnswer.stackId,
+              questionId: questionAnswer.questionId,
+              asked: questionAnswer.asked,
+              reply: questionAnswer.reply,
+              verdict: questionAnswer.verdict,
+              feedback: questionAnswer.feedback,
+              expected: questionAnswer.expected,
+            })
+            .from(questionAnswer)
+            .where(
+              and(
+                inArray(
+                  questionAnswer.stackId,
+                  rows.map((row) => row.id),
+                ),
+                eq(questionAnswer.personId, viewerId.value),
+              ),
+            )
+        : [];
+
     return rows.map((row) => ({
       id: row.id,
       repository: row.repository,
@@ -150,7 +235,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       startedAt: row.startedAt.toISOString(),
       completedAt: row.completedAt?.toISOString() ?? null,
       files: row.files,
-      cohorts: row.cohorts,
+      cohorts: cohortDtosOf(row.cohorts, answeredFrom(answers, row.id)),
       check: checkOf(row.check, now),
     }));
   }
