@@ -242,6 +242,7 @@ import { DeleteTeamLines } from '@work/application/events/handlers/delete-team-l
 import { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
 import { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
 import { HandOver } from '@work/application/events/handlers/hand-over.handler';
+import { NotifyChannel } from '@work/application/events/handlers/notify-channel.handler';
 import { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
 import { RecordRunUsage } from '@work/application/events/handlers/record-run-usage.handler';
 import { SeedTeam } from '@work/application/events/handlers/seed-team.handler';
@@ -263,6 +264,14 @@ import {
   BUILT_IN_SKILLS,
   type BuiltInSkillsPort,
 } from '@work/application/ports/built-in-skills.port';
+import {
+  CHANNEL_NOTICES,
+  type ChannelNoticesPort,
+} from '@work/application/ports/channel-notices.port';
+import {
+  CHAT_MARKS,
+  type ChatMarksPort,
+} from '@work/application/ports/chat-marks.port';
 import {
   CHAT_READER,
   type ChatReaderPort,
@@ -553,7 +562,11 @@ import {
 } from '@work/application/services/built-in-tools.service';
 import { CandidateLines } from '@work/application/services/candidate-lines.service';
 import { CarryGitCall } from '@work/application/services/carry-git-call.service';
-import { CHAT_DISPATCH } from '@work/application/services/chat-dispatch';
+import { ChannelChats } from '@work/application/services/channel-chats.service';
+import {
+  CHAT_DISPATCH,
+  type ChatDispatching,
+} from '@work/application/services/chat-dispatch';
 import { ChatLoader } from '@work/application/services/chat-loader.service';
 import { CiSetups } from '@work/application/services/ci-setups.service';
 import { ClaimsTaken } from '@work/application/services/claims-taken.service';
@@ -650,6 +663,7 @@ import { DrizzleArchiveReferences } from '@work/infrastructure/persistence/drizz
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleBriefedTasks } from '@work/infrastructure/persistence/drizzle/readers/briefed-tasks.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
+import { DrizzleChatMarks } from '@work/infrastructure/persistence/drizzle/readers/chat-marks.reader';
 import { DrizzleEnabledAtStations } from '@work/infrastructure/persistence/drizzle/readers/enabled-at-stations.reader';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleLeasedRunReader } from '@work/infrastructure/persistence/drizzle/readers/leased-run.reader';
@@ -1038,6 +1052,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   { provide: LINE_READER, useClass: DrizzleLineReader },
   { provide: LINE_IMAGES, useClass: DrizzleLineImages },
+  { provide: CHAT_MARKS, useClass: DrizzleChatMarks },
 
   { provide: TASK_READER, useClass: DrizzleTaskReader },
 
@@ -1253,6 +1268,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ATTACHMENT_STORE,
       PROCESSED_EVENTS,
       LOGGER,
+      DrizzleChatRepository,
+      WORKSPACE_READER,
+      HARNESS_LAUNCH,
+      CHAT_DISPATCH,
+      CHANNEL_NOTICES,
     ],
     useFactory: (
       tasks: DrizzleTaskRepository,
@@ -1266,6 +1286,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       files: AttachmentStorePort,
       processedEvents: ProcessedEventsPort,
       logger: LoggerPort,
+      chats: DrizzleChatRepository,
+      workspaces: WorkspaceReaderPort,
+      launch: HarnessLaunchPort,
+      chatDispatch: ChatDispatching,
+      channelNotices: ChannelNoticesPort,
     ) =>
       new ReactToHappenings(
         tasks,
@@ -1279,6 +1304,19 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         files,
         processedEvents,
         logger,
+        new ChannelChats(
+          chats,
+          lines,
+          members,
+          workspaces,
+          launch,
+          DEFAULT_HARNESS,
+          chatDispatch,
+          channelNotices,
+          clock,
+          ids,
+          logger,
+        ),
       ),
   },
 
@@ -1740,9 +1778,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: IntegrationTaskViews,
-    inject: [DrizzleLineRepository],
-    useFactory: (lines: DrizzleLineRepository) =>
-      new IntegrationTaskViews(lines),
+    inject: [DrizzleLineRepository, CHAT_MARKS],
+    useFactory: (lines: DrizzleLineRepository, chatMarks: ChatMarksPort) =>
+      new IntegrationTaskViews(lines, chatMarks),
   },
 
   {
@@ -1785,6 +1823,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RUN_SPENDS,
       Notices,
       RUN_TOKENS,
+      CHANNEL_NOTICES,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -1817,6 +1856,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       spends: RunSpendReaderPort,
       notices: Notices,
       runTokens: RunTokensPort,
+      channelNotices: ChannelNoticesPort,
     ) => {
       types.register('work', WORK_PAYLOAD_TYPES);
       mappers.register(WORK_EVENT_MAPPERS);
@@ -1833,6 +1873,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           pausedRuns: new PausedRuns(tasks, runs, lines),
           pauseMarks: new PauseMarks(journal),
           chatOutcomes: new ChatOutcomes(chats, chatDispatch),
+          channel: new NotifyChannel(chats, lines, channelNotices),
           usages: new RecordRunUsage(usageWriter, usages, tools, spends),
           seeding: new SeedTeam(
             seedingLines,

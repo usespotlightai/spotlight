@@ -1,4 +1,5 @@
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { InboxRequestCreated } from '@work/domain/events/inbox-request-created.event';
 import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
@@ -59,7 +60,9 @@ import { CallSecretsClaim } from '@work/domain/value-objects/call-secrets-claim.
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { ChatReply } from '@work/domain/value-objects/chat-reply.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
@@ -227,6 +230,8 @@ export const WORK_PAYLOAD_TYPES = [
   ConfigSource,
   ReviewPolicy,
   Mark,
+  ChatMark,
+  ChatReply,
   MessagePosition,
   Money,
   ReplayRunClaim,
@@ -294,6 +299,7 @@ export const WORK_PAYLOAD_TYPES = [
   StartedCheckout,
   StartingPoint,
   ChatDispatched,
+  ChatRunNotStarted,
   ChatStarted,
   LineRepositoriesChanged,
   LineCreated,

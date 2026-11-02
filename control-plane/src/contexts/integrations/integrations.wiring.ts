@@ -182,6 +182,7 @@ import {
   SPEC_DOCUMENTS,
   type SpecDocumentRepository,
 } from '@integrations/domain/repositories/spec-document.repository';
+import { ChannelNotices } from '@integrations/infrastructure/acl/channel-notices.adapter';
 import { IntegrationConfigs } from '@integrations/infrastructure/acl/integration-configs.adapter';
 import { IntegrationReadings } from '@integrations/infrastructure/acl/integration-readings.adapter';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
@@ -294,6 +295,7 @@ import {
   WORKSPACE_OUTBOUND_SCOPE,
   type WorkspaceOutboundScopePort,
 } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
+import { CHANNEL_NOTICES } from '@work/application/ports/channel-notices.port';
 import {
   ENABLED_AT_STATIONS,
   type EnabledAtStationsPort,
@@ -1060,6 +1062,24 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       links: InboxLinksPort,
       logger: LoggerPort,
     ) => new TaskNotices(defined, runtime, callAuthResolver, links, logger),
+  },
+
+  {
+    provide: CHANNEL_NOTICES,
+    inject: [
+      DEFINED_INTEGRATIONS,
+      INTEGRATION_RUNTIME,
+      CallAuthResolver,
+      INBOX_LINKS,
+      LOGGER,
+    ],
+    useFactory: (
+      defined: DefinedIntegrationsPort,
+      runtime: IntegrationRuntimePort,
+      callAuthResolver: CallAuthResolver,
+      links: InboxLinksPort,
+      logger: LoggerPort,
+    ) => new ChannelNotices(defined, runtime, callAuthResolver, links, logger),
   },
 
   ...bindQueryHandler(ListHappeningsQuery, ListHappeningsHandler, [

@@ -90,6 +90,7 @@ const raiseAt = (prefix: string, scope: Scope) => {
         'opens.title',
         'opens.description',
         'opens.assignBy.email',
+        'opens.chat.by.email',
         'branch',
         `marks.${ANY_SEGMENT}.value`,
       ],

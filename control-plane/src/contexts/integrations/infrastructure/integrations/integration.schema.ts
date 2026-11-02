@@ -7,6 +7,7 @@ import {
   SECRET_NAME_SHAPE,
   SLUG_SHAPE,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { BINDABLE_CHAT_EVENTS } from '@work/application/contracts/bindable-chat-events.contract';
 import { BINDABLE_TASK_EVENTS } from '@work/application/contracts/bindable-task-events.contract';
 import { z } from 'zod';
 
@@ -259,13 +260,23 @@ const raiseSchema = z.object({
   answers: z.boolean().default(false),
   message: expression.optional(),
   opens: z
-    .object({
-      lineRole: z.string().regex(KEY, 'is the role of the lines this opens on'),
-      station: key('triage').optional(),
-      title: expression,
-      description: expression.optional(),
-      assignBy: z.object({ email: expression }).optional(),
-    })
+    .union([
+      z.object({
+        lineRole: z
+          .string()
+          .regex(KEY, 'is the role of the lines this opens on'),
+        station: key('triage').optional(),
+        title: expression,
+        description: expression.optional(),
+        assignBy: z.object({ email: expression }).optional(),
+      }),
+      z.object({
+        chat: z.object({
+          by: z.object({ email: expression }),
+          harness: key('claude-code').optional(),
+        }),
+      }),
+    ])
     .optional(),
   branch: expression.optional(),
   marks: z.array(markSchema).default([]),
@@ -339,7 +350,7 @@ const connectionSchema = z.object({
   manual: z.object({ secrets: z.array(secretRef).default([]) }).optional(),
 });
 
-export const ON_EVENTS = BINDABLE_TASK_EVENTS;
+export const ON_EVENTS = [...BINDABLE_TASK_EVENTS, ...BINDABLE_CHAT_EVENTS];
 
 export const integrationSchema = z
   .object({

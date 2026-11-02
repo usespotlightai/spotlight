@@ -18,7 +18,7 @@ const chatWithRun = (runId: RunId | null) => {
   const released = { currentRunId: null } as unknown as Chat;
   return {
     currentRunId: runId,
-    runEndedWithoutSession: vi.fn(() => released),
+    runNotStarted: vi.fn(() => released),
     released,
   };
 };
@@ -61,12 +61,12 @@ describe('EnqueueChatRun', () => {
     expect(twice.enqueue).not.toHaveBeenCalled();
   });
 
-  it('detaches the chat from its run and unacknowledges what its run acknowledged when its run can no longer start', async () => {
+  it('detaches the chat from its run and says its run could not start, when its run can no longer start', async () => {
     const { handler, chat, save } = enqueuing({ enqueued: false });
 
     await handler.on(new ChatDispatched(CHAT, RUN, HANDED));
 
-    expect(chat.runEndedWithoutSession).toHaveBeenCalledWith(RUN);
+    expect(chat.runNotStarted).toHaveBeenCalledWith(RUN);
     expect(save).toHaveBeenCalledWith(chat.released);
   });
 });

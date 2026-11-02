@@ -6,12 +6,12 @@ import type {
   CallAuth,
   IntegrationRuntimePort,
   IntegrationTaskView,
+  NoticePayload,
   PollResult,
   PostResult,
   RefreshResult,
   ResolvedTool,
   ServiceError,
-  TaskPayload,
   ToolOutput,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
@@ -224,7 +224,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     integration: Integration,
     event: string,
-    payload: TaskPayload,
+    payload: NoticePayload,
     callAuth: CallAuth,
   ): Promise<PostResult> {
     const readable = this.find(definitions, integration.key);
@@ -238,7 +238,10 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return { kind: 'unaddressed' };
     }
 
-    const against = { task: taskBinding(payload.task), ask: payload.ask };
+    const against =
+      'task' in payload
+        ? { task: taskBinding(payload.task), ask: payload.ask }
+        : { chat: payload.chat, reply: payload.reply };
     const target: Record<string, string> = {};
 
     for (const each of binding.to) {
@@ -248,7 +251,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       }
     }
 
-    if (!target.channel) {
+    if (!target.channel && 'task' in payload) {
       const routed = binding.routes.get(payload.task.line);
       if (routed) {
         target.channel = routed;

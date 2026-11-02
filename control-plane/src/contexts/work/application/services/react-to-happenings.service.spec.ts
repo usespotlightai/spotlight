@@ -14,6 +14,7 @@ import type { Happened } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import type { ChannelChats } from '@work/application/services/channel-chats.service';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -45,6 +46,11 @@ import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const channels = {
+  reached: async () => null,
+  refuse: async () => {},
+} as unknown as ChannelChats;
 
 const NOW = new Date('2026-08-31T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
@@ -209,6 +215,7 @@ const receive = (
     files,
     processedEventsInMemory(),
     logger,
+    channels,
   ).react(
     WorkspaceId.of('ws_1'),
     null,
@@ -244,6 +251,7 @@ describe('ReactToHappenings', () => {
       files,
       processedEventsInMemory(),
       logger,
+      channels,
     );
     const happenings = [news(CHANGES_REQUESTED, 'Handle the empty case.')];
 
@@ -278,6 +286,7 @@ describe('ReactToHappenings', () => {
       files,
       processedEventsInMemory(),
       logger,
+      channels,
     );
     const happenings = [news(COMMENTED, 'Still retries.')];
 
@@ -301,6 +310,7 @@ describe('ReactToHappenings', () => {
       files,
       processedEventsInMemory(),
       logger,
+      channels,
     );
     const happenings = [news(COMMENTED, 'Still retries.')];
 
@@ -415,6 +425,7 @@ describe('ReactToHappenings', () => {
       files,
       processedEventsInMemory(),
       logger,
+      channels,
     ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     expect(saved?.notes.map((each) => each.kind)).toEqual([
@@ -452,6 +463,7 @@ describe('ReactToHappenings', () => {
       files,
       processedEventsInMemory(),
       logger,
+      channels,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -529,6 +541,7 @@ describe('ReactToHappenings', () => {
         files,
         processedEventsInMemory(),
         logger,
+        channels,
       ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     it('takes a reply that is only a file as the answer, and keeps the file', async () => {
@@ -599,6 +612,7 @@ describe('ReactToHappenings', () => {
       files,
       processedEventsInMemory(),
       logger,
+      channels,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -870,6 +884,7 @@ describe('ReactToHappenings', () => {
       files,
       processedEventsInMemory(),
       logger,
+      channels,
     ).react(WorkspaceId.of('ws_1'), null, [news(MERGED, null)], 'received-as');
 
     expect(stored.findByMarks).toHaveBeenCalledWith(
@@ -948,6 +963,7 @@ describe('ReactToHappenings', () => {
       files,
       processedEventsInMemory(),
       logger,
+      channels,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
@@ -1031,6 +1047,7 @@ describe('ReactToHappenings', () => {
       files,
       processedEventsInMemory(),
       logger,
+      channels,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(byEmail).toHaveBeenCalledWith(
@@ -1109,6 +1126,7 @@ describe('ReactToHappenings', () => {
       files,
       processedEventsInMemory(),
       logger,
+      channels,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(added?.assignee).toBeNull();
@@ -1192,9 +1210,79 @@ describe('ReactToHappenings', () => {
       files,
       processedEventsInMemory(),
       logger,
+      channels,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
     expect(added[0]?.stationId).toEqual((first.entry as Station).id);
+  });
+});
+
+describe('ReactToHappenings with a word for a chat', () => {
+  const mention = (): Happened => ({
+    happening: 'slack.app_mention',
+    summary: 'Mentioned Spotlight in Slack.',
+    answers: false,
+    state: 'raised',
+    correlationKeys: {
+      branch: null,
+      marks: [{ kind: 'slack.thread', value: 'C1:1700.1' }],
+    },
+    message: { body: 'Why do retries fail?' },
+    ourOwn: false,
+    opens: null,
+    chat: {
+      email: 'ada@example.com',
+      harness: null,
+      marks: [{ kind: 'slack.thread', value: 'C1:1700.1', finds: true }],
+    },
+  });
+
+  const reacting = (found: Task | null) => {
+    const refusal = { body: 'Sorry.' };
+    const chatting = {
+      reached: vi.fn(async () => refusal),
+      refuse: vi.fn(async () => undefined),
+    };
+    const reactions = new ReactToHappenings(
+      tasks(found),
+      tasks(found),
+      lines(),
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      members,
+      files,
+      processedEventsInMemory(),
+      logger,
+      chatting as unknown as ChannelChats,
+    );
+
+    return { reactions, chatting, refusal };
+  };
+
+  beforeEach(() => {
+    saved = undefined;
+  });
+
+  it('hands it to the chats when no task wears its marks, and posts the refusal after', async () => {
+    const { reactions, chatting, refusal } = reacting(null);
+
+    await reactions.react(WorkspaceId.of('ws_1'), null, [mention()], null);
+
+    expect(chatting.reached).toHaveBeenCalledOnce();
+    expect(chatting.refuse).toHaveBeenCalledWith(refusal);
+  });
+
+  it('keeps it away from the chats and out of the notes of a task that wears its marks', async () => {
+    const { reactions, chatting } = reacting(taskAt());
+
+    await reactions.react(WorkspaceId.of('ws_1'), null, [mention()], null);
+
+    expect(chatting.reached).not.toHaveBeenCalled();
+    expect(
+      saved?.notes.some((note) => note.body.value.includes('retries')) ?? false,
+    ).toBe(false);
   });
 });

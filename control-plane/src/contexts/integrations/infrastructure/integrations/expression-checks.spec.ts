@@ -462,6 +462,16 @@ describe('the positions an expression is written at', () => {
       },
     });
 
+    const chatting = (happening: string) => ({
+      when: NOPE,
+      raise: {
+        happening,
+        message: NOPE,
+        opens: { chat: { by: { email: NOPE } } },
+        marks: [{ kind: 'kitchen.thread', value: NOPE }],
+      },
+    });
+
     const verifying = (verify: object) => ({
       integration: 'kitchen',
       connection: {
@@ -477,13 +487,13 @@ describe('the positions an expression is written at', () => {
         ignoreWhen: NOPE,
         route: { by: NOPE },
         delivery: NOPE,
-        events: [event('kitchen.hooked')],
+        events: [event('kitchen.hooked'), chatting('kitchen.mentioned')],
       },
       poll: {
         every: '60s',
         request,
         cursor: NOPE,
-        events: [event('kitchen.polled')],
+        events: [event('kitchen.polled'), chatting('kitchen.answered')],
       },
       actions: { k: { request } },
       tools: {

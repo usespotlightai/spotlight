@@ -40,6 +40,7 @@ import type { CancelDetachedRun } from '@work/application/events/handlers/cancel
 import type { DeleteTeamLines } from '@work/application/events/handlers/delete-team-lines.handler';
 import type { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
 import type { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
+import type { NotifyChannel } from '@work/application/events/handlers/notify-channel.handler';
 import type { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
 import type { RecordRunUsage } from '@work/application/events/handlers/record-run-usage.handler';
 import {
@@ -58,7 +59,10 @@ import type { RunnerLeases } from '@work/application/services/runner-leases.serv
 import type { SandboxLeases } from '@work/application/services/sandbox-leases.service';
 import type { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import type { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import type { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
+import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
+import type { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
@@ -111,6 +115,7 @@ export const workSubscribers = (reactions: {
   pausedRuns: PausedRuns;
   pauseMarks: PauseMarks;
   chatOutcomes: RunOutcomes;
+  channel: NotifyChannel;
   usages: RecordRunUsage;
   seeding: SeedTeam;
   acceptances: ProposalAcceptances;
@@ -224,6 +229,27 @@ export const workSubscribers = (reactions: {
   ),
   ...reactingToOutcomes('work.hand-over', reactions.handOver),
   ...reactingToOutcomes('work.chat-outcomes', reactions.chatOutcomes),
+  ...reactingToOutcomes('work.notify-channel', reactions.channel),
+  subscribing<ChatStarted>(
+    'work.notify-channel.started',
+    ['chat.started'],
+    (event) => reactions.channel.onChatStarted(event),
+  ),
+  subscribing<ChatRunNotStarted>(
+    'work.notify-channel.run-not-started',
+    ['chat.run-not-started'],
+    (event) => reactions.channel.onRunNotStarted(event),
+  ),
+  subscribing<TaskOpened>(
+    'work.notify-channel.task-opened',
+    ['task.opened'],
+    (event) => reactions.channel.onTaskOpened(event),
+  ),
+  subscribing<ProposalDismissed>(
+    'work.notify-channel.proposal-dismissed',
+    ['chat.proposal-dismissed'],
+    (event) => reactions.channel.onProposalDismissed(event),
+  ),
   subscribing<RunCompleted>(
     'work.record-run-usage.completed',
     ['run.completed'],

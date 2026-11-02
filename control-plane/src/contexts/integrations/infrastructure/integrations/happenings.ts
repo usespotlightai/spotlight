@@ -136,6 +136,7 @@ const raiseFrom = (
     );
 
   const marks = marked.map((each) => each.mark);
+  const chatMarks = marked.map((each) => ({ ...each.mark, finds: each.finds }));
 
   const branch = raise.branch
     ? evaluateText(raise.branch, against) || null
@@ -177,6 +178,13 @@ const raiseFrom = (
             marks,
           }
         : null,
+    chat: raise.chat
+      ? {
+          email: evaluateText(raise.chat.by.email, against) || null,
+          harness: raise.chat.harness,
+          marks: chatMarks,
+        }
+      : null,
     attachments:
       raise.attachments && fetching
         ? arriving(raise.attachments, against, fetching)

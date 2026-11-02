@@ -22,6 +22,19 @@ const ASK: Declared = {
   },
 };
 
+const CHAT: Declared = {
+  schema: {
+    marks: 'map<string, string>',
+  },
+};
+
+const REPLY: Declared = {
+  schema: {
+    body: 'string',
+    link: 'dyn',
+  },
+};
+
 export const DELIVERED = Scope.of({
   body: OUTSIDE,
   headers: OUTSIDE,
@@ -38,11 +51,18 @@ export const POLLED = Scope.of({ body: OUTSIDE, cursor: 'string' });
 export const ACTING = Scope.of({
   task: TASK,
   ask: ASK,
+  chat: CHAT,
+  reply: REPLY,
   target: 'map<string, string>',
   connection: 'string',
 });
 
-export const ADDRESSING = Scope.of({ task: TASK, ask: ASK });
+export const ADDRESSING = Scope.of({
+  task: TASK,
+  ask: ASK,
+  chat: CHAT,
+  reply: REPLY,
+});
 
 export const MARKING = ACTING.and({
   response: OUTSIDE,

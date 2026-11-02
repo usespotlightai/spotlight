@@ -1,6 +1,7 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { ChatMarksPort } from '@work/application/ports/chat-marks.port';
 import { ApprovalAsked } from '@work/application/rendering/approval-asked';
 import { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -9,11 +10,14 @@ import { Station } from '@work/domain/entities/station.entity';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
+import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
+import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -72,12 +76,46 @@ const line = {
   stationAt: () => ({ name: { value: 'Triage' }, key: { value: 'triage' } }),
 } as unknown as Line;
 
-const taskViews = (found: Line | null = line) =>
-  new IntegrationTaskViews({
-    findByStation: async () => found,
-  } as unknown as LineRepository);
+const taskViews = (found: Line | null = line, ambient: readonly Mark[] = []) =>
+  new IntegrationTaskViews(
+    {
+      findByStation: async () => found,
+    } as unknown as LineRepository,
+    { ambientOf: async () => ambient } satisfies ChatMarksPort,
+  );
 
 describe('IntegrationTaskViews', () => {
+  it('addresses a task from a chat by the ambient marks of the chat, under its own marks', async () => {
+    const ambient = [
+      Mark.of('slack.channel', 'C1'),
+      Mark.of('slack.thread_ts', '1700.1'),
+    ];
+
+    const proposed = Task.add({
+      line: delivery(),
+      at: StationId.of('station_1'),
+      title: TaskTitle.of('Fix the queue'),
+      rank: TaskRank.of('i'),
+      proposedIn: ProposalOrigin.of({
+        chatId: ChatId.of('chat_1'),
+        position: MessagePosition.of(1),
+      }),
+      now: NOW,
+      newId: () => 'task_1',
+    }).markedBy(Mark.of('slack.thread', '170.1'));
+
+    const view = await taskViews(line, ambient).of(proposed);
+    const plain = await taskViews(line, ambient).of(task());
+
+    expect(plain?.marks).toEqual({ 'slack.thread': '170.1' });
+
+    expect(view?.marks).toEqual({
+      'slack.channel': 'C1',
+      'slack.thread_ts': '1700.1',
+      'slack.thread': '170.1',
+    });
+  });
+
   it('says where a task is, in words an integration can use', async () => {
     await expect(taskViews().of(task())).resolves.toEqual({
       taskId: 'task_1',

@@ -96,6 +96,8 @@ export const task = pgTable(
     }),
     createdById: text('created_by_id'),
     openedFrom: text('opened_from').notNull(),
+    proposedInChatId: text('proposed_in_chat_id'),
+    proposedInPosition: integer('proposed_in_position'),
     assigneeId: text('assignee_id'),
     currentRunId: text('current_run_id'),
     sessionId: text('session_id'),

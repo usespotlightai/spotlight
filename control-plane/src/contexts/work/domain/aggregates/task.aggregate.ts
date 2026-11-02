@@ -143,6 +143,7 @@ export class Task extends EventRecorder {
     readonly finishedAt: Date | null,
     readonly assignee: UserId | null,
     readonly attachments: readonly Attachment[],
+    readonly proposedIn: ProposalOrigin | null,
     readonly revision: TaskRevision = TaskRevision.first(),
     readonly version: number = 0,
   ) {
@@ -188,6 +189,7 @@ export class Task extends EventRecorder {
       null,
       createdBy,
       input.attachments ?? [],
+      input.proposedIn ?? null,
     );
 
     task.record(
@@ -227,6 +229,7 @@ export class Task extends EventRecorder {
     finishedAt: Date | null;
     assignee?: UserId | null;
     attachments?: readonly Attachment[];
+    proposedIn?: ProposalOrigin | null;
     revision: TaskRevision;
     version?: number;
   }): Task {
@@ -268,6 +271,7 @@ export class Task extends EventRecorder {
       input.finishedAt,
       input.assignee ?? null,
       input.attachments ?? [],
+      input.proposedIn ?? null,
       input.revision,
       input.version ?? 0,
     );
@@ -1482,6 +1486,7 @@ export class Task extends EventRecorder {
       part.finishedAt !== undefined ? part.finishedAt : this.finishedAt,
       part.assignee !== undefined ? part.assignee : this.assignee,
       this.attachments,
+      this.proposedIn,
       part.revision ?? this.revision,
       this.version,
     );
