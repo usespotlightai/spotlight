@@ -2,6 +2,7 @@ import {
   EventDelivery,
   LEASE_MS,
   LEASE_RENEWAL_MS,
+  LONGEST_LEASE_MS,
   MAX_ATTEMPTS,
 } from '@platform/events/event-delivery';
 import type { EventOutbox } from '@platform/events/event-outbox';
@@ -25,11 +26,26 @@ const thenable = (result: unknown): unknown => {
   return chained;
 };
 
+const datesIn = (node: unknown, seen = new Set<unknown>()): Date[] => {
+  if (node instanceof Date) {
+    return [node];
+  }
+
+  if (typeof node !== 'object' || node === null || seen.has(node)) {
+    return [];
+  }
+
+  seen.add(node);
+
+  return Object.values(node).flatMap((each) => datesIn(each, seen));
+};
+
 class FakeContext {
   readonly steps: string[] = [];
   readonly updates: Record<string, unknown>[] = [];
   failingUpdates = 0;
   failingUpdateAt: number | null = null;
+  readonly leasesGuarded: Date[] = [];
   settledElsewhere = false;
   private committed: (() => void)[] = [];
   private claimable = true;
@@ -59,7 +75,8 @@ class FakeContext {
       },
       update: () => ({
         set: (values: Record<string, unknown>) => ({
-          where: () => {
+          where: (condition: unknown) => {
+            this.leasesGuarded.push(...datesIn(condition));
             const written = async () => {
               if (this.failingUpdateAt === this.updates.length) {
                 this.failingUpdateAt = null;
@@ -124,6 +141,7 @@ const delivering = (
   handle: () => Promise<void>,
   attempts = 0,
   options = { callsOut: false },
+  clock = { now: () => NOW },
 ) => {
   const context = new FakeContext(attempts);
   const subscribers = new EventSubscribers();
@@ -149,7 +167,7 @@ const delivering = (
       record: async () => undefined,
     } as unknown as EventOutbox,
     subscribers,
-    { now: () => NOW, sleep: async () => undefined },
+    { now: () => clock.now(), sleep: async () => undefined },
     logger,
     { runWith: (_chain, work) => work() } as CausationPort,
     reports,
@@ -309,12 +327,16 @@ describe('EventDelivery', () => {
 
     it('renews the lease while the call takes longer, and records it under the renewed lease', async () => {
       vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+      let now = NOW;
+      const later = new Date(NOW.getTime() + LEASE_RENEWAL_MS);
       const { delivery, context } = delivering(
         async () => {
+          now = later;
           await vi.advanceTimersByTimeAsync(LEASE_RENEWAL_MS);
         },
         0,
         CALLS_OUT,
+        { now: () => now },
       );
 
       await delivery.processDue();
@@ -322,9 +344,36 @@ describe('EventDelivery', () => {
 
       expect(context.updates).toEqual([
         LEASED,
-        LEASED,
-        { deliveredAt: NOW, attempts: 1 },
+        { dueAt: new Date(later.getTime() + LEASE_MS) },
+        { deliveredAt: later, attempts: 1 },
       ]);
+      expect(context.leasesGuarded).toEqual([
+        LEASED.dueAt,
+        new Date(later.getTime() + LEASE_MS),
+      ]);
+    });
+
+    it('stops renewing a lease it has held for the longest a lease is held', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+      let now = NOW;
+      const { delivery, context } = delivering(
+        async () => {
+          now = new Date(NOW.getTime() + LONGEST_LEASE_MS);
+          await vi.advanceTimersByTimeAsync(3 * LEASE_RENEWAL_MS);
+        },
+        0,
+        CALLS_OUT,
+        { now: () => now },
+      );
+
+      await delivery.processDue();
+      vi.useRealTimers();
+
+      expect(
+        context.updates.filter(
+          (each) => 'dueAt' in each && !('attempts' in each),
+        ),
+      ).toEqual([LEASED]);
     });
 
     it('records a failed call and its backoff once it failed', async () => {

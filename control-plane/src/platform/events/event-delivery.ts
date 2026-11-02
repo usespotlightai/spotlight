@@ -38,6 +38,8 @@ export const LEASE_MS = 5 * 60 * 1000;
 
 export const LEASE_RENEWAL_MS = 60 * 1000;
 
+export const LONGEST_LEASE_MS = 30 * 60 * 1000;
+
 const DELIVERIES_METRIC = 'spotlight.outbox.deliveries';
 
 const backoffMs = (attempts: number): number =>
@@ -55,6 +57,7 @@ type Claim =
 
 interface Lease {
   current: Date;
+  readonly until: Date;
   renewing: Promise<void>;
   readonly timer: ReturnType<typeof setInterval>;
 }
@@ -269,6 +272,7 @@ export class EventDelivery {
   private renewing(due: Due, lease: Date): Lease {
     const held: Lease = {
       current: lease,
+      until: new Date(this.clock.now().getTime() + LONGEST_LEASE_MS),
       renewing: Promise.resolve(),
       timer: setInterval(() => {
         held.renewing = held.renewing.then(() => this.renewed(due, held));
@@ -280,6 +284,11 @@ export class EventDelivery {
 
   private async renewed(due: Due, held: Lease): Promise<void> {
     const next = new Date(this.clock.now().getTime() + LEASE_MS);
+
+    if (next > held.until) {
+      clearInterval(held.timer);
+      return;
+    }
 
     try {
       const written = await this.context.db
