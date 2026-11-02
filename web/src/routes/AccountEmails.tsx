@@ -20,7 +20,7 @@ export function AccountEmails() {
     <>
       <SettingsPage
         title="Emails"
-        description="Spotlight knows you by your sign-in email and by each verified email. For example, a mention of Spotlight in Slack is yours when your Slack account uses one of these addresses."
+        description="Spotlight recognizes you by your sign-in email and any additional verified email addresses. This allows Spotlight to identify you across connected services, regardless of which verified address you use."
       >
         {loading(emails) && (
           <SettingsSection>
