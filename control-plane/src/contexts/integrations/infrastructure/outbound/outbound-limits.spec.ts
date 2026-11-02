@@ -5,7 +5,7 @@ import {
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { Redis } from 'ioredis';
 import RedisMock from 'ioredis-mock';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 const quiet = () =>
   ({
@@ -109,6 +109,10 @@ describe('RedisOutboundLimits', () => {
   });
 
   it('counts each workspace apart on a shared store, as many requests as its rate at once', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'hrtime'] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     const redis = new RedisMock() as unknown as Redis;
     await redis.flushall();
     const { waits } = clock(0);
