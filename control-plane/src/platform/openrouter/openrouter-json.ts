@@ -8,6 +8,10 @@ const UNSUPPORTED = new Set(['$schema', 'minimum', 'maximum']);
 
 export type Fetch = typeof globalThis.fetch;
 
+export type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
+
+const TRUNCATED = 'length';
+
 export class OpenRouterRequestError extends Error {
   constructor(reason: string) {
     super(`The OpenRouter request failed. Response: ${reason}`);
@@ -17,11 +21,15 @@ export class OpenRouterRequestError extends Error {
 
 export class OpenRouterEmptyCompletionError extends Error {
   constructor(
-    reason: string,
+    readonly reason: string,
     readonly usage: OpenRouterUsage | null,
   ) {
     super(`OpenRouter returned no usable answer. Reason: ${reason}`);
     this.name = 'OpenRouterEmptyCompletionError';
+  }
+
+  get truncated(): boolean {
+    return this.reason === TRUNCATED;
   }
 }
 
@@ -104,6 +112,7 @@ export const requestJson = async <T>(request: {
   system: string;
   prompt: string;
   maxTokens: number;
+  reasoning?: ReasoningEffort;
 }): Promise<StructuredCompletion<T>> => {
   const response = await request
     .fetch(ENDPOINT, {
@@ -117,6 +126,9 @@ export const requestJson = async <T>(request: {
       body: JSON.stringify({
         model: request.model,
         max_tokens: request.maxTokens,
+        ...(request.reasoning
+          ? { reasoning: { effort: request.reasoning } }
+          : {}),
         messages: [
           { role: 'system', content: request.system },
           { role: 'user', content: request.prompt },

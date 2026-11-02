@@ -120,6 +120,12 @@ const working = (
   const generator: ChangeStackGeneratorPort = {
     available,
     generate: async () => ({ cohorts: await generate(), usage: null }),
+    outline: async () => {
+      throw new Error('A diff this small is not split');
+    },
+    layers: async () => {
+      throw new Error('A diff this small is not split');
+    },
   };
   const clock = { now: () => now, sleep: async () => undefined };
 

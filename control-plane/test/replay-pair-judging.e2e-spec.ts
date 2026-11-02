@@ -98,6 +98,12 @@ const archiveStore: WorkspaceArchiveStorePort = {
 
 const generator: ChangeStackGeneratorPort = {
   available: true,
+  outline: async () => {
+    throw new Error('A diff this small is not split');
+  },
+  layers: async () => {
+    throw new Error('A diff this small is not split');
+  },
   generate: async ({ diff }) => ({
     usage: {
       inputTokens: 1_000,

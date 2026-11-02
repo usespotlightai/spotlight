@@ -78,6 +78,7 @@ export const cohortsOf = (
     kind: cohort.kind,
     title: cohort.title,
     intent: cohort.intent,
+    joinedBecause: cohort.joinedBecause ?? null,
     layers: cohort.layers.map((layer) => ({
       id: LayerId.of(layer.id),
       title: layer.title,

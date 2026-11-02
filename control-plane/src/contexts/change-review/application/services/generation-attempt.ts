@@ -1,29 +1,27 @@
 import { GenerationError } from '@change-review/application/errors/generation.error';
-import type {
-  ChangeStackGenerationRequest,
-  ChangeStackGeneratorPort,
-  GeneratedChangeStack,
-} from '@change-review/application/ports/change-stack-generator.port';
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
-export type GenerationAttempt =
-  | { readonly generated: true; readonly answer: GeneratedChangeStack }
+export type GenerationAttempt<T> =
+  | { readonly generated: true; readonly answer: T }
   | {
       readonly generated: false;
       readonly usage: ModelCall | null;
+      readonly truncated: boolean;
       readonly error: unknown;
     };
 
-export const attemptGeneration = async (
-  generator: ChangeStackGeneratorPort,
-  request: ChangeStackGenerationRequest,
-): Promise<GenerationAttempt> => {
+export const attempted = async <T>(
+  call: () => Promise<T>,
+): Promise<GenerationAttempt<T>> => {
   try {
-    return { generated: true, answer: await generator.generate(request) };
+    return { generated: true, answer: await call() };
   } catch (error) {
+    const failed = error instanceof GenerationError ? error : null;
+
     return {
       generated: false,
-      usage: error instanceof GenerationError ? error.usage : null,
+      usage: failed?.usage ?? null,
+      truncated: failed?.truncated ?? false,
       error,
     };
   }

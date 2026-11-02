@@ -2,6 +2,7 @@ import { GenerationError } from '@change-review/application/errors/generation.er
 import type {
   ChangeStackGenerationRequest,
   ChangeStackGeneratorPort,
+  CohortLayersRequest,
 } from '@change-review/application/ports/change-stack-generator.port';
 import type { CodeReadingPort } from '@change-review/application/ports/code-reading.port';
 import type {
@@ -27,7 +28,11 @@ import {
   type DiffFile,
 } from '@change-review/domain/value-objects/diff.vo';
 import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
-import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
+import type {
+  OutlinedCohort,
+  ProposedCohort,
+  ProposedLayer,
+} from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -105,6 +110,62 @@ const DIFF = written(
   changed('api.ts', ['before'], ['POST /invitations']),
 );
 
+const LARGE = written(
+  ...Array.from({ length: 90 }, (_, at) =>
+    changed(`f${at + 1}.ts`, ['before'], [`line ${at + 1}`]),
+  ),
+);
+
+const hunksFrom = (first: number, last: number): HunkId[] =>
+  Array.from({ length: last - first + 1 }, (_, at) => HunkId.at(first + at));
+
+const outlineOf = (title: string, hunks: HunkId[]): OutlinedCohort => ({
+  kind: 'change',
+  title,
+  intent: `The ${title.toLowerCase()} work`,
+  joinedBecause: 'One feature the code does not show',
+  hunks,
+});
+
+const HALVES = [
+  outlineOf('First half', hunksFrom(1, 45)),
+  outlineOf('Second half', hunksFrom(46, 90)),
+];
+
+const oneLayer = ({ part }: CohortLayersRequest): ProposedLayer[] => [
+  {
+    title: 'Change the files',
+    summary: 'Changes every file of the cohort',
+    dependsOn: [],
+    hunks: part.diff.hunks.map((hunk) => ({ hunk: hunk.id })),
+    notes: part.diff.files.map((file) => ({
+      path: file.path,
+      note: 'Why it changes',
+    })),
+  },
+];
+
+const splitInTwo = ({ part }: CohortLayersRequest): ProposedLayer[] => {
+  const [first, ...rest] = part.diff.files;
+
+  return [first ? [first] : [], rest].map((files, at) => ({
+    title: `Layer ${at + 1}`,
+    summary: `Layer ${at + 1} of the cohort`,
+    dependsOn: [],
+    hunks: files.flatMap((file) =>
+      file.hunks.map((hunk) => ({ hunk: hunk.id })),
+    ),
+    notes: files.map((file) => ({ path: file.path, note: 'Why it changes' })),
+  }));
+};
+
+const LARGE_INPUT = {
+  diff: LARGE,
+  repository: null,
+  base: null,
+  request: null,
+};
+
 const RUN = {
   id: RunId.of('run-1'),
   taskId: null,
@@ -146,6 +207,8 @@ const generating = (
   over: {
     available?: boolean;
     answers?: (readonly ProposedCohort[] | Error)[];
+    outlines?: (readonly OutlinedCohort[] | Error)[];
+    layers?: (request: CohortLayersRequest) => readonly ProposedLayer[] | Error;
     index?: SymbolIndexerPort['index'];
   } = {},
 ) => {
@@ -153,6 +216,14 @@ const generating = (
   const dispatched: DomainEvent[] = [];
   const requests: ChangeStackGenerationRequest[] = [];
   const answers = [...(over.answers ?? [[cohort(['h1', 'h2'])]])];
+  const outlines = [...(over.outlines ?? [])];
+  const outlined: ChangeStackGenerationRequest[] = [];
+  const layered: CohortLayersRequest[] = [];
+  const usage = {
+    inputTokens: 1_000,
+    outputTokens: 200,
+    cost: { amount: 0.01, currency: 'USD' as const },
+  };
 
   const stacks: ChangeStackRepository = {
     add: async (stack) => {
@@ -179,14 +250,25 @@ const generating = (
       if (!answer || answer instanceof Error) {
         throw answer ?? new Error('Requested too often');
       }
-      return {
-        cohorts: answer,
-        usage: {
-          inputTokens: 1_000,
-          outputTokens: 200,
-          cost: { amount: 0.01, currency: 'USD' },
-        },
-      };
+      return { cohorts: answer, usage };
+    },
+    outline: async (request) => {
+      outlined.push(request);
+      const answer = outlines.shift();
+
+      if (!answer || answer instanceof Error) {
+        throw answer ?? new Error('Outlined too often');
+      }
+      return { cohorts: answer, usage };
+    },
+    layers: async (request) => {
+      layered.push(request);
+      const answer = over.layers?.(request) ?? new Error('No layers');
+
+      if (answer instanceof Error) {
+        throw answer;
+      }
+      return { layers: answer, usage };
     },
   };
 
@@ -212,7 +294,17 @@ const generating = (
     return stack;
   };
 
-  return { service, saved, requests, stacks, generator, dispatched, generated };
+  return {
+    service,
+    saved,
+    requests,
+    outlined,
+    layered,
+    stacks,
+    generator,
+    dispatched,
+    generated,
+  };
 };
 
 describe('GenerateChangeStack', () => {
@@ -342,6 +434,35 @@ describe('GenerateChangeStack', () => {
     });
   });
 
+  it('fails a stack the model runs out of output tokens for, without a retry', async () => {
+    const { service } = generating({
+      answers: [
+        new GenerationError(
+          'length',
+          {
+            inputTokens: 1_000,
+            outputTokens: 65_536,
+            cost: { amount: 0.2, currency: 'USD' },
+          },
+          true,
+        ),
+      ],
+    });
+    const stack = await service.begin(RUN, {
+      diff: DIFF,
+      repository: null,
+      base: null,
+      request: null,
+    });
+
+    const left = await service.generated(stack);
+
+    expect(left.state).toBe('failed');
+    expect(left.failure).toBe('The change is too large for one change stack.');
+    expect(left.hasPendingJob).toBe(false);
+    expect(left.usage).toMatchObject({ calls: 1, outputTokens: 65_536 });
+  });
+
   it('fails where this deployment cannot generate stacks', async () => {
     const { service } = generating({ available: false });
 
@@ -367,6 +488,132 @@ describe('GenerateChangeStack', () => {
       }),
     ).rejects.toThrow(InvalidDiffError);
     expect(saved).toEqual([]);
+  });
+
+  describe('for a diff too large for one call', () => {
+    it('outlines the cohorts, then layers each cohort from only its own hunks', async () => {
+      const { service, requests, outlined, layered } = generating({
+        outlines: [HALVES],
+        layers: oneLayer,
+      });
+      const stack = await service.begin(RUN, LARGE_INPUT);
+
+      const ready = await service.generated(stack);
+
+      expect(requests).toHaveLength(0);
+      expect(outlined).toHaveLength(1);
+      expect(
+        layered.map((each) => [each.cohort.title, each.part.diff.hunks.length]),
+      ).toEqual([
+        ['First half', 45],
+        ['Second half', 45],
+      ]);
+      expect(layered[1]?.part.diff.hunks[0]?.id).toBe('h46');
+      expect(ready.state).toBe('ready');
+      expect(ready.cohorts.map((each) => each.title)).toEqual([
+        'First half',
+        'Second half',
+      ]);
+      expect(ready.cohorts[0]?.joinedBecause).toBe(
+        'One feature the code does not show',
+      );
+      expect(ready.usage).toMatchObject({ calls: 3, outputTokens: 600 });
+    });
+
+    it('requests the outline again with its problems where it leaves hunks out', async () => {
+      const { service, outlined } = generating({
+        outlines: [[outlineOf('First half', hunksFrom(1, 45))], HALVES],
+        layers: oneLayer,
+      });
+      const stack = await service.begin(RUN, LARGE_INPUT);
+
+      const ready = await service.generated(stack);
+
+      expect(outlined[1]?.problems.map((each) => each.message)).toContain(
+        'leaves h46 out',
+      );
+      expect(ready.state).toBe('ready');
+    });
+
+    it('requests a cohort’s layers again with the problems found in that cohort alone', async () => {
+      let first = true;
+      const { service, layered } = generating({
+        outlines: [HALVES],
+        layers: (request) => {
+          const layers = oneLayer(request);
+
+          if (request.cohort.title === 'First half' && first) {
+            first = false;
+            return layers.map((layer) => ({
+              ...layer,
+              hunks: layer.hunks.slice(1),
+            }));
+          }
+          return layers;
+        },
+      });
+      const stack = await service.begin(RUN, LARGE_INPUT);
+
+      const ready = await service.generated(stack);
+
+      expect(ready.state).toBe('ready');
+      expect(layered).toHaveLength(3);
+      expect(
+        layered
+          .find((each) => each.problems.length > 0)
+          ?.problems.map((each) => each.message),
+      ).toContain('leaves h1 out');
+    });
+
+    it('fails the stack where a cohort’s layers run out of output tokens', async () => {
+      const { service } = generating({
+        outlines: [HALVES],
+        layers: (request) =>
+          request.cohort.title === 'Second half'
+            ? new GenerationError('length', null, true)
+            : oneLayer(request),
+      });
+      const stack = await service.begin(RUN, LARGE_INPUT);
+
+      const left = await service.generated(stack);
+
+      expect(left.state).toBe('failed');
+      expect(left.failure).toBe(
+        'The change is too large for one change stack.',
+      );
+    });
+
+    it('leaves the generation to be retried where a cohort’s layers get no answer', async () => {
+      const { service } = generating({
+        outlines: [HALVES],
+        layers: (request) =>
+          request.cohort.title === 'Second half'
+            ? new Error('overloaded')
+            : oneLayer(request),
+      });
+      const stack = await service.begin(RUN, LARGE_INPUT);
+
+      const left = await service.generated(stack);
+
+      expect(left.state).toBe('generating');
+      expect(left.usage.calls).toBe(2);
+    });
+
+    it('fails the stack where a cohort keeps breaking its rules', async () => {
+      const { service } = generating({
+        outlines: [HALVES],
+        layers: (request) =>
+          oneLayer(request).map((layer) => ({ ...layer, notes: [] })),
+      });
+      const stack = await service.begin(RUN, LARGE_INPUT);
+
+      const left = await service.generated(stack);
+
+      expect(left.state).toBe('failed');
+      expect(left.failure).toBe(
+        'The generated stack did not assign every hunk in order.',
+      );
+    });
   });
 
   describe('with facts from the code', () => {
@@ -675,5 +922,87 @@ describe('RedraftChangeStack', () => {
     const left = await service.redrafted(redrafting, check);
 
     expect(left.redrafting).toBe(true);
+  });
+
+  it('redrafts only the failing cohort of a large stack, keeping the others as they were', async () => {
+    const generated = generating({ outlines: [HALVES], layers: splitInTwo });
+    await generated.generated({
+      ...LARGE_INPUT,
+      request: CheckRequest.of('npx tsc --noEmit', null),
+    });
+
+    const ready = generated.saved[generated.saved.length - 1] as ChangeStack;
+    const check = StackCheck.begin({
+      stackId: ready.id,
+      runId: ready.runId,
+      taskId: null,
+      replay: false,
+      workspaceId: ready.workspaceId,
+      request: CheckRequest.of('npx tsc --noEmit', null),
+      entries: ready.entries(),
+      now: new Date('2026-09-16T10:00:00Z'),
+    })
+      .claimedFor(
+        RunnerId.of('checker_1'),
+        RunnerOffer.none(),
+        new Date('2026-09-16T10:00:00Z'),
+      )
+      .recordResult(
+        RunnerId.of('checker_1'),
+        { steps: ready.checkSteps(ready.entries()), layers: ready.layers() },
+        [
+          { step: WHOLE_STEP, passed: true, output: '', durationMs: 1 },
+          {
+            step: LayerId.of('c2.l1'),
+            passed: false,
+            output: 'f46.ts(1,1): error TS2304',
+            durationMs: 1,
+          },
+        ],
+        new Date('2026-09-16T10:00:00Z'),
+      );
+    const redrafting = ready.requestRedraft();
+    const before = generated.layered.length;
+
+    const redrafted = await new RedraftChangeStack(
+      generated.generator,
+      {
+        now: () => new Date('2026-09-16T10:05:00Z'),
+        sleep: async () => undefined,
+      },
+      QUIET,
+    ).redrafted(redrafting, check);
+
+    const asked = generated.layered.slice(before);
+    expect(asked.map((each) => each.cohort.title)).toEqual(['Second half']);
+    expect(asked[0]?.redraft?.stack.map((each) => each.title)).toEqual([
+      'Second half',
+    ]);
+    expect(
+      asked[0]?.redraft?.failed.map((each) => [each.cohort, each.layer]),
+    ).toEqual([[0, 0]]);
+    expect(generated.requests).toHaveLength(0);
+    expect(redrafted.redrafting).toBe(false);
+    expect(redrafted.cohorts[0]).toEqual(ready.cohorts[0]);
+  });
+
+  it('keeps the checked layers where the model runs out of output tokens for the redraft', async () => {
+    const { service, redrafting, check } = await failedCheck([
+      new GenerationError(
+        'length',
+        {
+          inputTokens: 1_000,
+          outputTokens: 65_536,
+          cost: { amount: 0.2, currency: 'USD' },
+        },
+        true,
+      ),
+    ]);
+
+    const left = await service.redrafted(redrafting, check);
+
+    expect(left.redrafting).toBe(false);
+    expect(left.hasPendingJob).toBe(false);
+    expect(left.cohorts[0]?.layers).toHaveLength(2);
   });
 });

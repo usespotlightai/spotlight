@@ -21,9 +21,9 @@ import {
   LayerId,
 } from '@change-review/domain/value-objects/stack-ids';
 
-const MAX_TITLE = 120;
+export const MAX_TITLE = 120;
 
-const MAX_PROSE = 2_000;
+export const MAX_PROSE = 2_000;
 
 const noteProblems = (
   diff: Diff,
@@ -206,6 +206,7 @@ const numbered = (
       kind: cohort.kind,
       title: cohort.title.trim(),
       intent: cohort.intent.trim(),
+      joinedBecause: cohort.joinedBecause?.trim() || null,
       layers: cohort.layers.map((layer, l) => ({
         id: LayerId.in(cohortId, l + 1),
         title: layer.title.trim(),
