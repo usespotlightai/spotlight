@@ -52,7 +52,7 @@ interface StartsChatPayload {
   readonly marks: readonly ChatMarkPayload[];
 }
 
-export interface ChatMarkPayload extends TaskMark {
+interface ChatMarkPayload extends TaskMark {
   readonly finds: boolean;
 }
 
