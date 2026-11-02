@@ -112,11 +112,13 @@ const ran = async (
     fingerprint = 'a'.repeat(64),
     parts = PARTS,
     state = 'completed',
+    reviewing = null,
     at,
   }: {
     fingerprint?: string | null;
     parts?: StationConfigParts;
     state?: RunState;
+    reviewing?: string | null;
     at: Date;
   },
 ) => {
@@ -141,6 +143,16 @@ const ran = async (
     spec: SPEC,
     stationFingerprint: fingerprint,
     stationConfig: fingerprint ? parts : null,
+    briefedTask: {
+      stationId,
+      title: 'Task',
+      description: null,
+      reviewing,
+      attachments: [],
+      notes: [],
+      openReviewComments: [],
+      decisions: [],
+    },
     createdAt: at,
     updatedAt: at,
     endedAt: ['completed', 'failed', 'superseded'].includes(state) ? at : null,
@@ -171,6 +183,19 @@ describe('the station config a run ran with', () => {
       stationId,
       taskId,
       fingerprint: 'a'.repeat(64),
+      reviewing: null,
+    });
+  });
+
+  it('tells the repository a run that ended reviewed', async () => {
+    const { stationId } = await lineOf('team_20');
+    const { runId } = await ran(stationId, {
+      reviewing: 'acme/web',
+      at: new Date(),
+    });
+
+    expect(await stationRuns.endedRun(runId)).toMatchObject({
+      reviewing: 'acme/web',
     });
   });
 

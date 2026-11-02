@@ -70,6 +70,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
         )`,
         harness: run.harness,
         config: run.stationConfig,
+        reviewing: sql<string | null>`${run.briefedTask}->>'reviewing'`,
         queuedAt: run.createdAt,
         startedAt: run.startedAt,
         endedAt: run.endedAt,

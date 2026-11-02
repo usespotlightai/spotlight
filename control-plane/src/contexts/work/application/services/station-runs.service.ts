@@ -13,6 +13,7 @@ import type {
 } from '@work/application/ports/station-runs.port';
 import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
 import { visitAfter } from '@work/domain/services/station-visit';
+import { reviewedOrAll } from '@work/domain/services/task-checkouts';
 import { progressOf } from '@work/domain/value-objects/run-state';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
@@ -36,7 +37,7 @@ export class StationRuns implements StationRunsPort {
       return null;
     }
 
-    const { earlier, config, ...run } = found;
+    const { earlier, config, reviewing, ...run } = found;
 
     return {
       ...run,
@@ -45,7 +46,10 @@ export class StationRuns implements StationRunsPort {
       model: config?.model ?? null,
       effort: config?.effort ?? null,
       profileKey: config?.profile?.key ?? null,
-      repositories: config?.repositories.map((each) => each.name) ?? [],
+      repositories: reviewedOrAll(
+        reviewing,
+        config?.repositories.map((each) => each.name) ?? [],
+      ),
       skills: config?.skills.map((each) => each.key) ?? [],
     };
   }
