@@ -93,10 +93,7 @@ const posting = (
           runId: stack.runId.value,
           repository: stack.repository?.value ?? null,
           state: stack.state,
-          cohorts: stack.cohorts.map((cohort) => ({
-            ...cohort,
-            layers: cohort.layers.map((layer) => ({ ...layer, questions: [] })),
-          })),
+          cohorts: stack.cohorts,
           check: null,
           added: 0,
           removed: 0,

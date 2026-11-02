@@ -174,7 +174,10 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       runId: row.runId,
       repository: row.repository,
       state: row.state,
-      cohorts: cohortDtosOf(row.cohorts, () => null),
+      cohorts: row.cohorts.map((cohort) => ({
+        ...cohort,
+        layers: cohort.layers.map(({ questions: _, ...layer }) => layer),
+      })),
       check: checkOf(row.check, now),
       added: tally.added,
       removed: tally.removed,

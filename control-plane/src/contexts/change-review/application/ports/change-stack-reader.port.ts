@@ -1,7 +1,7 @@
 import type {
   ChangeStackDto,
+  OutlinedCohortDto,
   StackCheckDto,
-  StackCohortDto,
 } from '@change-review/application/dto/change-stack.dto';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -14,7 +14,7 @@ export interface ChangeStackSummary {
   readonly runId: string;
   readonly repository: string | null;
   readonly state: ChangeStackDto['state'];
-  readonly cohorts: readonly StackCohortDto[];
+  readonly cohorts: readonly OutlinedCohortDto[];
   readonly check: StackCheckDto | null;
   readonly added: number;
   readonly removed: number;

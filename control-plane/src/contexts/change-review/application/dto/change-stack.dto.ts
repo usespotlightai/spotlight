@@ -83,6 +83,10 @@ export interface StackCohortDto {
   readonly layers: readonly StackLayerDto[];
 }
 
+export interface OutlinedCohortDto extends Omit<StackCohortDto, 'layers'> {
+  readonly layers: readonly Omit<StackLayerDto, 'questions'>[];
+}
+
 export interface CheckedStepDto {
   readonly step: string;
   readonly passed: boolean;

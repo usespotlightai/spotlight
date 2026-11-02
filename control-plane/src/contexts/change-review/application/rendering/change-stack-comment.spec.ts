@@ -122,10 +122,7 @@ describe('ChangeStackComment', () => {
       .retainCheckedLayers();
     const body = ChangeStackComment.of(
       {
-        cohorts: stack.cohorts.map((cohort) => ({
-          ...cohort,
-          layers: cohort.layers.map((layer) => ({ ...layer, questions: [] })),
-        })),
+        cohorts: stack.cohorts,
         check: {
           command: check.request.command,
           status: check.statusAt(NOW),
