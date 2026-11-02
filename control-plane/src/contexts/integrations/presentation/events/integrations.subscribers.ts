@@ -76,6 +76,7 @@ export const integrationsSubscribers = (
           event.integration.value,
         ),
       ),
+    { callsOut: true },
   ),
   subscribing<IntegrationUpdated | IntegrationDeleted>(
     'integrations.delete-inferred-output-schemas-of-a-changed-integration',

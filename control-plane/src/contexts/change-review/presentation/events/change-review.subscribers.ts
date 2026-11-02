@@ -111,6 +111,7 @@ export const changeReviewSubscribers = (
     'change-review.signal-reviewing',
     [TASK_DISPATCHED],
     (event) => signalling.began(TaskId.of(event.taskId), RunId.of(event.runId)),
+    { callsOut: true },
   ),
   subscribing<RunEndedIntegrationEvent>(
     'change-review.signal-reviewed',
@@ -119,6 +120,7 @@ export const changeReviewSubscribers = (
       event.taskId
         ? signalling.ended(TaskId.of(event.taskId), RunId.of(event.runId))
         : Promise.resolve(),
+    { callsOut: true },
   ),
   subscribing<RunEndedIntegrationEvent>(
     'change-review.request-decisions',
@@ -144,31 +146,37 @@ export const changeReviewSubscribers = (
     'change-review.post-stack-comment-on-completed',
     ['change-stack.completed'],
     (event) => reactions.onCompleted(event),
+    { callsOut: true },
   ),
   subscribing<ChangeStackChecked>(
     'change-review.post-stack-comment-on-checked',
     ['change-stack.checked'],
     (event) => reactions.onChecked(event),
+    { callsOut: true },
   ),
   subscribing<PullRequestOpenedIntegrationEvent>(
     'change-review.post-stack-comment-on-pull-request',
     [PULL_REQUEST_OPENED],
     (event) => poster.ofTask(TaskId.of(event.taskId)),
+    { callsOut: true },
   ),
   subscribing<DecisionsRecorded>(
     'change-review.post-decisions-comment',
     ['decisions.recorded'],
     (event) => decisions.onRecorded(event),
+    { callsOut: true },
   ),
   subscribing<DecisionDisputed>(
     'change-review.post-decisions-comment-on-dispute',
     ['decisions.disputed'],
     (event) => decisions.onDisputed(event),
+    { callsOut: true },
   ),
   subscribing<PullRequestOpenedIntegrationEvent>(
     'change-review.post-decisions-comment-on-open',
     [PULL_REQUEST_OPENED],
     (event) => decisions.onPullRequestOpened(TaskId.of(event.taskId)),
+    { callsOut: true },
   ),
   subscribing<TaskDeletedIntegrationEvent>(
     'change-review.delete-task',

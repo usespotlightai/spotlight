@@ -5,7 +5,11 @@ import { configurationChange } from '@identity/infrastructure/persistence/drizzl
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { AsyncLocalCausation } from '@platform/events/async-local-causation';
 import { DeliveryBacklog } from '@platform/events/delivery-backlog';
-import { EventDelivery, MAX_ATTEMPTS } from '@platform/events/event-delivery';
+import {
+  EventDelivery,
+  LEASE_MS,
+  MAX_ATTEMPTS,
+} from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
@@ -60,6 +64,12 @@ class Answered implements DomainEvent {
   constructor(readonly marker: Marker) {}
 }
 
+class Called implements DomainEvent {
+  readonly kind = 'bell.called';
+
+  constructor(readonly marker: Marker) {}
+}
+
 let database: TestDatabase;
 let context: DrizzleContext;
 let now = new Date();
@@ -67,6 +77,8 @@ const received: string[] = [];
 let failing = 0;
 const causation = new AsyncLocalCausation();
 const causes: string[] = [];
+let callOut: (event: Called) => Promise<readonly DomainEvent[]> =
+  async () => [];
 
 const logger = {
   debug: () => undefined,
@@ -77,7 +89,7 @@ const logger = {
 
 const outboxWith = () => {
   const types = new PayloadTypes();
-  types.register('test', [Marker, Rang, Answered, Reconfigured]);
+  types.register('test', [Marker, Rang, Answered, Reconfigured, Called]);
   types.register('shared-kernel', SHARED_KERNEL_PAYLOAD_TYPES);
   const subscribers = new EventSubscribers();
   subscribers.register([
@@ -108,6 +120,12 @@ const outboxWith = () => {
           throw new Error('failed');
         }
       },
+    ),
+    subscribing<Called>(
+      'test.call-out',
+      ['bell.called'],
+      (event) => callOut(event),
+      { callsOut: true },
     ),
     subscribing<Rang>('test.flaky', ['bell.rang'], async (event) => {
       if (failing > 0) {
@@ -394,5 +412,129 @@ describe('the event outbox', () => {
     }
 
     await expect(pending()).resolves.toEqual({ pending: 1, deadLettered: 1 });
+  });
+
+  describe('a subscriber that calls out', () => {
+    const deliveryOf = async (eventId: string) => {
+      const [row] = await database.db
+        .select()
+        .from(eventDelivery)
+        .where(eq(eventDelivery.eventId, eventId));
+
+      return row;
+    };
+
+    const calledIds = async () =>
+      (
+        await database.db
+          .select({ id: eventOutbox.id })
+          .from(eventOutbox)
+          .where(eq(eventOutbox.kind, 'bell.called'))
+      ).map((each) => each.id);
+
+    const calledIn = async (marker: string) => {
+      const { outbox, delivery } = outboxWith();
+      const before = new Set(await calledIds());
+      await outbox.record([new Called(Marker.of(marker))]);
+      const eventId =
+        (await calledIds()).find((each) => !before.has(each)) ?? '';
+
+      return { delivery, eventId };
+    };
+
+    it('calls out with no transaction open, under a lease, and records what it raises once it settles', async () => {
+      received.length = 0;
+      const seen: { transacting: boolean; dueAt: Date | null }[] = [];
+      const { delivery, eventId } = await calledIn('four');
+      callOut = async (event) => {
+        seen.push({
+          transacting: context.transacting,
+          dueAt: (await deliveryOf(eventId))?.dueAt ?? null,
+        });
+
+        return [new Answered(event.marker)];
+      };
+
+      await delivery.processDue();
+
+      expect(seen).toEqual([
+        {
+          transacting: false,
+          dueAt: new Date(now.getTime() + LEASE_MS),
+        },
+      ]);
+      expect((await deliveryOf(eventId))?.deliveredAt).not.toBeNull();
+      expect(received).toContain('answered four');
+    });
+
+    it('is taken over by another instance once its lease ended, and what the first raises late counts for nothing', async () => {
+      received.length = 0;
+      let calls = 0;
+      const { delivery, eventId } = await calledIn('five');
+      const other = outboxWith().delivery;
+      callOut = async (event) => {
+        calls += 1;
+
+        if (calls === 1) {
+          now = new Date(now.getTime() + LEASE_MS + 1_000);
+          await other.processDue();
+        }
+
+        return [new Answered(Marker.of(`${event.marker.value} ${calls}`))];
+      };
+
+      await delivery.processDue();
+      await other.processDue();
+
+      expect(calls).toBe(2);
+      expect((await deliveryOf(eventId))?.attempts).toBe(1);
+      expect(
+        received.filter((each) => each.startsWith('answered five')),
+      ).toEqual(['answered five 2']);
+    });
+
+    it('does not settle a delivery whose lease another instance took over', async () => {
+      received.length = 0;
+      const { delivery, eventId } = await calledIn('six');
+      callOut = async (event) => {
+        await database.db
+          .update(eventDelivery)
+          .set({ dueAt: new Date(now.getTime() + 2 * LEASE_MS) })
+          .where(eq(eventDelivery.eventId, eventId));
+
+        return [new Answered(event.marker)];
+      };
+
+      await delivery.processDue();
+
+      expect((await deliveryOf(eventId))?.deliveredAt).toBeNull();
+      expect(received).not.toContain('answered six');
+    });
+
+    it('retries a failed call after its backoff, and only then delivers it', async () => {
+      let failures = 1;
+      const { delivery, eventId } = await calledIn('seven');
+      callOut = async () => {
+        if (failures > 0) {
+          failures -= 1;
+          throw new Error('the service did not answer');
+        }
+
+        return [];
+      };
+
+      await delivery.processDue();
+
+      expect(await deliveryOf(eventId)).toMatchObject({
+        attempts: 1,
+        deliveredAt: null,
+        lastError: 'the service did not answer',
+      });
+
+      now = new Date(now.getTime() + 60_000);
+      await delivery.processDue();
+
+      expect((await deliveryOf(eventId))?.deliveredAt).not.toBeNull();
+    });
   });
 });
