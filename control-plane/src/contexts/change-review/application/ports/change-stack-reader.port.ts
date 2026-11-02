@@ -5,6 +5,7 @@ import type {
 } from '@change-review/application/dto/change-stack.dto';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export const CHANGE_STACK_READER = Symbol('CHANGE_STACK_READER');
 
@@ -22,5 +23,5 @@ export interface ChangeStackSummary {
 export interface ChangeStackReaderPort {
   latestForTask(taskId: TaskId, now: Date): Promise<ChangeStackSummary | null>;
 
-  ofRun(runId: RunId, now: Date): Promise<ChangeStackDto[]>;
+  ofRun(runId: RunId, viewerId: UserId, now: Date): Promise<ChangeStackDto[]>;
 }

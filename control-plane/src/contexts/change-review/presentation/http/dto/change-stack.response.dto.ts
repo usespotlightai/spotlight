@@ -1,4 +1,5 @@
 import {
+  ANSWER_VERDICT_NAMES,
   CHANGE_STACK_STATE_NAMES,
   COHORT_KIND_NAMES,
   DIFF_FILE_STATUS_NAMES,
@@ -101,6 +102,97 @@ export class FileNoteResponseDto {
   }
 }
 
+export class QuestionAnswerResponseDto {
+  @ApiProperty({ example: 'c1.l2.q1' })
+  readonly questionId: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'What the reviewer answered; null when they did not know',
+  })
+  readonly reply: string | null;
+
+  @ApiProperty({ enum: ANSWER_VERDICT_NAMES })
+  readonly verdict: 'right' | 'partly-right' | 'missed';
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    description: 'What the answer missed or got wrong, or one fact it left out',
+  })
+  readonly feedback: string | null;
+
+  @ApiProperty({
+    example: 'It answers 409 and sends no invitation.',
+    description: 'The answer that Spotlight expected',
+  })
+  readonly expected: string;
+
+  constructor(
+    questionId: string,
+    reply: string | null,
+    verdict: 'right' | 'partly-right' | 'missed',
+    feedback: string | null,
+    expected: string,
+  ) {
+    this.questionId = questionId;
+    this.reply = reply;
+    this.verdict = verdict;
+    this.feedback = feedback;
+    this.expected = expected;
+  }
+}
+
+export class LayerQuestionResponseDto {
+  @ApiProperty({ example: 'c1.l2.q1' })
+  readonly id: string;
+
+  @ApiProperty({
+    example: 'What happens when the address is already a member?',
+  })
+  readonly question: string;
+
+  @ApiProperty({
+    type: String,
+    isArray: true,
+    example: ['h3'],
+    description: 'The hunks that show the answer',
+  })
+  readonly hunks: readonly string[];
+
+  @ApiProperty({
+    type: QuestionAnswerResponseDto,
+    nullable: true,
+    description:
+      'The caller’s answer, with the expected answer; null until the caller answers',
+  })
+  readonly answered: QuestionAnswerResponseDto | null;
+
+  constructor(
+    id: string,
+    question: string,
+    hunks: readonly string[],
+    answered: QuestionAnswerResponseDto | null,
+  ) {
+    this.id = id;
+    this.question = question;
+    this.hunks = hunks;
+    this.answered = answered;
+  }
+}
+
+export class AnswerQuestionRequestDto {
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: 'It sends no invitation.',
+    description:
+      'The answer in the reviewer’s own words; null to say they do not know',
+  })
+  readonly reply!: string | null;
+}
+
 export class StackLayerResponseDto {
   @ApiProperty({ example: 'c1.l2' })
   readonly id: string;
@@ -122,18 +214,28 @@ export class StackLayerResponseDto {
   })
   readonly notes: readonly FileNoteResponseDto[];
 
+  @ApiProperty({
+    type: LayerQuestionResponseDto,
+    isArray: true,
+    description:
+      'Questions that test whether the reviewer understood the layer; empty for incidental changes',
+  })
+  readonly questions: readonly LayerQuestionResponseDto[];
+
   constructor(
     id: string,
     title: string,
     summary: string,
     hunks: readonly StackHunkResponseDto[],
     notes: readonly FileNoteResponseDto[],
+    questions: readonly LayerQuestionResponseDto[],
   ) {
     this.id = id;
     this.title = title;
     this.summary = summary;
     this.hunks = hunks;
     this.notes = notes;
+    this.questions = questions;
   }
 }
 

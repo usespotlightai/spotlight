@@ -14,9 +14,11 @@ type ComposerProps = {
   max?: number;
   initial?: string;
   avatar?: ReactNode;
+  aside?: ReactNode;
+  autoFocus?: boolean;
   pending: boolean;
   onSubmit: (body: string) => void;
-  onCancel: () => void;
+  onCancel?: () => void;
 };
 
 export function Composer({
@@ -26,6 +28,8 @@ export function Composer({
   max,
   initial = '',
   avatar,
+  aside,
+  autoFocus = true,
   pending,
   onSubmit,
   onCancel,
@@ -46,7 +50,7 @@ export function Composer({
       submit();
     }
     if (event.key === 'Escape') {
-      onCancel();
+      onCancel?.();
     }
   };
 
@@ -69,14 +73,17 @@ export function Composer({
           onChange={(event) => setBody(event.target.value)}
           onKeyDown={onKeyDown}
           className="max-h-72 min-h-16 p-0 font-sans text-xs leading-5"
-          autoFocus
+          autoFocus={autoFocus}
         />
       </div>
 
       <div className="flex items-center justify-end gap-2">
-        <Button type="button" variant="ghost" size="xs" onClick={onCancel}>
-          Cancel
-        </Button>
+        {aside}
+        {onCancel && (
+          <Button type="button" variant="ghost" size="xs" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
         <Button type="submit" size="xs" disabled={!ready}>
           {submitLabel}
         </Button>

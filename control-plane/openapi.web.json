@@ -3099,6 +3099,83 @@
         ]
       }
     },
+    "/teams/{teamId}/runs/{runId}/change-stacks/{stackId}/questions/{questionId}/answers": {
+      "post": {
+        "operationId": "answerStackQuestion",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stackId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerQuestionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionAnswerResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The reply is not words or null, or it is too long"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such change stack or question for this caller"
+          },
+          "409": {
+            "description": "The caller already answered it"
+          }
+        },
+        "summary": "Answer a question about a layer of a change stack, and get it graded against the expected answer",
+        "tags": [
+          "change-stacks"
+        ]
+      }
+    },
     "/teams/{teamId}/tasks/{taskId}/change-stack": {
       "get": {
         "operationId": "readTaskChangeStack",
@@ -10075,6 +10152,84 @@
           "note"
         ]
       },
+      "QuestionAnswerResponseDto": {
+        "type": "object",
+        "properties": {
+          "questionId": {
+            "type": "string",
+            "example": "c1.l2.q1"
+          },
+          "reply": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the reviewer answered; null when they did not know"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "right",
+              "partly-right",
+              "missed"
+            ]
+          },
+          "feedback": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the answer missed or got wrong, or one fact it left out"
+          },
+          "expected": {
+            "type": "string",
+            "example": "It answers 409 and sends no invitation.",
+            "description": "The answer that Spotlight expected"
+          }
+        },
+        "required": [
+          "questionId",
+          "reply",
+          "verdict",
+          "feedback",
+          "expected"
+        ]
+      },
+      "LayerQuestionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c1.l2.q1"
+          },
+          "question": {
+            "type": "string",
+            "example": "What happens when the address is already a member?"
+          },
+          "hunks": {
+            "example": [
+              "h3"
+            ],
+            "description": "The hunks that show the answer",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "answered": {
+            "nullable": true,
+            "description": "The caller’s answer, with the expected answer; null until the caller answers",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/QuestionAnswerResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "hunks",
+          "answered"
+        ]
+      },
       "StackLayerResponseDto": {
         "type": "object",
         "properties": {
@@ -10101,6 +10256,13 @@
             "items": {
               "$ref": "#/components/schemas/FileNoteResponseDto"
             }
+          },
+          "questions": {
+            "description": "Questions that test whether the reviewer understood the layer; empty for incidental changes",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LayerQuestionResponseDto"
+            }
           }
         },
         "required": [
@@ -10108,7 +10270,8 @@
           "title",
           "summary",
           "hunks",
-          "notes"
+          "notes",
+          "questions"
         ]
       },
       "StackCohortResponseDto": {
@@ -10286,6 +10449,20 @@
         },
         "required": [
           "stacks"
+        ]
+      },
+      "AnswerQuestionRequestDto": {
+        "type": "object",
+        "properties": {
+          "reply": {
+            "type": "string",
+            "nullable": true,
+            "example": "It sends no invitation.",
+            "description": "The answer in the reviewer’s own words; null to say they do not know"
+          }
+        },
+        "required": [
+          "reply"
         ]
       },
       "LatestChangeStackResponseDto": {

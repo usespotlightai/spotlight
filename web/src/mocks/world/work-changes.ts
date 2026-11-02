@@ -183,6 +183,7 @@ const POSTGRES_API: ChangeStackResponseDto = {
               note: 'Uses the JavaScript client only, and gives up connecting after 5 seconds.',
             },
           ],
+          questions: [],
         },
         {
           id: 'c1.l2',
@@ -194,6 +195,22 @@ const POSTGRES_API: ChangeStackResponseDto = {
             {
               path: PAID_AT_MIGRATION,
               note: 'Rewrites `invoices.paid_at`, about 1.3M rows, in one statement.',
+            },
+          ],
+          questions: [
+            {
+              id: 'c1.l2.q1',
+              question:
+                'What happens to API requests while the migration rewrites `invoices.paid_at`?',
+              hunks: ['api_migration'],
+              answered: null,
+            },
+            {
+              id: 'c1.l2.q2',
+              question:
+                'A client sorts invoices by `paidAt`. Does its order change after this layer ships?',
+              hunks: ['api_timestamps', 'api_migration'],
+              answered: null,
             },
           ],
         },
@@ -209,6 +226,7 @@ const POSTGRES_API: ChangeStackResponseDto = {
               note: 'Makes `query` generic over the row it returns.',
             },
           ],
+          questions: [],
         },
       ],
     },
@@ -224,6 +242,7 @@ const POSTGRES_API: ChangeStackResponseDto = {
           summary: 'pg and its two internal packages, resolved again.',
           hunks: [{ hunk: 'api_lockfile' }],
           notes: [],
+          questions: [],
         },
       ],
     },
@@ -263,6 +282,7 @@ const SEARCH: ChangeStackResponseDto = {
             'Built concurrently, so the migration never locks the task table.',
           hunks: [{ hunk: 'search_h1' }],
           notes: [],
+          questions: [],
         },
         {
           id: 'c1.l2',
@@ -271,6 +291,7 @@ const SEARCH: ChangeStackResponseDto = {
             'Matches with the trigram operator and orders by similarity.',
           hunks: [{ hunk: 'search_h2' }],
           notes: [],
+          questions: [],
         },
       ],
     },
@@ -309,6 +330,7 @@ const REFERRAL: ChangeStackResponseDto = {
           summary: 'A link from the inviter’s referral code.',
           hunks: [{ hunk: 'referral_h1' }],
           notes: [],
+          questions: [],
         },
         {
           id: 'c1.l2',
@@ -316,6 +338,7 @@ const REFERRAL: ChangeStackResponseDto = {
           summary: 'Below the join button, only with `invite-referral` on.',
           hunks: [{ hunk: 'referral_h2' }],
           notes: [],
+          questions: [],
         },
       ],
     },

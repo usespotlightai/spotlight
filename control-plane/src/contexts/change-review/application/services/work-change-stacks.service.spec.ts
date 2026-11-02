@@ -59,6 +59,7 @@ const layered = (layers: string[][]): ProposedCohort[] => [
         path: hunk === 'h1' ? 'schema.ts' : 'api.ts',
         note: 'Why it changes',
       })),
+      questions: [],
     })),
   },
 ];

@@ -15,6 +15,7 @@ import { DrizzleUsedPoolTokensRepository } from '@runners/infrastructure/persist
 import { POOL_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-pool-resource.controller';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
   BUILT_IN_LINES,
   type LineOpening,
@@ -137,7 +138,7 @@ describe('runner pools (e2e)', () => {
   const checkReadFor = async (runId: string) => {
     const [stack] = await app
       .get<ChangeStackReaderPort>(CHANGE_STACK_READER)
-      .ofRun(RunId.of(runId), new Date());
+      .ofRun(RunId.of(runId), UserId.of('nobody'), new Date());
 
     return stack?.check ?? null;
   };

@@ -7,6 +7,7 @@ import { ChangeStackRedraftingEnded } from '@change-review/domain/events/change-
 import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
+import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
@@ -22,11 +23,15 @@ import type {
   CheckStep,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import type {
+  LayerQuestion,
   ProposedCohort,
   StackCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
-import type { LayerId } from '@change-review/domain/value-objects/stack-ids';
+import type {
+  LayerId,
+  QuestionId,
+} from '@change-review/domain/value-objects/stack-ids';
 import {
   type ChangeStackState,
   INTERRUPTED,
@@ -43,6 +48,11 @@ import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+export interface CitedHunk {
+  readonly path: string;
+  readonly patch: string;
+}
 
 const NOT_GENERATED = 'Spotlight couldn’t generate the change stack.';
 
@@ -268,6 +278,31 @@ export class ChangeStack
       .filter((cohort) => cohort.kind === 'change')
       .flatMap((cohort) => cohort.layers)
       .map((layer) => layer.id);
+  }
+
+  question(id: QuestionId): LayerQuestion {
+    const found =
+      this.state === 'ready'
+        ? this.cohorts
+            .flatMap((cohort) => cohort.layers)
+            .flatMap((layer) => layer.questions)
+            .find((each) => each.id === id)
+        : undefined;
+
+    if (!found) {
+      throw new UnknownQuestionError();
+    }
+
+    return found;
+  }
+
+  citedBy(question: LayerQuestion): CitedHunk[] {
+    return question.hunks.flatMap((id) => {
+      const file = this.diff.fileOf(id);
+      const hunk = file?.hunks.find((each) => each.id === id);
+
+      return file && hunk ? [{ path: file.path, patch: hunk.patch }] : [];
+    });
   }
 
   checkSteps(entries: readonly CheckEntry[]): CheckStep[] {

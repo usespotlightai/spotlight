@@ -1,6 +1,7 @@
 CREATE TYPE "public"."change_stack_state" AS ENUM('generating', 'ready', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."decision_kind" AS ENUM('trade-off', 'assumption', 'limitation', 'rejected-approach', 'deviation');--> statement-breakpoint
 CREATE TYPE "public"."decision_status" AS ENUM('proposed', 'merged');--> statement-breakpoint
+CREATE TYPE "public"."answer_verdict" AS ENUM('right', 'partly-right', 'missed');--> statement-breakpoint
 CREATE TYPE "public"."review_comment_state" AS ENUM('draft', 'submitted', 'posted', 'failed', 'deleted');--> statement-breakpoint
 CREATE TYPE "public"."review_outbox_kind" AS ENUM('review', 'reply', 'file', 'edit', 'delete');--> statement-breakpoint
 CREATE TYPE "public"."review_outbox_state" AS ENUM('pending', 'done', 'failed');--> statement-breakpoint
@@ -156,6 +157,22 @@ CREATE TABLE "decision_set" (
 	"merged_repository" text,
 	"merged_commit" text,
 	"merged_at" timestamp,
+	"version" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "question_answer" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"stack_id" text NOT NULL,
+	"question_id" text NOT NULL,
+	"person_id" text NOT NULL,
+	"asked" text NOT NULL,
+	"expected" text NOT NULL,
+	"reply" text,
+	"verdict" "answer_verdict" NOT NULL,
+	"feedback" text,
+	"usage" jsonb NOT NULL,
+	"answered_at" timestamp NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1933,6 +1950,7 @@ DROP INDEX "account_issuer_accountId_uidx";--> statement-breakpoint
 ALTER TABLE "event_delivery" ADD CONSTRAINT "event_delivery_event_id_event_outbox_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."event_outbox"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "decision" ADD CONSTRAINT "decision_set_id_decision_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."decision_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "decision_dispute" ADD CONSTRAINT "decision_dispute_decision_id_decision_id_fk" FOREIGN KEY ("decision_id") REFERENCES "public"."decision"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "question_answer" ADD CONSTRAINT "question_answer_stack_id_change_stack_id_fk" FOREIGN KEY ("stack_id") REFERENCES "public"."change_stack"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_email" ADD CONSTRAINT "user_email_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "verification_send" ADD CONSTRAINT "verification_send_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oidc_trust" ADD CONSTRAINT "oidc_trust_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -1997,6 +2015,7 @@ CREATE INDEX "decision_dispute_decision_idx" ON "decision_dispute" USING btree (
 CREATE UNIQUE INDEX "decision_set_task_idx" ON "decision_set" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "decision_set_generation_idx" ON "decision_set" USING btree ("generation_requested_at");--> statement-breakpoint
 CREATE INDEX "decision_set_merged_idx" ON "decision_set" USING btree ("workspace_id","merged_repository","merged_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "question_answer_person_idx" ON "question_answer" USING btree ("stack_id","person_id","question_id");--> statement-breakpoint
 CREATE INDEX "review_task_idx" ON "review" USING btree ("task_id","submitted_at");--> statement-breakpoint
 CREATE INDEX "review_comment_task_idx" ON "review_comment" USING btree ("task_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "review_comment_github_idx" ON "review_comment" USING btree ("workspace_id","github_id");--> statement-breakpoint

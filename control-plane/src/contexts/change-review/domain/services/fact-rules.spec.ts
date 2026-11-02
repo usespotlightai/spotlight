@@ -33,6 +33,7 @@ const layer = (hunks: string[]): ProposedLayer => ({
   dependsOn: [],
   hunks: hunks.map((each) => ({ hunk: HunkId.of(each) })),
   notes: [],
+  questions: [],
 });
 
 const cohort = (

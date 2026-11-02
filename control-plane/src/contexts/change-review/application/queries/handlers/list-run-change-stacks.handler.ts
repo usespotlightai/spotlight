@@ -5,6 +5,7 @@ import type { ChangeStackAccess } from '@change-review/application/services/chan
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class ListRunChangeStacksHandler
   implements
@@ -27,7 +28,13 @@ export class ListRunChangeStacksHandler
       );
 
       return run
-        ? { stacks: await this.stacks.ofRun(run.id, this.clock.now()) }
+        ? {
+            stacks: await this.stacks.ofRun(
+              run.id,
+              UserId.of(query.viewerId),
+              this.clock.now(),
+            ),
+          }
         : null;
     } catch (error) {
       rethrowAsApplicationError(error);

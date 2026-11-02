@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
+  answeredIn,
   type ChangeStack,
   changeStackPath,
+  citedBy,
   currentStacks,
   filesOf,
   generating,
   inProgress,
   isLargeDiff,
+  type LayerQuestion,
   layerAt,
   patchOf,
+  type QuestionAnswer,
   tallyOf,
+  toReadAgain,
 } from '@/lib/change-stack';
 
 const checked = (status: 'waiting' | 'checked'): ChangeStack['check'] => ({
@@ -84,6 +89,7 @@ const stack = (over: Partial<ChangeStack> = {}): ChangeStack => ({
           notes: [
             { path: 'src/invite.ts', note: 'Adds the invitation model.' },
           ],
+          questions: [],
         },
         {
           id: 'c1.l2',
@@ -91,6 +97,7 @@ const stack = (over: Partial<ChangeStack> = {}): ChangeStack => ({
           summary: 'The routes',
           hunks: [{ hunk: 'h3' }, { hunk: 'h2' }],
           notes: [],
+          questions: [],
         },
       ],
     },
@@ -207,5 +214,66 @@ describe('isLargeDiff', () => {
 
   it('shows a diff of a thousand lines or fewer', () => {
     expect(isLargeDiff([hunk(1_000)])).toBe(false);
+  });
+});
+
+const ASKED: LayerQuestion = {
+  id: 'c1.l2.q1',
+  question: 'What does the router mount now?',
+  hunks: ['h3', 'h1', 'h2'],
+  answered: null,
+};
+
+const MISSED: QuestionAnswer = {
+  questionId: 'c1.l2.q1',
+  reply: null,
+  verdict: 'missed',
+  feedback: null,
+  expected: 'The invitation routes.',
+};
+
+describe('citedBy', () => {
+  it('names each cited file once, at its first cited line, with the layer that shows it', () => {
+    expect(citedBy(stack(), ASKED)).toEqual([
+      { path: 'src/routes.ts', line: 9, layerId: 'c1.l2' },
+      { path: 'src/invite.ts', line: 1, layerId: 'c1.l1' },
+    ]);
+  });
+});
+
+describe('answeredIn', () => {
+  it('puts the answer on its question, and leaves other stacks as they are', () => {
+    const asking = stack({
+      cohorts: stack().cohorts.map((cohort) => ({
+        ...cohort,
+        layers: cohort.layers.map((layer) =>
+          layer.id === 'c1.l2' ? { ...layer, questions: [ASKED] } : layer,
+        ),
+      })),
+    });
+    const other = { ...asking, id: 'stack_2' };
+
+    const { stacks } = answeredIn(
+      { stacks: [asking, other] },
+      'stack_1',
+      MISSED,
+    );
+    const layer = stacks[0]?.cohorts[0]?.layers[1];
+
+    expect(layer?.questions[0]?.answered).toEqual(MISSED);
+    expect(toReadAgain(layer as NonNullable<typeof layer>)).toBe(true);
+    expect(stacks[1]).toBe(other);
+  });
+
+  it('asks nobody to read a layer again when every answer is right', () => {
+    const layer = stack().cohorts[0]?.layers[1];
+    const right = {
+      ...(layer as NonNullable<typeof layer>),
+      questions: [
+        { ...ASKED, answered: { ...MISSED, verdict: 'right' as const } },
+      ],
+    };
+
+    expect(toReadAgain(right)).toBe(false);
   });
 });
