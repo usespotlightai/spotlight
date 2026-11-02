@@ -1,7 +1,7 @@
 import {
   type CohortLayering,
   combined,
-  inTurn,
+  layeredConcurrently,
 } from '@change-review/application/services/cohort-layering';
 import { describe, expect, it } from 'vitest';
 
@@ -17,12 +17,12 @@ const layered = (title: string): CohortLayering => ({
   usage: [CALL],
 });
 
-describe('inTurn', () => {
+describe('layeredConcurrently', () => {
   it('layers at most four cohorts at once and keeps their order', async () => {
     let running = 0;
     let most = 0;
 
-    const done = await inTurn(
+    const done = await layeredConcurrently(
       Array.from({ length: 10 }, (_, at) => async () => {
         running += 1;
         most = Math.max(most, running);
@@ -36,6 +36,28 @@ describe('inTurn', () => {
     expect(
       done.map((each) => each.outcome === 'layered' && each.cohort.title),
     ).toEqual(Array.from({ length: 10 }, (_, at) => `Cohort ${at + 1}`));
+  });
+});
+
+describe('layeredConcurrently, when a layering crashes', () => {
+  it('starts no more layerings', async () => {
+    let started = 0;
+
+    await expect(
+      layeredConcurrently(
+        Array.from({ length: 10 }, (_, at) => async () => {
+          started += 1;
+          if (at === 0) {
+            throw new Error('a bug');
+          }
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          return layered(`Cohort ${at + 1}`);
+        }),
+      ),
+    ).rejects.toThrow('a bug');
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    expect(started).toBeLessThanOrEqual(4);
   });
 });
 

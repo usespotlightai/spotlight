@@ -56,6 +56,10 @@ export interface CitedHunk {
 
 const NOT_GENERATED = 'Spotlight couldn’t generate the change stack.';
 
+const TOO_LARGE = 'The change is too large for one change stack.';
+
+const BROKE_RULES = 'The generated stack did not assign every hunk in order.';
+
 const changeLayers = (
   stack: readonly { kind: string; layers: readonly unknown[] }[],
 ): number =>
@@ -350,11 +354,21 @@ export class ChangeStack
   }
 
   deadLetter(now: Date): ChangeStack {
-    if (this.state === 'generating') {
-      return this.fail(NOT_GENERATED, now);
-    }
+    return this.stopWith(NOT_GENERATED, now);
+  }
 
-    return this.stopRedrafting();
+  stopForTruncatedAnswer(now: Date): ChangeStack {
+    return this.stopWith(TOO_LARGE, now);
+  }
+
+  stopForBrokenRules(now: Date): ChangeStack {
+    return this.stopWith(BROKE_RULES, now);
+  }
+
+  private stopWith(failure: string, now: Date): ChangeStack {
+    return this.state === 'generating'
+      ? this.fail(failure, now)
+      : this.stopRedrafting();
   }
 
   redrafted(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {

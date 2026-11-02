@@ -17,7 +17,7 @@ import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.
 
 const ATTEMPTS = 2;
 
-export const SPLIT_ABOVE = 80;
+const SPLIT_ABOVE = 80;
 
 export const splits = (facts: DiffFacts): boolean =>
   facts.hunks.filter((each) => !each.incidental).length > SPLIT_ABOVE;
@@ -93,20 +93,26 @@ export const layerCohort = async (
 
 const LAYERINGS_AT_ONCE = 4;
 
-export const inTurn = async (
+export const layeredConcurrently = async (
   layerings: readonly (() => Promise<CohortLayering>)[],
 ): Promise<CohortLayering[]> => {
   const done: CohortLayering[] = [];
   let next = 0;
+  let crashed = false;
 
   const worker = async () => {
-    while (next < layerings.length) {
+    while (!crashed && next < layerings.length) {
       const at = next;
       next += 1;
       const layering = layerings[at];
 
       if (layering) {
-        done[at] = await layering();
+        try {
+          done[at] = await layering();
+        } catch (error) {
+          crashed = true;
+          throw error;
+        }
       }
     }
   };
@@ -122,20 +128,10 @@ export const inTurn = async (
 };
 
 export type CombinedLayerings =
+  | Exclude<CohortLayering, { readonly outcome: 'layered' }>
   | {
       readonly outcome: 'layered';
       readonly cohorts: readonly ProposedCohort[];
-      readonly usage: readonly ModelCall[];
-    }
-  | {
-      readonly outcome: 'unanswered';
-      readonly truncated: boolean;
-      readonly error: unknown;
-      readonly usage: readonly ModelCall[];
-    }
-  | {
-      readonly outcome: 'broken';
-      readonly problems: readonly StackProblem[];
       readonly usage: readonly ModelCall[];
     };
 

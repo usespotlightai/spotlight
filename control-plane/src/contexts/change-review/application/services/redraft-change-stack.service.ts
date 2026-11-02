@@ -1,11 +1,15 @@
 import type { ChangeStackGeneratorPort } from '@change-review/application/ports/change-stack-generator.port';
 import {
   combined,
-  inTurn,
   layerCohort,
+  layeredConcurrently,
   splits,
 } from '@change-review/application/services/cohort-layering';
-import { attempted } from '@change-review/application/services/generation-attempt';
+import {
+  attempted,
+  settleBroken,
+  settleUnanswered,
+} from '@change-review/application/services/generation-attempt';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import {
@@ -64,7 +68,12 @@ export class RedraftChangeStack {
       );
 
       if (!attempt.generated) {
-        return this.unanswered(redrafting.recordModel(attempt.usage), attempt);
+        return settleUnanswered(
+          redrafting.recordModel(attempt.usage),
+          attempt,
+          this.clock.now(),
+          this.logger,
+        );
       }
 
       const { cohorts, usage } = attempt.answer;
@@ -80,7 +89,7 @@ export class RedraftChangeStack {
       }
     }
 
-    return this.broken(redrafting, problems);
+    return settleBroken(redrafting, problems, this.clock.now(), this.logger);
   }
 
   private async byCohort(
@@ -88,7 +97,7 @@ export class RedraftChangeStack {
     redraft: RedraftRequest,
   ): Promise<ChangeStack> {
     const layered = combined(
-      await inTurn(
+      await layeredConcurrently(
         stack.cohorts.map((cohort, c) => {
           const scoped = cohortRedraft(redraft, c);
 
@@ -117,10 +126,20 @@ export class RedraftChangeStack {
     }
 
     if (layered.outcome === 'unanswered') {
-      return this.unanswered(redrafting, layered);
+      return settleUnanswered(
+        redrafting,
+        layered,
+        this.clock.now(),
+        this.logger,
+      );
     }
     if (layered.outcome === 'broken') {
-      return this.broken(redrafting, layered.problems);
+      return settleBroken(
+        redrafting,
+        layered.problems,
+        this.clock.now(),
+        this.logger,
+      );
     }
 
     try {
@@ -129,41 +148,12 @@ export class RedraftChangeStack {
       if (!(error instanceof InvalidChangeStackError)) {
         throw error;
       }
-      return this.broken(redrafting, error.problems);
-    }
-  }
-
-  private unanswered(
-    stack: ChangeStack,
-    failure: { readonly truncated: boolean; readonly error: unknown },
-  ): ChangeStack {
-    if (failure.truncated) {
-      this.logger.warn(
-        { changeStackId: stack.id.value, err: failure.error },
-        'A redraft ran out of output tokens; keeping the checked stack',
+      return settleBroken(
+        redrafting,
+        error.problems,
+        this.clock.now(),
+        this.logger,
       );
-      return stack.stopRedrafting();
     }
-
-    this.logger.error(
-      { changeStackId: stack.id.value, err: failure.error },
-      'Redrafting a change stack failed; scheduling a retry',
-    );
-    return stack.scheduleRetry(this.clock.now());
-  }
-
-  private broken(
-    stack: ChangeStack,
-    problems: readonly StackProblem[],
-  ): ChangeStack {
-    this.logger.warn(
-      {
-        changeStackId: stack.id.value,
-        problems: problems.map((each) => each.message),
-      },
-      'A redrafted change stack kept breaking its rules; keeping the checked one',
-    );
-
-    return stack.stopRedrafting();
   }
 }
