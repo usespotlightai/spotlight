@@ -1,5 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
+const REJOINABLE_PREFIXES = ['task-', 'chat-'] as const;
+
 export class SandboxKey {
   private readonly kind = 'sandbox-key';
 
@@ -13,6 +15,10 @@ export class SandboxKey {
     }
 
     return new SandboxKey(key);
+  }
+
+  get isRejoinable(): boolean {
+    return REJOINABLE_PREFIXES.some((prefix) => this.value.startsWith(prefix));
   }
 
   equals(other: SandboxKey): boolean {

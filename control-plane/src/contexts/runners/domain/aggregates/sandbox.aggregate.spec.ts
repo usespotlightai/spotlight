@@ -70,6 +70,39 @@ describe('Sandbox', () => {
     expect(released.idleSince).toEqual(later(1_000));
   });
 
+  it.each([
+    ['a replay key', 'replay-run_1'],
+    ['no key', null],
+  ])(
+    'drains when its last run ends and it has %s, which nothing rejoins',
+    (_, key) => {
+      const sandbox = aSandbox({
+        workspaceId: WorkspaceId.of('ws_1'),
+        hostId: HOST,
+        key,
+        at: STARTED_AT,
+      }).reported();
+
+      const released = sandbox.releaseRun('run_1', later(1_000));
+
+      expect(released.current).toBe('draining');
+      expect(released.mustDrain).toBe(true);
+    },
+  );
+
+  it('stays ready when a run ends while another run holds a sandbox nothing rejoins', () => {
+    const sandbox = aSandbox({
+      workspaceId: WorkspaceId.of('ws_1'),
+      hostId: HOST,
+      key: 'replay-run_1',
+      at: STARTED_AT,
+    })
+      .reported()
+      .holdRun('run_2', later(500));
+
+    expect(sandbox.releaseRun('run_1', later(1_000)).current).toBe('ready');
+  });
+
   it('takes the next run on its host once ready and idle, and holds it', () => {
     const idle = started().reported().releaseRun('run_1', later(1_000));
 
