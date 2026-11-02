@@ -67,6 +67,14 @@ describe('InviteByMail', () => {
     );
   });
 
+  it('heads the message with the workspace they are invited into', async () => {
+    const { mail, delivered } = sending();
+
+    await mail.send(invite);
+
+    expect(delivered[0]?.html).toContain('Join Acme on Spotlight');
+  });
+
   it('names the teams they will be on', async () => {
     const { mail, delivered } = sending();
 
