@@ -103,12 +103,19 @@ const signedUp = (event: TeamCreatedIntegrationEvent): boolean =>
 const reactingToOutcomes = (
   name: string,
   outcomes: RunOutcomes,
+  { callsOut } = { callsOut: false },
 ): readonly DomainEventSubscriber[] => [
-  subscribing<RunCompleted>(`${name}.completed`, ['run.completed'], (event) =>
-    outcomes.onRunCompleted(event),
+  subscribing<RunCompleted>(
+    `${name}.completed`,
+    ['run.completed'],
+    (event) => outcomes.onRunCompleted(event),
+    { callsOut },
   ),
-  subscribing<RunExhausted>(`${name}.exhausted`, ['run.exhausted'], (event) =>
-    outcomes.onRunExhausted(event),
+  subscribing<RunExhausted>(
+    `${name}.exhausted`,
+    ['run.exhausted'],
+    (event) => outcomes.onRunExhausted(event),
+    { callsOut },
   ),
 ];
 
@@ -228,31 +235,38 @@ export const workSubscribers = (reactions: {
   ),
   ...reactingToOutcomes('work.hand-over', reactions.handOver),
   ...reactingToOutcomes('work.chat-outcomes', reactions.chatOutcomes),
-  ...reactingToOutcomes('work.notify-channel', reactions.channel),
+  ...reactingToOutcomes('work.notify-channel', reactions.channel, {
+    callsOut: true,
+  }),
   subscribing<ChatStarted>(
     'work.notify-channel.started',
     ['chat.started'],
     (event) => reactions.channel.onChatStarted(event),
+    { callsOut: true },
   ),
   subscribing<ChatDispatched>(
     'work.notify-channel.dispatched',
     ['chat.dispatched'],
     (event) => reactions.channel.onChatDispatched(event),
+    { callsOut: true },
   ),
   subscribing<ChatRunNotStarted>(
     'work.notify-channel.run-not-started',
     ['chat.run-not-started'],
     (event) => reactions.channel.onRunNotStarted(event),
+    { callsOut: true },
   ),
   subscribing<TaskOpened>(
     'work.notify-channel.task-opened',
     ['task.opened'],
     (event) => reactions.channel.onTaskOpened(event),
+    { callsOut: true },
   ),
   subscribing<ProposalDismissed>(
     'work.notify-channel.proposal-dismissed',
     ['chat.proposal-dismissed'],
     (event) => reactions.channel.onProposalDismissed(event),
+    { callsOut: true },
   ),
   subscribing<RunCompleted>(
     'work.record-run-usage.completed',
@@ -291,8 +305,11 @@ export const workSubscribers = (reactions: {
   ),
   subscribing<
     TaskOpened | PullRequestOpened | TaskAsked | TaskFinished | TaskFailed
-  >('work.notify-outside-tools', BINDABLE_TASK_EVENTS, (event) =>
-    reactions.outsideTools.on(event),
+  >(
+    'work.notify-outside-tools',
+    BINDABLE_TASK_EVENTS,
+    (event) => reactions.outsideTools.on(event),
+    { callsOut: true },
   ),
   subscribing<TaskDispatched>(
     'work.enqueue-task-run',
