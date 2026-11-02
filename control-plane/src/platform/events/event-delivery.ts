@@ -225,20 +225,23 @@ export class EventDelivery {
 
   private async deliverLeased(due: Due, lease: Date): Promise<void> {
     const held = this.renewing(due, lease);
-    let outcome: Outcome | 'unsettled';
+    let outcome: Outcome;
 
     try {
-      outcome = await this.handled(due, async (raised) => {
+      const settling = await this.handled(due, async (raised) => {
         const current = await this.released(held);
 
         return this.context
           .inTransaction(() => this.settled(due, current, raised))
-          .catch((error: unknown) => {
-            this.unsettled(due, error);
-
-            return 'unsettled' as const;
-          });
+          .catch((error: unknown) => ({ unsettled: error, current }));
       });
+
+      if (typeof settling === 'object') {
+        await this.unsettled(due, settling.unsettled, settling.current);
+        return;
+      }
+
+      outcome = settling;
     } catch (error) {
       const current = await this.released(held);
 
@@ -255,10 +258,6 @@ export class EventDelivery {
       }
 
       this.reported(due, error);
-    }
-
-    if (outcome === 'unsettled') {
-      return;
     }
 
     if (outcome === 'lost') {
@@ -303,15 +302,23 @@ export class EventDelivery {
         clearInterval(held.timer);
       }
     } catch (error) {
-      this.logger.warn(
-        {
-          err: error,
-          eventId: due.eventId,
-          subscriber: due.subscriber,
-          ...idsOf(due.payload),
-        },
-        'Renewing the lease of a domain event delivery',
-      );
+      const ending =
+        held.current.getTime() - this.clock.now().getTime() <= LEASE_RENEWAL_MS;
+      const log = {
+        err: error,
+        eventId: due.eventId,
+        subscriber: due.subscriber,
+        ...idsOf(due.payload),
+      };
+
+      if (ending) {
+        this.logger.error(
+          log,
+          'Renewing the lease of a domain event delivery; another instance may take it over while it still runs',
+        );
+      } else {
+        this.logger.warn(log, 'Renewing the lease of a domain event delivery');
+      }
     }
   }
 
@@ -342,17 +349,46 @@ export class EventDelivery {
     return 'delivered';
   }
 
-  private unsettled(due: Due, error: unknown): void {
+  private async unsettled(
+    due: Due,
+    error: unknown,
+    lease: Date,
+  ): Promise<void> {
+    const outcome = await this.context
+      .inTransaction(() => this.failed(due, error, lease))
+      .catch(() => null);
+
     this.logger.error(
       {
         err: error,
         eventId: due.eventId,
         eventKind: due.kind,
         subscriber: due.subscriber,
+        attempts: due.attempts + 1,
         ...idsOf(due.payload),
       },
-      'Recording a handled domain event delivery; it is retried once its lease ends',
+      outcome === null
+        ? 'Recording a handled domain event delivery; it is retried once its lease ends'
+        : 'Recording a handled domain event delivery',
     );
+
+    if (outcome === null) {
+      return;
+    }
+
+    if (outcome === 'lost') {
+      this.leaseLost(due, error);
+      return;
+    }
+
+    if (outcome === 'dead_lettered') {
+      this.reports.report(error, {
+        source: due.subscriber,
+        ...idsOf(due.payload),
+      });
+    }
+
+    this.counted(due, outcome);
   }
 
   private leaseLost(due: Due, error?: unknown): void {

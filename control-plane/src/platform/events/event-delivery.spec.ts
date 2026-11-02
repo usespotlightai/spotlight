@@ -45,6 +45,7 @@ class FakeContext {
   readonly updates: Record<string, unknown>[] = [];
   failingUpdates = 0;
   failingUpdateAt: number | null = null;
+  failingUpdatesFrom = 0;
   readonly leasesGuarded: Date[] = [];
   settledElsewhere = false;
   private committed: (() => void)[] = [];
@@ -83,7 +84,10 @@ class FakeContext {
                 this.steps.push('update failed');
                 throw new Error('connection terminated');
               }
-              if (this.failingUpdates > 0) {
+              if (
+                this.failingUpdates > 0 &&
+                this.updates.length >= this.failingUpdatesFrom
+              ) {
                 this.failingUpdates -= 1;
                 this.steps.push('update failed');
                 throw new Error('connection terminated');
@@ -438,7 +442,7 @@ describe('EventDelivery', () => {
       );
     });
 
-    it('does not count a call that worked as failed when recording it fails, and leaves it to its lease', async () => {
+    it('counts a failed recording of a call that worked as an attempt, so it ends dead-lettered', async () => {
       const { delivery, context, logger, reports } = delivering(
         async () => undefined,
         MAX_ATTEMPTS - 1,
@@ -448,11 +452,62 @@ describe('EventDelivery', () => {
 
       await delivery.processDue();
 
+      expect(context.updates).toEqual([
+        LEASED,
+        expect.objectContaining({
+          attempts: MAX_ATTEMPTS,
+          lastError: 'connection terminated',
+          deadLetteredAt: NOW,
+        }),
+      ]);
+      expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ err: new Error('connection terminated') }),
+        'Recording a handled domain event delivery',
+      );
+      expect(reports.report).toHaveBeenCalledOnce();
+    });
+
+    it('leaves a call that worked to its lease when nothing can be recorded', async () => {
+      const { delivery, context, logger, reports } = delivering(
+        async () => undefined,
+        0,
+        CALLS_OUT,
+      );
+      context.failingUpdateAt = 1;
+      context.failingUpdates = 1;
+      context.failingUpdatesFrom = 1;
+
+      await delivery.processDue();
+
       expect(context.updates).toEqual([LEASED]);
       expect(reports.report).not.toHaveBeenCalled();
       expect(logger.error).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({ err: new Error('connection terminated') }),
         'Recording a handled domain event delivery; it is retried once its lease ends',
+      );
+    });
+
+    it('logs an error when the lease could not be renewed before it ends', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+      let now = NOW;
+      const { delivery, context, logger } = delivering(
+        async () => {
+          now = new Date(NOW.getTime() + LEASE_MS - LEASE_RENEWAL_MS);
+          context.failingUpdates = 1;
+          context.failingUpdatesFrom = 1;
+          await vi.advanceTimersByTimeAsync(LEASE_RENEWAL_MS);
+        },
+        0,
+        CALLS_OUT,
+        { now: () => now },
+      );
+
+      await delivery.processDue();
+      vi.useRealTimers();
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ err: new Error('connection terminated') }),
+        'Renewing the lease of a domain event delivery; another instance may take it over while it still runs',
       );
     });
   });
