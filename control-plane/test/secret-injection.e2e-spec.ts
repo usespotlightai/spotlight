@@ -8,12 +8,17 @@ import { ConnectionOwner } from '@integrations/domain/value-objects/connection-o
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import type { INestApplication } from '@nestjs/common';
+import { ENV } from '@platform/config/config.constants';
+import type { Env } from '@platform/config/env.schema';
+import { DEPLOYMENT_HOSTS } from '@platform/outbound/deployment-hosts';
+import { OutboundGuard } from '@platform/outbound/outbound-guard';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
   RUN_GRANTS,
   type RunGrantsPort,
 } from '@secrets/application/ports/run-grants.port';
+import type { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
@@ -43,28 +48,6 @@ import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
 const VALUE = 'lin_api_injected_4d2e';
-
-const fetch = vi.hoisted(() =>
-  vi.fn(
-    async (_url: string | URL | Request, _init?: RequestInit) =>
-      new Response(JSON.stringify({ url: 'https://linear.app/c/1' }), {
-        status: 200,
-      }),
-  ),
-);
-
-vi.mock('undici', async (actual) => {
-  const undici = await actual<typeof import('undici')>();
-
-  return {
-    ...undici,
-    fetch: (url: string | URL | Request, init?: RequestInit) =>
-      new URL(url instanceof Request ? url.url : String(url)).hostname ===
-      'api.linear.app'
-        ? fetch(url, init)
-        : undici.fetch(url as never, init as never),
-  };
-});
 
 const LINEAR = {
   integration: 'linear',
@@ -105,6 +88,13 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
   let workspaceId: string;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
+  const fetch = vi.fn(
+    async (_url: string | URL | Request, _init?: RequestInit) =>
+      new Response(JSON.stringify({ url: 'https://linear.app/c/1' }), {
+        status: 200,
+      }),
+  );
+
   const post = (path: string, body: object) =>
     served(app)
       .post(path)
@@ -136,6 +126,9 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     return resolved.call({ body: 'Fixed in the queue worker.' });
   };
 
+  const hostOf = (url: string | URL | Request): string =>
+    new URL(url instanceof Request ? url.url : String(url)).hostname;
+
   beforeAll(async () => {
     vi.stubEnv(
       'SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS',
@@ -143,7 +136,24 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
         .filter(Boolean)
         .join(','),
     );
-    app = await openApp();
+    app = await openApp((module) =>
+      module.overrideProvider(OutboundGuard).useFactory({
+        inject: [DEPLOYMENT_HOSTS, ENV],
+        factory: (hosts: HostAllowList, env: Env) => {
+          const guard = new OutboundGuard(
+            hosts,
+            env.SPOTLIGHT_OUTBOUND_ALLOW_LOOPBACK,
+          );
+
+          return Object.assign(Object.create(guard), {
+            fetch: (url: string | URL | Request, init?: RequestInit) =>
+              hostOf(url) === 'api.linear.app'
+                ? fetch(url, init)
+                : guard.fetch(url, init),
+          });
+        },
+      }),
+    );
     db = app.get<DrizzleDatabase>(DRIZZLE);
   });
 
