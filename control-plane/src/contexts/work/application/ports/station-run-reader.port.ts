@@ -16,6 +16,7 @@ export interface EndedRunRow {
   readonly earlier: readonly RunState[];
   readonly harness: string;
   readonly config: StationConfigParts | null;
+  readonly reviewing: string | null;
   readonly queuedAt: Date;
   readonly startedAt: Date | null;
   readonly endedAt: Date;

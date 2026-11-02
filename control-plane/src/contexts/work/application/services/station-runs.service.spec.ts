@@ -22,6 +22,7 @@ const row = (change: Partial<EndedRunRow> = {}): EndedRunRow => ({
   earlier: ['completed'],
   harness: 'claude-code',
   config: null,
+  reviewing: null,
   queuedAt: QUEUED,
   startedAt: STARTED,
   endedAt: ENDED,
@@ -96,6 +97,48 @@ describe('StationRuns.ended', () => {
       profileKey: null,
       repositories: [],
       skills: [],
+    });
+  });
+
+  it('names only the repository under review when the run reviewed a pull request', async () => {
+    const stations = new StationRuns(
+      readingOnly(
+        row({
+          reviewing: 'acme/web',
+          config: {
+            prompt: null,
+            harness: 'claude-code',
+            model: null,
+            effort: null,
+            profile: null,
+            image: null,
+            repositories: [
+              { name: 'acme/api', setup: null },
+              { name: 'acme/web', setup: null },
+            ],
+            skills: [],
+            tools: [],
+            decisions: false,
+            memories: false,
+          },
+        }),
+      ),
+      NO_SKILLS,
+    );
+
+    expect(await stations.ended('run_1')).toMatchObject({
+      repositories: ['acme/web'],
+    });
+  });
+
+  it('names the repository under review on a line that declares none', async () => {
+    const stations = new StationRuns(
+      readingOnly(row({ reviewing: 'acme/web' })),
+      NO_SKILLS,
+    );
+
+    expect(await stations.ended('run_1')).toMatchObject({
+      repositories: ['acme/web'],
     });
   });
 });

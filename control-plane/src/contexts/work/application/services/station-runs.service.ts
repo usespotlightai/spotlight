@@ -36,7 +36,7 @@ export class StationRuns implements StationRunsPort {
       return null;
     }
 
-    const { earlier, config, ...run } = found;
+    const { earlier, config, reviewing, ...run } = found;
 
     return {
       ...run,
@@ -45,7 +45,9 @@ export class StationRuns implements StationRunsPort {
       model: config?.model ?? null,
       effort: config?.effort ?? null,
       profileKey: config?.profile?.key ?? null,
-      repositories: config?.repositories.map((each) => each.name) ?? [],
+      repositories: reviewing
+        ? [reviewing]
+        : (config?.repositories.map((each) => each.name) ?? []),
       skills: config?.skills.map((each) => each.key) ?? [],
     };
   }
