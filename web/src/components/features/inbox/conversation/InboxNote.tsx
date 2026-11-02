@@ -4,7 +4,6 @@ import { ApprovalCard } from '@/components/features/inbox/conversation/approval/
 import type { Deciding } from '@/components/features/inbox/conversation/Conversation';
 import { ConnectionCard } from '@/components/features/inbox/conversation/connection/ConnectionCard';
 import { InboxWork } from '@/components/features/inbox/conversation/InboxWork';
-import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
 import { SetupSteps } from '@/components/features/onboarding/SetupSteps';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
@@ -48,25 +47,7 @@ export function InboxNote({
   const arriving = arrived ? ARRIVING : undefined;
   useInAppLinks(written);
 
-  if (note.voice === 'world') {
-    return (
-      <li data-note={note.position} className={cn('-mx-3', arriving)}>
-        <div className="flex flex-col items-start gap-1.5">
-          <AttachmentTiles attachments={note.attachments} />
-
-          {note.body && (
-            <MessageCard>
-              <p className="whitespace-pre-wrap text-foreground text-sm leading-6">
-                {note.body}
-              </p>
-            </MessageCard>
-          )}
-        </div>
-      </li>
-    );
-  }
-
-  if (note.voice === 'person') {
+  if (note.voice === 'world' || note.voice === 'person') {
     return (
       <li data-note={note.position} className={cn(STICKY_AT_TOP, arriving)}>
         <PersonMessage

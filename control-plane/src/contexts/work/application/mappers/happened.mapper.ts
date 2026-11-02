@@ -27,6 +27,7 @@ export interface ReceivedHappening {
   readonly payload: HappeningPayload;
   readonly correlationKeys: CorrelationKeys;
   readonly anchor: Anchor | null;
+  readonly authorEmail: string | null;
   readonly ourOwn: boolean;
   readonly opens: OpensWith | null;
   readonly chat: StartsChat | null;
@@ -83,6 +84,7 @@ export const HappenedMapper = {
       },
       correlationKeys,
       anchor: happened.message ? Anchor.of(happened.message) : null,
+      authorEmail: happened.authorEmail?.trim() || null,
       ourOwn: happened.ourOwn,
       opens: opens
         ? {

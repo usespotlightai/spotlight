@@ -162,6 +162,9 @@ const raiseFrom = (
     state: 'raised',
     correlationKeys: { branch, marks: finding },
     message: messageText ? { body: messageText } : null,
+    authorEmail: raise.author
+      ? evaluateText(raise.author.email, against) || null
+      : null,
     ourOwn,
     opens:
       declared.opens && raise.opens && title

@@ -70,6 +70,7 @@ export interface Happened {
   readonly state: HappeningState;
   readonly correlationKeys: CorrelationKeysPayload;
   readonly message: MessagePayload | null;
+  readonly authorEmail?: string | null;
   readonly ourOwn: boolean;
   readonly opens: OpensPayload | null;
   readonly chat?: StartsChatPayload | null;
