@@ -45,12 +45,29 @@ Then write feedback to the reviewer, in the second person, in one or two short s
 
 Name code (functions, fields, files) exactly as the hunks show it. Use short, active sentences. Do not praise the reviewer, and do not repeat the question.`;
 
+const MAX_CITED_CHARS = 24_000;
+
+const cited = (request: GradingRequest): string[] => {
+  let left = MAX_CITED_CHARS;
+
+  return request.cited.flatMap((hunk) => {
+    if (left <= 0) {
+      return [];
+    }
+
+    const shown = `## ${hunk.path}\n${hunk.patch}`;
+    left -= shown.length;
+
+    return [left < 0 ? `${shown.slice(0, shown.length + left)}\n…` : shown];
+  });
+};
+
 const described = (request: GradingRequest): string =>
   [
     `Question: ${request.question}`,
     `Expected answer: ${request.expected}`,
     'Hunks that show the answer:',
-    ...request.cited.map((hunk) => `## ${hunk.path}\n${hunk.patch}`),
+    ...cited(request),
     `The reviewer's answer: ${request.reply}`,
   ].join('\n\n');
 

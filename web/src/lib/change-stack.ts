@@ -171,13 +171,14 @@ export const citedBy = (
   question: LayerQuestion,
 ): CitedPlace[] => {
   const places = new Map<string, CitedPlace>();
+  const layers = layersOf(stack);
 
   for (const id of question.hunks) {
     const file = stack.files.find((each) =>
       each.hunks.some((hunk) => hunk.id === id),
     );
     const hunk = file?.hunks.find((each) => each.id === id);
-    const layer = layersOf(stack).find((each) =>
+    const layer = layers.find((each) =>
       each.layer.hunks.some((entry) => entry.hunk === id),
     );
 

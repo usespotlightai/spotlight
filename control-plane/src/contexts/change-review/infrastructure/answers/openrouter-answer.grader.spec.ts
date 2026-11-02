@@ -86,4 +86,31 @@ describe('OpenRouterAnswerGrader', () => {
       new OpenRouterAnswerGrader('or-key', 'model', fetch).grade(REQUEST),
     ).rejects.toMatchObject({ kind: 'upstream-error' });
   });
+
+  it('sends at most 24000 characters of cited hunks', async () => {
+    const { requests, fetch } = answering({
+      choices: [
+        {
+          finish_reason: 'stop',
+          message: {
+            content: JSON.stringify({ verdict: 'right', feedback: '' }),
+          },
+        },
+      ],
+    });
+
+    await new OpenRouterAnswerGrader('or-key', 'model', fetch).grade({
+      ...REQUEST,
+      cited: Array.from({ length: 5 }, (_, place) => ({
+        path: `big${place}.ts`,
+        patch: 'x'.repeat(10_000),
+      })),
+    });
+
+    const prompt: string = JSON.parse(String(requests[0]?.body)).messages[1]
+      .content;
+    expect(prompt).toContain('## big2.ts');
+    expect(prompt).not.toContain('## big3.ts');
+    expect(prompt.length).toBeLessThan(25_000);
+  });
 });
