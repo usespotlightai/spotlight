@@ -617,6 +617,11 @@ describe('Chat', () => {
     const [event] = chat.accept(SECOND, LEON, LATER).pullEvents();
 
     expect((event as ProposalAccepted).attachments).toEqual([mockup]);
+    expect(chat.allAttachments).toEqual([mockup]);
+    expect(chat.sharedAttachments).toEqual([]);
+    expect(() => chat.attachmentsOf([AttachmentId.of('att_copy')])).toThrow(
+      InvalidAttachmentError,
+    );
   });
 
   it('finds only files attached to the chat', () => {

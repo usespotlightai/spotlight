@@ -13,6 +13,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
+import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
 import { NowhereToProposeError } from '@work/domain/exceptions/nowhere-to-propose.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
@@ -147,6 +148,24 @@ describe('ProposeTaskToolUse', () => {
     expect(given?.id.value).toBe('chat_1-1-0');
     expect(given?.name).toBe('mockup.png');
     expect(copy).toHaveBeenCalledWith(WorkspaceId.of('ws_1'), MOCKUP, given);
+  });
+
+  it('copies nothing for a run that no longer works the chat', async () => {
+    const { tool, context, save, copy } = using();
+
+    await expect(
+      tool.call(
+        { ...context, runId: RunId.of('run_old') },
+        ToolInputs.of({
+          line: 'delivery',
+          station: 'backlog',
+          title: 'Match the mockup',
+          attach: ['att_mockup'],
+        }),
+      ),
+    ).rejects.toThrow(InvalidChatTransitionError);
+    expect(copy).not.toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
   });
 
   it('proposes nothing with a file that is not attached to the chat', async () => {

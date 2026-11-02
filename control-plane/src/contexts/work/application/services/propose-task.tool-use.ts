@@ -42,7 +42,7 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
     const placement = proposalPlacementWithin(lines, named);
     const title = TaskTitle.of(inputs.text('title') ?? '');
     const description = inputs.text('description')?.trim();
-    const position = chat.messages.length;
+    const position = chat.proposalPositionFor(runId).value;
     const attachments = await this.copies.copy(
       chat.workspaceId,
       chat.attachmentsOf(

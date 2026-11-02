@@ -243,13 +243,19 @@ export class Chat extends EventRecorder {
     return this.messages.flatMap((message) => message.attachments);
   }
 
+  get sharedAttachments(): readonly Attachment[] {
+    return this.messages
+      .filter((message) => message.kind === 'message')
+      .flatMap((message) => message.attachments);
+  }
+
   attachmentsOf(ids: readonly AttachmentId[]): readonly Attachment[] {
     const distinct = ids.filter(
       (id, at) => ids.findIndex((each) => each.equals(id)) === at,
     );
 
     return distinct.map((id) => {
-      const found = this.allAttachments.find((each) => each.id.equals(id));
+      const found = this.sharedAttachments.find((each) => each.id.equals(id));
 
       if (!found) {
         throw new InvalidAttachmentError(
@@ -496,21 +502,25 @@ export class Chat extends EventRecorder {
     attachments?: readonly Attachment[];
     at: Date;
   }): Chat {
-    if (!this.currentRunId?.equals(input.runId)) {
-      throw new InvalidChatTransitionError(
-        `Only the run working chat ${this.id.value} can propose tasks.`,
-      );
-    }
-
     const message = ChatMessage.propose({
       ...input,
-      position: this.nextPosition,
+      position: this.proposalPositionFor(input.runId),
     });
     const next = this.with({ messages: [...this.messages, message] });
 
     next.record(new TaskProposed(this.id, message.position, input.placement));
 
     return next;
+  }
+
+  proposalPositionFor(runId: RunId): MessagePosition {
+    if (!this.currentRunId?.equals(runId)) {
+      throw new InvalidChatTransitionError(
+        `Only the run working chat ${this.id.value} can propose tasks.`,
+      );
+    }
+
+    return this.nextPosition;
   }
 
   proposalAt(position: MessagePosition): TaskProposal {

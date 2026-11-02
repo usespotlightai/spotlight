@@ -149,7 +149,7 @@ export class DispatchChat implements ChatDispatching {
           settingUp: chat.setup !== null,
           improving: chat.targetStation !== null,
         }).map((each) => toolManifestOf(each.declared)),
-        attachments: Attached.shapes(chat.allAttachments),
+        attachments: Attached.shapes(chat.sharedAttachments),
         ...(chat.setup ? { spotlightApi: true } : {}),
       }),
     });
