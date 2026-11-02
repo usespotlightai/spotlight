@@ -44,6 +44,28 @@ import { seatTeam } from './support/team';
 
 const VALUE = 'lin_api_injected_4d2e';
 
+const fetch = vi.hoisted(() =>
+  vi.fn(
+    async (_url: string | URL | Request, _init?: RequestInit) =>
+      new Response(JSON.stringify({ url: 'https://linear.app/c/1' }), {
+        status: 200,
+      }),
+  ),
+);
+
+vi.mock('undici', async (actual) => {
+  const undici = await actual<typeof import('undici')>();
+
+  return {
+    ...undici,
+    fetch: (url: string | URL | Request, init?: RequestInit) =>
+      new URL(url instanceof Request ? url.url : String(url)).hostname ===
+      'api.linear.app'
+        ? fetch(url, init)
+        : undici.fetch(url as never, init as never),
+  };
+});
+
 const LINEAR = {
   integration: 'linear',
   actions: {
@@ -83,13 +105,6 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
   let workspaceId: string;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
-  const fetch = vi.fn(
-    async (_url: string | URL | Request, _init?: RequestInit) =>
-      new Response(JSON.stringify({ url: 'https://linear.app/c/1' }), {
-        status: 200,
-      }),
-  );
-
   const post = (path: string, body: object) =>
     served(app)
       .post(path)
@@ -121,11 +136,6 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     return resolved.call({ body: 'Fixed in the queue worker.' });
   };
 
-  const passedOn = globalThis.fetch;
-
-  const hostOf = (url: string | URL | Request): string =>
-    new URL(url instanceof Request ? url.url : String(url)).hostname;
-
   beforeAll(async () => {
     vi.stubEnv(
       'SPOTLIGHT_OUTBOUND_ALLOWED_HOSTS',
@@ -133,16 +143,12 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
         .filter(Boolean)
         .join(','),
     );
-    vi.stubGlobal('fetch', (url: string | URL | Request, init?: RequestInit) =>
-      hostOf(url) === 'api.linear.app' ? fetch(url, init) : passedOn(url, init),
-    );
     app = await openApp();
     db = app.get<DrizzleDatabase>(DRIZZLE);
   });
 
   afterAll(async () => {
     await app.close();
-    vi.unstubAllGlobals();
     vi.unstubAllEnvs();
   });
 
