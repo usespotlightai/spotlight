@@ -4,7 +4,7 @@ import userEvent, {
   PointerEventsCheckLevel,
 } from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkspaceMenu } from '@/components/shell/layout/WorkspaceMenu';
 
 const navigate = vi.fn();
@@ -56,12 +56,77 @@ const openWorkspaces = async () => {
   return user;
 };
 
+const stubMedia = (dark: boolean) =>
+  vi.stubGlobal('matchMedia', () => ({
+    matches: dark,
+    addEventListener() {},
+    removeEventListener() {},
+  }));
+
+const chooseTheme = async (name: string) => {
+  const user = await open();
+  await user.click(screen.getByRole('menuitem', { name: 'Theme' }));
+  (await screen.findByRole('menuitemradio', { name })).focus();
+  await user.keyboard('{Enter}');
+};
+
 beforeEach(() => {
+  localStorage.clear();
+  document.documentElement.classList.remove('dark');
+  stubMedia(false);
   navigate.mockReset();
   signOut.mockReset();
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe('WorkspaceMenu', () => {
+  it('lists Theme before Settings', async () => {
+    await open();
+
+    const items = screen
+      .getAllByRole('menuitem')
+      .map((item) => item.textContent);
+
+    expect(items.indexOf('Theme')).toBe(0);
+    expect(items.indexOf('Theme')).toBeLessThan(items.indexOf('Settings'));
+  });
+
+  it('marks System as the theme by default', async () => {
+    const user = await open();
+    await user.click(screen.getByRole('menuitem', { name: 'Theme' }));
+
+    expect(
+      await screen.findByRole('menuitemradio', { name: 'System' }),
+    ).toBeChecked();
+  });
+
+  it('turns dark on and stores the choice', async () => {
+    await chooseTheme('Dark');
+
+    expect(document.documentElement).toHaveClass('dark');
+    expect(localStorage.getItem('theme')).toBe('dark');
+  });
+
+  it('turns dark off and stores the choice', async () => {
+    document.documentElement.classList.add('dark');
+    await chooseTheme('Light');
+
+    expect(document.documentElement).not.toHaveClass('dark');
+    expect(localStorage.getItem('theme')).toBe('light');
+  });
+
+  it('follows the system preference for System', async () => {
+    localStorage.setItem('theme', 'light');
+    stubMedia(true);
+    await chooseTheme('System');
+
+    expect(document.documentElement).toHaveClass('dark');
+    expect(localStorage.getItem('theme')).toBe('system');
+  });
+
   it('shows the first letter of the workspace as its avatar', () => {
     renderMenu();
 
