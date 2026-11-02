@@ -145,8 +145,8 @@ export const EXPRESSION_POSITIONS: readonly ExpressionPosition[] = [
     { addedVariables: ['inputs'] },
   ),
   at('connection.oauth2.identity', LINKED),
-  at(`on.${ANY_SEGMENT}.to.${ANY_SEGMENT}`, ADDRESSING),
-  at(`on.${ANY_SEGMENT}.mark.${ANY_SEGMENT}.value`, MARKING),
+  at(`on.${ANY_SEGMENT}.${ANY_SEGMENT}.to.${ANY_SEGMENT}`, ADDRESSING),
+  at(`on.${ANY_SEGMENT}.${ANY_SEGMENT}.mark.${ANY_SEGMENT}.value`, MARKING),
 ];
 
 const POSITIONS: ReadonlyMap<string, ExpressionPosition> = new Map(

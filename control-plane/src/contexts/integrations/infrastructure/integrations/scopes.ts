@@ -7,6 +7,9 @@ export const ITEM = 'item';
 
 const TASK: Declared = {
   schema: {
+    title: 'string',
+    url: 'dyn',
+    pullRequest: 'dyn',
     line: 'string',
     station: 'string',
     stationKey: 'string',
@@ -32,6 +35,7 @@ const REPLY: Declared = {
   schema: {
     body: 'string',
     link: 'dyn',
+    proposals: 'list',
   },
 };
 

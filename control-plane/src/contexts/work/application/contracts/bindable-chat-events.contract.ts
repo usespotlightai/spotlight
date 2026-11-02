@@ -1,5 +1,6 @@
 export const BINDABLE_CHAT_EVENTS = [
   'chat.started',
+  'chat.dispatched',
   'chat.replied',
   'chat.refused',
   'chat.acknowledged',

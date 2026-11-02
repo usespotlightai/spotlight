@@ -1,9 +1,4 @@
-export interface ListedProposal {
-  readonly number: number;
-  readonly title: string;
-  readonly line: string | null;
-  readonly station: string | null;
-}
+import type { ListedProposal } from '@work/application/contracts/listed-proposal.contract';
 
 const placed = (proposal: ListedProposal): string =>
   proposal.line && proposal.station

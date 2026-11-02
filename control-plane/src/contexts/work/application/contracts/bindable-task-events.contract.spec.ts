@@ -8,10 +8,13 @@ import {
 } from '@work/application/contracts/bindable-task-events.contract';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
+import { TaskDeleted } from '@work/domain/events/task-deleted.event';
+import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { describe, expect, it } from 'vitest';
 
 const task = TaskId.of('task_1');
@@ -39,6 +42,16 @@ describe('the task events a team may bind to', () => {
         new Date(),
       ),
       new TaskAsked(task, workspace, station, null, new Date()),
+      new TaskFinished(task, workspace, station, new Date()),
+      new TaskFailed(
+        task,
+        workspace,
+        TeamId.of('team_1'),
+        station,
+        TaskFailure.fromRun('exhausted'),
+        null,
+        new Date(),
+      ),
     ];
 
     expect(bindable.map((each) => each.kind).sort()).toEqual(
@@ -48,10 +61,8 @@ describe('the task events a team may bind to', () => {
   });
 
   it('does not bind an event kept to itself', () => {
-    expect(
-      isBindableTaskEvent(
-        new TaskFinished(task, workspace, station, new Date()).kind,
-      ),
-    ).toBe(false);
+    expect(isBindableTaskEvent(new TaskDeleted(task, workspace).kind)).toBe(
+      false,
+    );
   });
 });

@@ -2,11 +2,17 @@ import type { IntegrationTaskView } from '@integrations/application/ports/integr
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 
 export const IntegrationTaskViewMapper = {
-  toView(task: IntegrationTaskViewDto): IntegrationTaskView {
+  toView(
+    task: IntegrationTaskViewDto,
+    url: string | null,
+  ): IntegrationTaskView {
     return {
       taskId: task.taskId,
       workspaceId: task.workspaceId,
       teamId: task.teamId,
+      title: task.title,
+      url,
+      pullRequest: task.pullRequest,
       line: task.line,
       station: task.station,
       stationKey: task.stationKey,

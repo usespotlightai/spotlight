@@ -374,6 +374,7 @@ describe('ChannelChats', () => {
           { kind: 'slack.channel', value: 'C1' },
         ],
         body: ChannelReplies.notInTeam,
+        proposals: [],
         chatId: null,
         taskId: null,
       },

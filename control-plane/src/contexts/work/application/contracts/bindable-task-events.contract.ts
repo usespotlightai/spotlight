@@ -2,6 +2,8 @@ export const BINDABLE_TASK_EVENTS = [
   'task.opened',
   'task.pull-request-opened',
   'task.asked',
+  'task.finished',
+  'task.failed',
 ] as const;
 
 export type BindableTaskEvent = (typeof BINDABLE_TASK_EVENTS)[number];

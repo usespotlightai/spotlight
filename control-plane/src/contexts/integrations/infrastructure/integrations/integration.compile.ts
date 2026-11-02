@@ -221,8 +221,9 @@ interface ConnectionIR {
   readonly manual: { readonly secrets: readonly string[] } | null;
 }
 
-interface OnBindingIR {
+export interface OnBindingIR {
   readonly event: string;
+  readonly action: string;
   readonly to: readonly { name: string; value: Expression }[];
   readonly routes: ReadonlyMap<string, string>;
   readonly mark: readonly { kind: MarkKind; value: Expression }[];
@@ -1161,37 +1162,42 @@ export const compileIntegration = (
     : null;
 
   const bindings: Binding[] = [];
-  const on: OnBindingIR[] = Object.entries(file.on).map(([event, binding]) => {
-    const bound = compiler.part(FieldPath.of(['on', event]), () =>
-      Binding.of({ event, action: binding.action, known: ON_EVENTS }),
-    );
-    const action = compiler.part(FieldPath.of(['on', event, 'action']), () =>
-      defined?.named(binding.action, `binding on ${event}`),
-    );
+  const on: OnBindingIR[] = Object.entries(file.on).flatMap(([event, listed]) =>
+    listed.map((binding, at) => {
+      const place = root.to('on').each(event).each(at);
+      const bound = compiler.part(FieldPath.of(['on', event, at]), () =>
+        Binding.of({ event, action: binding.action, known: ON_EVENTS }),
+      );
+      const action = compiler.part(
+        FieldPath.of(['on', event, at, 'action']),
+        () => defined?.named(binding.action, `binding on ${event}`),
+      );
 
-    if (bound && action) {
-      bindings.push(bound);
-    }
+      if (bound && action) {
+        bindings.push(bound);
+      }
 
-    return {
-      event,
-      to: Object.entries(binding.to).map(([name, value]) => ({
-        name,
-        value: compiler.expression(
-          value,
-          root.to('on').each(event).to('to').each(name),
-        ) as Expression,
-      })),
-      routes: new Map(Object.entries(binding.routes)),
-      mark: binding.mark.map((mark, index) => ({
-        kind: MarkKind.of(mark.kind),
-        value: compiler.expression(
-          mark.value,
-          root.to('on').each(event).to('mark').each(index).to('value'),
-        ) as Expression,
-      })),
-    };
-  });
+      return {
+        event,
+        action: binding.action,
+        to: Object.entries(binding.to).map(([name, value]) => ({
+          name,
+          value: compiler.expression(
+            value,
+            place.to('to').each(name),
+          ) as Expression,
+        })),
+        routes: new Map(Object.entries(binding.routes)),
+        mark: binding.mark.map((mark, index) => ({
+          kind: MarkKind.of(mark.kind),
+          value: compiler.expression(
+            mark.value,
+            place.to('mark').each(index).to('value'),
+          ) as Expression,
+        })),
+      };
+    }),
+  );
 
   const webhookDeclares = (file.webhook?.events ?? []).map((event, at) =>
     compiler.declared(event, FieldPath.of(['webhook', 'events', at]), key),

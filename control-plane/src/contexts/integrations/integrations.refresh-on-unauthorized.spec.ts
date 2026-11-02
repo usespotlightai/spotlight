@@ -6,6 +6,7 @@ import type {
 } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
 import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
@@ -58,6 +59,10 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type { IntegrationTool } from '@work/application/ports/integration-tool-calls.port';
 import { describe, expect, it } from 'vitest';
+
+const NO_LINKS = {
+  task: async () => 'https://app.example/tasks/task_1',
+} as unknown as InboxLinksPort;
 
 const NOW = new Date('2026-10-05T10:00:00.000Z');
 const TEAM = TeamId.of('team_1');
@@ -227,6 +232,8 @@ const TASK: IntegrationTaskViewDto = {
   taskId: 'task_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
+  title: 'Drain the queue',
+  pullRequest: null,
   line: 'delivery',
   station: 'Implementation',
   stationKey: 'implementation',
@@ -370,6 +377,7 @@ const settingUp = ({
     ),
     inferringInto(),
     personRulesFrom(policies, { [ALICE.value]: 'Alice' }),
+    NO_LINKS,
   );
   const linking = new OAuth2Linking(
     definitions as unknown as DefinedIntegrationsPort,

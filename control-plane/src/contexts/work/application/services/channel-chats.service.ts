@@ -112,6 +112,7 @@ export class ChannelChats {
               value: each.mark.value,
             })) ?? [],
           body: answer.body,
+          proposals: [],
           chatId: null,
           taskId: null,
         } satisfies ChannelNoticeDto,
