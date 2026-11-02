@@ -19,7 +19,7 @@ const takeable = (run: Run, by: Claimant, now: Date): boolean =>
     : !run.isReservedAt(now) || (run.reservation?.isFor(by.runner) ?? false)) &&
   fits(run, by);
 
-export type RequestedSandboxClaim = 'skip' | 'run-of-its-key' | 'start';
+type RequestedSandboxClaim = 'skip' | 'run-of-its-key' | 'start';
 
 const forRequested = (
   newest: Run | null,
