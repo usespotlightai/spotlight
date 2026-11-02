@@ -191,6 +191,7 @@ import { DrizzleWorkspaceReader } from '@identity/infrastructure/persistence/dri
 import { DrizzleOidcTrustRepository } from '@identity/infrastructure/persistence/drizzle/repositories/oidc-trust.repository';
 import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/drizzle/repositories/team.repository';
 import { DrizzleUserEmailRepository } from '@identity/infrastructure/persistence/drizzle/repositories/user-email.repository';
+import { DrizzleVerificationSendRepository } from '@identity/infrastructure/persistence/drizzle/repositories/verification-send.repository';
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import { DrizzleWorkspaceInviteRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace-invite.repository';
 import { DrizzleWorkspaceTokenRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace-token.repository';
@@ -272,6 +273,7 @@ const adapters: Provider[] = [
   DrizzleTeamRepository,
   DrizzleWorkspaceInviteRepository,
   DrizzleUserEmailRepository,
+  DrizzleVerificationSendRepository,
   DrizzleWorkspaceTokenRepository,
   DrizzleOidcTrustRepository,
   DrizzleViewableWorkspaces,
@@ -625,15 +627,24 @@ const handlers: Provider[] = [
   ]),
   ...bindCommandHandler(AddUserEmailCommand, AddUserEmailHandler, [
     DrizzleUserEmailRepository,
+    DrizzleVerificationSendRepository,
     VerificationSending,
     TOKEN_ISSUER,
     ID_GENERATOR,
     CLOCK,
+    TRANSACTION,
   ]),
   ...bindCommandHandler(
     ResendUserEmailVerificationCommand,
     ResendUserEmailVerificationHandler,
-    [DrizzleUserEmailRepository, VerificationSending, TOKEN_ISSUER, CLOCK],
+    [
+      DrizzleUserEmailRepository,
+      DrizzleVerificationSendRepository,
+      VerificationSending,
+      TOKEN_ISSUER,
+      CLOCK,
+      TRANSACTION,
+    ],
   ),
   ...bindCommandHandler(VerifyUserEmailCommand, VerifyUserEmailHandler, [
     DrizzleUserEmailRepository,

@@ -372,6 +372,12 @@ CREATE TABLE "user_email" (
 	CONSTRAINT "user_email_token_hash_unique" UNIQUE("token_hash")
 );
 --> statement-breakpoint
+CREATE TABLE "verification_send" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"user_id" text NOT NULL,
+	"sent_at" timestamp NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "oidc_trust" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -1928,6 +1934,7 @@ ALTER TABLE "event_delivery" ADD CONSTRAINT "event_delivery_event_id_event_outbo
 ALTER TABLE "decision" ADD CONSTRAINT "decision_set_id_decision_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."decision_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "decision_dispute" ADD CONSTRAINT "decision_dispute_decision_id_decision_id_fk" FOREIGN KEY ("decision_id") REFERENCES "public"."decision"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_email" ADD CONSTRAINT "user_email_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "verification_send" ADD CONSTRAINT "verification_send_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oidc_trust" ADD CONSTRAINT "oidc_trust_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "signup_survey" ADD CONSTRAINT "signup_survey_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "signup_survey" ADD CONSTRAINT "signup_survey_respondent_id_user_id_fk" FOREIGN KEY ("respondent_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -2009,6 +2016,7 @@ CREATE INDEX "configuration_change_workspace_idx" ON "configuration_change" USIN
 CREATE UNIQUE INDEX "user_email_user_email_idx" ON "user_email" USING btree ("user_id",lower("email"));--> statement-breakpoint
 CREATE UNIQUE INDEX "user_email_verified_email_idx" ON "user_email" USING btree (lower("email")) WHERE "user_email"."verified_at" is not null;--> statement-breakpoint
 CREATE INDEX "user_email_user_idx" ON "user_email" USING btree ("user_id","added_at");--> statement-breakpoint
+CREATE INDEX "verification_send_user_idx" ON "verification_send" USING btree ("user_id","sent_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "oidc_trust_workspace_key_idx" ON "oidc_trust" USING btree ("workspace_id","key");--> statement-breakpoint
 CREATE INDEX "team_workspace_idx" ON "team" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "team_workspace_key_idx" ON "team" USING btree ("workspace_id","key");--> statement-breakpoint

@@ -7,6 +7,7 @@ import { EmailVerificationExpiredError } from '@identity/domain/exceptions/email
 import { NotYourEmailError } from '@identity/domain/exceptions/not-your-email.error';
 import { SignInEmailNotAdditionalError } from '@identity/domain/exceptions/sign-in-email-not-additional.error';
 import { TooManyEmailsError } from '@identity/domain/exceptions/too-many-emails.error';
+import { TooManyVerificationsSentError } from '@identity/domain/exceptions/too-many-verifications-sent.error';
 import { VerificationSentRecentlyError } from '@identity/domain/exceptions/verification-sent-recently.error';
 import type { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import type { UserEmailId } from '@identity/domain/value-objects/user-email-id.vo';
@@ -24,6 +25,8 @@ const HOUR = 60 * MINUTE;
 const RESEND_AFTER = MINUTE;
 
 export const MOST_ADDITIONAL_EMAILS = 10;
+
+export const MOST_VERIFICATIONS_PER_HOUR = 10;
 
 export type UserEmailStatus = 'verified' | 'pending' | 'expired';
 
@@ -69,6 +72,7 @@ export class UserEmail extends EventRecorder implements State {
     email: EmailAddress;
     signInEmail: EmailAddress;
     held: number;
+    sentInLastHour: number;
     tokenHash: TokenHash;
     now: Date;
   }): UserEmail {
@@ -78,6 +82,7 @@ export class UserEmail extends EventRecorder implements State {
     if (input.held >= MOST_ADDITIONAL_EMAILS) {
       throw new TooManyEmailsError(MOST_ADDITIONAL_EMAILS);
     }
+    UserEmail.mayVerifyAgain(input.sentInLastHour);
 
     const added = new UserEmail({
       id: input.id,
@@ -122,13 +127,18 @@ export class UserEmail extends EventRecorder implements State {
     return UserEmail.statusOf(this, now);
   }
 
-  resend(tokenHash: TokenHash, now: Date): UserEmail {
+  static sendsCountedSince(now: Date): Date {
+    return new Date(now.getTime() - HOUR);
+  }
+
+  resend(tokenHash: TokenHash, now: Date, sentInLastHour: number): UserEmail {
     if (this.verifiedAt) {
       throw new EmailAlreadyVerifiedError(this.email.value);
     }
     if (now.getTime() - this.sentAt.getTime() < RESEND_AFTER) {
       throw new VerificationSentRecentlyError(this.email.value);
     }
+    UserEmail.mayVerifyAgain(sentInLastHour);
 
     return this.with({
       tokenHash,
@@ -186,6 +196,12 @@ export class UserEmail extends EventRecorder implements State {
       verifiedAt: this.verifiedAt,
       version: this.version,
     };
+  }
+
+  private static mayVerifyAgain(sentInLastHour: number): void {
+    if (sentInLastHour >= MOST_VERIFICATIONS_PER_HOUR) {
+      throw new TooManyVerificationsSentError(MOST_VERIFICATIONS_PER_HOUR);
+    }
   }
 
   private static expiryFrom(now: Date): Date {

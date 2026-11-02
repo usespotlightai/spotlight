@@ -1,5 +1,6 @@
 import {
   MOST_ADDITIONAL_EMAILS,
+  MOST_VERIFICATIONS_PER_HOUR,
   UserEmail,
 } from '@identity/domain/aggregates/user-email.aggregate';
 import { UserEmailAdded } from '@identity/domain/events/user-email-added.event';
@@ -11,6 +12,7 @@ import { EmailVerificationExpiredError } from '@identity/domain/exceptions/email
 import { NotYourEmailError } from '@identity/domain/exceptions/not-your-email.error';
 import { SignInEmailNotAdditionalError } from '@identity/domain/exceptions/sign-in-email-not-additional.error';
 import { TooManyEmailsError } from '@identity/domain/exceptions/too-many-emails.error';
+import { TooManyVerificationsSentError } from '@identity/domain/exceptions/too-many-verifications-sent.error';
 import { VerificationSentRecentlyError } from '@identity/domain/exceptions/verification-sent-recently.error';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { UserEmailId } from '@identity/domain/value-objects/user-email-id.vo';
@@ -26,13 +28,14 @@ const ada = UserId.of('user_ada');
 const grace = UserId.of('user_grace');
 const hash = (of: string) => TokenHash.of(of.repeat(64).slice(0, 64));
 
-const added = (email = 'Ada@Work.example.com', held = 0) =>
+const added = (email = 'Ada@Work.example.com', held = 0, sentInLastHour = 0) =>
   UserEmail.add({
     id: UserEmailId.of('email_1'),
     userId: ada,
     email: EmailAddress.of(email),
     signInEmail: EmailAddress.of('ada@example.com'),
     held,
+    sentInLastHour,
     tokenHash: hash('a'),
     now: NOW,
   });
@@ -72,8 +75,26 @@ describe('UserEmail', () => {
 
   it('sends no second link within a minute', () => {
     expect(() =>
-      added().resend(hash('b'), new Date(NOW.getTime() + 30_000)),
+      added().resend(hash('b'), new Date(NOW.getTime() + 30_000), 0),
     ).toThrow(VerificationSentRecentlyError);
+  });
+
+  it('adds no address once the account used its links for the hour', () => {
+    expect(() =>
+      added('ada@work.example.com', 0, MOST_VERIFICATIONS_PER_HOUR),
+    ).toThrow(TooManyVerificationsSentError);
+  });
+
+  it('sends no new link once the account used its links for the hour', () => {
+    expect(() =>
+      added().resend(hash('b'), NEXT_DAY, MOST_VERIFICATIONS_PER_HOUR),
+    ).toThrow(TooManyVerificationsSentError);
+  });
+
+  it('counts the links sent in the hour before now', () => {
+    expect(UserEmail.sendsCountedSince(NOW)).toEqual(
+      new Date('2026-11-02T08:00:00.000Z'),
+    );
   });
 
   it('is verified by the account that added it', () => {
@@ -111,7 +132,7 @@ describe('UserEmail', () => {
   });
 
   it('sends a fresh link for 24 more hours', () => {
-    const resent = added().resend(hash('b'), NEXT_DAY);
+    const resent = added().resend(hash('b'), NEXT_DAY, 0);
 
     expect(resent.tokenHash).toEqual(hash('b'));
     expect(resent.sentAt).toEqual(NEXT_DAY);
@@ -119,7 +140,7 @@ describe('UserEmail', () => {
   });
 
   it('sends no link to a verified address', () => {
-    expect(() => verified().resend(hash('b'), NEXT_DAY)).toThrow(
+    expect(() => verified().resend(hash('b'), NEXT_DAY, 0)).toThrow(
       EmailAlreadyVerifiedError,
     );
   });

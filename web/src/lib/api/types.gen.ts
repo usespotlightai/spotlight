@@ -12503,7 +12503,7 @@ export type AddMyEmailErrors = {
    */
   401: unknown;
   /**
-   * The address is already verified, was just added, or got a link less than a minute ago
+   * The address is already verified, was just added, or got a link less than a minute ago, or your account got 10 links in the last hour
    */
   409: unknown;
   /**
@@ -12541,7 +12541,7 @@ export type ResendMyEmailVerificationErrors = {
    */
   404: unknown;
   /**
-   * The address is already verified, or got a link less than a minute ago
+   * The address is already verified, or got a link less than a minute ago, or your account got 10 links in the last hour
    */
   409: unknown;
   /**

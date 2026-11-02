@@ -74,7 +74,7 @@ export class UserEmailController {
   @ApiOkResponse({ type: UserEmailResponseDto })
   @ApiConflictResponse({
     description:
-      'The address is already verified, was just added, or got a link less than a minute ago',
+      'The address is already verified, was just added, or got a link less than a minute ago, or your account got 10 links in the last hour',
   })
   @ApiUnprocessableEntityResponse({
     description:
@@ -100,7 +100,7 @@ export class UserEmailController {
   @ApiOkResponse({ type: UserEmailResponseDto })
   @ApiConflictResponse({
     description:
-      'The address is already verified, or got a link less than a minute ago',
+      'The address is already verified, or got a link less than a minute ago, or your account got 10 links in the last hour',
   })
   @ApiNotFoundResponse({ description: 'No such address of yours' })
   @ApiBadGatewayResponse({ description: 'The email could not be sent' })

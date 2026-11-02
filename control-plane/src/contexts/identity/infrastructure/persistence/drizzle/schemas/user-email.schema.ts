@@ -4,6 +4,7 @@ import {
   index,
   integer,
   pgTable,
+  serial,
   text,
   timestamp,
   uniqueIndex,
@@ -33,5 +34,19 @@ export const userEmail = pgTable(
       .on(sql`lower(${table.email})`)
       .where(sql`${table.verifiedAt} is not null`),
     index('user_email_user_idx').on(table.userId, table.addedAt),
+  ],
+);
+
+export const verificationSend = pgTable(
+  'verification_send',
+  {
+    id: serial('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    sentAt: timestamp('sent_at').notNull(),
+  },
+  (table) => [
+    index('verification_send_user_idx').on(table.userId, table.sentAt),
   ],
 );

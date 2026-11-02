@@ -121,4 +121,24 @@ describe('additional emails (e2e)', () => {
     await as(seat.member).delete(`/api/me/emails/${email.id}`).expect(404);
     expect(await matched(slack)).toBeNull();
   });
+
+  it('sends an account at most 10 links an hour, removed addresses too', async () => {
+    const again = `${randomUUID()}@work.example.com`;
+    const sentBefore = sent.length;
+    const addAndRemove = async () => {
+      const answer = await as(seat.owner)
+        .post('/api/me/emails', { email: again })
+        .expect(200);
+      await as(seat.owner)
+        .delete(`/api/me/emails/${answer.body.id}`)
+        .expect(204);
+    };
+
+    for (let each = 0; each < 9; each += 1) {
+      await addAndRemove();
+    }
+
+    await as(seat.owner).post('/api/me/emails', { email: again }).expect(409);
+    expect(sent).toHaveLength(sentBefore + 9);
+  });
 });
