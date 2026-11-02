@@ -1,5 +1,6 @@
 import type { StationKind } from '@work/domain/entities/station.entity';
 import {
+  CHECKS,
   PULL_REQUEST,
   REVIEW,
   REVIEW_COMMENT,
@@ -363,6 +364,7 @@ const DELIVERY_STATIONS: readonly StationOpening[] = [
     rubric: IMPLEMENTATION_RUBRIC,
     passesTo: ['code-review', 'spec'],
     decisions: true,
+    tools: [CHECKS],
   }),
   opening({
     key: 'code-review',

@@ -102,6 +102,11 @@ const failUnnamed = (event: PullRequestActivity): never => {
   );
 };
 
+const failedChecksOf = (event: PullRequestActivity): Happened['message'] =>
+  event.failedChecks.length > 0
+    ? { body: `Failed: ${event.failedChecks.join(', ')}.` }
+    : null;
+
 const messageOf = (event: PullRequestActivity): Happened['message'] =>
   event.reviewComment
     ? {
@@ -229,7 +234,7 @@ const happened = (
     answers: raising.answers,
     state: 'raised',
     correlationKeys: concerns,
-    message: messageOf(event),
+    message: messageOf(event) ?? failedChecksOf(event),
     ourOwn: event.byBot,
     opens: null,
   };
@@ -267,6 +272,6 @@ export class GitHubWebhookProvider implements WebhookProviderPort {
   async read(delivered: Delivered): Promise<readonly Happened[]> {
     await this.github.receive(delivered);
 
-    return this.github.activityIn(delivered).flatMap(happenedIn);
+    return (await this.github.activityIn(delivered)).flatMap(happenedIn);
   }
 }

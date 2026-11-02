@@ -17,6 +17,8 @@ export interface BuiltInTool {
 
 export const PULL_REQUEST = Tool.of('pull-request');
 
+export const CHECKS = Tool.of('checks');
+
 export const PROPOSE_TASK = Tool.of('propose-task');
 
 export const SETUP_PULL_REQUEST = Tool.of('setup-pull-request');
@@ -63,6 +65,16 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           stdin: false,
         },
       ],
+    }),
+  },
+  {
+    worksOn: 'task',
+    skill: null,
+    declared: DeclaredTool.of({
+      tool: CHECKS,
+      description:
+        'List the failed checks on the pull request of this task, with the failed step and the end of the log of each job from GitHub Actions.',
+      inputs: [],
     }),
   },
   {

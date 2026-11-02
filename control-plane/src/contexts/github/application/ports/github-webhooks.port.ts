@@ -13,5 +13,5 @@ export interface GitHubWebhooksPort {
 
   receive(delivery: GitHubDelivery): Promise<void>;
 
-  activityIn(delivery: GitHubDelivery): readonly PullRequestActivity[];
+  activityIn(delivery: GitHubDelivery): Promise<readonly PullRequestActivity[]>;
 }

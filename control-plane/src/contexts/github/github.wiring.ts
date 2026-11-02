@@ -1,6 +1,10 @@
 import { ConnectGitHubCommand } from '@github/application/commands/connect-github.command';
 import { ConnectGitHubHandler } from '@github/application/commands/handlers/connect-github.handler';
 import { GITHUB_EVENT_MAPPERS } from '@github/application/integration-events/github.event-mappers';
+import {
+  CHECK_RUNS,
+  type CheckRunsPort,
+} from '@github/application/ports/check-runs.port';
 import { GITHUB_APP } from '@github/application/ports/github-app.port';
 import { GITHUB_WEBHOOKS } from '@github/application/ports/github-webhooks.port';
 import { INSTALLATION_ADMINISTRATION } from '@github/application/ports/installation-administration.port';
@@ -41,6 +45,7 @@ import { WorkspaceConnections } from '@github/application/services/workspace-con
 import { GITHUB_PAYLOAD_TYPES } from '@github/domain/payload-types';
 import { GitHubAppAccess } from '@github/infrastructure/github/github-app.access';
 import { GitHubAppIdentity } from '@github/infrastructure/github/github-app.identity';
+import { GitHubCheckRuns } from '@github/infrastructure/github/github-check-runs';
 import { GitHubGitTransport } from '@github/infrastructure/github/github-git.transport';
 import { GitHubInstallationAdministration } from '@github/infrastructure/github/github-installation.administration';
 import { GitHubInstallationRepositories } from '@github/infrastructure/github/github-installation-repositories';
@@ -201,6 +206,7 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       DOMAIN_EVENT_DISPATCHER,
       PullRequestSync,
       LOGGER,
+      CHECK_RUNS,
     ],
     useFactory: (
       parser: WebhookParserPort,
@@ -209,8 +215,17 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       events: DomainEventDispatcher,
       sync: PullRequestSync,
       logger: LoggerPort,
+      checkRuns: CheckRunsPort,
     ) =>
-      new GitHubWebhooks(parser, signature, connections, events, sync, logger),
+      new GitHubWebhooks(
+        parser,
+        signature,
+        connections,
+        events,
+        sync,
+        logger,
+        checkRuns,
+      ),
   },
 
   {
@@ -252,6 +267,12 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
     inject: [REPOSITORY_ACCESS],
     useFactory: (access: RepositoryAccessPort) =>
       new GitHubRepositorySettings(access),
+  },
+
+  {
+    provide: CHECK_RUNS,
+    inject: [REPOSITORY_ACCESS],
+    useFactory: (access: RepositoryAccessPort) => new GitHubCheckRuns(access),
   },
 
   {

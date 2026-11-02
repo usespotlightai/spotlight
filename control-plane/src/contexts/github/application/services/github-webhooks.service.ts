@@ -1,5 +1,6 @@
 import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto';
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
+import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
 import type {
   WebhookEvent,
@@ -15,6 +16,7 @@ import type { GitHubConnectionRepository } from '@github/domain/repositories/git
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class GitHubWebhooks implements GitHubWebhooksPort {
@@ -25,6 +27,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     private readonly events: DomainEventDispatcher,
     private readonly sync: PullRequestSync,
     private readonly logger: LoggerPort,
+    private readonly checkRuns: CheckRunsPort,
   ) {}
 
   verifies(delivery: GitHubDelivery): boolean {
@@ -46,12 +49,55 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
       : null;
   }
 
-  activityIn(delivery: GitHubDelivery): readonly PullRequestActivity[] {
-    return this.parser
+  async activityIn(
+    delivery: GitHubDelivery,
+  ): Promise<readonly PullRequestActivity[]> {
+    const activities = this.parser
       .parse(delivery)
       .events.flatMap((each) =>
         each.kind === 'pull-request-activity' ? [each.activity] : [],
       );
+
+    return Promise.all(
+      activities.map((activity) => this.withFailedChecks(delivery, activity)),
+    );
+  }
+
+  private async withFailedChecks(
+    delivery: GitHubDelivery,
+    activity: PullRequestActivity,
+  ): Promise<PullRequestActivity> {
+    const suite = activity.checkSuite;
+
+    if (activity.activity !== 'checks-failed' || !suite) {
+      return activity;
+    }
+
+    try {
+      const workspaceId = await this.workspaceOf(delivery);
+
+      return workspaceId
+        ? {
+            ...activity,
+            failedChecks: await this.checkRuns.failedInSuite(
+              workspaceId,
+              Repository.of(suite.repository),
+              suite.id,
+            ),
+          }
+        : activity;
+    } catch (error) {
+      this.logger.warn(
+        {
+          suite: suite.id,
+          repository: suite.repository,
+          reason: error instanceof Error ? error.message : String(error),
+        },
+        'Could not read the failed checks of a check suite',
+      );
+
+      return activity;
+    }
   }
 
   async receive(delivery: GitHubDelivery): Promise<void> {
