@@ -1,14 +1,14 @@
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
+import type { ChatMarksPort } from '@work/application/ports/chat-marks.port';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 
 export class IntegrationTaskViews {
   constructor(
     private readonly lines: LineRepository,
-    private readonly chats: ChatRepository,
+    private readonly chatMarks: ChatMarksPort,
   ) {}
 
   async of(task: Task, on?: Line): Promise<IntegrationTaskViewDto | null> {
@@ -19,9 +19,9 @@ export class IntegrationTaskViews {
 
     const station = line.stationAt(task.stationId);
     const open = task.openConversation;
-    const chat = task.proposedIn
-      ? await this.chats.find(task.proposedIn.chatId)
-      : null;
+    const fromChat = task.proposedIn
+      ? await this.chatMarks.ambientOf(task.proposedIn.chatId)
+      : [];
 
     return {
       taskId: task.id.value,
@@ -31,10 +31,7 @@ export class IntegrationTaskViews {
       station: station?.name.value ?? '',
       stationKey: station?.key.value ?? '',
       marks: Object.fromEntries(
-        [...(chat?.ambientMarks ?? []), ...task.marks].map((mark) => [
-          mark.kind,
-          mark.value,
-        ]),
+        [...fromChat, ...task.marks].map((mark) => [mark.kind, mark.value]),
       ),
       waiting: open
         ? {

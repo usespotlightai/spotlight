@@ -14,6 +14,7 @@ import { MessagePosition } from '@work/domain/value-objects/message-position.vo'
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { DrizzleChatMarks } from '@work/infrastructure/persistence/drizzle/readers/chat-marks.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -77,6 +78,16 @@ describe('chat marks, stored in the database (e2e)', () => {
     expect(
       await chats.findByMarks(WorkspaceId.of('ws_2'), keys(thread)),
     ).toBeNull();
+  });
+
+  it('reads only the ambient marks of a chat', async () => {
+    const chat = startedIn(Mark.of('slack.thread', `C1:${randomUUID()}`));
+
+    await chats.add(chat);
+
+    expect(await new DrizzleChatMarks(database.db).ambientOf(chat.id)).toEqual([
+      CHANNEL,
+    ]);
   });
 
   it('lets only one chat have a finding mark', async () => {

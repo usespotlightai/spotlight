@@ -269,6 +269,10 @@ import {
   type ChannelNoticesPort,
 } from '@work/application/ports/channel-notices.port';
 import {
+  CHAT_MARKS,
+  type ChatMarksPort,
+} from '@work/application/ports/chat-marks.port';
+import {
   CHAT_READER,
   type ChatReaderPort,
 } from '@work/application/ports/chat-reader.port';
@@ -659,6 +663,7 @@ import { DrizzleArchiveReferences } from '@work/infrastructure/persistence/drizz
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleBriefedTasks } from '@work/infrastructure/persistence/drizzle/readers/briefed-tasks.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
+import { DrizzleChatMarks } from '@work/infrastructure/persistence/drizzle/readers/chat-marks.reader';
 import { DrizzleEnabledAtStations } from '@work/infrastructure/persistence/drizzle/readers/enabled-at-stations.reader';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleLeasedRunReader } from '@work/infrastructure/persistence/drizzle/readers/leased-run.reader';
@@ -1047,6 +1052,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   { provide: LINE_READER, useClass: DrizzleLineReader },
   { provide: LINE_IMAGES, useClass: DrizzleLineImages },
+  { provide: CHAT_MARKS, useClass: DrizzleChatMarks },
 
   { provide: TASK_READER, useClass: DrizzleTaskReader },
 
@@ -1772,9 +1778,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: IntegrationTaskViews,
-    inject: [DrizzleLineRepository, DrizzleChatRepository],
-    useFactory: (lines: DrizzleLineRepository, chats: DrizzleChatRepository) =>
-      new IntegrationTaskViews(lines, chats),
+    inject: [DrizzleLineRepository, CHAT_MARKS],
+    useFactory: (lines: DrizzleLineRepository, chatMarks: ChatMarksPort) =>
+      new IntegrationTaskViews(lines, chatMarks),
   },
 
   {
