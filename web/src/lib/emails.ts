@@ -13,12 +13,6 @@ export const verifyEmailPath = (token: string): string =>
 
 export const statusOfEmail: Record<UserEmailStatus, string> = {
   verified: 'Verified',
-  pending: 'Not verified',
-  expired: 'Not verified',
-};
-
-export const describeEmail: Record<UserEmailStatus, string> = {
-  verified: 'Spotlight recognizes you by this address',
-  pending: 'Verification link sent. It works for 24 hours.',
-  expired: 'Verification link expired. Please resend it.',
+  pending: 'Verification link sent',
+  expired: 'Verification link expired',
 };

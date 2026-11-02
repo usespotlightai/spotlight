@@ -4,7 +4,7 @@ import { SLUG } from '@/mocks/world';
 import { choice, type PageArgs, pageStory } from '@/stories/application';
 import type { Script } from '@/stories/ScriptedApplication';
 
-type Doing = 'nothing' | 'adding' | 'added' | 'acting';
+type Doing = 'nothing' | 'adding' | 'added' | 'acting' | 'resent';
 
 type EmailsArgs = {
   readonly doing: Doing;
@@ -12,6 +12,15 @@ type EmailsArgs = {
 
 const openAdd: Script = async (screen, user) => {
   await user.click(await screen.findByRole('button', { name: 'Add email' }));
+};
+
+const openActions: Script = async (screen, user) => {
+  (
+    await screen.findByRole('button', {
+      name: 'Actions for sam@contractor.example',
+    })
+  ).focus();
+  await user.keyboard('{Enter}');
 };
 
 const SCRIPTS: Record<Doing, Script | undefined> = {
@@ -25,13 +34,14 @@ const SCRIPTS: Record<Doing, Script | undefined> = {
     );
     await user.keyboard('{Enter}');
   },
-  acting: async (screen, user) => {
-    (
-      await screen.findByRole('button', {
-        name: 'Actions for sam@contractor.example',
-      })
-    ).focus();
-    await user.keyboard('{Enter}');
+  acting: openActions,
+  resent: async (screen, user) => {
+    await openActions(screen, user);
+    await user.click(
+      await screen.findByRole('menuitem', {
+        name: 'Resend verification link',
+      }),
+    );
   },
 };
 
@@ -46,6 +56,7 @@ const meta = {
         adding: 'Adding an email',
         added: 'Email added',
         acting: 'Actions on an expired link',
+        resent: 'Verification link resent',
       }),
     },
     script: ({ doing }) => SCRIPTS[doing],

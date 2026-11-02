@@ -27,9 +27,7 @@ describe('AccountEmails on the mock API', () => {
     const list = await additional();
     expect(list.getByText('sam.rivera@acme-corp.example')).toBeVisible();
     expect(list.getByText('Verified')).toBeVisible();
-    expect(
-      list.getByText('Verification link expired. Please resend it.'),
-    ).toBeVisible();
+    expect(list.getByText('Verification link expired')).toBeVisible();
   });
 
   it('adds an email that waits for verification', async () => {
@@ -52,9 +50,7 @@ describe('AccountEmails on the mock API', () => {
     expect(
       await list.findByText('sam@slack.example', undefined, WAIT),
     ).toBeVisible();
-    expect(
-      list.getByText('Verification link sent. It works for 24 hours.'),
-    ).toBeVisible();
+    expect(list.getByText('Verification link sent')).toBeVisible();
   });
 
   it('says why the sign-in email cannot be added, in the server’s words', async () => {
