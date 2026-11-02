@@ -3,6 +3,7 @@ import { sliceFill } from '@/components/features/insights/chart-series';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { SliceDonut } from '@/components/features/insights/SliceDonut';
+import { FadingScroll } from '@/components/shared/FadingScroll';
 import {
   type CostDimension,
   type CostSlice,
@@ -40,32 +41,34 @@ export function CostSlices({
               }))}
             />
           )}
-          <ul
-            aria-label={`Spend ${title.toLowerCase()}`}
-            className="flex min-w-0 flex-1 flex-col gap-1.5"
-          >
-            {slices.map((slice, at) => {
-              const label = named(dimension, slice.key);
-              const filter = sliceFilter(dimension, slice.key);
+          <FadingScroll className="max-h-[120px] min-w-0 flex-1">
+            <ul
+              aria-label={`Spend ${title.toLowerCase()}`}
+              className="flex flex-col gap-1.5"
+            >
+              {slices.map((slice, at) => {
+                const label = named(dimension, slice.key);
+                const filter = sliceFilter(dimension, slice.key);
 
-              return (
-                <CostSliceRow
-                  key={slice.key ?? 'none'}
-                  slice={slice}
-                  fill={sliceFill(at)}
-                  currency={currency}
-                >
-                  {filter ? (
-                    <InsightsLink tab="traces" filter={filter}>
-                      {label}
-                    </InsightsLink>
-                  ) : (
-                    label
-                  )}
-                </CostSliceRow>
-              );
-            })}
-          </ul>
+                return (
+                  <CostSliceRow
+                    key={slice.key ?? 'none'}
+                    slice={slice}
+                    fill={sliceFill(at)}
+                    currency={currency}
+                  >
+                    {filter ? (
+                      <InsightsLink tab="traces" filter={filter}>
+                        {label}
+                      </InsightsLink>
+                    ) : (
+                      label
+                    )}
+                  </CostSliceRow>
+                );
+              })}
+            </ul>
+          </FadingScroll>
         </div>
       )}
     </InsightsCard>
