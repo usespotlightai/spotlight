@@ -19,6 +19,8 @@ const MERGED: PullRequestActivity = {
   details: null,
   reviewComment: null,
   byBot: false,
+  checkSuite: null,
+  failedChecks: [],
 };
 
 const OPENED: PullRequestActivity = {
@@ -35,6 +37,8 @@ const OPENED: PullRequestActivity = {
   },
   reviewComment: null,
   byBot: false,
+  checkSuite: null,
+  failedChecks: [],
 };
 
 const providerOver = (activity: readonly PullRequestActivity[]) => {
@@ -46,7 +50,7 @@ const providerOver = (activity: readonly PullRequestActivity[]) => {
     receive: vi.fn(async () => {
       order.push('receive');
     }),
-    activityIn: vi.fn(() => {
+    activityIn: vi.fn(async () => {
       order.push('activity');
       return activity;
     }),
@@ -102,6 +106,18 @@ describe('GitHubWebhookProvider', () => {
       'github.pull_request.changes-requested',
       'github.checks.failed',
     ]);
+  });
+
+  it('names the checks that failed', async () => {
+    expect(
+      (
+        await readOne({
+          ...MERGED,
+          activity: 'checks-failed',
+          failedChecks: ['web / build', 'gitleaks / secret scan'],
+        })
+      ).message,
+    ).toEqual({ body: 'Failed: web / build, gitleaks / secret scan.' });
   });
 
   it('carries the review comment, and where it is', async () => {

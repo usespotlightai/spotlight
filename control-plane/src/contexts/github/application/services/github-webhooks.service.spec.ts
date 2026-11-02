@@ -1,3 +1,4 @@
+import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
 import type {
   ParsedDelivery,
   WebhookEvent,
@@ -48,6 +49,8 @@ const MERGED: WebhookEvent = {
     details: null,
     reviewComment: null,
     byBot: false,
+    checkSuite: null,
+    failedChecks: [],
   },
 };
 
@@ -66,6 +69,7 @@ const hooks = (
     connected?: boolean;
     signs?: boolean;
     dispatch?: () => Promise<void>;
+    failedInSuite?: () => Promise<readonly string[]>;
   } = {},
 ) => {
   const connected = over.connected ?? true;
@@ -89,7 +93,15 @@ const hooks = (
     dispatch: vi.fn(over.dispatch ?? (async (_: readonly DomainEvent[]) => {})),
   };
   const signature = { signs: vi.fn(() => over.signs ?? true) };
-  const logger = { info: vi.fn(), error: vi.fn() } as unknown as LoggerPort;
+  const logger = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  } as unknown as LoggerPort;
+  const checkRuns = {
+    failedOn: vi.fn(),
+    failedInSuite: vi.fn(over.failedInSuite ?? (async () => ['web / build'])),
+  } satisfies CheckRunsPort;
   const sync = {
     updateDetails: vi.fn(async () => {}),
     reviewed: vi.fn(async () => {}),
@@ -111,7 +123,9 @@ const hooks = (
       events,
       sync as unknown as PullRequestSync,
       logger,
+      checkRuns,
     ),
+    checkRuns,
     connections,
     events,
     sync,
@@ -167,15 +181,72 @@ describe('GitHubWebhooks', () => {
     });
   });
 
-  it('hands over only the pull request activity it received', () => {
+  it('hands over only the pull request activity it received', async () => {
     const { service } = hooks({
       installation: '158876513',
       events: [{ kind: 'installation-removed' }, MERGED],
     });
 
-    expect(service.activityIn(DELIVERY)).toEqual([
+    expect(await service.activityIn(DELIVERY)).toEqual([
       MERGED.kind === 'pull-request-activity' ? MERGED.activity : null,
     ]);
+  });
+
+  describe('naming the checks that failed', () => {
+    const FAILED: WebhookEvent = {
+      kind: 'pull-request-activity',
+      activity: {
+        ...(MERGED.kind === 'pull-request-activity'
+          ? MERGED.activity
+          : ({} as never)),
+        activity: 'checks-failed',
+        checkSuite: { id: 42, repository: 'acme/api' },
+      },
+    };
+
+    it('asks GitHub which checks of the suite failed', async () => {
+      const { service, checkRuns } = hooks({
+        installation: '158876513',
+        events: [FAILED],
+      });
+
+      const [read] = await service.activityIn(DELIVERY);
+
+      expect(read?.failedChecks).toEqual(['web / build']);
+      expect(checkRuns.failedInSuite).toHaveBeenCalledWith(
+        WORKSPACE,
+        Repository.of('acme/api'),
+        42,
+      );
+    });
+
+    it('still hands over the failure when GitHub would not name the checks', async () => {
+      const { service, logger } = hooks(
+        { installation: '158876513', events: [FAILED] },
+        {
+          failedInSuite: async () => {
+            throw new Error('Resource not accessible by integration');
+          },
+        },
+      );
+
+      const [read] = await service.activityIn(DELIVERY);
+
+      expect(read?.activity).toBe('checks-failed');
+      expect(read?.failedChecks).toEqual([]);
+      expect(logger.warn).toHaveBeenCalled();
+    });
+
+    it('asks nothing of GitHub for other activity', async () => {
+      const { service, checkRuns } = hooks({
+        installation: '158876513',
+        events: [MERGED],
+      });
+
+      await service.activityIn(DELIVERY);
+
+      expect(checkRuns.failedInSuite).not.toHaveBeenCalled();
+    });
   });
 
   describe('receiving', () => {

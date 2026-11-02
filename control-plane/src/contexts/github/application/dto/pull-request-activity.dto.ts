@@ -23,6 +23,11 @@ export interface PullRequestDetails {
   readonly draft: boolean;
 }
 
+export interface CheckSuite {
+  readonly id: number;
+  readonly repository: string;
+}
+
 export interface PullRequestActivity {
   readonly activity: PullRequestActivityKind;
   readonly branch: string | null;
@@ -31,4 +36,6 @@ export interface PullRequestActivity {
   readonly details: PullRequestDetails | null;
   readonly reviewComment: PullRequestReviewComment | null;
   readonly byBot: boolean;
+  readonly checkSuite: CheckSuite | null;
+  readonly failedChecks: readonly string[];
 }

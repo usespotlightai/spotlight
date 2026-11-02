@@ -43,6 +43,8 @@ describe('GitHubWebhookParser', () => {
         details: null,
         reviewComment: null,
         byBot: false,
+        checkSuite: null,
+        failedChecks: [],
       });
     });
 
@@ -362,7 +364,23 @@ describe('GitHubWebhookParser', () => {
         activity: 'checks-failed',
         branch: 'spotlight/task_1',
         pullRequest: null,
+        checkSuite: null,
+        failedChecks: [],
       });
+    });
+
+    it('keeps the check suite, to name its failed checks', () => {
+      expect(
+        activity('check_suite', {
+          action: 'completed',
+          check_suite: {
+            id: 42,
+            conclusion: 'failure',
+            head_branch: 'spotlight/task_1',
+          },
+          repository: { full_name: 'acme/api' },
+        }),
+      ).toMatchObject({ checkSuite: { id: 42, repository: 'acme/api' } });
     });
 
     it('reads a failing check suite on a branch a bot pushed as news, not as its own', () => {

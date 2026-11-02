@@ -12,6 +12,7 @@ import {
 } from '@work/application/services/built-in-tools.service';
 import {
   builtInTool,
+  CHECKS,
   PROPOSE_TASK,
   PULL_REQUEST,
   REVIEW,
@@ -61,6 +62,7 @@ const reviewing: BuiltInToolUse<TaskToolContext>[] = [
   REVIEW,
   SETUP_PULL_REQUEST,
   TEST_STATION_CHANGE,
+  CHECKS,
 ].map((tool) => ({ tool, call: async () => null }));
 
 describe('BuiltInTools', () => {

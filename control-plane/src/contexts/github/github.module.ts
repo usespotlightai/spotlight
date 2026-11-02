@@ -1,3 +1,4 @@
+import { CHECK_RUNS } from '@github/application/ports/check-runs.port';
 import { GITHUB_APP } from '@github/application/ports/github-app.port';
 import { GITHUB_WEBHOOKS } from '@github/application/ports/github-webhooks.port';
 import { INSTALLATION_REPOSITORIES } from '@github/application/ports/installation-repositories.port';
@@ -32,6 +33,7 @@ import { Module } from '@nestjs/common';
     PULL_REQUEST_REACTIONS,
     PULL_REQUEST_REVIEWS,
     REVIEW_COMMENTS,
+    CHECK_RUNS,
     GITHUB_APP,
     GITHUB_WEBHOOKS,
   ],

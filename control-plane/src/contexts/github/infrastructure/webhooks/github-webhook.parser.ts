@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto';
 import type {
+  CheckSuite,
   PullRequestActivity,
   PullRequestActivityKind,
   PullRequestDetails,
@@ -42,6 +43,7 @@ interface Payload {
     }[];
   };
   readonly check_suite?: {
+    readonly id?: unknown;
     readonly conclusion?: unknown;
     readonly head_branch?: unknown;
     readonly pull_requests?: readonly { readonly html_url?: unknown }[];
@@ -220,6 +222,13 @@ const activityOf = (
   return null;
 };
 
+const checkSuiteOf = (payload: Payload): CheckSuite | null => {
+  const id = at(payload.check_suite?.id);
+  const repository = text(payload.repository?.full_name);
+
+  return id !== null && repository ? { id, repository } : null;
+};
+
 const pullRequestActivity = (
   event: string | undefined,
   payload: Payload,
@@ -247,6 +256,8 @@ const pullRequestActivity = (
     reviewComment:
       reviewCommentOf(payload.comment) ?? reviewCommentOf(payload.review),
     byBot: !FROM_ANY_SENDER.includes(activity) && byBot(payload),
+    checkSuite: checkSuiteOf(payload),
+    failedChecks: [],
   };
 
   return [{ kind: 'pull-request-activity', activity: read }];

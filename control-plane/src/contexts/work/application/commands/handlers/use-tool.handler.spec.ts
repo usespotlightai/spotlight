@@ -50,6 +50,7 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
   builtInTool,
+  CHECKS,
   PROPOSE_TASK,
   PULL_REQUEST,
   REVIEW,
@@ -341,12 +342,16 @@ const using = (
         return 'Proposed.';
       },
     },
-    ...[REVIEW_COMMENT, REVIEW, SETUP_PULL_REQUEST, TEST_STATION_CHANGE].map(
-      (tool) => ({
-        tool,
-        call: async () => null,
-      }),
-    ),
+    ...[
+      REVIEW_COMMENT,
+      REVIEW,
+      SETUP_PULL_REQUEST,
+      TEST_STATION_CHANGE,
+      CHECKS,
+    ].map((tool) => ({
+      tool,
+      call: async () => null,
+    })),
   ]);
 
   const integrationTools: IntegrationToolsPort = {

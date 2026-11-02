@@ -3,6 +3,10 @@ import {
   type CatalogPort,
 } from '@catalog/application/ports/catalog.port';
 import {
+  CHECK_RUNS,
+  type CheckRunsPort,
+} from '@github/application/ports/check-runs.port';
+import {
   INSTALLATION_REPOSITORIES,
   type InstallationRepositoriesPort,
 } from '@github/application/ports/installation-repositories.port';
@@ -568,6 +572,7 @@ import {
   type ChatDispatching,
 } from '@work/application/services/chat-dispatch';
 import { ChatLoader } from '@work/application/services/chat-loader.service';
+import { ChecksToolUse } from '@work/application/services/checks.tool-use';
 import { CiSetups } from '@work/application/services/ci-setups.service';
 import { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import { ConnectionsMade } from '@work/application/services/connections-made.service';
@@ -2381,6 +2386,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       PULL_REQUESTS,
       TRANSACTION,
       STATION_CHANGE_TESTS,
+      DrizzleTaskRepository,
+      CHECK_RUNS,
     ],
     useFactory: (
       opening: OpenPullRequest,
@@ -2391,8 +2398,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       pullRequests: PullRequestPort,
       transaction: TransactionPort,
       tests: StationChangeTestsPort,
+      tasks: DrizzleTaskRepository,
+      checkRuns: CheckRunsPort,
     ): readonly BuiltInToolUse[] => [
       new PullRequestToolUse(opening),
+      new ChecksToolUse(tasks, checkRuns),
       new ProposeTaskToolUse(chats, lines, clock),
       new SetupPullRequestToolUse(chats, pullRequests, transaction, clock),
       new ReviewCommentToolUse(reviewing),
