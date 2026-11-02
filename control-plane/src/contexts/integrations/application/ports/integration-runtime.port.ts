@@ -104,7 +104,7 @@ export interface TaskPayload {
   };
 }
 
-export interface ProposalView {
+interface ProposalView {
   readonly number: number;
   readonly title: string;
   readonly line: string | null;
