@@ -57,6 +57,7 @@ const teamPages = (teamId: string): string[] => {
 
 const PAGES = (): string[] => [
   `${workspace}/inbox`,
+  `${workspace}/settings/account/emails`,
   `${workspace}/settings/general`,
   `${workspace}/settings/members`,
   `${workspace}/settings/runners`,

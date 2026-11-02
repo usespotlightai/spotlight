@@ -5,6 +5,9 @@ import { TeamCreated } from '@identity/domain/events/team-created.event';
 import { TeamDeleted } from '@identity/domain/events/team-deleted.event';
 import { TeamMemberJoined } from '@identity/domain/events/team-member-joined.event';
 import { TeamUpdated } from '@identity/domain/events/team-updated.event';
+import { UserEmailAdded } from '@identity/domain/events/user-email-added.event';
+import { UserEmailRemoved } from '@identity/domain/events/user-email-removed.event';
+import { UserEmailVerified } from '@identity/domain/events/user-email-verified.event';
 import { WorkspaceCreated } from '@identity/domain/events/workspace-created.event';
 import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import { WorkspaceInviteAccepted } from '@identity/domain/events/workspace-invite-accepted.event';
@@ -34,6 +37,7 @@ import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import { UserEmailId } from '@identity/domain/value-objects/user-email-id.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
@@ -57,6 +61,7 @@ export const IDENTITY_PAYLOAD_TYPES = [
   TokenLifetime,
   TokenName,
   OidcTrustKey,
+  UserEmailId,
   WorkloadRule,
   WorkspaceName,
   WorkspaceRole,
@@ -77,6 +82,9 @@ export const IDENTITY_PAYLOAD_TYPES = [
   WorkspaceTokenExpired,
   WorkspaceTokenUpdated,
   WorkspaceTokenRevoked,
+  UserEmailAdded,
+  UserEmailVerified,
+  UserEmailRemoved,
   OidcTrustCreated,
   OidcTrustUpdated,
   OidcTrustDeleted,

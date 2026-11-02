@@ -7,6 +7,11 @@ import { lazyPage } from './lib/lazy-page.ts';
 import { Inbox } from './routes/Inbox.tsx';
 import { Workspace } from './routes/Workspace.tsx';
 
+const AccountEmails = lazyPage(
+  () => import('./routes/AccountEmails.tsx'),
+  (module) => module.AccountEmails,
+);
+
 const AcceptInvite = lazyPage(
   () => import('./routes/AcceptInvite.tsx'),
   (module) => module.AcceptInvite,
@@ -147,6 +152,11 @@ const WorkspaceMembers = lazyPage(
   (module) => module.WorkspaceMembers,
 );
 
+const VerifyEmail = lazyPage(
+  () => import('./routes/VerifyEmail.tsx'),
+  (module) => module.VerifyEmail,
+);
+
 const WorkspaceGeneral = lazyPage(
   () => import('./routes/WorkspaceGeneral.tsx'),
   (module) => module.WorkspaceGeneral,
@@ -167,6 +177,7 @@ export default function App() {
           </Route>
 
           <Route path="/invites/:token" element={<AcceptInvite />} />
+          <Route path="/verify-email/:token" element={<VerifyEmail />} />
           <Route path="/device" element={<AuthorizeDevice />} />
 
           <Route element={<RequireAuth />}>
@@ -204,6 +215,7 @@ export default function App() {
 
               <Route path="settings">
                 <Route index element={<Navigate to="general" replace />} />
+                <Route path="account/emails" element={<AccountEmails />} />
                 <Route path="general" element={<WorkspaceGeneral />} />
                 <Route path="members" element={<WorkspaceMembers />} />
                 <Route path="runners" element={<Runners />} />

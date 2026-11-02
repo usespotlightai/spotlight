@@ -2585,6 +2585,194 @@
         ]
       }
     },
+    "/me/emails": {
+      "get": {
+        "operationId": "listMyEmails",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserEmailsResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          }
+        },
+        "summary": "List your sign-in email and your additional emails",
+        "tags": [
+          "emails"
+        ]
+      },
+      "post": {
+        "description": "Spotlight matches a verified address to you, for example when you mention Spotlight in Slack. Adding an address that waits for verification sends a fresh link.",
+        "operationId": "addMyEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddUserEmailRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserEmailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "409": {
+            "description": "The address is already verified, was just added, or got a link less than a minute ago"
+          },
+          "422": {
+            "description": "Not an email address, your sign-in email, or one more than the 10 allowed"
+          },
+          "502": {
+            "description": "The email could not be sent"
+          }
+        },
+        "summary": "Add an email address and send a verification link to it",
+        "tags": [
+          "emails"
+        ]
+      }
+    },
+    "/me/emails/{userEmailId}/resend": {
+      "post": {
+        "operationId": "resendMyEmailVerification",
+        "parameters": [
+          {
+            "name": "userEmailId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserEmailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such address of yours"
+          },
+          "409": {
+            "description": "The address is already verified, or got a link less than a minute ago"
+          },
+          "502": {
+            "description": "The email could not be sent"
+          }
+        },
+        "summary": "Send a fresh verification link, valid for 24 hours",
+        "tags": [
+          "emails"
+        ]
+      }
+    },
+    "/me/emails/{userEmailId}": {
+      "delete": {
+        "description": "Spotlight no longer matches the address to you.",
+        "operationId": "removeMyEmail",
+        "parameters": [
+          {
+            "name": "userEmailId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The address is removed"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such address of yours"
+          },
+          "409": {
+            "description": "The address changed meanwhile"
+          }
+        },
+        "summary": "Remove an additional email address",
+        "tags": [
+          "emails"
+        ]
+      }
+    },
+    "/me/email-verifications/{token}": {
+      "post": {
+        "operationId": "verifyMyEmail",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserEmailResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "Another account added the address"
+          },
+          "404": {
+            "description": "No verification by that link"
+          },
+          "409": {
+            "description": "The link expired, or another account has the address"
+          }
+        },
+        "summary": "Verify an email address with the link Spotlight sent to it",
+        "tags": [
+          "emails"
+        ]
+      }
+    },
     "/workspaces/{slug}/repositories": {
       "get": {
         "operationId": "listRepositories",
@@ -9273,6 +9461,79 @@
         },
         "required": [
           "workspaceSlug"
+        ]
+      },
+      "UserEmailResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "email": {
+            "type": "string",
+            "example": "ada@work.example.com"
+          },
+          "status": {
+            "type": "string",
+            "description": "Verified addresses identify you, for example in Slack. A pending address waits for its link. An expired link needs a resend.",
+            "enum": [
+              "verified",
+              "pending",
+              "expired"
+            ],
+            "example": "verified"
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When Spotlight last sent the verification link."
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "status",
+          "addedAt",
+          "sentAt"
+        ]
+      },
+      "UserEmailsResponseDto": {
+        "type": "object",
+        "properties": {
+          "signInEmail": {
+            "type": "string",
+            "description": "The address you sign in with.",
+            "example": "ada@example.com"
+          },
+          "additional": {
+            "description": "Your other addresses, oldest first.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UserEmailResponseDto"
+            }
+          }
+        },
+        "required": [
+          "signInEmail",
+          "additional"
+        ]
+      },
+      "AddUserEmailRequestDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Another address of yours, for example the one your Slack account uses. Spotlight sends a verification link to it.",
+            "example": "ada@work.example.com"
+          }
+        },
+        "required": [
+          "email"
         ]
       },
       "RepositoryResponseDto": {

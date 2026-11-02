@@ -2,18 +2,9 @@ import type {
   InviteMailPort,
   InviteToSend,
 } from '@identity/application/ports/invite-mail.port';
+import { appUrl, escaped } from '@identity/infrastructure/mail/mail.format';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
-import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
-
-const appUrl = (env: Env): string => publicUrlOf(env).replace(/\/+$/, '');
-
-const escaped = (raw: string): string =>
-  raw
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 
 const listed = (names: readonly string[]): string =>
   names.length <= 1

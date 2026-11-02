@@ -359,6 +359,19 @@ CREATE TABLE "configuration_change" (
 	"recorded_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "user_email" (
+	"id" text PRIMARY KEY NOT NULL,
+	"user_id" text NOT NULL,
+	"email" text NOT NULL,
+	"token_hash" text NOT NULL,
+	"added_at" timestamp DEFAULT now() NOT NULL,
+	"sent_at" timestamp NOT NULL,
+	"expires_at" timestamp NOT NULL,
+	"verified_at" timestamp,
+	"version" integer DEFAULT 1 NOT NULL,
+	CONSTRAINT "user_email_token_hash_unique" UNIQUE("token_hash")
+);
+--> statement-breakpoint
 CREATE TABLE "oidc_trust" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -1914,6 +1927,7 @@ DROP INDEX "account_issuer_accountId_uidx";--> statement-breakpoint
 ALTER TABLE "event_delivery" ADD CONSTRAINT "event_delivery_event_id_event_outbox_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."event_outbox"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "decision" ADD CONSTRAINT "decision_set_id_decision_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."decision_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "decision_dispute" ADD CONSTRAINT "decision_dispute_decision_id_decision_id_fk" FOREIGN KEY ("decision_id") REFERENCES "public"."decision"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_email" ADD CONSTRAINT "user_email_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oidc_trust" ADD CONSTRAINT "oidc_trust_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "signup_survey" ADD CONSTRAINT "signup_survey_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "signup_survey" ADD CONSTRAINT "signup_survey_respondent_id_user_id_fk" FOREIGN KEY ("respondent_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
@@ -1992,6 +2006,9 @@ CREATE INDEX "github_pull_request_updated_idx" ON "github_pull_request" USING bt
 CREATE UNIQUE INDEX "deviceCode_deviceCode_uidx" ON "device_code" USING btree ("device_code");--> statement-breakpoint
 CREATE UNIQUE INDEX "deviceCode_userCode_uidx" ON "device_code" USING btree ("user_code");--> statement-breakpoint
 CREATE INDEX "configuration_change_workspace_idx" ON "configuration_change" USING btree ("workspace_id","seq");--> statement-breakpoint
+CREATE UNIQUE INDEX "user_email_user_email_idx" ON "user_email" USING btree ("user_id",lower("email"));--> statement-breakpoint
+CREATE UNIQUE INDEX "user_email_verified_email_idx" ON "user_email" USING btree (lower("email")) WHERE "user_email"."verified_at" is not null;--> statement-breakpoint
+CREATE INDEX "user_email_user_idx" ON "user_email" USING btree ("user_id","added_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "oidc_trust_workspace_key_idx" ON "oidc_trust" USING btree ("workspace_id","key");--> statement-breakpoint
 CREATE INDEX "team_workspace_idx" ON "team" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "team_workspace_key_idx" ON "team" USING btree ("workspace_id","key");--> statement-breakpoint

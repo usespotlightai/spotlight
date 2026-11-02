@@ -1,9 +1,17 @@
-import { ChevronLeft, KeyRound, Server, Settings2, Users } from 'lucide-react';
+import {
+  ChevronLeft,
+  KeyRound,
+  Mail,
+  Server,
+  Settings2,
+  Users,
+} from 'lucide-react';
 import { Link } from 'react-router';
 import { SettingsNavGroup } from '@/components/shell/layout/SettingsNavGroup';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useRunners } from '@/hooks/api/useRunners';
+import { emailsPath } from '@/lib/emails';
 import { membersPath } from '@/lib/members';
 import { isAdmin, type Role } from '@/lib/role';
 import { onlineCount, runnersPath } from '@/lib/runner';
@@ -51,6 +59,14 @@ export function SettingsSidebar({
           aria-label="Settings"
           className="min-h-full flex flex-col gap-4 pt-2"
         >
+          <SettingsNavGroup heading="Account">
+            <li>
+              <SidebarLink to={emailsPath(slug)} icon={Mail}>
+                Emails
+              </SidebarLink>
+            </li>
+          </SettingsNavGroup>
+
           <SettingsNavGroup heading="Workspace">
             <li>
               <SidebarLink to={workspaceGeneralPath(slug)} icon={Settings2}>

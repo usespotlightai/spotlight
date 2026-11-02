@@ -12,7 +12,7 @@ const placed = (proposal: ListedProposal): string =>
 
 export const ChannelReplies = {
   unknownPerson:
-    'Sorry, no member of this Spotlight workspace uses the email of your account. Join the workspace with that email, then try again.',
+    'Sorry, no member of this Spotlight workspace uses the email of your account. Add that email in Spotlight under Settings › Emails, or join the workspace with it. Then try again.',
 
   notInTeam:
     'Sorry, you are not a member of the Spotlight team that reads these messages. Ask a team admin to add you, then try again.',
