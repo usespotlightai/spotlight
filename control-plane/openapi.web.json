@@ -5238,6 +5238,59 @@
           "state"
         ]
       },
+      "GrantAttachmentUploadRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "queue-stuck.png"
+          },
+          "contentType": {
+            "type": "string",
+            "example": "image/png",
+            "description": "Left out where the browser could not tell"
+          },
+          "size": {
+            "type": "number",
+            "example": 48213,
+            "description": "In bytes, at most 25 MB"
+          }
+        },
+        "required": [
+          "name",
+          "size"
+        ]
+      },
+      "AttachmentUploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47",
+            "description": "What to attach it by, once it is uploaded"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://files.example.com/…",
+            "description": "Where to PUT the bytes. Good for a few minutes."
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "content-type": "image/png"
+            },
+            "description": "Sent with the bytes, exactly as given"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "headers"
+        ]
+      },
       "StepLocationResponseDto": {
         "type": "object",
         "properties": {
@@ -6918,59 +6971,6 @@
           "ms",
           "marks",
           "spent"
-        ]
-      },
-      "GrantAttachmentUploadRequestDto": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-            "example": "queue-stuck.png"
-          },
-          "contentType": {
-            "type": "string",
-            "example": "image/png",
-            "description": "Left out where the browser could not tell"
-          },
-          "size": {
-            "type": "number",
-            "example": 48213,
-            "description": "In bytes, at most 25 MB"
-          }
-        },
-        "required": [
-          "name",
-          "size"
-        ]
-      },
-      "AttachmentUploadResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "example": "5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47",
-            "description": "What to attach it by, once it is uploaded"
-          },
-          "url": {
-            "type": "string",
-            "example": "https://files.example.com/…",
-            "description": "Where to PUT the bytes. Good for a few minutes."
-          },
-          "headers": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            },
-            "example": {
-              "content-type": "image/png"
-            },
-            "description": "Sent with the bytes, exactly as given"
-          }
-        },
-        "required": [
-          "id",
-          "url",
-          "headers"
         ]
       },
       "TaskReviewResponseDto": {

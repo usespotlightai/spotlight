@@ -538,6 +538,19 @@ func (c *Client) GrantArchive(
 	return granted, nil
 }
 
+func (c *Client) GrantAttachment(
+	ctx context.Context, runID string, request protocol.AttachmentRequest,
+) (protocol.AttachmentGrant, error) {
+	path := fmt.Sprintf("/api/runs/%s/attachments", url.PathEscape(runID))
+
+	var granted protocol.AttachmentGrant
+	if err := c.do(ctx, http.MethodPost, path, request, &granted); err != nil {
+		return protocol.AttachmentGrant{}, fmt.Errorf("request an attachment upload: %w", err)
+	}
+
+	return granted, nil
+}
+
 func (c *Client) CompleteArchive(ctx context.Context, runID, archiveID string) error {
 	path := fmt.Sprintf(
 		"/api/runs/%s/workspace-archive/%s/complete",

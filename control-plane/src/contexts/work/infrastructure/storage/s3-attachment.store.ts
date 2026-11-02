@@ -12,6 +12,7 @@ import {
   missing,
   type S3Clients,
 } from '@platform/storage/s3-clients';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
@@ -58,7 +59,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
 
   async grant(
     workspaceId: WorkspaceId,
-    uploader: UserId,
+    uploader: UserId | RunId,
     file: Attachment,
   ): Promise<UploadGrant> {
     this.assertBucket();
@@ -91,6 +92,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
   async received(
     workspaceId: WorkspaceId,
     ids: readonly AttachmentId[],
+    uploadedBy?: RunId,
   ): Promise<Attachment[]> {
     if (ids.length === 0) {
       return [];
@@ -98,14 +100,21 @@ export class S3AttachmentStore implements AttachmentStorePort {
 
     this.assertBucket();
 
+    const distinct = [
+      ...new Map(ids.map((id) => [id.value, id] as const)).values(),
+    ];
+
     return Promise.all(
-      [...new Set(ids)].map(async (id) => {
+      distinct.map(async (id) => {
         const head =
           (await this.stored(workspaceId, id)) ??
           (await this.pending(workspaceId, id));
 
         if (!head) {
           throw new InvalidAttachmentError('was never uploaded');
+        }
+        if (uploadedBy && head.Metadata?.[UPLOADER] !== uploadedBy.value) {
+          throw new InvalidAttachmentError('was not uploaded by this run');
         }
 
         return Attachment.of({

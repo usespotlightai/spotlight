@@ -65,11 +65,25 @@ export class CompleteRunCommand {
     readonly exitCode: number,
     readonly failed: boolean,
     readonly message?: string,
-    readonly handover?: { next?: string; note?: string } | null,
+    readonly handover?: {
+      next?: string;
+      note?: string;
+      attachments?: readonly string[];
+    } | null,
     readonly sessionId?: string | null,
     readonly stopped: boolean = false,
     readonly setupFailed: boolean = false,
     readonly timedOut: boolean = false,
+  ) {}
+}
+
+export class GrantRunAttachmentUploadCommand {
+  constructor(
+    readonly runId: string,
+    readonly runnerId: string,
+    readonly name: string,
+    readonly contentType: string,
+    readonly size: number,
   ) {}
 }
 

@@ -131,6 +131,7 @@ export class HandOver implements RunOutcomes {
       body: handover.body,
       at: this.clock.now(),
       voice: Voice.station(run),
+      attachments: handover.attachments,
     };
   }
 

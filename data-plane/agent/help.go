@@ -12,15 +12,17 @@ const docs = "agent-commands"
 var handoverHelp = help.Command{
 	Path:    "handover",
 	Summary: "Pass the task to the next station, put it to a person, or close it.",
-	Usage:   []string{"spotlight handover --next <station | review | done> [--note <text>]"},
+	Usage:   []string{"spotlight handover --next <station | review | done> [--note <text>] [--attach <file>]..."},
 	Flags: []help.Flag{
 		{Name: "next", Value: "<where>", Usage: "Where the task goes. The briefing lists the choices. Required."},
 		{Name: "note", Value: "<text>", Usage: "What the next station or person must know. Use - to read standard input."},
+		{Name: "attach", Value: "<file>", Usage: "A file to attach to the note, such as a screenshot. Repeat for more than one, up to 10, each up to 25 MB."},
 	},
 	Examples: []help.Example{
 		{Comment: "Pass the task on", Command: `spotlight handover --next code-review --note "Added retries to the webhook client."`},
 		{Comment: "Ask a person, with a long note", Command: "spotlight handover --next review < question.md"},
 		{Comment: "Close the task at this station", Command: "spotlight handover --next done"},
+		{Comment: "Ask a person, with screenshots", Command: `spotlight handover --next review --note "Added the theme selector." --attach light.png --attach dark.png`},
 	},
 	Notes: []string{"The run continues until your turn ends. A second handover replaces the first."},
 	Docs:  docs + "#spotlight-handover",

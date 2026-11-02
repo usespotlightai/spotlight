@@ -249,6 +249,15 @@ func (j *journal) GrantArchive(
 	return j.archives.grant(size, sha256), nil
 }
 
+func (j *journal) GrantAttachment(
+	_ context.Context, _ string, request protocol.AttachmentRequest,
+) (protocol.AttachmentGrant, error) {
+	j.mu.Lock()
+	j.calls = append(j.calls, "attachment "+request.Name)
+	j.mu.Unlock()
+	return protocol.AttachmentGrant{}, errors.New("422 Unprocessable Entity: nowhere to store one")
+}
+
 func (j *journal) CompleteArchive(_ context.Context, _ string, archiveID string) error {
 	return j.archives.complete(archiveID)
 }

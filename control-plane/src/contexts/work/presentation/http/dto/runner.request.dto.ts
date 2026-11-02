@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { MAX_HANDOVER_ATTACHMENTS } from '@work/domain/value-objects/handover.vo';
 import { MAX_STARTED_CHECKOUTS } from '@work/domain/value-objects/starting-point.vo';
 
 export class RunEventRequestDto {
@@ -38,6 +39,15 @@ export class HandoverDto {
     description: 'What the next station, or the person, should know',
   })
   readonly note?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    maxItems: MAX_HANDOVER_ATTACHMENTS,
+    example: ['5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47'],
+    description:
+      'Files the run uploaded for the note, by the ids its uploads were granted',
+  })
+  readonly attachments?: string[];
 }
 
 export class CompleteRunRequestDto {

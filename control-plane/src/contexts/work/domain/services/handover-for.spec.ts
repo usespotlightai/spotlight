@@ -7,6 +7,7 @@ import {
   type StationInput,
 } from '@work/domain/entities/station.entity';
 import { HandoverFor } from '@work/domain/services/handover-for';
+import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -67,6 +68,47 @@ const resolved = (next?: string, note?: string, from = 'station_1') =>
 
 const passedTo = (handover: ResolvedHandover): StationId | null =>
   handover.kind === 'pass' ? handover.stationId : null;
+
+const SHOT = Attachment.of({
+  id: 'file_1',
+  name: 'light.png',
+  contentType: 'image/png',
+  size: 3,
+});
+
+const attached = (next: string, from = 'station_1') =>
+  HandoverFor.resolve(
+    Handover.of({ next, note: 'See the screenshot.', attachments: [SHOT] }),
+    LINE,
+    StationId.of(from),
+  ).attachments;
+
+describe('HandoverFor.resolve, with files the run attached', () => {
+  it('keeps the files on a note to a person, to a station, or that ends the line', () => {
+    expect(attached('review')).toEqual([SHOT]);
+    expect(attached('spec')).toEqual([SHOT]);
+    expect(attached('done', 'station_2')).toEqual([SHOT]);
+  });
+
+  it('keeps the files where the run named a station it cannot pass to', () => {
+    expect(attached('nowhere')).toEqual([SHOT]);
+    expect(attached('backlog')).toEqual([SHOT]);
+  });
+
+  it('has no files on a note the run did not write', () => {
+    expect(
+      HandoverFor.outcome(RunOutcome.of({ exitCode: 1, failed: true }))
+        .attachments,
+    ).toEqual([]);
+    expect(HandoverFor.stopped().attachments).toEqual([]);
+  });
+
+  it('takes at most ten files for one handover', () => {
+    expect(() =>
+      Handover.of({ next: 'review', attachments: Array(11).fill(SHOT) }),
+    ).toThrow('Attachment must be at most 10 files for one handover.');
+  });
+});
 
 describe('HandoverFor.resolve', () => {
   it('passes the task to the station the run named by its key', () => {

@@ -50,6 +50,7 @@ type Journal interface {
 	AskPermission(ctx context.Context, runID string, asked protocol.PermissionRequest) (protocol.PermissionResponse, error)
 	WorkspaceArchive(ctx context.Context, runID string) (*protocol.StoredArchive, error)
 	GrantArchive(ctx context.Context, runID string, size int64, sha256 string) (protocol.ArchiveGrant, error)
+	GrantAttachment(ctx context.Context, runID string, request protocol.AttachmentRequest) (protocol.AttachmentGrant, error)
 	CompleteArchive(ctx context.Context, runID, archiveID string) error
 	RecordStartingPoint(ctx context.Context, runID string, point protocol.StartingPoint) error
 }
@@ -241,6 +242,10 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 		return opts.Journal.UseTool(ctx, run.ID, name, input)
 	})
 	channel.Manifest(run.Spec.Manifest)
+
+	if !replays(run) && !searches(run) {
+		channel.Attachments(attaching(opts.Journal, opts.Transport, run.ID))
+	}
 
 	channel.Traces(func(ctx context.Context, taskID string) (json.RawMessage, error) {
 		return opts.Journal.Trace(ctx, run.ID, taskID)

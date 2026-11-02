@@ -190,6 +190,57 @@
         ]
       }
     },
+    "/runs/{runId}/attachments": {
+      "post": {
+        "description": "The bytes go straight to where files are stored, not through here. The file joins the task when its id is sent with the run’s handover.",
+        "operationId": "grantRunAttachmentUpload",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrantAttachmentUploadRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentUploadResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, no longer valid or wrong runner token"
+          },
+          "404": {
+            "description": "No such run, or not this runner’s run to attach to"
+          },
+          "422": {
+            "description": "Too large to attach, or nowhere to store it"
+          }
+        },
+        "summary": "Somewhere to upload one file the agent attaches to its handover",
+        "tags": [
+          "runners"
+        ]
+      }
+    },
     "/runs/{runId}/trace/{taskId}": {
       "get": {
         "operationId": "readRunTrace",
@@ -2517,6 +2568,59 @@
           "attachments"
         ]
       },
+      "GrantAttachmentUploadRequestDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "example": "queue-stuck.png"
+          },
+          "contentType": {
+            "type": "string",
+            "example": "image/png",
+            "description": "Left out where the browser could not tell"
+          },
+          "size": {
+            "type": "number",
+            "example": 48213,
+            "description": "In bytes, at most 25 MB"
+          }
+        },
+        "required": [
+          "name",
+          "size"
+        ]
+      },
+      "AttachmentUploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47",
+            "description": "What to attach it by, once it is uploaded"
+          },
+          "url": {
+            "type": "string",
+            "example": "https://files.example.com/…",
+            "description": "Where to PUT the bytes. Good for a few minutes."
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "example": {
+              "content-type": "image/png"
+            },
+            "description": "Sent with the bytes, exactly as given"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "headers"
+        ]
+      },
       "StepLocationResponseDto": {
         "type": "object",
         "properties": {
@@ -3842,6 +3946,17 @@
             "type": "string",
             "example": "Reproduced on restart. Needs a spec for draining the queue.",
             "description": "What the next station, or the person, should know"
+          },
+          "attachments": {
+            "maxItems": 10,
+            "example": [
+              "5f0c1d84-9c2e-4c8b-9a3d-2b7e6d5a1f47"
+            ],
+            "description": "Files the run uploaded for the note, by the ids its uploads were granted",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [

@@ -270,8 +270,16 @@ type ReviewCommentReply struct {
 }
 
 type Handover struct {
-	Next string `json:"next"`
-	Note string `json:"note,omitempty"`
+	Next        string       `json:"next"`
+	Note        string       `json:"note,omitempty"`
+	Files       []HandedFile `json:"files,omitempty"`
+	Attachments []string     `json:"attachments,omitempty"`
+}
+
+type HandedFile struct {
+	Name        string `json:"name"`
+	ContentType string `json:"contentType,omitempty"`
+	Data        []byte `json:"data"`
 }
 
 type Completion struct {
@@ -306,6 +314,18 @@ type StartingPoint struct {
 type ArchiveRequest struct {
 	Size   int64  `json:"size"`
 	SHA256 string `json:"sha256"`
+}
+
+type AttachmentRequest struct {
+	Name        string `json:"name"`
+	ContentType string `json:"contentType"`
+	Size        int64  `json:"size"`
+}
+
+type AttachmentGrant struct {
+	ID      string            `json:"id"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"`
 }
 
 type ArchiveGrant struct {

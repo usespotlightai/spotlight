@@ -500,6 +500,35 @@ export type PendingMessageResponseDto = {
   attachments: Array<RunAttachmentResponseDto>;
 };
 
+export type GrantAttachmentUploadRequestDto = {
+  name: string;
+  /**
+   * Left out where the browser could not tell
+   */
+  contentType?: string;
+  /**
+   * In bytes, at most 25 MB
+   */
+  size: number;
+};
+
+export type AttachmentUploadResponseDto = {
+  /**
+   * What to attach it by, once it is uploaded
+   */
+  id: string;
+  /**
+   * Where to PUT the bytes. Good for a few minutes.
+   */
+  url: string;
+  /**
+   * Sent with the bytes, exactly as given
+   */
+  headers: {
+    [key: string]: string;
+  };
+};
+
 export type StepLocationResponseDto = {
   path: string;
   line: number | null;
@@ -970,6 +999,10 @@ export type HandoverDto = {
    * What the next station, or the person, should know
    */
   note?: string;
+  /**
+   * Files the run uploaded for the note, by the ids its uploads were granted
+   */
+  attachments?: Array<string>;
 };
 
 export type CompleteRunRequestDto = {
@@ -1788,35 +1821,6 @@ export type RunJournalResponseDto = {
   ms: number | null;
   marks: RunMarksResponseDto;
   spent: RunSpentResponseDto | null;
-};
-
-export type GrantAttachmentUploadRequestDto = {
-  name: string;
-  /**
-   * Left out where the browser could not tell
-   */
-  contentType?: string;
-  /**
-   * In bytes, at most 25 MB
-   */
-  size: number;
-};
-
-export type AttachmentUploadResponseDto = {
-  /**
-   * What to attach it by, once it is uploaded
-   */
-  id: string;
-  /**
-   * Where to PUT the bytes. Good for a few minutes.
-   */
-  url: string;
-  /**
-   * Sent with the bytes, exactly as given
-   */
-  headers: {
-    [key: string]: string;
-  };
 };
 
 export type TaskReviewResponseDto = {
@@ -8711,6 +8715,36 @@ export type ReadRunAttachmentResponses = {
    */
   200: unknown;
 };
+
+export type GrantRunAttachmentUploadData = {
+  body: GrantAttachmentUploadRequestDto;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/attachments';
+};
+
+export type GrantRunAttachmentUploadErrors = {
+  /**
+   * Missing, no longer valid or wrong runner token
+   */
+  401: unknown;
+  /**
+   * No such run, or not this runner’s run to attach to
+   */
+  404: unknown;
+  /**
+   * Too large to attach, or nowhere to store it
+   */
+  422: unknown;
+};
+
+export type GrantRunAttachmentUploadResponses = {
+  201: AttachmentUploadResponseDto;
+};
+
+export type GrantRunAttachmentUploadResponse = GrantRunAttachmentUploadResponses[keyof GrantRunAttachmentUploadResponses];
 
 export type ReadRunTraceData = {
   body?: never;

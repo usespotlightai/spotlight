@@ -37,6 +37,8 @@ type Proposer func(ctx context.Context, proposal protocol.CandidateProposal) (js
 
 type CauseRecorder func(ctx context.Context, record protocol.CauseRecord) (json.RawMessage, error)
 
+type Attacher func(ctx context.Context, file protocol.HandedFile) (string, error)
+
 type Error struct {
 	Because string
 }
@@ -69,6 +71,7 @@ type Server struct {
 	remember  Rememberer
 	propose   Proposer
 	cause     CauseRecorder
+	attach    Attacher
 
 	mu         sync.Mutex
 	handover   *protocol.Handover
@@ -143,6 +146,10 @@ func (s *Server) Candidates(propose Proposer) {
 
 func (s *Server) Causes(record CauseRecorder) {
 	s.cause = record
+}
+
+func (s *Server) Attachments(attach Attacher) {
+	s.attach = attach
 }
 
 func (s *Server) HandedOver() <-chan struct{} {
@@ -224,7 +231,12 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	var handover protocol.Handover
-	if err := json.NewDecoder(request.Body).Decode(&handover); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(writer, request.Body, protocol.MaxHandoverBodyBytes)).Decode(&handover); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			fail(writer, http.StatusRequestEntityTooLarge, "the handover is too large: attach fewer or smaller files")
+			return
+		}
 		fail(writer, http.StatusBadRequest, "unreadable handover")
 		return
 	}
@@ -248,13 +260,51 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	attachments, err := s.attached(request.Context(), handover.Files)
+	if err != nil {
+		var unfit *Error
+		if errors.As(err, &unfit) {
+			fail(writer, http.StatusUnprocessableEntity, unfit.Because)
+			return
+		}
+		fail(writer, http.StatusBadGateway, err.Error())
+		return
+	}
+
 	s.mu.Lock()
-	s.handover = &protocol.Handover{Next: next, Note: handover.Note}
+	s.handover = &protocol.Handover{Next: next, Note: handover.Note, Attachments: attachments}
 	s.mu.Unlock()
 
 	s.once.Do(func() { close(s.handedOver) })
 
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) attached(ctx context.Context, files []protocol.HandedFile) ([]string, error) {
+	if len(files) > protocol.MaxHandoverFiles {
+		return nil, &Error{Because: fmt.Sprintf("you attached %d files and the limit is %d", len(files), protocol.MaxHandoverFiles)}
+	}
+
+	for _, file := range files {
+		if len(file.Data) > protocol.MaxHandoverFileBytes {
+			return nil, &Error{Because: fmt.Sprintf("%s is larger than %d MB", file.Name, protocol.MaxHandoverFileBytes/1024/1024)}
+		}
+	}
+
+	if s.attach == nil {
+		return nil, nil
+	}
+
+	ids := make([]string, 0, len(files))
+	for _, file := range files {
+		id, err := s.attach(ctx, file)
+		if err != nil {
+			return nil, fmt.Errorf("attach %s: %w", file.Name, err)
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, nil
 }
 
 func (s *Server) tool(writer http.ResponseWriter, request *http.Request, name string) {

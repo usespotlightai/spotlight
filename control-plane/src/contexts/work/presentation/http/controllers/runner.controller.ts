@@ -17,6 +17,7 @@ import {
   ApiBadGatewayResponse,
   ApiBody,
   ApiConflictResponse,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
@@ -37,12 +38,14 @@ import {
   AppendRunJournalCommand,
   ClaimRunCommand,
   CompleteRunCommand,
+  GrantRunAttachmentUploadCommand,
   RecordRunImageCommand,
   RecordStartingPointCommand,
   RenewCheckLeaseCommand,
   RenewLeaseCommand,
 } from '@work/application/commands/runner.commands';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
+import type { AttachmentUploadDto } from '@work/application/dto/attachment.dto';
 import type { HarnessDto } from '@work/application/dto/harness.dto';
 import type { PendingMessageDto } from '@work/application/dto/pending-message.dto';
 import type { PermissionAnswerDto } from '@work/application/dto/permission-answer.dto';
@@ -58,6 +61,8 @@ import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attac
 import { ReadRunnerHistoryQuery } from '@work/application/queries/read-runner-history.query';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
+import { GrantAttachmentUploadRequestDto } from '@work/presentation/http/dto/attachment.request.dto';
+import { AttachmentUploadResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { HarnessProbeResponseDto } from '@work/presentation/http/dto/harness-probe.response.dto';
 import {
   AckMessagesRequestDto,
@@ -219,6 +224,50 @@ export class RunnerController {
       type: content.contentType,
       length: content.bytes.byteLength,
     });
+  }
+
+  @Post('runs/:runId/attachments')
+  @ApiOperation({
+    operationId: 'grantRunAttachmentUpload',
+    summary: 'Somewhere to upload one file the agent attaches to its handover',
+    description:
+      'The bytes go straight to where files are stored, not through here. ' +
+      'The file joins the task when its id is sent with the run’s handover.',
+  })
+  @ApiCreatedResponse({ type: AttachmentUploadResponseDto })
+  @ApiNotFoundResponse({
+    description: 'No such run, or not this runner’s run to attach to',
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'Too large to attach, or nowhere to store it',
+  })
+  async grantAttachment(
+    @Param('runId') runId: string,
+    @CurrentRunner() runnerId: string,
+    @Body() body: GrantAttachmentUploadRequestDto,
+  ): Promise<AttachmentUploadResponseDto> {
+    const granted = await this.commandBus.execute<
+      GrantRunAttachmentUploadCommand,
+      AttachmentUploadDto | null
+    >(
+      new GrantRunAttachmentUploadCommand(
+        runId,
+        runnerId,
+        body.name ?? '',
+        body.contentType ?? '',
+        body.size,
+      ),
+    );
+
+    if (!granted) {
+      throw new NotFoundException();
+    }
+
+    return new AttachmentUploadResponseDto(
+      granted.id,
+      granted.url,
+      granted.headers,
+    );
   }
 
   @Get('runs/:runId/trace/:taskId')

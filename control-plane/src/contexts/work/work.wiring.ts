@@ -175,6 +175,7 @@ import { EnqueueRunHandler } from '@work/application/commands/handlers/enqueue-r
 import { FetchRunSecretsHandler } from '@work/application/commands/handlers/fetch-run-secrets.handler';
 import { FetchSharedRunSecretsHandler } from '@work/application/commands/handlers/fetch-shared-run-secrets.handler';
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
+import { GrantRunAttachmentUploadHandler } from '@work/application/commands/handlers/grant-run-attachment-upload.handler';
 import { GrantSandboxArchiveHandler } from '@work/application/commands/handlers/grant-sandbox-archive.handler';
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
 import { KeepTaskDraftHandler } from '@work/application/commands/handlers/keep-task-draft.handler';
@@ -224,6 +225,7 @@ import {
   ClaimRunCommand,
   CompleteRunCommand,
   EnqueueRunCommand,
+  GrantRunAttachmentUploadCommand,
   RecordRunImageCommand,
   RecordStartingPointCommand,
   RenewCheckLeaseCommand,
@@ -2217,6 +2219,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     [WORKSPACE_READER, ATTACHMENT_STORE, ID_GENERATOR],
   ),
 
+  ...bindCommandHandler(
+    GrantRunAttachmentUploadCommand,
+    GrantRunAttachmentUploadHandler,
+    [DrizzleRunRepository, ATTACHMENT_STORE, ID_GENERATOR],
+  ),
+
   ...bindCommandHandler(CreateLineCommand, CreateLineHandler, [
     WORKSPACE_ACCESS,
     TEAM_DIRECTORY,
@@ -2735,6 +2743,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     LIFECYCLE_HOOKS,
     CLOCK,
     RUN_JOURNAL_READER,
+    FilesLoader,
   ]),
 
   ...bindCommandHandler(EnqueueRunCommand, EnqueueRunHandler, [
