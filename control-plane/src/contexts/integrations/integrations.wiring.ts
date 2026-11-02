@@ -1206,6 +1206,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       CallAuthResolver,
       InferOutputSchemas,
       PersonToolRules,
+      INBOX_LINKS,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
@@ -1213,6 +1214,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       callAuthResolver: CallAuthResolver,
       inferring: InferOutputSchemas,
       personRules: PersonToolRules,
+      links: InboxLinksPort,
     ) =>
       new IntegrationToolCalls(
         defined,
@@ -1220,6 +1222,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         callAuthResolver,
         inferring,
         personRules,
+        links,
       ),
   },
 

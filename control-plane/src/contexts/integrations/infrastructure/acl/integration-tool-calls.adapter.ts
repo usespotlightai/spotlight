@@ -1,4 +1,5 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
@@ -21,6 +22,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
     private readonly callAuthResolver: CallAuthResolver,
     private readonly inferring: InferOutputSchemas,
     private readonly personRules: PersonToolRules,
+    private readonly links: InboxLinksPort,
   ) {}
 
   async resolve(
@@ -34,7 +36,10 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
     const resolved = await this.runtime.tool(
       definitions,
       tool,
-      IntegrationTaskViewMapper.toView(task, null),
+      IntegrationTaskViewMapper.toView(
+        task,
+        await this.links.task(task.workspaceId, task.teamId, task.taskId),
+      ),
     );
 
     if (!resolved) {
