@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatProposal } from '@/components/features/agent/ChatProposal';
+import type { Attachment } from '@/lib/attachment';
 import type { Proposal } from '@/lib/chat';
 import { toast } from '@/lib/toast';
 
@@ -30,15 +31,33 @@ const OPEN: Proposal = {
   taskId: null,
 };
 
-const proposing = (proposal: Proposal) => (
-  <MemoryRouter>
-    <ChatProposal
-      slug="acme"
-      teamId="team_1"
-      chatId="chat_1"
-      position={3}
-      proposal={proposal}
-    />
+const MOCKUP: Attachment = {
+  id: 'att_1',
+  name: 'mockup.png',
+  contentType: 'image/png',
+  size: 2048,
+};
+
+const proposing = (
+  proposal: Proposal,
+  attachments: readonly Attachment[] = [],
+) => (
+  <MemoryRouter initialEntries={['/w/acme/agent']}>
+    <Routes>
+      <Route
+        path="/w/:slug/agent"
+        element={
+          <ChatProposal
+            slug="acme"
+            teamId="team_1"
+            chatId="chat_1"
+            position={3}
+            proposal={proposal}
+            attachments={attachments}
+          />
+        }
+      />
+    </Routes>
   </MemoryRouter>
 );
 
@@ -66,6 +85,19 @@ describe('ChatProposal', () => {
     expect(screen.getByText('Back off exponentially')).toBeInTheDocument();
     expect(screen.getByText('Default › Backlog')).toBeInTheDocument();
     expect(screen.getByText('Waiting for your approval')).toBeInTheDocument();
+  });
+
+  it('shows the files the task will be given', () => {
+    render(proposing(OPEN, [MOCKUP]));
+
+    expect(screen.getByText('Files')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'mockup.png' })).toBeInTheDocument();
+  });
+
+  it('shows no files where the proposal has none', () => {
+    showing();
+
+    expect(screen.queryByText('Files')).not.toBeInTheDocument();
   });
 
   it('creates the proposed task on request', async () => {

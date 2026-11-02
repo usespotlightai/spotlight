@@ -64,7 +64,7 @@ func placeholder(input protocol.ToolInputManifest) string {
 	switch {
 	case input.Kind() == "number" || input.Kind() == "integer":
 		return "<number>"
-	case input.Scalar():
+	case input.Scalar() || input.TextList():
 		return "<string>"
 	}
 
@@ -89,6 +89,9 @@ func signature(tool protocol.ToolManifest) string {
 		written := fmt.Sprintf("--%s %s", input.Name, placeholder(input))
 		if input.Kind() == "boolean" {
 			written = "--" + input.Name
+		}
+		if input.TextList() {
+			written += " ..."
 		}
 		if input.Stdin {
 			written += " (or piped in)"
@@ -153,6 +156,17 @@ func summary(tools []protocol.ToolManifest) string {
 	written.WriteString("\nFind one with: spotlight tools search \"<words>\"\nRead one with: spotlight tools describe <tool>")
 
 	return written.String()
+}
+
+type repeated []string
+
+func (r *repeated) String() string {
+	return strings.Join(*r, ", ")
+}
+
+func (r *repeated) Set(value string) error {
+	*r = append(*r, value)
+	return nil
 }
 
 func toolsCmd(args []string, in io.Reader, out io.Writer) error {
@@ -223,9 +237,13 @@ func useTool(args []string, in io.Reader, out io.Writer) error {
 	object := flags.String(whole, "", "the whole input as one JSON object, or - to read it from stdin")
 	texts := map[string]*string{}
 	switches := map[string]*bool{}
+	lists := map[string]*repeated{}
 	for _, input := range flagged(tool) {
 		if input.Kind() == "boolean" {
 			switches[input.Name] = flags.Bool(input.Name, false, input.Description)
+		} else if input.TextList() {
+			lists[input.Name] = &repeated{}
+			flags.Var(lists[input.Name], input.Name, input.Description)
 		} else {
 			texts[input.Name] = flags.String(input.Name, "", input.Description)
 		}
@@ -280,6 +298,14 @@ func useTool(args []string, in io.Reader, out io.Writer) error {
 	for name := range byFlag {
 		if value, ok := switches[name]; ok {
 			inputs[name] = *value
+			continue
+		}
+		if values, ok := lists[name]; ok {
+			if len(*values) == 1 {
+				inputs[name] = (*values)[0]
+			} else {
+				inputs[name] = []string(*values)
+			}
 			continue
 		}
 		inputs[name] = *texts[name]

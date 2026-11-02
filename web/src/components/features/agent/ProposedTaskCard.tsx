@@ -6,6 +6,7 @@ import { DecisionControls } from '@/components/shared/DecisionControls';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
 import { DecisionPill } from '@/components/shared/DecisionPill';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
+import type { Attachment } from '@/lib/attachment';
 import {
   type Proposal,
   proposalStatusOf,
@@ -18,6 +19,7 @@ type ProposedTaskCardProps = {
   slug: string;
   teamId: string;
   proposal: Proposal;
+  attachments: readonly Attachment[];
   pending: boolean;
   onCreate: () => void;
   onDismiss: () => void;
@@ -27,6 +29,7 @@ export function ProposedTaskCard({
   slug,
   teamId,
   proposal,
+  attachments,
   pending,
   onCreate,
   onDismiss,
@@ -57,6 +60,7 @@ export function ProposedTaskCard({
         slug={slug}
         teamId={teamId}
         proposal={proposal}
+        attachments={attachments}
         titleId={titleId}
       />
 

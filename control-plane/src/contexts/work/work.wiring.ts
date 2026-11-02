@@ -561,6 +561,7 @@ import {
 } from '@work/application/queries/task-draft.queries';
 import { WatchRunQuery } from '@work/application/queries/watch-run.query';
 import { ApplyLines } from '@work/application/services/apply-lines.service';
+import { AttachmentCopies } from '@work/application/services/attachment-copies';
 import {
   BUILT_IN_TOOL_USES,
   BuiltInTools,
@@ -1460,12 +1461,19 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: AttachmentCopies,
+    inject: [ATTACHMENT_STORE],
+    useFactory: (store: AttachmentStorePort) => new AttachmentCopies(store),
+  },
+
+  {
     provide: CreateTaskFromProposal,
     inject: [
       DrizzleChatRepository,
       DrizzleLineRepository,
       TASK_PLACEMENTS,
       CreateTask,
+      AttachmentCopies,
       ID_GENERATOR,
       CLOCK,
     ],
@@ -1474,6 +1482,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       lines: DrizzleLineRepository,
       placements: TaskPlacementsPort,
       createTask: CreateTask,
+      copies: AttachmentCopies,
       ids: IdGeneratorPort,
       clock: ClockPort,
     ) =>
@@ -1482,6 +1491,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         lines,
         placements,
         createTask,
+        copies,
         ids,
         clock,
       ),
@@ -2396,6 +2406,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       STATION_CHANGE_TESTS,
       DrizzleTaskRepository,
       CHECK_RUNS,
+      AttachmentCopies,
     ],
     useFactory: (
       opening: OpenPullRequest,
@@ -2408,10 +2419,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tests: StationChangeTestsPort,
       tasks: DrizzleTaskRepository,
       checkRuns: CheckRunsPort,
+      copies: AttachmentCopies,
     ): readonly BuiltInToolUse[] => [
       new PullRequestToolUse(opening),
       new ChecksToolUse(tasks, checkRuns),
-      new ProposeTaskToolUse(chats, lines, clock),
+      new ProposeTaskToolUse(chats, lines, copies, clock),
       new SetupPullRequestToolUse(chats, pullRequests, transaction, clock),
       new ReviewCommentToolUse(reviewing),
       new ReviewToolUse(reviewing),

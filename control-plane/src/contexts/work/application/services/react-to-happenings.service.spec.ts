@@ -69,6 +69,7 @@ const files = {
   save: vi.fn(async (_at, file: Attachment) => {
     stored.push(file);
   }),
+  copy: vi.fn(),
   link: vi.fn(),
   open: vi.fn(),
 } satisfies AttachmentStorePort;

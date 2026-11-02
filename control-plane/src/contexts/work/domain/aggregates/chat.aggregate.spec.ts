@@ -14,6 +14,7 @@ import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
+import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
 import { InvalidSetupBranchError } from '@work/domain/exceptions/invalid-setup-branch.error';
@@ -22,6 +23,7 @@ import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-sta
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -590,6 +592,60 @@ describe('Chat', () => {
       'Back off exponentially',
     );
     expect((event as ProposalAccepted).acceptedBy.equals(LEON)).toBe(true);
+  });
+
+  it('sends the files on a proposal along when it is accepted', () => {
+    const mockup = Attachment.of({
+      id: 'att_copy',
+      name: 'mockup.png',
+      contentType: 'image/png',
+      size: 1024,
+    });
+    const chat = working().propose({
+      runId: RunId.of('run_1'),
+      placement: ProposalPlacement.of({
+        lineId: LineId.of('line_1'),
+        stationId: StationId.of('station_1'),
+      }),
+      title: TaskTitle.of('Match the mockup'),
+      description: null,
+      attachments: [mockup],
+      at: LATER,
+    });
+    chat.pullEvents();
+
+    const [event] = chat.accept(SECOND, LEON, LATER).pullEvents();
+
+    expect((event as ProposalAccepted).attachments).toEqual([mockup]);
+  });
+
+  it('finds only files attached to the chat', () => {
+    const mockup = Attachment.of({
+      id: 'att_mockup',
+      name: 'mockup.png',
+      contentType: 'image/png',
+      size: 1024,
+    });
+    const chat = Chat.start({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      startedBy: LEON,
+      harness: HarnessId.of('claude-code'),
+      body: ChatMessageBody.of('Match this.'),
+      attachments: [mockup],
+      now: NOW,
+      newId: () => 'chat_1',
+    });
+
+    expect(
+      chat.attachmentsOf([
+        AttachmentId.of('att_mockup'),
+        AttachmentId.of('att_mockup'),
+      ]),
+    ).toEqual([mockup]);
+    expect(() => chat.attachmentsOf([AttachmentId.of('att_other')])).toThrow(
+      InvalidAttachmentError,
+    );
   });
 
   it('lets nobody else accept or dismiss a proposal', () => {

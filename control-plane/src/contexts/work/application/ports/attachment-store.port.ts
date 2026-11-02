@@ -39,6 +39,12 @@ export interface AttachmentStorePort {
     bytes: Uint8Array,
   ): Promise<void>;
 
+  copy(
+    workspaceId: WorkspaceId,
+    from: Attachment,
+    to: Attachment,
+  ): Promise<void>;
+
   link(
     workspaceId: WorkspaceId,
     file: Attachment,

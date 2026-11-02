@@ -7,6 +7,8 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CreateTaskFromProposal } from '@work/application/events/handlers/create-task-from-proposal.handler';
+import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
+import { AttachmentCopies } from '@work/application/services/attachment-copies';
 import type { CreateTask } from '@work/application/services/create-task';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -16,6 +18,7 @@ import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
+import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -34,6 +37,12 @@ import { describe, expect, it, vi } from 'vitest';
 const NOW = new Date('2026-09-14T09:00:00.000Z');
 const LEON = UserId.of('user_1');
 const SECOND = MessagePosition.of(1);
+const MOCKUP = Attachment.of({
+  id: 'att_mockup',
+  name: 'mockup.png',
+  contentType: 'image/png',
+  size: 1024,
+});
 const PLACED = ProposalPlacement.of({
   lineId: LineId.of('line_1'),
   stationId: StationId.of('station_1'),
@@ -85,29 +94,35 @@ const accepted = () =>
     })
     .accept(SECOND, LEON, NOW);
 
-const event = new ProposalAccepted(
-  accepted().id,
-  WorkspaceId.of('ws_1'),
-  SECOND,
-  PLACED,
-  TaskTitle.of('Back off exponentially'),
-  null,
-  LEON,
-);
+const acceptedWith = (attachments: readonly Attachment[]) =>
+  new ProposalAccepted(
+    accepted().id,
+    WorkspaceId.of('ws_1'),
+    SECOND,
+    PLACED,
+    TaskTitle.of('Back off exponentially'),
+    null,
+    attachments,
+    LEON,
+  );
+
+const event = acceptedWith([]);
 
 const creating = (line: Line | null) => {
   const save = vi.fn(async (_saved: Chat) => undefined);
   const create = vi.fn(async ({ task }: { task: Task }) => task);
+  const copy = vi.fn(async () => undefined);
   const handler = new CreateTaskFromProposal(
     { find: vi.fn(async () => accepted()), save } as unknown as ChatRepository,
     { find: vi.fn(async () => line) } as unknown as LineRepository,
     { placementsAt: vi.fn(async () => []) },
     { create } as unknown as CreateTask,
+    new AttachmentCopies({ copy } as unknown as AttachmentStorePort),
     { generate: () => 'task_9' } as IdGeneratorPort,
     { now: () => NOW } as ClockPort,
   );
 
-  return { handler, save, create };
+  return { handler, save, create, copy };
 };
 
 describe('CreateTaskFromProposal', () => {
@@ -128,6 +143,17 @@ describe('CreateTaskFromProposal', () => {
         ProposalOrigin.of({ chatId: ChatId.of('chat_1'), position: SECOND }),
       ),
     ).toBe(true);
+  });
+
+  it('gives the task its own copy of each file on the proposal', async () => {
+    const { handler, create, copy } = creating(LINE);
+
+    await handler.onProposalAccepted(acceptedWith([MOCKUP]));
+
+    const [given] = create.mock.calls[0]?.[0].task.attachments ?? [];
+    expect(given?.id.value).toBe('chat_1-1-task-0');
+    expect(given?.name).toBe('mockup.png');
+    expect(copy).toHaveBeenCalledWith(WorkspaceId.of('ws_1'), MOCKUP, given);
   });
 
   it('remembers on the chat the task its proposal became, once the task is opened', async () => {

@@ -440,8 +440,12 @@ export class InputSchema {
       case 'boolean':
         return trimmed === 'true' ? true : trimmed === 'false' ? false : value;
       case 'object':
-      case 'array':
         return parsedJson(trimmed) ?? value;
+      case 'array':
+        return (
+          parsedJson(trimmed) ??
+          (this.problemWith([value]) === null ? [value] : value)
+        );
       case 'null':
         return trimmed === 'null' ? null : value;
       default: {

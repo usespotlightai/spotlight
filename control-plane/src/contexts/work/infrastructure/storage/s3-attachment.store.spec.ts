@@ -138,6 +138,26 @@ describe('S3AttachmentStore', () => {
     });
   });
 
+  describe('copy', () => {
+    it('copies a stored file under the new id, keeping its metadata', async () => {
+      const { send, store } = bucketWith([STORED]);
+
+      await store.copy(
+        WORKSPACE,
+        FILE,
+        FILE.copiedAs(AttachmentId.of('file_2')),
+      );
+
+      const [copy] = send.mock.calls[0] as [CopyObjectCommand];
+      expect(copy.input).toEqual({
+        Bucket: 'files',
+        CopySource: `files/${STORED}`,
+        Key: 'workspaces/ws_1/attachments/file_2',
+        MetadataDirective: 'COPY',
+      });
+    });
+  });
+
   describe('taken', () => {
     it('copies the pending upload under the workspace with its metadata, then drops the original', async () => {
       const { send, store } = bucketWith([PENDING]);

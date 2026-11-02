@@ -145,6 +145,23 @@ export class S3AttachmentStore implements AttachmentStorePort {
     );
   }
 
+  async copy(
+    workspaceId: WorkspaceId,
+    from: Attachment,
+    to: Attachment,
+  ): Promise<void> {
+    this.assertBucket();
+
+    await this.store.send(
+      new CopyObjectCommand({
+        Bucket: this.bucket,
+        CopySource: `${this.bucket}/${keyOf(workspaceId, from.id)}`,
+        Key: keyOf(workspaceId, to.id),
+        MetadataDirective: 'COPY',
+      }),
+    );
+  }
+
   async link(
     workspaceId: WorkspaceId,
     file: Attachment,

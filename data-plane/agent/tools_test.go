@@ -30,6 +30,7 @@ var searching = protocol.ToolManifest{
 		{Name: "team_id", Schema: json.RawMessage(`{"type":"string"}`), Required: true},
 		{Name: "state", Schema: json.RawMessage(`{"enum":["open","closed"]}`)},
 		{Name: "json", Schema: json.RawMessage(`{"type":"string"}`)},
+		{Name: "label", Schema: json.RawMessage(`{"type":"array","items":{"type":"string"}}`)},
 	},
 }
 
@@ -67,7 +68,7 @@ func TestListsTheToolsEnabledForTheRun(t *testing.T) {
 	listed := out.String()
 	for _, want := range []string{
 		"spotlight tools call linear.comment [--issue <string>] --body <string> (or piped in) [--notify] [--json <object> | --json -]",
-		"spotlight tools call linear.search [--filter <json>] [--first <number>] --team_id <string> [--state <string>] [--json <object> | --json -]",
+		"spotlight tools call linear.search [--filter <json>] [--first <number>] --team_id <string> [--state <string>] [--label <string> ...] [--json <object> | --json -]",
 		"Comment on the Linear issue this task came from.",
 		"--body  What to say",
 	} {
@@ -220,6 +221,33 @@ func TestCarriesFlagsAsTheTextTyped(t *testing.T) {
 
 	if (*carried)["first"] != "10" || (*carried)["filter"] != `{"state":"open"}` {
 		t.Errorf("carried %v, want the number and the object as the text typed", *carried)
+	}
+}
+
+func TestCarriesARepeatedFlagAsAList(t *testing.T) {
+	_, carried := withTools(t, `{}`)
+
+	args := []string{"tools", "call", "linear", "search", "--team_id", "ENG", "--label", "bug", "--label", "ui"}
+	if err := run(args, strings.NewReader(""), new(bytes.Buffer)); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	labels, _ := (*carried)["label"].([]any)
+	if len(labels) != 2 || labels[0] != "bug" || labels[1] != "ui" {
+		t.Errorf("carried %v, want both labels in order", *carried)
+	}
+}
+
+func TestCarriesOneValueOfAListFlagAsTheTextTyped(t *testing.T) {
+	_, carried := withTools(t, `{}`)
+
+	args := []string{"tools", "call", "linear", "search", "--team_id", "ENG", "--label", `["bug","ui"]`}
+	if err := run(args, strings.NewReader(""), new(bytes.Buffer)); err != nil {
+		t.Fatalf("run: %v", err)
+	}
+
+	if (*carried)["label"] != `["bug","ui"]` {
+		t.Errorf("carried %v, want the JSON list as the text typed", *carried)
 	}
 }
 

@@ -60,6 +60,7 @@ const proposing = [
   'Once the two of you have agreed on a piece of work, propose it, from anywhere in the workspace:',
   '```\nspotlight tools call propose-task --line <line> --station <station> --title "…" < description.md\n```',
   'Name the line and the station by their keys. Propose one task for each piece of work that can be done and reviewed on its own, and put in the description everything whoever works it needs to know, since they will not see this conversation.',
+  'Whoever works it does not see the files attached here either. Give the task each file it needs with `--attach <path>`, once for each file. A path written only in the description does not reach them.',
   'The person sees each proposal here and decides whether to create it. Nothing is created until they do, so do not propose anything they have not agreed to.',
   'Each proposal is shown to them in full the moment you make it, so do not list or summarise what you proposed afterwards. A short line saying it is their move is enough.',
 ].join('\n\n');
