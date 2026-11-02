@@ -113,7 +113,11 @@ interface Uploads {
 
 type Attempt =
   | { readonly kind: 'sent'; readonly sent: Sent }
-  | { readonly kind: 'failed'; readonly error: ServiceError };
+  | {
+      readonly kind: 'failed';
+      readonly error: ServiceError;
+      readonly answered: boolean;
+    };
 
 interface Sent {
   readonly result: OutboundResult;
@@ -308,7 +312,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       callAuth,
     );
     const answered =
-      first.kind === 'failed' && uploads.uploaded.length > 0
+      first.kind === 'failed' && first.answered && uploads.uploaded.length > 0
         ? await this.attempted(action, { ...addressed, uploaded: [] }, callAuth)
         : first;
     const refused: PostResult[] =
@@ -353,9 +357,17 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
       return sent.result.ok
         ? { kind: 'sent', sent }
-        : { kind: 'failed', error: serviceErrorOf(sent.result) };
+        : {
+            kind: 'failed',
+            error: serviceErrorOf(sent.result),
+            answered: true,
+          };
     } catch (error) {
-      return { kind: 'failed', error: { status: 0, output: reasonOf(error) } };
+      return {
+        kind: 'failed',
+        error: { status: 0, output: reasonOf(error) },
+        answered: false,
+      };
     }
   }
 
@@ -387,7 +399,18 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
           return { uploaded: [], failed: serviceErrorOf(prepared.result) };
         }
 
-        const bytes = await this.files.open(payload.task.workspaceId, file);
+        const bytes = await this.files.open(payload.task.taskId, file.id);
+
+        if (!bytes) {
+          return {
+            uploaded: [],
+            failed: {
+              status: 0,
+              output: `the file ${file.name} is no longer on the task`,
+            },
+          };
+        }
+
         const sent = await this.onBehalfOf(callAuth, () =>
           this.outbound.upload(
             uploads.send,

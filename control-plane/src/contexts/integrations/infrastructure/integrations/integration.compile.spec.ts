@@ -1626,6 +1626,17 @@ on:
     ).toEqual(['actions.post.request.body']);
   });
 
+  it('warns about a field a file does not have', () => {
+    expect(
+      warned(
+        ACTION.replace(
+          `filename: \${{ file.name }}`,
+          `filename: \${{ file.nmae }}`,
+        ),
+      ).map((each) => each.field.rendered),
+    ).toEqual(['actions.post.uploads.prepare.query.filename']);
+  });
+
   it('sends the bytes of the file, so the send request has no body', () => {
     expect(
       refused(
@@ -1648,6 +1659,17 @@ on:
     ).toEqual([
       ['actions.post.uploads', expect.stringContaining('cannot read them')],
     ]);
+  });
+
+  it('is not sent for a chat event, which has no files', () => {
+    expect(refused(ACTION.replace('  task.asked:', '  chat.replied:'))).toEqual(
+      [
+        [
+          'on.chat.replied.0.action',
+          expect.stringContaining('A chat event has no files'),
+        ],
+      ],
+    );
   });
 
   it('is sent only by an event, not by a tool', () => {

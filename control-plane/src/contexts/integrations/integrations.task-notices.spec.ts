@@ -1,18 +1,19 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
-import type {
+import {
   HttpOutbound,
-  OutboundResult,
+  type OutboundResult,
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
+import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
@@ -29,7 +30,6 @@ import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine
 import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
-import type { NoticeFileDto } from '@work/application/dto/notice-file.dto';
 import { describe, expect, it, vi } from 'vitest';
 
 const expressions = new CelExpressionEngine();
@@ -271,14 +271,14 @@ describe('TaskNotices', () => {
 const SHOT = {
   id: 'file_1',
   name: 'shot.png',
-  type: 'image/png',
+  contentType: 'image/png',
   size: 3,
 };
 
 const LOG = {
   id: 'file_2',
   name: 'run.log',
-  type: 'text/plain',
+  contentType: 'text/plain',
   size: 5,
 };
 
@@ -322,7 +322,7 @@ on:
 `;
 
 const withFiles = (
-  attachments: readonly NoticeFileDto[],
+  attachments: NonNullable<IntegrationTaskViewDto['waiting']>['attachments'],
 ): IntegrationTaskViewDto => {
   const task = asked({ 'slack.channel': 'C0REQ' });
 
@@ -331,7 +331,11 @@ const withFiles = (
     : task;
 };
 
-const uploading = (sendStatus = 200, file = UPLOADING, showsImages = true) => {
+const uploading = (
+  sendStatus = 200,
+  file = UPLOADING,
+  images: 'shown' | 'refused' | 'lost' = 'shown',
+) => {
   const answered = (response: unknown, capture = {}): OutboundResult => ({
     ok: true,
     status: 200,
@@ -340,7 +344,7 @@ const uploading = (sendStatus = 200, file = UPLOADING, showsImages = true) => {
   });
   const run = vi.fn(
     async (
-      _action: unknown,
+      action: object,
       against: Record<string, unknown>,
     ): Promise<OutboundResult> => {
       const file = against.file as { name: string } | undefined;
@@ -357,14 +361,20 @@ const uploading = (sendStatus = 200, file = UPLOADING, showsImages = true) => {
 
       const shown = (against.uploaded as readonly unknown[] | undefined) ?? [];
 
-      return showsImages || shown.length === 0
-        ? answered({ ok: true })
-        : {
-            ok: false,
-            status: 200,
-            response: { ok: false, error: 'invalid_blocks' },
-            capture: {},
-          };
+      if (!('uploads' in action) || images === 'shown' || shown.length === 0) {
+        return answered({ ok: true });
+      }
+
+      if (images === 'lost') {
+        throw new Error('socket hang up');
+      }
+
+      return {
+        ok: false,
+        status: 200,
+        response: { ok: false, error: 'invalid_blocks' },
+        capture: {},
+      };
     },
   );
   const upload = vi.fn(
@@ -417,7 +427,7 @@ describe('TaskNotices uploads', () => {
     await notifier.notify(withFiles([SHOT, LOG]), 'task.asked');
 
     expect(open).toHaveBeenCalledOnce();
-    expect(open).toHaveBeenCalledWith('ws_1', SHOT);
+    expect(open).toHaveBeenCalledWith('task_1', 'file_1');
     expect(upload).toHaveBeenCalledOnce();
     const [, sentTo, , sent] = upload.mock.calls[0] ?? [];
     expect(sentTo).toMatchObject({
@@ -477,13 +487,13 @@ describe('TaskNotices uploads', () => {
   });
 
   it('posts the question again without its images where Slack refuses them', async () => {
-    const { notifier, run, warn } = uploading(200, UPLOADING, false);
+    const { notifier, run, warn } = uploading(200, UPLOADING, 'refused');
 
     await notifier.notify(withFiles([SHOT]), 'task.asked');
 
     const posts = run.mock.calls
-      .map(([, against]) => against)
-      .filter((against) => 'uploaded' in against && !('file' in against));
+      .filter(([action]) => 'uploads' in action)
+      .map(([, against]) => against);
     expect(posts.map((each) => (each.uploaded as unknown[]).length)).toEqual([
       1, 0,
     ]);
@@ -509,5 +519,30 @@ describe('TaskNotices uploads', () => {
     await notifier.notify(withFiles([SHOT]), 'task.asked');
 
     expect(upload).toHaveBeenCalledOnce();
+  });
+
+  it('does not post again where the post got no answer, since it may have arrived', async () => {
+    const { notifier, run } = uploading(200, UPLOADING, 'lost');
+
+    await notifier.notify(withFiles([SHOT]), 'task.asked');
+
+    expect(
+      run.mock.calls.filter(([action]) => 'uploads' in action),
+    ).toHaveLength(1);
+  });
+
+  it('renders the file’s name and size into the request that prepares it', async () => {
+    const { notifier, run } = uploading();
+
+    await notifier.notify(withFiles([SHOT]), 'task.asked');
+
+    const [prepare, against] = run.mock.calls[0] ?? [];
+    const rendered = new HttpOutbound({} as OutboundPolicy).rendered(
+      prepare as Parameters<HttpOutbound['rendered']>[0],
+      against ?? {},
+    );
+    expect(rendered?.url).toBe(
+      'https://slack.com/api/files.getUploadURLExternal?filename=shot.png&length=3',
+    );
   });
 });

@@ -1,7 +1,5 @@
-import type { NoticeFileView } from '@integrations/application/ports/integration-runtime.port';
-
 export const NOTICE_FILE_READER = Symbol('NOTICE_FILE_READER');
 
 export interface NoticeFileReaderPort {
-  open(workspaceId: string, file: NoticeFileView): Promise<Uint8Array>;
+  open(taskId: string, fileId: string): Promise<Uint8Array | null>;
 }

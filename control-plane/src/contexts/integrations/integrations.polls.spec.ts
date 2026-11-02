@@ -5,11 +5,11 @@ import type {
 } from '@integrations/application/ports/defined-integrations.port';
 import type { PollState } from '@integrations/application/ports/integration-cursors.port';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { ProcessDuePolls } from '@integrations/application/services/process-due-polls.service';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type {
   HttpOutbound,

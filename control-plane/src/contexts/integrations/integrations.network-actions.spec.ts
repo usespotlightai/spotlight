@@ -1,10 +1,10 @@
 import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { HttpOutbound as RealHttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';

@@ -70,6 +70,15 @@ export const ADDRESSING = Scope.of({
   reply: REPLY,
 });
 
+const NOTE_FILE: Declared = {
+  schema: {
+    id: 'string',
+    name: 'string',
+    type: 'string',
+    size: 'double',
+  },
+};
+
 export const UPLOADING = Scope.of({
   task: TASK,
   ask: ASK,
@@ -80,11 +89,11 @@ export const UPLOADING = Scope.of({
 
 export const PREPARING = UPLOADING.and({
   connection: 'string',
-  file: OUTSIDE,
+  file: NOTE_FILE,
 });
 
 export const SENDING = UPLOADING.and({
-  file: OUTSIDE,
+  file: NOTE_FILE,
   prepared: 'map<string, dyn>',
 });
 

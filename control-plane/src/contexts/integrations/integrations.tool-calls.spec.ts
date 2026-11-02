@@ -1,5 +1,6 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
@@ -12,7 +13,6 @@ import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import {
   HttpOutbound,

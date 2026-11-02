@@ -315,9 +315,9 @@ import {
   type NetworkCallsPort,
 } from '@work/application/ports/network-calls.port';
 import {
-  NOTICE_FILES,
-  type NoticeFilesPort,
-} from '@work/application/ports/notice-files.port';
+  NOTE_FILES,
+  type NoteFilesPort,
+} from '@work/application/ports/note-files.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
 
@@ -907,8 +907,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: NOTICE_FILE_READER,
-    inject: [NOTICE_FILES],
-    useFactory: (files: NoticeFilesPort) => new NoticeFileReader(files),
+    inject: [NOTE_FILES],
+    useFactory: (files: NoteFilesPort) => new NoticeFileReader(files),
   },
 
   {

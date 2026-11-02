@@ -22,7 +22,12 @@ export const IntegrationTaskViewMapper = {
             conversationId: task.waiting.conversationId,
             body: task.waiting.body,
             awaitsApproval: task.waiting.awaitsApproval,
-            attachments: task.waiting.attachments,
+            attachments: task.waiting.attachments.map((file) => ({
+              id: file.id,
+              name: file.name,
+              type: file.contentType,
+              size: file.size,
+            })),
           }
         : null,
     };

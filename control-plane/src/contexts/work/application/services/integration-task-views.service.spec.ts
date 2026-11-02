@@ -172,7 +172,7 @@ describe('IntegrationTaskViews', () => {
     const view = await taskViews().of(asked);
 
     expect(view?.waiting?.attachments).toEqual([
-      { id: 'file_1', name: 'shot.png', type: 'image/png', size: 3 },
+      { id: 'file_1', name: 'shot.png', contentType: 'image/png', size: 3 },
     ]);
   });
 

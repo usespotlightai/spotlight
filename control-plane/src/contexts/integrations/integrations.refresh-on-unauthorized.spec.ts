@@ -7,6 +7,7 @@ import type {
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
@@ -27,7 +28,6 @@ import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-linking';

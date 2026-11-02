@@ -349,7 +349,7 @@ import {
   type MemoriesBriefedBeforePort,
 } from '@work/application/ports/memories-briefed-before.port';
 import { NETWORK_CALLS } from '@work/application/ports/network-calls.port';
-import { NOTICE_FILES } from '@work/application/ports/notice-files.port';
+import { NOTE_FILES } from '@work/application/ports/note-files.port';
 import { NOTICES } from '@work/application/ports/notices.port';
 import {
   OUTBOUND_TASK_NOTIFIER,
@@ -599,7 +599,7 @@ import { LineLoader } from '@work/application/services/line-loader.service';
 import { LineViews } from '@work/application/services/line-views.service';
 import { LongPoll } from '@work/application/services/long-poll';
 import { NetworkCalls } from '@work/application/services/network-calls.service';
-import { NoticeFiles } from '@work/application/services/notice-files.service';
+import { NoteFiles } from '@work/application/services/note-files.service';
 import { NoticeLoader } from '@work/application/services/notice-loader.service';
 import { Notices } from '@work/application/services/notices.service';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
@@ -1123,9 +1123,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: NOTICE_FILES,
-    inject: [ATTACHMENT_STORE],
-    useFactory: (files: AttachmentStorePort) => new NoticeFiles(files),
+    provide: NOTE_FILES,
+    inject: [DrizzleTaskRepository, ATTACHMENT_STORE],
+    useFactory: (tasks: DrizzleTaskRepository, files: AttachmentStorePort) =>
+      new NoteFiles(tasks, files),
   },
 
   {

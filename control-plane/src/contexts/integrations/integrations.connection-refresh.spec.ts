@@ -1,4 +1,5 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
@@ -9,7 +10,6 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
-import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';

@@ -47,7 +47,7 @@ export class IntegrationTaskViews {
               (file) => ({
                 id: file.id.value,
                 name: file.name,
-                type: file.contentType,
+                contentType: file.contentType,
                 size: file.size,
               }),
             ),

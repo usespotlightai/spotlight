@@ -1093,6 +1093,17 @@ export const compileIntegration = (
     }
   }
 
+  for (const [event, listed] of Object.entries(file.on)) {
+    listed.forEach((binding, at) => {
+      if (event.startsWith('chat.') && file.actions[binding.action]?.uploads) {
+        compiler.refuse(
+          FieldPath.of(['on', event, at, 'action']),
+          `names the action ${binding.action}, which uploads files. A chat event has no files. Please name an action without uploads`,
+        );
+      }
+    });
+  }
+
   if (file.schedule && file.actions[file.schedule.action]?.uploads) {
     compiler.refuse(
       FieldPath.of(['schedule', 'action']),
