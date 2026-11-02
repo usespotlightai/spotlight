@@ -18,6 +18,7 @@ import {
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
+import { isTheme, useTheme } from '@/hooks/useTheme';
 import { membersPath } from '@/lib/members';
 import { settingsPath } from '@/lib/settings';
 import { workspacePath } from '@/lib/workspace';
@@ -37,6 +38,7 @@ export function WorkspaceMenu({
   const signOut = useSignOut();
   const { data: session } = useSession();
   const { data: workspaces } = useWorkspaces();
+  const { theme, setTheme } = useTheme();
 
   return (
     <DropdownMenu>
@@ -59,6 +61,29 @@ export function WorkspaceMenu({
         sideOffset={6}
         className="min-w-56 origin-top"
       >
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
+
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup
+              value={theme}
+              onValueChange={(next) => {
+                if (isTheme(next)) {
+                  setTheme(next);
+                }
+              }}
+            >
+              <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="system">
+                System
+              </DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+
+        <DropdownMenuSeparator />
+
         <DropdownMenuItem
           closeOnClick
           render={<Link to={settingsPath(slug)}>Settings</Link>}

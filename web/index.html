@@ -7,11 +7,20 @@
     <title>Spotlight</title>
     <script>
       (() => {
+        let theme = null;
+        try {
+          theme = localStorage.getItem('theme');
+        } catch {}
         const mq = matchMedia('(prefers-color-scheme: dark)');
         const apply = () =>
-          document.documentElement.classList.toggle('dark', mq.matches);
+          document.documentElement.classList.toggle(
+            'dark',
+            theme === 'dark' || (theme !== 'light' && mq.matches),
+          );
         apply();
-        mq.addEventListener('change', apply);
+        if (theme !== 'light' && theme !== 'dark') {
+          mq.addEventListener('change', apply);
+        }
       })();
     </script>
   </head>

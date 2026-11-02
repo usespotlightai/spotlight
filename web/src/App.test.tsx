@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSession } from '@/hooks/api/useSession';
+import { quietBrowser } from '@/test/signed-in';
 import App from './App';
 
 vi.mock('@/hooks/api/useSession', () => ({ useSession: vi.fn() }));
@@ -74,6 +75,8 @@ const signedOut = () =>
 beforeEach(() => {
   mockSession.mockReset();
 });
+
+quietBrowser();
 
 describe('routing', () => {
   it('sends an unknown path on to the default workspace’s inbox when signed in', async () => {
