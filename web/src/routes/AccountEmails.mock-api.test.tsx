@@ -38,6 +38,11 @@ describe('AccountEmails on the mock API', () => {
     await userEvent.click(
       await screen.findByRole('button', { name: 'Add email' }, WAIT),
     );
+    expect(
+      await screen.findByText(
+        'Spotlight will send a verification link to this address. Once verified, Spotlight can recognize you by this email across connected services.',
+      ),
+    ).toBeVisible();
     await userEvent.type(
       await screen.findByRole('textbox', { name: 'Email' }),
       'Sam@Slack.example{Enter}',
@@ -95,7 +100,24 @@ describe('AccountEmails on the mock API', () => {
       await screen.findByRole('heading', { name: 'Email verified' }, WAIT),
     ).toBeVisible();
     expect(
-      screen.getByText('Spotlight now knows you by sam@contractor.example.'),
+      screen.getByText(
+        'Spotlight can now recognize you by sam@contractor.example.',
+      ),
+    ).toBeVisible();
+  });
+});
+
+describe('AccountEmails on the mock API with no additional emails', () => {
+  serveMockApi('empty');
+  quietBrowser();
+
+  it('says that there are none and what to add', async () => {
+    render(<MockApplication at={emailsPath(SLUG)} />);
+
+    expect(
+      await (await additional()).findByText(
+        'No additional email addresses yet. Add any other email addresses you use across connected services.',
+      ),
     ).toBeVisible();
   });
 });

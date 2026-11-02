@@ -69,7 +69,7 @@ export class UserEmailController {
     operationId: 'addMyEmail',
     summary: 'Add an email address and send a verification link to it',
     description:
-      'Spotlight matches a verified address to you, for example when you mention Spotlight in Slack. Adding an address that waits for verification sends a fresh link.',
+      'Once verified, Spotlight can recognize you by the address across connected services. Adding an address that waits for verification sends a fresh link.',
   })
   @ApiOkResponse({ type: UserEmailResponseDto })
   @ApiConflictResponse({

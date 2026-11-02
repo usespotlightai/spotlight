@@ -10,7 +10,7 @@ export class UserEmailResponseDto {
 
   @ApiProperty({
     description:
-      'Verified addresses identify you, for example in Slack. A pending address waits for its link. An expired link needs a resend.',
+      'Spotlight recognizes you by a verified address across connected services. A pending address waits for its link. An expired link needs a resend.',
     enum: ['verified', 'pending', 'expired'],
     example: 'verified',
   })

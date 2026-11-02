@@ -53,8 +53,9 @@ export function AddEmailDialog({ open, onOpenChange }: AddEmailDialogProps) {
         <DialogHeader>
           <DialogTitle>Add an email</DialogTitle>
           <DialogDescription>
-            Spotlight sends a verification link to this address. After you open
-            it, Spotlight knows you by this address, for example in Slack.
+            Spotlight will send a verification link to this address. Once
+            verified, Spotlight can recognize you by this email across connected
+            services.
           </DialogDescription>
         </DialogHeader>
 

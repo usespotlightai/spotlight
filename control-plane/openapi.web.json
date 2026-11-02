@@ -2610,7 +2610,7 @@
         ]
       },
       "post": {
-        "description": "Spotlight matches a verified address to you, for example when you mention Spotlight in Slack. Adding an address that waits for verification sends a fresh link.",
+        "description": "Once verified, Spotlight can recognize you by the address across connected services. Adding an address that waits for verification sends a fresh link.",
         "operationId": "addMyEmail",
         "parameters": [],
         "requestBody": {
@@ -9476,7 +9476,7 @@
           },
           "status": {
             "type": "string",
-            "description": "Verified addresses identify you, for example in Slack. A pending address waits for its link. An expired link needs a resend.",
+            "description": "Spotlight recognizes you by a verified address across connected services. A pending address waits for its link. An expired link needs a resend.",
             "enum": [
               "verified",
               "pending",
@@ -9528,7 +9528,7 @@
         "properties": {
           "email": {
             "type": "string",
-            "description": "Another address of yours, for example the one your Slack account uses. Spotlight sends a verification link to it.",
+            "description": "Another email address you use across connected services. Spotlight sends a verification link to it.",
             "example": "ada@work.example.com"
           }
         },

@@ -18,7 +18,7 @@ export const statusOfEmail: Record<UserEmailStatus, string> = {
 };
 
 export const describeEmail: Record<UserEmailStatus, string> = {
-  verified: 'Spotlight knows you by this address',
+  verified: 'Spotlight recognizes you by this address',
   pending: 'Verification link sent. It works for 24 hours.',
   expired: 'Verification link expired. Please resend it.',
 };

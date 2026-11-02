@@ -84,7 +84,7 @@ export function VerifyEmail() {
   return (
     <AuthScreen className={WIDTH}>
       <AuthTitle title="Email verified">
-        Spotlight now knows you by {verify.data.email}.
+        Spotlight can now recognize you by {verify.data.email}.
       </AuthTitle>
       <OpenSpotlight />
     </AuthScreen>
