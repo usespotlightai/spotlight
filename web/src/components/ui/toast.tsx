@@ -129,7 +129,7 @@ function ToastClose({
         )
       }
       className={cn(
-        "relative shrink-0 text-faint opacity-0 transition-opacity group-hover/toast:opacity-100 hover:text-foreground focus-visible:opacity-100 after:absolute after:-inset-2 after:content-[''] pointer-coarse:opacity-100",
+        "relative -my-0.5 shrink-0 text-faint opacity-0 transition-opacity group-hover/toast:opacity-100 hover:text-foreground focus-visible:opacity-100 after:absolute after:-inset-2 after:content-[''] pointer-coarse:opacity-100",
         className
       )}
       {...props}
