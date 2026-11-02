@@ -96,7 +96,7 @@ export class TaskNotices implements TaskNoticesPort {
     const { station, waiting: open } = task;
 
     if (!open) {
-      return { body: '', link: null, station };
+      return { body: '', link: null, station, attachments: [] };
     }
 
     const link = await this.links.conversation(
@@ -110,6 +110,7 @@ export class TaskNotices implements TaskNoticesPort {
       body: open.awaitsApproval ? `${body}\n\n${decidedAt(link)}` : body,
       link,
       station,
+      attachments: open.attachments,
     };
   }
 }

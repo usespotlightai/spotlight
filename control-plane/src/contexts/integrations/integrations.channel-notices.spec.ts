@@ -5,6 +5,7 @@ import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-c
 import { ChannelNotices } from '@integrations/infrastructure/acl/channel-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
+import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type {
   HttpOutbound,
@@ -46,6 +47,7 @@ const runtimeWith = (
     unlimited,
     unscoped,
     noNetwork,
+    noFiles,
   );
 
 const SLACK = `

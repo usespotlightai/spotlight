@@ -5,6 +5,7 @@ import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-c
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
+import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type {
   HttpOutbound,
@@ -28,6 +29,7 @@ import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine
 import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
+import type { NoticeFileDto } from '@work/application/dto/notice-file.dto';
 import { describe, expect, it, vi } from 'vitest';
 
 const expressions = new CelExpressionEngine();
@@ -47,6 +49,7 @@ const runtimeWith = (
     unlimited,
     unscoped,
     noNetwork,
+    noFiles,
   );
 
 const _NOW = new Date('2026-09-07T10:00:00.000Z');
@@ -111,6 +114,7 @@ const asked = (
     conversationId: 'task_1:1',
     body: 'Which queue should I drain?',
     awaitsApproval,
+    attachments: [],
   },
 });
 
@@ -261,5 +265,249 @@ describe('TaskNotices', () => {
     run.mockClear();
     await notifier.notify(opened, 'task.moved');
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+const SHOT = {
+  id: 'file_1',
+  name: 'shot.png',
+  type: 'image/png',
+  size: 3,
+};
+
+const LOG = {
+  id: 'file_2',
+  name: 'run.log',
+  type: 'text/plain',
+  size: 5,
+};
+
+const UPLOADING = `
+integration: slack
+actions:
+  post-question:
+    uploads:
+      each: '\${{ ask.attachments.filter(file, file.type.startsWith("image/")) }}'
+      prepare:
+        method: GET
+        url: https://slack.com/api/files.getUploadURLExternal
+        query:
+          filename: '\${{ file.name }}'
+          length: '\${{ string(file.size) }}'
+        expect:
+          success: '\${{ response.ok }}'
+        capture:
+          url: '\${{ response.upload_url }}'
+          id: '\${{ response.file_id }}'
+      send:
+        method: POST
+        url: '\${{ prepared.url }}'
+      complete:
+        method: POST
+        url: https://slack.com/api/files.completeUploadExternal
+        body: '\${{ {"files": uploaded.map(each, {"id": each.prepared.id, "title": each.name})} }}'
+        expect:
+          success: '\${{ response.ok }}'
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      body: '\${{ {"channel": target.channel, "text": ask.body, "blocks": uploaded.map(each, {"type": "image", "slack_file": {"id": each.prepared.id}, "alt_text": each.name})} }}'
+      expect:
+        success: '\${{ response.ok }}'
+on:
+  task.asked:
+    - action: post-question
+      to:
+        channel: '\${{ task.marks["slack.channel"] }}'
+`;
+
+const withFiles = (
+  attachments: readonly NoticeFileDto[],
+): IntegrationTaskViewDto => {
+  const task = asked({ 'slack.channel': 'C0REQ' });
+
+  return task.waiting
+    ? { ...task, waiting: { ...task.waiting, attachments } }
+    : task;
+};
+
+const uploading = (sendStatus = 200, file = UPLOADING, showsImages = true) => {
+  const answered = (response: unknown, capture = {}): OutboundResult => ({
+    ok: true,
+    status: 200,
+    response,
+    capture,
+  });
+  const run = vi.fn(
+    async (
+      _action: unknown,
+      against: Record<string, unknown>,
+    ): Promise<OutboundResult> => {
+      const file = against.file as { name: string } | undefined;
+
+      if (file && !('prepared' in against)) {
+        return answered(
+          { ok: true },
+          {
+            url: `https://files.slack.com/upload/${file.name}`,
+            id: `F_${file.name}`,
+          },
+        );
+      }
+
+      const shown = (against.uploaded as readonly unknown[] | undefined) ?? [];
+
+      return showsImages || shown.length === 0
+        ? answered({ ok: true })
+        : {
+            ok: false,
+            status: 200,
+            response: { ok: false, error: 'invalid_blocks' },
+            capture: {},
+          };
+    },
+  );
+  const upload = vi.fn(
+    async (
+      _request: unknown,
+      _against: Record<string, unknown>,
+      _credentials: Credentials,
+      _file: { bytes: Uint8Array; type: string },
+    ): Promise<OutboundResult> => ({
+      ok: sendStatus === 200,
+      status: sendStatus,
+      response: 'OK',
+      capture: {},
+    }),
+  );
+  const open = vi.fn(async () => new Uint8Array([1, 2, 3]));
+  const warn = vi.fn();
+
+  const notifier = new TaskNotices(
+    {
+      ofTeam: vi.fn(async () => [defined(file)]),
+    } as unknown as DefinedIntegrationsPort,
+    new CompiledIntegrationRuntime(
+      new IntegrationReader(expressions, operationsContaining()),
+      { run, upload } as unknown as HttpOutbound,
+      clientsFrom(),
+      {} as OAuth2Exchange,
+      discoveringNothing(),
+      callingNoServer(),
+      unlimited,
+      unscoped,
+      noNetwork,
+      { open },
+    ),
+    callAuthFor(injecting().injection),
+    new WebInboxLinks(
+      { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
+      'https://app.example',
+    ),
+    { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  );
+
+  return { notifier, run, upload, open, warn };
+};
+
+describe('TaskNotices uploads', () => {
+  it('uploads the ask’s images before it posts, and gives the post what each upload captured', async () => {
+    const { notifier, run, upload, open } = uploading();
+
+    await notifier.notify(withFiles([SHOT, LOG]), 'task.asked');
+
+    expect(open).toHaveBeenCalledOnce();
+    expect(open).toHaveBeenCalledWith('ws_1', SHOT);
+    expect(upload).toHaveBeenCalledOnce();
+    const [, sentTo, , sent] = upload.mock.calls[0] ?? [];
+    expect(sentTo).toMatchObject({
+      prepared: { url: 'https://files.slack.com/upload/shot.png' },
+    });
+    expect(sent).toEqual({
+      bytes: new Uint8Array([1, 2, 3]),
+      type: 'image/png',
+    });
+
+    const posted = run.mock.calls[run.mock.calls.length - 1]?.[1] as {
+      uploaded: { name: string; prepared: { id: string } }[];
+    };
+    expect(run).toHaveBeenCalledTimes(3);
+    expect(
+      posted.uploaded.map((each) => `${each.name}:${each.prepared.id}`),
+    ).toEqual(['shot.png:F_shot.png']);
+  });
+
+  it('posts with nothing uploaded where the ask has no files', async () => {
+    const { notifier, run, upload } = uploading();
+
+    await notifier.notify(withFiles([]), 'task.asked');
+
+    expect(upload).not.toHaveBeenCalled();
+    expect(run).toHaveBeenCalledOnce();
+    expect(run.mock.calls[0]?.[1]).toMatchObject({ uploaded: [] });
+  });
+
+  it('sends only files of the notice, whatever the expression lists', async () => {
+    const { notifier, open, upload } = uploading(
+      200,
+      UPLOADING.replace(
+        'ask.attachments.filter(file, file.type.startsWith("image/"))',
+        '[{"id": "file_9", "name": "other.png"}]',
+      ),
+    );
+
+    await notifier.notify(withFiles([SHOT]), 'task.asked');
+
+    expect(open).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+
+  it('still posts, without files, where an upload fails, and reports the failure', async () => {
+    const { notifier, run, warn } = uploading(500);
+
+    await notifier.notify(withFiles([SHOT]), 'task.asked');
+
+    expect(run.mock.calls[run.mock.calls.length - 1]?.[1]).toMatchObject({
+      uploaded: [],
+    });
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ error: { status: 500, output: '"OK"' } }),
+      'A service answered a task’s word with an error',
+    );
+  });
+
+  it('posts the question again without its images where Slack refuses them', async () => {
+    const { notifier, run, warn } = uploading(200, UPLOADING, false);
+
+    await notifier.notify(withFiles([SHOT]), 'task.asked');
+
+    const posts = run.mock.calls
+      .map(([, against]) => against)
+      .filter((against) => 'uploaded' in against && !('file' in against));
+    expect(posts.map((each) => (each.uploaded as unknown[]).length)).toEqual([
+      1, 0,
+    ]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          output: expect.stringContaining('invalid_blocks'),
+        }),
+      }),
+      'A service answered a task’s word with an error',
+    );
+  });
+
+  it('uploads a file once, however often the expression lists it', async () => {
+    const { notifier, upload } = uploading(
+      200,
+      UPLOADING.replace(
+        'ask.attachments.filter(file, file.type.startsWith("image/"))',
+        'ask.attachments + ask.attachments',
+      ),
+    );
+
+    await notifier.notify(withFiles([SHOT]), 'task.asked');
+
+    expect(upload).toHaveBeenCalledOnce();
   });
 });

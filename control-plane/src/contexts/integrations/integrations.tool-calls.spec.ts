@@ -12,6 +12,7 @@ import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
+import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import {
   HttpOutbound,
@@ -82,6 +83,7 @@ const runtimeWith = (
     limits,
     unscoped,
     noNetwork,
+    noFiles,
   );
 
 const LINEAR = `integration: linear
@@ -574,6 +576,7 @@ graphql:
           unlimited,
           hosts,
           noNetwork,
+          noFiles,
         ),
         callAuthFor(secrets.injection),
         inferringInto(),

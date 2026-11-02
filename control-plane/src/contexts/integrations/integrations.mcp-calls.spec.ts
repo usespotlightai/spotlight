@@ -12,6 +12,7 @@ import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo'
 import { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
+import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import {
   McpQuestionUnsupportedError,
@@ -103,6 +104,7 @@ const resolving = async (
     unlimited,
     hosts,
     noNetwork,
+    noFiles,
   );
   const resolved = await runtime.tool(
     [

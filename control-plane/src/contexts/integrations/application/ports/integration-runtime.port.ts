@@ -18,10 +18,18 @@ import type {
   ToolInputValues,
 } from '@work/application/contracts/tools.contract';
 
+export interface NoticeFileView {
+  readonly id: string;
+  readonly name: string;
+  readonly type: string;
+  readonly size: number;
+}
+
 interface IntegrationTaskViewWaiting {
   readonly conversationId: string;
   readonly body: string;
   readonly awaitsApproval: boolean;
+  readonly attachments: readonly NoticeFileView[];
 }
 
 export interface IntegrationTaskView {
@@ -101,6 +109,7 @@ export interface TaskPayload {
     readonly body: string;
     readonly link: string | null;
     readonly station: string;
+    readonly attachments: readonly NoticeFileView[];
   };
 }
 

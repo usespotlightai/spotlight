@@ -43,6 +43,14 @@ export class IntegrationTaskViews {
             }).value,
             body: task.notes[open.from]?.body.value?.trim() ?? '',
             awaitsApproval: task.notes[open.from]?.approval?.open ?? false,
+            attachments: (task.notes[open.from]?.attachments ?? []).map(
+              (file) => ({
+                id: file.id.value,
+                name: file.name,
+                type: file.contentType,
+                size: file.size,
+              }),
+            ),
           }
         : null,
     };

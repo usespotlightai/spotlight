@@ -8,12 +8,16 @@ import {
   ADDRESSING,
   answered,
   attaching,
+  COMPLETING,
   DEFAULTING,
   DELIVERED,
   LINKED,
   MARKING,
   POLLED,
   POLLING,
+  PREPARING,
+  SENDING,
+  UPLOADING,
 } from '@integrations/infrastructure/integrations/scopes';
 import type { Scope } from '@platform/expressions/scope';
 import {
@@ -57,17 +61,15 @@ const verifyAt = (prefix: string, scope: Scope) =>
     [],
   );
 
+const SENT = ['url', `query.${ANY_SEGMENT}`, `headers.${ANY_SEGMENT}`];
+
 const requestAt = (
   prefix: string,
   scope: Scope,
   addedVariables: readonly ExpressionAddedVariable[] = [],
+  sent: readonly string[] = [...SENT, 'body'],
 ) => [
-  ...each(
-    prefix,
-    ['url', `query.${ANY_SEGMENT}`, `headers.${ANY_SEGMENT}`, 'body'],
-    scope,
-    addedVariables,
-  ),
+  ...each(prefix, sent, scope, addedVariables),
   at(`${prefix}.expect.success`, answered(scope), {
     returns: 'bool',
     addedVariables,
@@ -138,6 +140,12 @@ export const EXPRESSION_POSITIONS: readonly ExpressionPosition[] = [
   at('poll.cursor', POLLED),
   ...eventsAt(`poll.events.${ANY_SEGMENT}`, POLLED),
   ...requestAt(`actions.${ANY_SEGMENT}.request`, ACTING, ['inputs']),
+  at(`actions.${ANY_SEGMENT}.uploads.each`, UPLOADING, {
+    returns: 'list',
+  }),
+  ...requestAt(`actions.${ANY_SEGMENT}.uploads.prepare`, PREPARING),
+  ...requestAt(`actions.${ANY_SEGMENT}.uploads.send`, SENDING, [], SENT),
+  ...requestAt(`actions.${ANY_SEGMENT}.uploads.complete`, COMPLETING),
   at(`tools.${ANY_SEGMENT}.inputs.${ANY_SEGMENT}.default`, DEFAULTING),
   at(
     `tools.${ANY_SEGMENT}.output`,

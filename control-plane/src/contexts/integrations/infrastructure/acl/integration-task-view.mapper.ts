@@ -22,6 +22,7 @@ export const IntegrationTaskViewMapper = {
             conversationId: task.waiting.conversationId,
             body: task.waiting.body,
             awaitsApproval: task.waiting.awaitsApproval,
+            attachments: task.waiting.attachments,
           }
         : null,
     };

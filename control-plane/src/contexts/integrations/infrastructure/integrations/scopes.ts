@@ -22,6 +22,7 @@ const ASK: Declared = {
     body: 'string',
     link: 'dyn',
     station: 'string',
+    attachments: 'list',
   },
 };
 
@@ -59,6 +60,7 @@ export const ACTING = Scope.of({
   reply: REPLY,
   target: 'map<string, string>',
   connection: 'string',
+  uploaded: 'list',
 });
 
 export const ADDRESSING = Scope.of({
@@ -66,6 +68,29 @@ export const ADDRESSING = Scope.of({
   ask: ASK,
   chat: CHAT,
   reply: REPLY,
+});
+
+export const UPLOADING = Scope.of({
+  task: TASK,
+  ask: ASK,
+  chat: CHAT,
+  reply: REPLY,
+  target: 'map<string, string>',
+});
+
+export const PREPARING = UPLOADING.and({
+  connection: 'string',
+  file: OUTSIDE,
+});
+
+export const SENDING = UPLOADING.and({
+  file: OUTSIDE,
+  prepared: 'map<string, dyn>',
+});
+
+export const COMPLETING = UPLOADING.and({
+  connection: 'string',
+  uploaded: 'list',
 });
 
 export const MARKING = ACTING.and({

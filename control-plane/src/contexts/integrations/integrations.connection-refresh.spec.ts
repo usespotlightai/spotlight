@@ -9,6 +9,7 @@ import { IntegrationKey } from '@integrations/domain/value-objects/integration-k
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
+import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
@@ -51,6 +52,7 @@ const runtimeWith = (
     unlimited,
     hosts,
     noNetwork,
+    noFiles,
   );
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');

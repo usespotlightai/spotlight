@@ -1,7 +1,10 @@
+import type { NoticeFileDto } from '@work/application/dto/notice-file.dto';
+
 interface WaitingDto {
   readonly conversationId: string;
   readonly body: string;
   readonly awaitsApproval: boolean;
+  readonly attachments: readonly NoticeFileDto[];
 }
 
 export interface IntegrationTaskViewDto {

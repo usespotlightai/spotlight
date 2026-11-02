@@ -4,6 +4,7 @@ import type { OutboundLimitsPort } from '@integrations/application/ports/outboun
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
+import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { HttpOutbound as RealHttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
@@ -127,6 +128,7 @@ const sending = (
       calls,
       { now: () => NOW, sleep: async () => {} },
     ),
+    noFiles,
   );
   const callAuth: CallAuth = {
     workspace: async () => 'ws_1',

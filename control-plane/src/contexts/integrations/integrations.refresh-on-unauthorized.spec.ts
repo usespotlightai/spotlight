@@ -27,6 +27,7 @@ import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
+import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import { OAuth2Linking } from '@integrations/infrastructure/integrations/oauth2-linking';
@@ -355,6 +356,7 @@ const settingUp = ({
     unlimited,
     unscoped,
     noNetwork,
+    noFiles,
   );
   const connectionRefresh = new ConnectionRefresh(
     connections,

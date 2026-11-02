@@ -8,6 +8,7 @@ import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-c
 import { RunSchedules } from '@integrations/application/services/run-schedules.service';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
+import { noFiles } from '@integrations/infrastructure/integrations/notice-files.fake-spec';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type {
   HttpOutbound,
@@ -51,6 +52,7 @@ const runtimeWith = (
     unlimited,
     unscoped,
     noNetwork,
+    noFiles,
   );
 
 const NOW = new Date('2026-09-07T09:00:00.000Z');

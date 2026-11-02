@@ -39,6 +39,15 @@ export interface PlainRequest {
   readonly body?: string;
 }
 
+interface Sendable extends Omit<PlainRequest, 'body'> {
+  readonly body?: string | Uint8Array<ArrayBuffer>;
+}
+
+export interface SentFile {
+  readonly bytes: Uint8Array<ArrayBuffer>;
+  readonly type: string;
+}
+
 export interface Answered {
   readonly ok: boolean;
   readonly status: number;
@@ -79,6 +88,39 @@ export class HttpOutbound {
     }
 
     const { reply, injected } = sent;
+
+    return answeredWith(
+      request,
+      against,
+      reply.status,
+      injected.redactedIn(await parse(reply)),
+    );
+  }
+
+  async upload(
+    request: RequestIR,
+    against: CelVariables,
+    credentials: Credentials,
+    file: SentFile,
+  ): Promise<OutboundResult> {
+    const plain = this.rendered(request, against);
+
+    if (!plain) {
+      return { ok: false, status: 0, response: null, capture: {} };
+    }
+
+    const { reply, injected } = await this.dispatch(
+      {
+        ...plain,
+        headers: has(plain.headers, 'content-type')
+          ? plain.headers
+          : { ...plain.headers, 'content-type': file.type },
+        body: file.bytes,
+      },
+      request.auth,
+      connectionOf(against),
+      credentials,
+    );
 
     return answeredWith(
       request,
@@ -214,7 +256,7 @@ export class HttpOutbound {
   }
 
   private async dispatch(
-    request: PlainRequest,
+    request: Sendable,
     auth: AuthIR | null,
     connection: string | null,
     credentials: Credentials,
