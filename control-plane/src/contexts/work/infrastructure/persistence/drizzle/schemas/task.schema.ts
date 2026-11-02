@@ -62,9 +62,9 @@ export interface ApprovalRow {
   readonly askedOf?: string | null;
 }
 
-export type DeferredMoveRow =
-  | { readonly kind: 'moves'; readonly to: string }
-  | { readonly kind: 'cleared' };
+export interface DeferredMoveRow {
+  readonly to: string;
+}
 
 export interface ConnectionAskRow {
   readonly teamId: string;

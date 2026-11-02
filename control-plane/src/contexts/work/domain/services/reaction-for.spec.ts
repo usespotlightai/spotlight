@@ -203,13 +203,24 @@ describe('ReactionFor.happened', () => {
     expect(destination(outcome)).toEqual(StationId.of('station_2'));
   });
 
-  it('adds to the question instead of asking again where a merge would finish a task whose run waits on a person', () => {
+  it('finishes a task whose run waits on a person when the pull request merges', () => {
     const outcome = reaction(paused('station_2'), merged);
 
-    expect(outcome.kind).toBe('interrupts');
-    expect(outcome.kind === 'interrupts' && outcome.body.value).toBe(
-      'The pull request was merged while Code Review was waiting for an answer. Close the task, or reply to carry on.',
+    expect(outcome.kind).toBe('moves');
+    expect(destination(outcome)).toEqual(LINE.completed.id);
+    expect(outcome.kind === 'moves' && outcome.body.value).toBe(
+      'The pull request was merged.',
     );
+  });
+
+  it('finishes a task whose run waits on a person when the pull request closes unmerged', () => {
+    const outcome = reaction(
+      paused('station_1'),
+      payloadOf(CLOSED, 'The pull request was closed without being merged.'),
+    );
+
+    expect(outcome.kind).toBe('moves');
+    expect(destination(outcome)).toEqual(LINE.completed.id);
   });
 
   it('says the station was working where the task awaits only a tool approval', () => {

@@ -2079,32 +2079,43 @@ describe('Task and the happenings received while it has a current run', () => {
       expect(noted.pullEvents()).toEqual([]);
     });
 
-    it('cannot be moved by a happening', () => {
+    it('cannot be moved by a happening to a station other than the completed one', () => {
       expect(() => paused().react(LINE, SPEC, TaskRank.of('m'), world)).toThrow(
         InvalidTaskTransitionError,
       );
     });
 
-    it('adds an interruption to the open question without asking again, leaving its run alone', () => {
-      const interrupted = paused().interrupt(world);
+    it('cannot be finished by a happening while it waits on a tool approval', () => {
+      const approving = assigned().clearFor(
+        ApprovalSubject.toolCall(
+          ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
+        ),
+        ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
+        { ...newNote, voice: Voice.station(RUN) },
+        RUN,
+        null,
+      ).task;
 
-      expect(interrupted.currentRunId).toEqual(RUN);
-      expect(interrupted.awaitingReview).toBe(true);
-      expect(interrupted.notes.map((each) => each.kind)).toEqual([
-        'asked',
-        'message',
-      ]);
-      expect(interrupted.openConversation).toEqual({ from: 0, to: null });
-      expect(interrupted.pullEvents()).toEqual([]);
+      expect(() =>
+        approving.react(LINE, COMPLETED, TaskRank.of('m'), world),
+      ).toThrow(InvalidTaskTransitionError);
     });
 
-    it('drops the moves deferred before an interruption, leaving the person to decide', () => {
-      const interrupted = paused()
-        .deferMove(LINE, SPEC, world)
-        .interrupt(world);
+    it('is finished by a happening, closing the question and detaching its run', () => {
+      const finished = paused().react(LINE, COMPLETED, TaskRank.of('m'), world);
 
-      expect(interrupted.deferredMoveTo).toBeNull();
-      expect(interrupted.notes[2]?.deferredMove?.clears).toBe(true);
+      expect(finished.stationId).toEqual(COMPLETED);
+      expect(finished.finished).toBe(true);
+      expect(finished.currentRunId).toBeNull();
+      expect(finished.awaitingReview).toBe(false);
+      expect(finished.openConversation).toBeNull();
+      expect(detached(finished)).toEqual([RUN]);
+    });
+
+    it('cannot be interrupted, as it already waits on a person', () => {
+      expect(() => paused().interrupt(world)).toThrow(
+        InvalidTaskTransitionError,
+      );
     });
 
     it('is moved where a move was deferred to once its run ends without passing it on', () => {

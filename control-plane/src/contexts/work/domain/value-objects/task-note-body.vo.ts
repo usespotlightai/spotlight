@@ -51,17 +51,6 @@ export class TaskNoteBody {
     return TaskNoteBody.happenedWhile(summary, working, 'was working');
   }
 
-  static interruptedWhileWaiting(
-    summary: string,
-    waiting: StationName | null,
-  ): TaskNoteBody {
-    return TaskNoteBody.happenedWhile(
-      summary,
-      waiting,
-      'was waiting for an answer',
-    );
-  }
-
   private static happenedWhile(
     summary: string,
     station: StationName | null,

@@ -88,7 +88,7 @@ export const ReactionFor = {
       if (!destination.id.equals(input.task.stationId)) {
         const station = here?.name ?? StationName.unknown();
 
-        if (!input.task.running) {
+        if (input.task.movableByHappeningTo(input.line, destination.id)) {
           return { kind: 'moves', to: destination, ...note(station) };
         }
 
@@ -97,15 +97,10 @@ export const ReactionFor = {
               kind: 'interrupts',
               ...note(
                 station,
-                input.task.awaitsAnAnswer
-                  ? TaskNoteBody.interruptedWhileWaiting(
-                      input.payload.summary,
-                      here?.name ?? null,
-                    )
-                  : TaskNoteBody.interrupted(
-                      input.payload.summary,
-                      here?.name ?? null,
-                    ),
+                TaskNoteBody.interrupted(
+                  input.payload.summary,
+                  here?.name ?? null,
+                ),
               ),
             }
           : {
