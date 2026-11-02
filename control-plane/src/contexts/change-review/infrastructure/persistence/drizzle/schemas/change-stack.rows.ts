@@ -53,6 +53,7 @@ export interface StoredCohort {
   readonly kind: CohortKind;
   readonly title: string;
   readonly intent: string;
+  readonly joinedBecause: string | null;
   readonly layers: readonly StoredLayer[];
 }
 

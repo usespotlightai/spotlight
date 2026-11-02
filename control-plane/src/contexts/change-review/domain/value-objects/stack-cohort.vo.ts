@@ -54,6 +54,7 @@ export interface StackCohort {
   readonly kind: CohortKind;
   readonly title: string;
   readonly intent: string;
+  readonly joinedBecause: string | null;
   readonly layers: readonly StackLayer[];
 }
 
@@ -75,4 +76,12 @@ export interface ProposedCohort {
   readonly intent: string;
   readonly joinedBecause?: string | null;
   readonly layers: readonly ProposedLayer[];
+}
+
+export interface OutlinedCohort {
+  readonly kind: CohortKind;
+  readonly title: string;
+  readonly intent: string;
+  readonly joinedBecause: string | null;
+  readonly hunks: readonly HunkId[];
 }

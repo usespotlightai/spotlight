@@ -147,6 +147,8 @@ describe('OpenRouterChangeStackGenerator', () => {
     const body = JSON.parse(String(requests[0]?.init.body));
     expect(body.model).toBe('google/gemini-3.8-flash');
     expect(body.provider).toEqual({ require_parameters: true });
+    expect(body.max_tokens).toBe(65_536);
+    expect(body.reasoning).toEqual({ effort: 'medium' });
     expect(body.response_format.json_schema.strict).toBe(true);
     expect(JSON.stringify(body.response_format.json_schema.schema)).not.toMatch(
       /minimum|maximum|\$schema/,
@@ -225,7 +227,106 @@ describe('OpenRouterChangeStackGenerator', () => {
       generate(
         new OpenRouterChangeStackGenerator('or-key', DEFAULT_MODEL, fetch),
       ),
-    ).rejects.toThrow('OpenRouter returned no usable answer. Reason: length');
+    ).rejects.toMatchObject({
+      name: 'GenerationError',
+      message: 'OpenRouter returned no usable answer. Reason: length',
+      truncated: true,
+    });
+  });
+
+  it('rejects an answer that does not match the shape as not cut short', async () => {
+    const { fetch } = answering(200, {
+      choices: [{ finish_reason: 'stop', message: { content: '{}' } }],
+    });
+
+    await expect(
+      generate(
+        new OpenRouterChangeStackGenerator('or-key', DEFAULT_MODEL, fetch),
+      ),
+    ).rejects.toMatchObject({ name: 'GenerationError', truncated: false });
+  });
+});
+
+describe('OpenRouterChangeStackGenerator, split in calls', () => {
+  const answer = (content: unknown) =>
+    answering(200, {
+      choices: [
+        {
+          finish_reason: 'stop',
+          message: { content: JSON.stringify(content) },
+        },
+      ],
+    });
+  const bodyOf = (requests: { init: RequestInit }[]) =>
+    JSON.parse(String(requests[0]?.init.body));
+
+  it('requests only the cohorts and their hunks for an outline', async () => {
+    const { requests, fetch } = answer({
+      cohorts: [
+        {
+          kind: 'change',
+          title: 'Invitations',
+          intent: 'Let admins invite people',
+          joinedBecause: null,
+          hunks: ['h1'],
+        },
+      ],
+    });
+
+    const { cohorts } = await new OpenRouterChangeStackGenerator(
+      'or-key',
+      DEFAULT_MODEL,
+      fetch,
+    ).outline({
+      diff: DIFF,
+      repository: RepositoryName.of('web'),
+      facts: factsOf(DIFF, new PatternCodeReading()),
+      problems: [{ code: 'shape', message: 'leaves h2 out' }],
+    });
+
+    expect(cohorts[0]?.hunks).toEqual(['h1']);
+    const body = bodyOf(requests);
+    expect(body.response_format.json_schema.name).toBe('change_stack_outline');
+    expect(body.reasoning).toEqual({ effort: 'medium' });
+    expect(body.messages[0].content).toContain(
+      'Place every hunk exactly once, in the hunks of one cohort.',
+    );
+    expect(body.messages[1].content).toContain(
+      'A previous set of cohorts for this diff had these problems',
+    );
+  });
+
+  it('requests the layers of one cohort from its own part of the diff', async () => {
+    const { requests, fetch } = answer({ layers: COHORTS[0]?.layers });
+
+    const { layers } = await new OpenRouterChangeStackGenerator(
+      'or-key',
+      DEFAULT_MODEL,
+      fetch,
+    ).layers({
+      part: { diff: DIFF, facts: factsOf(DIFF, new PatternCodeReading()) },
+      repository: null,
+      cohort: {
+        kind: 'change',
+        title: 'Invitations',
+        intent: 'Let admins invite people.',
+        joinedBecause: null,
+        hunks: [HunkId.of('h1')],
+      },
+      problems: [],
+    });
+
+    expect(layers[0]?.hunks).toEqual([{ hunk: 'h1' }]);
+    expect(layers[0]?.notes[0]?.path).toBe('src/invite.ts');
+    const body = bodyOf(requests);
+    expect(body.response_format.json_schema.name).toBe('cohort_layers');
+    expect(body.messages[0].content).toContain('You order one cohort');
+    expect(body.messages[1].content).toContain(
+      'The cohort, of kind "change": Invitations. Let admins invite people.',
+    );
+    expect(body.messages[1].content).toContain(
+      "The cohort's diff, as 1 hunks to place:",
+    );
   });
 });
 

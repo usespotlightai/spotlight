@@ -1,9 +1,14 @@
 import type { StackProblem } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import type { DiffFacts } from '@change-review/domain/services/diff-facts';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
+import type { StackPart } from '@change-review/domain/services/stack-outline';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
-import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
+import type {
+  OutlinedCohort,
+  ProposedCohort,
+  ProposedLayer,
+} from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
 export const CHANGE_STACK_GENERATOR = Symbol('CHANGE_STACK_GENERATOR');
@@ -21,10 +26,32 @@ export interface GeneratedChangeStack {
   readonly usage: ModelCall | null;
 }
 
+export interface CohortLayersRequest {
+  readonly part: StackPart;
+  readonly repository: RepositoryName | null;
+  readonly cohort: OutlinedCohort;
+  readonly problems: readonly StackProblem[];
+  readonly redraft?: RedraftRequest | null;
+}
+
+export interface GeneratedOutline {
+  readonly cohorts: readonly OutlinedCohort[];
+  readonly usage: ModelCall | null;
+}
+
+export interface GeneratedLayers {
+  readonly layers: readonly ProposedLayer[];
+  readonly usage: ModelCall | null;
+}
+
 export interface ChangeStackGeneratorPort {
   readonly available: boolean;
 
   generate(
     request: ChangeStackGenerationRequest,
   ): Promise<GeneratedChangeStack>;
+
+  outline(request: ChangeStackGenerationRequest): Promise<GeneratedOutline>;
+
+  layers(request: CohortLayersRequest): Promise<GeneratedLayers>;
 }

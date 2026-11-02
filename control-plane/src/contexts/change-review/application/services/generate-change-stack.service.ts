@@ -5,7 +5,19 @@ import type {
   DiffSources,
 } from '@change-review/application/ports/diff-reader.port';
 import type { SymbolIndexerPort } from '@change-review/application/ports/symbol-indexer.port';
-import { attemptGeneration } from '@change-review/application/services/generation-attempt';
+import {
+  combined,
+  layerCohort,
+  layeredInRounds,
+  splits,
+} from '@change-review/application/services/cohort-layering';
+import {
+  ATTEMPTS,
+  attempted,
+  settleBroken,
+  settleUnanswered,
+} from '@change-review/application/services/generation-attempt';
+import { withRenewedLease } from '@change-review/application/services/job-lease';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { ChangeStacksUnavailableError } from '@change-review/domain/exceptions/change-stacks-unavailable.error';
 import {
@@ -14,12 +26,14 @@ import {
 } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import { factsOf } from '@change-review/domain/services/diff-facts';
+import { StackOutline } from '@change-review/domain/services/stack-outline';
 import {
   NO_INDEX,
   type SymbolIndex,
 } from '@change-review/domain/services/symbol-index';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import type { OutlinedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -27,8 +41,6 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-
-const ATTEMPTS = 2;
 
 export interface GenerationRun {
   readonly id: RunId;
@@ -103,31 +115,35 @@ export class GenerateChangeStack {
   }
 
   async generated(stack: ChangeStack): Promise<ChangeStack> {
-    const { diff, facts } = stack;
-
-    if (facts.hunks.every((each) => each.incidental)) {
+    if (stack.facts.hunks.every((each) => each.incidental)) {
       return stack.propose([], this.clock.now());
     }
 
+    return splits(stack.facts) ? this.split(stack) : this.whole(stack);
+  }
+
+  private async whole(stack: ChangeStack): Promise<ChangeStack> {
+    const { diff, facts } = stack;
     let problems: readonly StackProblem[] = [];
     let generating = stack;
 
     for (let attempt = 1; attempt <= ATTEMPTS; attempt += 1) {
-      const attempt = await attemptGeneration(this.generator, {
-        diff,
-        repository: stack.repository,
-        facts,
-        problems,
-      });
+      const attempt = await attempted(() =>
+        this.generator.generate({
+          diff,
+          repository: stack.repository,
+          facts,
+          problems,
+        }),
+      );
 
       if (!attempt.generated) {
-        this.logger.error(
-          { changeStackId: stack.id.value, error: attempt.error },
-          'Generating a change stack failed; scheduling a retry',
+        return settleUnanswered(
+          generating.recordModel(attempt.usage),
+          attempt,
+          this.clock.now(),
+          this.logger,
         );
-        return generating
-          .recordModel(attempt.usage)
-          .scheduleRetry(this.clock.now());
       }
 
       const { cohorts, usage } = attempt.answer;
@@ -143,17 +159,111 @@ export class GenerateChangeStack {
       }
     }
 
-    this.logger.warn(
-      {
-        changeStackId: stack.id.value,
-        problems: problems.map((each) => each.message),
-      },
-      'A generated change stack kept breaking its rules',
+    return settleBroken(generating, problems, this.clock.now(), this.logger);
+  }
+
+  private async split(stack: ChangeStack): Promise<ChangeStack> {
+    const { diff, facts } = stack;
+    let problems: readonly StackProblem[] = [];
+    let generating = stack;
+    let outline: readonly OutlinedCohort[] | null = null;
+
+    for (let attempt = 1; !outline && attempt <= ATTEMPTS; attempt += 1) {
+      const attempt = await attempted(() =>
+        this.generator.outline({
+          diff,
+          repository: stack.repository,
+          facts,
+          problems,
+        }),
+      );
+
+      if (!attempt.generated) {
+        return settleUnanswered(
+          generating.recordModel(attempt.usage),
+          attempt,
+          this.clock.now(),
+          this.logger,
+        );
+      }
+
+      generating = generating.recordModel(attempt.answer.usage);
+
+      try {
+        outline = StackOutline.validate({
+          diff,
+          facts,
+          cohorts: attempt.answer.cohorts,
+        });
+      } catch (error) {
+        if (!(error instanceof InvalidChangeStackError)) {
+          throw error;
+        }
+        problems = error.problems;
+      }
+    }
+
+    if (!outline) {
+      return settleBroken(generating, problems, this.clock.now(), this.logger);
+    }
+
+    const layered = combined(
+      await layeredInRounds(
+        outline.map(
+          (cohort) => () =>
+            layerCohort(this.generator, {
+              diff,
+              facts,
+              repository: stack.repository,
+              cohort,
+            }),
+        ),
+        {
+          before: async () => {
+            generating = await withRenewedLease(
+              this.stacks,
+              generating,
+              this.clock.now(),
+            );
+          },
+          after: (round) => {
+            for (const call of round.flatMap((each) => each.usage)) {
+              generating = generating.recordModel(call);
+            }
+          },
+        },
+      ),
     );
 
-    return generating.fail(
-      'The generated stack did not assign every hunk in order.',
-      this.clock.now(),
-    );
+    if (layered.outcome === 'unanswered') {
+      return settleUnanswered(
+        generating,
+        layered,
+        this.clock.now(),
+        this.logger,
+      );
+    }
+    if (layered.outcome === 'broken') {
+      return settleBroken(
+        generating,
+        layered.problems,
+        this.clock.now(),
+        this.logger,
+      );
+    }
+
+    try {
+      return generating.propose(layered.cohorts, this.clock.now());
+    } catch (error) {
+      if (!(error instanceof InvalidChangeStackError)) {
+        throw error;
+      }
+      return settleBroken(
+        generating,
+        error.problems,
+        this.clock.now(),
+        this.logger,
+      );
+    }
   }
 }

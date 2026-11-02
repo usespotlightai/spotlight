@@ -289,6 +289,29 @@ describe('ChangeStack', () => {
     expect(() => failed.fail('Again', LATER)).toThrow(InvalidChangeStackError);
   });
 
+  it('renews the lease of a worker still generating it, without counting another attempt', () => {
+    const renewed = generating().leaseJob(NOW).renewJobLease(LATER);
+
+    expect(renewed.job.attempts).toBe(1);
+    expect(renewed.job.isDue(new Date(NOW.getTime() + JOB_LEASE_MS + 1))).toBe(
+      false,
+    );
+    expect(
+      renewed.job.isDue(new Date(LATER.getTime() + JOB_LEASE_MS + 1)),
+    ).toBe(true);
+  });
+
+  it('fails a stack whose answer was cut off, and retries one whose call failed', () => {
+    const leased = generating().leaseJob(NOW);
+
+    expect(leased.settleFailedCall({ truncated: true }, LATER).failure).toBe(
+      'The change is too large for one change stack.',
+    );
+    expect(leased.settleFailedCall({ truncated: false }, LATER).state).toBe(
+      'generating',
+    );
+  });
+
   it('is leased to one worker at a time while it is generated', () => {
     const leased = generating().leaseJob(NOW);
 

@@ -121,6 +121,12 @@ const working = (
   const generator: ChangeStackGeneratorPort = {
     available,
     generate: async () => ({ cohorts: await generate(), usage: null }),
+    outline: async () => {
+      throw new Error('A diff this small is not split');
+    },
+    layers: async () => {
+      throw new Error('A diff this small is not split');
+    },
   };
   const clock = { now: () => now, sleep: async () => undefined };
 
@@ -143,7 +149,7 @@ const working = (
       clock,
       QUIET,
     ),
-    new RedraftChangeStack(generator, clock, QUIET),
+    new RedraftChangeStack(stacks, generator, clock, QUIET),
     clock,
     QUIET,
     { report: () => undefined },

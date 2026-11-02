@@ -407,12 +407,18 @@ const services: Provider[] = [
   },
   {
     provide: RedraftChangeStack,
-    inject: [CHANGE_STACK_GENERATOR, CLOCK, LOGGER],
+    inject: [
+      DrizzleChangeStackRepository,
+      CHANGE_STACK_GENERATOR,
+      CLOCK,
+      LOGGER,
+    ],
     useFactory: (
+      stacks: DrizzleChangeStackRepository,
       generator: ChangeStackGeneratorPort,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new RedraftChangeStack(generator, clock, logger),
+    ) => new RedraftChangeStack(stacks, generator, clock, logger),
   },
   {
     provide: WorkChangeStacks,

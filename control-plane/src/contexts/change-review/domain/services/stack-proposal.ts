@@ -28,6 +28,18 @@ const MAX_TITLE = 120;
 
 const MAX_PROSE = 2_000;
 
+export const cohortHeaderProblems = (
+  cohort: { readonly title: string; readonly intent: string },
+  where: string,
+): string[] => [
+  ...(!cohort.title.trim() || cohort.title.length > MAX_TITLE
+    ? [`${where} needs a title of at most ${MAX_TITLE} characters`]
+    : []),
+  ...(!cohort.intent.trim() || cohort.intent.length > MAX_PROSE
+    ? [`${where} needs an intent of at most ${MAX_PROSE} characters`]
+    : []),
+];
+
 const noteProblems = (
   diff: Diff,
   layer: ProposedLayer,
@@ -116,16 +128,7 @@ const shapeProblems = (
   cohorts.forEach((cohort, c) => {
     const where = `cohort ${c + 1}`;
 
-    if (!cohort.title.trim() || cohort.title.length > MAX_TITLE) {
-      problems.push(
-        `${where} needs a title of at most ${MAX_TITLE} characters`,
-      );
-    }
-    if (!cohort.intent.trim() || cohort.intent.length > MAX_PROSE) {
-      problems.push(
-        `${where} needs an intent of at most ${MAX_PROSE} characters`,
-      );
-    }
+    problems.push(...cohortHeaderProblems(cohort, where));
     if (cohort.layers.length === 0) {
       problems.push(`${where} has no layers`);
     }
@@ -238,6 +241,7 @@ const numbered = (
       kind: cohort.kind,
       title: cohort.title.trim(),
       intent: cohort.intent.trim(),
+      joinedBecause: cohort.joinedBecause?.trim() || null,
       layers: cohort.layers.map((layer, l) => {
         const layerId = LayerId.in(cohortId, l + 1);
 
