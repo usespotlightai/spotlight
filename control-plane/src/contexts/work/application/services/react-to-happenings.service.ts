@@ -37,6 +37,7 @@ import {
 } from '@work/domain/services/reaction-for';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
@@ -351,6 +352,9 @@ export class ReactToHappenings implements HappeningReactionsPort {
       opens: happened.opens,
       request,
       anchor: happened.anchor,
+      branchTask: request.branch
+        ? await this.findByBranch(workspaceId, request.branch)
+        : null,
       pullRequestTask: await this.findByMark(
         workspaceId,
         Mark.pullRequest(request.pullRequest),
@@ -384,6 +388,17 @@ export class ReactToHappenings implements HappeningReactionsPort {
     mark: Mark,
   ): Promise<Task | null> {
     const correlationKeys = CorrelationKeys.of({ marks: [mark] });
+
+    return correlationKeys
+      ? this.tasks.findByMarks(workspaceId, correlationKeys)
+      : null;
+  }
+
+  private async findByBranch(
+    workspaceId: WorkspaceId,
+    branch: Branch,
+  ): Promise<Task | null> {
+    const correlationKeys = CorrelationKeys.of({ branch: branch.value });
 
     return correlationKeys
       ? this.tasks.findByMarks(workspaceId, correlationKeys)

@@ -112,6 +112,7 @@ beforeAll(async () => {
 
   await db.insert(schema.task).values({
     id: TASK.value,
+    branch: `feat/test-${TASK.value}`,
     openedFrom: 'person',
     workspaceId: workspaceId.value,
     stationId: team.stationId.value,

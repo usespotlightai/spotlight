@@ -532,7 +532,7 @@ describe('DispatchTask', () => {
         {
           remote: 'spotlight:repository',
           path: 'widgets',
-          branch: 'spotlight/task_1',
+          branch: 'fix/fix-the-queue-task_1',
         },
       ]);
     });
@@ -546,12 +546,12 @@ describe('DispatchTask', () => {
         {
           remote: 'spotlight:repository',
           path: 'api',
-          branch: 'spotlight/task_1',
+          branch: 'fix/fix-the-queue-task_1',
         },
         {
           remote: 'spotlight:repository',
           path: 'web',
-          branch: 'spotlight/task_1',
+          branch: 'fix/fix-the-queue-task_1',
         },
       ]);
     });
@@ -590,13 +590,13 @@ describe('DispatchTask', () => {
         {
           remote: 'spotlight:repository',
           path: 'api',
-          branch: 'spotlight/task_1',
+          branch: 'fix/fix-the-queue-task_1',
           setup: 'npm ci',
         },
         {
           remote: 'spotlight:repository',
           path: 'web',
-          branch: 'spotlight/task_1',
+          branch: 'fix/fix-the-queue-task_1',
         },
       ]);
     });

@@ -81,6 +81,7 @@ const aTask = async (
 
   await db.insert(schema.task).values({
     id,
+    branch: `feat/test-${id}`,
     openedFrom: 'person',
     workspaceId: 'ws_1',
     stationId: state.stationId ?? stationId,

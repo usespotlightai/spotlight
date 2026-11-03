@@ -21,7 +21,6 @@ import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-o
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
-import { InvalidSetupBranchError } from '@work/domain/exceptions/invalid-setup-branch.error';
 import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.error';
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -29,7 +28,6 @@ import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { TraceAccess } from '@work/domain/services/trace-access';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
-import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -327,7 +325,7 @@ export class Chat extends EventRecorder {
     });
   }
 
-  mayOpenSetupFrom(runId: RunId, branch: Branch): ConfigFolder {
+  mayOpenSetupFrom(runId: RunId): ConfigFolder {
     const setup = this.setup;
 
     if (!setup) {
@@ -340,20 +338,11 @@ export class Chat extends EventRecorder {
       );
     }
 
-    if (branch.isReserved) {
-      throw new InvalidSetupBranchError(branch.value);
-    }
-
     return setup;
   }
 
-  openSetup(
-    runId: RunId,
-    branch: Branch,
-    pullRequest: PullRequestUrl,
-    at: Date,
-  ): Chat {
-    const setup = this.mayOpenSetupFrom(runId, branch);
+  openSetup(runId: RunId, pullRequest: PullRequestUrl, at: Date): Chat {
+    const setup = this.mayOpenSetupFrom(runId);
 
     if (!pullRequest.repository?.equals(setup.repository)) {
       throw new InvalidChatTransitionError(
