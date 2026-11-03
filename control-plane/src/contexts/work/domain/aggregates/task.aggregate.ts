@@ -128,6 +128,7 @@ export class Task extends EventRecorder {
     readonly workspaceId: WorkspaceId,
     readonly stationId: StationId,
     readonly title: TaskTitle,
+    readonly branch: Branch,
     readonly description: TaskDescription | null,
     readonly rank: TaskRank,
     readonly currentRunId: RunId | null,
@@ -167,11 +168,13 @@ export class Task extends EventRecorder {
     const createdBy = input.createdBy ?? null;
     const receivedFrom = input.receivedFrom ?? null;
 
+    const id = TaskId.of(input.newId());
     const task = new Task(
-      TaskId.of(input.newId()),
+      id,
       input.line.workspaceId,
       station.id,
       input.title,
+      Branch.for(id, input.title),
       input.description ?? null,
       input.rank,
       null,
@@ -214,6 +217,7 @@ export class Task extends EventRecorder {
     workspaceId: WorkspaceId;
     stationId: StationId;
     title: TaskTitle;
+    branch: Branch;
     description: TaskDescription | null;
     rank: TaskRank;
     currentRunId: RunId | null;
@@ -256,6 +260,7 @@ export class Task extends EventRecorder {
       input.workspaceId,
       input.stationId,
       input.title,
+      input.branch,
       input.description,
       input.rank,
       input.currentRunId,
@@ -525,10 +530,6 @@ export class Task extends EventRecorder {
 
   claimedBy(userId: UserId): Task {
     return this.assignee ? this : this.with({ assignee: userId });
-  }
-
-  get branch(): Branch {
-    return Branch.for(this.id);
   }
 
   recordPullRequest(
@@ -1515,6 +1516,7 @@ export class Task extends EventRecorder {
       this.workspaceId,
       part.stationId ?? this.stationId,
       this.title,
+      this.branch,
       this.description,
       part.rank ?? this.rank,
       part.currentRunId !== undefined ? part.currentRunId : this.currentRunId,

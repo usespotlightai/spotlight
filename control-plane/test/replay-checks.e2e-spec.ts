@@ -156,6 +156,7 @@ const anOriginal = async (): Promise<string> => {
 
   await db.insert(schema.task).values({
     id: taskId,
+    branch: `feat/test-${taskId}`,
     openedFrom: 'person',
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
@@ -192,7 +193,7 @@ const anOriginal = async (): Promise<string> => {
         {
           remote: 'spotlight:repository',
           path: 'api',
-          branch: `spotlight/${taskId}`,
+          branch: `feat/test-${taskId}`,
         },
       ],
       command: { executable: 'claude-agent-acp', args: [] },

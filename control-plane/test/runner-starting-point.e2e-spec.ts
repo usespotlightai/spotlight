@@ -92,6 +92,7 @@ const aLeasedTaskRun = async (): Promise<LeasedRun> => {
 
   await db.insert(schema.task).values({
     id: taskId,
+    branch: `feat/test-${taskId}`,
     openedFrom: 'person',
     workspaceId: team.workspaceId.value,
     stationId: BUILD,

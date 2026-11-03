@@ -19,6 +19,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export interface AnchorRow {
@@ -89,6 +90,7 @@ export const task = pgTable(
       .notNull()
       .references(() => station.id, { onDelete: 'restrict' }),
     title: text('title').notNull(),
+    branch: text('branch').notNull(),
     description: text('description'),
     rank: text('rank').notNull().default('i'),
     originStationId: text('origin_station_id').references(() => station.id, {
@@ -117,6 +119,10 @@ export const task = pgTable(
   (table) => [
     index('task_station_idx').on(table.stationId, table.rank),
     index('task_workspace_idx').on(table.workspaceId),
+    uniqueIndex('task_workspace_branch_uidx').on(
+      table.workspaceId,
+      table.branch,
+    ),
   ],
 );
 

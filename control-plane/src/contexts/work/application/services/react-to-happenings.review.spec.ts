@@ -28,6 +28,7 @@ import {
   BUILT_IN_LINES,
   type LineOpening,
 } from '@work/domain/services/built-in-lines';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
@@ -331,19 +332,35 @@ describe('ReactToHappenings, with a review request', () => {
     expect(here.added).toHaveLength(1);
   });
 
-  it('skips a pull request from one of Spotlight’s branches, unless told not to', async () => {
-    const skipping = world({
-      lines: [reviewing({ reviews: policy('opened') })],
+  it('skips a pull request from a branch a task of Spotlight’s holds, unless told not to', async () => {
+    const delivery = created(LineRole.DELIVERY);
+    const own = Task.add({
+      line: delivery,
+      // biome-ignore lint/style/noNonNullAssertion: the delivery line has an entry
+      at: delivery.entry!.id,
+      title: TaskTitle.of('Retry uploads'),
+      rank: TaskRank.of('i'),
+      now: NOW,
+      newId: () => 'task_own',
     });
-    await skipping.react(requested('opened', { branch: 'spotlight/task_9' }));
+    const holding = (correlationKeys: CorrelationKeys) =>
+      correlationKeys.branch?.equals(own.branch) ? own : null;
+
+    const skipping = world({
+      lines: [delivery, reviewing({ reviews: policy('opened') })],
+      findByMarks: holding,
+    });
+    await skipping.react(requested('opened', { branch: own.branch.value }));
     expect(skipping.added).toHaveLength(0);
 
     const reviewingOwn = world({
-      lines: [reviewing({ reviews: policy('opened', { spotlight: false }) })],
+      lines: [
+        delivery,
+        reviewing({ reviews: policy('opened', { spotlight: false }) }),
+      ],
+      findByMarks: holding,
     });
-    await reviewingOwn.react(
-      requested('opened', { branch: 'spotlight/task_9' }),
-    );
+    await reviewingOwn.react(requested('opened', { branch: own.branch.value }));
     expect(reviewingOwn.added).toHaveLength(1);
   });
 
@@ -408,6 +425,7 @@ describe('ReactToHappenings, with a review request', () => {
       workspaceId: WorkspaceId.of('ws_1'),
       stationId: line.completed.id,
       title: TaskTitle.of('Retry uploads'),
+      branch: Branch.of('feat/retry-uploads-0a1b2c3d'),
       description: null,
       rank: TaskRank.of('i'),
       currentRunId: null,
@@ -426,7 +444,8 @@ describe('ReactToHappenings, with a review request', () => {
     });
     const { react, added } = world({
       lines: [line],
-      findByMarks: () => finished,
+      findByMarks: (correlationKeys) =>
+        correlationKeys.marks.length > 0 ? finished : null,
     });
 
     await react(requested('mentioned', { body: '@spotlight once more' }));

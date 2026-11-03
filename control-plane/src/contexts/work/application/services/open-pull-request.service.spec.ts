@@ -211,7 +211,7 @@ describe('OpenPullRequest', () => {
       {
         workspaceId: WorkspaceId.of('ws_1'),
         repository: Repository.of('acme/widgets'),
-        branch: 'spotlight/task_1',
+        branch: 'fix/fix-the-queue-task_1',
         title: 'Fix the queue',
         body: 'why',
       },
@@ -411,14 +411,14 @@ describe('OpenPullRequest', () => {
         [
           WorkspaceId.of('ws_1'),
           Repository.of('acme/widgets'),
-          'spotlight/task_1',
+          'fix/fix-the-queue-task_1',
         ],
       ]);
       expect(hookCalls).toEqual([
         {
           on: 'pull-request.opening',
           repository: 'acme/widgets',
-          branch: 'spotlight/task_1',
+          branch: 'fix/fix-the-queue-task_1',
           title: 'Fix the queue',
           changed: ['db/migrations/0042_add_index.sql', 'src/queue.ts'],
         },

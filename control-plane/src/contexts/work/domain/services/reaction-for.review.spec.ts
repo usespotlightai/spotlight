@@ -76,6 +76,7 @@ const REQUEST: ReviewRequest = {
 const requested = (
   over: {
     request?: Partial<ReviewRequest>;
+    branchTask?: Task;
     pullRequestTask?: Task;
     reviewTask?: Task;
   } = {},
@@ -93,6 +94,7 @@ const requested = (
     },
     request: { ...REQUEST, ...over.request },
     anchor: null,
+    branchTask: over.branchTask ?? null,
     pullRequestTask: over.pullRequestTask ?? null,
     reviewTask: over.reviewTask ?? null,
   });
@@ -105,10 +107,10 @@ describe('ReactionFor, with a review request', () => {
     expect(answer.kind === 'opens' && answer.on.line.key.value).toBe('review');
   });
 
-  it('counts a pull request as Spotlight’s own by its branch, or by a task of Spotlight’s that opened it', () => {
-    expect(
-      requested({ request: { branch: Branch.of('spotlight/task_9') } }),
-    ).toEqual({ kind: 'nothing' });
+  it('counts a pull request as Spotlight’s own by a task that holds its branch, or by a task of Spotlight’s that opened it', () => {
+    expect(requested({ branchTask: taskOn(delivery) })).toEqual({
+      kind: 'nothing',
+    });
     expect(requested({ pullRequestTask: taskOn(delivery) })).toEqual({
       kind: 'nothing',
     });
