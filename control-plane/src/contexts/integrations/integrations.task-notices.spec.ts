@@ -352,7 +352,7 @@ const withFiles = (
     : task;
 };
 
-type Readiness = 'ready' | 'unready' | 'lost';
+type Readiness = 'ready' | 'unready' | 'lost' | 'forbidden';
 
 const SECOND_SHOT = { ...SHOT, id: 'file_3', name: 'second.png' };
 
@@ -394,6 +394,15 @@ const uploading = (
 
         if (answer === 'lost') {
           throw new Error('socket hang up');
+        }
+
+        if (answer === 'forbidden') {
+          return {
+            ok: false,
+            status: 403,
+            response: { ok: false, error: 'forbidden' },
+            capture: {},
+          };
         }
 
         return answer === 'ready'
@@ -701,6 +710,34 @@ connection:
     expect(run.mock.calls[run.mock.calls.length - 1]?.[1]).toMatchObject({
       uploaded: [{ name: 'shot.png' }],
     });
+  });
+
+  it('stops checking a file where the service refuses the check, since that will not change', async () => {
+    const { notifier, run, sleep, warn } = uploading(
+      200,
+      READY,
+      'shown',
+      undefined,
+      () => 'forbidden',
+    );
+
+    await notifier.notify(withFiles([SHOT]), 'task.asked');
+
+    expect(readied(run)).toHaveLength(1);
+    expect(sleep).not.toHaveBeenCalled();
+    expect(run.mock.calls[run.mock.calls.length - 1]?.[1]).toMatchObject({
+      uploaded: [],
+    });
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: {
+          status: 403,
+          output:
+            'the check of the file shot.png was refused: {"ok":false,"error":"forbidden"}',
+        },
+      }),
+      'A service answered a task’s word with an error',
+    );
   });
 
   it('posts without the files where one is not ready after every attempt, and reports it', async () => {

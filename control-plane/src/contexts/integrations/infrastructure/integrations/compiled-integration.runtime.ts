@@ -107,6 +107,8 @@ const dataOf = (response: unknown, field: string): unknown =>
 
 const UNAUTHORIZED = 401;
 
+const FORBIDDEN = 403;
+
 const READY_EVERY_MS = 1_000;
 
 type Bindings = Record<string, unknown>;
@@ -490,6 +492,13 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
       if (!checked) {
         return null;
+      }
+
+      if (checked.status === UNAUTHORIZED || checked.status === FORBIDDEN) {
+        return {
+          status: checked.status,
+          output: `the check of the file ${String(name)} was refused: ${checked.output}`,
+        };
       }
 
       if (attempt >= ready.attempts) {
