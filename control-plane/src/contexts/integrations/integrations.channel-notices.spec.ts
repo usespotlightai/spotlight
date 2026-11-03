@@ -1,6 +1,7 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { ChannelNotices } from '@integrations/infrastructure/acl/channel-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
@@ -46,6 +47,7 @@ const runtimeWith = (
     unlimited,
     unscoped,
     noNetwork,
+    noFiles,
   );
 
 const SLACK = `

@@ -402,6 +402,7 @@ describe('the positions an expression is written at', () => {
       name: 'ask',
       type: 'object',
       fields: [
+        { name: 'attachments', type: 'list', fields: [] },
         { name: 'body', type: 'string', fields: [] },
         { name: 'link', type: 'dyn', fields: [] },
         { name: 'station', type: 'string', fields: [] },
@@ -500,7 +501,18 @@ describe('the positions an expression is written at', () => {
         cursor: NOPE,
         events: [event('kitchen.polled'), chatting('kitchen.answered')],
       },
-      actions: { k: { request } },
+      actions: {
+        k: { request },
+        u: {
+          uploads: {
+            each: NOPE,
+            prepare: request,
+            send: { ...request, body: undefined },
+            complete: request,
+          },
+          request,
+        },
+      },
       tools: {
         k: {
           action: 'k',

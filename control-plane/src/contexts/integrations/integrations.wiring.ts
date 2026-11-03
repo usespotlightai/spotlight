@@ -100,6 +100,10 @@ import {
   type ListedServersPort,
 } from '@integrations/application/ports/listed-servers.port';
 import {
+  NOTICE_FILE_READER,
+  type NoticeFileReaderPort,
+} from '@integrations/application/ports/notice-file-reader.port';
+import {
   OAUTH2_CLIENT_REGISTRAR,
   type OAuth2ClientRegistrarPort,
 } from '@integrations/application/ports/oauth2-client-registrar.port';
@@ -186,6 +190,7 @@ import { ChannelNotices } from '@integrations/infrastructure/acl/channel-notices
 import { IntegrationConfigs } from '@integrations/infrastructure/acl/integration-configs.adapter';
 import { IntegrationReadings } from '@integrations/infrastructure/acl/integration-readings.adapter';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
+import { NoticeFileReader } from '@integrations/infrastructure/acl/notice-file-reader.adapter';
 import { IntegrationSecretUses } from '@integrations/infrastructure/acl/secret-uses.adapter';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { TeamIntegrations } from '@integrations/infrastructure/acl/team-integrations.adapter';
@@ -309,6 +314,10 @@ import {
   NETWORK_CALLS,
   type NetworkCallsPort,
 } from '@work/application/ports/network-calls.port';
+import {
+  NOTE_FILES,
+  type NoteFilesPort,
+} from '@work/application/ports/note-files.port';
 import { TASK_NOTICES } from '@work/application/ports/task-notices.port';
 import { TEAM_INTEGRATIONS } from '@work/application/ports/team-integrations.port';
 
@@ -868,6 +877,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       OUTBOUND_LIMITS,
       WORKSPACE_OUTBOUND_SCOPE,
       NetworkOutbound,
+      NOTICE_FILE_READER,
     ],
     useFactory: (
       reader: IntegrationReader,
@@ -879,6 +889,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       limits: OutboundLimitsPort,
       scope: WorkspaceOutboundScopePort,
       network: NetworkOutbound,
+      files: NoticeFileReaderPort,
     ) =>
       new CompiledIntegrationRuntime(
         reader,
@@ -890,7 +901,14 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         limits,
         scope,
         network,
+        files,
       ),
+  },
+
+  {
+    provide: NOTICE_FILE_READER,
+    inject: [NOTE_FILES],
+    useFactory: (files: NoteFilesPort) => new NoticeFileReader(files),
   },
 
   {

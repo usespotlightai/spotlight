@@ -14,6 +14,7 @@ import type {
   ServiceError,
   ToolOutput,
 } from '@integrations/application/ports/integration-runtime.port';
+import type { NoticeFileReaderPort } from '@integrations/application/ports/notice-file-reader.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
@@ -26,6 +27,7 @@ import type {
   OnBindingIR,
   ReadableIntegration,
   RequestIR,
+  UploadsIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import type {
   FoundTool,
@@ -51,6 +53,7 @@ import { refreshingOnce } from '@integrations/infrastructure/mcp/refreshing-once
 import type {
   HttpOutbound,
   OutboundResult,
+  SentFile,
 } from '@integrations/infrastructure/outbound/http-outbound';
 import type { NetworkOutbound } from '@integrations/infrastructure/outbound/network-outbound';
 import { operationRequest } from '@integrations/infrastructure/outbound/operation-request';
@@ -104,6 +107,19 @@ const UNAUTHORIZED = 401;
 
 type Bindings = Record<string, unknown>;
 
+interface Uploads {
+  readonly uploaded: readonly Record<string, unknown>[];
+  readonly failed: ServiceError | null;
+}
+
+type Attempt =
+  | { readonly kind: 'sent'; readonly sent: Sent }
+  | {
+      readonly kind: 'failed';
+      readonly error: ServiceError;
+      readonly answered: boolean;
+    };
+
 interface Sent {
   readonly result: OutboundResult;
   readonly bindings: Bindings;
@@ -149,6 +165,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     private readonly limits: OutboundLimitsPort,
     private readonly scope: WorkspaceOutboundScopePort,
     private readonly network: NetworkOutbound,
+    private readonly files: NoticeFileReaderPort,
   ) {}
 
   integrations(
@@ -237,7 +254,9 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     for (const binding of readable?.on ?? []) {
       if (readable && binding.event === event) {
-        results.push(await this.posted(readable, binding, payload, callAuth));
+        results.push(
+          ...(await this.posted(readable, binding, payload, callAuth)),
+        );
       }
     }
 
@@ -249,11 +268,11 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     binding: OnBindingIR,
     payload: NoticePayload,
     callAuth: CallAuth,
-  ): Promise<PostResult> {
+  ): Promise<readonly PostResult[]> {
     const action = readable.actions.get(binding.action);
 
     if (!action) {
-      return { kind: 'unaddressed' };
+      return [{ kind: 'unaddressed' }];
     }
 
     const against =
@@ -277,26 +296,40 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     }
 
     if (!target.channel && !target.thread) {
-      return { kind: 'unaddressed' };
+      return [{ kind: 'unaddressed' }];
     }
 
-    let sent: Awaited<ReturnType<typeof this.sent>>;
+    const addressed = { ...against, target };
+    const uploads = action.uploads
+      ? await this.uploaded(action.uploads, addressed, payload, callAuth)
+      : { uploaded: [], failed: null };
+    const unsent: PostResult[] = uploads.failed
+      ? [{ kind: 'failed', error: uploads.failed, target }]
+      : [];
 
-    try {
-      sent = await this.sent(action, { ...against, target }, callAuth);
-    } catch (error) {
-      return {
-        kind: 'failed',
-        error: { status: 0, output: reasonOf(error) },
-        target,
-      };
+    const first = await this.attempted(
+      action,
+      { ...addressed, uploaded: uploads.uploaded },
+      callAuth,
+    );
+    const answered =
+      first.kind === 'failed' && first.answered && uploads.uploaded.length > 0
+        ? await this.attempted(action, { ...addressed, uploaded: [] }, callAuth)
+        : first;
+    const refused: PostResult[] =
+      first.kind === 'failed' && answered !== first
+        ? [{ kind: 'failed', error: first.error, target }]
+        : [];
+
+    if (answered.kind === 'failed') {
+      return [
+        ...unsent,
+        ...refused,
+        { kind: 'failed', error: answered.error, target },
+      ];
     }
 
-    const { result, bindings } = sent;
-
-    if (!result.ok) {
-      return { kind: 'failed', error: serviceErrorOf(result), target };
-    }
+    const { result, bindings } = answered.sent;
 
     const beside = {
       ...bindings,
@@ -312,7 +345,108 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       }
     }
 
-    return { kind: 'posted', marks };
+    return [...unsent, ...refused, { kind: 'posted', marks }];
+  }
+
+  private async attempted(
+    action: RequestIR,
+    bindings: Bindings,
+    callAuth: CallAuth,
+  ): Promise<Attempt> {
+    try {
+      const sent = await this.sent(action, bindings, callAuth);
+
+      return sent.result.ok
+        ? { kind: 'sent', sent }
+        : {
+            kind: 'failed',
+            error: serviceErrorOf(sent.result),
+            answered: true,
+          };
+    } catch (error) {
+      return {
+        kind: 'failed',
+        error: { status: 0, output: reasonOf(error) },
+        answered: false,
+      };
+    }
+  }
+
+  private async uploaded(
+    uploads: UploadsIR,
+    bindings: Bindings,
+    payload: NoticePayload,
+    callAuth: CallAuth,
+  ): Promise<Uploads> {
+    const listed = value(uploads.each, bindings);
+    const files = 'task' in payload ? payload.ask.attachments : [];
+    const ids = new Set(
+      (Array.isArray(listed) ? listed : []).map((item) => fieldOf(item, 'id')),
+    );
+    const chosen = files.filter((file) => ids.has(file.id));
+
+    if (chosen.length === 0 || !('task' in payload)) {
+      return { uploaded: [], failed: null };
+    }
+
+    const uploaded: Record<string, unknown>[] = [];
+
+    try {
+      for (const file of chosen) {
+        const per = { ...bindings, file };
+        const prepared = await this.sent(uploads.prepare, per, callAuth);
+
+        if (!prepared.result.ok) {
+          return { uploaded: [], failed: serviceErrorOf(prepared.result) };
+        }
+
+        const bytes = await this.files.open(payload.task.taskId, file.id);
+
+        if (!bytes) {
+          return {
+            uploaded: [],
+            failed: {
+              status: 0,
+              output: `the file ${file.name} is no longer on the task`,
+            },
+          };
+        }
+
+        const sent = await this.onBehalfOf(callAuth, () =>
+          this.sentInScope(
+            uploads.send,
+            { ...per, prepared: prepared.result.capture },
+            callAuth,
+            { bytes, type: file.type },
+          ),
+        );
+
+        if (!sent.result.ok) {
+          return { uploaded: [], failed: serviceErrorOf(sent.result) };
+        }
+
+        uploaded.push({ ...file, prepared: prepared.result.capture });
+      }
+
+      if (uploads.complete) {
+        const completed = await this.sent(
+          uploads.complete,
+          { ...bindings, uploaded },
+          callAuth,
+        );
+
+        if (!completed.result.ok) {
+          return { uploaded: [], failed: serviceErrorOf(completed.result) };
+        }
+      }
+    } catch (error) {
+      return {
+        uploaded: [],
+        failed: { status: 0, output: reasonOf(error) },
+      };
+    }
+
+    return { uploaded, failed: null };
   }
 
   async tool(
@@ -593,14 +727,15 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     request: RequestIR,
     bindings: Bindings,
     callAuth: CallAuth,
+    file?: SentFile,
   ): Promise<Sent> {
+    const call = (against: Bindings) =>
+      file
+        ? this.outbound.upload(request, against, callAuth.credentials, file)
+        : this.outbound.run(request, against, callAuth.credentials);
     const connection = callAuth.connection;
     const first = connected(bindings, connection?.token ?? null);
-    const result = await this.outbound.run(
-      request,
-      first,
-      callAuth.credentials,
-    );
+    const result = await call(first);
 
     if (
       result.status !== UNAUTHORIZED ||
@@ -619,7 +754,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const again = connected(bindings, refreshed);
 
     return {
-      result: await this.outbound.run(request, again, callAuth.credentials),
+      result: await call(again),
       bindings: again,
     };
   }

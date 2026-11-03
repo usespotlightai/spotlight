@@ -5,6 +5,7 @@ import type {
 } from '@integrations/application/ports/defined-integrations.port';
 import type { PollState } from '@integrations/application/ports/integration-cursors.port';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { ProcessDuePolls } from '@integrations/application/services/process-due-polls.service';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
@@ -55,6 +56,7 @@ const runtimeWith = (
     unlimited,
     unscoped,
     noNetwork,
+    noFiles,
   );
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');

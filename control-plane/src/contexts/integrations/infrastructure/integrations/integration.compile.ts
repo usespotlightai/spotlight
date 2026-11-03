@@ -56,6 +56,7 @@ import {
   type RequestFile,
   secretOf,
   type ToolInputFile,
+  type UploadsFile,
   written,
 } from '@integrations/infrastructure/integrations/integration.schema';
 import { Place } from '@integrations/infrastructure/integrations/place';
@@ -130,6 +131,17 @@ export interface RequestIR {
   } | null;
   readonly capture: readonly { name: string; value: Expression }[];
   readonly fromNetwork: { readonly timeoutMs: number } | null;
+}
+
+export interface UploadsIR {
+  readonly each: Expression;
+  readonly prepare: RequestIR;
+  readonly send: RequestIR;
+  readonly complete: RequestIR | null;
+}
+
+interface ActionIR extends RequestIR {
+  readonly uploads: UploadsIR | null;
 }
 
 export interface RaiseIR {
@@ -258,7 +270,7 @@ export interface ReadableIntegration {
   readonly webhook: WebhookIR | null;
   readonly poll: PollIR | null;
   readonly connection: ConnectionIR | null;
-  readonly actions: ReadonlyMap<string, RequestIR>;
+  readonly actions: ReadonlyMap<string, ActionIR>;
   readonly on: readonly OnBindingIR[];
   readonly tools: ReadonlyMap<string, ToolIR>;
 }
@@ -620,8 +632,13 @@ class Compiler {
     };
   }
 
-  action(action: ActionFile, at: Place, field: FieldPath): RequestIR {
-    const request = this.request(action.request, at);
+  action(action: ActionFile, at: Place, field: FieldPath): ActionIR {
+    const request = {
+      ...this.request(action.request, at.to('request')),
+      uploads: action.uploads
+        ? this.uploads(action.uploads, at.to('uploads'), field.to('uploads'))
+        : null,
+    };
 
     if (action.from !== 'network') {
       if (action.timeoutSeconds !== undefined) {
@@ -632,6 +649,13 @@ class Compiler {
       }
 
       return request;
+    }
+
+    if (action.uploads) {
+      this.refuse(
+        field.to('uploads'),
+        'sends files that Spotlight keeps. An action sent from the network cannot read them. Please remove from: network, or remove uploads',
+      );
     }
 
     if (action.request.auth?.oauth2) {
@@ -662,6 +686,24 @@ class Compiler {
       fromNetwork: {
         timeoutMs: (action.timeoutSeconds ?? NETWORK_TIMEOUT_SECONDS) * 1_000,
       },
+    };
+  }
+
+  uploads(uploads: UploadsFile, at: Place, field: FieldPath): UploadsIR {
+    if (uploads.send.body !== undefined) {
+      this.refuse(
+        field.to('send', 'body'),
+        'is the body of the request that sends a file. Spotlight sends the bytes of the file as the body. Please remove body',
+      );
+    }
+
+    return {
+      each: this.expression(uploads.each, at.to('each')) as Expression,
+      prepare: this.request(uploads.prepare, at.to('prepare')),
+      send: this.request(uploads.send, at.to('send')),
+      complete: uploads.complete
+        ? this.request(uploads.complete, at.to('complete'))
+        : null,
     };
   }
 
@@ -1025,7 +1067,7 @@ export const compileIntegration = (
     inputsOf.set(tool.action, typed);
   }
 
-  const actions = new Map<string, RequestIR>();
+  const actions = new Map<string, ActionIR>();
   for (const [name, action] of Object.entries(file.actions)) {
     const inputs = inputsOf.get(name);
 
@@ -1036,10 +1078,36 @@ export const compileIntegration = (
         root
           .to('actions')
           .each(name)
-          .to('request')
           .adding(inputs ? { inputs } : {}),
         FieldPath.of(['actions', name]),
       ),
+    );
+  }
+
+  for (const [name, tool] of Object.entries(file.tools)) {
+    if (file.actions[tool.action]?.uploads) {
+      compiler.refuse(
+        FieldPath.of(['tools', name, 'action']),
+        `names the action ${tool.action}, which uploads files. Only an event in on sends files. Please name an action without uploads`,
+      );
+    }
+  }
+
+  for (const [event, listed] of Object.entries(file.on)) {
+    listed.forEach((binding, at) => {
+      if (event.startsWith('chat.') && file.actions[binding.action]?.uploads) {
+        compiler.refuse(
+          FieldPath.of(['on', event, at, 'action']),
+          `names the action ${binding.action}, which uploads files. A chat event has no files. Please name an action without uploads`,
+        );
+      }
+    });
+  }
+
+  if (file.schedule && file.actions[file.schedule.action]?.uploads) {
+    compiler.refuse(
+      FieldPath.of(['schedule', 'action']),
+      `names the action ${file.schedule.action}, which uploads files. Only an event in on sends files. Please name an action without uploads`,
     );
   }
 

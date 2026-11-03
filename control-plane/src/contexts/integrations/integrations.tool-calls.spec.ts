@@ -1,5 +1,6 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
@@ -82,6 +83,7 @@ const runtimeWith = (
     limits,
     unscoped,
     noNetwork,
+    noFiles,
   );
 
 const LINEAR = `integration: linear
@@ -574,6 +576,7 @@ graphql:
           unlimited,
           hosts,
           noNetwork,
+          noFiles,
         ),
         callAuthFor(secrets.injection),
         inferringInto(),

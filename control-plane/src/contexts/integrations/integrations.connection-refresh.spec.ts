@@ -1,4 +1,5 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
@@ -51,6 +52,7 @@ const runtimeWith = (
     unlimited,
     hosts,
     noNetwork,
+    noFiles,
   );
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');

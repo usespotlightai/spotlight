@@ -7,6 +7,7 @@ import type {
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
@@ -355,6 +356,7 @@ const settingUp = ({
     unlimited,
     unscoped,
     noNetwork,
+    noFiles,
   );
   const connectionRefresh = new ConnectionRefresh(
     connections,

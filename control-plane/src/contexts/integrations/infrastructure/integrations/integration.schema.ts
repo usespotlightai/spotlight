@@ -148,6 +148,13 @@ const requestSchema = z.object({
     .optional(),
 });
 
+const uploadsSchema = z.object({
+  each: expression,
+  prepare: requestSchema,
+  send: requestSchema,
+  complete: requestSchema.optional(),
+});
+
 const actionSchema = z.object({
   from: z.enum(['spotlight', 'network']).optional(),
   timeoutSeconds: z
@@ -157,6 +164,7 @@ const actionSchema = z.object({
     .max(60, 'is 1 to 60 seconds')
     .optional(),
   request: requestSchema,
+  uploads: uploadsSchema.optional(),
 });
 
 const SCALAR_INPUT_TYPES = ['string', 'number', 'integer', 'boolean'] as const;
@@ -416,6 +424,7 @@ export type EventFile = z.infer<typeof eventSchema>;
 export type AuthFile = AuthOptions;
 export type RequestFile = z.infer<typeof requestSchema>;
 export type ActionFile = z.infer<typeof actionSchema>;
+export type UploadsFile = z.infer<typeof uploadsSchema>;
 export type RaiseFile = z.infer<typeof raiseSchema>;
 export type OpenApiFile = z.infer<typeof openapiSchema>;
 export type GraphQlFile = z.infer<typeof graphqlSchema>;

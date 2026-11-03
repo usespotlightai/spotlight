@@ -10,6 +10,7 @@ import { Station } from '@work/domain/entities/station.entity';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -147,6 +148,32 @@ describe('IntegrationTaskViews', () => {
     expect(view?.waiting?.body).toBe('Which queue should I drain?');
     expect(view?.waiting?.conversationId).toMatch(/^task_1:/);
     expect(view?.waiting?.awaitsApproval).toBe(false);
+  });
+
+  it('carries the files of the question, for an integration to send', async () => {
+    const asked = task().askedAbout(
+      {
+        station: StationName.of('Code Review'),
+        body: TaskNoteBody.of('Here are the screenshots.'),
+        at: NOW,
+        voice: Voice.station(),
+        attachments: [
+          Attachment.of({
+            id: 'file_1',
+            name: 'shot.png',
+            contentType: 'image/png',
+            size: 3,
+          }),
+        ],
+      },
+      null,
+    );
+
+    const view = await taskViews().of(asked);
+
+    expect(view?.waiting?.attachments).toEqual([
+      { id: 'file_1', name: 'shot.png', contentType: 'image/png', size: 3 },
+    ]);
   });
 
   it('says when the pending answer is the approval of a tool call', async () => {

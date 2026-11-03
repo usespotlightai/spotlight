@@ -1,7 +1,15 @@
+interface WaitingAttachmentDto {
+  readonly id: string;
+  readonly name: string;
+  readonly contentType: string;
+  readonly size: number;
+}
+
 interface WaitingDto {
   readonly conversationId: string;
   readonly body: string;
   readonly awaitsApproval: boolean;
+  readonly attachments: readonly WaitingAttachmentDto[];
 }
 
 export interface IntegrationTaskViewDto {
