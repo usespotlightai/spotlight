@@ -1,5 +1,5 @@
 {
-  "id": "7d5eb9ca-678a-4b55-8be0-c6a804cb6b5a",
+  "id": "1688570a-d7e9-41eb-8a9c-0f6df73d9ded",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -3174,6 +3174,13 @@
         },
         "version": {
           "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "grant_version": {
+          "name": "grant_version",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

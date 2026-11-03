@@ -21,7 +21,7 @@ const NOW = new Date('2026-09-25T10:00:00.000Z');
 const MAIN = 'repo:acme/platform:ref:refs/heads/main';
 const ISSUER = 'https://token.actions.githubusercontent.com';
 
-const trustAt = (version: number) =>
+const trustAt = (grantVersion: number) =>
   OidcTrust.rehydrate({
     id: OidcTrustId.of('trust_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -37,7 +37,8 @@ const trustAt = (version: number) =>
     description: OidcTrustDescription.of(''),
     createdBy: UserId.of('admin_1'),
     createdAt: new Date('2026-09-01T09:00:00.000Z'),
-    version,
+    version: 0,
+    grantVersion,
   });
 
 const ISSUED_BY_TRUST = trustAt(1).issueFor(

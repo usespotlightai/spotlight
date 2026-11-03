@@ -50,6 +50,7 @@ const trust = () =>
     createdBy: UserId.of('user_1'),
     createdAt: new Date('2026-09-01T09:00:00.000Z'),
     version: 0,
+    grantVersion: 0,
   });
 
 const issued = () => {

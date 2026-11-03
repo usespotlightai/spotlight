@@ -45,7 +45,7 @@ const spec = (
   description: OidcTrustDescription.of(''),
 });
 
-const stored = (version = 2) =>
+const stored = (version = 2, grantVersion = version) =>
   OidcTrust.rehydrate({
     ...spec(),
     id: ID,
@@ -53,6 +53,7 @@ const stored = (version = 2) =>
     createdBy: ADMIN,
     createdAt: NOW,
     version,
+    grantVersion,
   });
 
 const workload = (subject = MAIN): WorkloadClaims => ({
@@ -127,12 +128,12 @@ describe('OidcTrust', () => {
     ).toThrow(WorkloadNotMatchedError);
   });
 
-  it('still grants a token only while it is the same as when the token was issued', () => {
-    const token = issuedToken(stored(2));
+  it('still grants a token only while it grants what it did when the token was issued', () => {
+    const token = issuedToken(stored(5, 2));
 
     expect(token.trustVersion).toBe(2);
-    expect(stored(2).stillGrants(token)).toBe(true);
-    expect(stored(3).stillGrants(token)).toBe(false);
+    expect(stored(7, 2).stillGrants(token)).toBe(true);
+    expect(stored(5, 3).stillGrants(token)).toBe(false);
     expect(
       stored(2).delete(ScopeCeiling.unlimited, BY).stillGrants(token),
     ).toBe(false);
@@ -162,6 +163,47 @@ describe('OidcTrust', () => {
     expect(updated.pullEvents().map((each) => each.kind)).toEqual([
       'oidc-trust.updated',
     ]);
+  });
+
+  it('still grants the tokens it issued when only its description changes', () => {
+    const trust = stored();
+    const token = issuedToken(trust);
+    const described = trust.update(
+      { ...spec(), description: OidcTrustDescription.of('Deploys main') },
+      ScopeCeiling.unlimited,
+      BY,
+    );
+
+    expect(described.grantVersion).toBe(trust.grantVersion);
+    expect(described.stillGrants(token)).toBe(true);
+  });
+
+  it('cuts the tokens it issued when what it grants changes', () => {
+    const trust = stored();
+    const token = issuedToken(trust);
+
+    for (const changed of [
+      spec({ scopes: ['plan'] }),
+      spec({ minutes: 5 }),
+      {
+        ...spec(),
+        workload: WorkloadRule.of({
+          issuer: ISSUER,
+          audience: 'spotlight',
+          subject: 'repo:acme/platform:pull_request',
+          claims: {},
+        }),
+      },
+    ]) {
+      const updated = trust.update(changed, ScopeCeiling.unlimited, BY);
+
+      expect(updated.grantVersion).toBe(trust.grantVersion + 1);
+      expect(updated.stillGrants(token)).toBe(false);
+    }
+  });
+
+  it('refuses to be read back at an impossible grant version', () => {
+    expect(() => stored(2, -1)).toThrow(InconsistentStateError);
   });
 
   it('grants no scope beyond those of a token creating or updating it', () => {

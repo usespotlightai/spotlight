@@ -476,6 +476,26 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     ).toBe(200);
   });
 
+  it('keeps the tokens it issued when only its description changes', async () => {
+    const trust = await create(trusting());
+    const issued = await exchanged(trust.id, MAIN);
+    const described = await http()
+      .put(`/api/v1/resources/oidc-trusts/${trust.id}`)
+      .set(TEST_USER_HEADER, seat.owner)
+      .set('If-Match', '"0"')
+      .send(trusting({ description: 'Deploys main' }));
+
+    expect(described.status).toBe(200);
+    expect(described.body.version).toBe(1);
+    expect(
+      (
+        await as(issued.token).get(
+          `/api/v1/resources/workspaces/${seat.workspaceId}`,
+        )
+      ).status,
+    ).toBe(200);
+  });
+
   it('records each exchange and each change made with an issued token against its trust', async () => {
     const trust = await create(trusting());
     const issued = await exchanged(trust.id, MAIN);

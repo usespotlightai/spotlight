@@ -232,6 +232,7 @@ export const oidcTrust = pgTable(
     createdBy: text('created_by').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     version: integer('version').default(0).notNull(),
+    grantVersion: integer('grant_version').default(0).notNull(),
   },
   (table) => [
     uniqueIndex('oidc_trust_workspace_key_idx').on(

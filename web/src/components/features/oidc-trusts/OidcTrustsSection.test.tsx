@@ -138,8 +138,8 @@ describe('OidcTrustsSection', () => {
     expect(screen.queryByText(/GitHub Actions/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Configure, Secrets/)).not.toBeInTheDocument();
     expect(
-      screen.getByText('infra-apply').parentElement?.children,
-    ).toHaveLength(1);
+      screen.getByText('infra-apply').closest('[data-slot="oidc-trust-row"]'),
+    ).toHaveTextContent(/^infra-applyIssued just now$/);
   });
 
   it('puts the creator, the issuer, the subject, the claims and the token lifetime in the tooltip', () => {

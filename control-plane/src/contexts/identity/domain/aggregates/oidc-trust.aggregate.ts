@@ -39,6 +39,7 @@ interface Props extends OidcTrustSpec {
   readonly createdBy: UserId;
   readonly createdAt: Date;
   readonly version: number;
+  readonly grantVersion: number;
 }
 
 interface State extends Props {
@@ -75,6 +76,7 @@ export class OidcTrust extends EventRecorder {
       createdBy: input.createdBy,
       createdAt: input.now,
       version: 0,
+      grantVersion: 0,
       deleted: false,
     });
 
@@ -95,6 +97,13 @@ export class OidcTrust extends EventRecorder {
       throw new InconsistentStateError(
         'OIDC trust',
         `has an impossible version (${input.version})`,
+      );
+    }
+
+    if (!Number.isInteger(input.grantVersion) || input.grantVersion < 0) {
+      throw new InconsistentStateError(
+        'OIDC trust',
+        `has an impossible grant version (${input.grantVersion})`,
       );
     }
 
@@ -138,6 +147,9 @@ export class OidcTrust extends EventRecorder {
       scopes: spec.scopes,
       lifetime: spec.lifetime,
       description: spec.description,
+      grantVersion: this.grantsAs(spec)
+        ? this.grantVersion
+        : this.grantVersion + 1,
     });
 
     updated.record(
@@ -196,7 +208,7 @@ export class OidcTrust extends EventRecorder {
       hash: issued.hash,
       issuedBy: this.createdBy,
       issuedByTrustId: this.id,
-      trustVersion: this.version,
+      trustVersion: this.grantVersion,
       subject: workload.subject,
       now: issued.now,
       client: issued.client,
@@ -207,7 +219,7 @@ export class OidcTrust extends EventRecorder {
     return (
       !this.isDeleted &&
       token.issuedByTrustId?.equals(this.id) === true &&
-      token.trustVersion === this.version
+      token.trustVersion === this.grantVersion
     );
   }
 
@@ -251,6 +263,10 @@ export class OidcTrust extends EventRecorder {
     return this.state.version;
   }
 
+  get grantVersion(): number {
+    return this.state.grantVersion;
+  }
+
   get isDeleted(): boolean {
     return this.state.deleted;
   }
@@ -264,11 +280,14 @@ export class OidcTrust extends EventRecorder {
   }
 
   private hasSpec(spec: OidcTrustSpec): boolean {
+    return this.grantsAs(spec) && spec.description.equals(this.description);
+  }
+
+  private grantsAs(spec: OidcTrustSpec): boolean {
     return (
       spec.workload.equals(this.workload) &&
       spec.scopes.equals(this.scopes) &&
-      spec.lifetime.equals(this.lifetime) &&
-      spec.description.equals(this.description)
+      spec.lifetime.equals(this.lifetime)
     );
   }
 

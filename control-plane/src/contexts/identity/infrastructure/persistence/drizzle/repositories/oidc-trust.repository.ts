@@ -45,6 +45,7 @@ const toTrust = (row: Row): OidcTrust =>
     createdBy: UserId.of(row.createdBy),
     createdAt: row.createdAt,
     version: row.version,
+    grantVersion: row.grantVersion,
   });
 
 const specOf = (trust: OidcTrust) => ({
@@ -55,6 +56,7 @@ const specOf = (trust: OidcTrust) => ({
   scopes: trust.scopes.all.map((each) => each.value),
   lifetimeMinutes: trust.lifetime.minutes,
   description: trust.description.value,
+  grantVersion: trust.grantVersion,
 });
 
 @Injectable()
