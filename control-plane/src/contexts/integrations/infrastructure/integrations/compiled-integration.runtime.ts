@@ -53,6 +53,7 @@ import { refreshingOnce } from '@integrations/infrastructure/mcp/refreshing-once
 import type {
   HttpOutbound,
   OutboundResult,
+  SentFile,
 } from '@integrations/infrastructure/outbound/http-outbound';
 import type { NetworkOutbound } from '@integrations/infrastructure/outbound/network-outbound';
 import { operationRequest } from '@integrations/infrastructure/outbound/operation-request';
@@ -412,16 +413,16 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         }
 
         const sent = await this.onBehalfOf(callAuth, () =>
-          this.outbound.upload(
+          this.sentInScope(
             uploads.send,
             { ...per, prepared: prepared.result.capture },
-            callAuth.credentials,
-            { bytes: new Uint8Array(bytes), type: file.type },
+            callAuth,
+            { bytes, type: file.type },
           ),
         );
 
-        if (!sent.ok) {
-          return { uploaded: [], failed: serviceErrorOf(sent) };
+        if (!sent.result.ok) {
+          return { uploaded: [], failed: serviceErrorOf(sent.result) };
         }
 
         uploaded.push({ ...file, prepared: prepared.result.capture });
@@ -726,14 +727,15 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     request: RequestIR,
     bindings: Bindings,
     callAuth: CallAuth,
+    file?: SentFile,
   ): Promise<Sent> {
+    const call = (against: Bindings) =>
+      file
+        ? this.outbound.upload(request, against, callAuth.credentials, file)
+        : this.outbound.run(request, against, callAuth.credentials);
     const connection = callAuth.connection;
     const first = connected(bindings, connection?.token ?? null);
-    const result = await this.outbound.run(
-      request,
-      first,
-      callAuth.credentials,
-    );
+    const result = await call(first);
 
     if (
       result.status !== UNAUTHORIZED ||
@@ -752,7 +754,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const again = connected(bindings, refreshed);
 
     return {
-      result: await this.outbound.run(request, again, callAuth.credentials),
+      result: await call(again),
       bindings: again,
     };
   }

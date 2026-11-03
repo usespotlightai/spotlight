@@ -1,8 +1,14 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
-import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import type {
+  CallAuth,
+  Credentials,
+} from '@integrations/application/ports/integration-runtime.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
+import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -29,6 +35,7 @@ import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -335,6 +342,7 @@ const uploading = (
   sendStatus = 200,
   file = UPLOADING,
   images: 'shown' | 'refused' | 'lost' = 'shown',
+  callAuth: CallAuthResolver = callAuthFor(injecting().injection),
 ) => {
   const answered = (response: unknown, capture = {}): OutboundResult => ({
     ok: true,
@@ -380,15 +388,14 @@ const uploading = (
   const upload = vi.fn(
     async (
       _request: unknown,
-      _against: Record<string, unknown>,
+      against: Record<string, unknown>,
       _credentials: Credentials,
       _file: { bytes: Uint8Array; type: string },
-    ): Promise<OutboundResult> => ({
-      ok: sendStatus === 200,
-      status: sendStatus,
-      response: 'OK',
-      capture: {},
-    }),
+    ): Promise<OutboundResult> => {
+      const status = against.connection === 'at-old' ? 401 : sendStatus;
+
+      return { ok: status === 200, status, response: 'OK', capture: {} };
+    },
   );
   const open = vi.fn(async () => new Uint8Array([1, 2, 3]));
   const warn = vi.fn();
@@ -409,7 +416,7 @@ const uploading = (
       noNetwork,
       { open },
     ),
-    callAuthFor(injecting().injection),
+    callAuth,
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
       'https://app.example',
@@ -529,6 +536,54 @@ describe('TaskNotices uploads', () => {
     expect(
       run.mock.calls.filter(([action]) => 'uploads' in action),
     ).toHaveLength(1);
+  });
+
+  it('sends a file with the connection, and refreshes the connection once where it is refused', async () => {
+    const unauthorized = vi.fn(async () => AccessToken.of('at-new'));
+    const connected: CallAuth = {
+      workspace: async () => 'ws_1',
+      connection: {
+        token: AccessToken.of('at-old'),
+        owner: ConnectionOwner.person(UserId.of('ada')),
+        linkedAccount: '@ada',
+        unauthorized,
+      },
+      credentials: { injectedFor: vi.fn(), standInsFor: vi.fn() },
+    };
+    const { notifier, upload } = uploading(
+      200,
+      UPLOADING.replace(
+        `      send:
+        method: POST
+        url: '\${{ prepared.url }}'
+`,
+        `      send:
+        method: POST
+        url: '\${{ prepared.url }}'
+        auth:
+          oauth2:
+            connection: true
+`,
+      ).replace(
+        'integration: slack\n',
+        `integration: slack
+connection:
+  oauth2:
+    authorize: https://slack.com/oauth/v2/authorize
+    token: https://slack.com/api/oauth.v2.access
+`,
+      ),
+      'shown',
+      { of: async () => connected } as unknown as CallAuthResolver,
+    );
+
+    await notifier.notify(withFiles([SHOT]), 'task.asked');
+
+    expect(unauthorized).toHaveBeenCalledOnce();
+    expect(upload.mock.calls.map(([, against]) => against.connection)).toEqual([
+      'at-old',
+      'at-new',
+    ]);
   });
 
   it('renders the file’s name and size into the request that prepares it', async () => {

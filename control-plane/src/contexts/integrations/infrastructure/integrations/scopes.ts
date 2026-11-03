@@ -93,6 +93,7 @@ export const PREPARING = UPLOADING.and({
 });
 
 export const SENDING = UPLOADING.and({
+  connection: 'string',
   file: NOTE_FILE,
   prepared: 'map<string, dyn>',
 });
