@@ -12,15 +12,8 @@
     {
       "idx": 1,
       "version": "7",
-      "when": 1793640998461,
-      "tag": "20261102173638_initial_schema",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1793703298408,
-      "tag": "20261103105458_add_oidc_trust_description",
+      "when": 1793742040590,
+      "tag": "20261103214040_initial_schema",
       "breakpoints": true
     }
   ]
