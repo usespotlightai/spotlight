@@ -1,4 +1,5 @@
 import type {
+  ParsedOidcTrust,
   ParsedTeam,
   ParsedWorkspace,
   ParsedWorkspaceToken,
@@ -10,7 +11,11 @@ import { describe, expect, it } from 'vitest';
 const definitions = new IdentityDefinitions();
 
 const invalidAt = (
-  compiled: ParsedWorkspace | ParsedTeam | ParsedWorkspaceToken,
+  compiled:
+    | ParsedWorkspace
+    | ParsedTeam
+    | ParsedWorkspaceToken
+    | ParsedOidcTrust,
 ): (string | undefined)[] =>
   compiled.ok ? [] : compiled.problems.map((each) => dottedOf(each.field));
 
