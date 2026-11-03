@@ -24,7 +24,7 @@ const LATER = new Date('2026-09-25T10:20:00.000Z');
 const ISSUER = 'https://token.actions.githubusercontent.com';
 const MAIN = 'repo:acme/platform:ref:refs/heads/main';
 
-const trustAt = (grantVersion: number) =>
+const trustAt = (grantVersion: number, version = 0) =>
   OidcTrust.rehydrate({
     id: OidcTrustId.of('trust_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -40,7 +40,7 @@ const trustAt = (grantVersion: number) =>
     description: OidcTrustDescription.of(''),
     createdBy: UserId.of('admin_1'),
     createdAt: new Date('2026-09-01T09:00:00.000Z'),
-    version: 0,
+    version,
     grantVersion,
   });
 
@@ -104,9 +104,12 @@ describe('TokenAuthentication', () => {
     ).toBe(false);
   });
 
-  it('authenticates a token issued by a trust only while the trust is the same as when it issued the token', () => {
+  it('authenticates a token issued by a trust only while the trust grants what it did when it issued the token', () => {
     expect(
       TokenAuthentication.authenticates(ISSUED_BY_TRUST, trustAt(1), NOW),
+    ).toBe(true);
+    expect(
+      TokenAuthentication.authenticates(ISSUED_BY_TRUST, trustAt(1, 4), NOW),
     ).toBe(true);
     expect(
       TokenAuthentication.authenticates(ISSUED_BY_TRUST, trustAt(2), NOW),

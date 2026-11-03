@@ -21,7 +21,7 @@ const NOW = new Date('2026-09-25T10:00:00.000Z');
 const MAIN = 'repo:acme/platform:ref:refs/heads/main';
 const ISSUER = 'https://token.actions.githubusercontent.com';
 
-const trustAt = (grantVersion: number) =>
+const trustAt = (grantVersion: number, version = 0) =>
   OidcTrust.rehydrate({
     id: OidcTrustId.of('trust_1'),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -37,7 +37,7 @@ const trustAt = (grantVersion: number) =>
     description: OidcTrustDescription.of(''),
     createdBy: UserId.of('admin_1'),
     createdAt: new Date('2026-09-01T09:00:00.000Z'),
-    version: 0,
+    version,
     grantVersion,
   });
 
@@ -68,15 +68,22 @@ const authenticator = (
   );
 
 describe('TokenAuthenticator', () => {
-  it('knows a token issued by a trust while the trust is the same as when it issued the token', async () => {
+  it('knows a token issued by a trust while the trust grants what it did when it issued the token', async () => {
     expect(
       await authenticator(ISSUED_BY_TRUST, trustAt(1)).authenticate('bearer'),
     ).toMatchObject({
       issuedByTrustId: OidcTrustId.of('trust_1'),
     });
+    expect(
+      await authenticator(ISSUED_BY_TRUST, trustAt(1, 4)).authenticate(
+        'bearer',
+      ),
+    ).toMatchObject({
+      issuedByTrustId: OidcTrustId.of('trust_1'),
+    });
   });
 
-  it('knows no token issued by a trust once the trust is gone or has changed', async () => {
+  it('knows no token issued by a trust once the trust is gone or grants something else', async () => {
     expect(
       await authenticator(ISSUED_BY_TRUST, null).authenticate('bearer'),
     ).toBeNull();
