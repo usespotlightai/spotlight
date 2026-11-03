@@ -107,7 +107,12 @@ describe('ReactionFor, with a review request', () => {
     expect(answer.kind === 'opens' && answer.on.line.key.value).toBe('review');
   });
 
-  it('counts a pull request as Spotlight’s own by a task that holds its branch, or by a task of Spotlight’s that opened it', () => {
+  it('counts a pull request as Spotlight’s own by a branch under spotlight/, a task that holds its branch, or a task of Spotlight’s that opened it', () => {
+    expect(
+      requested({
+        request: { branch: Branch.of('spotlight/search-1a2b-tidy') },
+      }),
+    ).toEqual({ kind: 'nothing' });
     expect(requested({ branchTask: taskOn(delivery) })).toEqual({
       kind: 'nothing',
     });

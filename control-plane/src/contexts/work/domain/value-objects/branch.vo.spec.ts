@@ -36,6 +36,10 @@ describe('Branch', () => {
       'test/add-e2e-tests-for-replays-b38c669e',
     );
     expect(named('Bump vitest')).toBe('chore/bump-vitest-b38c669e');
+    expect(named('Choreograph the tour')).toBe(
+      'feat/choreograph-the-tour-b38c669e',
+    );
+    expect(named('Update deps')).toBe('chore/update-deps-b38c669e');
   });
 
   it('names a feature where the title gives no type', () => {
@@ -57,6 +61,11 @@ describe('Branch', () => {
       'feat/cafe-menu-the-2nd-tab-b38c669e',
     );
     expect(named('✨🚀')).toBe('feat/task-b38c669e');
+  });
+
+  it('marks a branch under spotlight/ as Spotlight’s own', () => {
+    expect(Branch.of('spotlight/search-1a2b-tidy').isSpotlights).toBe(true);
+    expect(Branch.of('feat/tidy-b38c669e').isSpotlights).toBe(false);
   });
 
   it('refuses an empty name', () => {

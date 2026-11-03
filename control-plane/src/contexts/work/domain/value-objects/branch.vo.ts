@@ -33,9 +33,13 @@ const LEADING_WORDS: readonly (readonly [RegExp, BranchType])[] = [
   ],
   [/^((add|write|cover)\s+(more\s+)?(unit\s+|e2e\s+)?)?tests?\b/i, 'test'],
   [/^(docs?|document)\b/i, 'docs'],
-  [/^(revert|bump|chore|upgrade|update\s+(dependenc|deps|lock))/i, 'chore'],
+  [
+    /^((revert|bump|chore|upgrade)\b|update\s+(dependenc|deps\b|lock))/i,
+    'chore',
+  ],
 ];
 
+const SPOTLIGHTS = 'spotlight/';
 const SLUG_LENGTH = 40;
 const SHORT_ID_LENGTH = 8;
 
@@ -93,6 +97,10 @@ export class Branch {
     }
 
     return new Branch(named);
+  }
+
+  get isSpotlights(): boolean {
+    return this.value.startsWith(SPOTLIGHTS);
   }
 
   equals(other: Branch): boolean {

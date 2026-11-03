@@ -47,9 +47,11 @@ export type ReviewAnswer =
   | { readonly kind: 'opens'; readonly on: OpenedOn };
 
 const spotlights = (
+  request: ReviewRequest,
   branchTask: Task | null,
   pullRequestTask: Task | null,
 ): boolean =>
+  (request.branch?.isSpotlights ?? false) ||
   branchTask !== null ||
   (pullRequestTask !== null && !pullRequestTask.reviewing);
 
@@ -167,7 +169,11 @@ export const ReactionFor = {
       request: {
         ...input.request,
         anchor: input.anchor,
-        ours: spotlights(input.branchTask, input.pullRequestTask),
+        ours: spotlights(
+          input.request,
+          input.branchTask,
+          input.pullRequestTask,
+        ),
       },
     });
 
