@@ -119,7 +119,7 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     workspaceOf: () => seat.workspaceId,
     address: 'github-main',
     valid: trusting(),
-    changed: trusting({ scopes: ['plan'] }),
+    changed: trusting({ scopes: ['plan'], description: 'Plans pull requests' }),
     changedAgain: trusting({ lifetimeMinutes: 5 }),
     invalid: {
       body: trusting({ lifetimeMinutes: 61 }),

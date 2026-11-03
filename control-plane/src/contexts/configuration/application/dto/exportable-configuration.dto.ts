@@ -82,6 +82,7 @@ export type ExportableResourceDto =
       readonly claims: Readonly<Record<string, string>>;
       readonly scopes: readonly string[];
       readonly lifetimeMinutes: number;
+      readonly description: string;
     })
   | (WorkspaceOwned & {
       readonly kind: 'runner-trust';

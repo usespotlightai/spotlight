@@ -1,15 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import {
-  admitted,
-  describeIssued,
-  describeTrust,
-  GITHUB_ACTIONS_ISSUER,
-  type OidcTrust,
-  trustNote,
-} from '@/lib/oidc-trust';
+import { describeIssued, type OidcTrust, trustNote } from '@/lib/oidc-trust';
 
-const github = (subject: string) =>
-  admitted({ issuer: GITHUB_ACTIONS_ISSUER, subject });
+const GITHUB_ACTIONS_ISSUER = 'https://token.actions.githubusercontent.com';
 
 const trust = (over: Partial<OidcTrust> = {}): OidcTrust => ({
   id: 'trust_1',
@@ -20,72 +12,11 @@ const trust = (over: Partial<OidcTrust> = {}): OidcTrust => ({
   claims: {},
   scopes: ['configure', 'secrets'],
   lifetimeMinutes: 60,
+  description: '',
   createdBy: { id: 'user_1', name: 'Ada Lovelace' },
   createdAt: '2026-09-01T09:00:00.000Z',
   lastIssuedAt: null,
   ...over,
-});
-
-describe('admitted', () => {
-  it('names the repository and the branch of a GitHub Actions subject', () => {
-    expect(github('repo:acme/infra:ref:refs/heads/main')).toBe(
-      'GitHub Actions in acme/infra, branch main',
-    );
-    expect(github('repo:acme/infra:ref:refs/heads/release/v2')).toBe(
-      'GitHub Actions in acme/infra, branch release/v2',
-    );
-  });
-
-  it('names pull requests, environments and tags', () => {
-    expect(github('repo:acme/infra:pull_request')).toBe(
-      'GitHub Actions in acme/infra, pull requests',
-    );
-    expect(github('repo:acme/web:environment:production')).toBe(
-      'GitHub Actions in acme/web, environment production',
-    );
-    expect(github('repo:acme/web:ref:refs/tags/v1.2.0')).toBe(
-      'GitHub Actions in acme/web, tag v1.2.0',
-    );
-  });
-
-  it('shows any other GitHub Actions subject as it is, patterns included', () => {
-    expect(github('repo:acme/*:ref:refs/heads/main')).toBe(
-      'GitHub Actions: repo:acme/*:ref:refs/heads/main',
-    );
-    expect(github('repo:acme/infra:ref:refs/heads/*')).toBe(
-      'GitHub Actions: repo:acme/infra:ref:refs/heads/*',
-    );
-    expect(github('repo:acme/infra:workflow:deploy')).toBe(
-      'GitHub Actions: repo:acme/infra:workflow:deploy',
-    );
-    expect(
-      github(
-        'repo:acme/infra:ref:refs/heads/main:job_workflow_ref:acme/infra/.github/workflows/x.yml@refs/heads/main',
-      ),
-    ).toBe(
-      'GitHub Actions: repo:acme/infra:ref:refs/heads/main:job_workflow_ref:acme/infra/.github/workflows/x.yml@refs/heads/main',
-    );
-  });
-
-  it('names the host of any other issuer beside the subject', () => {
-    expect(
-      admitted({
-        issuer: 'https://agent.buildkite.com',
-        subject: 'organization:acme:pipeline:deploys',
-      }),
-    ).toBe('agent.buildkite.com: organization:acme:pipeline:deploys');
-    expect(admitted({ issuer: 'not a url', subject: 'ci' })).toBe(
-      'not a url: ci',
-    );
-  });
-});
-
-describe('describeTrust', () => {
-  it('says what the trust admits, then the scopes of its tokens', () => {
-    expect(describeTrust(trust())).toBe(
-      'GitHub Actions in acme/infra, branch main · Configure, Secrets',
-    );
-  });
 });
 
 describe('describeIssued', () => {

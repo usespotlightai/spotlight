@@ -645,6 +645,7 @@ const bodyOf = (
         claims: resource.claims,
         scopes: resource.scopes,
         lifetimeMinutes: resource.lifetimeMinutes,
+        description: resource.description,
       };
     case 'runner-trust':
       return {

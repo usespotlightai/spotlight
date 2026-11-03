@@ -1,0 +1,1 @@
+ALTER TABLE "oidc_trust" ADD COLUMN "description" text DEFAULT '' NOT NULL;

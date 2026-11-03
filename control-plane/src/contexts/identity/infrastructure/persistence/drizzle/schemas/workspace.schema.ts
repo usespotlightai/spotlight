@@ -228,6 +228,7 @@ export const oidcTrust = pgTable(
       .default({}),
     scopes: workspaceTokenScope('scopes').array().notNull(),
     lifetimeMinutes: integer('lifetime_minutes').notNull(),
+    description: text('description').notNull().default(''),
     createdBy: text('created_by').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     version: integer('version').default(0).notNull(),

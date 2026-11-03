@@ -5,6 +5,7 @@ import { OidcTrustUpdated } from '@identity/domain/events/oidc-trust-updated.eve
 import { OidcTrustVersionConflictError } from '@identity/domain/exceptions/oidc-trust-version-conflict.error';
 import { ScopesExceedCallerError } from '@identity/domain/exceptions/scopes-exceed-caller.error';
 import { WorkloadNotMatchedError } from '@identity/domain/exceptions/workload-not-matched.error';
+import type { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import type { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import type { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import type { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
@@ -29,6 +30,7 @@ export interface OidcTrustSpec {
   readonly workload: WorkloadRule;
   readonly scopes: TokenScopes;
   readonly lifetime: TokenLifetime;
+  readonly description: OidcTrustDescription;
 }
 
 interface Props extends OidcTrustSpec {
@@ -69,6 +71,7 @@ export class OidcTrust extends EventRecorder {
       workload: input.workload,
       scopes: input.scopes,
       lifetime: input.lifetime,
+      description: input.description,
       createdBy: input.createdBy,
       createdAt: input.now,
       version: 0,
@@ -134,6 +137,7 @@ export class OidcTrust extends EventRecorder {
       workload: spec.workload,
       scopes: spec.scopes,
       lifetime: spec.lifetime,
+      description: spec.description,
     });
 
     updated.record(
@@ -231,6 +235,10 @@ export class OidcTrust extends EventRecorder {
     return this.state.lifetime;
   }
 
+  get description(): OidcTrustDescription {
+    return this.state.description;
+  }
+
   get createdBy(): UserId {
     return this.state.createdBy;
   }
@@ -259,7 +267,8 @@ export class OidcTrust extends EventRecorder {
     return (
       spec.workload.equals(this.workload) &&
       spec.scopes.equals(this.scopes) &&
-      spec.lifetime.equals(this.lifetime)
+      spec.lifetime.equals(this.lifetime) &&
+      spec.description.equals(this.description)
     );
   }
 

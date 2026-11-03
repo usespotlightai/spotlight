@@ -2,12 +2,7 @@ import { ShieldCheck } from 'lucide-react';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { RowIcon } from '@/components/shared/RowIcon';
 import { WithTooltip } from '@/components/shared/WithTooltip';
-import {
-  describeIssued,
-  describeTrust,
-  type OidcTrust,
-  trustNote,
-} from '@/lib/oidc-trust';
+import { describeIssued, type OidcTrust, trustNote } from '@/lib/oidc-trust';
 
 type OidcTrustRowProps = {
   trust: OidcTrust;
@@ -19,7 +14,15 @@ export function OidcTrustRow({ trust }: OidcTrustRowProps) {
       <SettingsRow
         label={trust.key}
         leading={<RowIcon icon={ShieldCheck} />}
-        description={describeTrust(trust)}
+        description={
+          trust.description && (
+            <WithTooltip tooltip={trust.description}>
+              <span className="line-clamp-2 break-words">
+                {trust.description}
+              </span>
+            </WithTooltip>
+          )
+        }
       >
         <WithTooltip tooltip={trustNote(trust)}>
           <span className="text-muted-foreground text-xs tabular-nums">

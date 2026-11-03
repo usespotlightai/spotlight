@@ -298,6 +298,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       claims: { repository: 'acme/platform' },
       scopes: ['configure', 'secrets'],
       lifetimeMinutes: 15,
+      description: 'Deploys the platform',
     },
     {
       kind: 'oidc-trust',
@@ -311,6 +312,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
       claims: {},
       scopes: ['plan'],
       lifetimeMinutes: 10,
+      description: '',
     },
     {
       kind: 'runner-trust',

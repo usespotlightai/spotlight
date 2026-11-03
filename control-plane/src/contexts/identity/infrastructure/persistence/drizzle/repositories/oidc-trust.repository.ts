@@ -3,6 +3,7 @@ import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-worksp
 import { OidcTrustAlreadyExistsError } from '@identity/domain/exceptions/oidc-trust-already-exists.error';
 import { OidcTrustVersionConflictError } from '@identity/domain/exceptions/oidc-trust-version-conflict.error';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
+import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
@@ -40,6 +41,7 @@ const toTrust = (row: Row): OidcTrust =>
     }),
     scopes: TokenScopes.named(row.scopes),
     lifetime: TokenLifetime.ofMinutes(row.lifetimeMinutes),
+    description: OidcTrustDescription.of(row.description),
     createdBy: UserId.of(row.createdBy),
     createdAt: row.createdAt,
     version: row.version,
@@ -52,6 +54,7 @@ const specOf = (trust: OidcTrust) => ({
   claims: { ...trust.workload.claims },
   scopes: trust.scopes.all.map((each) => each.value),
   lifetimeMinutes: trust.lifetime.minutes,
+  description: trust.description.value,
 });
 
 @Injectable()

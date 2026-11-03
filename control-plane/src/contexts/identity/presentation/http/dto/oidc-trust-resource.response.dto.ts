@@ -63,6 +63,12 @@ export class OidcTrustResourceResponseDto extends ResourceResponseDto {
   readonly lifetimeMinutes: number;
 
   @ApiProperty({
+    example: 'Deploys the platform from the main branch',
+    description: 'Why the trust exists. Empty when not set',
+  })
+  readonly description: string;
+
+  @ApiProperty({
     example: 'kR3vUzPq9sY2mB8nT1wXcA',
     description:
       'The person who created the trust, or who issued the token that did; the tokens it issues act on their behalf',
@@ -79,6 +85,7 @@ export class OidcTrustResourceResponseDto extends ResourceResponseDto {
     this.claims = trust.claims;
     this.scopes = trust.scopes;
     this.lifetimeMinutes = trust.lifetimeMinutes;
+    this.description = trust.description;
     this.createdBy = trust.createdBy;
   }
 }

@@ -27,6 +27,7 @@ import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
 import { IssuedTokenDetail } from '@identity/domain/value-objects/issued-token-detail.vo';
 import { JobFunction } from '@identity/domain/value-objects/job-function.vo';
+import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import { RunTokenDetail } from '@identity/domain/value-objects/run-token-detail.vo';
@@ -60,6 +61,7 @@ export const IDENTITY_PAYLOAD_TYPES = [
   TokenDescription,
   TokenLifetime,
   TokenName,
+  OidcTrustDescription,
   OidcTrustKey,
   UserEmailId,
   WorkloadRule,

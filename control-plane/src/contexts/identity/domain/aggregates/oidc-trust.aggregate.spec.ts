@@ -4,6 +4,7 @@ import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-is
 import { OidcTrustVersionConflictError } from '@identity/domain/exceptions/oidc-trust-version-conflict.error';
 import { ScopesExceedCallerError } from '@identity/domain/exceptions/scopes-exceed-caller.error';
 import { WorkloadNotMatchedError } from '@identity/domain/exceptions/workload-not-matched.error';
+import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
@@ -41,6 +42,7 @@ const spec = (
   }),
   scopes: TokenScopes.named(over.scopes ?? ['configure', 'secrets']),
   lifetime: TokenLifetime.ofMinutes(over.minutes ?? 15),
+  description: OidcTrustDescription.of(''),
 });
 
 const stored = (version = 2) =>
@@ -147,6 +149,19 @@ describe('OidcTrust', () => {
         .pullEvents()
         .map((each) => each.kind),
     ).toEqual(['oidc-trust.updated']);
+  });
+
+  it('records an update that changes only the description, and keeps the new one', () => {
+    const updated = stored().update(
+      { ...spec(), description: OidcTrustDescription.of('Deploys main') },
+      ScopeCeiling.unlimited,
+      BY,
+    );
+
+    expect(updated.description.value).toBe('Deploys main');
+    expect(updated.pullEvents().map((each) => each.kind)).toEqual([
+      'oidc-trust.updated',
+    ]);
   });
 
   it('grants no scope beyond those of a token creating or updating it', () => {

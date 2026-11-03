@@ -1,64 +1,8 @@
 import type { OidcTrustSummaryResponseDto } from '@/lib/api';
 import { since } from '@/lib/since';
-import { describeScopes } from '@/lib/token';
 import type { TooltipNote } from '@/lib/tooltip-note';
 
 export type OidcTrust = OidcTrustSummaryResponseDto;
-
-export const GITHUB_ACTIONS_ISSUER =
-  'https://token.actions.githubusercontent.com';
-
-const GITHUB_SUBJECTS: readonly [
-  RegExp,
-  (repository: string, rest: string) => string,
-][] = [
-  [
-    /^ref:refs\/heads\/([^:]+)$/,
-    (repository, branch) => `${repository}, branch ${branch}`,
-  ],
-  [
-    /^ref:refs\/tags\/([^:]+)$/,
-    (repository, tag) => `${repository}, tag ${tag}`,
-  ],
-  [
-    /^environment:([^:]+)$/,
-    (repository, environment) => `${repository}, environment ${environment}`,
-  ],
-  [/^pull_request$/, (repository) => `${repository}, pull requests`],
-];
-
-const githubAdmitted = (subject: string): string => {
-  const repository = subject.match(/^repo:([^/:*]+\/[^/:*]+):(.+)$/);
-
-  if (repository && !subject.includes('*')) {
-    const [, name, rest] = repository;
-
-    for (const [pattern, describe] of GITHUB_SUBJECTS) {
-      const matched = rest.match(pattern);
-      if (matched) {
-        return `GitHub Actions in ${describe(name, matched[1] ?? '')}`;
-      }
-    }
-  }
-
-  return `GitHub Actions: ${subject}`;
-};
-
-const hostOf = (issuer: string): string => {
-  try {
-    return new URL(issuer).host || issuer;
-  } catch {
-    return issuer;
-  }
-};
-
-export const admitted = (trust: Pick<OidcTrust, 'issuer' | 'subject'>) =>
-  trust.issuer === GITHUB_ACTIONS_ISSUER
-    ? githubAdmitted(trust.subject)
-    : `${hostOf(trust.issuer)}: ${trust.subject}`;
-
-export const describeTrust = (trust: OidcTrust): string =>
-  [admitted(trust), describeScopes(trust.scopes)].filter(Boolean).join(' · ');
 
 export const describeIssued = (lastIssuedAt: string | null): string =>
   lastIssuedAt ? `Issued ${since(lastIssuedAt)}` : 'Never issued a token';

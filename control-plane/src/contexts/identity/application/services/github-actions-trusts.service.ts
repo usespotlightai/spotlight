@@ -14,6 +14,7 @@ import {
   type OidcTrustSpec,
 } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
+import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
@@ -143,6 +144,7 @@ export class GitHubActionsTrusts implements GitHubActionsTrustsPort {
       }),
       scopes: TokenScopes.named(scopes),
       lifetime: TokenLifetime.ofMinutes(minutes),
+      description: OidcTrustDescription.of(''),
     };
   }
 
@@ -170,6 +172,7 @@ export class GitHubActionsTrusts implements GitHubActionsTrustsPort {
               ...spec,
               scopes: existing.scopes,
               lifetime: existing.lifetime,
+              description: existing.description,
             },
             ceiling,
             by,

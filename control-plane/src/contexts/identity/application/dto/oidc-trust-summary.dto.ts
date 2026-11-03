@@ -9,6 +9,7 @@ export interface OidcTrustSummaryDto {
   readonly claims: Readonly<Record<string, string>>;
   readonly scopes: readonly TokenScopeName[];
   readonly lifetimeMinutes: number;
+  readonly description: string;
   readonly createdBy: { readonly id: string; readonly name: string | null };
   readonly createdAt: Date;
   readonly lastIssuedAt: Date | null;

@@ -63,6 +63,7 @@ export const ResourceMapper = {
       claims: { ...trust.claims },
       scopes: trust.scopes,
       lifetimeMinutes: trust.lifetimeMinutes,
+      description: trust.description,
       createdBy: trust.createdBy,
       warnings: [],
     };

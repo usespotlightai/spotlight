@@ -3,6 +3,7 @@ import { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import type { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
+import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
@@ -33,6 +34,7 @@ const trustAt = (version: number) =>
     }),
     scopes: TokenScopes.named(['configure']),
     lifetime: TokenLifetime.ofMinutes(15),
+    description: OidcTrustDescription.of(''),
     createdBy: UserId.of('admin_1'),
     createdAt: new Date('2026-09-01T09:00:00.000Z'),
     version,

@@ -1,6 +1,7 @@
 import { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import { TokenAuthentication } from '@identity/domain/services/token-authentication';
+import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
@@ -36,6 +37,7 @@ const trustAt = (version: number) =>
     }),
     scopes: TokenScopes.named(['configure']),
     lifetime: TokenLifetime.ofMinutes(15),
+    description: OidcTrustDescription.of(''),
     createdBy: UserId.of('admin_1'),
     createdAt: new Date('2026-09-01T09:00:00.000Z'),
     version,
