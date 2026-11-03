@@ -60,6 +60,7 @@ const TRUST_COLUMNS = {
   claims: oidcTrust.claims,
   scopes: oidcTrust.scopes,
   lifetimeMinutes: oidcTrust.lifetimeMinutes,
+  description: oidcTrust.description,
   createdBy: oidcTrust.createdBy,
 };
 

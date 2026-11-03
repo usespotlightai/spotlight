@@ -66,6 +66,7 @@ export const ExportableResourceMapper = {
       claims: { ...trust.claims },
       scopes: [...trust.scopes],
       lifetimeMinutes: trust.lifetimeMinutes,
+      description: trust.description,
     };
   },
 

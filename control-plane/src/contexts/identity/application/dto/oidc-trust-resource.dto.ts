@@ -12,6 +12,7 @@ export interface OidcTrustResourceDto {
   readonly claims: Readonly<Record<string, string>>;
   readonly scopes: readonly string[];
   readonly lifetimeMinutes: number;
+  readonly description: string;
   readonly createdBy: string;
   readonly warnings: readonly ConfigurationProblem[];
 }

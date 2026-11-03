@@ -405,9 +405,11 @@ CREATE TABLE "oidc_trust" (
 	"claims" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"scopes" "workspace_token_scope"[] NOT NULL,
 	"lifetime_minutes" integer NOT NULL,
+	"description" text DEFAULT '' NOT NULL,
 	"created_by" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	"version" integer DEFAULT 0 NOT NULL
+	"version" integer DEFAULT 0 NOT NULL,
+	"grant_version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "oidc_trust_usage" (

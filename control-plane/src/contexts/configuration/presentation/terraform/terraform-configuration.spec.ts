@@ -508,6 +508,7 @@ describe('workspaceTerraform', () => {
         '  }',
         '  scopes           = ["configure", "secrets"]',
         '  lifetime_minutes = 15',
+        '  description      = "Deploys the platform"',
         '}',
       ].join('\n'),
     );

@@ -2613,6 +2613,10 @@ export type OidcTrustResourceResponseDto = {
    */
   lifetimeMinutes: number;
   /**
+   * Why the trust exists. Empty when not set
+   */
+  description: string;
+  /**
    * The person who created the trust, or who issued the token that did; the tokens it issues act on their behalf
    */
   createdBy: string;
@@ -2816,6 +2820,10 @@ export type OidcTrustSummaryResponseDto = {
    */
   scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
   lifetimeMinutes: number;
+  /**
+   * Why the trust exists. Empty when not set
+   */
+  description: string;
   /**
    * The person who created the trust. Its tokens act for them
    */
@@ -11779,6 +11787,7 @@ export type CreateOidcTrustData = {
     };
     scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
     lifetimeMinutes?: number;
+    description?: string;
   };
   headers: {
     /**
@@ -11956,6 +11965,7 @@ export type UpdateOidcTrustData = {
     };
     scopes: Array<'read' | 'plan' | 'configure' | 'secrets' | 'runners' | 'trusts'>;
     lifetimeMinutes?: number;
+    description?: string;
   };
   headers: {
     /**

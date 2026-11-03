@@ -78,6 +78,12 @@ const DEFINITION = ApiBody({
         maximum: 60,
         default: 15,
       },
+      description: {
+        type: 'string',
+        maxLength: 1000,
+        default: '',
+        example: 'Deploys the platform from the main branch',
+      },
     },
   },
 });

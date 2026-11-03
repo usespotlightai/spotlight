@@ -6840,6 +6840,12 @@
                     "minimum": 1,
                     "maximum": 60,
                     "default": 15
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "default": "",
+                    "example": "Deploys the platform from the main branch"
                   }
                 }
               }
@@ -7254,6 +7260,12 @@
                     "minimum": 1,
                     "maximum": 60,
                     "default": 15
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "default": "",
+                    "example": "Deploys the platform from the main branch"
                   }
                 }
               }
@@ -27193,6 +27205,11 @@
             "maximum": 60,
             "description": "How many minutes a token it issues stays valid"
           },
+          "description": {
+            "type": "string",
+            "example": "Deploys the platform from the main branch",
+            "description": "Why the trust exists. Empty when not set"
+          },
           "createdBy": {
             "type": "string",
             "example": "kR3vUzPq9sY2mB8nT1wXcA",
@@ -27212,6 +27229,7 @@
           "claims",
           "scopes",
           "lifetimeMinutes",
+          "description",
           "createdBy"
         ]
       },
@@ -27790,6 +27808,11 @@
             "type": "number",
             "example": 15
           },
+          "description": {
+            "type": "string",
+            "example": "Deploys the platform from the main branch",
+            "description": "Why the trust exists. Empty when not set"
+          },
           "createdBy": {
             "description": "The person who created the trust. Its tokens act for them",
             "allOf": [
@@ -27819,6 +27842,7 @@
           "claims",
           "scopes",
           "lifetimeMinutes",
+          "description",
           "createdBy",
           "createdAt",
           "lastIssuedAt"

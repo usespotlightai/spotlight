@@ -89,6 +89,7 @@ const OIDC_TRUST = {
   claims: { repository: 'acme/platform' },
   scopes: ['configure'],
   lifetimeMinutes: 15,
+  description: 'Deploys the platform',
 };
 
 const POOL = {

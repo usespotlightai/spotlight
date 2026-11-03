@@ -13,6 +13,7 @@ export interface OidcTrustView {
   readonly claims: Readonly<Record<string, string>>;
   readonly scopes: readonly string[];
   readonly lifetimeMinutes: number;
+  readonly description: string;
 }
 
 export interface OidcTrustConfigurationPort {

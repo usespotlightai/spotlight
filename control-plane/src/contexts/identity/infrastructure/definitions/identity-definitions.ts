@@ -13,6 +13,7 @@ import {
 } from '@identity/application/rendering/identity-problems';
 import { InvalidOidcTrustError } from '@identity/domain/exceptions/invalid-oidc-trust.error';
 import { ClaimPattern } from '@identity/domain/value-objects/claim-pattern.vo';
+import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
@@ -91,6 +92,7 @@ const oidcTrustSchema = z
       .number({ error: 'is a whole number of minutes' })
       .superRefine(refinedBy(TokenLifetime.ofMinutes))
       .default(TokenLifetime.USUAL_MINUTES),
+    description: madeBy(OidcTrustDescription.of).default(''),
   })
   .superRefine((trust, context) => {
     try {
@@ -164,6 +166,7 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
             workload: WorkloadRule.of(read.data),
             scopes: TokenScopes.named(read.data.scopes),
             lifetime: TokenLifetime.ofMinutes(read.data.lifetimeMinutes),
+            description: OidcTrustDescription.of(read.data.description),
           },
         }
       : {

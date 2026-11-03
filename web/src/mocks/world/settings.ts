@@ -302,6 +302,7 @@ const oidcTrust = (
   claims: {},
   scopes: ['plan'],
   lifetimeMinutes: 60,
+  description: '',
   createdBy: { id: SAM.id, name: SAM.name },
   createdAt: daysAgo(30),
   lastIssuedAt: null,
@@ -319,12 +320,15 @@ const OIDC_TRUSTS: OidcTrustSummaryResponseDto[] = [
     lastIssuedAt: daysAgo(3),
   }),
   oidcTrust('infra-apply', {
+    description:
+      'Applies the Terraform configuration of the platform from the main branch after a reviewed change merges. Needs the configure, secrets and runners scopes, because the plan creates runner pools and rotates the secrets they use.',
     claims: { workflow: 'apply' },
     scopes: ['configure', 'secrets', 'runners'],
     createdAt: daysAgo(14),
     lastIssuedAt: hoursAgo(2),
   }),
   oidcTrust('infra-plan', {
+    description: 'Plans every pull request in the infra repository',
     subject: 'repo:acme/infra:pull_request',
     lifetimeMinutes: 30,
     createdAt: daysAgo(5),

@@ -1,4 +1,5 @@
 import type {
+  ParsedOidcTrust,
   ParsedTeam,
   ParsedWorkspace,
   ParsedWorkspaceToken,
@@ -10,7 +11,11 @@ import { describe, expect, it } from 'vitest';
 const definitions = new IdentityDefinitions();
 
 const invalidAt = (
-  compiled: ParsedWorkspace | ParsedTeam | ParsedWorkspaceToken,
+  compiled:
+    | ParsedWorkspace
+    | ParsedTeam
+    | ParsedWorkspaceToken
+    | ParsedOidcTrust,
 ): (string | undefined)[] =>
   compiled.ok ? [] : compiled.problems.map((each) => dottedOf(each.field));
 
@@ -109,6 +114,43 @@ describe('IdentityDefinitions', () => {
         compiled.spec.expiresAt,
       ],
     ).toEqual(['ci', 'plan', '', null]);
+  });
+
+  it('reads an OIDC trust undescribed unless told, and trims its description', () => {
+    const trust = {
+      key: 'github-main',
+      issuer: 'https://token.actions.githubusercontent.com',
+      subject: 'repo:acme/platform:ref:refs/heads/main',
+      scopes: ['configure'],
+    };
+    const bare = definitions.oidcTrust(trust);
+    const described = definitions.oidcTrust({
+      ...trust,
+      description: '  Deploys main  ',
+    });
+
+    expect(bare.ok && bare.spec.description.value).toBe('');
+    expect(described.ok && described.spec.description.value).toBe(
+      'Deploys main',
+    );
+  });
+
+  it('points at an OIDC trust description over 1000 characters', () => {
+    const trust = {
+      key: 'github-main',
+      issuer: 'https://token.actions.githubusercontent.com',
+      subject: 'repo:acme/platform:ref:refs/heads/main',
+      scopes: ['configure'],
+    };
+
+    expect(
+      invalidAt(
+        definitions.oidcTrust({ ...trust, description: 'a'.repeat(1001) }),
+      ),
+    ).toEqual(['description']);
+    expect(
+      definitions.oidcTrust({ ...trust, description: 'a'.repeat(1000) }).ok,
+    ).toBe(true);
   });
 
   it('reads when a workspace token expires', () => {

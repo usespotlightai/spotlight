@@ -37,6 +37,7 @@ export class DrizzleOidcTrustReader implements OidcTrustReaderPort {
       claims: trust.claims,
       scopes: trust.scopes,
       lifetimeMinutes: trust.lifetimeMinutes,
+      description: trust.description,
       createdBy: { id: trust.createdBy, name: creatorName },
       createdAt: trust.createdAt,
       lastIssuedAt,

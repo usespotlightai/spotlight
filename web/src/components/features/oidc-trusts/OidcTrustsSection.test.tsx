@@ -32,6 +32,7 @@ const trust = (over: Record<string, unknown> = {}) => ({
   claims: { workflow: 'apply' },
   scopes: ['configure', 'secrets'],
   lifetimeMinutes: 60,
+  description: '',
   createdBy: { id: 'user_1', name: 'Ada Lovelace' },
   createdAt: '2026-09-01T09:00:00.000Z',
   lastIssuedAt: new Date().toISOString(),
@@ -97,14 +98,12 @@ describe('OidcTrustsSection', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('counts the trusts, and says of each what it admits, its scopes and when it last issued a token', () => {
+  it('counts the trusts, and says of each when it last issued a token', () => {
     listed.mockReturnValue([
       trust(),
       trust({
         id: 'trust_2',
         key: 'infra-plan',
-        subject: 'repo:acme/infra:pull_request',
-        scopes: ['plan'],
         lastIssuedAt: null,
       }),
     ]);
@@ -115,16 +114,32 @@ describe('OidcTrustsSection', () => {
       screen.getByRole('heading', { level: 2, name: /^OIDC trusts\s*2$/ }),
     ).toBeInTheDocument();
     expect(screen.getByText('infra-apply')).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'GitHub Actions in acme/infra, branch main · Configure, Secrets',
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText('infra-plan')).toBeInTheDocument();
     expect(screen.getByText('Issued just now')).toBeInTheDocument();
-    expect(
-      screen.getByText('GitHub Actions in acme/infra, pull requests · Plan'),
-    ).toBeInTheDocument();
     expect(screen.getByText('Never issued a token')).toBeInTheDocument();
+  });
+
+  it('shows the description of a trust in two lines, and all of it in the tooltip', () => {
+    const description = 'Applies the platform from main. '.repeat(20).trim();
+    listed.mockReturnValue([trust({ description })]);
+
+    renderPage();
+
+    const [shown] = screen.getAllByText(description);
+    expect(shown).toHaveClass('line-clamp-2');
+    expect(shown).toHaveAccessibleDescription(description);
+  });
+
+  it('shows no description, and no summary of the claims, for a trust without one', () => {
+    listed.mockReturnValue([trust({ description: '' })]);
+
+    renderPage();
+
+    expect(screen.queryByText(/GitHub Actions/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Configure, Secrets/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText('infra-apply').closest('[data-slot="oidc-trust-row"]'),
+    ).toHaveTextContent(/^infra-applyIssued just now$/);
   });
 
   it('puts the creator, the issuer, the subject, the claims and the token lifetime in the tooltip', () => {
