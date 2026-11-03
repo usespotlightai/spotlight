@@ -328,6 +328,20 @@ on:
         channel: '\${{ task.marks["slack.channel"] }}'
 `;
 
+const READY = UPLOADING.replace(
+  '    request:\n',
+  () => `      ready:
+        method: GET
+        url: https://slack.com/api/files.info
+        query:
+          file: '\${{ prepared.id }}'
+        expect:
+          success: '\${{ response.ok && has(response.file.mimetype) }}'
+        attempts: 3
+    request:
+`,
+);
+
 const withFiles = (
   attachments: NonNullable<IntegrationTaskViewDto['waiting']>['attachments'],
 ): IntegrationTaskViewDto => {
@@ -338,12 +352,28 @@ const withFiles = (
     : task;
 };
 
+type Readiness = 'ready' | 'unready' | 'lost';
+
+const SECOND_SHOT = { ...SHOT, id: 'file_3', name: 'second.png' };
+
+const readied = (
+  run: ReturnType<typeof uploading>['run'],
+): { file: string; prepared: unknown }[] =>
+  run.mock.calls
+    .filter(([action]) => 'attempts' in action)
+    .map(([, against]) => ({
+      file: (against.file as { name: string }).name,
+      prepared: against.prepared,
+    }));
+
 const uploading = (
   sendStatus = 200,
   file = UPLOADING,
   images: 'shown' | 'refused' | 'lost' = 'shown',
   callAuth: CallAuthResolver = callAuthFor(injecting().injection),
+  readiness: (name: string, check: number) => Readiness = () => 'ready',
 ) => {
+  const checks = new Map<string, number>();
   const answered = (response: unknown, capture = {}): OutboundResult => ({
     ok: true,
     status: 200,
@@ -356,6 +386,25 @@ const uploading = (
       against: Record<string, unknown>,
     ): Promise<OutboundResult> => {
       const file = against.file as { name: string } | undefined;
+
+      if ('attempts' in action && file) {
+        const check = (checks.get(file.name) ?? 0) + 1;
+        checks.set(file.name, check);
+        const answer = readiness(file.name, check);
+
+        if (answer === 'lost') {
+          throw new Error('socket hang up');
+        }
+
+        return answer === 'ready'
+          ? answered({ ok: true, file: { mimetype: 'image/png' } })
+          : {
+              ok: false,
+              status: 200,
+              response: { ok: true, file: {} },
+              capture: {},
+            };
+      }
 
       if (file && !('prepared' in against)) {
         return answered(
@@ -398,6 +447,7 @@ const uploading = (
     },
   );
   const open = vi.fn(async () => new Uint8Array([1, 2, 3]));
+  const sleep = vi.fn(async () => {});
   const warn = vi.fn();
 
   const notifier = new TaskNotices(
@@ -415,6 +465,7 @@ const uploading = (
       unscoped,
       noNetwork,
       { open },
+      sleep,
     ),
     callAuth,
     new WebInboxLinks(
@@ -424,7 +475,7 @@ const uploading = (
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
 
-  return { notifier, run, upload, open, warn };
+  return { notifier, run, upload, open, sleep, warn };
 };
 
 describe('TaskNotices uploads', () => {
@@ -584,6 +635,100 @@ connection:
       'at-old',
       'at-new',
     ]);
+  });
+
+  it('waits until each uploaded file is ready before it posts', async () => {
+    const { notifier, run, sleep } = uploading(
+      200,
+      READY,
+      'shown',
+      undefined,
+      (_name, check) => (check < 2 ? 'unready' : 'ready'),
+    );
+
+    await notifier.notify(withFiles([SHOT]), 'task.asked');
+
+    const prepared = {
+      url: 'https://files.slack.com/upload/shot.png',
+      id: 'F_shot.png',
+    };
+    expect(readied(run)).toEqual([
+      { file: 'shot.png', prepared },
+      { file: 'shot.png', prepared },
+    ]);
+    expect(sleep).toHaveBeenCalledOnce();
+    expect(run.mock.calls[run.mock.calls.length - 1]?.[1]).toMatchObject({
+      uploaded: [{ name: 'shot.png' }],
+    });
+  });
+
+  it('checks the files at the same time, so the wait is that of the slowest file', async () => {
+    const { notifier, run, sleep } = uploading(
+      200,
+      READY,
+      'shown',
+      undefined,
+      (name, check) =>
+        name === 'second.png' && check < 3 ? 'unready' : 'ready',
+    );
+
+    await notifier.notify(withFiles([SHOT, SECOND_SHOT]), 'task.asked');
+
+    expect(readied(run).map((each) => each.file)).toEqual([
+      'shot.png',
+      'second.png',
+      'second.png',
+      'second.png',
+    ]);
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls[run.mock.calls.length - 1]?.[1]).toMatchObject({
+      uploaded: [{ name: 'shot.png' }, { name: 'second.png' }],
+    });
+  });
+
+  it('checks a file again where a check gets no answer', async () => {
+    const { notifier, run } = uploading(
+      200,
+      READY,
+      'shown',
+      undefined,
+      (_name, check) => (check < 2 ? 'lost' : 'ready'),
+    );
+
+    await notifier.notify(withFiles([SHOT]), 'task.asked');
+
+    expect(readied(run)).toHaveLength(2);
+    expect(run.mock.calls[run.mock.calls.length - 1]?.[1]).toMatchObject({
+      uploaded: [{ name: 'shot.png' }],
+    });
+  });
+
+  it('posts without the files where one is not ready after every attempt, and reports it', async () => {
+    const { notifier, run, sleep, warn } = uploading(
+      200,
+      READY,
+      'shown',
+      undefined,
+      () => 'unready',
+    );
+
+    await notifier.notify(withFiles([SHOT]), 'task.asked');
+
+    expect(readied(run)).toHaveLength(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls[run.mock.calls.length - 1]?.[1]).toMatchObject({
+      uploaded: [],
+    });
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: {
+          status: 200,
+          output:
+            'the file shot.png was not ready after 3 attempts: {"ok":true,"file":{}}',
+        },
+      }),
+      'A service answered a task’s word with an error',
+    );
   });
 
   it('renders the file’s name and size into the request that prepares it', async () => {

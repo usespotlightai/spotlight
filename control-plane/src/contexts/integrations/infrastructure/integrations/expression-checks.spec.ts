@@ -509,6 +509,7 @@ describe('the positions an expression is written at', () => {
             prepare: request,
             send: { ...request, body: undefined },
             complete: request,
+            ready: { ...request, attempts: 3 },
           },
           request,
         },
