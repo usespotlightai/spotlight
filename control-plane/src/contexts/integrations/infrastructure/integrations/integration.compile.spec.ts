@@ -1618,6 +1618,47 @@ on:
     );
   });
 
+  const READY = ACTION.replace(
+    '    request:\n',
+    () => `      ready:
+        method: GET
+        url: https://slack.com/api/files.info
+        query:
+          file: \${{ prepared.id }}
+        expect:
+          success: \${{ response.ok }}
+        attempts: 5
+    request:
+`,
+  );
+
+  it('checks each file is ready with what was prepared for it', () => {
+    expect(warned(READY)).toEqual([]);
+
+    const read = compiled(READY);
+    expect(
+      read.ok && read.readable.actions.get('post')?.uploads?.ready,
+    ).toEqual(expect.objectContaining({ attempts: 5 }));
+  });
+
+  it('checks a file 1 to 30 times', () => {
+    for (const attempts of ['0', '31']) {
+      expect(
+        refused(READY.replace('attempts: 5', `attempts: ${attempts}`)),
+      ).toEqual([
+        ['actions.post.uploads.ready.attempts', 'is 1 to 30 attempts'],
+      ]);
+    }
+  });
+
+  it('checks a file 10 times unless it says otherwise', () => {
+    const read = compiled(READY.replace('        attempts: 5\n', ''));
+
+    expect(
+      read.ok && read.readable.actions.get('post')?.uploads?.ready?.attempts,
+    ).toBe(10);
+  });
+
   it('warns about a file read where no file is there', () => {
     expect(
       warned(ACTION.replace('"text": ask.body', '"text": file.name')).map(

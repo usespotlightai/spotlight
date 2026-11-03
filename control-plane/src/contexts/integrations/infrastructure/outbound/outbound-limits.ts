@@ -1,4 +1,5 @@
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
+import { type Sleep, sleeping } from '@platform/time/sleep';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
 const KEY = 'spotlight:outbound-limit:';
@@ -24,11 +25,6 @@ end
 redis.call('hset', KEYS[1], 'tokens', tokens, 'at', now)
 redis.call('pexpire', KEYS[1], math.ceil(1000 + 1000 / rate))
 return wait`;
-
-type Sleep = (ms: number) => Promise<void>;
-
-const sleeping: Sleep = (ms) =>
-  new Promise((done) => setTimeout(done, ms).unref());
 
 export interface LimitStore {
   eval(
