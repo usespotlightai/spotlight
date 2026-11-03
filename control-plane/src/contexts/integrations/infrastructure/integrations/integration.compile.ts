@@ -140,7 +140,7 @@ export interface UploadsIR {
   readonly complete: RequestIR | null;
 }
 
-export interface ActionIR extends RequestIR {
+interface ActionIR extends RequestIR {
   readonly uploads: UploadsIR | null;
 }
 

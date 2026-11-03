@@ -18,7 +18,7 @@ import type {
   ToolInputValues,
 } from '@work/application/contracts/tools.contract';
 
-export interface NoticeFileView {
+interface NoticeFileView {
   readonly id: string;
   readonly name: string;
   readonly type: string;
