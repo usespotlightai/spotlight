@@ -1867,6 +1867,7 @@ CREATE TABLE "task" (
 	"workspace_id" text NOT NULL,
 	"station_id" text NOT NULL,
 	"title" text NOT NULL,
+	"branch" text NOT NULL,
 	"description" text,
 	"rank" text DEFAULT 'i' NOT NULL,
 	"origin_station_id" text,
@@ -2209,6 +2210,7 @@ CREATE INDEX "run_reserved_idx" ON "run" USING btree ("reserved_for");--> statem
 CREATE INDEX "run_started_from_idx" ON "run" USING btree ("started_from_archive_id","started_from_at");--> statement-breakpoint
 CREATE INDEX "task_station_idx" ON "task" USING btree ("station_id","rank");--> statement-breakpoint
 CREATE INDEX "task_workspace_idx" ON "task" USING btree ("workspace_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "task_workspace_branch_uidx" ON "task" USING btree ("workspace_id","branch");--> statement-breakpoint
 CREATE INDEX "task_attachment_task_idx" ON "task_attachment" USING btree ("task_id","note_position");--> statement-breakpoint
 CREATE INDEX "task_mark_task_idx" ON "task_mark" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "task_note_task_idx" ON "task_note" USING btree ("task_id","position");--> statement-breakpoint

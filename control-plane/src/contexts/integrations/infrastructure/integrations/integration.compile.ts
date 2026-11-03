@@ -138,6 +138,11 @@ export interface UploadsIR {
   readonly prepare: RequestIR;
   readonly send: RequestIR;
   readonly complete: RequestIR | null;
+  readonly ready: ReadyIR | null;
+}
+
+export interface ReadyIR extends RequestIR {
+  readonly attempts: number;
 }
 
 interface ActionIR extends RequestIR {
@@ -703,6 +708,12 @@ class Compiler {
       send: this.request(uploads.send, at.to('send')),
       complete: uploads.complete
         ? this.request(uploads.complete, at.to('complete'))
+        : null,
+      ready: uploads.ready
+        ? {
+            ...this.request(uploads.ready, at.to('ready')),
+            attempts: uploads.ready.attempts,
+          }
         : null,
     };
   }

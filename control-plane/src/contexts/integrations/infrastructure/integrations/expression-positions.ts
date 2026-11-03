@@ -146,6 +146,7 @@ export const EXPRESSION_POSITIONS: readonly ExpressionPosition[] = [
   ...requestAt(`actions.${ANY_SEGMENT}.uploads.prepare`, PREPARING),
   ...requestAt(`actions.${ANY_SEGMENT}.uploads.send`, SENDING, [], SENT),
   ...requestAt(`actions.${ANY_SEGMENT}.uploads.complete`, COMPLETING),
+  ...requestAt(`actions.${ANY_SEGMENT}.uploads.ready`, SENDING),
   at(`tools.${ANY_SEGMENT}.inputs.${ANY_SEGMENT}.default`, DEFAULTING),
   at(
     `tools.${ANY_SEGMENT}.output`,

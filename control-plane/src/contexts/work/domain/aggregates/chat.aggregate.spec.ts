@@ -17,14 +17,12 @@ import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
-import { InvalidSetupBranchError } from '@work/domain/exceptions/invalid-setup-branch.error';
 import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.error';
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
-import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
@@ -720,8 +718,6 @@ describe('Chat', () => {
 
     const URL = PullRequestUrl.of('https://github.com/acme/infra/pull/12');
 
-    const BRANCH = Branch.of('spotlight-configuration');
-
     it('reads every repository it checked out, and pushes only to the configuration’s', () => {
       const chat = settingUp();
 
@@ -731,23 +727,13 @@ describe('Chat', () => {
       expect(started().pushableNamed('api')).toBeNull();
     });
 
-    it('rejects a branch named like a task’s, before anything is opened', () => {
-      expect(() =>
-        settingUp().mayOpenSetupFrom(
-          RunId.of('run_1'),
-          Branch.of('spotlight/configuration'),
-        ),
-      ).toThrow(InvalidSetupBranchError);
-    });
-
     it('lets the run working it open the setup pull request, in its repository', () => {
       expect(
-        settingUp().mayOpenSetupFrom(RunId.of('run_1'), BRANCH).repository
-          .value,
+        settingUp().mayOpenSetupFrom(RunId.of('run_1')).repository.value,
       ).toBe('acme/infra');
-      expect(() =>
-        settingUp().mayOpenSetupFrom(RunId.of('run_2'), BRANCH),
-      ).toThrow(InvalidChatTransitionError);
+      expect(() => settingUp().mayOpenSetupFrom(RunId.of('run_2'))).toThrow(
+        InvalidChatTransitionError,
+      );
     });
 
     it('checks out the configuration’s repository first', () => {
@@ -758,12 +744,7 @@ describe('Chat', () => {
     });
 
     it('keeps the pull request its run opened', () => {
-      const opened = settingUp().openSetup(
-        RunId.of('run_1'),
-        BRANCH,
-        URL,
-        LATER,
-      );
+      const opened = settingUp().openSetup(RunId.of('run_1'), URL, LATER);
 
       expect(opened.setup?.pullRequest?.equals(URL)).toBe(true);
     });
@@ -772,7 +753,6 @@ describe('Chat', () => {
       expect(() =>
         settingUp().openSetup(
           RunId.of('run_1'),
-          BRANCH,
           PullRequestUrl.of('https://github.com/acme/api/pull/3'),
           LATER,
         ),
@@ -781,7 +761,7 @@ describe('Chat', () => {
 
     it('rejects a run that no longer works the chat', () => {
       expect(() =>
-        settingUp().openSetup(RunId.of('run_2'), BRANCH, URL, LATER),
+        settingUp().openSetup(RunId.of('run_2'), URL, LATER),
       ).toThrow(InvalidChatTransitionError);
     });
 
@@ -789,17 +769,16 @@ describe('Chat', () => {
       expect(() =>
         started()
           .assignRun(RunId.of('run_1'), NOW)
-          .openSetup(RunId.of('run_1'), BRANCH, URL, LATER),
+          .openSetup(RunId.of('run_1'), URL, LATER),
       ).toThrow(NotASetupChatError);
     });
 
     it('keeps the first pull request, opening no second', () => {
-      const once = settingUp().openSetup(RunId.of('run_1'), BRANCH, URL, LATER);
+      const once = settingUp().openSetup(RunId.of('run_1'), URL, LATER);
       once.pullEvents();
 
       const again = once.openSetup(
         RunId.of('run_1'),
-        BRANCH,
         PullRequestUrl.of('https://github.com/acme/infra/pull/13'),
         LATER,
       );

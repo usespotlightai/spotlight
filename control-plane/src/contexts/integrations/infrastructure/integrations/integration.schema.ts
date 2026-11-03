@@ -148,11 +148,21 @@ const requestSchema = z.object({
     .optional(),
 });
 
+const readySchema = requestSchema.extend({
+  attempts: z
+    .number()
+    .int()
+    .min(1, 'is 1 to 30 attempts')
+    .max(30, 'is 1 to 30 attempts')
+    .default(10),
+});
+
 const uploadsSchema = z.object({
   each: expression,
   prepare: requestSchema,
   send: requestSchema,
   complete: requestSchema.optional(),
+  ready: readySchema.optional(),
 });
 
 const actionSchema = z.object({

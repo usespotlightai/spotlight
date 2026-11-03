@@ -15,13 +15,7 @@ import { OutputTable } from '@/components/features/insights/OutputTable';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { spentIn } from '@/lib/inbox';
-import {
-  type DayOutput,
-  formatStation,
-  OUTPUT_NOTE,
-  type StationNames,
-} from '@/lib/insights';
-import { changeKey } from '@/lib/insights-changes';
+import { type DayOutput, OUTPUT_NOTE, type StationNames } from '@/lib/insights';
 import { formatDay } from '@/lib/judge';
 
 export const OUTPUT_CHART_HEIGHT = 200;
@@ -30,18 +24,16 @@ const spendOf = (day: DayOutput): number | null => day.spend?.amount ?? null;
 
 const INSET = 8;
 
-const TipContent = ({
+export const TipContent = ({
   placement,
   active,
   payload,
   currency,
-  names,
 }: {
   placement: TipPlacement;
   active?: boolean;
   payload?: { payload: DayOutput }[];
   currency: string | null;
-  names: StationNames;
 }) => {
   const day = payload?.[0]?.payload;
 
@@ -59,11 +51,6 @@ const TipContent = ({
       <p className="text-muted-foreground">
         {day.merged} {day.merged === 1 ? 'PR' : 'PRs'} merged
       </p>
-      {day.changes.map((change) => (
-        <p key={changeKey(change)} className="text-muted-foreground">
-          Config changed at {formatStation(names, change.stationId)}
-        </p>
-      ))}
     </ChartTip>
   );
 };
@@ -132,7 +119,6 @@ export function OutputAgainstCost({
                     <TipContent
                       placement={cursor.placement}
                       currency={currency}
-                      names={names}
                     />
                   }
                   cursor={{ fill: 'var(--accent)' }}

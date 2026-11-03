@@ -1,4 +1,4 @@
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { describe, expect, it } from 'vitest';
@@ -6,16 +6,10 @@ import { describe, expect, it } from 'vitest';
 const ISSUE = Mark.of('linear.issue', 'ENG-42');
 
 describe('CorrelationKeys', () => {
-  it('reads the task out of a branch named after it', () => {
-    expect(CorrelationKeys.of({ branch: 'spotlight/task_1' })?.taskId).toEqual(
-      TaskId.of('task_1'),
-    );
-  });
-
-  it('reads no task out of a branch named anything else', () => {
+  it('carries the branch a source named', () => {
     expect(
-      CorrelationKeys.of({ branch: 'main', marks: [ISSUE] })?.taskId,
-    ).toBeNull();
+      CorrelationKeys.of({ branch: 'feat/add-a-menu-0a1b2c3d' })?.branch,
+    ).toEqual(Branch.of('feat/add-a-menu-0a1b2c3d'));
   });
 
   it('carries every handle the source recognised', () => {
@@ -28,9 +22,9 @@ describe('CorrelationKeys', () => {
     ]);
   });
 
-  it('is nothing where it names neither a task nor a handle', () => {
+  it('is nothing where it names neither a branch nor a handle', () => {
     expect(CorrelationKeys.of({})).toBeNull();
-    expect(CorrelationKeys.of({ branch: 'main' })).toBeNull();
-    expect(CorrelationKeys.of({ branch: 'main', marks: [null] })).toBeNull();
+    expect(CorrelationKeys.of({ branch: ' ' })).toBeNull();
+    expect(CorrelationKeys.of({ marks: [null] })).toBeNull();
   });
 });

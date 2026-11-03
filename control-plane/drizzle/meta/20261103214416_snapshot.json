@@ -1,5 +1,5 @@
 {
-  "id": "7f086d34-8a7a-4af5-8836-8a963038cd94",
+  "id": "7d5eb9ca-678a-4b55-8be0-c6a804cb6b5a",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -15623,6 +15623,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "branch": {
+          "name": "branch",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "description": {
           "name": "description",
           "type": "text",
@@ -15778,6 +15784,27 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_workspace_branch_uidx": {
+          "name": "task_workspace_branch_uidx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "branch",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}

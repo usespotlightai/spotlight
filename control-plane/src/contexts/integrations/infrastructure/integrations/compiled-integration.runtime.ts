@@ -26,6 +26,7 @@ import { readEvents } from '@integrations/infrastructure/integrations/happenings
 import type {
   OnBindingIR,
   ReadableIntegration,
+  ReadyIR,
   RequestIR,
   UploadsIR,
 } from '@integrations/infrastructure/integrations/integration.compile';
@@ -60,6 +61,7 @@ import { operationRequest } from '@integrations/infrastructure/outbound/operatio
 import { taskBinding } from '@integrations/infrastructure/outbound/task-binding';
 import { sanitizedForCel } from '@platform/expressions/cel-variables';
 import { evaluateText, value } from '@platform/expressions/readings';
+import { type Sleep, sleeping } from '@platform/time/sleep';
 import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -104,6 +106,10 @@ const dataOf = (response: unknown, field: string): unknown =>
   fieldOf(fieldOf(response, 'data'), field) ?? null;
 
 const UNAUTHORIZED = 401;
+
+const FORBIDDEN = 403;
+
+const READY_EVERY_MS = 1_000;
 
 type Bindings = Record<string, unknown>;
 
@@ -166,6 +172,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     private readonly scope: WorkspaceOutboundScopePort,
     private readonly network: NetworkOutbound,
     private readonly files: NoticeFileReaderPort,
+    private readonly sleep: Sleep = sleeping,
   ) {}
 
   integrations(
@@ -439,6 +446,24 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
           return { uploaded: [], failed: serviceErrorOf(completed.result) };
         }
       }
+
+      const ready = uploads.ready;
+      if (ready) {
+        const unready = await Promise.all(
+          uploaded.map((each) =>
+            this.unready(
+              ready,
+              { ...bindings, file: each, prepared: each.prepared },
+              callAuth,
+            ),
+          ),
+        );
+        const failed = unready.find((each) => each !== null);
+
+        if (failed) {
+          return { uploaded: [], failed };
+        }
+      }
     } catch (error) {
       return {
         uploaded: [],
@@ -447,6 +472,44 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     }
 
     return { uploaded, failed: null };
+  }
+
+  private async unready(
+    ready: ReadyIR,
+    bindings: Bindings,
+    callAuth: CallAuth,
+  ): Promise<ServiceError | null> {
+    const name = fieldOf(bindings.file, 'name');
+
+    for (let attempt = 1; ; attempt++) {
+      const checked = await this.sent(ready, bindings, callAuth).then(
+        (sent) => (sent.result.ok ? null : serviceErrorOf(sent.result)),
+        (error: unknown): ServiceError => ({
+          status: 0,
+          output: reasonOf(error),
+        }),
+      );
+
+      if (!checked) {
+        return null;
+      }
+
+      if (checked.status === UNAUTHORIZED || checked.status === FORBIDDEN) {
+        return {
+          status: checked.status,
+          output: `the check of the file ${String(name)} was refused: ${checked.output}`,
+        };
+      }
+
+      if (attempt >= ready.attempts) {
+        return {
+          status: checked.status,
+          output: `the file ${String(name)} was not ready after ${ready.attempts} attempts: ${checked.output}`,
+        };
+      }
+
+      await this.sleep(READY_EVERY_MS);
+    }
   }
 
   async tool(

@@ -37,7 +37,7 @@ export class SetupPullRequestToolUse
     }
 
     const branch = Branch.of(inputs.text('branch') ?? '');
-    const setup = chat.mayOpenSetupFrom(runId, branch);
+    const setup = chat.mayOpenSetupFrom(runId);
     const title = (inputs.text('title') ?? '').trim();
 
     if (!title) {
@@ -55,7 +55,6 @@ export class SetupPullRequestToolUse
     return this.transaction.inTransaction(async () => {
       const saved = (await this.found(chatId)).openSetup(
         runId,
-        branch,
         PullRequestUrl.of(opened.url),
         this.clock.now(),
       );

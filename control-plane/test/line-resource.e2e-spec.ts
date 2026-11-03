@@ -139,6 +139,7 @@ describe('a line, created through the resource API (e2e)', () => {
 
     await db.insert(schema.task).values({
       id: randomUUID(),
+      branch: `feat/test-${randomUUID()}`,
       openedFrom: 'person',
       workspaceId: station?.workspaceId ?? '',
       stationId: station?.id ?? '',

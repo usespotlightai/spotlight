@@ -58,6 +58,7 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     workspaceId: task.workspaceId,
     stationId: task.stationId,
     title: task.title,
+    branch: task.branch,
     description: task.description,
     rank: task.rank,
     currentRunId: task.currentRunId,

@@ -29,10 +29,10 @@
     "auth:generate": "auth generate --config scripts/auth-config.ts --output src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts -y"
   },
   "dependencies": {
-    "@aws-sdk/client-kms": "^3.1160.0",
-    "@aws-sdk/client-s3": "^3.1160.0",
-    "@aws-sdk/client-secrets-manager": "^3.1160.0",
-    "@aws-sdk/s3-request-presigner": "^3.1160.0",
+    "@aws-sdk/client-kms": "^3.1161.0",
+    "@aws-sdk/client-s3": "^3.1161.0",
+    "@aws-sdk/client-secrets-manager": "^3.1161.0",
+    "@aws-sdk/s3-request-presigner": "^3.1161.0",
     "@hocuspocus/extension-redis": "^4.8.0",
     "@hocuspocus/server": "^4.7.1",
     "@marcbachmann/cel-js": "^8.0.0",
@@ -84,7 +84,7 @@
     "@nestjs/testing": "^12.3.2",
     "@opentelemetry/context-async-hooks": "^3.0.0",
     "@opentelemetry/sdk-trace": "^3.0.0",
-    "@swc/core": "^1.16.20",
+    "@swc/core": "^1.16.21",
     "@types/express": "^5.0.6",
     "@types/ioredis-mock": "^8.2.8",
     "@types/node": "^26.6.6",

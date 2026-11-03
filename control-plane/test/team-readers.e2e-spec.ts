@@ -50,6 +50,7 @@ const createInboxRequest = async (
 
   await db.insert(schema.task).values({
     id: taskId,
+    branch: `feat/test-${taskId}`,
     openedFrom: 'person',
     workspaceId: team.workspaceId.value,
     stationId: team.stationId.value,
@@ -252,6 +253,7 @@ describe('who is told which memories a run used on a deleted team’s line', () 
     ]);
     await db.insert(schema.task).values({
       id: taskId,
+      branch: `feat/test-${taskId}`,
       openedFrom: 'person',
       workspaceId: team.workspaceId.value,
       stationId,

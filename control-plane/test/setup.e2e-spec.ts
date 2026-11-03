@@ -139,6 +139,7 @@ describe('the open setup lists of a team', () => {
 
     await db.insert(schema.task).values({
       id: randomUUID(),
+      branch: `feat/test-${randomUUID()}`,
       openedFrom: 'person',
       workspaceId: workspaceId.value,
       stationId: stationId.value,
