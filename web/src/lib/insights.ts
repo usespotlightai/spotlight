@@ -43,6 +43,7 @@ import { formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { RANGES, type Range, rangeOf } from '@/lib/range';
 import { teamSectionPath } from '@/lib/team';
+import { fitToWidth } from '@/lib/textFit';
 
 export type InsightsOverview = InsightsOverviewResponseDto;
 export type InsightsFlow = InsightsFlowResponseDto;
@@ -787,6 +788,80 @@ export const sankeyOf = (
         : [{ source, target, value: link.amount }];
     }),
   };
+};
+
+const SANKEY_DEPTH: Record<CostFlowNode['kind'], number> = {
+  model: 0,
+  station: 1,
+  repository: 2,
+};
+
+const SANKEY_LABEL_GAP = 6;
+const SANKEY_LABEL_SLACK = 4;
+const SANKEY_MIN_DIAGRAM = 120;
+
+export type SankeyLayout = {
+  readonly left: number;
+  readonly right: number;
+  readonly names: string[];
+};
+
+export const sankeyLayout = (
+  shown: SankeyShown,
+  width: number,
+  measure: (text: string) => number,
+  cap: number,
+  currency: string,
+): SankeyLayout => {
+  const values = shown.nodes.map((_, index) => {
+    const into = shown.links
+      .filter((link) => link.target === index)
+      .reduce((sum, link) => sum + link.value, 0);
+    const out = shown.links
+      .filter((link) => link.source === index)
+      .reduce((sum, link) => sum + link.value, 0);
+
+    return Math.max(into, out);
+  });
+  const amounts = values.map(
+    (value) => SANKEY_LABEL_GAP + measure(spentIn(value, currency)),
+  );
+  const room = (depth: number, name: (index: number) => string) =>
+    Math.max(
+      0,
+      ...shown.nodes.flatMap((node, index) =>
+        SANKEY_DEPTH[node.kind] === depth
+          ? [
+              SANKEY_LABEL_GAP +
+                SANKEY_LABEL_SLACK +
+                measure(name(index)) +
+                (amounts[index] ?? 0),
+            ]
+          : [],
+      ),
+    );
+
+  const left = Math.ceil(room(0, (index) => shown.nodes[index]?.name ?? ''));
+  const limit = Math.max(0, Math.min(cap, width - left - SANKEY_MIN_DIAGRAM));
+  const right = Math.ceil(
+    Math.min(
+      limit,
+      room(SANKEY_DEPTH.repository, (index) => shown.nodes[index]?.name ?? ''),
+    ),
+  );
+
+  const names = shown.nodes.map((node, index) => {
+    if (SANKEY_DEPTH[node.kind] !== SANKEY_DEPTH.repository) {
+      return node.name;
+    }
+
+    const spare =
+      right - SANKEY_LABEL_GAP - SANKEY_LABEL_SLACK - (amounts[index] ?? 0);
+
+    return fitToWidth(node.name, measure, spare);
+  });
+
+  return { left, right, names };
 };
 
 export type FlowLinkRow = {

@@ -16,6 +16,7 @@ import {
   lastPageOf,
   pageShownOf,
   paramsOf,
+  sankeyLayout,
   sankeyOf,
   shownDeltaOf,
   sliceFilter,
@@ -550,5 +551,62 @@ describe('tallyTiles', () => {
       detail: '20% of runs',
       delta: { tone: 'good' },
     });
+  });
+});
+
+describe('sankey layout', () => {
+  const measure = (text: string) => text.length * 6;
+  const LONG = 'usespotlightai/terraform-aws-spotlight-runner-daytona';
+  const shown = {
+    nodes: [
+      { name: 'Harness default', kind: 'model' as const },
+      { name: 'Coder', kind: 'station' as const },
+      { name: LONG, kind: 'repository' as const },
+      { name: 'a/b', kind: 'repository' as const },
+    ],
+    links: [
+      { source: 0, target: 1, value: 19.18 },
+      { source: 1, target: 2, value: 0.45 },
+      { source: 1, target: 3, value: 0.1 },
+    ],
+  };
+
+  it('fits the widest first-column label in the left margin', () => {
+    const { left } = sankeyLayout(shown, 1400, measure, 560, 'USD');
+
+    expect(left).toBeGreaterThanOrEqual(
+      measure('Harness default') + measure('$19.18'),
+    );
+  });
+
+  it('fits the widest last-column label and its amount in the right margin', () => {
+    const { right } = sankeyLayout(shown, 1400, measure, 560, 'USD');
+
+    expect(right).toBeGreaterThanOrEqual(measure(LONG) + measure('$0.45'));
+  });
+
+  it('leaves names whole on a wide card', () => {
+    expect(sankeyLayout(shown, 1400, measure, 560, 'USD').names).toEqual([
+      'Harness default',
+      'Coder',
+      LONG,
+      'a/b',
+    ]);
+  });
+
+  it('ellipsizes the long repository name on a narrow card and keeps room for the amount', () => {
+    const layout = sankeyLayout(shown, 800, measure, 320, 'USD');
+    const name = layout.names[2] ?? '';
+
+    expect(layout.right).toBeLessThanOrEqual(320);
+    expect(name.endsWith('…')).toBe(true);
+    expect(measure(name) + measure('$0.45')).toBeLessThanOrEqual(layout.right);
+    expect(layout.names[3]).toBe('a/b');
+  });
+
+  it('never leaves a non-positive diagram width', () => {
+    const { left, right } = sankeyLayout(shown, 300, measure, 1000, 'USD');
+
+    expect(300 - left - right).toBeGreaterThan(0);
   });
 });
