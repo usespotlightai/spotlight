@@ -31,6 +31,7 @@ export function useOneLineFit(written: Written, opened: boolean) {
     if (!expanded) {
       room.current = field.clientWidth;
       if (field.scrollHeight > ONE_LINE) {
+        // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change
         setWrapped(true);
       }
       return;
@@ -43,6 +44,7 @@ export function useOneLineFit(written: Written, opened: boolean) {
     const line = widthOf(field.firstElementChild);
 
     if (room.current !== null && line + FIT_MARGIN <= room.current) {
+      // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change
       setWrapped(false);
     }
   });
