@@ -130,7 +130,7 @@ export function Inbox() {
           <PaneHandle {...listHandle} edge="right" resizing={listResizing} />
         </div>
 
-        <PageOutlet />
+        <PageOutlet what="The message" centered />
       </div>
     </TrailContext>
   );

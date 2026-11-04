@@ -76,4 +76,19 @@ describe('PageErrorBoundary', () => {
     expect(screen.getByText('The page')).toBeInTheDocument();
     expect(mounted).toBe(1);
   });
+  it('names what could not be loaded where the place gives its own name', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    render(
+      <MemoryRouter>
+        <PageErrorBoundary what="The message" centered>
+          <Page />
+        </PageErrorBoundary>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The message could not be loaded.',
+    );
+  });
 });

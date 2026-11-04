@@ -2,8 +2,19 @@ import { ErrorBoundary } from '@sentry/react';
 import { type ReactNode, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { cn } from '@/lib/utils';
 
-export function PageErrorBoundary({ children }: { children: ReactNode }) {
+type PageErrorBoundaryProps = {
+  what?: string;
+  centered?: boolean;
+  children: ReactNode;
+};
+
+export function PageErrorBoundary({
+  what = 'This page',
+  centered = false,
+  children,
+}: PageErrorBoundaryProps) {
   const { pathname } = useLocation();
   const boundary = useRef<ErrorBoundary>(null);
 
@@ -18,10 +29,10 @@ export function PageErrorBoundary({ children }: { children: ReactNode }) {
       ref={boundary}
       fallback={({ resetError }) => (
         <CouldNotLoad
-          what="This page"
+          what={what}
           retrying={false}
           onRetry={resetError}
-          className="py-16"
+          className={cn('py-16', centered && 'min-w-0 flex-1')}
         />
       )}
     >
