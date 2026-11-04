@@ -38,14 +38,16 @@ const TipContent = ({
   }
 
   return (
-    <ChartTip placement={placement}>
-      <p className="text-foreground">{row.label}, median</p>
-      {WAIT_SERIES.map((wait) => (
-        <p key={wait.key} className="text-muted-foreground">
-          {wait.label} {formatDuration(row[wait.key])}
-        </p>
-      ))}
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title: `${row.label}, median`,
+        rows: WAIT_SERIES.map((wait): [string, string] => [
+          wait.label,
+          formatDuration(row[wait.key]),
+        ]),
+      }}
+    />
   );
 };
 

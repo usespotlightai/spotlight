@@ -47,16 +47,20 @@ export const TipContent = ({
   }
 
   return (
-    <ChartTip placement={placement}>
-      <p className="text-muted-foreground">{formatDay(day.day)}</p>
-      <p className="pt-0.5 text-foreground">
-        {day.spend && currency ? spentIn(day.spend.amount, currency) : '–'}{' '}
-        spent over {day.runs} {day.runs === 1 ? 'run' : 'runs'}
-      </p>
-      <p className="text-muted-foreground">
-        {day.merged} {day.merged === 1 ? 'PR' : 'PRs'} merged
-      </p>
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title: formatDay(day.day),
+        rows: [
+          [
+            'Spent',
+            day.spend && currency ? spentIn(day.spend.amount, currency) : '–',
+          ],
+          ['Runs', `${day.runs}`],
+          ['PRs merged', `${day.merged}`],
+        ],
+      }}
+    />
   );
 };
 

@@ -78,17 +78,17 @@ const TipContent = ({
   }
 
   return (
-    <ChartTip placement={placement} style={{ width: TOOLTIP_WIDTH }}>
-      <p className="text-muted-foreground tabular-nums">
-        {spanned(bucket.from, bucket.to)}
-      </p>
-      <p className="pt-0.5 text-foreground">
-        {bucket.count} {bucket.count === 1 ? 'trace' : 'traces'}
-      </p>
-      <p className="text-muted-foreground">
-        {bucket.errors} {bucket.errors === 1 ? 'error' : 'errors'}
-      </p>
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      style={{ width: TOOLTIP_WIDTH }}
+      note={{
+        title: spanned(bucket.from, bucket.to),
+        rows: [
+          ['Traces', `${bucket.count}`],
+          ['Errors', `${bucket.errors}`],
+        ],
+      }}
+    />
   );
 };
 

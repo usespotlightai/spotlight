@@ -127,16 +127,16 @@ const TipContent = ({
   const flow = hovered.payload?.payload;
 
   return (
-    <ChartTip placement={placement}>
-      <p className="text-muted-foreground">
-        {flow?.source && flow.target
-          ? `${flow.source.name} → ${flow.target.name}`
-          : hovered.name}
-      </p>
-      <p className="text-foreground tabular-nums">
-        {spentIn(Number(hovered.value ?? 0), currency)}
-      </p>
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title:
+          flow?.source && flow.target
+            ? `${flow.source.name} → ${flow.target.name}`
+            : hovered.name,
+        rows: [['Spend', spentIn(Number(hovered.value ?? 0), currency)]],
+      }}
+    />
   );
 };
 

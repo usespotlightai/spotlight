@@ -39,17 +39,21 @@ const TipContent = ({
   }
 
   return (
-    <ChartTip placement={placement}>
-      <p className="text-muted-foreground">{formatDay(point.day)}</p>
-      <p className="pt-0.5 text-foreground">
-        {point.judge === null
-          ? `Judge hidden over ${point.judged}`
-          : `Judge ${scoreOf(kind, point.judge)} over ${point.judged}`}
-      </p>
-      <p className="text-muted-foreground">
-        People {scoreOf(kind, point.people)} over {point.labelled}
-      </p>
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title: formatDay(point.day),
+        rows: [
+          [
+            'Judge',
+            point.judge === null
+              ? `Hidden, over ${point.judged}`
+              : `${scoreOf(kind, point.judge)} over ${point.judged}`,
+          ],
+          ['People', `${scoreOf(kind, point.people)} over ${point.labelled}`],
+        ],
+      }}
+    />
   );
 };
 

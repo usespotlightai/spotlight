@@ -53,21 +53,16 @@ const TipContent = ({
   }
 
   return (
-    <ChartTip placement={placement}>
-      <p className="text-muted-foreground">{formatDay(String(point.day))}</p>
-      {series.map((each) => {
-        const value = point[each.key];
-
-        return (
-          <p key={each.key} className="text-foreground">
-            {each.label}{' '}
-            <span className="tabular-nums">
-              {typeof value === 'number' ? format(value) : '–'}
-            </span>
-          </p>
-        );
-      })}
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title: formatDay(String(point.day)),
+        rows: series.map((each): [string, string] => {
+          const value = point[each.key];
+          return [each.label, typeof value === 'number' ? format(value) : '–'];
+        }),
+      }}
+    />
   );
 };
 

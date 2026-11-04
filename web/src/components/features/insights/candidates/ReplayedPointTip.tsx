@@ -16,26 +16,25 @@ export function ReplayedPointTip({
   placement,
 }: ReplayedPointTipProps) {
   return (
-    <ChartTip placement={placement}>
-      <p className="text-foreground">
-        <span className="mr-1.5 text-muted-foreground">Replayed</span>
-        {point.label}
-      </p>
-      <p className="text-muted-foreground">
-        Replay success {formatShare(point.value)} of {formatCount(point.scored)}{' '}
-        scored {point.scored === 1 ? 'run' : 'runs'}
-      </p>
-      <p className="text-muted-foreground">
-        {spentIn(point.cost, currency)} a run
-      </p>
-      <p className="text-muted-foreground">
-        {[
-          point.heldOut ? `held out ${point.heldOut}` : null,
-          point.frontier ? 'Best for the cost' : null,
-        ]
-          .filter(Boolean)
-          .join(', ')}
-      </p>
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title: point.label,
+        rows: [
+          ['Source', 'Replayed'],
+          [
+            'Replay success',
+            `${formatShare(point.value)} of ${formatCount(point.scored)} scored ${point.scored === 1 ? 'run' : 'runs'}`,
+          ],
+          ['Cost per run', spentIn(point.cost, currency)],
+          ...(point.heldOut
+            ? ([['Held out', `${point.heldOut}`]] as [string, string][])
+            : []),
+          ...(point.frontier
+            ? ([['Best for the cost', 'Yes']] as [string, string][])
+            : []),
+        ],
+      }}
+    />
   );
 }

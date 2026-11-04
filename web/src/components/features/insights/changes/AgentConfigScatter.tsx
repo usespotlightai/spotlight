@@ -65,19 +65,20 @@ const TipContent = ({
   }
 
   return (
-    <ChartTip placement={placement}>
-      <p className="text-foreground">{point.label}</p>
-      <p className="text-muted-foreground">
-        {outcomeLabel(measure)} {formatShare(point.value)}
-      </p>
-      <p className="text-muted-foreground">
-        {spentIn(point.cost, currency)} a run
-      </p>
-      <p className="text-muted-foreground">
-        {formatCount(point.runs)} {point.runs === 1 ? 'run' : 'runs'}
-        {point.frontier ? ', best for the cost' : ''}
-      </p>
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title: point.label,
+        rows: [
+          [outcomeLabel(measure), formatShare(point.value)],
+          ['Cost per run', spentIn(point.cost, currency)],
+          ['Runs', formatCount(point.runs)],
+          ...(point.frontier
+            ? ([['Best for the cost', 'Yes']] as [string, string][])
+            : []),
+        ],
+      }}
+    />
   );
 };
 

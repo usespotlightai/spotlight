@@ -1,8 +1,4 @@
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatDurationOrNone } from '@/lib/insights';
 import {
   type FlowStage,
@@ -42,24 +38,19 @@ export function PipelineStageLabel({
   return (
     <div className="-translate-x-1/2 absolute" style={{ left: x, top }}>
       {parts ? (
-        <Tooltip>
-          <TooltipTrigger
-            render={<button type="button" className="outline-none" />}
-          >
+        <WithTooltip
+          tooltip={{
+            title: stage.label,
+            rows: STATION_STAGES.map((part): [string, string] => [
+              formatPart(part),
+              formatDurationOrNone(parts[part]),
+            ]),
+          }}
+        >
+          <button type="button" className="outline-none">
             {text}
-          </TooltipTrigger>
-          <TooltipContent className="flex flex-col gap-0.5 text-xs">
-            <span className="text-foreground">{stage.label}</span>
-            {STATION_STAGES.map((part) => (
-              <span key={part} className="text-muted-foreground">
-                {formatPart(part)}{' '}
-                <span className="tabular-nums">
-                  {formatDurationOrNone(parts[part])}
-                </span>
-              </span>
-            ))}
-          </TooltipContent>
-        </Tooltip>
+          </button>
+        </WithTooltip>
       ) : (
         text
       )}
