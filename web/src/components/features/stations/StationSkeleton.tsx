@@ -32,10 +32,13 @@ export function StationSkeleton({ tab }: { tab: StationTab }) {
 
       <div className="flex shrink-0 flex-col gap-3 pt-3">
         <div className={cn(STATION_COLUMN, 'flex min-w-0 flex-col gap-1')}>
-          <span className="flex items-center gap-2.5 text-xl leading-7">
-            <Skeleton className="size-[1.125rem] shrink-0 rounded-full" />
-            <SkeletonLine className="w-44" />
-          </span>
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2.5 text-xl leading-7">
+              <Skeleton className="size-[1.125rem] shrink-0 rounded-full" />
+              <SkeletonLine className="w-44" />
+            </span>
+            {tab === 'activity' && <Skeleton className="h-7 w-32 rounded-md" />}
+          </div>
           <SkeletonLine className="w-56 text-sm leading-5" />
         </div>
 
@@ -64,7 +67,6 @@ export function StationSkeleton({ tab }: { tab: StationTab }) {
                 </span>
               ))}
             </div>
-            {tab === 'activity' && <Skeleton className="h-7 w-32 rounded-md" />}
           </div>
         </div>
       </div>

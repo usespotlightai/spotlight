@@ -25,20 +25,25 @@ export function StationHeading({
   return (
     <div className="flex shrink-0 flex-col gap-3 pt-3">
       <div className={cn(STATION_COLUMN, 'flex min-w-0 flex-col gap-1')}>
-        <PageTitle
-          lead={
-            <StationIcon
-              share={stationShare(
-                line.stations.findIndex((each) => each.id === station.id),
-                line.stations.length,
-              )}
-              color={station.color}
-              className="size-[1.125rem]"
-            />
-          }
-        >
-          {station.name}
-        </PageTitle>
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <PageTitle
+            lead={
+              <StationIcon
+                share={stationShare(
+                  line.stations.findIndex((each) => each.id === station.id),
+                  line.stations.length,
+                )}
+                color={station.color}
+                className="size-[1.125rem]"
+              />
+            }
+          >
+            {station.name}
+          </PageTitle>
+          {station.kind === 'work' && tab === 'activity' && (
+            <ActivityPeriodPicker />
+          )}
+        </div>
 
         {station.description && (
           <p className="text-muted-foreground text-sm leading-5">
@@ -49,12 +54,7 @@ export function StationHeading({
 
       {station.kind === 'work' && (
         <div className="border-border border-b">
-          <div
-            className={cn(
-              STATION_COLUMN,
-              'flex items-center justify-between gap-3',
-            )}
-          >
+          <div className={STATION_COLUMN}>
             <StationTabs
               slug={slug}
               teamId={teamId}
@@ -62,7 +62,6 @@ export function StationHeading({
               station={station}
               current={tab}
             />
-            {tab === 'activity' && <ActivityPeriodPicker />}
           </div>
         </div>
       )}
