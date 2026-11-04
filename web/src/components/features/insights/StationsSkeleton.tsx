@@ -12,11 +12,7 @@ export function StationsSkeleton({ stations }: { stations: number }) {
       aria-label="Loading the stations"
       className="flex flex-col gap-3"
     >
-      <InsightsTilesSkeleton
-        label="The whole team"
-        tiles={TALLY_TILES}
-        topAligned
-      />
+      <InsightsTilesSkeleton label="The whole team" tiles={TALLY_TILES} />
 
       <InsightsCardSkeleton title="By station" description={BY_STATION_NOTE}>
         <NestedTableSkeleton

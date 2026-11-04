@@ -21,32 +21,23 @@ const meta = {
   decorators: [
     (Story) => (
       <MemoryRouter>
-        <div className="grid gap-3 p-4 md:grid-cols-2">
+        <div className="max-w-2xl p-4">
           <Story />
         </div>
       </MemoryRouter>
     ),
   ],
   render: () => (
-    <>
-      <CostSlices
-        title="By model"
-        dimension="model"
-        slices={models}
-        currency="USD"
-        named={named}
-      />
-      <CostSlices
-        title="By repository"
-        dimension="repository"
-        slices={repositories}
-        currency="USD"
-        named={named}
-      />
-    </>
+    <CostSlices
+      slicesOf={(dimension) =>
+        dimension === 'repository' ? repositories : models
+      }
+      currency="USD"
+      named={named}
+    />
   ),
 } satisfies Meta;
 
 export default meta;
 
-export const EqualHeight: StoryObj<typeof meta> = {};
+export const Breakdown: StoryObj<typeof meta> = {};

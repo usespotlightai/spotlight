@@ -573,7 +573,8 @@ describe('TeamInsights', () => {
     expect(screen.getByText('No priced runs')).toBeInTheDocument();
   });
 
-  it('keeps a long repository legend inside the scroll container with every row', () => {
+  it('splits the spend by repository on request, keeping every row inside the scroll container', async () => {
+    const user = userEvent.setup();
     const byRepository = Array.from({ length: 12 }, (_, at) => ({
       key: `acme/repo-${at}`,
       amount: 12 - at,
@@ -590,13 +591,15 @@ describe('TeamInsights', () => {
     });
 
     showing('?tab=cost');
+    await user.click(screen.getByRole('button', { name: 'Repository' }));
 
     const legend = screen.getByRole('list', { name: 'Spend by repository' });
     expect(legend.closest('[data-slot="scroll-area"]')).not.toBeNull();
     expect(within(legend).getAllByRole('listitem')).toHaveLength(12);
   });
 
-  it('keeps a single-row legend inside the scroll container', () => {
+  it('keeps a single repository inside the scroll container', async () => {
+    const user = userEvent.setup();
     answers.cost = queried({
       ...MIXED_COST,
       cost: {
@@ -607,6 +610,7 @@ describe('TeamInsights', () => {
     });
 
     showing('?tab=cost');
+    await user.click(screen.getByRole('button', { name: 'Repository' }));
 
     const legend = screen.getByRole('list', { name: 'Spend by repository' });
     expect(legend.closest('[data-slot="scroll-area"]')).not.toBeNull();

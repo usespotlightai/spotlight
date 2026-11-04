@@ -680,10 +680,10 @@ export const COST_DIMENSIONS: readonly {
   readonly id: CostDimension;
   readonly label: string;
 }[] = [
-  { id: 'harness', label: 'By harness' },
-  { id: 'model', label: 'By model' },
-  { id: 'station', label: 'By station' },
-  { id: 'repository', label: 'By repository' },
+  { id: 'harness', label: 'Harness' },
+  { id: 'model', label: 'Model' },
+  { id: 'station', label: 'Station' },
+  { id: 'repository', label: 'Repository' },
 ];
 
 export const slicesOf = (
@@ -865,17 +865,29 @@ export const sankeyLayout = (
 };
 
 export type FlowLinkRow = {
+  readonly stage: string;
   readonly from: string;
   readonly to: string;
   readonly amount: number;
 };
 
+const STAGE_NAMES: Record<CostFlowNode['kind'], string> = {
+  model: 'Model to station',
+  station: 'Station to repository',
+  repository: 'Repository',
+};
+
 export const flowLinkRows = (shown: SankeyShown): FlowLinkRow[] =>
-  shown.links.map((link) => ({
-    from: shown.nodes[link.source]?.name ?? '–',
-    to: shown.nodes[link.target]?.name ?? '–',
-    amount: link.value,
-  }));
+  shown.links.map((link) => {
+    const source = shown.nodes[link.source];
+
+    return {
+      stage: source ? STAGE_NAMES[source.kind] : '–',
+      from: source?.name ?? '–',
+      to: shown.nodes[link.target]?.name ?? '–',
+      amount: link.value,
+    };
+  });
 
 type Paged = {
   readonly total: number;

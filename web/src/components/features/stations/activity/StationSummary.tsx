@@ -75,7 +75,7 @@ export function StationSummary({
       }
     >
       <div data-slot="station-summary">
-        <InsightsTiles label={SUMMARY_TITLE} topAligned>
+        <InsightsTiles label={SUMMARY_TITLE}>
           {SUMMARY_COLUMNS.map((column) => (
             <InsightsTile
               key={column.label}

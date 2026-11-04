@@ -29,11 +29,7 @@ export function OverviewSkeleton() {
       aria-label="Loading the overview"
       className={OVERVIEW_LAYOUT}
     >
-      <InsightsTilesSkeleton
-        label="Headline numbers"
-        tiles={TILES}
-        topAligned
-      />
+      <InsightsTilesSkeleton label="Headline numbers" tiles={TILES} />
 
       <InsightsCardSkeleton
         switchable

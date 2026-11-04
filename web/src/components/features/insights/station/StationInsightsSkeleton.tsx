@@ -26,11 +26,7 @@ export function StationInsightsSkeleton({
     >
       <StationInsightsHeading stationId={stationId} names={names} />
 
-      <InsightsTilesSkeleton
-        label="Over this period"
-        tiles={TALLY_TILES}
-        topAligned
-      />
+      <InsightsTilesSkeleton label="Over this period" tiles={TALLY_TILES} />
 
       <InsightsCardSkeleton
         title="Runs by config"

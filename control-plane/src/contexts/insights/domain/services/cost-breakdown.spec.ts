@@ -191,6 +191,57 @@ describe('costBreakdownFrom the counts of costCountsOf', () => {
     ]);
   });
 
+  it('lists each stage of the flow by its spend, largest first, models before stations before repositories', () => {
+    const history = historyOf({
+      records: [
+        costedRecord('run_1', {
+          endedAt: day('2026-09-28'),
+          model: 'haiku',
+          repositories: ['acme/web'],
+          amount: 1,
+        }),
+        costedRecord('run_2', {
+          endedAt: day('2026-09-28'),
+          model: 'sonnet',
+          repositories: ['acme/api'],
+          amount: 5,
+        }),
+      ],
+    });
+
+    const { nodes, links } = costBreakdownOf(history, PERIOD.current);
+
+    expect(nodes.map((each) => each.id)).toEqual([
+      'model:sonnet',
+      'model:haiku',
+      'station:station_1',
+      'repository:acme/api',
+      'repository:acme/web',
+    ]);
+    expect(links.map((each) => [each.source, each.target])).toEqual([
+      ['model:sonnet', 'station:station_1'],
+      ['model:haiku', 'station:station_1'],
+      ['station:station_1', 'repository:acme/api'],
+      ['station:station_1', 'repository:acme/web'],
+    ]);
+  });
+
+  it('lists the cache use of the stations that read the most input first', () => {
+    const history = historyOf({
+      records: [
+        tokened('run_1', 'station_1', 100, 300),
+        tokened('run_2', 'station_2', 900, 100),
+        tokened('run_3', 'station_3', null, null),
+      ],
+    });
+
+    expect(
+      costBreakdownOf(history, PERIOD.current).cacheByStation.map(
+        (each) => each.stationId,
+      ),
+    ).toEqual(['station_2', 'station_1', 'station_3']);
+  });
+
   it('splits nothing when prices came in more than one currency', () => {
     const history = historyOf({
       records: [

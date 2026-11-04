@@ -15,7 +15,7 @@ export function SummarySkeleton() {
       title={SUMMARY_TITLE}
       action={<SectionLinkSkeleton>See in Insights</SectionLinkSkeleton>}
     >
-      <InsightsTilesSkeleton label={SUMMARY_TITLE} tiles={TILES} topAligned />
+      <InsightsTilesSkeleton label={SUMMARY_TITLE} tiles={TILES} />
     </TabSection>
   );
 }

@@ -1,4 +1,3 @@
-import { EmptyDetail } from '@/components/features/insights/EmptyDetail';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
@@ -15,7 +14,7 @@ export function InsightsTileSkeleton({
   trend,
 }: TileBones) {
   return (
-    <SkeletonBlock>
+    <SkeletonBlock className="max-sm:odd:last:col-span-2">
       <div
         data-slot="insights-tile"
         className="flex min-h-28 min-w-0 flex-col gap-1 overflow-hidden rounded-lg border border-border px-4 py-3"
@@ -28,28 +27,22 @@ export function InsightsTileSkeleton({
           )}
           {tooltip && <InfoTooltip tooltip={tooltip} />}
         </dt>
-        <dd
-          className={cn(
-            'flex flex-1 flex-col gap-1.5',
-            !trend &&
-              'justify-center group-data-top-aligned/tiles:justify-start group-data-stacked/tiles:justify-start',
-          )}
-        >
+        <dd className="flex flex-1 flex-col">
           <span className="flex flex-col items-start gap-0.5">
             <SkeletonLine
               className={cn(wide ? 'w-20' : 'w-12', 'text-xl leading-7')}
             />
-            {delta && <SkeletonLine className="w-12 text-sm" />}
+            {delta && <SkeletonLine className="w-12 text-sm leading-5" />}
+            {typeof detail === 'string' ? (
+              <span className="text-muted-foreground text-sm leading-5">
+                {detail}
+              </span>
+            ) : (
+              detail && <SkeletonLine className="w-20 text-sm leading-5" />
+            )}
           </span>
-          {typeof detail === 'string' ? (
-            <span className="text-muted-foreground text-sm">{detail}</span>
-          ) : detail ? (
-            <SkeletonLine className="w-20 text-sm" />
-          ) : (
-            !trend && <EmptyDetail />
-          )}
           {trend && (
-            <span className="mt-auto pt-2">
+            <span className="mt-auto pt-3">
               <Skeleton className="h-8 w-full" />
             </span>
           )}

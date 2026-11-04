@@ -6,10 +6,13 @@ import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRuns } from '@/components/features/insights/NoRuns';
+import {
+  OVERVIEW_LAYOUT,
+  PAIR_GRID,
+} from '@/components/features/insights/overview-layout';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useInsightsCost } from '@/hooks/api/useInsightsCost';
 import {
-  COST_DIMENSIONS,
   formatCache,
   formatCount,
   formatSpend,
@@ -61,7 +64,7 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
   const named = sliceNamer(names, harnesses.data);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={OVERVIEW_LAYOUT}>
       <InsightsTiles label="Spend">
         <InsightsTile
           label="Spend"
@@ -71,45 +74,43 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
           drill={{ tab: 'traces' }}
         />
         <InsightsTile
-          label="Runs with no price"
-          value={formatCount(breakdown.unpriced)}
-          detail="Harness reports no cost"
-        />
-        <InsightsTile
           label="Cache share"
           value={formatCache(breakdown.cache.cacheRate)}
-          detail="Share of input tokens read from cache"
+          detail="Of tokens read"
         />
+        {breakdown.unpriced > 0 && (
+          <InsightsTile
+            label="Runs with no price"
+            value={formatCount(breakdown.unpriced)}
+            detail="Their harness reports no cost"
+          />
+        )}
       </InsightsTiles>
 
       {spend && (
-        <>
-          <div className="grid gap-3 md:grid-cols-2">
-            {COST_DIMENSIONS.map((dimension) => (
-              <CostSlices
-                key={dimension.id}
-                title={dimension.label}
-                dimension={dimension.id}
-                slices={slicesOf(breakdown, dimension.id)}
-                currency={spend.currency}
-                named={named}
-              />
-            ))}
-          </div>
-
-          <CostSankey
-            shown={sankeyOf(breakdown.nodes, breakdown.links, named)}
-            currency={spend.currency}
-          />
-        </>
+        <CostSankey
+          shown={sankeyOf(breakdown.nodes, breakdown.links, named)}
+          currency={spend.currency}
+        />
       )}
 
-      <CacheUse
-        slug={slug}
-        teamId={teamId}
-        stations={breakdown.cacheByStation}
-        names={names}
-      />
+      <div className={PAIR_GRID}>
+        {spend ? (
+          <CostSlices
+            slicesOf={(dimension) => slicesOf(breakdown, dimension)}
+            currency={spend.currency}
+            named={named}
+          />
+        ) : (
+          <span aria-hidden />
+        )}
+        <CacheUse
+          slug={slug}
+          teamId={teamId}
+          stations={breakdown.cacheByStation}
+          names={names}
+        />
+      </div>
     </div>
   );
 }

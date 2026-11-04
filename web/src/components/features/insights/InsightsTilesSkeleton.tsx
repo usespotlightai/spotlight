@@ -5,16 +5,14 @@ import type { TileBones } from '@/lib/insights-tiles';
 type InsightsTilesSkeletonProps = {
   label: string;
   tiles: readonly TileBones[];
-  topAligned?: boolean;
 };
 
 export function InsightsTilesSkeleton({
   label,
   tiles,
-  topAligned = false,
 }: InsightsTilesSkeletonProps) {
   return (
-    <InsightsTiles label={label} topAligned={topAligned}>
+    <InsightsTiles label={label}>
       {tiles.map((tile, at) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: placeholder tiles keep their place
         <InsightsTileSkeleton key={at} {...tile} />

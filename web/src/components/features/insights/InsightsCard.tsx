@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
 import { CardTitle } from '@/components/features/insights/CardHeading';
 import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
@@ -17,6 +18,8 @@ type InsightsCardProps = {
   level?: 2 | 3;
   scrolls?: boolean;
   flat?: boolean;
+  tableHeight?: string;
+  chartIcon?: LucideIcon;
   className?: string;
   children: ReactNode;
 };
@@ -31,6 +34,8 @@ export function InsightsCard({
   level,
   scrolls = false,
   flat = false,
+  tableHeight = TABLE_HEIGHT,
+  chartIcon,
   className,
   children,
 }: InsightsCardProps) {
@@ -38,7 +43,7 @@ export function InsightsCard({
   const [tabled, setTabled] = useState(false);
   const tabling = Boolean(table && tabled);
   const capped = (body: ReactNode) => (
-    <OverflowFade className={TABLE_HEIGHT}>{body}</OverflowFade>
+    <OverflowFade className={tableHeight}>{body}</OverflowFade>
   );
   const shown = scrolls ? capped(children) : children;
 
@@ -57,7 +62,7 @@ export function InsightsCard({
     >
       <header
         className={cn(
-          'flex min-h-6 flex-wrap items-center gap-2',
+          'flex min-h-7 flex-wrap items-center gap-2',
           !flat && 'px-3 pt-3 pb-4',
         )}
       >
@@ -70,7 +75,13 @@ export function InsightsCard({
           />
         </div>
         {actions}
-        {table && <ChartTableSwitch tabled={tabled} onTabled={setTabled} />}
+        {table && (
+          <ChartTableSwitch
+            tabled={tabled}
+            onTabled={setTabled}
+            chartIcon={chartIcon}
+          />
+        )}
       </header>
 
       {tabling || tableOnly ? (

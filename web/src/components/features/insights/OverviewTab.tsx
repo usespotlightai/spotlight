@@ -57,7 +57,7 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
 
   return (
     <div className={OVERVIEW_LAYOUT}>
-      <InsightsTiles label="Headline numbers" topAligned>
+      <InsightsTiles label="Headline numbers">
         {headlineTiles(headline, changes).map((tile) => (
           <InsightsTile
             key={tile.id}
