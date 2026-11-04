@@ -51,7 +51,7 @@ webhook:
         opens:
           lineRole: delivery
           station: triage
-          title: '\${{ body.event.text }}'
+          title: '\${{ htmlUnescape(body.event.text) }}'
         marks:
           - kind: slack.thread
             value: '\${{ body.event.channel + ":" + body.event.ts }}'
@@ -64,7 +64,7 @@ webhook:
         label: Replied
         summary: Replied in a Slack thread.
         answers: true
-        message: '\${{ body.event.text }}'
+        message: '\${{ htmlUnescape(body.event.text) }}'
         marks:
           - kind: slack.thread
             value: '\${{ body.event.channel + ":" + body.event.thread_ts }}'
@@ -99,8 +99,8 @@ const CHATTING = SLACK.replace(
   `        opens:
           lineRole: delivery
           station: triage
-          title: '\${{ body.event.text }}'`,
-  `        message: '\${{ body.event.text }}'
+          title: '\${{ htmlUnescape(body.event.text) }}'`,
+  `        message: '\${{ htmlUnescape(body.event.text) }}'
         opens:
           chat:
             by:
@@ -232,6 +232,19 @@ describe('the Slack webhook runtime', () => {
       });
     });
 
+    it('decodes HTML escapes in the title of the opened task', async () => {
+      const [read] = await runtime().read(
+        delivered({
+          event: {
+            ...mention.event,
+            text: 'Insights &gt; Cost &gt; Where the spend goes',
+          },
+        }),
+      );
+
+      expect(read?.opens?.title).toBe('Insights > Cost > Where the spend goes');
+    });
+
     it('has an ambient mark without finding a task by it', async () => {
       const [read] = await runtime().read(delivered(mention));
 
@@ -250,6 +263,14 @@ describe('the Slack webhook runtime', () => {
       expect(read?.happening).toBe('slack.message.replied');
       expect(read?.answers).toBe(true);
       expect(read?.message?.body).toBe('the queue');
+    });
+
+    it('decodes HTML escapes in a thread reply', async () => {
+      const [read] = await runtime().read(
+        delivered({ event: { ...reply.event, text: 'a &gt; b &amp; c' } }),
+      );
+
+      expect(read?.message?.body).toBe('a > b & c');
     });
 
     it('marks its own posts as its own doing', async () => {
@@ -295,7 +316,7 @@ webhook:
           email: '\${{ email }}'
         opens:
           lineRole: delivery
-          title: '\${{ body.event.text }}'
+          title: '\${{ htmlUnescape(body.event.text) }}'
           assignBy:
             email: '\${{ email }}'
         marks:
