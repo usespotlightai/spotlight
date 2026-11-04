@@ -19,6 +19,7 @@ import {
   type StationAlertFiring,
   thresholdLine,
 } from '@/lib/station-alert';
+import { alertMeasureLabel } from '@/lib/station-monitoring';
 
 export const ALERT_CHART_HEIGHT = 160;
 
@@ -60,15 +61,21 @@ const TipContent = ({
   }
 
   return (
-    <ChartTip placement={placement}>
-      <p className="text-muted-foreground">
-        Run ended {formatDay(point.endedAt.slice(0, 10))}
-      </p>
-      <p className="text-foreground">
-        {formatMeasureValue(alert.rule.measure, point.value, alert.currency)}
-        {point.runId === alert.runId ? ' · fired here' : ''}
-      </p>
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title: `Run ended ${formatDay(point.endedAt.slice(0, 10))}`,
+        rows: [
+          [
+            alertMeasureLabel(alert.rule.measure),
+            formatMeasureValue(alert.rule.measure, point.value, alert.currency),
+          ],
+          ...(point.runId === alert.runId
+            ? ([['Alert', 'Fired here']] as [string, string][])
+            : []),
+        ],
+      }}
+    />
   );
 };
 

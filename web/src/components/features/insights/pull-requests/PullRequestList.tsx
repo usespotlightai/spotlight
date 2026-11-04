@@ -51,7 +51,8 @@ export function PullRequestList({
   return (
     <div ref={here} id={PULL_REQUESTS_LIST_ID} className="scroll-mt-4">
       <InsightsCard
-        title="Pull requests"
+        flat
+        title="All pull requests"
         description={PULL_REQUEST_LIST_NOTE}
         actions={
           <PullRequestFilters

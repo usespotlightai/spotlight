@@ -1,3 +1,4 @@
+import { createContext } from 'react';
 import type {
   ReplayedCandidateResponseDto,
   ReplayedCandidatesResponseDto,
@@ -9,6 +10,7 @@ import { formatCount } from '@/lib/insights';
 import { formatDay, formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { formatHeldOutRuns } from '@/lib/replay-words';
+import type { TooltipNote } from '@/lib/tooltip-note';
 
 export type InsightsCandidates = ReplayedCandidatesResponseDto;
 export type CandidatesStation = ReplayedStationResponseDto;
@@ -172,8 +174,10 @@ export const changeLinkOf = (candidate: SetCandidate): string | null =>
 const formatRuns = (runs: number): string =>
   `${formatCount(runs)} ${runs === 1 ? 'run' : 'runs'}`;
 
-export const formatTasks = (tasks: number, runs: number): string =>
-  `${formatCount(tasks)} ${tasks === 1 ? 'task' : 'tasks'}${runs === tasks ? '' : ` (${formatRuns(runs)})`}`;
+export const replayedTasksOf = (tasks: number, runs: number): string =>
+  tasks === 0
+    ? 'No tasks replayed yet'
+    : `${formatCount(tasks)} ${tasks === 1 ? 'task' : 'tasks'} replayed${runs === tasks ? '' : `, ${formatRuns(runs)}`}`;
 
 export const replayedNote = (points: readonly ReplayedPoint[]): string => {
   const scored = Math.max(0, ...points.map((each) => each.scored));
@@ -204,19 +208,62 @@ export const costBasisNote = ({ shown }: SetCandidate): string | null =>
     ? null
     : 'Cost is over all its scored runs. The live config is priced in another currency.';
 
-const SOURCES_NOTE =
-  'Search: a search agent proposed it, and Spotlight replayed it on this set. Live: the station’s current config, replayed for comparison. Trophy, best value: no other config from the same search succeeded as often for less. The live config it started from didn’t either. Best value doesn’t mean it beats live. See Against live.';
+const SOURCES_NOTE: TooltipNote = {
+  title: 'Source',
+  rows: [
+    ['Search', 'A search agent proposed it and Spotlight replayed it'],
+    ['Live', 'The station’s current config, replayed to compare'],
+  ],
+};
+
+const CONFIG_NOTE: TooltipNote = {
+  title: 'Best for the cost',
+  body: 'The indigo dot marks a config that no other from the same search, or the live config, matches for less. It can still do worse than live. Gain over live says how it compares.',
+};
+
+const GAIN_STEP = 0.1;
+
+export const MIN_GAIN_EXTENT = 0.2;
+
+export const gainExtentOf = (
+  stations: readonly CandidatesStation[],
+): number => {
+  const reach = stations.flatMap((station) =>
+    station.sets.flatMap((set) =>
+      set.candidates.flatMap((each) =>
+        each.gainOverLive
+          ? [Math.abs(each.gainOverLive.low), Math.abs(each.gainOverLive.high)]
+          : [],
+      ),
+    ),
+  );
+
+  return Math.max(
+    MIN_GAIN_EXTENT,
+    Math.ceil(Math.max(0, ...reach) / GAIN_STEP - 1e-9) * GAIN_STEP,
+  );
+};
+
+const gainNote = (extent: number): string => {
+  const points = Math.round(extent * 100);
+
+  return `Success points over the live config on the same tasks, from −${points} to +${points}. The middle line is live. The dot is the gain, the line its likely range, and the dashed line the minimum real gain.`;
+};
 
 export const candidateHeadings = (
   heldOut: boolean,
+  extent: number,
 ): readonly NestedHeading[] => [
-  { label: 'Config', indent: 'inner' },
-  { label: 'What changed', size: 'minmax(12rem,1.5fr)' },
+  { label: 'Config', indent: 'inner', tooltip: CONFIG_NOTE },
+  { label: 'What changed', size: 'minmax(9rem,1fr)' },
   { label: 'Source', tooltip: SOURCES_NOTE },
-  { label: 'Replay success', size: 'minmax(8rem,1fr)' },
   { label: 'Candidate', numeric: true },
   { label: 'Live', numeric: true },
-  { label: 'Against live' },
+  {
+    label: 'Gain over live',
+    size: 'minmax(10rem,1.2fr)',
+    tooltip: gainNote(extent),
+  },
   { label: 'Cost per run', numeric: true },
   { label: 'Live cost', numeric: true },
   ...(heldOut ? [{ label: 'Held out', numeric: true }] : []),
@@ -234,3 +281,5 @@ export const REPLAYED_HEADINGS: readonly NestedHeading[] = [
 
 export const CANDIDATES_NOTE =
   'Each candidate config replayed on past tasks, compared with the live config on the same runs. The candidate’s own checks and judge decide success. Replays don’t change the station’s config.';
+
+export const GainScale = createContext(0.5);

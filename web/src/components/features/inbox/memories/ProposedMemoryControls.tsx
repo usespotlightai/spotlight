@@ -1,5 +1,5 @@
+import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionControls } from '@/components/shared/DecisionControls';
-import { DecisionPill } from '@/components/shared/DecisionPill';
 
 type ProposedMemoryControlsProps = {
   position: number;
@@ -25,20 +25,20 @@ export function ProposedMemoryControls({
   return (
     <DecisionControls>
       {editing ? (
-        <DecisionPill disabled={pending} onClick={onCancel}>
+        <DecisionButton disabled={pending} onClick={onCancel}>
           Cancel
-        </DecisionPill>
+        </DecisionButton>
       ) : (
-        <DecisionPill
+        <DecisionButton
           disabled={pending || !onReject}
           onClick={onReject}
           aria-label={`Reject memory ${position}`}
           aria-describedby={bodyId}
         >
           Reject
-        </DecisionPill>
+        </DecisionButton>
       )}
-      <DecisionPill
+      <DecisionButton
         variant="default"
         disabled={pending || !ready || !onApprove}
         onClick={onApprove}
@@ -50,7 +50,7 @@ export function ProposedMemoryControls({
         aria-describedby={bodyId}
       >
         Approve
-      </DecisionPill>
+      </DecisionButton>
     </DecisionControls>
   );
 }

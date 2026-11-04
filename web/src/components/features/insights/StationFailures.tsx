@@ -2,6 +2,7 @@ import { FailureSlices } from '@/components/features/insights/FailureSlices';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
+  type FailureReasons,
   formatRunFailure,
   formatTaskFailure,
   type StationReport,
@@ -14,7 +15,7 @@ const LINK = 'hover:underline';
 type StationFailuresProps = {
   slug: string;
   teamId: string;
-  report: StationReport;
+  report: FailureReasons & Pick<StationReport, 'stationId'>;
 };
 
 export function StationFailures({
@@ -29,7 +30,7 @@ export function StationFailures({
       {report.runFailures.length > 0 && (
         <div className="flex min-w-0 flex-col gap-1">
           {both && (
-            <p className="text-[0.7rem] text-muted-foreground">Run failures</p>
+            <p className="text-xs text-muted-foreground">Run failures</p>
           )}
           <FailureSlices
             label="Run failures"
@@ -69,7 +70,7 @@ export function StationFailures({
       {report.taskFailures.length > 0 && (
         <div className="flex min-w-0 flex-col gap-1">
           {both && (
-            <p className="text-[0.7rem] text-muted-foreground">Task failures</p>
+            <p className="text-xs text-muted-foreground">Task failures</p>
           )}
           <FailureSlices
             label="Task failures"
@@ -92,8 +93,7 @@ export function StationFailures({
                     )}
                     {failure.maxInARow > 1 && (
                       <span className="text-muted-foreground">
-                        {' '}
-                        · {failure.maxInARow} in a row
+                        , {failure.maxInARow} in a row
                       </span>
                     )}
                   </>

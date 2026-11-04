@@ -10,6 +10,7 @@ import type {
 import {
   counted,
   decisionPending,
+  formatShortDuration,
   inboxItemPath,
   lastNoteAt,
   noticeLinkPath,
@@ -414,5 +415,18 @@ describe('notices', () => {
     expect(noticeOf(entries, 'same')?.kind).toBe('notice');
     expect(taskItemOf(entries, 'same')?.kind).toBe('task');
     expect(noticeOf(entries, 'other')).toBeUndefined();
+  });
+});
+
+describe('formatShortDuration', () => {
+  it('shows seconds, minutes and hours at the scale they read best', () => {
+    expect(formatShortDuration(400)).toBe('400ms');
+    expect(formatShortDuration(42_000)).toBe('42s');
+    expect(formatShortDuration(59_600)).toBe('1m');
+    expect(formatShortDuration(239_600)).toBe('4m');
+    expect(formatShortDuration(1_130_000)).toBe('18m 50s');
+    expect(formatShortDuration(4_320_000)).toBe('1h 12m');
+    expect(formatShortDuration(7_200_000)).toBe('2h');
+    expect(formatShortDuration(167_040_000)).toBe('46h 24m');
   });
 });

@@ -11,10 +11,14 @@ type StationArgs = {
 const meta = {
   title: 'Team/Lines/Station',
   ...pageStory<StationArgs>({
-    at: ({ tab }) => (tab === 'overview' ? station : `${station}/${tab}`),
-    args: { tab: 'overview' },
+    at: ({ tab }) => (tab === 'config' ? station : `${station}/${tab}`),
+    args: { tab: 'config' },
     argTypes: {
-      tab: choice('Tab', { overview: 'Overview', config: 'Config' }),
+      tab: choice('Tab', {
+        config: 'Config',
+        activity: 'Activity',
+        judge: 'Judge',
+      }),
     },
   }),
 } satisfies Meta<PageArgs & StationArgs>;

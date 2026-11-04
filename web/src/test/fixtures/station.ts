@@ -25,6 +25,7 @@ export const JUDGE_AGREEMENT: StationJudgeAgreementResponseDto = {
     qualified: true,
     measure: 'kappa',
     agreement: 0.71,
+    reading: 'substantial',
     pairs: 24,
     minAgreement: 0.6,
     hiddenReason: null,

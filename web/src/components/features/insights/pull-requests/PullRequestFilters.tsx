@@ -55,7 +55,7 @@ export function PullRequestFilters({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {others.map((key) => (
-        <Pill key={key} className="h-6 text-[0.7rem] text-foreground">
+        <Pill key={key} className="h-6 text-xs text-foreground">
           <span className="text-muted-foreground">
             {pullRequestFilterLabel(key)}
           </span>

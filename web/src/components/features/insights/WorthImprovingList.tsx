@@ -3,6 +3,7 @@ import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { SignalRow } from '@/components/features/insights/SignalRow';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
+import { HealthyLine } from '@/components/shared/HealthyLine';
 import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
@@ -41,14 +42,15 @@ export function WorthImprovingList({
 
   return (
     <InsightsCard
+      flat
       scrolls
       title="Stations worth improving"
       description={STATIONS_WORTH_IMPROVING_NOTE}
     >
       {stations.length === 0 ? (
-        <p className="py-2 text-muted-foreground text-sm">
-          No station needs attention this period.
-        </p>
+        <HealthyLine title="All stations are healthy">
+          No issues in this period.
+        </HealthyLine>
       ) : (
         <NestedTable
           label="Stations worth improving"
@@ -74,7 +76,7 @@ export function WorthImprovingList({
                         slug={slug}
                         teamId={teamId}
                         targetStation={targetStationOf(named)}
-                        className="h-5 justify-self-start px-2 text-[0.7rem] @4xl:justify-self-end"
+                        className="justify-self-start @4xl:justify-self-end"
                       />
                     ) : (
                       <span aria-hidden />

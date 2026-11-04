@@ -185,7 +185,7 @@ describe('StationAlertCard', () => {
       'href',
       '/w/acme/team/team_1/insights?tab=stations&period=7d#station-station_impl',
     );
-    expect(screen.getByRole('link', { name: 'Improve' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Ask the agent' })).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/agent',
     );

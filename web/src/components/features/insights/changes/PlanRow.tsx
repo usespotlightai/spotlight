@@ -9,14 +9,14 @@ const SIGNS: Record<PlanMark, string> = {
 };
 
 const TONES: Record<PlanMark, string> = {
-  added: 'text-emerald-700 dark:text-emerald-400',
-  removed: 'text-destructive',
-  changed: 'text-amber-700 dark:text-amber-400',
+  added: 'text-outcome-done',
+  removed: 'text-outcome-failed',
+  changed: 'text-muted-foreground',
 };
 
 const BACKGROUNDS: Record<PlanMark, string | null> = {
-  added: 'bg-emerald-500/10',
-  removed: 'bg-destructive/10',
+  added: 'bg-outcome-done/8',
+  removed: 'bg-outcome-failed/8',
   changed: null,
 };
 

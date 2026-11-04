@@ -32,7 +32,7 @@ export function CandidateStationRows({
         depth={0}
         onToggle={() => collapsibles.toggle(station.stationId)}
       >
-        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-1">
           <StationGroupName stationId={station.stationId} names={names} />
           {station.sets.map((set) => (
             <SetSummary key={set.setId} set={set} />

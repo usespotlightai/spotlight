@@ -282,7 +282,7 @@ describe('the pull requests of the Productivity tab', () => {
     });
 
     expect(
-      within(against).getAllByRole('link', { name: '50% · 1' })[0],
+      within(against).getAllByRole('link', { name: '50%' })[0],
     ).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/insights?tab=productivity&period=7d&author=spotlight&state=merged&reverted=true',

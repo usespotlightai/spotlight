@@ -1,79 +1,79 @@
-import { Line, LineChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
-import { ChartTip } from '@/components/shared/chart/ChartTip';
-import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
-import type { SkillWeek } from '@/lib/insights-tools';
+import { WithTooltip } from '@/components/shared/WithTooltip';
+import { formatShare } from '@/lib/insights';
+import {
+  SKILL_WEEK_BAR,
+  SKILL_WEEK_GAP,
+  type SkillWeek,
+} from '@/lib/insights-tools';
 import { formatDay } from '@/lib/judge';
+import { type TooltipNote, tooltipText } from '@/lib/tooltip-note';
+import { cn } from '@/lib/utils';
 
-const HEIGHT = 16;
+const HEIGHT = 20;
+const FLOOR = 1;
 
-const TipContent = ({
-  placement,
-  active,
-  payload,
-}: {
-  placement: TipPlacement;
-  active?: boolean;
-  payload?: { payload: SkillWeek }[];
-}) => {
-  const week = payload?.[0]?.payload;
+const runsOf = (count: number): string =>
+  `${count} ${count === 1 ? 'run' : 'runs'}`;
 
-  if (!active || !week) {
-    return null;
-  }
-
-  return (
-    <ChartTip placement={placement}>
-      <p className="text-muted-foreground">Week of {formatDay(week.week)}</p>
-      <p className="text-foreground">
-        Read in {week.used} of {week.runs} {week.runs === 1 ? 'run' : 'runs'}
-      </p>
-      <p className="text-muted-foreground">Enabled for {week.enabled}</p>
-    </ChartTip>
-  );
-};
+const noteOf = (week: SkillWeek): TooltipNote => ({
+  title: `Week of ${formatDay(week.week)}${week.partial ? ', partly in the period' : ''}`,
+  ...(week.runs === 0
+    ? { body: 'No runs ended this week.' }
+    : {
+        rows: [
+          ['Share read', formatShare(week.usedRate)],
+          ['Runs read', `${week.used} of ${runsOf(week.runs)}`],
+          ['Runs given', runsOf(week.enabled)],
+        ],
+      }),
+});
 
 type SkillWeeksChartProps = {
   weeks: readonly SkillWeek[];
+  max: number;
   onWeek: (week: string) => void;
 };
 
-export function SkillWeeksChart({ weeks, onWeek }: SkillWeeksChartProps) {
-  const cursor = useCursorTooltip({ floating: true });
-
+export function SkillWeeksChart({ weeks, max, onWeek }: SkillWeeksChartProps) {
   return (
-    <div
+    <span
       data-slot="skill-weeks-chart"
-      className="[&_*:focus:not(:focus-visible)]:outline-none"
+      className="flex shrink-0 items-end"
+      style={{ height: HEIGHT, gap: SKILL_WEEK_GAP }}
     >
-      <div {...cursor.area}>
-        <ResponsiveContainer width="100%" height={HEIGHT}>
-          <LineChart
-            data={[...weeks]}
-            margin={{ top: 2, right: 2, bottom: 2, left: 2 }}
-            className="cursor-pointer"
-            onClick={(state) => {
-              const week = weeks[Number(state.activeIndex)];
-              if (week) {
-                onWeek(week.week);
-              }
-            }}
-          >
-            <YAxis hide domain={[0, 'dataMax']} />
-            <Tooltip
-              {...cursor.tooltip}
-              content={<TipContent placement={cursor.placement} />}
-              cursor={{ stroke: 'var(--chart-grid)' }}
-            />
-            <Line
-              dataKey="usedRate"
-              stroke="var(--chart-primary)"
-              strokeWidth={1.5}
-              dot={false}
-              isAnimationActive={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
+      {weeks.map((week) => {
+        const share = week.usedRate ?? 0;
+        const tall =
+          share > 0 ? Math.max(FLOOR + 1, (share / max) * HEIGHT) : FLOOR;
+        const note = noteOf(week);
+
+        return (
+          <WithTooltip key={week.week} tooltip={note}>
+            <button
+              type="button"
+              aria-label={tooltipText(note)}
+              onClick={() => onWeek(week.week)}
+              className="group/week flex h-full items-end rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              style={{ width: SKILL_WEEK_BAR }}
+            >
+              {week.runs > 0 && (
+                <span
+                  data-partial={week.partial || undefined}
+                  className={cn(
+                    'w-full rounded-[1px]',
+                    share === 0
+                      ? 'bg-border'
+                      : week.partial
+                        ? 'border border-chart-primary/60 group-hover/week:border-chart-primary'
+                        : 'bg-chart-primary/60 transition-colors group-hover/week:bg-chart-primary',
+                  )}
+                  style={{ height: tall }}
+                />
+              )}
+            </button>
+          </WithTooltip>
+        );
+      })}
+    </span>
   );
 }

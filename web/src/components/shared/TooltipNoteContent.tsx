@@ -1,8 +1,14 @@
 import type { TooltipNote } from '@/lib/tooltip-note';
 
-export function TooltipNoteContent({ note }: { note: TooltipNote }) {
+export function TooltipNoteContent({
+  note,
+  className = 'py-1',
+}: {
+  note: TooltipNote;
+  className?: string;
+}) {
   return (
-    <span className="flex flex-col gap-1 py-1">
+    <span className={`flex flex-col gap-1 ${className}`}>
       {note.title && <span className="font-medium">{note.title}</span>}
       {note.body && <span>{note.body}</span>}
       {note.rows && note.rows.length > 0 && (

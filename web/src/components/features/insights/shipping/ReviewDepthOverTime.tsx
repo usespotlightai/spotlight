@@ -1,21 +1,10 @@
-import {
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import {
-  ROUND_FILLS,
-  THROUGHPUT,
-} from '@/components/features/insights/chart-series';
+import { ROUND_FILLS } from '@/components/features/insights/chart-series';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
-import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
-import { ChartTip } from '@/components/shared/chart/ChartTip';
-import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
+import {
+  type StackedRow,
+  StackedRows,
+} from '@/components/features/insights/StackedRows';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatShare } from '@/lib/insights';
 import {
   DEPTH_OVER_TIME_NOTE,
@@ -26,33 +15,32 @@ import {
 } from '@/lib/insights-shipping';
 import { formatDay } from '@/lib/judge';
 
-const TipContent = ({
-  placement,
-  active,
-  payload,
-}: {
-  placement: TipPlacement;
-  active?: boolean;
-  payload?: { payload: DepthWeek }[];
-}) => {
-  const bar = payload?.[0]?.payload;
-
-  if (!active || !bar) {
-    return null;
-  }
-
-  return (
-    <ChartTip placement={placement}>
-      <p className="text-muted-foreground">Week of {formatDay(bar.week)}</p>
-      <p className="text-foreground">{bar.merged} merged</p>
-      {ROUNDS.map((rounds) => (
-        <p key={rounds} className="text-muted-foreground">
-          {formatRounds(rounds)} {formatShare(bar[rounds])}
-        </p>
-      ))}
-    </ChartTip>
-  );
-};
+const rowOf = (week: DepthWeek): StackedRow => ({
+  key: week.week,
+  label: formatDay(week.week),
+  segments: ROUNDS.map((rounds) => ({
+    key: rounds,
+    value: week[rounds] ?? 0,
+    color: ROUND_FILLS[rounds],
+  })),
+  length: week.merged > 0 ? 1 : 0,
+  figure: (
+    <>
+      <span className="text-foreground">{week.merged}</span>{' '}
+      <span className="text-muted-foreground">merged</span>
+    </>
+  ),
+  tooltip: {
+    title: `Week of ${formatDay(week.week)}`,
+    rows: [
+      ['Merged', `${week.merged}`],
+      ...ROUNDS.map((rounds): [string, string] => [
+        formatRounds(rounds),
+        formatShare(week[rounds]),
+      ]),
+    ],
+  },
+});
 
 export function ReviewDepthOverTime({
   weeks,
@@ -61,111 +49,45 @@ export function ReviewDepthOverTime({
   weeks: readonly DepthWeek[];
   totals: readonly RoundsCount[];
 }) {
-  const cursor = useCursorTooltip();
-
   return (
     <InsightsCard
-      title="Review depth as throughput climbs"
+      flat
+      title="Review depth by week"
       description={DEPTH_OVER_TIME_NOTE}
     >
-      <div className="grid gap-3 md:grid-cols-[1fr_14rem]">
-        <figure
-          aria-label="Review depth week by week"
-          className="flex flex-col gap-2"
-        >
-          <div className="[&_*:focus:not(:focus-visible)]:outline-none">
-            <div {...cursor.area}>
-              <ResponsiveContainer width="100%" height={200}>
-                <ComposedChart
-                  data={[...weeks]}
-                  margin={{ top: 8, right: 0, bottom: 0, left: 0 }}
-                >
-                  <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
-                  <XAxis
-                    dataKey="week"
-                    tickLine={false}
-                    axisLine={{ stroke: 'var(--chart-grid)' }}
-                    tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-                    tickFormatter={formatDay}
+      <figure
+        aria-label="Review depth week by week"
+        className="flex flex-col gap-2"
+      >
+        <figcaption>
+          <dl className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            {totals.map((total) => (
+              <WithTooltip
+                key={total.rounds}
+                tooltip={`${total.merged} merged in the period`}
+              >
+                <div className="flex cursor-default items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="size-2 shrink-0 rounded-sm"
+                    style={{ background: ROUND_FILLS[total.rounds] }}
                   />
-                  <YAxis
-                    yAxisId="share"
-                    width={36}
-                    tickLine={false}
-                    axisLine={false}
-                    domain={[0, 1]}
-                    tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-                    tickFormatter={formatShare}
-                  />
-                  <YAxis
-                    yAxisId="merged"
-                    orientation="right"
-                    width={28}
-                    tickLine={false}
-                    axisLine={false}
-                    allowDecimals={false}
-                    tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-                  />
-                  <Tooltip
-                    {...cursor.tooltip}
-                    content={<TipContent placement={cursor.placement} />}
-                    cursor={{ fill: 'var(--accent)' }}
-                  />
-                  {ROUNDS.map((rounds) => (
-                    <Bar
-                      key={rounds}
-                      yAxisId="share"
-                      dataKey={rounds}
-                      stackId="depth"
-                      fill={ROUND_FILLS[rounds]}
-                      isAnimationActive={false}
-                    />
-                  ))}
-                  <Line
-                    yAxisId="merged"
-                    dataKey="merged"
-                    stroke={THROUGHPUT}
-                    strokeWidth={1.5}
-                    dot={{ r: 2, fill: THROUGHPUT, strokeWidth: 0 }}
-                    isAnimationActive={false}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-          <ChartLegend
-            entries={[
-              ...ROUNDS.map((rounds) => ({
-                label: formatRounds(rounds),
-                color: ROUND_FILLS[rounds],
-              })),
-              { label: 'Merged that week', color: THROUGHPUT },
-            ]}
-          />
-        </figure>
-
-        <dl className="flex flex-col justify-center gap-0.5 text-xs">
-          {totals.map((total) => (
-            <div
-              key={total.rounds}
-              className="flex items-center gap-2 rounded-md px-2 py-1 even:bg-muted/30"
-            >
-              <span
-                aria-hidden
-                className="size-2 shrink-0 rounded-sm"
-                style={{ background: ROUND_FILLS[total.rounds] }}
-              />
-              <dt className="flex-1 text-foreground">
-                {formatRounds(total.rounds)}
-              </dt>
-              <dd className="text-foreground tabular-nums">{total.merged}</dd>
-              <dd className="w-10 text-right text-muted-foreground tabular-nums">
-                {formatShare(total.rate)}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
+                  <dt className="text-muted-foreground">
+                    {formatRounds(total.rounds)}
+                  </dt>
+                  <dd className="text-foreground tabular-nums">
+                    {formatShare(total.rate)}
+                  </dd>
+                </div>
+              </WithTooltip>
+            ))}
+          </dl>
+        </figcaption>
+        <StackedRows
+          label="Merged pull requests by review rounds"
+          rows={weeks.map(rowOf)}
+        />
+      </figure>
     </InsightsCard>
   );
 }

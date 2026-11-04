@@ -161,14 +161,16 @@ describe('the Candidates tab', () => {
     ].map((each) => each.textContent);
     expect(groups).toEqual([
       expect.stringMatching(
-        /^ImplementationDeliveryReplay set24 tasks \(27 runs\)/,
+        /^ImplementationDelivery24 tasks replayed, 27 runs/,
       ),
-      expect.stringMatching(/^Code ReviewDeliveryReplay set12 tasks/),
+      expect.stringMatching(/^Code ReviewDelivery12 tasks replayed/),
     ]);
     expect(
       screen.queryByRole('link', { name: 'Replay set' }),
     ).not.toBeInTheDocument();
-    expect(screen.getAllByLabelText('Set health')).toHaveLength(2);
+    expect(
+      document.querySelectorAll('[data-slot="replay-set-health"]'),
+    ).toHaveLength(2);
   });
 
   it('collapses a station and expands it again', async () => {
@@ -206,10 +208,15 @@ describe('the Candidates tab', () => {
     expect(
       within(picked).getByRole('list', { name: 'What changed' }),
     ).toHaveTextContent(/model\s*=\s*"sonnet"\s*->\s*"opus"/);
-    expect(within(picked).getByLabelText('Best value')).toBeInTheDocument();
+    expect(
+      within(picked).getByLabelText('Best for the cost'),
+    ).toBeInTheDocument();
     expect(picked).toHaveTextContent('SourceSearch');
-    expect(picked).toHaveTextContent('Candidate72%Live56%');
-    expect(picked).toHaveTextContent('Against liveBetter+16 pts');
+    expect(picked).toHaveTextContent('Candidate72%Live56%Better+16 pts');
+    expect(picked.querySelector('[data-slot="gain-track"]')).toHaveAttribute(
+      'data-significance',
+      'better',
+    );
     expect(picked).toHaveTextContent('Cost per run$0.82Live cost$0.60');
     expect(picked).toHaveTextContent('Runs18');
     expect(
@@ -271,7 +278,7 @@ describe('the Candidates tab', () => {
     showing();
 
     expect(row('opus-with-migrations-skill')).toHaveTextContent(
-      'Against liveNot compared',
+      'Live56%Not compared',
     );
   });
 

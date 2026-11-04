@@ -6,8 +6,11 @@ import {
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import type { FlaggedMemory } from '@/lib/insights-memory';
-import { FLAGGED_HEADINGS, FLAGGED_NOTE } from '@/lib/insights-memory';
+import {
+  FLAGGED_HEADINGS,
+  FLAGGED_NOTE,
+  type FlaggedMemory,
+} from '@/lib/insights-memory';
 import { formatDay } from '@/lib/judge';
 import { memoryPath } from '@/lib/memory';
 import { cn } from '@/lib/utils';
@@ -25,8 +28,8 @@ export function FlaggedMemories({
 }: FlaggedMemoriesProps) {
   return (
     <InsightsCard
+      flat
       tableOnly={flagged.length > 0}
-      scrolls
       title="Flagged wrong"
       description={FLAGGED_NOTE}
     >
@@ -47,7 +50,7 @@ export function FlaggedMemories({
             >
               <p
                 className={cn(
-                  'col-span-full flex min-w-0 items-baseline gap-2 text-xs @4xl:col-span-1',
+                  'col-span-full flex min-w-0 items-baseline gap-2 @4xl:col-span-1',
                   EDGE_INDENT,
                 )}
               >
@@ -59,8 +62,8 @@ export function FlaggedMemories({
                 </TrailLink>
                 <span className="min-w-0 text-foreground">{memory.body}</span>
               </p>
-              <NestedCell heading="Reason" numeric={false}>
-                {memory.reason ?? '–'}
+              <NestedCell heading="Reason" numeric={false} strong>
+                {memory.reason ?? 'No reason given'}
               </NestedCell>
               <NestedCell heading="Flagged by" numeric={false}>
                 {memory.byName ?? 'A former member'}

@@ -20,7 +20,7 @@ type Box = {
   readonly bottom: number;
 };
 
-export const LABEL_SIZE = 11;
+export const LABEL_SIZE = 12;
 const CHARACTER_WIDTH = 6.2;
 const GAP = 15;
 const SIDE_GAP = 14;
@@ -62,8 +62,17 @@ const overlap = (a: Box, b: Box): boolean =>
   a.top < b.bottom + ACCESS &&
   b.top < a.bottom + ACCESS;
 
+export type Span = {
+  readonly left: number;
+  readonly right: number;
+};
+
+const inside = (box: Box, span: Span | undefined): boolean =>
+  !span || (box.left >= span.left && box.right <= span.right);
+
 export const placeLabels = (
   points: readonly LabelledPoint[],
+  span?: Span,
 ): PlacedLabel[] => {
   const placed: PlacedLabel[] = [];
 
@@ -75,9 +84,12 @@ export const placeLabels = (
       text: point.text,
     }));
     const free = options.find(
-      (option) => !taken.some((box) => overlap(box, boxOf(option))),
+      (option) =>
+        inside(boxOf(option), span) &&
+        !taken.some((box) => overlap(box, boxOf(option))),
     );
-    placed.push(free ?? (options[0] as PlacedLabel));
+    const kept = options.find((option) => inside(boxOf(option), span));
+    placed.push(free ?? kept ?? (options[0] as PlacedLabel));
   }
 
   return placed;

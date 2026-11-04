@@ -89,10 +89,10 @@ export const formatSize = (size: RunSize): string => SIZES[size];
 export const asSize = (raw: string): RunSize | null =>
   RUN_SIZES.find((each) => each === raw) ?? null;
 
-export const formatSizeRule = (bound: SizeBound): string =>
+export const sizeHintOf = (bound: SizeBound): string =>
   bound.maxLines === null || bound.maxSteps === null
-    ? `${formatSize(bound.size)}: anything bigger`
-    : `${formatSize(bound.size)}: up to ${bound.maxLines} changed lines, or ${bound.maxSteps} steps for a run that changed none`;
+    ? 'Anything bigger'
+    : `Up to ${bound.maxLines} changed lines or ${bound.maxSteps} steps`;
 
 export const agentConfigKey = (agentConfig: AgentConfigOutcome): string =>
   JSON.stringify([
@@ -111,13 +111,13 @@ export const formatAgentConfigWithin = (
     agentConfig.profileKey ? `${agentConfig.profileKey} profile` : null,
   ]
     .filter(Boolean)
-    .join(' · ');
+    .join(', ');
 
 export const formatAgentConfig = (
   agentConfig: AgentConfigOutcome,
   harnesses: readonly HarnessResponseDto[] | undefined,
 ): string =>
-  `${formatHarness(harnesses, agentConfig.harness)} · ${formatAgentConfigWithin(agentConfig)}`;
+  `${formatHarness(harnesses, agentConfig.harness)}, ${formatAgentConfigWithin(agentConfig)}`;
 
 export type HarnessGroup = {
   readonly harness: string;

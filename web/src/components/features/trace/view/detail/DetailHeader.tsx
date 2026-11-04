@@ -33,7 +33,9 @@ export function DetailHeader({ node }: { node: TraceNode }) {
       <h2
         className={cn(
           'min-w-0 break-words font-medium text-sm leading-5',
-          node.category === 'failed' ? 'text-destructive' : 'text-foreground',
+          node.category === 'failed'
+            ? 'text-outcome-failed'
+            : 'text-foreground',
         )}
       >
         {node.name}

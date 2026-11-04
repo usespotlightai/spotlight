@@ -3,13 +3,11 @@ import { InsightsPeriodPicker } from '@/components/features/insights/InsightsPer
 import { TeamInsights } from '@/components/features/insights/TeamInsights';
 import { TracesFilters } from '@/components/features/insights/TracesFilters';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
-import { useLines } from '@/hooks/api/useLines';
-import { insightsCrumbs, stationNamesOf, viewOf } from '@/lib/insights';
+import { insightsCrumbs, viewOf } from '@/lib/insights';
 
 export function Insights() {
   const { slug, teamId } = useParams();
   const [params] = useSearchParams();
-  const lines = useLines(teamId).data ?? [];
   const view = viewOf(params);
 
   if (!slug || !teamId) {
@@ -26,7 +24,7 @@ export function Insights() {
         </div>
       }
       bordered={false}
-      crumbs={insightsCrumbs(slug, teamId, view, stationNamesOf(lines))}
+      crumbs={insightsCrumbs(view)}
     >
       <TeamInsights slug={slug} teamId={teamId} />
     </TeamSectionPage>

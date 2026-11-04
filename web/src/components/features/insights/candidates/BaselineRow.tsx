@@ -1,4 +1,4 @@
-import { RateTrack } from '@/components/features/insights/candidates/RateTrack';
+import { ChevronSpace } from '@/components/shared/nested-table/ExpandToggle';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   OUTER_DIVIDER,
@@ -23,38 +23,40 @@ export function BaselineRow({ baseline, heldOut }: BaselineRowProps) {
     <li
       data-slot="replayed-baseline"
       className={cn(
-        'relative col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-1 pr-2 @4xl:h-8 @4xl:grid-cols-subgrid',
+        'relative col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 text-sm @4xl:h-9 @lg:group-data-compact/nested:h-9 @4xl:grid-cols-subgrid @lg:group-data-compact/nested:grid-cols-subgrid',
         OUTER_GUIDE,
         OUTER_DIVIDER,
       )}
     >
       <div
         className={cn(
-          'col-span-full flex min-w-0 flex-col gap-0.5 @4xl:col-span-1',
+          'col-span-full flex min-w-0 items-start gap-1 @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1',
           OUTER_INDENT,
         )}
       >
-        <span className="font-medium text-foreground text-xs">Live config</span>
+        <ChevronSpace />
+        <span className="min-w-0 truncate text-foreground leading-4">
+          Live config
+        </span>
       </div>
-      <span className="hidden @4xl:block" />
+      <span className="hidden @4xl:block @lg:group-data-compact/nested:block" />
       <NestedCell heading="Source" numeric={false}>
         Live
       </NestedCell>
-      <div className="col-span-full min-w-0 @4xl:col-span-1">
-        <RateTrack rate={null} live={baseline.successRate} />
-      </div>
       <NestedCell heading="Candidate">–</NestedCell>
       <NestedCell heading="Live" strong>
         {formatPercent(baseline.successRate)}
       </NestedCell>
-      <span className="hidden @4xl:block" />
+      <span className="hidden @4xl:block @lg:group-data-compact/nested:block" />
       <NestedCell heading="Cost per run">–</NestedCell>
       <NestedCell heading="Live cost" strong>
         {formatCostPerRun(baseline.costPerRun, baseline.currency)}
       </NestedCell>
-      {heldOut && <span className="hidden @4xl:block" />}
+      {heldOut && (
+        <span className="hidden @4xl:block @lg:group-data-compact/nested:block" />
+      )}
       <NestedCell heading="Runs">{formatCount(baseline.scored)}</NestedCell>
-      <span className="hidden @4xl:block" />
+      <span className="hidden @4xl:block @lg:group-data-compact/nested:block" />
     </li>
   );
 }

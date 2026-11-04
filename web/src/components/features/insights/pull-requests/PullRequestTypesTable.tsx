@@ -33,13 +33,13 @@ export function PullRequestTypesTable({
     { id: 'type', header: 'Type', cell: (share) => formatType(share.type) },
     {
       id: 'spotlight',
-      header: 'Spotlight’s',
+      header: 'Spotlight',
       numeric: true,
       cell: (share) => counted(share, 'spotlight', share.spotlight),
     },
     {
       id: 'people',
-      header: 'People’s alone',
+      header: 'People',
       numeric: true,
       cell: (share) => counted(share, 'people', share.people),
     },

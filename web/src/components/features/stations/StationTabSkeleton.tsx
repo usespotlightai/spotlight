@@ -1,10 +1,19 @@
+import { ACTIVITY_LAYOUT } from '@/components/features/stations/activity/StationActivity';
+import { StationActivitySkeleton } from '@/components/features/stations/activity/StationActivitySkeleton';
 import { StationConfigSkeleton } from '@/components/features/stations/config/StationConfigSkeleton';
-import { StationOverviewSkeleton } from '@/components/features/stations/overview/StationOverviewSkeleton';
+import { JudgeAgreementSkeleton } from '@/components/features/stations/judge/JudgeAgreementSkeleton';
 import { STATION_TABS, type StationTab } from '@/lib/station';
 
+const JudgeTabSkeleton = () => (
+  <div className={ACTIVITY_LAYOUT}>
+    <JudgeAgreementSkeleton />
+  </div>
+);
+
 const BODIES = {
-  overview: StationOverviewSkeleton,
+  activity: StationActivitySkeleton,
   config: StationConfigSkeleton,
+  judge: JudgeTabSkeleton,
 } as const;
 
 export function StationTabSkeleton({ tab }: { tab: StationTab }) {

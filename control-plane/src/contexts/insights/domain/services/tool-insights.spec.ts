@@ -15,15 +15,22 @@ import { describe, expect, it } from 'vitest';
 
 const ALWAYS = { from: new Date(0), to: new Date(8_640_000_000_000_000) };
 
+const WHOLE_WEEKS = {
+  from: new Date('2026-09-07T00:00:00.000Z'),
+  to: new Date('2026-10-05T00:00:00.000Z'),
+};
+
 const insightsOf = (
   records: readonly RunRecord[],
   weeks: readonly string[],
   defined: readonly string[],
+  window = WHOLE_WEEKS,
 ) =>
   toolInsightsFrom(
     toolCountsOf(historyOf({ records }), ALWAYS),
     weeks,
     defined,
+    window,
   );
 
 const WEEKS = ['2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28'];
@@ -85,11 +92,40 @@ describe('toolInsightsFrom', () => {
         defined: true,
         enabled: 2,
         used: 2,
+        usedRate: 2 / 3,
         weeks: [
-          { week: '2026-09-07', runs: 2, enabled: 2, used: 1, usedRate: 0.5 },
-          { week: '2026-09-14', runs: 0, enabled: 0, used: 0, usedRate: null },
-          { week: '2026-09-21', runs: 0, enabled: 0, used: 0, usedRate: null },
-          { week: '2026-09-28', runs: 1, enabled: 0, used: 1, usedRate: 1 },
+          {
+            week: '2026-09-07',
+            runs: 2,
+            enabled: 2,
+            used: 1,
+            usedRate: 0.5,
+            partial: false,
+          },
+          {
+            week: '2026-09-14',
+            runs: 0,
+            enabled: 0,
+            used: 0,
+            usedRate: null,
+            partial: false,
+          },
+          {
+            week: '2026-09-21',
+            runs: 0,
+            enabled: 0,
+            used: 0,
+            usedRate: null,
+            partial: false,
+          },
+          {
+            week: '2026-09-28',
+            runs: 1,
+            enabled: 0,
+            used: 1,
+            usedRate: 1,
+            partial: false,
+          },
         ],
       }),
     ]);
@@ -121,8 +157,28 @@ describe('toolInsightsFrom', () => {
         runs: 10,
         enabled: 0,
         used: 5,
+        usedRate: 0.5,
         trend: 'rising',
       },
+    ]);
+  });
+
+  it('marks the weeks that run past either end of the period as partial', () => {
+    const insights = insightsOf(
+      [ran('run_1', day('2026-09-29'), { read: ['grafana'] })],
+      WEEKS,
+      [],
+      {
+        from: new Date('2026-09-09T00:00:00.000Z'),
+        to: new Date('2026-10-01T00:00:00.000Z'),
+      },
+    );
+
+    expect(insights.skills[0]?.weeks.map((week) => week.partial)).toEqual([
+      true,
+      false,
+      false,
+      true,
     ]);
   });
 
@@ -171,7 +227,9 @@ describe('toolInsightsFrom', () => {
         failedCalls: 2,
         errorRate: 0.4,
         failingRuns: 1,
+        failingRunRate: 1 / 3,
         dismissed: 0,
+        dismissedRate: 0,
       },
       expect.objectContaining({ server: 'sentry', runs: 1, failingRuns: 0 }),
     ]);

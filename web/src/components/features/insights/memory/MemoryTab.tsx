@@ -6,10 +6,12 @@ import { FlaggedMemories } from '@/components/features/insights/memory/FlaggedMe
 import { MemoryComparison } from '@/components/features/insights/memory/MemoryComparison';
 import { MemorySkeleton } from '@/components/features/insights/memory/MemorySkeleton';
 import { NoMemories } from '@/components/features/insights/memory/NoMemories';
+import { OVERVIEW_LAYOUT } from '@/components/features/insights/overview-layout';
 import { useInsightsMemory } from '@/hooks/api/useInsightsMemory';
 import type { InsightsPeriod } from '@/lib/insights';
 import {
   MEMORY_COMPARISON_NOTE,
+  MEMORY_COMPARISON_TITLE,
   memoryTiles,
   usedNoMemory,
 } from '@/lib/insights-memory';
@@ -39,7 +41,7 @@ export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={OVERVIEW_LAYOUT}>
       <InsightsTiles label="Memory use">
         {memoryTiles(read).map((tile) => (
           <InsightsTile
@@ -47,14 +49,15 @@ export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
             label={tile.label}
             value={tile.value}
             detail={tile.detail}
+            tooltip={tile.tooltip}
           />
         ))}
       </InsightsTiles>
 
       <InsightsCard
+        flat
         tableOnly
-        scrolls
-        title="Runs with memories and without"
+        title={MEMORY_COMPARISON_TITLE}
         description={MEMORY_COMPARISON_NOTE}
       >
         <MemoryComparison

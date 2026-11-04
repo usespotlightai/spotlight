@@ -17,12 +17,12 @@ export function NestedCell({
   return (
     <span
       className={cn(
-        'flex min-w-0 flex-col text-xs tabular-nums @4xl:block @lg:group-data-compact/nested:block',
+        'flex min-w-0 flex-col pl-2 tabular-nums @4xl:block @4xl:pl-0 @lg:group-data-compact/nested:pl-0 @lg:group-data-compact/nested:block',
         numeric && '@4xl:text-right @lg:group-data-compact/nested:text-right',
-        strong ? 'font-medium text-foreground' : 'text-muted-foreground',
+        strong ? 'text-foreground' : 'text-muted-foreground',
       )}
     >
-      <span className="font-normal text-[0.7rem] text-muted-foreground @4xl:hidden @lg:group-data-compact/nested:hidden">
+      <span className="font-normal text-muted-foreground text-xs @4xl:hidden @lg:group-data-compact/nested:hidden">
         {heading}
       </span>
       {children}

@@ -8,7 +8,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 type FailuresRow = typeof taskFailures.$inferSelect;
 
@@ -82,6 +82,24 @@ export class DrizzleTaskFailuresRepository implements TaskFailuresRepository {
       .limit(1);
 
     return row ? toFailures(row) : null;
+  }
+
+  async ofTasks(taskIds: readonly TaskId[]): Promise<readonly TaskFailures[]> {
+    if (taskIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.context.db
+      .select()
+      .from(taskFailures)
+      .where(
+        inArray(
+          taskFailures.taskId,
+          taskIds.map((each) => each.value),
+        ),
+      );
+
+    return rows.map(toFailures);
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {

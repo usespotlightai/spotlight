@@ -1,14 +1,18 @@
 import type { Rounds } from '@/lib/insights-shipping';
 
 export const WAIT_SERIES = [
-  { key: 'queued', label: 'Queued', fill: 'var(--chart-3)' },
-  { key: 'running', label: 'Running', fill: 'var(--chart-primary)' },
-  { key: 'inbox', label: 'In the inbox', fill: 'var(--chart-5)' },
+  { key: 'queued', label: 'Queued', fill: 'var(--chart-1)' },
+  { key: 'running', label: 'Running', fill: 'var(--chart-3)' },
+  {
+    key: 'inbox',
+    label: 'In the inbox',
+    fill: 'color-mix(in oklab, var(--chart-primary) 70%, var(--muted))',
+  },
 ] as const;
 
 export const AUTHOR_SERIES = [
-  { key: 'spotlight', label: 'Spotlight’s', color: 'var(--chart-primary)' },
-  { key: 'people', label: 'People’s alone', color: 'var(--chart-2)' },
+  { key: 'spotlight', label: 'Spotlight', color: 'var(--chart-primary)' },
+  { key: 'people', label: 'People', color: 'var(--chart-2)' },
 ] as const;
 
 export const SPOTLIGHT_SHARE_SERIES = [
@@ -19,21 +23,14 @@ export const SPOTLIGHT_SHARE_SERIES = [
 ] as const;
 
 const shade = (share: number): string =>
-  `color-mix(in oklab, var(--chart-primary) ${share}%, var(--card))`;
+  `color-mix(in oklab, var(--chart-primary) ${share}%, var(--muted))`;
 
 export const ROUND_FILLS: Record<Rounds, string> = {
-  '0': shade(28),
-  '1': shade(52),
-  '2': shade(76),
+  '0': shade(40),
+  '1': shade(60),
+  '2': shade(80),
   '3+': shade(100),
 };
-
-export const THROUGHPUT = 'var(--chart-5)';
-
-export const TYPE_SERIES = [
-  { label: 'Spotlight', color: 'var(--chart-primary)' },
-  { label: 'People alone', color: 'var(--chart-1)' },
-] as const;
 
 const SLICE_FILLS = [
   'var(--chart-primary)',

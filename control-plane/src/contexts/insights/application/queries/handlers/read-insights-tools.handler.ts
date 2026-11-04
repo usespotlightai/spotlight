@@ -49,6 +49,7 @@ export class ReadInsightsToolsHandler
           counts,
           weeks,
           await this.work.teamSkillKeys(access.teamId.value),
+          period.current,
         ),
       };
     } catch (error) {

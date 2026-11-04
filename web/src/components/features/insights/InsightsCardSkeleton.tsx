@@ -11,6 +11,7 @@ type InsightsCardSkeletonProps = {
   switchable?: boolean;
   tableOnly?: boolean;
   level?: 2 | 3;
+  flat?: boolean;
   className?: string;
   children: ReactNode;
 };

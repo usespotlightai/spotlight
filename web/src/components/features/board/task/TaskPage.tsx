@@ -4,6 +4,7 @@ import { TaskProperties } from '@/components/features/board/task/TaskProperties'
 import { TaskActivity } from '@/components/features/runs/TaskActivity';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
+import { PageTitle } from '@/components/shared/PageTitle';
 import {
   type BreadcrumbSegment,
   Breadcrumbs,
@@ -49,15 +50,14 @@ export function TaskPage({ slug, teamId, task, line, trail }: TaskPageProps) {
     <>
       <PageHeader
         title={<Breadcrumbs segments={trail} />}
+        heading={false}
         trailing={<TaskActions title={task.title} onDelete={remove} />}
       />
 
       <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
         <div className="mx-auto flex w-full max-w-5xl gap-10 px-8 py-8">
           <main className="flex min-w-0 flex-1 flex-col gap-3">
-            <h1 className="font-semibold text-2xl text-foreground leading-8 tracking-tight">
-              {task.title}
-            </h1>
+            <PageTitle>{task.title}</PageTitle>
 
             {task.description ? (
               <MarkdownEditor

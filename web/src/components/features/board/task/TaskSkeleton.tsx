@@ -25,6 +25,7 @@ export function TaskSkeleton({
     >
       <PageHeader
         title={<TrailSkeleton known={known} />}
+        heading={false}
         trailing={
           <span
             aria-hidden

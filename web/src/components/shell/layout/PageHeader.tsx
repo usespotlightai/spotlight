@@ -6,6 +6,7 @@ type PageHeaderProps = {
   trailing?: ReactNode;
   actions?: ReactNode;
   bordered?: boolean;
+  heading?: boolean;
 };
 
 export function PageHeader({
@@ -13,7 +14,10 @@ export function PageHeader({
   trailing,
   actions,
   bordered = true,
+  heading = true,
 }: PageHeaderProps) {
+  const Title = heading ? 'h1' : 'nav';
+
   return (
     <header
       className={cn(
@@ -22,9 +26,12 @@ export function PageHeader({
       )}
     >
       {title && (
-        <h1 className="flex min-w-0 items-center gap-1.5 font-medium text-foreground text-sm">
+        <Title
+          aria-label={heading ? undefined : 'Breadcrumb'}
+          className="flex min-w-0 items-center gap-1.5 overflow-hidden font-medium text-foreground text-sm"
+        >
           {title}
-        </h1>
+        </Title>
       )}
       {trailing}
       {actions && (

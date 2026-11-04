@@ -4,7 +4,6 @@ import {
   formatCalibration,
   formatScore,
   gradeOptions,
-  judgeTiles,
   type RubricVersion,
   valueOfGrade,
 } from '@/lib/judge';
@@ -13,6 +12,7 @@ const CALIBRATION = {
   qualified: false,
   measure: 'spearman' as const,
   agreement: 0.3,
+  reading: 'weak' as const,
   pairs: 4,
   minAgreement: 0.5,
   hiddenReason: 'too-few-pairs' as const,
@@ -62,42 +62,6 @@ describe('judge', () => {
   });
 });
 
-describe('judgeTiles', () => {
-  it('shows how well the judge agrees and how many of the last runs have each kind of score', () => {
-    const tiles = judgeTiles(
-      {
-        qualified: true,
-        measure: 'kappa',
-        agreement: 0.71,
-        pairs: 24,
-        minAgreement: 0.6,
-        hiddenReason: null,
-      },
-      {
-        runs: 50,
-        both: 24,
-        judgeOnly: 6,
-        peopleOnly: 14,
-        neither: 6,
-        rates: {
-          both: 0.48,
-          judgeOnly: 0.12,
-          peopleOnly: 0.28,
-          neither: 0.12,
-        },
-      },
-    );
-
-    expect(tiles.map((tile) => [tile.label, tile.value, tile.detail])).toEqual([
-      ['Cohen’s kappa', '0.71', 'Qualified. Minimum required: 0.60'],
-      ['Both scores', '24', '48% of the last 50'],
-      ['Judge only', '6', '12% of the last 50'],
-      ['People only', '14', '28% of the last 50'],
-      ['Neither', '6', '12% of the last 50'],
-    ]);
-  });
-});
-
 const version = (
   kind: RubricVersion['kind'],
   agreement: Partial<RubricVersion['agreement']> = {},
@@ -132,12 +96,13 @@ describe('comparisonStats', () => {
       comparisonStats(yesNo).map((stat) => [
         stat.label,
         stat.value,
-        stat.tooltip.split('. ')[0],
+        stat.reading,
+        stat.note.title,
       ]),
     ).toEqual([
-      ['Cohen’s kappa', '0.71', 'Substantial agreement'],
-      ['F1 score', '0.91', expect.stringMatching(/^How well/)],
-      ['Overall agreement', '88%', expect.stringMatching(/^The share/)],
+      ['Cohen’s kappa', '0.71', 'Substantial', 'Cohen’s kappa'],
+      ['F1 score', '0.91', null, 'F1 score'],
+      ['Overall agreement', '88%', null, 'Overall agreement'],
     ]);
   });
 
@@ -154,23 +119,26 @@ describe('comparisonStats', () => {
       comparisonStats(exact).map((stat) => [
         stat.label,
         stat.value,
-        stat.tooltip.split('. ')[0],
+        stat.reading,
       ]),
     ).toEqual([
-      ['Pearson correlation', '1.00', 'Very strong correlation'],
-      ['Spearman correlation', '1.00', 'Weak correlation'],
-      ['Mean absolute error', '0.00', expect.stringMatching(/^How far/)],
-      [
-        'Root mean square error',
-        '0.00',
-        expect.stringMatching(/^This is like mean/),
-      ],
+      ['Pearson correlation', '1.00', 'Very strong'],
+      ['Spearman correlation', '1.00', 'Weak'],
+      ['Mean absolute error', '0.00', null],
+      ['Root mean square error', '0.00', null],
     ]);
   });
 
-  it('notes no reading where there is no figure', () => {
-    expect(comparisonStats(version('yes-no'))[0]?.tooltip).toMatch(
-      /^How often/,
-    );
+  it('notes no reading where there is no figure, and gives the scale as rows', () => {
+    const [kappa] = comparisonStats(version('yes-no'));
+
+    expect(kappa?.reading).toBeNull();
+    expect(kappa?.note.rows?.map(([, word]) => word)).toEqual([
+      'Almost perfect',
+      'Substantial',
+      'Moderate',
+      'Fair to slight',
+      'Less than chance',
+    ]);
   });
 });

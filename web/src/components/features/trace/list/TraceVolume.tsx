@@ -78,19 +78,22 @@ const TipContent = ({
   }
 
   return (
-    <ChartTip placement={placement} style={{ width: TOOLTIP_WIDTH }}>
-      <p className="text-muted-foreground tabular-nums">
-        {spanned(bucket.from, bucket.to)}
-      </p>
-      <p className="pt-0.5 text-foreground">
-        {bucket.count} {bucket.count === 1 ? 'trace' : 'traces'}
-      </p>
-      <p className="text-muted-foreground">
-        {bucket.errors} {bucket.errors === 1 ? 'error' : 'errors'}
-      </p>
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      style={{ width: TOOLTIP_WIDTH }}
+      note={{
+        title: spanned(bucket.from, bucket.to),
+        rows: [
+          ['Traces', `${bucket.count}`],
+          ['Errors', `${bucket.errors}`],
+        ],
+      }}
+    />
   );
 };
+
+const TRACES_FILL =
+  'color-mix(in oklab, var(--chart-primary) 55%, transparent)';
 
 export function TraceVolume({
   volume,
@@ -147,13 +150,15 @@ export function TraceVolume({
             <Bar
               dataKey="count"
               name="Traces"
-              fill="var(--chart-primary)"
+              fill={TRACES_FILL}
+              radius={[2, 2, 0, 0]}
               isAnimationActive={false}
             />
             <Bar
               dataKey="errors"
               name="Errors"
-              fill="var(--destructive)"
+              fill="var(--outcome-failed)"
+              radius={[2, 2, 0, 0]}
               isAnimationActive={false}
             />
           </BarChart>

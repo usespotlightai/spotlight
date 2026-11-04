@@ -44,12 +44,20 @@ export class SkillWeekResponseDto {
   })
   readonly usedRate: number | null;
 
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether the week runs past either end of the period, so it counts only some of its days',
+  })
+  readonly partial: boolean;
+
   constructor(week: SkillWeek) {
     this.week = week.week;
     this.runs = week.runs;
     this.enabled = week.enabled;
     this.used = week.used;
     this.usedRate = week.usedRate;
+    this.partial = week.partial;
   }
 }
 
@@ -77,6 +85,15 @@ export class SkillAtStationResponseDto {
   })
   readonly trend: SkillAtStation['trend'];
 
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.4,
+    description:
+      'The fraction of the station’s runs in the period that read it; none where none ended',
+  })
+  readonly usedRate: number | null;
+
   constructor(station: SkillAtStation) {
     this.lineId = station.lineId;
     this.stationId = station.stationId;
@@ -84,6 +101,7 @@ export class SkillAtStationResponseDto {
     this.enabled = station.enabled;
     this.used = station.used;
     this.trend = station.trend;
+    this.usedRate = station.usedRate;
   }
 }
 
@@ -126,6 +144,15 @@ export class SkillReportResponseDto {
   readonly trend: SkillReportDto['trend'];
 
   @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.2,
+    description:
+      'The fraction of the team’s runs in the period that read it; none where none ended',
+  })
+  readonly usedRate: number | null;
+
+  @ApiProperty({
     type: SkillAtStationResponseDto,
     isArray: true,
     description:
@@ -140,6 +167,7 @@ export class SkillReportResponseDto {
     this.used = skill.used;
     this.weeks = skill.weeks.map((each) => new SkillWeekResponseDto(each));
     this.trend = skill.trend;
+    this.usedRate = skill.usedRate;
     this.stations = skill.stations.map(
       (each) => new SkillAtStationResponseDto(each),
     );
@@ -209,6 +237,23 @@ export class ServerReportResponseDto {
   })
   readonly dismissed: number;
 
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.1,
+    description: 'Failing runs as a fraction of the runs that called it',
+  })
+  readonly failingRunRate: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.05,
+    description:
+      'Runs with a dismissed approval as a fraction of the runs that called it',
+  })
+  readonly dismissedRate: number | null;
+
   constructor(server: ServerReportDto) {
     this.server = server.server;
     this.runs = server.runs;
@@ -220,6 +265,8 @@ export class ServerReportResponseDto {
     this.errorRate = server.errorRate;
     this.failingRuns = server.failingRuns;
     this.dismissed = server.dismissed;
+    this.failingRunRate = server.failingRunRate;
+    this.dismissedRate = server.dismissedRate;
   }
 }
 

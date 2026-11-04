@@ -15,7 +15,17 @@ export const PERCENTILES = ['p50', 'p75', 'p90', 'p95'] as const;
 
 export type Percentile = (typeof PERCENTILES)[number];
 
-export const DEFAULT_PERCENTILE: Percentile = 'p75';
+export const DEFAULT_PERCENTILE: Percentile = 'p50';
+
+const PERCENTILE_NAMES: Record<Percentile, string> = {
+  p50: 'Median',
+  p75: 'Slowest 25%',
+  p90: 'Slowest 10%',
+  p95: 'Slowest 5%',
+};
+
+export const percentileName = (percentile: Percentile): string =>
+  PERCENTILE_NAMES[percentile];
 
 export type Spreads = Readonly<Record<Percentile, number | null>>;
 
@@ -368,7 +378,7 @@ export const FIRST_REVIEW_NOTE =
   'Time from when a pull request opens to its first human review, at the chosen percentile.';
 
 export const REVIEW_BOTS_NOTE =
-  'Bots that reviewed the team’s pull requests. Spotlight’s review tasks count. Resolved: share of their comments resolved before merge';
+  'Bots that reviewed the team’s pull requests. Spotlight’s review tasks count. Resolved: share of their comments resolved before merge.';
 
 export const AWAITING_REVIEW_NOTE =
   'Open pull requests with no human review yet, at each day’s end.';

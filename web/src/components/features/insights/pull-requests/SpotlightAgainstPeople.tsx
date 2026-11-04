@@ -60,8 +60,7 @@ const MEASURES: readonly Measure[] = [
   {
     id: 'reverted',
     label: 'Revert rate',
-    render: (measures) =>
-      `${formatShare(measures.revertRate)} · ${formatCount(measures.reverted)}`,
+    render: (measures) => formatShare(measures.revertRate),
     narrowed: { reverted: 'true' },
   },
 ];
@@ -104,13 +103,13 @@ export function SpotlightAgainstPeople({
     { id: 'measure', header: 'Merged pull requests', cell: (m) => m.label },
     {
       id: 'spotlight',
-      header: 'Spotlight’s',
+      header: 'Spotlight',
       numeric: true,
       cell: cell('spotlight'),
     },
     {
       id: 'people',
-      header: 'People’s alone',
+      header: 'People',
       numeric: true,
       cell: cell('people'),
     },
@@ -118,6 +117,7 @@ export function SpotlightAgainstPeople({
 
   return (
     <InsightsCard
+      flat
       tableOnly
       scrolls
       title="Spotlight against people"

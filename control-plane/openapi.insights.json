@@ -1837,6 +1837,70 @@
           "p90Ms"
         ]
       },
+      "TaskFailureSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "hook:notify",
+            "description": "run, or hook:<name> for a hook’s failure"
+          },
+          "code": {
+            "type": "string",
+            "example": "loop",
+            "description": "What went wrong"
+          },
+          "occurrences": {
+            "type": "number",
+            "example": 3,
+            "description": "Times it was raised or repeated in the period"
+          },
+          "maxInARow": {
+            "type": "number",
+            "example": 3,
+            "description": "The most times it repeated on one task without a break"
+          },
+          "taskIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "source",
+          "code",
+          "occurrences",
+          "maxInARow",
+          "taskIds"
+        ]
+      },
+      "RunFailureSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "failure": {
+            "type": "string",
+            "nullable": true,
+            "example": "exited",
+            "description": "Why the runs failed, where they said"
+          },
+          "runs": {
+            "type": "number",
+            "example": 2
+          },
+          "runIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "failure",
+          "runs",
+          "runIds"
+        ]
+      },
       "InsightsPeriodResponseDto": {
         "type": "object",
         "properties": {
@@ -2893,70 +2957,6 @@
           "tally"
         ]
       },
-      "TaskFailureSummaryResponseDto": {
-        "type": "object",
-        "properties": {
-          "source": {
-            "type": "string",
-            "example": "hook:notify",
-            "description": "run, or hook:<name> for a hook’s failure"
-          },
-          "code": {
-            "type": "string",
-            "example": "loop",
-            "description": "What went wrong"
-          },
-          "occurrences": {
-            "type": "number",
-            "example": 3,
-            "description": "Times it was raised or repeated in the period"
-          },
-          "maxInARow": {
-            "type": "number",
-            "example": 3,
-            "description": "The most times it repeated on one task without a break"
-          },
-          "taskIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "source",
-          "code",
-          "occurrences",
-          "maxInARow",
-          "taskIds"
-        ]
-      },
-      "RunFailureSummaryResponseDto": {
-        "type": "object",
-        "properties": {
-          "failure": {
-            "type": "string",
-            "nullable": true,
-            "example": "exited",
-            "description": "Why the runs failed, where they said"
-          },
-          "runs": {
-            "type": "number",
-            "example": 2
-          },
-          "runIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "failure",
-          "runs",
-          "runIds"
-        ]
-      },
       "StationReportResponseDto": {
         "type": "object",
         "properties": {
@@ -3679,6 +3679,11 @@
             "nullable": true,
             "example": 0.43,
             "description": "The fraction of that week’s runs that read it; none where no run ended that week"
+          },
+          "partial": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether the week runs past either end of the period, so it counts only some of its days"
           }
         },
         "required": [
@@ -3686,7 +3691,8 @@
           "runs",
           "enabled",
           "used",
-          "usedRate"
+          "usedRate",
+          "partial"
         ]
       },
       "SkillAtStationResponseDto": {
@@ -3724,6 +3730,12 @@
             "nullable": true,
             "example": "flat",
             "description": "rising or falling where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; flat where it moved less; none where either side had too few runs"
+          },
+          "usedRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.4,
+            "description": "The fraction of the station’s runs in the period that read it; none where none ended"
           }
         },
         "required": [
@@ -3732,7 +3744,8 @@
           "runs",
           "enabled",
           "used",
-          "trend"
+          "trend",
+          "usedRate"
         ]
       },
       "SkillReportResponseDto": {
@@ -3776,6 +3789,12 @@
             "example": "rising",
             "description": "rising or falling where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; flat where it moved less; none where either side had too few runs"
           },
+          "usedRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.2,
+            "description": "The fraction of the team’s runs in the period that read it; none where none ended"
+          },
           "stations": {
             "description": "Each station that enabled it for its runs or whose runs read it",
             "type": "array",
@@ -3791,6 +3810,7 @@
           "used",
           "weeks",
           "trend",
+          "usedRate",
           "stations"
         ]
       },
@@ -3848,6 +3868,18 @@
             "type": "number",
             "example": 2,
             "description": "Runs in which a person dismissed an approval for one of its tools"
+          },
+          "failingRunRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.1,
+            "description": "Failing runs as a fraction of the runs that called it"
+          },
+          "dismissedRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.05,
+            "description": "Runs with a dismissed approval as a fraction of the runs that called it"
           }
         },
         "required": [
@@ -3860,7 +3892,9 @@
           "failedCalls",
           "errorRate",
           "failingRuns",
-          "dismissed"
+          "dismissed",
+          "failingRunRate",
+          "dismissedRate"
         ]
       },
       "ToolDismissalsResponseDto": {
@@ -4180,6 +4214,23 @@
             "nullable": true,
             "example": 0.71
           },
+          "reading": {
+            "type": "string",
+            "enum": [
+              "almost-perfect",
+              "substantial",
+              "moderate",
+              "fair-to-slight",
+              "poor",
+              "very-strong",
+              "strong",
+              "weak",
+              "inverse",
+              null
+            ],
+            "nullable": true,
+            "description": "How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s"
+          },
           "pairs": {
             "type": "number",
             "example": 24,
@@ -4216,6 +4267,7 @@
           "qualified",
           "measure",
           "agreement",
+          "reading",
           "pairs",
           "minAgreement",
           "hiddenReason",

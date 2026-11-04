@@ -1,5 +1,6 @@
 import { FlowTab } from '@/components/features/insights/FlowTab';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
+import { OVERVIEW_LAYOUT } from '@/components/features/insights/overview-layout';
 import { ProductivitySkeleton } from '@/components/features/insights/ProductivitySkeleton';
 import { PullRequestsTab } from '@/components/features/insights/pull-requests/PullRequestsTab';
 import { ShippingTab } from '@/components/features/insights/shipping/ShippingTab';
@@ -37,7 +38,7 @@ export function ProductivityTab({
   }
 
   return (
-    <>
+    <div className={OVERVIEW_LAYOUT}>
       <InsightsSection title="Where work waits">
         <FlowTab
           slug={slug}
@@ -62,6 +63,6 @@ export function ProductivityTab({
           onView={onView}
         />
       </InsightsSection>
-    </>
+    </div>
   );
 }

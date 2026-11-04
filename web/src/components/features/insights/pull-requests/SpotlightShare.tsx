@@ -21,10 +21,10 @@ export function SpotlightShare({ spotlightShare }: SpotlightShareProps) {
   });
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-10">
       <InsightsTiles label="Merged pull requests">
         <InsightsTile
-          label="PRs merged"
+          label="All PRs merged"
           value={formatCount(spotlightShare.merged)}
           detail="In the team’s repositories"
           drill={drill({})}
@@ -37,17 +37,18 @@ export function SpotlightShare({ spotlightShare }: SpotlightShareProps) {
         <InsightsTile
           label="Reviewed by Spotlight"
           value={formatCount(spotlightShare.reviewed)}
-          detail="Others’ pull requests with a Spotlight review task"
+          tooltip="Others’ pull requests with a Spotlight review task"
           drill={drill({ author: 'reviewed' })}
         />
         <InsightsTile
           label="Spotlight’s share"
           value={formatShare(spotlightShare.rate)}
-          detail="Share of all merged pull requests that Spotlight made or reviewed. Bots’ pull requests count."
+          tooltip="Share of all merged pull requests that Spotlight made or reviewed. Bots’ pull requests count."
         />
       </InsightsTiles>
 
       <InsightsCard
+        flat
         title="Week by week"
         description={WEEK_BY_WEEK_NOTE}
         table={

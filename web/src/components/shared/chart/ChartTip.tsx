@@ -1,14 +1,16 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties } from 'react';
+import { TooltipNoteContent } from '@/components/shared/TooltipNoteContent';
 import type { TipPlacement } from '@/hooks/useCursorTooltip';
+import type { TooltipNote } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 type ChartTipProps = {
   placement?: TipPlacement;
   style?: CSSProperties;
-  children: ReactNode;
+  note: TooltipNote;
 };
 
-export function ChartTip({ placement, style, children }: ChartTipProps) {
+export function ChartTip({ placement, style, note }: ChartTipProps) {
   return (
     <div
       style={style}
@@ -18,7 +20,7 @@ export function ChartTip({ placement, style, children }: ChartTipProps) {
         placement?.above && '-translate-y-full',
       )}
     >
-      {children}
+      <TooltipNoteContent note={note} className="" />
     </div>
   );
 }

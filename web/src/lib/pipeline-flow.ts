@@ -3,7 +3,7 @@ import type { FlowStage } from '@/lib/insights-shipping';
 
 export const TYPE_COLORS: Record<PullRequestType, string> = {
   feature: 'var(--chart-primary)',
-  fix: 'var(--chart-success)',
+  fix: 'color-mix(in oklab, var(--chart-primary) 55%, var(--chart-1))',
   refactor: 'var(--chart-4)',
   tests: 'var(--chart-3)',
   chore: 'var(--chart-2)',
@@ -11,7 +11,7 @@ export const TYPE_COLORS: Record<PullRequestType, string> = {
 };
 
 export const bottleneckColor = (bottleneckRatio: number): string =>
-  `color-mix(in oklab, var(--destructive) ${Math.round(bottleneckRatio ** 2 * 100)}%, var(--chart-2))`;
+  `color-mix(in oklab, var(--outcome-failed) ${Math.round(bottleneckRatio ** 2 * 100)}%, var(--chart-2))`;
 
 const GUTTER = 28;
 const FREE_HALF = 40;

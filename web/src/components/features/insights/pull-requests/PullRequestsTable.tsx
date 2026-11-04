@@ -69,12 +69,13 @@ export function PullRequestsTable({
     {
       id: 'pull-request',
       header: 'Pull request',
+      size: 'minmax(18rem,1fr)',
       cell: (pullRequest) => (
         <a
           href={pullRequest.pullRequest}
           target="_blank"
           rel="noreferrer"
-          className="flex max-w-72 items-center gap-1 hover:underline"
+          className="flex min-w-0 items-center gap-1 hover:underline"
           title={pullRequest.title}
         >
           <span className="truncate">{pullRequest.title}</span>
@@ -88,17 +89,20 @@ export function PullRequestsTable({
     {
       id: 'repository',
       header: 'Repository',
+      size: 'max-content',
       cell: (pullRequest) => pullRequest.repository,
     },
-    { id: 'by', header: 'Written by', cell: writtenBy },
+    { id: 'by', header: 'Written by', size: 'max-content', cell: writtenBy },
     {
       id: 'type',
       header: 'Type',
+      size: 'max-content',
       cell: (pullRequest) => formatType(pullRequest.type),
     },
     {
       id: 'state',
       header: 'State',
+      size: 'max-content',
       cell: (pullRequest) =>
         pullRequest.reverted
           ? `${formatState(pullRequest.state)}, reverted`
@@ -107,42 +111,49 @@ export function PullRequestsTable({
     {
       id: 'opened',
       header: 'Opened',
+      size: 'max-content',
       numeric: true,
       cell: (pullRequest) => since(pullRequest.openedAt),
     },
     {
       id: 'to-merge',
       header: 'To merge',
+      size: 'max-content',
       numeric: true,
       cell: (pullRequest) => formatDurationOrNone(pullRequest.toMergeMs),
     },
     {
       id: 'in-review',
       header: 'In review',
+      size: 'max-content',
       numeric: true,
       cell: (pullRequest) => formatDurationOrNone(pullRequest.inReviewMs),
     },
     {
       id: 'rounds',
       header: 'Rounds',
+      size: 'max-content',
       numeric: true,
       cell: (pullRequest) => formatCount(pullRequest.reviewRounds),
     },
     {
       id: 'comments',
       header: 'Comments',
+      size: 'max-content',
       numeric: true,
       cell: (pullRequest) => formatCount(pullRequest.reviewComments),
     },
     {
       id: 'size',
       header: 'Size',
+      size: 'max-content',
       numeric: true,
       cell: formatSize,
     },
     {
       id: 'cost',
       header: 'Cost',
+      size: 'max-content',
       numeric: true,
       cell: (pullRequest) =>
         pullRequest.by === 'spotlight' ? formatSpend(pullRequest.spend) : '–',

@@ -32,4 +32,12 @@ describe('PageHeader', () => {
 
     expect(container.querySelector('header')?.children).toHaveLength(1);
   });
+  it('leaves the heading to the page where the page names itself', () => {
+    render(<PageHeader title="Delivery" heading={false} />);
+
+    expect(
+      screen.getByRole('navigation', { name: 'Breadcrumb' }),
+    ).toHaveTextContent('Delivery');
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+  });
 });

@@ -13,7 +13,7 @@ import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { useStationTabLoading } from '@/hooks/useStationTabLoading';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { failed, loading } from '@/lib/query';
-import { stationTab } from '@/lib/station';
+import { DEFAULT_STATION_TAB, stationTab } from '@/lib/station';
 import { TrailContext, useTrail } from '@/lib/trail';
 
 export function Station() {
@@ -32,7 +32,7 @@ export function Station() {
   useScrollToHash(Boolean(station) && !tabLoading);
 
   if (loading(lines)) {
-    return <StationSkeleton tab={tab ?? 'overview'} />;
+    return <StationSkeleton tab={tab ?? DEFAULT_STATION_TAB} />;
   }
 
   if (failed(lines)) {
@@ -59,7 +59,11 @@ export function Station() {
 
   return (
     <TrailContext value={forward}>
-      <PageHeader title={<Breadcrumbs segments={trail} />} bordered={false} />
+      <PageHeader
+        title={<Breadcrumbs segments={trail} />}
+        bordered={false}
+        heading={false}
+      />
 
       <StationHeading
         slug={slug}

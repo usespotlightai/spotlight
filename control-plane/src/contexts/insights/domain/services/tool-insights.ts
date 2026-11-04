@@ -20,6 +20,7 @@ export interface SkillWeek {
   readonly enabled: number;
   readonly used: number;
   readonly usedRate: number | null;
+  readonly partial: boolean;
 }
 
 export interface SkillAtStation {
@@ -28,6 +29,7 @@ export interface SkillAtStation {
   readonly runs: number;
   readonly enabled: number;
   readonly used: number;
+  readonly usedRate: number | null;
   readonly trend: SkillTrend | null;
 }
 
@@ -36,6 +38,7 @@ export interface SkillReport {
   readonly defined: boolean;
   readonly enabled: number;
   readonly used: number;
+  readonly usedRate: number | null;
   readonly weeks: readonly SkillWeek[];
   readonly trend: SkillTrend | null;
   readonly stations: readonly SkillAtStation[];
@@ -51,7 +54,9 @@ export interface ServerReport {
   readonly failedCalls: number;
   readonly errorRate: number | null;
   readonly failingRuns: number;
+  readonly failingRunRate: number | null;
   readonly dismissed: number;
+  readonly dismissedRate: number | null;
 }
 
 export interface ToolDismissals {
@@ -276,10 +281,19 @@ export const toolCountsOf = (
 const byUseThenName = (one: SkillReport, other: SkillReport): number =>
   other.used - one.used || one.key.localeCompare(other.key);
 
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+const partialWeek = (week: string, window: Window): boolean => {
+  const start = Date.parse(`${week}T00:00:00.000Z`);
+
+  return start < window.from.getTime() || start + WEEK_MS > window.to.getTime();
+};
+
 export const toolInsightsFrom = (
   counts: ToolCounts,
   weeks: readonly string[],
   defined: readonly string[],
+  window: Window,
 ): ToolInsights => {
   const keyOf = (...parts: readonly (string | null)[]) => JSON.stringify(parts);
   const runs = new Map(
@@ -306,6 +320,7 @@ export const toolInsightsFrom = (
         enabled,
         used,
         usedRate: rateOf(used, inWeek),
+        partial: partialWeek(week, window),
       };
     });
   const definedKeys = new Set(defined);
@@ -319,6 +334,7 @@ export const toolInsightsFrom = (
         defined: definedKeys.has(key),
         enabled: all.enabled,
         used: all.used,
+        usedRate: rateOf(all.used, runsAt(null, null)),
         weeks: team,
         trend: skillTrendOf(team),
         stations: counts.stations.flatMap((location) => {
@@ -332,6 +348,10 @@ export const toolInsightsFrom = (
                   runs: runsAt(location.stationId, null),
                   enabled: there.enabled,
                   used: there.used,
+                  usedRate: rateOf(
+                    there.used,
+                    runsAt(location.stationId, null),
+                  ),
                   trend: skillTrendOf(weekly(key, location.stationId)),
                 },
               ];
@@ -363,7 +383,9 @@ export const toolInsightsFrom = (
           failedCalls: each.failedCalls,
           errorRate: rateOf(each.failedCalls, each.calls),
           failingRuns: each.failingRuns,
+          failingRunRate: rateOf(each.failingRuns, each.runs),
           dismissed: each.dismissed,
+          dismissedRate: rateOf(each.dismissed, each.runs),
         };
       })
       .sort(

@@ -1,4 +1,5 @@
 import { GitPullRequest } from 'lucide-react';
+import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button-variants';
@@ -12,7 +13,7 @@ type NoPullRequestsProps = {
 
 export function NoPullRequests({ slug, teamId }: NoPullRequestsProps) {
   return (
-    <div className="flex justify-center rounded-xl border border-border px-4 py-10">
+    <EmptyFrame>
       <EmptyState
         icon={GitPullRequest}
         title="No pull requests in this period"
@@ -31,6 +32,6 @@ export function NoPullRequests({ slug, teamId }: NoPullRequestsProps) {
         Pull requests by Spotlight, people and bots show here. Please install
         the GitHub App on the team’s repositories.
       </EmptyState>
-    </div>
+    </EmptyFrame>
   );
 }

@@ -469,6 +469,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     DrizzleTaskPullRequestRepository,
     DrizzleStationConfigPullRequests,
     WORK,
+    DrizzleTaskFailuresRepository,
   ]),
   ...bindQueryHandler(ReadStationJudgeQuery, ReadStationJudgeHandler, [
     InsightsAccess,

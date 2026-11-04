@@ -310,11 +310,7 @@ describe('TeamInsights', () => {
   it('shows runs at each station, config changes and candidates on the Stations tab, all over the period', () => {
     showing('?tab=stations&period=90d');
 
-    expect(sections()).toEqual([
-      'Runs at each station',
-      'Config changes',
-      'Candidates',
-    ]);
+    expect(sections()).toEqual(['Runs', 'Config changes', 'Candidates']);
     expect(requested).toEqual(
       expect.arrayContaining([
         { tab: 'stations', period: '90d' },
@@ -333,14 +329,19 @@ describe('TeamInsights', () => {
     ).toBeInTheDocument();
   });
 
-  it('opens one station alone where the address names it', () => {
+  it('shows every station even where the address names one', () => {
     showing('?tab=stations&stationId=station_build');
 
     expect(
       within(tabs()).getByRole('link', { name: 'Stations', current: 'page' }),
     ).toBeInTheDocument();
-    expect(sections()).toEqual([]);
-    expect(tabsRequested()).toEqual(['stations']);
+    expect(sections()).toEqual(['Runs', 'Config changes', 'Candidates']);
+    expect(tabsRequested()).toEqual([
+      'stations',
+      'changes',
+      'agent-configs',
+      'candidates',
+    ]);
   });
 
   it('shows where work waits, what the agents ship and the pull requests on the Productivity tab', () => {
@@ -367,7 +368,7 @@ describe('TeamInsights', () => {
   it('shows skills, tools and memory on the Tools and skills tab', () => {
     showing('?tab=tools&period=7d');
 
-    expect(sections()).toEqual(['Skills and tools', 'Memory']);
+    expect(sections()).toEqual(['Skills', 'MCP servers', 'Memory']);
     expect(requested).toEqual(
       expect.arrayContaining([
         { tab: 'tools', period: '7d' },
@@ -377,24 +378,6 @@ describe('TeamInsights', () => {
     expect(
       screen.getByRole('status', { name: 'Loading the tools' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: 'Loading the memory' }),
-    ).toBeInTheDocument();
-  });
-
-  it('collapses a section and expands it again', async () => {
-    showing('?tab=tools');
-
-    const memory = screen.getByRole('button', { name: 'Memory' });
-    await userEvent.click(memory);
-
-    expect(memory).toHaveAttribute('aria-expanded', 'false');
-    expect(
-      screen.queryByRole('status', { name: 'Loading the memory' }),
-    ).not.toBeInTheDocument();
-
-    await userEvent.click(memory);
-
     expect(
       screen.getByRole('status', { name: 'Loading the memory' }),
     ).toBeInTheDocument();
@@ -482,7 +465,7 @@ describe('TeamInsights', () => {
       '/w/acme/team/team_1/insights?tab=traces&stationId=station_build',
     );
     expect(
-      within(station).getByRole('link', { name: 'Improve' }),
+      within(station).getByRole('link', { name: 'Ask the agent' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1/agent');
     expect(
       within(station).getByRole('img', {
@@ -573,7 +556,8 @@ describe('TeamInsights', () => {
     expect(screen.getByText('No priced runs')).toBeInTheDocument();
   });
 
-  it('keeps a long repository legend inside the scroll container with every row', () => {
+  it('splits the spend by repository on request, keeping every row inside the scroll container', async () => {
+    const user = userEvent.setup();
     const byRepository = Array.from({ length: 12 }, (_, at) => ({
       key: `acme/repo-${at}`,
       amount: 12 - at,
@@ -590,13 +574,15 @@ describe('TeamInsights', () => {
     });
 
     showing('?tab=cost');
+    await user.click(screen.getByRole('button', { name: 'Repository' }));
 
     const legend = screen.getByRole('list', { name: 'Spend by repository' });
     expect(legend.closest('[data-slot="scroll-area"]')).not.toBeNull();
     expect(within(legend).getAllByRole('listitem')).toHaveLength(12);
   });
 
-  it('keeps a single-row legend inside the scroll container', () => {
+  it('keeps a single repository inside the scroll container', async () => {
+    const user = userEvent.setup();
     answers.cost = queried({
       ...MIXED_COST,
       cost: {
@@ -607,6 +593,7 @@ describe('TeamInsights', () => {
     });
 
     showing('?tab=cost');
+    await user.click(screen.getByRole('button', { name: 'Repository' }));
 
     const legend = screen.getByRole('list', { name: 'Spend by repository' });
     expect(legend.closest('[data-slot="scroll-area"]')).not.toBeNull();

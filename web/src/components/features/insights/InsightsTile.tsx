@@ -1,12 +1,10 @@
 import type { ReactNode } from 'react';
 import { DeltaGlyph } from '@/components/features/insights/DeltaGlyph';
-import { EmptyDetail } from '@/components/features/insights/EmptyDetail';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TileSparkline } from '@/components/features/insights/TileSparkline';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { ShownDelta, TileDrill } from '@/lib/insights';
 import type { TooltipText } from '@/lib/tooltip-note';
-import { cn } from '@/lib/utils';
 
 const AGAINST = 'Against the previous period';
 
@@ -18,6 +16,7 @@ type InsightsTileProps = {
   delta?: ShownDelta | null;
   drill?: TileDrill;
   trend?: readonly (number | null)[];
+  visual?: ReactNode;
 };
 
 export function InsightsTile({
@@ -28,27 +27,24 @@ export function InsightsTile({
   delta,
   drill,
   trend,
+  visual,
 }: InsightsTileProps) {
   const sparkline = trend !== undefined && trend.length > 1;
 
   return (
     <div
       data-slot="insights-tile"
-      className="flex min-h-30 min-w-0 flex-col gap-1.5 overflow-hidden group-data-top-aligned/tiles:gap-8.5 group-data-stacked/tiles:gap-2 rounded-lg border border-border bg-card p-3"
+      className="flex min-h-[7.625rem] min-w-0 flex-col gap-1 overflow-hidden rounded-lg border border-border px-4 py-3 max-sm:odd:last:col-span-2"
     >
-      <dt className="flex min-h-4 items-center gap-1.5 text-foreground text-xs leading-4">
-        <span className="truncate">{label}</span>
+      <dt className="flex min-h-5 items-center gap-1.5 text-muted-foreground text-sm leading-5">
+        <span className="line-clamp-1" title={label}>
+          {label}
+        </span>
         {tooltip && <InfoTooltip tooltip={tooltip} />}
       </dt>
-      <dd
-        className={cn(
-          '@container flex flex-1 flex-col gap-1.5',
-          !sparkline &&
-            'justify-center group-data-top-aligned/tiles:justify-start group-data-stacked/tiles:justify-start',
-        )}
-      >
-        <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="font-normal text-[1.375rem] text-foreground tabular-nums leading-none tracking-tight">
+      <dd className="@container flex flex-1 flex-col">
+        <span className="flex flex-col items-start gap-0.5">
+          <span className="font-medium text-foreground text-xl tabular-nums leading-7">
             {drill ? (
               <InsightsLink tab={drill.tab} filter={drill.filter}>
                 {value}
@@ -58,19 +54,22 @@ export function InsightsTile({
             )}
           </span>
           {delta && (
-            <span className="text-xs">
+            <span className="text-sm leading-5">
               <DeltaGlyph delta={delta} tooltip={AGAINST} />
             </span>
           )}
+          {detail && (
+            <span className="text-muted-foreground text-sm leading-5">
+              {detail}
+            </span>
+          )}
         </span>
-        {detail ? (
-          <span className="text-muted-foreground text-xs">{detail}</span>
-        ) : (
-          !sparkline && <EmptyDetail />
-        )}
-        {sparkline && (
+        {(sparkline || visual) && (
           <span className="mt-auto pt-2">
-            <TileSparkline label={`${label}, day by day`} values={trend} />
+            {visual ??
+              (sparkline && (
+                <TileSparkline label={`${label}, day by day`} values={trend} />
+              ))}
           </span>
         )}
       </dd>

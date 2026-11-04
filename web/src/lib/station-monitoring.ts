@@ -3,7 +3,6 @@ import type {
   StationJudgeResponseDto,
 } from '@/lib/api';
 import { amountIn } from '@/lib/inbox';
-import { formatPoints } from '@/lib/replay-words';
 
 export type JudgeSettings = StationJudgeResponseDto;
 
@@ -51,12 +50,11 @@ const overRuns = (over: number): string =>
 const changeOverRuns = (over: number): string =>
   over === 1 ? 'from one run to the next' : `over ${over} runs`;
 
-export type AlertCondition = 'rises' | 'falls' | 'above' | 'below';
+type AlertCondition = 'rises' | 'falls' | 'above' | 'below';
 
-export type AlertFace = {
+export type AlertRow = {
   readonly measure: string;
-  readonly condition: AlertCondition;
-  readonly threshold: string;
+  readonly change: string;
   readonly window: string;
 };
 
@@ -86,7 +84,6 @@ const formatThreshold = (
   alert: AlertRule,
   { condition, threshold }: AlertReading,
   currency: string | null,
-  points: (share: number) => string,
 ): string => {
   if (!isChange(condition)) {
     return amountOf(alert, threshold, currency);
@@ -94,14 +91,7 @@ const formatThreshold = (
 
   return alert.measure === 'cost_per_run'
     ? amountIn(threshold, currency)
-    : points(threshold);
-};
-
-const BOUNDS: Record<AlertCondition, string> = {
-  rises: '+',
-  falls: '−',
-  below: '< ',
-  above: '> ',
+    : pointsText(threshold);
 };
 
 const CONDITION_TEXT: Record<AlertCondition, (threshold: string) => string> = {
@@ -111,16 +101,17 @@ const CONDITION_TEXT: Record<AlertCondition, (threshold: string) => string> = {
   above: (threshold) => `goes above ${threshold}`,
 };
 
-export const alertFace = (
+export const alertRow = (
   alert: AlertRule,
   currency: string | null = null,
-): AlertFace => {
+): AlertRow => {
   const reading = readingOf(alert);
 
   return {
     measure: MEASURES[alert.measure],
-    condition: reading.condition,
-    threshold: `${BOUNDS[reading.condition]}${formatThreshold(alert, reading, currency, formatPoints)}`,
+    change: CONDITION_TEXT[reading.condition](
+      formatThreshold(alert, reading, currency),
+    ),
     window: isChange(reading.condition)
       ? changeOverRuns(alert.over)
       : overRuns(alert.over),
@@ -131,13 +122,7 @@ export const alertPhrase = (
   alert: AlertRule,
   currency: string | null = null,
 ): string => {
-  const { measure, condition, window } = alertFace(alert, currency);
-  const threshold = formatThreshold(
-    alert,
-    readingOf(alert),
-    currency,
-    pointsText,
-  );
+  const { measure, change, window } = alertRow(alert, currency);
 
-  return `Alerts when the ${measure.toLowerCase()} ${CONDITION_TEXT[condition](threshold)} ${window}`;
+  return `Alerts when the ${measure.toLowerCase()} ${change} ${window}`;
 };

@@ -40,6 +40,19 @@ export const failuresWithin = (
       .map((occurrence) => ({ taskId: each.taskId.value, occurrence })),
   );
 
+export const failuresInRuns = (
+  failures: readonly TaskFailures[],
+  runIds: ReadonlySet<string>,
+): readonly LocatedFailure[] =>
+  failures.flatMap((each) =>
+    each.occurrences
+      .filter(
+        (occurrence) =>
+          occurrence.runId !== null && runIds.has(occurrence.runId),
+      )
+      .map((occurrence) => ({ taskId: each.taskId.value, occurrence })),
+  );
+
 export const taskFailureSummaries = (
   located: readonly LocatedFailure[],
 ): readonly TaskFailureSummary[] => {

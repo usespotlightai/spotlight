@@ -39,7 +39,7 @@ export function InsightsTableSkeleton({
         <div
           className={cn(
             ROW,
-            'border-border border-y bg-surface py-1.5 text-[0.7rem] text-muted-foreground',
+            'border-border border-y bg-surface py-1.5 text-xs text-muted-foreground',
           )}
         >
           {headers.map((header, at) => (

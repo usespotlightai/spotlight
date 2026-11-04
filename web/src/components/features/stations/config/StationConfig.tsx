@@ -1,12 +1,13 @@
-import { AgentCard } from '@/components/features/stations/config/AgentCard';
-import { AlertsCard } from '@/components/features/stations/config/AlertsCard';
-import { FingerprintCard } from '@/components/features/stations/config/FingerprintCard';
-import { JudgeCard } from '@/components/features/stations/config/JudgeCard';
-import { LineCard } from '@/components/features/stations/config/LineCard';
-import { SearchPolicyCard } from '@/components/features/stations/config/SearchPolicyCard';
-import { SkillsCard } from '@/components/features/stations/config/SkillsCard';
-import { StationPrompt } from '@/components/features/stations/config/StationPrompt';
+import { AlertsSection } from '@/components/features/stations/config/AlertsSection';
+import { JudgeSection } from '@/components/features/stations/config/JudgeSection';
+import { PromptSection } from '@/components/features/stations/config/PromptSection';
+import { StationProperties } from '@/components/features/stations/config/StationProperties';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
+
+export const CONFIG_LAYOUT =
+  'grid w-full gap-x-14 gap-y-10 pt-3 lg:grid-cols-[minmax(0,1fr)_17.5rem]';
+
+export const CONFIG_MAIN = 'flex min-w-0 flex-col gap-10';
 
 type StationConfigProps = {
   slug: string;
@@ -22,29 +23,25 @@ export function StationConfig({
   station,
 }: StationConfigProps) {
   return (
-    <section
-      aria-label="Config"
-      className="grid grid-flow-row-dense auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4"
-    >
-      <AgentCard station={station} />
-      <StationPrompt stationId={station.id} prompt={station.agentPrompt} />
-      <SkillsCard skills={station.skills} />
-      <JudgeCard
-        slug={slug}
-        teamId={teamId}
-        lineId={line.id}
-        stationId={station.id}
-        judge={station.judge}
-      />
-      <LineCard line={line} />
-      {station.search && <SearchPolicyCard policy={station.search} />}
-      {station.alerts.length > 0 && <AlertsCard alerts={station.alerts} />}
-      <FingerprintCard
-        slug={slug}
-        teamId={teamId}
-        lineId={line.id}
-        stationId={station.id}
-      />
+    <section aria-label="Config" className={CONFIG_LAYOUT}>
+      <div className={CONFIG_MAIN}>
+        <PromptSection stationId={station.id} prompt={station.agentPrompt} />
+        <JudgeSection
+          slug={slug}
+          teamId={teamId}
+          lineId={line.id}
+          stationId={station.id}
+          judge={station.judge}
+        />
+        {station.alerts.length > 0 && (
+          <AlertsSection
+            alerts={station.alerts}
+            currency={station.search?.currency ?? line.search.currency}
+          />
+        )}
+      </div>
+
+      <StationProperties teamId={teamId} line={line} station={station} />
     </section>
   );
 }

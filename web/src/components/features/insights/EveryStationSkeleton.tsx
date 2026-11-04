@@ -1,13 +1,14 @@
 import { CandidatesSkeleton } from '@/components/features/insights/candidates/CandidatesSkeleton';
 import { ChangesSkeleton } from '@/components/features/insights/changes/ChangesSkeleton';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
+import { OVERVIEW_LAYOUT } from '@/components/features/insights/overview-layout';
 import { StationsSkeleton } from '@/components/features/insights/StationsSkeleton';
 import { type StationNames, workStationCount } from '@/lib/insights';
 
 export function EveryStationSkeleton({ names }: { names: StationNames }) {
   return (
-    <div className="flex flex-col gap-3">
-      <InsightsSection title="Runs at each station">
+    <div className={OVERVIEW_LAYOUT}>
+      <InsightsSection title="Runs">
         <StationsSkeleton stations={workStationCount(names)} />
       </InsightsSection>
 

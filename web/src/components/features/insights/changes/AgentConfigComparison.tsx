@@ -15,7 +15,6 @@ import {
 import type { AgentConfigsNarrowed } from '@/lib/insights-changes';
 import {
   agentConfigPoints,
-  formatSizeRule,
   type InsightsAgentConfigs,
   lowerIsBetter,
   type OutcomeMeasure,
@@ -72,6 +71,7 @@ export function AgentConfigComparison({
       measure={measure}
       judged={judged}
       names={names}
+      sizes={comparison.sizes}
       onNarrow={onNarrow}
       onMeasure={onMeasure}
     />
@@ -102,8 +102,9 @@ export function AgentConfigComparison({
 
   return (
     <InsightsCard
+      flat
       title="Harness, model, effort and profile"
-      description={`${outcomeLabel(measure)} against cost per run.${drawn ? ' Replayed points show replay success on past tasks.' : ''} The frontier joins agent configs no other matches for less. Minimum runs per agent config: ${comparison.minRuns}. Task size, by a run’s changes: ${comparison.sizes.map(formatSizeRule).join('; ')}.`}
+      description={`${outcomeLabel(measure)} against cost per run.${drawn ? ' Replayed points show replay success on past tasks.' : ''} The frontier joins agent configs no other matches for less. Minimum runs per agent config: ${comparison.minRuns}.`}
       actions={filters}
       table={
         <>

@@ -186,8 +186,8 @@ describe('OutputAgainstCost', () => {
       />,
     );
 
-    expect(screen.getByText(/spent over 5 runs/)).toBeInTheDocument();
-    expect(screen.getByText('1 PR merged')).toBeInTheDocument();
+    expect(screen.getByText('Runs').nextSibling).toHaveTextContent('5');
+    expect(screen.getByText('PRs merged').nextSibling).toHaveTextContent('1');
     expect(screen.queryByText(/Config changed at/)).not.toBeInTheDocument();
   });
 });

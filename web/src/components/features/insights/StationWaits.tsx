@@ -20,7 +20,7 @@ import {
   waitRows,
 } from '@/lib/insights';
 
-export const WAIT_ROW_HEIGHT = 32;
+export const WAIT_ROW_HEIGHT = 28;
 
 const TipContent = ({
   placement,
@@ -38,14 +38,16 @@ const TipContent = ({
   }
 
   return (
-    <ChartTip placement={placement}>
-      <p className="text-foreground">{row.label}, typically</p>
-      {WAIT_SERIES.map((wait) => (
-        <p key={wait.key} className="text-muted-foreground">
-          {wait.label} {formatDuration(row[wait.key])}
-        </p>
-      ))}
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title: `${row.label}, median`,
+        rows: WAIT_SERIES.map((wait): [string, string] => [
+          wait.label,
+          formatDuration(row[wait.key]),
+        ]),
+      }}
+    />
   );
 };
 
@@ -67,6 +69,7 @@ export function StationWaits({
 
   return (
     <InsightsCard
+      flat
       title="Where tasks wait"
       description={WAITS_NOTE}
       table={
@@ -79,7 +82,7 @@ export function StationWaits({
       }
     >
       <figure data-slot="waits-chart" className="flex flex-col gap-1">
-        <figcaption className="flex flex-wrap items-center gap-3 text-muted-foreground text-[0.7rem]">
+        <figcaption className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
           {WAIT_SERIES.map((wait) => (
             <span key={wait.key} className="flex items-center gap-1">
               <span
@@ -101,6 +104,7 @@ export function StationWaits({
               <BarChart
                 data={rows}
                 layout="vertical"
+                barSize={12}
                 margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
               >
                 <XAxis type="number" hide />
@@ -110,7 +114,7 @@ export function StationWaits({
                   width={112}
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
+                  tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 />
                 <Tooltip
                   {...cursor.tooltip}

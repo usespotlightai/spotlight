@@ -1,31 +1,40 @@
-import { SquareMousePointer } from 'lucide-react';
-import { ConfigCard } from '@/components/features/stations/config/ConfigCard';
-import { ConfigCardValue } from '@/components/features/stations/config/ConfigCardValue';
-import { Pill } from '@/components/shared/Pill';
-import { Skeleton } from '@/components/shared/skeleton/Skeleton';
-import { SkeletonBlock } from '@/components/shared/skeleton/SkeletonBlock';
+import { PROPERTY_GRID } from '@/components/features/stations/config/PropertyList';
+import {
+  CONFIG_LAYOUT,
+  CONFIG_MAIN,
+} from '@/components/features/stations/config/StationConfig';
+import { TabSection } from '@/components/features/stations/TabSection';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { cn } from '@/lib/utils';
 
-const PROMPT = ['w-12', 'w-full', 'w-5/6', 'w-full', 'w-2/3', 'w-3/4', 'w-1/2'];
+const PROMPT = ['w-1/4', 'w-full', 'w-5/6', 'w-full', 'w-2/3', 'w-3/4'];
+
+const GROUPS = [
+  ['Live config', [['Since', 'w-14']]],
+  [
+    'Agent',
+    [
+      ['Harness', 'w-24'],
+      ['Model', 'w-16'],
+      ['Effort', 'w-14'],
+    ],
+  ],
+  [
+    'Line',
+    [
+      ['Name', 'w-16'],
+      ['Repositories', 'w-28'],
+      ['Skills', 'w-24'],
+    ],
+  ],
+] as const;
 
 export function StationConfigSkeleton() {
   return (
-    <div className="grid grid-flow-row-dense auto-rows-fr gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <SkeletonBlock>
-        <ConfigCard title="Agent">
-          <ConfigCardValue
-            lead={<Skeleton className="size-4 rounded" />}
-            detail={<SkeletonLine className="w-16" />}
-          >
-            <SkeletonLine className="w-24" />
-          </ConfigCardValue>
-        </ConfigCard>
-      </SkeletonBlock>
-
-      <SkeletonBlock>
-        <ConfigCard title="Prompt">
-          <div className="flex min-h-[182px] flex-col">
+    <div className={CONFIG_LAYOUT}>
+      <div className={CONFIG_MAIN}>
+        <TabSection title="Prompt">
+          <div className="flex flex-col border-border border-l-2 pl-4">
             {PROMPT.map((width, at) => (
               <SkeletonLine
                 // biome-ignore lint/suspicious/noArrayIndexKey: placeholder lines have no identity
@@ -34,69 +43,41 @@ export function StationConfigSkeleton() {
               />
             ))}
           </div>
-        </ConfigCard>
-      </SkeletonBlock>
-
-      <SkeletonBlock>
-        <ConfigCard title="Skills">
-          <ConfigCardValue
-            lead={
-              <SquareMousePointer
-                aria-hidden
-                className="size-4 text-muted-foreground"
-              />
-            }
-            detail="given to its runs"
-          >
-            <SkeletonLine className="w-5" />
-          </ConfigCardValue>
-          <span className="flex">
-            <Pill>
+        </TabSection>
+        <TabSection title="Judge">
+          <dl className={PROPERTY_GRID}>
+            <dt className="text-muted-foreground">Scores</dt>
+            <dd>
               <SkeletonLine className="w-24" />
-            </Pill>
-          </span>
-        </ConfigCard>
-      </SkeletonBlock>
+            </dd>
+            <dt className="text-muted-foreground">Agreement</dt>
+            <dd>
+              <SkeletonLine className="w-24" />
+            </dd>
+            <dt className="text-muted-foreground">Minimum agreement</dt>
+            <dd>
+              <SkeletonLine className="w-10" />
+            </dd>
+          </dl>
+        </TabSection>
+      </div>
 
-      <SkeletonBlock className="sm:col-span-2">
-        <ConfigCard title="Judge">
-          <div className="flex items-center gap-3">
-            <Skeleton className="size-28 rounded-full" />
-            <ConfigCardValue detail={<SkeletonLine className="w-16" />}>
-              <SkeletonLine className="w-12" />
-            </ConfigCardValue>
-          </div>
-        </ConfigCard>
-      </SkeletonBlock>
-
-      <SkeletonBlock>
-        <ConfigCard title="Line">
-          <ConfigCardValue detail={<SkeletonLine className="w-24" />}>
-            <SkeletonLine className="w-20" />
-          </ConfigCardValue>
-          <span className="flex">
-            <Pill>
-              <SkeletonLine className="w-20" />
-            </Pill>
-          </span>
-        </ConfigCard>
-      </SkeletonBlock>
-
-      <SkeletonBlock>
-        <ConfigCard title="Automatic improvement">
-          <ConfigCardValue detail={<SkeletonLine className="w-36" />}>
-            <SkeletonLine className="w-8" />
-          </ConfigCardValue>
-        </ConfigCard>
-      </SkeletonBlock>
-
-      <SkeletonBlock>
-        <ConfigCard title="Config fingerprint">
-          <ConfigCardValue detail={<SkeletonLine className="w-28" />}>
-            <SkeletonLine className="w-28" />
-          </ConfigCardValue>
-        </ConfigCard>
-      </SkeletonBlock>
+      <div className="grid content-start gap-10 max-lg:order-first sm:max-lg:grid-cols-2">
+        {GROUPS.map(([title, rows]) => (
+          <TabSection key={title} level={3} title={title}>
+            <dl className={PROPERTY_GRID}>
+              {rows.map(([label, width]) => (
+                <div key={label} className="contents">
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd>
+                    <SkeletonLine className={width} />
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </TabSection>
+        ))}
+      </div>
     </div>
   );
 }

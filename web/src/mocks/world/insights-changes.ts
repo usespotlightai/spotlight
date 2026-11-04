@@ -35,6 +35,7 @@ const IMPLEMENTATION_JUDGE: StationJudgeCalibrationResponseDto = {
   qualified: true,
   measure: 'kappa',
   agreement: 0.72,
+  reading: 'substantial',
   pairs: 24,
   minAgreement: 0.6,
   hiddenReason: null,

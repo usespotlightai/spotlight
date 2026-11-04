@@ -4,8 +4,8 @@ import type { ShownDelta } from '@/lib/insights';
 import { cn } from '@/lib/utils';
 
 const TONES: Record<ShownDelta['tone'], string> = {
-  good: 'text-emerald-700 dark:text-emerald-400',
-  bad: 'text-destructive',
+  good: 'text-outcome-done',
+  bad: 'text-outcome-failed',
   flat: 'text-muted-foreground',
 };
 

@@ -1,4 +1,5 @@
-import { useRef } from 'react';
+import { Waypoints } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { Sankey, Tooltip } from 'recharts';
 import { CostFlowTable } from '@/components/features/insights/CostFlowTable';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
@@ -16,8 +17,10 @@ import { measured } from '@/lib/textFit';
 
 export const COST_SANKEY_HEIGHT = 280;
 
-const LABEL_FONT_SIZE = 11;
-const ESTIMATED_CHAR_WIDTH = 6.2;
+const LABEL_FONT_SIZE = 12;
+const ESTIMATED_CHAR_WIDTH = 6.8;
+
+const NARROW = 640;
 const RIGHT_SHARE = 0.4;
 
 type NodeShape = {
@@ -50,8 +53,8 @@ const nodeFor =
           y={y + height / 2}
           dy="0.35em"
           textAnchor={first ? 'end' : 'start'}
-          fontSize={11}
-          stroke={middle ? 'var(--card)' : undefined}
+          fontSize={LABEL_FONT_SIZE}
+          stroke={middle ? 'var(--surface)' : undefined}
           strokeWidth={middle ? 3 : undefined}
           paintOrder="stroke"
         >
@@ -63,6 +66,38 @@ const nodeFor =
       </g>
     );
   };
+
+type LinkShape = {
+  sourceX: number;
+  targetX: number;
+  sourceY: number;
+  targetY: number;
+  sourceControlX: number;
+  targetControlX: number;
+  linkWidth: number;
+  index: number;
+};
+
+const linkFor =
+  (hovered: number | null) =>
+  ({
+    sourceX,
+    targetX,
+    sourceY,
+    targetY,
+    sourceControlX,
+    targetControlX,
+    linkWidth,
+    index,
+  }: LinkShape) => (
+    <path
+      d={`M${sourceX},${sourceY} C${sourceControlX},${sourceY} ${targetControlX},${targetY} ${targetX},${targetY}`}
+      fill="none"
+      stroke="var(--chart-primary)"
+      strokeWidth={linkWidth}
+      strokeOpacity={hovered === null ? 0.12 : hovered === index ? 0.3 : 0.06}
+    />
+  );
 
 type Hovered = {
   name?: string;
@@ -92,16 +127,16 @@ const TipContent = ({
   const flow = hovered.payload?.payload;
 
   return (
-    <ChartTip placement={placement}>
-      <p className="text-muted-foreground">
-        {flow?.source && flow.target
-          ? `${flow.source.name} → ${flow.target.name}`
-          : hovered.name}
-      </p>
-      <p className="text-foreground tabular-nums">
-        {spentIn(Number(hovered.value ?? 0), currency)}
-      </p>
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title:
+          flow?.source && flow.target
+            ? `${flow.source.name} → ${flow.target.name}`
+            : hovered.name,
+        rows: [['Spend', spentIn(Number(hovered.value ?? 0), currency)]],
+      }}
+    />
   );
 };
 
@@ -119,10 +154,13 @@ type CostSankeyProps = {
   currency: string;
 };
 
-function SankeyChart({ shown, currency }: CostSankeyProps) {
+function SankeyChart({
+  shown,
+  currency,
+  width,
+}: CostSankeyProps & { width: number }) {
   const cursor = useCursorTooltip();
-  const frame = useRef<HTMLElement>(null);
-  const width = useElementWidth(frame);
+  const [hovered, setHovered] = useState<number | null>(null);
   const { left, right, names } = sankeyLayout(
     shown,
     width,
@@ -133,7 +171,6 @@ function SankeyChart({ shown, currency }: CostSankeyProps) {
 
   return (
     <figure
-      ref={frame}
       data-slot="cost-sankey"
       className="[&_*:focus:not(:focus-visible)]:outline-none"
       {...cursor.area}
@@ -145,9 +182,17 @@ function SankeyChart({ shown, currency }: CostSankeyProps) {
           data={{ nodes: shown.nodes, links: shown.links }}
           nodeWidth={8}
           nodePadding={16}
+          sort={false}
+          iterations={0}
           margin={{ top: 8, right, bottom: 8, left }}
           node={nodeFor(currency, names)}
-          link={{ stroke: 'var(--chart-primary)', strokeOpacity: 0.12 }}
+          link={linkFor(hovered)}
+          onMouseEnter={(item, type) => {
+            if (type === 'link') {
+              setHovered((item as { index?: number }).index ?? null);
+            }
+          }}
+          onMouseLeave={() => setHovered(null)}
         >
           <Tooltip
             {...cursor.tooltip}
@@ -162,17 +207,41 @@ function SankeyChart({ shown, currency }: CostSankeyProps) {
 }
 
 export function CostSankey({ shown, currency }: CostSankeyProps) {
+  const frame = useRef<HTMLDivElement>(null);
+  const width = useElementWidth(frame);
+
   if (shown.links.length === 0) {
     return null;
   }
 
+  const table = (
+    <CostFlowTable rows={flowLinkRows(shown)} currency={currency} />
+  );
+  const narrow = width > 0 && width < NARROW;
+
   return (
-    <InsightsCard
-      title="Where the spend goes"
-      description={COST_SANKEY_NOTE}
-      table={<CostFlowTable rows={flowLinkRows(shown)} currency={currency} />}
-    >
-      <SankeyChart shown={shown} currency={currency} />
-    </InsightsCard>
+    <div ref={frame}>
+      {narrow ? (
+        <InsightsCard
+          flat
+          tableOnly
+          title="Where the spend goes"
+          description={COST_SANKEY_NOTE}
+        >
+          {table}
+        </InsightsCard>
+      ) : (
+        <InsightsCard
+          flat
+          title="Where the spend goes"
+          description={COST_SANKEY_NOTE}
+          table={table}
+          tableHeight="max-h-[296px]"
+          chartIcon={Waypoints}
+        >
+          <SankeyChart shown={shown} currency={currency} width={width} />
+        </InsightsCard>
+      )}
+    </div>
   );
 }

@@ -1,3 +1,5 @@
+import { OutcomeIcon } from '@/components/features/stations/activity/OutcomeIcon';
+import { toneLabel } from '@/components/features/stations/activity/outcome-tones';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
@@ -10,10 +12,10 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { since } from '@/lib/since';
 import {
   formatChecks,
-  formatEnding,
   formatHumanAction,
   formatPullRequestState,
   formatRunDuration,
+  outcomeTone,
   runSpent,
   type StationRunOutcome,
 } from '@/lib/station-insights';
@@ -28,11 +30,12 @@ export function OutcomeRow({ run, to }: OutcomeRowProps) {
   return (
     <li className={cn(TABLE_ROW, ROW_DIVIDER)}>
       <span className={cn(LEAD_CELL, EDGE_INDENT)}>
+        <OutcomeIcon tone={outcomeTone(run)} />
         <TrailLink
           to={to}
-          className="shrink-0 font-medium text-foreground outline-none after:absolute after:inset-0"
+          className="shrink-0 text-foreground outline-none after:absolute after:inset-0"
         >
-          {formatEnding(run.ending)}
+          {toneLabel(run)}
         </TrailLink>
 
         {run.failure && (

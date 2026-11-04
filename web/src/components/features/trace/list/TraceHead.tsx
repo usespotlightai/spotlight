@@ -1,14 +1,10 @@
 import { TRACE_COLUMNS } from '@/components/features/trace/list/columns';
+import { TABLE_HEAD } from '@/components/shared/table-rows';
 import { cn } from '@/lib/utils';
 
 export function TraceHead() {
   return (
-    <div
-      className={cn(
-        'grid h-8 items-center gap-3 px-3 text-muted-foreground text-xs',
-        TRACE_COLUMNS,
-      )}
-    >
+    <div className={cn(TABLE_HEAD, TRACE_COLUMNS)}>
       <span aria-hidden />
       <span className="truncate">Started</span>
       <span className="truncate">Stations</span>

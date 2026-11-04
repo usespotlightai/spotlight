@@ -3,8 +3,6 @@ import { useRef } from 'react';
 import { useTabIndicator } from '@/hooks/useTabIndicator';
 import { cn } from '@/lib/utils';
 
-const PILL_INSET = 2;
-
 type Segment<T extends string> = {
   readonly id: T;
   readonly label: string;
@@ -31,19 +29,19 @@ export function Segmented<T extends string>({
     <fieldset
       ref={group}
       aria-label={label}
-      className="relative m-0 flex h-6 min-w-0 items-center gap-1 rounded-md border border-border bg-background p-0.5"
+      className="relative m-0 flex h-7 min-w-0 items-center rounded-lg border-0 bg-muted p-0.5 dark:bg-background"
     >
       {indicator && (
         <span
           aria-hidden
           className={cn(
-            'pointer-events-none absolute inset-y-0 left-0 rounded-[5px] border border-border bg-card shadow-control',
+            'pointer-events-none absolute inset-y-0.5 left-0 rounded-md bg-card shadow-xs ring-1 ring-foreground/[0.06] dark:bg-muted dark:ring-foreground/10',
             indicator.ready &&
               'transition-[transform,width] duration-200 ease-out motion-reduce:transition-none',
           )}
           style={{
-            width: indicator.width + PILL_INSET * 2,
-            transform: `translateX(${indicator.left - PILL_INSET}px)`,
+            width: indicator.width,
+            transform: `translateX(${indicator.left}px)`,
           }}
         />
       )}
@@ -59,11 +57,11 @@ export function Segmented<T extends string>({
             aria-pressed={segment.id === value}
             onClick={() => onChange(segment.id)}
             className={cn(
-              'relative flex h-full items-center gap-1 rounded-sm px-1.5 text-[0.7rem] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
+              'relative flex h-full items-center gap-1.5 rounded-md px-2.5 text-muted-foreground text-sm outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50',
               segment.id === value && 'text-foreground',
             )}
           >
-            {Icon && <Icon aria-hidden className="size-3" />}
+            {Icon && <Icon aria-hidden className="size-3.5" />}
             {segment.label}
           </button>
         );

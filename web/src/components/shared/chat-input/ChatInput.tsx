@@ -9,6 +9,7 @@ import { SendOrStop } from '@/components/shared/chat-input/SendOrStop';
 import type { DraftHandle } from '@/hooks/useChatDraft';
 import { useChatMessage } from '@/hooks/useChatMessage';
 import { useChatSend } from '@/hooks/useChatSend';
+import { useFileDropTarget } from '@/hooks/useFileDropTarget';
 import { useOneLineFit } from '@/hooks/useOneLineFit';
 import type { SharedDraft } from '@/hooks/useSharedDraft';
 import {
@@ -77,6 +78,7 @@ export function ChatInput({
     shared,
     draft,
   );
+  useFileDropTarget(message.attach, { disabled, pending });
   const lifted = message.images.length > 0;
   const { inner, writing, height, expanded } = useOneLineFit(
     message.written,

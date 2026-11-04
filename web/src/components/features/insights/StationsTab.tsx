@@ -3,6 +3,7 @@ import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
+import { SEVEN_TILES } from '@/components/features/insights/overview-layout';
 import { StationsSkeleton } from '@/components/features/insights/StationsSkeleton';
 import { StationsTable } from '@/components/features/insights/StationsTable';
 import { useInsightsStations } from '@/hooks/api/useInsightsStations';
@@ -54,8 +55,8 @@ export function StationsTab({ slug, teamId, period, names }: StationsTabProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <InsightsTiles label="The whole team" topAligned>
+    <div className="flex flex-col gap-10">
+      <InsightsTiles label="The whole team" className={SEVEN_TILES}>
         {tallyTiles(team, teamSeen, teamChanges, trendOf(teamTrend)).map(
           (tile) => (
             <InsightsTile
@@ -63,6 +64,7 @@ export function StationsTab({ slug, teamId, period, names }: StationsTabProps) {
               label={tile.label}
               value={tile.value}
               detail={tile.detail}
+              tooltip={tile.tooltip}
               delta={tile.delta}
               drill={tile.drill}
               trend={tile.trend}
@@ -71,7 +73,7 @@ export function StationsTab({ slug, teamId, period, names }: StationsTabProps) {
         )}
       </InsightsTiles>
 
-      <InsightsCard scrolls title="By station" description={BY_STATION_NOTE}>
+      <InsightsCard flat title="By station" description={BY_STATION_NOTE}>
         <StationsTable stations={reports} counted={teamCounted} names={names} />
       </InsightsCard>
     </div>

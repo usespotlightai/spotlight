@@ -3,8 +3,11 @@ import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
+  LEAD_CELL,
   ROW_DIVIDER,
+  TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import {
   dayOf,
   formatCount,
@@ -19,44 +22,47 @@ type PersonUse = InsightsPeople['adoption']['people'][number];
 
 export function PeopleTable({ people }: { people: readonly PersonUse[] }) {
   return (
-    <NestedTable label="What each person did" headings={PEOPLE_HEADINGS}>
+    <NestedTable
+      label="What each person did"
+      headings={PEOPLE_HEADINGS}
+      compact
+    >
       {people.map((person) => (
         <li
           key={person.personId}
           data-slot="person-use"
-          className={cn(
-            'col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 text-xs @4xl:grid-cols-subgrid',
-            ROW_DIVIDER,
-          )}
+          className={cn(TABLE_ROW, ROW_DIVIDER)}
         >
-          <span
-            className={cn(
-              'col-span-full flex min-w-0 items-center gap-2 @4xl:col-span-1',
-              EDGE_INDENT,
-            )}
-          >
-            <InsightsLink
-              tab="traces"
-              filter={{ personId: person.personId }}
-              className="truncate font-medium text-foreground"
+          <span className={cn(LEAD_CELL, EDGE_INDENT)}>
+            <WithTooltip
+              tooltip={`First seen ${formatDay(dayOf(person.firstSeenAt))}`}
             >
-              {person.name ?? 'A former member'}
-            </InsightsLink>
+              <InsightsLink
+                tab="traces"
+                filter={{ personId: person.personId }}
+                className="truncate text-foreground"
+              >
+                {person.name ?? 'A former member'}
+              </InsightsLink>
+            </WithTooltip>
             {person.isNew && (
-              <span className="shrink-0 rounded-full bg-muted px-1.5 text-[0.7rem] text-muted-foreground">
+              <span className="shrink-0 rounded-full bg-muted px-1.5 text-muted-foreground text-xs">
                 New
               </span>
             )}
           </span>
-          <NestedCell heading="Tasks opened" strong>
-            {formatCount(person.tasksOpened)}
-          </NestedCell>
           <NestedCell heading="Actions">
-            {formatCount(person.actions)}
+            <span className="text-foreground">
+              {formatCount(person.actions)}
+            </span>
           </NestedCell>
-          <NestedCell heading="Chats">{formatCount(person.chats)}</NestedCell>
-          <NestedCell heading="First seen">
-            {formatDay(dayOf(person.firstSeenAt))}
+          <NestedCell heading="Tasks opened">
+            <span className="text-foreground">
+              {formatCount(person.tasksOpened)}
+            </span>
+          </NestedCell>
+          <NestedCell heading="Chats">
+            <span className="text-foreground">{formatCount(person.chats)}</span>
           </NestedCell>
           <NestedCell heading="Last active">
             {since(person.lastActiveAt)}

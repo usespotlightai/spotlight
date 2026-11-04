@@ -19,7 +19,7 @@ export function OverflowFade({ className, slot, children }: OverflowFadeProps) {
         viewportRef={scroller}
         data-slot={slot}
         className={cn('-mr-3', className)}
-        viewportClassName="overscroll-contain"
+        viewportClassName={scrolls ? 'overscroll-contain' : undefined}
         contentClassName={cn('pr-3', scrolls && 'pb-12')}
       >
         {children}
