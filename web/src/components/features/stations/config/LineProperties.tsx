@@ -16,7 +16,7 @@ type LinePropertiesProps = {
 
 export function LineProperties({ line, skills }: LinePropertiesProps) {
   return (
-    <TabSection title="Line">
+    <TabSection level={3} title="Line">
       <PropertyList>
         <Property label="Name">{line.name}</Property>
         <Property label="Repositories">

@@ -34,14 +34,14 @@ export function ReplayedLegend({
   };
 
   return (
-    <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-[0.7rem]">
+    <span className="flex flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground text-xs">
       {shows.frontier && (
         <span className="flex items-center gap-1">
           <span
             aria-hidden
             className={cn('size-2 rounded-full', FRONTIER_INK.swatch)}
           />
-          On the search’s frontier
+          Best for the cost
         </span>
       )}
       {shows.searched && (

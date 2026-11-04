@@ -44,7 +44,7 @@ export function CandidatesTab({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-10">
       {read.truncated && <TruncatedNote text={CANDIDATES_TRUNCATED} />}
 
       <CandidatesCard stations={read.stations} names={names} />

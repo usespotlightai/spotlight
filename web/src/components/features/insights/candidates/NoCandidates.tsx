@@ -1,4 +1,5 @@
 import { FlaskConical } from 'lucide-react';
+import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button-variants';
@@ -13,7 +14,7 @@ type NoCandidatesProps = {
 
 export function NoCandidates({ slug, teamId, lineId }: NoCandidatesProps) {
   return (
-    <div className="flex justify-center rounded-xl border border-border px-4 py-10">
+    <EmptyFrame>
       <EmptyState
         icon={FlaskConical}
         title="No candidates replayed in this period"
@@ -33,6 +34,6 @@ export function NoCandidates({ slug, teamId, lineId }: NoCandidatesProps) {
       >
         Spotlight replays the candidates of each automatic search here.
       </EmptyState>
-    </div>
+    </EmptyFrame>
   );
 }

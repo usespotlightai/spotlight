@@ -2,8 +2,6 @@ import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatPercent } from '@/lib/judge';
 import type { RateInterval } from '@/lib/replay';
 
-const SCALE = 'shrink-0 text-[0.6rem] text-faint tabular-nums';
-
 const at = (share: number): string => `${(share * 100).toFixed(2)}%`;
 
 type RateTrackProps = {
@@ -21,10 +19,6 @@ export function RateTrack({
 }: RateTrackProps) {
   return (
     <div data-slot="rate-track" className="flex items-center gap-1.5">
-      <span aria-hidden className={SCALE}>
-        0%
-      </span>
-
       <div className="relative h-4 min-w-0 flex-1">
         <span
           aria-hidden
@@ -52,7 +46,7 @@ export function RateTrack({
               className="absolute inset-y-0 flex w-2 -translate-x-1/2 justify-center"
               style={{ left: at(live) }}
             >
-              <span className="h-full w-[1.5px] rounded-full bg-chart-axis" />
+              <span className="h-full w-[1.5px] rounded-full bg-foreground/70" />
             </span>
           </WithTooltip>
         )}
@@ -66,10 +60,6 @@ export function RateTrack({
           </WithTooltip>
         )}
       </div>
-
-      <span aria-hidden className={SCALE}>
-        100%
-      </span>
     </div>
   );
 }

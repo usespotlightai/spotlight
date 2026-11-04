@@ -397,7 +397,7 @@ describe('what to show for failures and signals', () => {
         maxInARow: 3,
         taskIds: [],
       }),
-    ).toBe('hook:notify · loop');
+    ).toBe('hook:notify, loop');
     expect(formatRunFailure({ failure: null, runs: 2, runIds: [] })).toBe(
       'No reason given',
     );

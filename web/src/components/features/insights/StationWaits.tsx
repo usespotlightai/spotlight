@@ -80,7 +80,7 @@ export function StationWaits({
       }
     >
       <figure data-slot="waits-chart" className="flex flex-col gap-1">
-        <figcaption className="flex flex-wrap items-center gap-3 text-muted-foreground text-[0.7rem]">
+        <figcaption className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
           {WAIT_SERIES.map((wait) => (
             <span key={wait.key} className="flex items-center gap-1">
               <span
@@ -111,7 +111,7 @@ export function StationWaits({
                   width={112}
                   tickLine={false}
                   axisLine={false}
-                  tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
+                  tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 />
                 <Tooltip
                   {...cursor.tooltip}

@@ -30,7 +30,7 @@ export function NestedTable({
       data-compact={compact || undefined}
     >
       <div
-        className="grid gap-x-6 @4xl:min-w-min @4xl:grid-cols-[var(--nested-columns)] @lg:group-data-compact/nested:min-w-min @lg:group-data-compact/nested:grid-cols-[var(--nested-columns)]"
+        className="grid gap-x-6 text-sm @4xl:min-w-min @4xl:grid-cols-[var(--nested-columns)] @lg:group-data-compact/nested:min-w-min @lg:group-data-compact/nested:grid-cols-[var(--nested-columns)]"
         style={
           {
             '--nested-columns': columnTemplate(

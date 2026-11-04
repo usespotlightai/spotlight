@@ -23,13 +23,18 @@ export function ChangeMarkerList({
   names,
 }: ChangeMarkerListProps) {
   return (
-    <InsightsCard scrolls title="Config changes" description={CHANGES_NOTE}>
+    <InsightsCard flat title="Changes this period" description={CHANGES_NOTE}>
       {markers.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           No station changed its config in this period.
         </p>
       ) : (
-        <NestedTable label="Config changes" headings={CHANGE_HEADINGS} trailing>
+        <NestedTable
+          label="Config changes"
+          headings={CHANGE_HEADINGS}
+          trailing
+          compact
+        >
           {[...markers].reverse().map((marker) => (
             <ChangeMarkerRow
               key={changeKey(marker)}

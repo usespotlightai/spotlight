@@ -1,6 +1,7 @@
 import { ChartNoAxesColumn } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
+import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
 
 type NoRunsInPeriodProps = {
@@ -15,7 +16,7 @@ export function NoRunsInPeriod({
   children,
 }: NoRunsInPeriodProps) {
   return (
-    <div className="flex justify-center rounded-xl border border-border px-4 py-10">
+    <EmptyFrame>
       <EmptyState
         icon={ChartNoAxesColumn}
         title="No runs in this period"
@@ -23,6 +24,6 @@ export function NoRunsInPeriod({
       >
         {children}
       </EmptyState>
-    </div>
+    </EmptyFrame>
   );
 }

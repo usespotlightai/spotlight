@@ -206,7 +206,9 @@ describe('the Candidates tab', () => {
     expect(
       within(picked).getByRole('list', { name: 'What changed' }),
     ).toHaveTextContent(/model\s*=\s*"sonnet"\s*->\s*"opus"/);
-    expect(within(picked).getByLabelText('Best value')).toBeInTheDocument();
+    expect(
+      within(picked).getByLabelText('Best for the cost'),
+    ).toBeInTheDocument();
     expect(picked).toHaveTextContent('SourceSearch');
     expect(picked).toHaveTextContent('Candidate72%Live56%');
     expect(picked).toHaveTextContent('Against liveBetter+16 pts');

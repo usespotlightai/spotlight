@@ -19,9 +19,13 @@ export function ChangesSkeleton({ names }: { names: StationNames }) {
     <div
       role="status"
       aria-label="Loading the changes"
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-10"
     >
-      <InsightsCardSkeleton title="Config changes" description={CHANGES_NOTE}>
+      <InsightsCardSkeleton
+        flat
+        title="Changes this period"
+        description={CHANGES_NOTE}
+      >
         <NestedTableSkeleton
           label="Loading the config changes"
           headings={CHANGE_HEADINGS}
@@ -32,6 +36,7 @@ export function ChangesSkeleton({ names }: { names: StationNames }) {
       </InsightsCardSkeleton>
 
       <InsightsCardSkeleton
+        flat
         switchable
         title="Harness, model, effort and profile"
         description={`${outcomeLabel(DEFAULT_OUTCOME)} against cost per run.`}

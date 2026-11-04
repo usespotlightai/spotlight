@@ -51,7 +51,7 @@ describe('formatAgentConfig', () => {
         agentConfig({ model: null, effort: 'high', profileKey: 'careful' }),
         HARNESSES,
       ),
-    ).toBe('Claude Code · Harness default · high effort · careful profile');
+    ).toBe('Claude Code, Harness default, high effort, careful profile');
   });
 });
 
@@ -69,8 +69,8 @@ describe('harnessGroupsOf and formatAgentConfigWithin', () => {
         group.agentConfigs.map(formatAgentConfigWithin),
       ]),
     ).toEqual([
-      ['claude-code', ['sonnet', 'opus · high effort']],
-      ['cursor', ['Harness default · careful profile']],
+      ['claude-code', ['sonnet', 'opus, high effort']],
+      ['cursor', ['Harness default, careful profile']],
     ]);
   });
 });
@@ -94,7 +94,7 @@ describe('agentConfigPoints', () => {
     expect(points).toEqual([
       {
         key: JSON.stringify(['claude-code', 'sonnet', null, null]),
-        label: 'Claude Code · sonnet',
+        label: 'Claude Code, sonnet',
         cost: 1,
         value: 0.5,
         runs: 5,

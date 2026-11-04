@@ -29,14 +29,14 @@ export function ScoreDistribution({
               dataKey="label"
               tickLine={false}
               axisLine={{ stroke: 'var(--chart-grid)' }}
-              tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+              tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
             />
             <YAxis
               allowDecimals={false}
               tickLine={false}
               axisLine={false}
               width={28}
-              tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+              tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
             />
             <Bar
               dataKey="judge"

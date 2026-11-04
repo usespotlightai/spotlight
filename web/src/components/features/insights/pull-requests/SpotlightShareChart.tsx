@@ -53,7 +53,7 @@ export function SpotlightShareChart({
   const cursor = useCursorTooltip();
   return (
     <figure data-slot="spotlightShare-chart" className="flex flex-col gap-1">
-      <figcaption className="flex flex-wrap items-center gap-3 text-muted-foreground text-[0.7rem]">
+      <figcaption className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
         {SPOTLIGHT_SHARE_SERIES.map((series) => (
           <span key={series.key} className="flex items-center gap-1">
             <span
@@ -80,7 +80,7 @@ export function SpotlightShareChart({
                 dataKey="week"
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 tickFormatter={formatDay}
                 minTickGap={24}
               />

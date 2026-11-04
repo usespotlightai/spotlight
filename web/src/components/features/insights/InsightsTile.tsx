@@ -34,7 +34,7 @@ export function InsightsTile({
   return (
     <div
       data-slot="insights-tile"
-      className="flex min-h-28 min-w-0 flex-col gap-1 overflow-hidden rounded-lg border border-border px-4 py-3 max-sm:odd:last:col-span-2"
+      className="flex min-h-[7.625rem] min-w-0 flex-col gap-1 overflow-hidden rounded-lg border border-border px-4 py-3 max-sm:odd:last:col-span-2"
     >
       <dt className="flex min-h-5 items-center gap-1.5 text-muted-foreground text-sm leading-5">
         <span className="line-clamp-1" title={label}>
@@ -65,7 +65,7 @@ export function InsightsTile({
           )}
         </span>
         {(sparkline || visual) && (
-          <span className="mt-auto pt-3">
+          <span className="mt-auto pt-2">
             {visual ??
               (sparkline && (
                 <TileSparkline label={`${label}, day by day`} values={trend} />

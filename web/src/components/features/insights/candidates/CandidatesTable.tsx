@@ -30,6 +30,7 @@ export function CandidatesTable({
       label="Replayed candidates"
       headings={candidateHeadings(heldOut)}
       trailing
+      compact
       headed={!chartStatus}
     >
       {stations.map((station) => (

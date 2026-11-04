@@ -43,7 +43,7 @@ export function TimeToMergeByType({
             <div className="flex items-baseline justify-between gap-2 text-xs">
               <span className="text-foreground">
                 {formatType(row.type)}{' '}
-                <span className="text-[0.7rem] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {row.merged} merged
                 </span>
               </span>

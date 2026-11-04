@@ -23,16 +23,18 @@ export function ReplayedPointTip({
       </p>
       <p className="text-muted-foreground">
         Replay success {formatShare(point.value)} of {formatCount(point.scored)}{' '}
-        scored {point.scored === 1 ? 'run' : 'runs'} ·{' '}
+        scored {point.scored === 1 ? 'run' : 'runs'}
+      </p>
+      <p className="text-muted-foreground">
         {spentIn(point.cost, currency)} a run
       </p>
       <p className="text-muted-foreground">
         {[
           point.heldOut ? `held out ${point.heldOut}` : null,
-          point.frontier ? 'on the search’s frontier' : null,
+          point.frontier ? 'Best for the cost' : null,
         ]
           .filter(Boolean)
-          .join(' · ')}
+          .join(', ')}
       </p>
     </ChartTip>
   );

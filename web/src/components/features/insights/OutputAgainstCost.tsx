@@ -27,7 +27,7 @@ const INSET = 8;
 
 const AXIS_WIDTH = 36;
 
-const AXIS_TICK = { fill: 'var(--chart-axis)', fontSize: 11 } as const;
+const AXIS_TICK = { fill: 'var(--chart-axis)', fontSize: 12 } as const;
 
 export const TipContent = ({
   placement,

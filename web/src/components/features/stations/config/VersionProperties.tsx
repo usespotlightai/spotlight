@@ -31,6 +31,7 @@ export function VersionProperties({
 
   return (
     <TabSection
+      level={3}
       title="Live config"
       action={
         live && (

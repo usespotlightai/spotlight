@@ -64,7 +64,7 @@ export function StationConfigSkeleton() {
 
       <div className="grid content-start gap-10 max-lg:order-first sm:max-lg:grid-cols-2">
         {GROUPS.map(([title, rows]) => (
-          <TabSection key={title} title={title}>
+          <TabSection key={title} level={3} title={title}>
             <dl className={PROPERTY_GRID}>
               {rows.map(([label, width]) => (
                 <div key={label} className="contents">

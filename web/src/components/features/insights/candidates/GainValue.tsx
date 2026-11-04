@@ -11,8 +11,8 @@ import type { TooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 const TONES: Record<GainSignificanceCode, string> = {
-  better: 'text-emerald-700 dark:text-emerald-400',
-  worse: 'text-destructive',
+  better: 'text-outcome-done',
+  worse: 'text-outcome-failed',
   'within-noise': 'text-muted-foreground',
 };
 

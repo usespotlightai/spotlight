@@ -104,7 +104,7 @@ export function InsightsTable<T>({
                 aria-selected={picked === null ? undefined : picked === key}
                 className={cn(
                   ROW,
-                  'py-2.5',
+                  'py-2',
                   ROW_DIVIDER,
                   picked === key && 'bg-selected',
                 )}

@@ -50,7 +50,7 @@ export function TeamInsights({ slug, teamId }: TeamInsightsProps) {
           period={view.period}
           names={names}
         >
-          <main className="flex w-full flex-1 flex-col gap-3 px-3 pt-2 pb-2">
+          <main className="flex w-full flex-1 flex-col gap-3 px-3 pt-3 pb-6">
             {view.tab === 'overview' && <OverviewTab {...shared} />}
             {view.tab === 'cost' && <CostTab {...shared} />}
             {view.tab === 'people' && (

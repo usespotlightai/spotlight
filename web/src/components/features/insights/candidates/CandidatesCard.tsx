@@ -17,7 +17,7 @@ export function CandidatesCard({ stations, names }: CandidatesCardProps) {
 
   return (
     <InsightsCard
-      scrolls
+      flat
       title="Replayed candidates"
       description={CANDIDATES_NOTE}
       actions={

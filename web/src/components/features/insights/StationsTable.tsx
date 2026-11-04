@@ -4,7 +4,9 @@ import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
+  LEAD_CELL,
   ROW_DIVIDER,
+  TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import type { TallyCountedResponseDto } from '@/lib/api';
 import {
@@ -13,7 +15,10 @@ import {
   type StationReport,
   stationAnchor,
 } from '@/lib/insights';
-import { countedColumnsOf, stationTableHeadings } from '@/lib/station-insights';
+import {
+  stationTableColumns,
+  stationTableHeadings,
+} from '@/lib/station-insights';
 import { cn } from '@/lib/utils';
 
 type StationsTableProps = {
@@ -27,33 +32,26 @@ export function StationsTable({
   counted,
   names,
 }: StationsTableProps) {
-  const columns = countedColumnsOf(counted);
+  const columns = stationTableColumns(counted);
 
   return (
     <NestedTable
       label="How each station’s runs went"
       headings={stationTableHeadings(counted)}
+      compact
     >
       {stations.map((report) => (
         <li
           key={report.stationId}
           id={stationAnchor(report.stationId)}
           data-slot="station-report"
-          className={cn(
-            'col-span-full grid scroll-mt-4 grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 @4xl:grid-cols-subgrid',
-            ROW_DIVIDER,
-          )}
+          className={cn(TABLE_ROW, 'scroll-mt-4', ROW_DIVIDER)}
         >
-          <p
-            className={cn(
-              'col-span-full flex min-w-0 items-baseline gap-2 text-xs @4xl:col-span-1',
-              EDGE_INDENT,
-            )}
-          >
+          <p className={cn(LEAD_CELL, 'items-baseline', EDGE_INDENT)}>
             <InsightsLink
               tab="stations"
               filter={{ stationId: report.stationId }}
-              className="truncate font-medium text-foreground hover:underline"
+              className="truncate text-foreground hover:underline"
             >
               {formatStation(names, report.stationId)}
             </InsightsLink>
@@ -74,7 +72,7 @@ export function StationsTable({
                   className={cn(
                     'hover:underline',
                     column.label === 'Failed' && report.tally.failed > 0
-                      ? 'text-destructive'
+                      ? 'text-outcome-failed'
                       : 'text-foreground',
                   )}
                 >
@@ -82,11 +80,7 @@ export function StationsTable({
                 </InsightsLink>
               </NestedCell>
             ) : (
-              <NestedCell
-                key={column.label}
-                heading={column.label}
-                strong={column.label === 'Cost'}
-              >
+              <NestedCell key={column.label} heading={column.label}>
                 {column.render(report.tally)}
               </NestedCell>
             ),

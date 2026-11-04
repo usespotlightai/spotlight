@@ -211,9 +211,14 @@ export const candidateHeadings = (
   heldOut: boolean,
 ): readonly NestedHeading[] => [
   { label: 'Config', indent: 'inner' },
-  { label: 'What changed', size: 'minmax(12rem,1.5fr)' },
+  { label: 'What changed', size: 'minmax(9rem,1fr)' },
   { label: 'Source', tooltip: SOURCES_NOTE },
-  { label: 'Replay success', size: 'minmax(8rem,1fr)' },
+  {
+    label: 'Replay success',
+    size: 'minmax(7rem,1fr)',
+    tooltip:
+      'From 0 to 100%. The dot is the candidate and the band its likely range. The line is the live config.',
+  },
   { label: 'Candidate', numeric: true },
   { label: 'Live', numeric: true },
   { label: 'Against live' },

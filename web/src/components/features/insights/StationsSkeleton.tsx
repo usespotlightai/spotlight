@@ -10,11 +10,15 @@ export function StationsSkeleton({ stations }: { stations: number }) {
     <div
       role="status"
       aria-label="Loading the stations"
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-10"
     >
       <InsightsTilesSkeleton label="The whole team" tiles={TALLY_TILES} />
 
-      <InsightsCardSkeleton title="By station" description={BY_STATION_NOTE}>
+      <InsightsCardSkeleton
+        flat
+        title="By station"
+        description={BY_STATION_NOTE}
+      >
         <NestedTableSkeleton
           label="Loading each station’s runs"
           headings={stationTableHeadings(TYPICAL_COUNTED)}

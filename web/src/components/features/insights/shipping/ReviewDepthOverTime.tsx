@@ -86,16 +86,16 @@ export function ReviewDepthOverTime({
                     dataKey="week"
                     tickLine={false}
                     axisLine={{ stroke: 'var(--chart-grid)' }}
-                    tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
+                    tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                     tickFormatter={formatDay}
                   />
                   <YAxis
                     yAxisId="share"
-                    width={36}
+                    width={44}
                     tickLine={false}
                     axisLine={false}
                     domain={[0, 1]}
-                    tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
+                    tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                     tickFormatter={formatShare}
                   />
                   <YAxis
@@ -105,7 +105,7 @@ export function ReviewDepthOverTime({
                     tickLine={false}
                     axisLine={false}
                     allowDecimals={false}
-                    tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
+                    tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                   />
                   <Tooltip
                     {...cursor.tooltip}

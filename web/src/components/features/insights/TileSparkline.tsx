@@ -24,7 +24,7 @@ export function TileSparkline({
       role="img"
       aria-label={label}
       data-slot="tile-sparkline"
-      className="h-8 w-full"
+      className="h-6 w-full"
     >
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart

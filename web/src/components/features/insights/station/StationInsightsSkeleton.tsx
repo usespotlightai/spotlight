@@ -29,6 +29,7 @@ export function StationInsightsSkeleton({
       <InsightsTilesSkeleton label="Over this period" tiles={TALLY_TILES} />
 
       <InsightsCardSkeleton
+        flat
         title="Runs by config"
         description={RUNS_BY_CONFIG_NOTE}
       >

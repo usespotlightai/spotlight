@@ -161,9 +161,9 @@ const summarized = (label: string, visual: SummaryVisual): SummaryColumn => ({
 
 export const SUMMARY_COLUMNS: readonly SummaryColumn[] = [
   summarized('Runs', 'strip'),
+  summarized('Failed', 'none'),
   summarized('Accepted', 'none'),
   summarized('Sent back', 'none'),
-  summarized('Failed', 'none'),
   summarized('Cost', 'cost'),
   { ...summarized('Median', 'duration'), label: 'Median run' },
 ];
@@ -287,12 +287,25 @@ export const TYPICAL_COUNTED: TallyCounted = {
   cancelled: false,
 };
 
+const IN_THE_STATION_VIEW = new Set([
+  'Stopped',
+  'Checks passed',
+  'Checks failed',
+  'Passed on',
+  'p90',
+]);
+
+export const stationTableColumns = (counted: TallyCounted): TallyColumn[] =>
+  countedColumnsOf(counted).filter(
+    (column) => !IN_THE_STATION_VIEW.has(column.label),
+  );
+
 export const stationTableHeadings = (
   counted: TallyCounted,
 ): NestedHeading[] => [
   { label: 'Station', indent: 'edge', size: 'minmax(10rem,2fr)' },
   { label: 'Runs per day', size: 'max-content' },
-  ...countedColumnsOf(counted).map((column) => ({
+  ...stationTableColumns(counted).map((column) => ({
     label: column.label,
     numeric: true,
     size: SPREAD,

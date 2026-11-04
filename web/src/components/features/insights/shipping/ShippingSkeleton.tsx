@@ -73,7 +73,7 @@ export function ShippingSkeleton() {
             description={PIPELINE_NOTE}
             actions={
               <div inert className="flex items-center gap-1.5">
-                <SkeletonLine className="w-20 text-[0.7rem]" />
+                <SkeletonLine className="w-20 text-xs" />
                 <Segmented
                   label="Show coding as"
                   segments={FLOW_LAYOUTS}

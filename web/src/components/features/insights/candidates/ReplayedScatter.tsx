@@ -85,7 +85,7 @@ export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
                 padding={{ right: 64 }}
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 tickFormatter={(cost: number) => costTick(cost, currency)}
                 height={40}
                 label={{
@@ -111,7 +111,7 @@ export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
                   position: 'insideLeft',
                   style: { textAnchor: 'middle' },
                 }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 tickFormatter={(value: number) => formatShare(value)}
               />
               <Tooltip
@@ -134,7 +134,7 @@ export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
               {frontiers.map((frontier) => (
                 <Scatter
                   key={frontier[0]?.searchId}
-                  name="On the search’s frontier"
+                  name="Best for the cost"
                   data={frontier}
                   shape={mark}
                   isAnimationActive={false}

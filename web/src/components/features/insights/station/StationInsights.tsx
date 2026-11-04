@@ -36,7 +36,7 @@ export function StationInsights({
   const { station } = useStation(teamId, lineId, stationId);
 
   return (
-    <div data-slot="station-insights" className="flex flex-col gap-6">
+    <div data-slot="station-insights" className="flex flex-col gap-10">
       <StationInsightsHeading stationId={stationId} names={names} />
 
       {report && (
@@ -63,7 +63,7 @@ export function StationInsights({
           </InsightsTiles>
 
           {failedAny(report) && (
-            <InsightsCard scrolls title="Why runs failed">
+            <InsightsCard flat scrolls title="Why runs failed">
               <StationFailures slug={slug} teamId={teamId} report={report} />
             </InsightsCard>
           )}

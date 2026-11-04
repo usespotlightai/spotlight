@@ -486,9 +486,9 @@ describe('Station', () => {
           .map((stat) => stat.textContent),
       ).toEqual([
         'Runs42',
+        'Failed12% of runs',
         'Accepted2867% of runs',
         'Sent back37% of runs',
-        'Failed12% of runs',
       ]);
       expect(
         within(sectionTitled('Latest runs on this config')).getByRole('link', {

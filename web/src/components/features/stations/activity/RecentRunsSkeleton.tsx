@@ -9,7 +9,7 @@ export function RecentRunsSkeleton() {
       title={RECENT_RUNS_TITLE}
       action={<SectionLinkSkeleton>All runs</SectionLinkSkeleton>}
     >
-      <div className="-mx-3">
+      <div className="-mx-2">
         <NestedTableSkeleton
           label="Loading the station’s runs"
           headings={RECENT_RUN_HEADINGS}

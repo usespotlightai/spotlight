@@ -27,13 +27,13 @@ export function PipelineStageLabel({
     <span className="flex flex-col items-center gap-0.5">
       <span
         className={cn(
-          'max-w-32 truncate text-[0.7rem]',
+          'max-w-32 truncate text-xs',
           worst ? 'text-outcome-failed' : 'text-foreground',
         )}
       >
         {stage.label}
       </span>
-      <span className="tabular-nums text-[0.7rem] text-muted-foreground">
+      <span className="tabular-nums text-xs text-muted-foreground">
         {formatDurationOrNone(stage.ms)}
       </span>
     </span>

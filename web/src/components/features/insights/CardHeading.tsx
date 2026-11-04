@@ -1,6 +1,7 @@
 import { useCardLevel } from '@/components/features/insights/section-level';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { TooltipText } from '@/lib/tooltip-note';
+import { cn } from '@/lib/utils';
 
 type CardTitleProps = {
   titleId: string;
@@ -22,7 +23,10 @@ export function CardTitle({
     <span className="flex min-w-0 items-center gap-1.5">
       <Heading
         id={titleId}
-        className="whitespace-nowrap font-medium text-foreground text-sm"
+        className={cn(
+          'whitespace-nowrap font-medium text-foreground',
+          Heading === 'h2' ? 'text-base' : 'text-sm',
+        )}
       >
         {title}
       </Heading>

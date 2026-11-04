@@ -51,7 +51,7 @@ export function McpServersTable({
           >
             <span
               className={cn(
-                'col-span-full min-w-0 truncate font-medium text-foreground text-xs @4xl:col-span-1',
+                'col-span-full min-w-0 truncate text-foreground @4xl:col-span-1',
                 EDGE_INDENT,
               )}
             >

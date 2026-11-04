@@ -6,6 +6,7 @@ import {
   hasRuns,
   recentRuns,
   runSpent,
+  stationTableColumns,
 } from '@/lib/station-insights';
 
 describe('runSpent', () => {
@@ -87,6 +88,32 @@ describe('countedColumnsOf', () => {
       'Cost',
       'Median',
       'p90',
+    ]);
+  });
+});
+
+describe('stationTableColumns', () => {
+  it('leaves the checks, stops, passes and the slowest tenth to the station view', () => {
+    expect(
+      stationTableColumns({
+        failed: true,
+        stopped: true,
+        checksPassed: true,
+        checksFailed: true,
+        accepted: true,
+        sentBack: true,
+        passed: true,
+        merged: true,
+        cancelled: false,
+      }).map((column) => column.label),
+    ).toEqual([
+      'Runs',
+      'Failed',
+      'Accepted',
+      'Sent back',
+      'Merged',
+      'Cost',
+      'Median',
     ]);
   });
 });

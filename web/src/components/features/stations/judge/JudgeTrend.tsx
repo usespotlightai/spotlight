@@ -95,7 +95,7 @@ export function JudgeTrend({
                 dataKey="day"
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 tickFormatter={formatDay}
                 minTickGap={24}
               />

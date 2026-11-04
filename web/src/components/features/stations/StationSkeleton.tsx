@@ -45,7 +45,7 @@ export function StationSkeleton({ tab }: { tab: StationTab }) {
               <span
                 key={each.id}
                 className={cn(
-                  'relative flex h-9 items-center px-2 text-[0.8rem]',
+                  'relative flex h-9 items-center px-2 text-sm',
                   each.id === tab ? 'text-foreground' : 'text-muted-foreground',
                 )}
               >

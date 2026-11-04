@@ -106,7 +106,7 @@ export function DayChart({
                 dataKey="day"
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 tickFormatter={formatDay}
                 minTickGap={32}
               />
@@ -114,7 +114,7 @@ export function DayChart({
                 width={44}
                 tickLine={false}
                 axisLine={false}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 ticks={ticks}
                 domain={ticks ? [0, ticks[ticks.length - 1] ?? 0] : undefined}
                 allowDecimals={false}

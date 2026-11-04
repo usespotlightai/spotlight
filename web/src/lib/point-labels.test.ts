@@ -21,7 +21,7 @@ describe('placeLabels', () => {
     ]);
 
     expect(live?.y).toBe(85);
-    expect(candidate?.y).toBe(126);
+    expect(candidate?.y).toBe(127);
   });
 
   it('stacks a third label above the first once above and below are both taken', () => {
@@ -31,6 +31,17 @@ describe('placeLabels', () => {
       { key: 'c', text: 'third', x: 100, y: 100 },
     ]);
 
-    expect(placed[2]?.y).toBe(72);
+    expect(placed[2]?.y).toBe(71);
+  });
+});
+
+describe('placeLabels within the plot', () => {
+  it('moves a label that would run past the plot’s left edge', () => {
+    const [label] = placeLabels(
+      [{ key: 'a', text: 'Claude Code, haiku, low effort', x: 4, y: 100 }],
+      { left: 0, right: 400 },
+    );
+
+    expect(label?.anchor).toBe('start');
   });
 });

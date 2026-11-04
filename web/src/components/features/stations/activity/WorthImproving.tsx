@@ -33,7 +33,7 @@ export function WorthImproving({
 
   if (loading(overview)) {
     return (
-      <div className="-mx-3">
+      <div className="-mx-2">
         <NestedTableSkeleton
           label="Loading the station’s signals"
           headings={WORTH_IMPROVING_HEADINGS}
@@ -64,7 +64,7 @@ export function WorthImproving({
   }
 
   return (
-    <div className="-mx-3">
+    <div className="-mx-2">
       <NestedTable
         label="Signals worth improving"
         headings={WORTH_IMPROVING_HEADINGS}

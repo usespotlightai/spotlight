@@ -68,7 +68,7 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
                   {formatDurationOrNone(now[author.key][percentile])}
                 </span>
                 {delta && (
-                  <span className="text-xs">
+                  <span className="text-sm">
                     <DeltaGlyph
                       delta={delta}
                       tooltip="Against the previous period"

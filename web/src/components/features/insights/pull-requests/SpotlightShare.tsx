@@ -24,7 +24,7 @@ export function SpotlightShare({ spotlightShare }: SpotlightShareProps) {
     <div className="flex flex-col gap-10">
       <InsightsTiles label="Merged pull requests">
         <InsightsTile
-          label="PRs merged"
+          label="All PRs merged"
           value={formatCount(spotlightShare.merged)}
           detail="In the team’s repositories"
           drill={drill({})}

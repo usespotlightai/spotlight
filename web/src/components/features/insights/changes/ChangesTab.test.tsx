@@ -369,10 +369,12 @@ describe('the Changes tab', () => {
       within(table).getByRole('button', { name: 'Collapse Claude Code' }),
     ).toBeInTheDocument();
     const opus = within(table)
-      .getByText('opus · high effort')
+      .getByText('opus, high effort')
       .closest('[data-slot="agent-config-row"]') as HTMLElement;
 
-    expect(within(opus).getByLabelText('Best value')).toBeInTheDocument();
+    expect(
+      within(opus).getByLabelText('Best for the cost'),
+    ).toBeInTheDocument();
     expect(opus).toHaveTextContent('Judge score75%');
     const calibrations = document.querySelector(
       '[data-slot="judge-calibrations"]',
@@ -463,7 +465,7 @@ describe('the Changes tab', () => {
       within(replayed)
         .queryByText(name)
         ?.closest('[data-slot="replayed-agent-config-row"]');
-    expect(rowOf('Live config')).toHaveTextContent('SourceLive');
+    expect(rowOf('Live config, replayed')).toHaveTextContent('SourceLive');
     expect(rowOf('opus-with-migrations-skill')).toHaveTextContent(
       '67% of 7 held-out runs',
     );

@@ -12,7 +12,7 @@ export function AgentProperties({ station }: { station: StationResponseDto }) {
   const agent = useStationAgent(station);
 
   return (
-    <TabSection title="Agent">
+    <TabSection level={3} title="Agent">
       {agent ? (
         <PropertyList>
           <Property label="Harness" slot="station-agent">

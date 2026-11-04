@@ -27,7 +27,7 @@ export function RunStrip({ runs }: { runs: readonly StationRunOutcome[] }) {
       role="img"
       aria-label={`Latest ${latest.length} runs, oldest to latest: ${summaryOf(latest)}`}
       title="Oldest to latest"
-      className="flex h-8 items-end gap-0.5"
+      className="flex h-6 items-end gap-0.5"
     >
       {latest.map((run) => (
         <span

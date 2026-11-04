@@ -22,7 +22,7 @@ export function PercentilePicker({ value, onChange }: PercentilePickerProps) {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Percentile"
-        className="flex h-7 items-center gap-1 whitespace-nowrap rounded-lg bg-muted px-2.5 font-medium text-foreground text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-accent dark:bg-background"
+        className="flex h-7 items-center gap-1 whitespace-nowrap rounded-lg bg-muted px-2.5 text-foreground text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-accent dark:bg-background"
       >
         {percentileName(value)}
         <ChevronDown aria-hidden className="size-3 text-muted-foreground" />
@@ -36,7 +36,7 @@ export function PercentilePicker({ value, onChange }: PercentilePickerProps) {
             <DropdownMenuRadioItem
               key={percentile}
               value={percentile}
-              className="text-xs"
+              className="text-sm"
             >
               {percentileName(percentile)}
             </DropdownMenuRadioItem>

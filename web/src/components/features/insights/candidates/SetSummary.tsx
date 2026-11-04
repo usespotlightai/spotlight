@@ -14,10 +14,10 @@ export function SetSummary({ set }: SetSummaryProps) {
       className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1"
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="min-w-0 truncate font-medium text-foreground text-xs">
+        <span className="min-w-0 truncate text-foreground">
           {REPLAY_SET_TITLE}
         </span>
-        <span className="text-muted-foreground text-xs">
+        <span className="text-muted-foreground">
           {set.health.tasks === 0
             ? 'No tasks yet'
             : formatTasks(set.health.tasks, set.health.runs)}
@@ -27,7 +27,7 @@ export function SetSummary({ set }: SetSummaryProps) {
       </div>
 
       {!set.baseline && (
-        <p className="text-muted-foreground text-xs">
+        <p className="text-muted-foreground">
           The live config hasn’t been replayed on this set. Nothing is compared
           with live.
         </p>

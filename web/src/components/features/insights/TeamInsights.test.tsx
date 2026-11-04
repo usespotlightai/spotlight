@@ -310,11 +310,7 @@ describe('TeamInsights', () => {
   it('shows runs at each station, config changes and candidates on the Stations tab, all over the period', () => {
     showing('?tab=stations&period=90d');
 
-    expect(sections()).toEqual([
-      'Runs at each station',
-      'Config changes',
-      'Candidates',
-    ]);
+    expect(sections()).toEqual(['Runs', 'Config changes', 'Candidates']);
     expect(requested).toEqual(
       expect.arrayContaining([
         { tab: 'stations', period: '90d' },

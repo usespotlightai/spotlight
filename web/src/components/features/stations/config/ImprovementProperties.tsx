@@ -13,6 +13,7 @@ import {
 export function ImprovementProperties({ policy }: { policy: SearchPolicy }) {
   return (
     <TabSection
+      level={3}
       title="Automatic improvement"
       description={policy.enabled ? searchPolicyNote(policy) : undefined}
     >

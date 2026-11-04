@@ -8,6 +8,7 @@ export function CandidatesSkeleton() {
   return (
     <div role="status" aria-label="Loading the candidates">
       <InsightsCardSkeleton
+        flat
         title="Replayed candidates"
         description={CANDIDATES_NOTE}
         actions={

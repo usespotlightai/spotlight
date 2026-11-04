@@ -23,7 +23,7 @@ import {
 import type { TileBones } from '@/lib/insights-tiles';
 
 const TILES: readonly TileBones[] = [
-  { label: 'PRs merged', detail: 'In the team’s repositories' },
+  { label: 'All PRs merged', detail: 'In the team’s repositories' },
   { label: 'Made by Spotlight' },
   {
     label: 'Reviewed by Spotlight',

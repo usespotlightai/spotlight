@@ -35,7 +35,7 @@ export function OutcomeTableRow({ run, to }: OutcomeTableRowProps) {
     >
       <span
         className={cn(
-          'col-span-full flex min-w-0 items-center gap-2 text-xs @4xl:col-span-1',
+          'col-span-full flex min-w-0 items-center gap-2 @4xl:col-span-1',
           OUTER_INDENT,
         )}
       >

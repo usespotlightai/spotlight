@@ -81,7 +81,7 @@ export function OutcomeGroup({
                 }
                 className={pillClass(
                   'outline',
-                  'h-5 justify-self-start whitespace-nowrap px-2 text-[0.7rem] @4xl:justify-self-end',
+                  'h-5 justify-self-start whitespace-nowrap px-2 text-xs @4xl:justify-self-end',
                 )}
               >
                 Impact

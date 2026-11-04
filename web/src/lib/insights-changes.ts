@@ -111,13 +111,13 @@ export const formatAgentConfigWithin = (
     agentConfig.profileKey ? `${agentConfig.profileKey} profile` : null,
   ]
     .filter(Boolean)
-    .join(' · ');
+    .join(', ');
 
 export const formatAgentConfig = (
   agentConfig: AgentConfigOutcome,
   harnesses: readonly HarnessResponseDto[] | undefined,
 ): string =>
-  `${formatHarness(harnesses, agentConfig.harness)} · ${formatAgentConfigWithin(agentConfig)}`;
+  `${formatHarness(harnesses, agentConfig.harness)}, ${formatAgentConfigWithin(agentConfig)}`;
 
 export type HarnessGroup = {
   readonly harness: string;

@@ -1,5 +1,6 @@
 import { Play } from 'lucide-react';
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
+import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
 
 type NoStationRunsProps = {
@@ -9,7 +10,7 @@ type NoStationRunsProps = {
 
 export function NoStationRuns({ slug, teamId }: NoStationRunsProps) {
   return (
-    <div className="flex justify-center rounded-xl border border-border px-4 py-10">
+    <EmptyFrame>
       <EmptyState
         icon={Play}
         title="No runs yet"
@@ -17,6 +18,6 @@ export function NoStationRuns({ slug, teamId }: NoStationRunsProps) {
       >
         Runs show here by config once tasks reach this station.
       </EmptyState>
-    </div>
+    </EmptyFrame>
   );
 }

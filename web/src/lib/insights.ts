@@ -646,7 +646,7 @@ export const formatSignal = (reading: SignalReading): string => {
 };
 
 export const formatTaskFailure = (failure: TaskFailureSummary): string =>
-  `${failure.source} · ${failure.code}`;
+  `${failure.source}, ${failure.code}`;
 
 export const formatRunFailure = (failure: RunFailureSummary): string =>
   failure.failure ?? 'No reason given';

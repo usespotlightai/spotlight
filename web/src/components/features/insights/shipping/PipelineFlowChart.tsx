@@ -138,7 +138,7 @@ export function PipelineFlowChart({
 
         {stations.length > 0 && width > 0 && (
           <span
-            className="absolute top-0 bg-card pr-1.5 text-[0.7rem] text-muted-foreground"
+            className="absolute top-0 bg-card pr-1.5 text-xs text-muted-foreground"
             style={{ left: geometry.centers[0] - BRACKET_EXTENT }}
           >
             Coding, by station
@@ -157,7 +157,7 @@ export function PipelineFlowChart({
 
         {worst && worst.ms !== null && (
           <span
-            className="-translate-x-1/2 absolute flex items-center gap-1.5 whitespace-nowrap rounded-full border border-outcome-failed/50 bg-card px-2 py-0.5 text-[0.7rem] text-outcome-failed"
+            className="-translate-x-1/2 absolute flex items-center gap-1.5 whitespace-nowrap rounded-full border border-outcome-failed/50 bg-card px-2 py-0.5 text-xs text-outcome-failed"
             style={{ left: geometry.centers[worstAt], top: MARKS_END - 2 }}
           >
             <span
@@ -165,7 +165,6 @@ export function PipelineFlowChart({
               className="size-1.5 rounded-full bg-outcome-failed"
             />
             Slowest stage
-            <span className="text-outcome-failed/50">|</span>
             <span className="tabular-nums">
               {formatDurationOrNone(worst.ms)}
             </span>

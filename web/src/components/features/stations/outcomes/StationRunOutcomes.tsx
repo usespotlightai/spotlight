@@ -37,6 +37,7 @@ export function StationRunOutcomes({
 
   return (
     <InsightsCard
+      flat
       scrolls
       title="Runs by config"
       description={RUNS_BY_CONFIG_NOTE}
