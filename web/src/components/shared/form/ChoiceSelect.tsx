@@ -87,7 +87,7 @@ export function ChoiceSelect({
         aria-label={`${label}: ${chosen?.label ?? placeholder}`}
         disabled={disabled}
         className={cn(
-          'flex min-w-0 items-center border border-border text-left outline-none transition-colors hover:bg-accent disabled:opacity-50 data-[popup-open]:bg-accent',
+          'flex min-w-0 items-center border border-border text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50 data-[popup-open]:bg-accent',
           look.trigger,
           className,
         )}

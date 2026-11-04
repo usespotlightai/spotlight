@@ -35,7 +35,7 @@ export function Segmented<T extends string>({
         <span
           aria-hidden
           className={cn(
-            'pointer-events-none absolute inset-y-0.5 left-0 rounded-md bg-card shadow-xs ring-1 ring-foreground/[0.06] dark:bg-muted dark:ring-foreground/10',
+            'pointer-events-none absolute inset-y-0.5 left-0 rounded-md bg-card shadow-xs ring-1 ring-foreground/[0.06] dark:bg-accent dark:ring-foreground/10',
             indicator.ready &&
               'transition-[transform,width] duration-200 ease-out motion-reduce:transition-none',
           )}

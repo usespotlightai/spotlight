@@ -6,7 +6,7 @@ export const WAIT_SERIES = [
   {
     key: 'inbox',
     label: 'In the inbox',
-    fill: 'color-mix(in oklab, var(--chart-primary) 70%, var(--muted))',
+    fill: 'color-mix(in oklab, var(--chart-primary) 70%, var(--chart-ramp-floor))',
   },
 ] as const;
 
@@ -23,7 +23,7 @@ export const SPOTLIGHT_SHARE_SERIES = [
 ] as const;
 
 const shade = (share: number): string =>
-  `color-mix(in oklab, var(--chart-primary) ${share}%, var(--muted))`;
+  `color-mix(in oklab, var(--chart-primary) ${share}%, var(--chart-ramp-floor))`;
 
 export const ROUND_FILLS: Record<Rounds, string> = {
   '0': shade(40),

@@ -9,7 +9,7 @@ export const TONE_FILL: Record<OutcomeTone, string> = {
   done: 'bg-outcome-done',
   sentBack: 'bg-outcome-sent-back',
   failed: 'bg-outcome-failed',
-  quiet: 'bg-muted-foreground/20',
+  quiet: 'bg-muted-foreground/20 dark:bg-muted-foreground/70',
 };
 
 export const TONE_INK: Record<OutcomeTone, string> = {

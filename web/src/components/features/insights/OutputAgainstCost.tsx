@@ -2,7 +2,6 @@ import {
   Bar,
   ComposedChart,
   Line,
-  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -158,23 +157,11 @@ export function OutputAgainstCost({
                   }
                   cursor={{ fill: 'var(--accent)' }}
                 />
-                {days
-                  .filter((day) => day.changes.length > 0)
-                  .map((day) => (
-                    <ReferenceLine
-                      key={day.day}
-                      x={day.day}
-                      yAxisId="merged"
-                      stroke="var(--chart-axis)"
-                      strokeDasharray="3 3"
-                    />
-                  ))}
                 <Bar
                   yAxisId="merged"
                   dataKey="merged"
                   name="PRs merged"
-                  fill="var(--chart-primary)"
-                  fillOpacity={0.22}
+                  fill="var(--chart-bar-quiet)"
                   radius={[2, 2, 0, 0]}
                   isAnimationActive={false}
                 />
@@ -183,7 +170,7 @@ export function OutputAgainstCost({
                     yAxisId="spend"
                     dataKey={spendOf}
                     name="Spend"
-                    stroke="var(--chart-primary)"
+                    stroke="var(--chart-line)"
                     strokeWidth={1.5}
                     dot={false}
                     connectNulls

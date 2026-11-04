@@ -2,9 +2,9 @@ import { COVERAGE_PARTS, formatPercent, type JudgeCoverage } from '@/lib/judge';
 
 const INKS: Record<(typeof COVERAGE_PARTS)[number]['key'], string> = {
   both: 'var(--chart-primary)',
-  judgeOnly: 'color-mix(in oklab, var(--chart-primary) 40%, transparent)',
-  peopleOnly: 'color-mix(in oklab, var(--muted-foreground) 45%, transparent)',
-  neither: 'color-mix(in oklab, var(--muted-foreground) 18%, transparent)',
+  judgeOnly: 'var(--judge-judge-only)',
+  peopleOnly: 'var(--judge-people-only)',
+  neither: 'var(--judge-neither)',
 };
 
 export function JudgeCoverageBar({ coverage }: { coverage: JudgeCoverage }) {

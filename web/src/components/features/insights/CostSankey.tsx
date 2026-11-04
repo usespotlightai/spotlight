@@ -95,7 +95,14 @@ const linkFor =
       fill="none"
       stroke="var(--chart-primary)"
       strokeWidth={linkWidth}
-      strokeOpacity={hovered === null ? 0.12 : hovered === index ? 0.3 : 0.06}
+      style={{
+        strokeOpacity:
+          hovered === null
+            ? 'var(--chart-link-idle)'
+            : hovered === index
+              ? 'var(--chart-link-active)'
+              : 'var(--chart-link-dimmed)',
+      }}
     />
   );
 
