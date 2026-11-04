@@ -26,7 +26,7 @@ export function ShippingTab({ slug, teamId, period, names }: ShippingTabProps) {
 
   if (failed(insights) || !insights.data) {
     return (
-      <InsightsSection collapsible={false} title={FIRST_SECTION}>
+      <InsightsSection title={FIRST_SECTION}>
         <InsightsFailed what="What the agents ship" query={insights} />
       </InsightsSection>
     );
@@ -34,7 +34,7 @@ export function ShippingTab({ slug, teamId, period, names }: ShippingTabProps) {
 
   if (!insights.data.shippedAny) {
     return (
-      <InsightsSection collapsible={false} title={FIRST_SECTION}>
+      <InsightsSection title={FIRST_SECTION}>
         <NoPullRequests slug={slug} teamId={teamId} />
       </InsightsSection>
     );

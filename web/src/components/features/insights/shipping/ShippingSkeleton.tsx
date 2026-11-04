@@ -60,7 +60,7 @@ const DEPTH_LEGEND = [
 export function ShippingSkeleton() {
   return (
     <>
-      <InsightsSection collapsible={false} title="What the agents ship">
+      <InsightsSection title="What the agents ship">
         <div
           role="status"
           aria-label="Loading what the agents ship"
@@ -191,7 +191,7 @@ export function ShippingSkeleton() {
         </div>
       </InsightsSection>
 
-      <InsightsSection collapsible={false} title="Review and approval">
+      <InsightsSection title="Review and approval">
         <div
           role="status"
           aria-label="Loading the reviews"

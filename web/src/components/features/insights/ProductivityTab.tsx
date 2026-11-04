@@ -39,7 +39,7 @@ export function ProductivityTab({
 
   return (
     <div className={OVERVIEW_LAYOUT}>
-      <InsightsSection collapsible={false} title="Where work waits">
+      <InsightsSection title="Where work waits">
         <FlowTab
           slug={slug}
           teamId={teamId}
@@ -55,7 +55,7 @@ export function ProductivityTab({
         names={names}
       />
 
-      <InsightsSection collapsible={false} title="Pull requests">
+      <InsightsSection title="Pull requests">
         <PullRequestsTab
           slug={slug}
           teamId={teamId}

@@ -149,7 +149,9 @@ describe('memory in Insights', () => {
       .getByText('Active memories')
       .closest('[data-slot="insights-tile"]') as HTMLElement;
     expect(active).toHaveTextContent('12');
-    expect(within(tiles).getByText('to 30 runs')).toBeInTheDocument();
+    expect(
+      within(tiles).getByText('In the briefs of 30 runs'),
+    ).toBeInTheDocument();
 
     const compared = screen.getByRole('list', {
       name: 'Runs without memories compared with runs with them',

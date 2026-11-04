@@ -1,15 +1,16 @@
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
+import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
-import { DismissedTools } from '@/components/features/insights/tools/DismissedTools';
-import { McpServers } from '@/components/features/insights/tools/McpServers';
+import { McpServersTable } from '@/components/features/insights/tools/McpServersTable';
 import { NoToolsUsed } from '@/components/features/insights/tools/NoToolsUsed';
 import { SkillUse } from '@/components/features/insights/tools/SkillUse';
 import { ToolsSkeleton } from '@/components/features/insights/tools/ToolsSkeleton';
-import { UnusedSkills } from '@/components/features/insights/tools/UnusedSkills';
 import { useInsightsTools } from '@/hooks/api/useInsightsTools';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';
-import { usedNothing } from '@/lib/insights-tools';
+import { SERVERS_NOTE, SKILLS_NOTE, usedNothing } from '@/lib/insights-tools';
 import { failed, loading } from '@/lib/query';
+
+export const TOOLS_TITLE = 'Tools and skills';
 
 type ToolsTabProps = {
   slug: string;
@@ -26,44 +27,61 @@ export function ToolsTab({ slug, teamId, period, names }: ToolsTabProps) {
   }
 
   if (failed(tools) || !tools.data) {
-    return <InsightsFailed what="The tools" query={tools} />;
+    return (
+      <InsightsSection title={TOOLS_TITLE}>
+        <InsightsFailed what="The tools" query={tools} />
+      </InsightsSection>
+    );
   }
 
   const insights = tools.data;
 
   if (insights.runs === 0) {
     return (
-      <NoRunsInPeriod slug={slug} teamId={teamId}>
-        Skills read and MCP servers called show here once stations run tasks.
-      </NoRunsInPeriod>
+      <InsightsSection title={TOOLS_TITLE}>
+        <NoRunsInPeriod slug={slug} teamId={teamId}>
+          Skills read and MCP servers called show here once stations run tasks.
+        </NoRunsInPeriod>
+      </InsightsSection>
     );
   }
 
   if (usedNothing(insights)) {
-    return <NoToolsUsed slug={slug} teamId={teamId} />;
+    return (
+      <InsightsSection title={TOOLS_TITLE}>
+        <NoToolsUsed slug={slug} teamId={teamId} />
+      </InsightsSection>
+    );
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      {insights.skills.length > 0 && (
-        <SkillUse
-          slug={slug}
-          teamId={teamId}
-          skills={insights.skills}
-          rule={insights.trendRule}
-          names={names}
-        />
+    <>
+      {(insights.skills.length > 0 || insights.unused.length > 0) && (
+        <InsightsSection title="Skills" tooltip={SKILLS_NOTE}>
+          <SkillUse
+            slug={slug}
+            teamId={teamId}
+            skills={insights.skills}
+            unused={insights.unused}
+            teamRuns={insights.runs}
+            rule={insights.trendRule}
+            names={names}
+          />
+        </InsightsSection>
       )}
 
-      {insights.unused.length > 0 && (
-        <UnusedSkills slug={slug} teamId={teamId} unused={insights.unused} />
-      )}
-
-      <McpServers servers={insights.servers} />
-
-      {insights.dismissals.length > 0 && (
-        <DismissedTools dismissals={insights.dismissals} />
-      )}
-    </div>
+      <InsightsSection title="MCP servers" tooltip={SERVERS_NOTE}>
+        {insights.servers.length > 0 || insights.dismissals.length > 0 ? (
+          <McpServersTable
+            servers={insights.servers}
+            dismissals={insights.dismissals}
+          />
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            No run called an MCP server in this period.
+          </p>
+        )}
+      </InsightsSection>
+    </>
   );
 }

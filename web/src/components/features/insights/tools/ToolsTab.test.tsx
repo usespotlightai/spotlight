@@ -53,9 +53,24 @@ const TOOLS = {
       defined: true,
       enabled: 8,
       used: 5,
+      usedRate: 5 / 12,
       weeks: [
-        { week: '2026-09-21', runs: 6, enabled: 4, used: 1, usedRate: 1 / 6 },
-        { week: '2026-09-28', runs: 6, enabled: 4, used: 4, usedRate: 4 / 6 },
+        {
+          week: '2026-09-21',
+          runs: 6,
+          enabled: 4,
+          used: 1,
+          usedRate: 1 / 6,
+          partial: false,
+        },
+        {
+          week: '2026-09-28',
+          runs: 6,
+          enabled: 4,
+          used: 4,
+          usedRate: 4 / 6,
+          partial: true,
+        },
       ],
       trend: 'rising',
       stations: [
@@ -65,6 +80,7 @@ const TOOLS = {
           runs: 10,
           enabled: 8,
           used: 5,
+          usedRate: 0.5,
           trend: 'rising',
         },
       ],
@@ -74,6 +90,7 @@ const TOOLS = {
       defined: false,
       enabled: 0,
       used: 1,
+      usedRate: 1 / 12,
       weeks: [
         { week: '2026-09-21', runs: 6, enabled: 0, used: 0, usedRate: 0 },
         { week: '2026-09-28', runs: 6, enabled: 0, used: 1, usedRate: 1 / 6 },
@@ -94,7 +111,9 @@ const TOOLS = {
       failedCalls: 1,
       errorRate: 0.1,
       failingRuns: 1,
+      failingRunRate: 0.25,
       dismissed: 2,
+      dismissedRate: 0.5,
     },
   ],
   dismissals: [
@@ -198,18 +217,28 @@ describe('the skills and tools of the Tools and skills tab', () => {
       .getByText(key, { selector: 'a, span' })
       .closest('[data-slot="nested-group"]') as HTMLElement;
 
-  it('lists each skill in one table, marking rising ones and explaining the rule on its column', () => {
+  it('lists each skill in one table, ending its weekly line with the latest share in the trend’s colour', () => {
     showing();
 
     const table = screen.getByRole('list', { name: 'Skill use' });
 
     expect(
       within(table).getAllByRole('button', { name: /^Collapse / }),
-    ).toHaveLength(1);
+    ).toHaveLength(2);
     expect(
       skillRow('our-migrations').querySelector('[data-slot="skill-trend"]'),
     ).toHaveAttribute('data-trend', 'rising');
-    expect(skillRow('our-migrations')).toHaveTextContent('Enabled8Read5Trend');
+    expect(skillRow('our-migrations')).toHaveTextContent(
+      'Runs12Runs given8Runs read5',
+    );
+    expect(skillRow('borrowed')).toHaveTextContent('Runs givenNot given');
+    expect(
+      [
+        ...skillRow('our-migrations').querySelectorAll(
+          '[data-slot="skill-weeks-chart"] [data-partial]',
+        ),
+      ].length,
+    ).toBe(1);
   });
 
   it('links a defined skill to its page under the team’s skills, and opens the runs behind its numbers', () => {
@@ -248,7 +277,9 @@ describe('the skills and tools of the Tools and skills tab', () => {
       'href',
       '/w/acme/team/team_1/insights?tab=traces&period=7d&stationId=station_impl&skillUsed=our-migrations',
     );
-    expect(station.closest('li')).toHaveTextContent('Runs10Enabled8Read5');
+    expect(station.closest('li')).toHaveTextContent(
+      'Runs10Runs given8Runs read550%',
+    );
     expect(
       screen.queryByRole('list', { name: 'Stations using borrowed' }),
     ).toBeNull();
@@ -300,36 +331,44 @@ describe('the skills and tools of the Tools and skills tab', () => {
       'href',
       `${RUNS}&server=linear`,
     );
-    expect(within(row).getByRole('link', { name: '2s' })).toHaveAttribute(
-      'href',
-      `${RUNS}&server=linear`,
-    );
+    expect(row).toHaveTextContent('Median call420msSlowest 5%2.1s');
     expect(within(row).getByRole('link', { name: '10%' })).toHaveAttribute(
       'href',
       `${RUNS}&serverFailed=linear`,
     );
-    expect(within(row).getByRole('link', { name: '1' })).toHaveAttribute(
+    expect(within(row).getByRole('link', { name: '25%' })).toHaveAttribute(
       'href',
       `${RUNS}&failedAfter=linear`,
     );
-    expect(within(row).getByRole('link', { name: '2' })).toHaveAttribute(
+    expect(within(row).getByRole('link', { name: '50%' })).toHaveAttribute(
       'href',
       `${RUNS}&dismissedServer=linear`,
     );
   });
 
-  it('counts dismissed approvals per tool of each server, opening the runs they were dismissed in', () => {
+  it('lists the dismissed tools under their server, and tools of no server under Other tools', () => {
     showing();
 
     const table = screen.getByRole('list', {
-      name: 'Dismissed approvals per tool',
+      name: 'How each MCP server behaved',
     });
+    const rows = [
+      ...table.querySelectorAll(
+        '[data-slot="mcp-server"], [data-slot="dismissed-tool"]',
+      ),
+    ].map((each) => each.textContent);
 
-    expect(within(table).getByRole('link', { name: '2' })).toHaveAttribute(
+    expect(rows).toEqual([
+      expect.stringMatching(/^linear/),
+      expect.stringMatching(/^create_issue.*2 runs$/),
+      'Other tools',
+      expect.stringMatching(/^github\.merge.*1 run$/),
+    ]);
+    expect(within(table).getByRole('link', { name: '2 runs' })).toHaveAttribute(
       'href',
       `${RUNS}&dismissedTool=create_issue&dismissedServer=linear`,
     );
-    expect(within(table).getByRole('link', { name: '1' })).toHaveAttribute(
+    expect(within(table).getByRole('link', { name: '1 run' })).toHaveAttribute(
       'href',
       `${RUNS}&dismissedTool=github.merge&dismissedServer=none`,
     );

@@ -368,7 +368,7 @@ describe('TeamInsights', () => {
   it('shows skills, tools and memory on the Tools and skills tab', () => {
     showing('?tab=tools&period=7d');
 
-    expect(sections()).toEqual(['Skills and tools', 'Memory']);
+    expect(sections()).toEqual(['Skills', 'MCP servers', 'Memory']);
     expect(requested).toEqual(
       expect.arrayContaining([
         { tab: 'tools', period: '7d' },
@@ -378,24 +378,6 @@ describe('TeamInsights', () => {
     expect(
       screen.getByRole('status', { name: 'Loading the tools' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('status', { name: 'Loading the memory' }),
-    ).toBeInTheDocument();
-  });
-
-  it('collapses a section and expands it again', async () => {
-    showing('?tab=tools');
-
-    const memory = screen.getByRole('button', { name: 'Memory' });
-    await userEvent.click(memory);
-
-    expect(memory).toHaveAttribute('aria-expanded', 'false');
-    expect(
-      screen.queryByRole('status', { name: 'Loading the memory' }),
-    ).not.toBeInTheDocument();
-
-    await userEvent.click(memory);
-
     expect(
       screen.getByRole('status', { name: 'Loading the memory' }),
     ).toBeInTheDocument();

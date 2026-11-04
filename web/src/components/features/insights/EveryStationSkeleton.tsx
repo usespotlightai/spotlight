@@ -8,15 +8,15 @@ import { type StationNames, workStationCount } from '@/lib/insights';
 export function EveryStationSkeleton({ names }: { names: StationNames }) {
   return (
     <div className={OVERVIEW_LAYOUT}>
-      <InsightsSection collapsible={false} title="Runs">
+      <InsightsSection title="Runs">
         <StationsSkeleton stations={workStationCount(names)} />
       </InsightsSection>
 
-      <InsightsSection collapsible={false} title="Config changes">
+      <InsightsSection title="Config changes">
         <ChangesSkeleton names={names} />
       </InsightsSection>
 
-      <InsightsSection collapsible={false} title="Candidates">
+      <InsightsSection title="Candidates">
         <CandidatesSkeleton />
       </InsightsSection>
     </div>

@@ -6211,6 +6211,10 @@ export type SkillWeekResponseDto = {
    * The fraction of that week’s runs that read it; none where no run ended that week
    */
   usedRate: number | null;
+  /**
+   * Whether the week runs past either end of the period, so it counts only some of its days
+   */
+  partial: boolean;
 };
 
 export type SkillAtStationResponseDto = {
@@ -6226,6 +6230,10 @@ export type SkillAtStationResponseDto = {
    * rising or falling where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; flat where it moved less; none where either side had too few runs
    */
   trend: 'rising' | 'falling' | 'flat' | null;
+  /**
+   * The fraction of the station’s runs in the period that read it; none where none ended
+   */
+  usedRate: number | null;
 };
 
 export type SkillReportResponseDto = {
@@ -6250,6 +6258,10 @@ export type SkillReportResponseDto = {
    * rising or falling where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; flat where it moved less; none where either side had too few runs
    */
   trend: 'rising' | 'falling' | 'flat' | null;
+  /**
+   * The fraction of the team’s runs in the period that read it; none where none ended
+   */
+  usedRate: number | null;
   /**
    * Each station that enabled it for its runs or whose runs read it
    */
@@ -6291,6 +6303,14 @@ export type ServerReportResponseDto = {
    * Runs in which a person dismissed an approval for one of its tools
    */
   dismissed: number;
+  /**
+   * Failing runs as a fraction of the runs that called it
+   */
+  failingRunRate: number | null;
+  /**
+   * Runs with a dismissed approval as a fraction of the runs that called it
+   */
+  dismissedRate: number | null;
 };
 
 export type ToolDismissalsResponseDto = {

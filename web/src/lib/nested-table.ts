@@ -9,6 +9,8 @@ export type NestedHeading = {
 
 export const SPREAD = 'minmax(max-content,1fr)';
 
+export const FIGURE = 'minmax(6rem,max-content)';
+
 const FILLER = 'minmax(0,1fr)';
 
 const sizesOf = (

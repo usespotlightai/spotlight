@@ -22,7 +22,7 @@ export function PeopleSkeleton() {
       aria-label="Loading the people"
       className={OVERVIEW_LAYOUT}
     >
-      <InsightsSection collapsible={false} title="What the work asks of people">
+      <InsightsSection title="What the work asks of people">
         <InsightsTilesSkeleton
           label="Human load"
           tiles={LOAD}
@@ -30,7 +30,7 @@ export function PeopleSkeleton() {
         />
       </InsightsSection>
 
-      <InsightsSection collapsible={false} title="Who is using Spotlight">
+      <InsightsSection title="Who is using Spotlight">
         <NestedTableSkeleton
           label="Loading what each person did"
           headings={PEOPLE_HEADINGS}

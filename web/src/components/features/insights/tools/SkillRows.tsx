@@ -1,7 +1,11 @@
+import type { ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { SkillTrendMark } from '@/components/features/insights/tools/SkillTrendMark';
-import { SkillWeeksChart } from '@/components/features/insights/tools/SkillWeeksChart';
+import {
+  SkillWeeksChart,
+  weeksWidth,
+} from '@/components/features/insights/tools/SkillWeeksChart';
 import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
@@ -10,6 +14,7 @@ import {
   OUTER_GUIDE,
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { Collapsibles } from '@/hooks/useCollapsibles';
 import {
@@ -20,6 +25,8 @@ import {
   viewOf,
 } from '@/lib/insights';
 import {
+  givenOf,
+  NOT_GIVEN_NOTE,
   type SkillReport,
   skillEnabledFilter,
   skillUsedFilter,
@@ -27,10 +34,33 @@ import {
 import { skillPath } from '@/lib/skills';
 import { cn } from '@/lib/utils';
 
+const SHARE_CELL =
+  'col-span-full flex min-w-0 items-center gap-3 @4xl:col-span-1';
+
+const SHARE_FIGURE = 'w-12 shrink-0 text-right';
+
+function Given({
+  counts,
+  children,
+}: {
+  counts: { enabled: number; used: number };
+  children: ReactNode;
+}) {
+  return givenOf(counts) === 'Not given' ? (
+    <WithTooltip tooltip={NOT_GIVEN_NOTE}>
+      <span className="text-muted-foreground">Not given</span>
+    </WithTooltip>
+  ) : (
+    children
+  );
+}
+
 type SkillRowsProps = {
   slug: string;
   teamId: string;
   skill: SkillReport;
+  teamRuns: number;
+  max: number;
   names: StationNames;
   collapsibles: Collapsibles;
 };
@@ -39,6 +69,8 @@ export function SkillRows({
   slug,
   teamId,
   skill,
+  teamRuns,
+  max,
   names,
   collapsibles,
 }: SkillRowsProps) {
@@ -46,6 +78,8 @@ export function SkillRows({
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const { period } = viewOf(params);
+
+  const width = weeksWidth(skill.weeks.length);
 
   return (
     <>
@@ -60,9 +94,26 @@ export function SkillRows({
         }
         cells={
           <>
-            <span className="col-span-full block h-4 w-32 @4xl:col-span-1">
+            <NestedCell heading="Runs">{formatCount(teamRuns)}</NestedCell>
+            <NestedCell heading="Runs given">
+              <Given counts={skill}>
+                <InsightsLink
+                  tab="traces"
+                  filter={skillEnabledFilter(skill.key)}
+                >
+                  {formatCount(skill.enabled)}
+                </InsightsLink>
+              </Given>
+            </NestedCell>
+            <NestedCell heading="Runs read" strong>
+              <InsightsLink tab="traces" filter={skillUsedFilter(skill.key)}>
+                {formatCount(skill.used)}
+              </InsightsLink>
+            </NestedCell>
+            <span className={SHARE_CELL}>
               <SkillWeeksChart
                 weeks={skill.weeks}
+                max={max}
                 onWeek={(week) =>
                   navigate(
                     insightsPath(slug, teamId, {
@@ -74,35 +125,27 @@ export function SkillRows({
                   )
                 }
               />
+              <span className={SHARE_FIGURE}>
+                <SkillTrendMark
+                  rate={skill.usedRate}
+                  used={skill.used}
+                  runs={teamRuns}
+                  trend={skill.trend}
+                />
+              </span>
             </span>
-            <span aria-hidden className="hidden @4xl:block" />
-            <NestedCell heading="Enabled" strong>
-              <InsightsLink tab="traces" filter={skillEnabledFilter(skill.key)}>
-                {formatCount(skill.enabled)}
-              </InsightsLink>
-            </NestedCell>
-            <NestedCell heading="Read" strong>
-              <InsightsLink tab="traces" filter={skillUsedFilter(skill.key)}>
-                {formatCount(skill.used)}
-              </InsightsLink>
-            </NestedCell>
-            <NestedCell heading="Trend" numeric={false}>
-              <SkillTrendMark trend={skill.trend} />
-            </NestedCell>
           </>
         }
       >
         {skill.defined ? (
           <TrailLink
             to={skillPath(slug, teamId, skill.key)}
-            className="truncate font-medium text-foreground hover:underline"
+            className="truncate text-foreground hover:underline"
           >
             {skill.key}
           </TrailLink>
         ) : (
-          <span className="truncate font-medium text-foreground">
-            {skill.key}
-          </span>
+          <span className="truncate text-foreground">{skill.key}</span>
         )}
       </NestedGroupRow>
 
@@ -120,7 +163,7 @@ export function SkillRows({
             >
               <span
                 className={cn(
-                  'col-span-full min-w-0 truncate text-xs @4xl:col-span-1',
+                  'col-span-full min-w-0 truncate @4xl:col-span-1',
                   OUTER_INDENT,
                 )}
               >
@@ -134,19 +177,26 @@ export function SkillRows({
                   {formatStation(names, station.stationId)}
                 </InsightsLink>
               </span>
-              <span aria-hidden className="hidden @4xl:block" />
               <NestedCell heading="Runs">
                 {formatCount(station.runs)}
               </NestedCell>
-              <NestedCell heading="Enabled">
-                {formatCount(station.enabled)}
+              <NestedCell heading="Runs given">
+                <Given counts={station}>{formatCount(station.enabled)}</Given>
               </NestedCell>
-              <NestedCell heading="Read">
+              <NestedCell heading="Runs read">
                 {formatCount(station.used)}
               </NestedCell>
-              <NestedCell heading="Trend" numeric={false}>
-                <SkillTrendMark trend={station.trend} />
-              </NestedCell>
+              <span className={SHARE_CELL}>
+                <span aria-hidden className="shrink-0" style={{ width }} />
+                <span className={SHARE_FIGURE}>
+                  <SkillTrendMark
+                    rate={station.usedRate}
+                    used={station.used}
+                    runs={station.runs}
+                    trend={station.trend}
+                  />
+                </span>
+              </span>
             </li>
           ))}
         </CollapsibleRows>

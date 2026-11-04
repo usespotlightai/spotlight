@@ -70,7 +70,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
 
   return (
     <div className={OVERVIEW_LAYOUT}>
-      <InsightsSection collapsible={false} title="What the work asks of people">
+      <InsightsSection title="What the work asks of people">
         <InsightsTiles label="Human load" className={TILE_ROW}>
           <InsightsTile
             label="Asks per task"
@@ -110,7 +110,6 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
       </InsightsSection>
 
       <InsightsSection
-        collapsible={false}
         title="Who is using Spotlight"
         aside={`${formatCount(adoption.activeCount)} active`}
         tooltip={adoptionNote(adoption)}

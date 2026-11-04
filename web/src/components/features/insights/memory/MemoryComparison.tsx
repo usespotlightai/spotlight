@@ -26,13 +26,13 @@ export function MemoryComparison({ runs, verdicts }: MemoryComparisonProps) {
             key={row.id}
             data-slot="compared-measure"
             className={cn(
-              'col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 @4xl:grid-cols-subgrid',
+              'col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 @4xl:grid-cols-subgrid @lg:group-data-compact/nested:grid-cols-subgrid',
               ROW_DIVIDER,
             )}
           >
             <span
               className={cn(
-                'col-span-full min-w-0 text-foreground @4xl:col-span-1',
+                'col-span-full min-w-0 text-foreground @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1',
                 EDGE_INDENT,
               )}
             >

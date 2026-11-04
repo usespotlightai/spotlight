@@ -1,5 +1,6 @@
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { MemoryTab } from '@/components/features/insights/memory/MemoryTab';
+import { OVERVIEW_LAYOUT } from '@/components/features/insights/overview-layout';
 import { ToolsAndSkillsSkeleton } from '@/components/features/insights/ToolsAndSkillsSkeleton';
 import { ToolsTab } from '@/components/features/insights/tools/ToolsTab';
 import { useInsightsMemory } from '@/hooks/api/useInsightsMemory';
@@ -25,10 +26,8 @@ export function ToolsAndSkillsTab(props: ToolsAndSkillsTabProps) {
   }
 
   return (
-    <>
-      <InsightsSection title="Skills and tools">
-        <ToolsTab {...props} />
-      </InsightsSection>
+    <div className={OVERVIEW_LAYOUT}>
+      <ToolsTab {...props} />
 
       <InsightsSection title="Memory">
         <MemoryTab
@@ -37,6 +36,6 @@ export function ToolsAndSkillsTab(props: ToolsAndSkillsTabProps) {
           period={props.period}
         />
       </InsightsSection>
-    </>
+    </div>
   );
 }

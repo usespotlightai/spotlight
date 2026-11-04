@@ -34,15 +34,15 @@ export function EveryStationView(shared: EveryStationViewProps) {
 
   return (
     <div className={OVERVIEW_LAYOUT}>
-      <InsightsSection collapsible={false} title="Runs">
+      <InsightsSection title="Runs">
         <StationsTab {...shared} />
       </InsightsSection>
 
-      <InsightsSection collapsible={false} title="Config changes">
+      <InsightsSection title="Config changes">
         <ChangesTab {...shared} />
       </InsightsSection>
 
-      <InsightsSection collapsible={false} title="Candidates">
+      <InsightsSection title="Candidates">
         <CandidatesTab {...shared} />
       </InsightsSection>
     </div>

@@ -21,7 +21,7 @@ type ShippingPanelsProps = {
 export function ShippingPanels({ shipping }: ShippingPanelsProps) {
   return (
     <>
-      <InsightsSection collapsible={false} title="What the agents ship">
+      <InsightsSection title="What the agents ship">
         <PipelineFlow flow={shipping.pipeline} />
         <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
           <TimeToMerge
@@ -37,7 +37,7 @@ export function ShippingPanels({ shipping }: ShippingPanelsProps) {
         />
       </InsightsSection>
 
-      <InsightsSection collapsible={false} title="Review and approval">
+      <InsightsSection title="Review and approval">
         <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
           <TimeToFirstReview days={shipping.reviewDays} />
           <InsightsCard

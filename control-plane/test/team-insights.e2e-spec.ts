@@ -739,7 +739,9 @@ describe('the team’s insights (e2e)', () => {
         failedCalls: 1,
         errorRate: 1 / 3,
         failingRuns: 0,
+        failingRunRate: 0,
         dismissed: 1,
+        dismissedRate: 1,
       },
     ]);
     expect(answer.body.dismissals).toEqual([

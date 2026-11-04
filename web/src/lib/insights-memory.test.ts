@@ -18,14 +18,13 @@ const memory = (over: Partial<InsightsMemory>): InsightsMemory =>
   }) as InsightsMemory;
 
 describe('memoryTiles', () => {
-  it('counts active, briefed, read and flagged memories, with the runs behind them', () => {
+  it('counts active, briefed and read memories, with the runs behind them', () => {
     expect(
       memoryTiles(memory({})).map((each) => [each.value, each.detail]),
     ).toEqual([
-      ['3', 'Approved by the team now'],
-      ['2', 'to 1 run'],
-      ['1', 'by 4 runs'],
-      ['0', 'Retired by people in this period'],
+      ['3', 'Approved by the team'],
+      ['2', 'In the briefs of 1 run'],
+      ['1', 'Read in 4 runs'],
       ['–', 'No benchmark yet'],
     ]);
   });
@@ -58,7 +57,8 @@ describe('the benchmark tile', () => {
     ).toMatchObject({
       label: 'Solved with memories',
       value: '80%',
-      detail: expect.stringMatching(/^65% without, 20 cases, /),
+      detail: expect.stringMatching(/^65% without them, /),
+      tooltip: expect.stringMatching(/^A benchmark of 20 cases, run on /),
     });
     expect(memoryTiles(memory({ benchmark: null })).at(-1)).toMatchObject({
       value: '–',
