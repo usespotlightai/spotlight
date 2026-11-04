@@ -7,7 +7,7 @@ import { shownStep, stillRunning } from '@/lib/journal-step';
 import { cn } from '@/lib/utils';
 
 const ROW =
-  'flex w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-xs leading-6';
+  'flex w-full items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-xs leading-6';
 
 type ExpandableStepProps = {
   step: JournalStep;
