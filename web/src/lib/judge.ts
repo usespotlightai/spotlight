@@ -154,8 +154,7 @@ const MEASURES: Record<NonNullable<JudgeCalibration['measure']>, string> = {
 export const formatMeasure = (measure: JudgeCalibration['measure']): string =>
   measure ? MEASURES[measure] : 'Agreement';
 
-const MINIMUM_NOTE =
-  'The mark on the bar is the minimum. Below it, judge scores are hidden.';
+const MINIMUM_NOTE = 'Below the minimum, judge scores are hidden.';
 
 const MEASURE_NOTES: Record<
   NonNullable<JudgeCalibration['measure']>,
@@ -182,6 +181,29 @@ const MEASURE_NOTES: Record<
       ['−1.00', 'Opposite order'],
     ],
   },
+};
+
+const KAPPA_BANDS = [
+  [0.8, 'Very strong'],
+  [0.6, 'Strong'],
+  [0.4, 'Moderate'],
+] as const;
+
+export const agreementBand = (
+  measure: JudgeCalibration['measure'],
+  agreement: number | null,
+): string | null => {
+  if (measure !== 'kappa' || agreement === null) {
+    return null;
+  }
+  if (agreement >= 1) {
+    return 'Full agreement';
+  }
+  if (agreement <= 0) {
+    return 'No better than chance';
+  }
+
+  return KAPPA_BANDS.find(([from]) => agreement >= from)?.[1] ?? 'Weak';
 };
 
 export const measureNote = (

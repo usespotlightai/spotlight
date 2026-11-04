@@ -779,7 +779,7 @@ describe('Station', () => {
 
       expect(
         document.querySelector('[data-slot="judge-calibration"]'),
-      ).toHaveTextContent('0.71Cohen’s kappa');
+      ).toHaveTextContent('0.71Strong');
       expect(screen.getByRole('link', { name: 'Agreement' })).toHaveAttribute(
         'href',
         `${INSIGHTS}?tab=stations&stationId=station_2#judge`,
@@ -795,7 +795,9 @@ describe('Station', () => {
       expect(
         document.querySelector('[data-slot="judge-calibration"]'),
       ).not.toBeInTheDocument();
-      expect(sectionTitled('Judge')).toHaveTextContent('Qualified from 0.60');
+      expect(sectionTitled('Judge')).toHaveTextContent(
+        'AgreementSorry, it couldn’t be loaded.Qualifies at0.60',
+      );
     });
 
     it('shows no alerts and no judge calibration where none are set', () => {
@@ -871,11 +873,7 @@ describe('Station', () => {
       const judge = sectionTitled('Judge');
 
       expect(judge).toHaveTextContent('Scores20% of runs');
-      expect(
-        within(judge).getByRole('img', {
-          name: 'Cohen’s kappa 0.71. Minimum required: 0.60',
-        }),
-      ).toBeInTheDocument();
+      expect(judge).toHaveTextContent('Qualifies at0.60');
     });
 
     it('shows the rubric read-only in the judge section', async () => {

@@ -69,13 +69,16 @@ export function JudgeSection({
         <Property label="Agreement">
           {failed(agreement) ? (
             <span className="text-muted-foreground">
-              Qualified from {formatStat(judge.minAgreement)}
+              Sorry, it couldn’t be loaded.
             </span>
           ) : loading(agreement) || !agreement.data ? (
             <SkeletonLine className="w-40" />
           ) : (
             <AgreementValue calibration={agreement.data.calibration} />
           )}
+        </Property>
+        <Property label="Qualifies at" slot="min-agreement">
+          <span className="tabular-nums">{formatStat(judge.minAgreement)}</span>
         </Property>
       </PropertyList>
 

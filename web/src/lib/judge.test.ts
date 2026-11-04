@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  agreementBand,
   comparisonStats,
   formatCalibration,
   formatScore,
@@ -172,5 +173,22 @@ describe('comparisonStats', () => {
     expect(comparisonStats(version('yes-no'))[0]?.tooltip).toMatch(
       /^How often/,
     );
+  });
+});
+
+describe('agreementBand', () => {
+  it('names the band of a kappa, as the measure’s note does', () => {
+    expect(agreementBand('kappa', 1)).toBe('Full agreement');
+    expect(agreementBand('kappa', 0.85)).toBe('Very strong');
+    expect(agreementBand('kappa', 0.71)).toBe('Strong');
+    expect(agreementBand('kappa', 0.6)).toBe('Strong');
+    expect(agreementBand('kappa', 0.45)).toBe('Moderate');
+    expect(agreementBand('kappa', 0.2)).toBe('Weak');
+    expect(agreementBand('kappa', -0.1)).toBe('No better than chance');
+  });
+
+  it('names no band for a measure without bands', () => {
+    expect(agreementBand('spearman', 0.7)).toBeNull();
+    expect(agreementBand(null, 0.7)).toBeNull();
   });
 });
