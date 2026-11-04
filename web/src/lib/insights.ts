@@ -395,6 +395,7 @@ export type HeadlineTile = {
   readonly label: string;
   readonly value: string;
   readonly detail?: string;
+  readonly tooltip?: string;
   readonly delta: ShownDelta | null;
   readonly drill: TileDrill;
 };
@@ -439,7 +440,7 @@ export const headlineTiles = (
     id: 'task-to-merge',
     label: 'Task to merge',
     value: formatDurationOrNone(now.taskToMerge.p50Ms),
-    detail:
+    tooltip:
       now.taskToMerge.p90Ms === null
         ? undefined
         : `Slowest 10%: ${formatDuration(now.taskToMerge.p90Ms)}`,
@@ -1054,7 +1055,7 @@ export const tallyTiles = (
     id: 'median',
     label: 'Median run',
     value: formatDurationOrNone(now.medianMs),
-    detail:
+    tooltip:
       now.p90Ms === null
         ? undefined
         : `Slowest 10%: ${formatDuration(now.p90Ms)}`,
@@ -1138,15 +1139,19 @@ export const COST_SANKEY_NOTE =
 
 export const PEOPLE_HEADINGS: readonly NestedHeading[] = [
   { label: 'Person', indent: 'edge', size: 'minmax(10rem,2fr)' },
+  {
+    label: 'Actions',
+    numeric: true,
+    size: SPREAD,
+    tooltip: 'Moves, answers, approvals, dismissals and sends-back',
+  },
   { label: 'Tasks opened', numeric: true, size: SPREAD },
-  { label: 'Actions', numeric: true, size: SPREAD },
   { label: 'Chats', numeric: true, size: SPREAD },
-  { label: 'First seen', numeric: true, size: SPREAD },
   { label: 'Last active', numeric: true, size: SPREAD },
 ];
 
 export const ADOPTION_NOTE =
-  'Weekly and monthly always count the last 7 and 30 days.';
+  'People who acted in this period. The last 7 and 30 days count the same way, whatever the period.';
 
 export const TRUNCATED_TRACES =
   'Only the newest runs show. Narrow the list or pick a shorter period to see the rest.';

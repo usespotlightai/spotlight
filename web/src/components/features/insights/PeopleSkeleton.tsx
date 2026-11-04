@@ -1,26 +1,18 @@
-import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
+import {
+  OVERVIEW_LAYOUT,
+  TILE_ROW,
+} from '@/components/features/insights/overview-layout';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
-import { ADOPTION_NOTE, PEOPLE_HEADINGS } from '@/lib/insights';
+import { PEOPLE_HEADINGS } from '@/lib/insights';
 import type { TileBones } from '@/lib/insights-tiles';
 
 const LOAD: readonly TileBones[] = [
-  { label: 'Inbox asks per task', delta: true, detail: true },
+  { label: 'Asks per task', delta: true, detail: true },
   { label: 'Time to answer', delta: true, detail: true },
   { label: 'Sent-back rate', delta: true, detail: true },
-  {
-    label: 'Refused approvals',
-    delta: true,
-    detail: 'Tool approvals and permissions',
-  },
-];
-
-const ADOPTION: readonly TileBones[] = [
-  { label: 'Active people', delta: true },
-  { label: 'New adopters' },
-  { label: 'Weekly active' },
-  { label: 'Monthly active', detail: true },
+  { label: 'Dismissed', delta: true },
 ];
 
 export function PeopleSkeleton() {
@@ -28,23 +20,23 @@ export function PeopleSkeleton() {
     <div
       role="status"
       aria-label="Loading the people"
-      className="flex flex-col gap-3"
+      className={OVERVIEW_LAYOUT}
     >
-      <InsightsSection title="What the work asks of people">
-        <InsightsTilesSkeleton label="Human load" tiles={LOAD} />
+      <InsightsSection collapsible={false} title="What the work asks of people">
+        <InsightsTilesSkeleton
+          label="Human load"
+          tiles={LOAD}
+          className={TILE_ROW}
+        />
       </InsightsSection>
 
-      <InsightsSection title="Who is using Spotlight" tooltip={ADOPTION_NOTE}>
-        <InsightsTilesSkeleton label="Adoption" tiles={ADOPTION} />
-      </InsightsSection>
-
-      <InsightsCardSkeleton title="What each person did" tableOnly>
+      <InsightsSection collapsible={false} title="Who is using Spotlight">
         <NestedTableSkeleton
           label="Loading what each person did"
           headings={PEOPLE_HEADINGS}
-          rowClassName="py-2"
+          compact
         />
-      </InsightsCardSkeleton>
+      </InsightsSection>
     </div>
   );
 }

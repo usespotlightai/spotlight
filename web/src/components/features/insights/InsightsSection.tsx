@@ -1,21 +1,52 @@
 import { ChevronDown } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
+import type { TooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 type InsightsSectionProps = {
   title: string;
-  tooltip?: string;
+  tooltip?: TooltipText;
+  aside?: ReactNode;
+  collapsible?: boolean;
   children: ReactNode;
 };
 
 export function InsightsSection({
   title,
   tooltip,
+  aside,
+  collapsible = true,
   children,
 }: InsightsSectionProps) {
   const [open, setOpen] = useState(true);
   const contentId = useId();
+
+  if (!collapsible) {
+    return (
+      <section
+        data-slot="insights-section"
+        aria-labelledby={contentId}
+        className="flex flex-col gap-3"
+      >
+        <span className="flex min-h-7 items-center gap-1.5">
+          <h2
+            id={contentId}
+            className="whitespace-nowrap font-medium text-foreground text-sm"
+          >
+            {title}
+          </h2>
+          {aside && (
+            <span className="text-muted-foreground text-sm tabular-nums">
+              {aside}
+            </span>
+          )}
+          {tooltip && <InfoTooltip tooltip={tooltip} />}
+        </span>
+        {children}
+      </section>
+    );
+  }
 
   return (
     <section data-slot="insights-section" className="flex flex-col gap-2">

@@ -63,6 +63,7 @@ export function StationsTab({ slug, teamId, period, names }: StationsTabProps) {
               label={tile.label}
               value={tile.value}
               detail={tile.detail}
+              tooltip={tile.tooltip}
               delta={tile.delta}
               drill={tile.drill}
               trend={tile.trend}

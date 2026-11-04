@@ -64,6 +64,7 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
             label={tile.label}
             value={tile.value}
             detail={tile.detail}
+            tooltip={tile.tooltip}
             delta={tile.delta}
             drill={tile.drill}
             trend={trends[tile.id]}

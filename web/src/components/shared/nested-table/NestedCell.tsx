@@ -17,7 +17,7 @@ export function NestedCell({
   return (
     <span
       className={cn(
-        'flex min-w-0 flex-col tabular-nums @4xl:block @lg:group-data-compact/nested:block',
+        'flex min-w-0 flex-col pl-2 tabular-nums @4xl:block @4xl:pl-0 @lg:group-data-compact/nested:pl-0 @lg:group-data-compact/nested:block',
         numeric && '@4xl:text-right @lg:group-data-compact/nested:text-right',
         strong ? 'font-medium text-foreground' : 'text-muted-foreground',
       )}

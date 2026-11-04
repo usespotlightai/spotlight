@@ -1,9 +1,12 @@
-import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
+import {
+  OVERVIEW_LAYOUT,
+  TILE_ROW,
+} from '@/components/features/insights/overview-layout';
 import { PeopleSkeleton } from '@/components/features/insights/PeopleSkeleton';
 import { PeopleTable } from '@/components/features/insights/PeopleTable';
 import { useInsightsPeople } from '@/hooks/api/useInsightsPeople';
@@ -14,11 +17,27 @@ import {
   formatDurationOrNone,
   formatPer,
   formatShare,
+  type InsightsPeople,
   type InsightsPeriod,
   shownDeltaOf,
   tasksFilter,
 } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
+import type { TooltipNote } from '@/lib/tooltip-note';
+
+const adoptionNote = (adoption: InsightsPeople['adoption']): TooltipNote => ({
+  body: ADOPTION_NOTE,
+  rows: [
+    [
+      'Against the period before',
+      shownDeltaOf(adoption.activeChange)?.shown ?? 'Not known',
+    ],
+    ['Last 7 days', formatCount(adoption.weeklyCount)],
+    ['Last 30 days', formatCount(adoption.monthlyCount)],
+    ['Weekly of monthly', formatShare(adoption.stickiness)],
+    ['New this period', formatCount(adoption.newAdopterCount)],
+  ],
+});
 
 type PeopleTabProps = {
   slug: string;
@@ -50,76 +69,54 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <InsightsSection
-        title="What the work asks of people"
-        tooltip={`Tasks worked this period: ${formatCount(load.tasks)}`}
-      >
-        <InsightsTiles label="Human load">
+    <div className={OVERVIEW_LAYOUT}>
+      <InsightsSection collapsible={false} title="What the work asks of people">
+        <InsightsTiles label="Human load" className={TILE_ROW}>
           <InsightsTile
-            label="Inbox asks per task"
+            label="Asks per task"
             value={formatPer(load.asksPerTask)}
-            detail={`${formatCount(load.asks)} asks`}
+            detail={`Over ${formatCount(load.tasks)} ${load.tasks === 1 ? 'task' : 'tasks'}`}
+            tooltip={`${formatCount(load.asks)} asks in all`}
             delta={shownDeltaOf(loadChanges.asksPerTask)}
             drill={{ tab: 'traces', filter: { asked: 'true' } }}
           />
           <InsightsTile
             label="Time to answer"
             value={formatDurationOrNone(load.toAnswer.p50Ms)}
-            detail={[
-              ...(load.toAnswer.p90Ms === null
-                ? []
-                : [`p90 ${formatDuration(load.toAnswer.p90Ms)}`]),
-              `${formatCount(load.unanswered)} unanswered`,
-            ].join(' · ')}
+            detail={`${formatCount(load.unanswered)} unanswered`}
+            tooltip={
+              load.toAnswer.p90Ms === null
+                ? undefined
+                : `Slowest 10%: ${formatDuration(load.toAnswer.p90Ms)}`
+            }
             delta={shownDeltaOf(loadChanges.toAnswer)}
             drill={{ tab: 'traces', filter: { asked: 'true' } }}
           />
           <InsightsTile
             label="Sent-back rate"
             value={formatShare(load.sentBackRate)}
-            detail={`${formatCount(load.sentBack)} runs sent back`}
+            detail={`${formatCount(load.sentBack)} runs`}
             delta={shownDeltaOf(loadChanges.sentBackRate)}
             drill={{ tab: 'traces', filter: { humanAction: 'sent-back' } }}
           />
           <InsightsTile
-            label="Dismissed approvals"
+            label="Dismissed"
             value={formatCount(load.dismissed)}
-            detail="Tool approvals and permissions"
+            tooltip="Tool approvals and permissions that people dismissed"
             delta={shownDeltaOf(loadChanges.dismissed)}
             drill={dismissed ? { tab: 'traces', filter: dismissed } : undefined}
           />
         </InsightsTiles>
       </InsightsSection>
 
-      <InsightsSection title="Who is using Spotlight" tooltip={ADOPTION_NOTE}>
-        <InsightsTiles label="Adoption">
-          <InsightsTile
-            label="Active people"
-            value={formatCount(adoption.activeCount)}
-            delta={shownDeltaOf(adoption.activeChange)}
-          />
-          <InsightsTile
-            label="New adopters"
-            value={formatCount(adoption.newAdopterCount)}
-          />
-          <InsightsTile
-            label="Weekly active"
-            value={formatCount(adoption.weeklyCount)}
-          />
-          <InsightsTile
-            label="Monthly active"
-            value={formatCount(adoption.monthlyCount)}
-            detail={`${formatShare(adoption.stickiness)} of them weekly`}
-          />
-        </InsightsTiles>
+      <InsightsSection
+        collapsible={false}
+        title="Who is using Spotlight"
+        aside={`${formatCount(adoption.activeCount)} active`}
+        tooltip={adoptionNote(adoption)}
+      >
+        {adoption.people.length > 0 && <PeopleTable people={adoption.people} />}
       </InsightsSection>
-
-      {adoption.people.length > 0 && (
-        <InsightsCard scrolls title="What each person did" tableOnly>
-          <PeopleTable people={adoption.people} />
-        </InsightsCard>
-      )}
     </div>
   );
 }
