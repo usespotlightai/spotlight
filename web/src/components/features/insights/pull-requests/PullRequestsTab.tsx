@@ -1,4 +1,5 @@
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
+import { PAIR_GRID } from '@/components/features/insights/overview-layout';
 import { NoPullRequests } from '@/components/features/insights/pull-requests/NoPullRequests';
 import { PullRequestList } from '@/components/features/insights/pull-requests/PullRequestList';
 import { PullRequestsSkeleton } from '@/components/features/insights/pull-requests/PullRequestsSkeleton';
@@ -54,9 +55,10 @@ export function PullRequestsTab({
 
       <SpotlightAgainstPeople comparison={comparison} />
 
-      <PullRequestTypes types={types} />
-
-      <ReviewDepth depth={depth} repositories={comparison.repositories} />
+      <div className={PAIR_GRID}>
+        <PullRequestTypes types={types} />
+        <ReviewDepth depth={depth} repositories={comparison.repositories} />
+      </div>
 
       <PullRequestList
         slug={slug}

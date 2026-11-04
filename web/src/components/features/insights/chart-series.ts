@@ -32,13 +32,6 @@ export const ROUND_FILLS: Record<Rounds, string> = {
   '3+': shade(100),
 };
 
-export const THROUGHPUT = 'var(--chart-5)';
-
-export const TYPE_SERIES = [
-  { label: 'Spotlight', color: 'var(--chart-primary)' },
-  { label: 'People', color: 'var(--chart-1)' },
-] as const;
-
 const SLICE_FILLS = [
   'var(--chart-primary)',
   'var(--chart-4)',

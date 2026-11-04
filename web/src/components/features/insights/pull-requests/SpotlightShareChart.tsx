@@ -1,58 +1,18 @@
-import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import { SPOTLIGHT_SHARE_SERIES } from '@/components/features/insights/chart-series';
-import { ChartTip } from '@/components/shared/chart/ChartTip';
-import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
+import { StackedRows } from '@/components/features/insights/StackedRows';
 import { formatShare } from '@/lib/insights';
 import type { WeekShare } from '@/lib/insights-pull-requests';
 import { formatDay } from '@/lib/judge';
-
-export const SPOTLIGHT_SHARE_CHART_HEIGHT = 180;
-
-const TipContent = ({
-  placement,
-  active,
-  payload,
-}: {
-  placement: TipPlacement;
-  active?: boolean;
-  payload?: { payload: WeekShare }[];
-}) => {
-  const bar = payload?.[0]?.payload;
-
-  if (!active || !bar) {
-    return null;
-  }
-
-  return (
-    <ChartTip placement={placement}>
-      <p className="text-muted-foreground">Week of {formatDay(bar.week)}</p>
-      {SPOTLIGHT_SHARE_SERIES.map((series) => (
-        <p key={series.key} className="text-foreground">
-          {bar[series.key]} {series.label.toLowerCase()}
-        </p>
-      ))}
-      <p className="text-muted-foreground">
-        Spotlight’s share {formatShare(bar.rate)}
-      </p>
-    </ChartTip>
-  );
-};
 
 export function SpotlightShareChart({
   weeks,
 }: {
   weeks: readonly WeekShare[];
 }) {
-  const cursor = useCursorTooltip();
+  const most = Math.max(1, ...weeks.map((week) => week.merged));
+
   return (
-    <figure data-slot="spotlightShare-chart" className="flex flex-col gap-1">
+    <figure data-slot="spotlightShare-chart" className="flex flex-col gap-2">
       <figcaption className="flex flex-wrap items-center gap-3 text-muted-foreground text-xs">
         {SPOTLIGHT_SHARE_SERIES.map((series) => (
           <span key={series.key} className="flex items-center gap-1">
@@ -66,44 +26,35 @@ export function SpotlightShareChart({
         ))}
       </figcaption>
 
-      <div className="[&_*:focus:not(:focus-visible)]:outline-none">
-        <div {...cursor.area}>
-          <ResponsiveContainer
-            width="100%"
-            height={SPOTLIGHT_SHARE_CHART_HEIGHT}
-          >
-            <BarChart
-              data={[...weeks]}
-              margin={{ top: 8, right: 8, bottom: 0, left: 8 }}
-            >
-              <XAxis
-                dataKey="week"
-                tickLine={false}
-                axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
-                tickFormatter={formatDay}
-                minTickGap={24}
-              />
-              <YAxis hide allowDecimals={false} />
-              <Tooltip
-                {...cursor.tooltip}
-                content={<TipContent placement={cursor.placement} />}
-                cursor={{ fill: 'var(--accent)' }}
-              />
-              {SPOTLIGHT_SHARE_SERIES.map((series) => (
-                <Bar
-                  key={series.key}
-                  dataKey={series.key}
-                  name={series.label}
-                  stackId="merged"
-                  fill={series.fill}
-                  isAnimationActive={false}
-                />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <StackedRows
+        label="Pull requests merged each week, by who made them"
+        rows={weeks.map((week) => ({
+          key: week.week,
+          label: formatDay(week.week),
+          segments: SPOTLIGHT_SHARE_SERIES.map((series) => ({
+            key: series.key,
+            value: week[series.key],
+            color: series.fill,
+          })),
+          length: week.merged / most,
+          figure: (
+            <>
+              <span className="text-foreground">{week.merged}</span>{' '}
+              <span className="text-muted-foreground">merged</span>
+            </>
+          ),
+          tooltip: {
+            title: `Week of ${formatDay(week.week)}`,
+            rows: [
+              ...SPOTLIGHT_SHARE_SERIES.map((series): [string, string] => [
+                series.label,
+                `${week[series.key]}`,
+              ]),
+              ['Spotlight’s share', formatShare(week.rate)],
+            ],
+          },
+        }))}
+      />
     </figure>
   );
 }

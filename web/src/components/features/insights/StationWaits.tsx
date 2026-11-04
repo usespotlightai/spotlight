@@ -20,7 +20,7 @@ import {
   waitRows,
 } from '@/lib/insights';
 
-export const WAIT_ROW_HEIGHT = 32;
+export const WAIT_ROW_HEIGHT = 28;
 
 const TipContent = ({
   placement,
@@ -102,6 +102,7 @@ export function StationWaits({
               <BarChart
                 data={rows}
                 layout="vertical"
+                barSize={12}
                 margin={{ top: 8, right: 8, bottom: 8, left: 8 }}
               >
                 <XAxis type="number" hide />

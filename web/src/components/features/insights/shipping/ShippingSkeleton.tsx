@@ -2,11 +2,11 @@ import { Play } from 'lucide-react';
 import {
   AUTHOR_SERIES,
   ROUND_FILLS,
-  THROUGHPUT,
 } from '@/components/features/insights/chart-series';
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { InsightsTableSkeleton } from '@/components/features/insights/InsightsTableSkeleton';
+import { StackedRowsSkeleton } from '@/components/features/insights/StackedRowsSkeleton';
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { DayChartSkeleton } from '@/components/features/insights/shipping/DayChartSkeleton';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
@@ -54,7 +54,6 @@ const DEPTH_LEGEND = [
     label: formatRounds(rounds),
     color: ROUND_FILLS[rounds],
   })),
-  { label: 'Merged that week, right axis', color: THROUGHPUT },
 ];
 
 export function ShippingSkeleton() {
@@ -158,35 +157,10 @@ export function ShippingSkeleton() {
             title="Review depth by week"
             description={DEPTH_OVER_TIME_NOTE}
           >
-            <div className="grid gap-x-8 gap-y-6 md:grid-cols-[1fr_14rem]">
-              <figure className="flex flex-col gap-2">
-                <ChartSkeleton height={200} />
-                <ChartLegend entries={DEPTH_LEGEND} />
-              </figure>
-              <dl className="flex flex-col justify-center gap-0.5 text-xs">
-                {ROUNDS.map((rounds) => (
-                  <div
-                    key={rounds}
-                    className="flex items-center gap-2 border-border border-t px-2 py-1.5 first:border-t-0"
-                  >
-                    <span
-                      aria-hidden
-                      className="size-2 shrink-0 rounded-sm"
-                      style={{ background: ROUND_FILLS[rounds] }}
-                    />
-                    <dt className="flex-1 text-foreground">
-                      {formatRounds(rounds)}
-                    </dt>
-                    <dd>
-                      <SkeletonLine className="w-6" />
-                    </dd>
-                    <dd className="w-10">
-                      <SkeletonLine className="ml-auto w-8" />
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
+            <figure className="flex flex-col gap-2">
+              <ChartLegend entries={DEPTH_LEGEND} />
+              <StackedRowsSkeleton rows={5} />
+            </figure>
           </InsightsCardSkeleton>
         </div>
       </InsightsSection>
