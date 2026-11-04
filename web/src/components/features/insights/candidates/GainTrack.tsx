@@ -44,7 +44,7 @@ export function GainTrack({ gain }: { gain: GainEstimate | null }) {
             style={{ left: at(gain.minGain, extent) }}
           />
           <span
-            className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full opacity-40"
+            className="absolute top-1/2 h-0.5 -translate-y-1/2 rounded-full opacity-40 dark:opacity-90"
             style={{
               left: at(gain.low, extent),
               right: `calc(100% - ${at(gain.high, extent)})`,

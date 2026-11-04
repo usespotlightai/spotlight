@@ -54,7 +54,7 @@ export function DailyRunBars({ trend }: { trend: readonly TrendPoint[] }) {
               y={HEIGHT - runs}
               width={bar}
               height={runs - failed}
-              fill="color-mix(in oklab, var(--chart-primary) 55%, transparent)"
+              fill="var(--chart-bar-mini)"
             />
             {failed > 0 && (
               <rect

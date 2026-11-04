@@ -64,8 +64,8 @@ export function SkillWeeksChart({ weeks, max, onWeek }: SkillWeeksChartProps) {
                     share === 0
                       ? 'bg-border'
                       : week.partial
-                        ? 'border border-chart-primary/60 group-hover/week:border-chart-primary'
-                        : 'bg-chart-primary/60 transition-colors group-hover/week:bg-chart-primary',
+                        ? 'border border-chart-primary/60 group-hover/week:border-chart-primary dark:border-chart-bar-mini dark:group-hover/week:border-chart-primary'
+                        : 'bg-chart-primary/60 transition-colors group-hover/week:bg-chart-primary dark:bg-chart-bar-mini dark:group-hover/week:bg-chart-primary',
                   )}
                   style={{ height: tall }}
                 />

@@ -36,7 +36,7 @@ export function MenuPicker({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={label}
-        className="flex h-7 items-center gap-2 rounded-md border border-border px-2 text-sm outline-none transition-colors hover:bg-accent data-[popup-open]:bg-accent"
+        className="flex h-7 items-center gap-2 rounded-md border border-border px-2 text-sm outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-accent"
       >
         {selected.short && <span className={BADGE}>{selected.short}</span>}
         <span

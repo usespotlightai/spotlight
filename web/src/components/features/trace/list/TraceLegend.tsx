@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 
 const LEGEND = [
-  { name: 'Traces', swatch: 'bg-chart-primary/55' },
+  { name: 'Traces', swatch: 'bg-chart-bar-mini' },
   { name: 'Errors', swatch: 'bg-outcome-failed' },
 ] as const;
 
