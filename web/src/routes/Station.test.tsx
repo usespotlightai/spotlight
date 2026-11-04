@@ -557,16 +557,17 @@ describe('Station', () => {
     it('sums up the latest runs on the live config, with the period to pick', () => {
       renderAt('station_2');
 
-      expect(
-        [...document.querySelectorAll('[data-slot="insights-tile"]')]
-          .slice(0, 4)
-          .map((stat) => stat.textContent),
-      ).toEqual([
-        'Runs42',
-        'Failed12% of runs',
-        'Accepted2867% of runs',
-        'Sent back37% of runs',
-      ]);
+      const tiles = [
+        ...document.querySelectorAll('[data-slot="insights-tile"]'),
+      ].map((stat) => stat.textContent);
+
+      expect(tiles).toHaveLength(4);
+      expect(tiles[0]).toBe('Runs42');
+      expect(tiles[1]).toMatch(
+        /^Outcomes67% accepted7% ?sent back2% ?failed$/,
+      );
+      expect(tiles[2]).toMatch(/^Cost/);
+      expect(tiles[3]).toMatch(/^Median run/);
       expect(
         screen.getByRole('button', { name: 'Time range' }),
       ).toHaveTextContent('Live config');

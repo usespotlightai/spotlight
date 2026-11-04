@@ -1,8 +1,8 @@
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
-import { SEVEN_TILES } from '@/components/features/insights/overview-layout';
 import { TileSparkline } from '@/components/features/insights/TileSparkline';
+import { OutcomesTile } from '@/components/features/stations/activity/OutcomesTile';
 import { RunStrip } from '@/components/features/stations/activity/RunStrip';
 import { SummarySkeleton } from '@/components/features/stations/activity/SummarySkeleton';
 import { TabSection } from '@/components/features/stations/TabSection';
@@ -12,20 +12,23 @@ import { useInsightsStations } from '@/hooks/api/useInsightsStations';
 import { useStationInsights } from '@/hooks/api/useStationInsights';
 import {
   type InsightsPeriod,
+  shownDeltaOf,
   stationReportOf,
   tallyTiles,
   trendOf,
 } from '@/lib/insights';
-import { formatPercent } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 import { type ActivityPeriod, LIVE_CONFIG } from '@/lib/station';
 import {
   liveRuns,
+  OUTCOMES_TITLE,
   SUMMARY_COLUMNS,
   SUMMARY_TITLE,
   type SummaryColumn,
   summaryTitleOf,
 } from '@/lib/station-insights';
+
+const PERIOD_TILES = new Set(['runs', 'cost', 'median']);
 
 const trendable = (values: readonly (number | null)[]): boolean =>
   new Set(values.filter((value) => value !== null)).size > 1;
@@ -93,20 +96,18 @@ function LiveSummary({ teamId, lineId, stationId }: SummaryProps) {
   return (
     <TabSection title={SUMMARY_TITLE}>
       <div data-slot="station-summary">
-        <InsightsTiles label={SUMMARY_TITLE} className={SEVEN_TILES}>
-          {SUMMARY_COLUMNS.map((column) => (
+        <InsightsTiles label={SUMMARY_TITLE}>
+          {SUMMARY_COLUMNS.flatMap((column) => [
             <InsightsTile
               key={column.label}
               label={column.label}
               value={column.render(tally)}
-              detail={
-                column.counted && tally.runs > 0
-                  ? `${formatPercent(tally[column.counted] / tally.runs)} of runs`
-                  : undefined
-              }
               visual={visualOf(column)}
-            />
-          ))}
+            />,
+            ...(column.label === 'Runs'
+              ? [<OutcomesTile key={OUTCOMES_TITLE} tally={tally} />]
+              : []),
+          ])}
         </InsightsTiles>
       </div>
     </TabSection>
@@ -139,25 +140,41 @@ function PeriodSummary({
         </EmptyFrame>
       ) : report ? (
         <div data-slot="station-summary">
-          <InsightsTiles label={title} className={SEVEN_TILES}>
+          <InsightsTiles label={title}>
             {tallyTiles(
               report.tally,
               report.seen,
               report.changes,
               trendOf(report.trend),
               { stationId },
-            ).map((tile) => (
-              <InsightsTile
-                key={tile.id}
-                label={tile.label}
-                value={tile.value}
-                detail={tile.detail}
-                tooltip={tile.tooltip}
-                delta={tile.delta}
-                drill={tile.drill}
-                trend={tile.trend}
-              />
-            ))}
+            )
+              .filter((tile) => PERIOD_TILES.has(tile.id))
+              .flatMap((tile) => [
+                <InsightsTile
+                  key={tile.id}
+                  label={tile.label}
+                  value={tile.value}
+                  detail={tile.detail}
+                  tooltip={tile.tooltip}
+                  delta={tile.delta}
+                  drill={tile.drill}
+                  trend={tile.trend}
+                />,
+                ...(tile.id === 'runs'
+                  ? [
+                      <OutcomesTile
+                        key={OUTCOMES_TITLE}
+                        tally={report.tally}
+                        changes={{
+                          accepted: shownDeltaOf(report.changes.accepted),
+                          sentBack: shownDeltaOf(report.changes.sentBack),
+                          failed: shownDeltaOf(report.changes.failed),
+                          merged: shownDeltaOf(report.changes.merged),
+                        }}
+                      />,
+                    ]
+                  : []),
+              ])}
           </InsightsTiles>
         </div>
       ) : (

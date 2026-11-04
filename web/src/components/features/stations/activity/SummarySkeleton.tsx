@@ -1,15 +1,19 @@
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
-import { SEVEN_TILES } from '@/components/features/insights/overview-layout';
 import { TabSection } from '@/components/features/stations/TabSection';
-import { TALLY_TILES } from '@/lib/insights-tiles';
+import type { TileBones } from '@/lib/insights-tiles';
 import { type ActivityPeriod, LIVE_CONFIG } from '@/lib/station';
-import { SUMMARY_COLUMNS, summaryTitleOf } from '@/lib/station-insights';
+import { OUTCOMES_TITLE, summaryTitleOf } from '@/lib/station-insights';
 
-const LIVE_TILES = SUMMARY_COLUMNS.map((column) => ({
-  label: column.label,
-  detail: Boolean(column.counted),
-  trend: column.visual !== 'none',
-}));
+const tilesOf = (period: ActivityPeriod): readonly TileBones[] => {
+  const changed = period !== LIVE_CONFIG;
+
+  return [
+    { label: 'Runs', delta: changed, trend: true },
+    { label: OUTCOMES_TITLE, trend: true },
+    { label: 'Cost', delta: changed, trend: !changed },
+    { label: 'Median run', delta: changed, trend: !changed },
+  ];
+};
 
 type SummarySkeletonProps = {
   period: ActivityPeriod;
@@ -20,11 +24,7 @@ export function SummarySkeleton({ period }: SummarySkeletonProps) {
 
   return (
     <TabSection title={title}>
-      <InsightsTilesSkeleton
-        label={title}
-        className={SEVEN_TILES}
-        tiles={period === LIVE_CONFIG ? LIVE_TILES : TALLY_TILES}
-      />
+      <InsightsTilesSkeleton label={title} tiles={tilesOf(period)} />
     </TabSection>
   );
 }

@@ -166,13 +166,66 @@ const summarized = (label: string, visual: SummaryVisual): SummaryColumn => ({
 
 export const SUMMARY_COLUMNS: readonly SummaryColumn[] = [
   summarized('Runs', 'strip'),
-  summarized('Failed', 'none'),
-  summarized('Accepted', 'none'),
-  summarized('Sent back', 'none'),
-  summarized('Merged', 'none'),
   summarized('Cost', 'cost'),
   { ...summarized('Median', 'duration'), label: 'Median run' },
 ];
+
+export const OUTCOMES_TITLE = 'Outcomes';
+
+export type OutcomePart = {
+  readonly key: 'accepted' | 'sentBack' | 'failed' | 'other';
+  readonly label: string;
+  readonly tone: OutcomeTone;
+  readonly count: number;
+  readonly share: number | null;
+};
+
+type OutcomeTally = Pick<
+  StationTally,
+  'runs' | 'accepted' | 'sentBack' | 'failed' | 'merged'
+>;
+
+export const OTHER_OUTCOME_NOTE =
+  'Other: no answer yet, or the run stopped or was cancelled.';
+
+export const outcomePartsOf = (tally: OutcomeTally): OutcomePart[] => {
+  const share = (count: number) => (tally.runs > 0 ? count / tally.runs : null);
+  const other = Math.max(
+    0,
+    tally.runs - tally.accepted - tally.sentBack - tally.failed,
+  );
+
+  return [
+    {
+      key: 'accepted',
+      label: 'Accepted',
+      tone: 'done',
+      count: tally.accepted,
+      share: share(tally.accepted),
+    },
+    {
+      key: 'sentBack',
+      label: 'Sent back',
+      tone: 'sentBack',
+      count: tally.sentBack,
+      share: share(tally.sentBack),
+    },
+    {
+      key: 'failed',
+      label: 'Failed',
+      tone: 'failed',
+      count: tally.failed,
+      share: share(tally.failed),
+    },
+    {
+      key: 'other',
+      label: 'Other',
+      tone: 'quiet',
+      count: other,
+      share: share(other),
+    },
+  ];
+};
 
 const newestLive = (
   groups: readonly FingerprintGroup[],
