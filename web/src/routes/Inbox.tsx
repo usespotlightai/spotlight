@@ -4,6 +4,7 @@ import { InboxDragOverlay } from '@/components/features/inbox/InboxDragOverlay';
 import { InboxDropZone } from '@/components/features/inbox/InboxDropZone';
 import { InboxListSkeleton } from '@/components/features/inbox/InboxListSkeleton';
 import { InboxSection } from '@/components/features/inbox/InboxSection';
+import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { DISCLOSURE_MS } from '@/components/shell/layout/Disclosure';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
@@ -65,73 +66,77 @@ export function Inbox() {
 
   return (
     <TrailContext value={[{ label: 'Inbox', to: inboxPath(slug) }]}>
-      <div
-        className={cn(
-          'flex min-h-0 flex-1',
-          listResizing && 'cursor-col-resize select-none',
-        )}
-      >
+      <FileDropZone className="flex min-h-0 flex-1 flex-col rounded-lg">
         <div
-          ref={listRef}
-          style={{ width: listWidth }}
-          className="relative flex shrink-0 flex-col border-r-[0.5px] border-border"
+          className={cn(
+            'flex min-h-0 flex-1',
+            listResizing && 'cursor-col-resize select-none',
+          )}
         >
-          <PageHeader title={<Breadcrumbs segments={[{ label: 'Inbox' }]} />} />
+          <div
+            ref={listRef}
+            style={{ width: listWidth }}
+            className="relative flex shrink-0 flex-col border-r-[0.5px] border-border"
+          >
+            <PageHeader
+              title={<Breadcrumbs segments={[{ label: 'Inbox' }]} />}
+            />
 
-          <DndContext sensors={drag.sensors} {...drag.handlers}>
-            <ScrollArea
-              className="min-h-0 flex-1"
-              scrollbar={animating.on ? 'hidden' : 'while-scrolling'}
-              contentClassName="min-h-full flex flex-col gap-0.5 p-2"
-            >
-              {loading(inbox) && (
-                <InboxListSkeleton
-                  open={section(OPEN)}
-                  running={section(RUNNING)}
-                  resolved={section(RESOLVED)}
-                />
-              )}
-
-              {inbox.data && (
-                <InboxDropZone id={OPEN_DROP}>
-                  <InboxSection
-                    slug={slug}
-                    label="Open"
-                    entries={waiting}
-                    {...section(OPEN)}
+            <DndContext sensors={drag.sensors} {...drag.handlers}>
+              <ScrollArea
+                className="min-h-0 flex-1"
+                scrollbar={animating.on ? 'hidden' : 'while-scrolling'}
+                contentClassName="min-h-full flex flex-col gap-0.5 p-2"
+              >
+                {loading(inbox) && (
+                  <InboxListSkeleton
+                    open={section(OPEN)}
+                    running={section(RUNNING)}
+                    resolved={section(RESOLVED)}
                   />
-                </InboxDropZone>
-              )}
+                )}
 
-              {inbox.data && (
-                <div className="mt-auto pt-4">
-                  <InboxSection
-                    slug={slug}
-                    label="Running"
-                    entries={working}
-                    {...section(RUNNING)}
-                  />
-
-                  <InboxDropZone id={RESOLVED_DROP}>
+                {inbox.data && (
+                  <InboxDropZone id={OPEN_DROP}>
                     <InboxSection
                       slug={slug}
-                      label="Resolved"
-                      entries={done}
-                      {...section(RESOLVED)}
+                      label="Open"
+                      entries={waiting}
+                      {...section(OPEN)}
                     />
                   </InboxDropZone>
-                </div>
-              )}
-            </ScrollArea>
+                )}
 
-            <InboxDragOverlay slug={slug} entry={drag.dragged} />
-          </DndContext>
+                {inbox.data && (
+                  <div className="mt-auto pt-4">
+                    <InboxSection
+                      slug={slug}
+                      label="Running"
+                      entries={working}
+                      {...section(RUNNING)}
+                    />
 
-          <PaneHandle {...listHandle} edge="right" resizing={listResizing} />
+                    <InboxDropZone id={RESOLVED_DROP}>
+                      <InboxSection
+                        slug={slug}
+                        label="Resolved"
+                        entries={done}
+                        {...section(RESOLVED)}
+                      />
+                    </InboxDropZone>
+                  </div>
+                )}
+              </ScrollArea>
+
+              <InboxDragOverlay slug={slug} entry={drag.dragged} />
+            </DndContext>
+
+            <PaneHandle {...listHandle} edge="right" resizing={listResizing} />
+          </div>
+
+          <PageOutlet what="The message" centered />
         </div>
-
-        <PageOutlet what="The message" centered />
-      </div>
+      </FileDropZone>
     </TrailContext>
   );
 }
