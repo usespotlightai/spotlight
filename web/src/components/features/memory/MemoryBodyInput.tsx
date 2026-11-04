@@ -33,7 +33,7 @@ export function MemoryBodyInput({
       placeholder="What the team should remember"
       aria-label="What the team should remember"
       maxLength={MAX_MEMORY_BODY}
-      className="-mx-1.5 -my-0.5 min-w-0 rounded-md bg-card px-1.5 py-0.5 text-foreground text-sm leading-5 outline-none ring-1 ring-border placeholder:text-muted-foreground focus-visible:ring-ring/50"
+      className="-mx-1.5 -my-1 min-w-0 rounded-md bg-card px-1.5 py-1 text-foreground text-sm leading-5 outline-none ring-1 ring-border placeholder:text-muted-foreground focus-visible:ring-ring/50"
     />
   );
 }

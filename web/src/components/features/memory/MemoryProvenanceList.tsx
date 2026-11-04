@@ -83,7 +83,7 @@ export function MemoryProvenanceList({
     <ol className="flex flex-col gap-2">
       {entries.map((each) => (
         <li key={each.key}>
-          <div className="flex flex-col gap-0.5 text-xs leading-5">
+          <div className="flex flex-col gap-0.5 text-sm leading-5">
             <div className="flex items-center gap-2.5">
               {each.avatar}
               <span className="min-w-0 truncate text-muted-foreground">

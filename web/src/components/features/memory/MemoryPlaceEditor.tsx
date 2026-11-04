@@ -25,7 +25,7 @@ export function MemoryPlaceEditor({ draft, lines }: MemoryPlaceEditorProps) {
           choices={lines.map((each) => ({ value: each.id, label: each.name }))}
           value={draft.lineId}
           placeholder="The whole team"
-          className={CONTROL}
+          className={`${CONTROL} -mt-1`}
           onChange={draft.chooseLine}
         />
         <ul className={BRANCH}>
@@ -65,7 +65,7 @@ export function MemoryPlaceEditor({ draft, lines }: MemoryPlaceEditorProps) {
                       onChange={(event) => draft.setPaths(event.target.value)}
                       placeholder="Paths, separated by commas"
                       aria-label="Paths"
-                      className={`${CONTROL} h-6 border bg-card px-2 text-[0.7rem] md:text-[0.7rem]`}
+                      className={`${CONTROL} h-7 border bg-card px-2 text-sm md:text-sm`}
                     />
                   </li>
                 </ul>

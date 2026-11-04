@@ -87,7 +87,7 @@ export function TeamMemoryRow({
           onCancel={editing.cancel}
         />
 
-        <span className="relative z-10 min-w-0 truncate text-muted-foreground text-xs leading-5">
+        <span className="relative z-10 min-w-0 truncate text-muted-foreground text-sm leading-5">
           {changing ? (
             <MemoryKindSelect value={draft.kind} onChange={draft.setKind} />
           ) : (
@@ -103,7 +103,7 @@ export function TeamMemoryRow({
           )}
         </span>
 
-        <div className="relative z-10 flex min-w-0 flex-col gap-2 text-muted-foreground text-xs leading-5 group-data-clamped/row:pointer-events-none">
+        <div className="relative z-10 flex min-w-0 flex-col gap-2 text-muted-foreground text-sm leading-5 group-data-clamped/row:pointer-events-none">
           <span className="truncate">{SOURCE_LABELS[memory.source]}</span>
           {seen && (
             <div className="group-data-clamped/row:hidden">
@@ -112,17 +112,17 @@ export function TeamMemoryRow({
           )}
         </div>
 
-        <span className="min-w-0 truncate text-muted-foreground text-xs leading-5">
+        <span className="min-w-0 truncate text-muted-foreground text-sm leading-5">
           {memory.approvedBy.name ?? 'Someone'}
         </span>
 
-        <span className="truncate text-right text-muted-foreground text-xs leading-5 tabular-nums">
+        <span className="truncate text-right text-muted-foreground text-sm leading-5 tabular-nums">
           {memory.runs}
         </span>
       </div>
 
       {seen && (
-        <div className="relative z-10 flex flex-col gap-3 px-3 pb-3 text-xs group-data-clamped/row:hidden">
+        <div className="relative z-10 flex flex-col gap-3 px-3 pb-3 text-sm group-data-clamped/row:hidden">
           {memory.retirement && (
             <div className="text-muted-foreground leading-5">
               <RetirementNote retirement={memory.retirement} />
