@@ -1,11 +1,24 @@
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts';
 
+const TONES = {
+  primary: 'var(--chart-primary)',
+  muted: 'var(--muted-foreground)',
+  done: 'var(--outcome-done)',
+} as const;
+
 type TileSparklineProps = {
   label: string;
   values: readonly (number | null)[];
+  tone?: keyof typeof TONES;
 };
 
-export function TileSparkline({ label, values }: TileSparklineProps) {
+export function TileSparkline({
+  label,
+  values,
+  tone = 'primary',
+}: TileSparklineProps) {
+  const ink = TONES[tone];
+
   return (
     <div
       role="img"
@@ -21,9 +34,9 @@ export function TileSparkline({ label, values }: TileSparklineProps) {
           <YAxis hide domain={[0, 'dataMax']} />
           <Area
             dataKey="value"
-            stroke="var(--chart-primary)"
+            stroke={ink}
             strokeWidth={1.5}
-            fill="var(--chart-primary)"
+            fill={ink}
             fillOpacity={0.08}
             dot={false}
             activeDot={false}

@@ -1,9 +1,9 @@
+import { StationActivitySkeleton } from '@/components/features/stations/activity/StationActivitySkeleton';
 import { StationConfigSkeleton } from '@/components/features/stations/config/StationConfigSkeleton';
-import { StationOverviewSkeleton } from '@/components/features/stations/overview/StationOverviewSkeleton';
 import { STATION_TABS, type StationTab } from '@/lib/station';
 
 const BODIES = {
-  overview: StationOverviewSkeleton,
+  activity: StationActivitySkeleton,
   config: StationConfigSkeleton,
 } as const;
 

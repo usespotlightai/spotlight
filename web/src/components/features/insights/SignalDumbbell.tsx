@@ -41,7 +41,7 @@ export function SignalDumbbell({ reading }: { reading: SignalReading }) {
           x2={flagged}
           y1={TRACK - 8}
           y2={TRACK + 8}
-          stroke="var(--destructive)"
+          stroke="var(--outcome-failed)"
           strokeWidth="1"
           strokeDasharray="2 2"
         />
@@ -65,7 +65,7 @@ export function SignalDumbbell({ reading }: { reading: SignalReading }) {
               x2={now}
               y1={TRACK}
               y2={TRACK}
-              stroke="var(--destructive)"
+              stroke="var(--outcome-failed)"
               strokeOpacity="0.45"
               strokeWidth="2"
             />
@@ -84,7 +84,7 @@ export function SignalDumbbell({ reading }: { reading: SignalReading }) {
           cx={now}
           cy={TRACK}
           r="5"
-          fill="var(--destructive)"
+          fill="var(--outcome-failed)"
           stroke="var(--card)"
           strokeWidth="2"
         />

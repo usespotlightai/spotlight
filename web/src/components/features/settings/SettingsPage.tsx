@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { PageTitle } from '@/components/shared/PageTitle';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useTabTitle } from '@/lib/tab-title';
 
@@ -19,9 +20,7 @@ export function SettingsPage({
     <ScrollArea className="min-h-0 flex-1" contentClassName="min-h-full">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-8 py-8">
         <div className="flex flex-col gap-3">
-          <h1 className="font-semibold text-2xl text-foreground leading-8 tracking-tight">
-            {title}
-          </h1>
+          <PageTitle>{title}</PageTitle>
 
           <p className="text-muted-foreground text-sm leading-6">
             {description}

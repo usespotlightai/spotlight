@@ -35,6 +35,19 @@ export const formatEnding = (ending: Ending): string => ENDINGS[ending];
 export const endedBadly = (ending: Ending): boolean =>
   ending === 'failed' || ending === 'exhausted';
 
+export type OutcomeTone = 'done' | 'sentBack' | 'failed' | 'quiet';
+
+export const outcomeTone = (run: StationRunOutcome): OutcomeTone => {
+  if (endedBadly(run.ending)) {
+    return 'failed';
+  }
+  if (run.firstHumanAction?.kind === 'sent-back') {
+    return 'sentBack';
+  }
+
+  return run.ending === 'completed' ? 'done' : 'quiet';
+};
+
 const CHECKS: Record<NonNullable<StationRunOutcome['checks']>, string> = {
   passed: 'Checks passed',
   failed: 'Checks failed',
@@ -133,7 +146,9 @@ const columnNamed = (label: string): TallyColumn => {
 export const countedColumnsOf = (counted: TallyCounted): TallyColumn[] =>
   TALLY_COLUMNS.filter((column) => !column.counted || counted[column.counted]);
 
-export type SummaryVisual = 'share' | 'strip' | 'cost' | 'duration';
+export const SUMMARY_TITLE = 'Latest runs on this config';
+
+export type SummaryVisual = 'strip' | 'cost' | 'duration' | 'none';
 
 export type SummaryColumn = TallyColumn & { readonly visual: SummaryVisual };
 
@@ -142,16 +157,17 @@ const summarized = (label: string, visual: SummaryVisual): SummaryColumn => ({
   visual,
 });
 
-export const SUMMARY_TITLE = 'Latest runs on this config';
-
 export const SUMMARY_COLUMNS: readonly SummaryColumn[] = [
   summarized('Runs', 'strip'),
-  summarized('Accepted', 'share'),
-  summarized('Sent back', 'share'),
-  summarized('Failed', 'share'),
+  summarized('Accepted', 'none'),
+  summarized('Sent back', 'none'),
+  summarized('Failed', 'none'),
   summarized('Cost', 'cost'),
   summarized('Median', 'duration'),
 ];
+
+export const SUMMARY_GRID =
+  'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6';
 
 const newestLive = (
   groups: readonly FingerprintGroup[],
@@ -179,11 +195,6 @@ export const OUTCOME_HEADINGS: readonly NestedHeading[] = [
   { label: 'Duration', numeric: true, size: SPREAD },
   { label: 'Cost', numeric: true, size: SPREAD },
   { label: 'Ended', numeric: true, size: SPREAD },
-];
-
-export const RECENT_RUN_HEADINGS: readonly NestedHeading[] = [
-  { label: 'Run', indent: 'edge', size: 'minmax(12rem,3fr)' },
-  ...OUTCOME_HEADINGS.slice(1),
 ];
 
 export type GroupSummary = {

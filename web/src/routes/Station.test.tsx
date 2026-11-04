@@ -274,7 +274,7 @@ function HandedOver() {
   );
 }
 
-const renderAt = (stationId: string, tab = '') =>
+const renderAt = (stationId: string, tab = 'activity') =>
   render(
     <MemoryRouter
       initialEntries={[
@@ -290,19 +290,6 @@ const renderAt = (stationId: string, tab = '') =>
       </Routes>
     </MemoryRouter>,
   );
-
-const laidOut = ({ track, slide }: { track: number; slide: number }) => {
-  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(track);
-  vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(600);
-  vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(
-    slide - 8,
-  );
-  vi.spyOn(HTMLElement.prototype, 'offsetLeft', 'get').mockImplementation(
-    function (this: HTMLElement) {
-      return [...(this.parentElement?.children ?? [])].indexOf(this) * slide;
-    },
-  );
-};
 
 const sectionTitled = (title: string) =>
   screen
@@ -438,43 +425,43 @@ describe('Station', () => {
     });
   });
 
-  it('offers the overview and the config as tabs, opening on the overview', () => {
-    renderAt('station_2');
+  it('offers the config and the activity as tabs, opening on the config', () => {
+    renderAt('station_2', '');
 
     const tabs = within(screen.getByRole('navigation', { name: 'Station' }));
 
-    expect(tabs.getAllByRole('link').map((tab) => tab.textContent)).toEqual([
-      'Overview',
+    expect(tabs.getAllByRole('link').map((each) => each.textContent)).toEqual([
       'Config',
+      'Activity',
     ]);
-    expect(tabs.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+    expect(tabs.getByRole('link', { name: 'Config' })).toHaveAttribute(
       'aria-current',
       'page',
     );
-    expect(tabs.getByRole('link', { name: 'Config' })).toHaveAttribute(
+    expect(tabs.getByRole('link', { name: 'Activity' })).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_2/config',
+      '/w/acme/team/team_1/lines/line_1/stations/station_2/activity',
     );
+    expect(screen.getByRole('region', { name: 'Config' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'What needs attention' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows the activity on its own tab', () => {
+    renderAt('station_2', 'activity');
+
+    expect(
+      within(screen.getByRole('navigation', { name: 'Station' })).getByRole(
+        'link',
+        { name: 'Activity' },
+      ),
+    ).toHaveAttribute('aria-current', 'page');
     expect(
       screen.getByRole('heading', { name: 'What needs attention' }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('region', { name: 'Config' }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('shows the config on its own tab', () => {
-    renderAt('station_2', 'config');
-
-    expect(
-      within(screen.getByRole('navigation', { name: 'Station' })).getByRole(
-        'link',
-        { name: 'Config' },
-      ),
-    ).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('region', { name: 'Config' })).toBeInTheDocument();
-    expect(
-      screen.queryByRole('heading', { name: 'What needs attention' }),
     ).not.toBeInTheDocument();
   });
 
@@ -493,13 +480,8 @@ describe('Station', () => {
       expect(
         [...document.querySelectorAll('[data-slot="summary-tile"]')]
           .slice(0, 4)
-          .map((tile) => tile.textContent),
-      ).toEqual([
-        'Runs42',
-        'Accepted28of 42 runs',
-        'Sent back3of 42 runs',
-        'Failed1of 42 runs',
-      ]);
+          .map((stat) => stat.textContent),
+      ).toEqual(['Runs42', 'Accepted2867%', 'Sent back37%', 'Failed12%']);
       expect(
         within(sectionTitled('Latest runs on this config')).getByRole('link', {
           name: 'See in Insights',
@@ -606,9 +588,7 @@ describe('Station', () => {
 
       const attention = sectionTitled('What needs attention');
 
-      expect(
-        within(attention).getByRole('heading', { name: 'Worth improving' }),
-      ).toBeInTheDocument();
+      expect(attention).toHaveTextContent('All signals are healthy');
     });
 
     it('shows what got worse at the station against before and the team', () => {
@@ -636,7 +616,7 @@ describe('Station', () => {
       renderAt('station_2');
 
       expect(
-        within(sectionTitled('Worth improving'))
+        within(sectionTitled('What needs attention'))
           .getAllByRole('img')
           .map((each) => each.getAttribute('aria-label')),
       ).toEqual([expect.stringMatching(/^Sent back 30%/)]);
@@ -692,7 +672,7 @@ describe('Station', () => {
     it('says when nothing needs attention', () => {
       renderAt('station_2');
 
-      expect(sectionTitled('Worth improving')).toHaveTextContent(
+      expect(sectionTitled('What needs attention')).toHaveTextContent(
         'All signals are healthy',
       );
     });
@@ -702,7 +682,7 @@ describe('Station', () => {
       renderAt('station_2');
 
       await user.click(
-        within(sectionTitled('Worth improving')).getByRole('link', {
+        within(sectionTitled('What needs attention')).getByRole('link', {
           name: 'Review with agent',
         }),
       );
@@ -728,46 +708,8 @@ describe('Station', () => {
   });
 
   describe('its config', () => {
-    it('offers no paging where every alert fits', () => {
-      renderAt('station_2', 'config');
-
-      expect(
-        screen.queryByRole('button', { name: 'Next alert rule' }),
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', { name: /^Show page/ }),
-      ).not.toBeInTheDocument();
-    });
-
-    it('pages through the station’s alerts where they overflow', async () => {
-      const user = userEvent.setup();
-      laidOut({ track: 200, slide: 180 });
-      renderAt('station_2', 'config');
-
-      const previous = screen.getByRole('button', {
-        name: 'Previous alert rule',
-      });
-      const next = screen.getByRole('button', { name: 'Next alert rule' });
-
-      expect(previous).toBeDisabled();
-
-      await user.click(next);
-      await user.click(next);
-
-      expect(next).toBeDisabled();
-      expect(
-        screen.getByRole('button', { name: 'Show page 3 of 3' }),
-      ).toHaveAttribute('aria-current', 'true');
-    });
-
-    it('counts only the pages the track can scroll to', () => {
-      laidOut({ track: 450, slide: 180 });
-      renderAt('station_2', 'config');
-
-      expect(
-        screen.getAllByRole('button', { name: /^Show page/ }),
-      ).toHaveLength(2);
-    });
+    const properties = () =>
+      within(screen.getByRole('complementary', { name: 'Properties' }));
 
     it('links to the pull request that brought the live config', () => {
       outcomes.mockReturnValue({
@@ -785,9 +727,7 @@ describe('Station', () => {
       renderAt('station_2', 'config');
 
       expect(
-        within(sectionTitled('Config fingerprint')).getByRole('link', {
-          name: 'View pull request',
-        }),
+        screen.getByRole('link', { name: 'Pull request' }),
       ).toHaveAttribute('href', 'https://github.com/acme/config/pull/42');
     });
 
@@ -795,36 +735,43 @@ describe('Station', () => {
       renderAt('station_2', 'config');
 
       expect(
-        screen.queryByRole('link', { name: 'View pull request' }),
+        screen.queryByRole('link', { name: 'Pull request' }),
       ).not.toBeInTheDocument();
     });
 
-    it('says which config fingerprint is live and since when, linking to its history', () => {
+    it('says since when the config is live, with its fingerprint on hover, linking to its history', async () => {
+      const user = userEvent.setup();
       renderAt('station_2', 'config');
 
-      const fingerprint = within(sectionTitled('Config fingerprint'));
+      const live = document.querySelector(
+        '[data-slot="live-config"]',
+      ) as HTMLElement;
 
-      expect(fingerprint.getByText('Config aaaaaaaa')).toBeInTheDocument();
+      expect(live).toHaveTextContent('SinceOct 28');
       expect(
-        fingerprint.getByRole('img', { name: 'October 28, 2026' }),
-      ).toHaveTextContent('OCT28');
-      expect(
-        fingerprint.getByRole('link', { name: 'History' }),
+        properties().getByRole('link', { name: 'History' }),
       ).toHaveAttribute('href', `${INSIGHTS}?tab=stations&stationId=station_2`);
+
+      await user.hover(within(live).getByText('Oct 28'));
+
+      expect(await screen.findByText('Config aaaaaaaa')).toBeInTheDocument();
     });
 
-    it('lists the station’s alerts in the order they were written', () => {
+    it('lists the station’s alerts in the order they were written, one row each', () => {
       renderAt('station_2', 'config');
 
-      expect(
-        within(screen.getByRole('list', { name: 'Alert rules' }))
-          .getAllByRole('listitem')
-          .map((each) => each.getAttribute('aria-label')),
-      ).toEqual([
+      const rows = within(
+        screen.getByRole('list', { name: 'Alert rules' }),
+      ).getAllByRole('listitem');
+
+      expect(rows.map((each) => each.getAttribute('aria-label'))).toEqual([
         'Alerts when the sent-back rate rises 20 points or more over 20 runs',
         'Alerts when the cost per run goes above 2.00 over 10 runs',
         'Alerts when the accepted rate falls 10 points or more over 20 runs',
       ]);
+      expect(rows[0]).toHaveTextContent(
+        'Sent-back raterises 20 points or moreover 20 runs',
+      );
     });
 
     it('says how far the judge agrees with people, linking to its agreement in Insights', () => {
@@ -832,7 +779,7 @@ describe('Station', () => {
 
       expect(
         document.querySelector('[data-slot="judge-calibration"]'),
-      ).toHaveTextContent('Cohen’s kappa0.71Qualified above 0.60 over 24 runs');
+      ).toHaveTextContent('0.71Cohen’s kappa');
       expect(screen.getByRole('link', { name: 'Agreement' })).toHaveAttribute(
         'href',
         `${INSIGHTS}?tab=stations&stationId=station_2#judge`,
@@ -848,9 +795,7 @@ describe('Station', () => {
       expect(
         document.querySelector('[data-slot="judge-calibration"]'),
       ).not.toBeInTheDocument();
-      expect(sectionTitled('Judge')).toHaveTextContent(
-        'Qualified from 0.60 agreement',
-      );
+      expect(sectionTitled('Judge')).toHaveTextContent('Qualified from 0.60');
     });
 
     it('shows no alerts and no judge calibration where none are set', () => {
@@ -860,7 +805,7 @@ describe('Station', () => {
         screen.queryByRole('link', { name: 'Agreement' }),
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByRole('heading', { name: /^Alert rules/ }),
+        screen.queryByRole('heading', { name: 'Alert rules' }),
       ).not.toBeInTheDocument();
     });
 
@@ -869,9 +814,10 @@ describe('Station', () => {
 
       expect(
         document.querySelector('[data-slot="station-agent"]'),
-      ).toHaveTextContent('SonnetClaude Code');
+      ).toHaveTextContent('Claude Code');
+      expect(properties().getByText('Sonnet')).toBeInTheDocument();
       expect(
-        screen.getByRole('list', { name: 'Effort: High, 2 of 2' }),
+        screen.getByRole('img', { name: 'Effort: High, 2 of 2' }),
       ).toBeInTheDocument();
     });
 
@@ -924,7 +870,7 @@ describe('Station', () => {
 
       const judge = sectionTitled('Judge');
 
-      expect(judge).toHaveTextContent('20%Sample rate');
+      expect(judge).toHaveTextContent('Scores20% of runs');
       expect(
         within(judge).getByRole('img', {
           name: 'Cohen’s kappa 0.71. Minimum required: 0.60',
@@ -932,7 +878,7 @@ describe('Station', () => {
       ).toBeInTheDocument();
     });
 
-    it('shows the rubric read-only in the judge card', async () => {
+    it('shows the rubric read-only in the judge section', async () => {
       renderAt('station_2', 'config');
 
       expect(
@@ -947,28 +893,25 @@ describe('Station', () => {
       renderAt('station_1', 'config');
 
       expect(sectionTitled('Judge')).toHaveTextContent(
-        'No judgeOnly people score runs here.',
+        'No judge. Only people score runs here.',
       );
     });
 
-    it('says how Spotlight improves the station on its own, with the rest on hover', async () => {
+    it('says how often Spotlight improves the station and what a search costs, with the rest on hover', async () => {
       const user = userEvent.setup();
       renderAt('station_2', 'config');
 
-      const improvement = sectionTitled('Automatic improvement');
+      const improvement = document.querySelector(
+        '[data-slot="search-policy"]',
+      ) as HTMLElement;
 
-      expect(improvement).not.toHaveTextContent('On');
       expect(improvement).toHaveTextContent(
-        'Up to $10 each, every 7 days5 of 5 fit',
+        'SearchesEvery 7 daysBudgetUp to $10 a search',
       );
-      expect(
-        within(improvement).getByRole('img', {
-          name: "At most $50 in 30 days. 5 of 5 scheduled searches fit the line's $50 a month.",
-        }),
-      ).toBeInTheDocument();
 
       await user.hover(
-        improvement.querySelector('svg.lucide-info')?.parentElement as Element,
+        sectionTitled('Automatic improvement').querySelector('svg.lucide-info')
+          ?.parentElement as Element,
       );
 
       expect(await screen.findByText('Cooldown')).toBeInTheDocument();
@@ -979,30 +922,28 @@ describe('Station', () => {
         const { unmount } = renderAt(end);
 
         expect(
-          screen.queryByRole('heading', { name: 'Automatic improvement' }),
+          document.querySelector('[data-slot="search-policy"]'),
         ).not.toBeInTheDocument();
         unmount();
       }
     });
 
-    it('says no search runs where automatic improvement is off', () => {
+    it('says automatic improvement is off where it is off', () => {
       renderAt('station_1', 'config');
 
-      expect(sectionTitled('Automatic improvement')).toHaveTextContent(
-        'OffNo automatic searches',
-      );
+      expect(
+        document.querySelector('[data-slot="search-policy"]'),
+      ).toHaveTextContent('SearchesOff');
     });
 
     it('names the line of the station and its repositories', () => {
       renderAt('station_2', 'config');
 
-      const fromLine = within(sectionTitled('Line'));
-
-      expect(fromLine.getByText('Default')).toBeInTheDocument();
+      expect(properties().getByText('Default')).toBeInTheDocument();
       expect(
-        fromLine.getByText('usespotlightai/spotlight'),
+        properties().getByRole('link', { name: 'usespotlightai/spotlight' }),
       ).toBeInTheDocument();
-      expect(fromLine.queryByText(/replay_check/)).not.toBeInTheDocument();
+      expect(properties().queryByText(/replay_check/)).not.toBeInTheDocument();
     });
   });
 });

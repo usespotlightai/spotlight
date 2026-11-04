@@ -1,5 +1,5 @@
+import { StationActivity } from '@/components/features/stations/activity/StationActivity';
 import { StationConfig } from '@/components/features/stations/config/StationConfig';
-import { StationOverview } from '@/components/features/stations/overview/StationOverview';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import type { StationTab } from '@/lib/station';
 
@@ -33,14 +33,14 @@ export function StationBody({
     );
   }
 
-  return tab === 'overview' ? (
-    <StationOverview
+  return tab === 'config' ? (
+    <StationConfig slug={slug} teamId={teamId} line={line} station={station} />
+  ) : (
+    <StationActivity
       slug={slug}
       teamId={teamId}
       line={line}
       station={station}
     />
-  ) : (
-    <StationConfig slug={slug} teamId={teamId} line={line} station={station} />
   );
 }

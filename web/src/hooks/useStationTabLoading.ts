@@ -23,12 +23,12 @@ export function useStationTabLoading(
     tab === 'config' ? stationId : undefined,
   );
   const overview = useInsightsOverview(
-    tab === 'overview' ? teamId : undefined,
+    tab === 'activity' ? teamId : undefined,
     DEFAULT_PERIOD,
   );
   const harnesses = useHarnesses();
 
-  if (tab === 'overview') {
+  if (tab === 'activity') {
     return [outcomes, overview].some(loading);
   }
   if (tab === 'config') {

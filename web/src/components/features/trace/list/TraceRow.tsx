@@ -1,5 +1,6 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { TRACE_COLUMNS } from '@/components/features/trace/list/columns';
+import { TABLE_ROW } from '@/components/shared/table-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Checkbox } from '@/components/ui/checkbox';
 import { formatShortDuration } from '@/lib/inbox';
@@ -24,7 +25,8 @@ export function TraceRow({
   return (
     <div
       className={cn(
-        'group/trace relative grid h-9 items-center gap-3 rounded-md px-3 text-sm transition-colors',
+        TABLE_ROW,
+        'group/trace transition-colors',
         selected ? 'bg-selected' : 'hover:bg-accent',
         TRACE_COLUMNS,
       )}

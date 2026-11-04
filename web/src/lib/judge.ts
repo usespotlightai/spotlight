@@ -110,8 +110,8 @@ export const formatMark = (met: boolean): string => (met ? 'Met' : 'Not met');
 
 export const formatPassThreshold = (passThreshold: number): string =>
   passThreshold >= 1
-    ? 'A run passes when it meets every claim.'
-    : `A run passes when it meets at least ${formatPercent(passThreshold)} of its claims.`;
+    ? 'Every claim met'
+    : `At least ${formatPercent(passThreshold)} of claims met`;
 
 export const CLAIMS_LABEL = 'Claims';
 
