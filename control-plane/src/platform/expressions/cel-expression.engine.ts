@@ -20,12 +20,24 @@ import { suggestionFor } from '@platform/expressions/suggestion';
 
 const LONGEST_EXPRESSION = 2_000;
 
+const HTML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>' };
+
 const withFunctions = (environment: Environment): Environment =>
-  environment.registerFunction(
-    'parseJson(string): dyn',
-    (text: string) => sanitizedForCel(JSON.parse(text)),
-    { description: 'Reads a JSON text as a value.' },
-  );
+  environment
+    .registerFunction(
+      'parseJson(string): dyn',
+      (text: string) => sanitizedForCel(JSON.parse(text)),
+      { description: 'Reads a JSON text as a value.' },
+    )
+    .registerFunction(
+      'htmlUnescape(string): string',
+      (text: string) =>
+        text.replace(
+          /&(amp|lt|gt);/g,
+          (_, name: string) => HTML_ENTITIES[name],
+        ),
+      { description: 'Decodes &amp;, &lt; and &gt; in a text.' },
+    );
 
 const PERMISSIVE = withFunctions(
   new Environment({
