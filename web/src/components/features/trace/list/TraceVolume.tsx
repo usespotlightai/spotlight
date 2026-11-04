@@ -92,7 +92,7 @@ const TipContent = ({
   );
 };
 
-export const TRACES_FILL =
+const TRACES_FILL =
   'color-mix(in oklab, var(--chart-primary) 55%, transparent)';
 
 export function TraceVolume({

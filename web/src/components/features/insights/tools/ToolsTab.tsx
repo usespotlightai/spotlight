@@ -10,7 +10,7 @@ import type { InsightsPeriod, StationNames } from '@/lib/insights';
 import { SERVERS_NOTE, SKILLS_NOTE, usedNothing } from '@/lib/insights-tools';
 import { failed, loading } from '@/lib/query';
 
-export const TOOLS_TITLE = 'Tools and skills';
+const TOOLS_TITLE = 'Tools and skills';
 
 type ToolsTabProps = {
   slug: string;

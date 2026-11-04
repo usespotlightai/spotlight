@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import type { TooltipText } from '@/lib/tooltip-note';
 
-export type StackedSegment = {
+type StackedSegment = {
   readonly key: string;
   readonly value: number;
   readonly color: string;

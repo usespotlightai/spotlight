@@ -32,7 +32,7 @@ const ENDINGS: Record<Ending, string> = {
 
 export const formatEnding = (ending: Ending): string => ENDINGS[ending];
 
-export const endedBadly = (ending: Ending): boolean =>
+const endedBadly = (ending: Ending): boolean =>
   ending === 'failed' || ending === 'exhausted';
 
 export type OutcomeTone = 'done' | 'sentBack' | 'failed' | 'quiet';
@@ -155,7 +155,7 @@ export const summaryTitleOf = (period: ActivityPeriod): string =>
 
 export const RECENT_RUNS_TITLE = 'Recent runs';
 
-export type SummaryVisual = 'strip' | 'cost' | 'duration' | 'none';
+type SummaryVisual = 'strip' | 'cost' | 'duration' | 'none';
 
 export type SummaryColumn = TallyColumn & { readonly visual: SummaryVisual };
 
@@ -244,7 +244,7 @@ export const recentRuns = (
 export const hasRuns = (groups: readonly FingerprintGroup[]): boolean =>
   groups.some((group) => group.runs.length > 0);
 
-export const OUTCOME_HEADINGS: readonly NestedHeading[] = [
+const OUTCOME_HEADINGS: readonly NestedHeading[] = [
   { label: 'Run', indent: 'outer', size: 'minmax(12rem,3fr)' },
   { label: 'Visit', size: SPREAD },
   { label: 'Checks', size: SPREAD },

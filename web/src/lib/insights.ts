@@ -1105,8 +1105,6 @@ export const WORTH_IMPROVING_SPAN = rangeOf(DEFAULT_PERIOD).label.toLowerCase();
 export const worthImprovingNote = (period: InsightsPeriod): string =>
   `Signals that have declined over the ${rangeOf(period).label.toLowerCase()} or fall below team benchmarks.`;
 
-export const WORTH_IMPROVING_NOTE = worthImprovingNote(DEFAULT_PERIOD);
-
 export const WORTH_IMPROVING_HEADINGS = signalHeadings('edge');
 
 export const STATIONS_WORTH_IMPROVING_HEADINGS = signalHeadings('outer');
@@ -1164,3 +1162,12 @@ export const workStationCount = (names: StationNames): number =>
 
 export const BY_STATION_NOTE =
   'The counts are the same as on each station’s page. The columns show runs per day, with failed runs in red. The number beside them is the change in runs since the previous period.';
+
+export const SLICE_TITLE = 'Spend by';
+
+export const sliceHeadings = (heading: string): readonly NestedHeading[] => [
+  { label: heading, indent: 'edge', size: 'minmax(8rem,3fr)' },
+  { label: 'Share', numeric: true, size: 'minmax(7rem,1fr)' },
+  { label: 'Runs', numeric: true, size: SPREAD },
+  { label: 'Spend', numeric: true, size: SPREAD },
+];

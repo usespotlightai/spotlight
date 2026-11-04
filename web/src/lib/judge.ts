@@ -8,7 +8,6 @@ import type {
   JudgeReasonResponseDto,
   RubricVersionResponseDto,
   RunScoresResponseDto,
-  ScoreCountResponseDto,
   StationJudgeAgreementResponseDto,
   TrendPointResponseDto,
 } from '@/lib/api';
@@ -36,8 +35,6 @@ export type CitedHunk = CitedHunkResponseDto;
 export type Grade = GradeResponseDto;
 
 export type ClaimAgreement = ClaimAgreementResponseDto;
-
-export type ScoreCount = ScoreCountResponseDto;
 
 export type ScoreKind = RunScores['kind'];
 
@@ -162,7 +159,7 @@ const MEASURES: Record<NonNullable<JudgeCalibration['measure']>, string> = {
   spearman: 'Spearman’s ρ',
 };
 
-export const formatMeasure = (measure: JudgeCalibration['measure']): string =>
+const formatMeasure = (measure: JudgeCalibration['measure']): string =>
   measure ? MEASURES[measure] : 'Agreement';
 
 const MINIMUM_NOTE = 'Below the minimum, judge scores are hidden.';

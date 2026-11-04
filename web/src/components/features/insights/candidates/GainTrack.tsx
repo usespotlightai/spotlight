@@ -1,5 +1,6 @@
-import { createContext, useContext } from 'react';
+import { useContext } from 'react';
 import { WithTooltip } from '@/components/shared/WithTooltip';
+import { GainScale } from '@/lib/insights-candidates';
 import type { GainEstimate } from '@/lib/replay';
 import {
   formatGain,
@@ -8,8 +9,6 @@ import {
   gainSignificanceNote,
 } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
-
-export const GainScale = createContext(0.5);
 
 const INKS: Record<GainSignificanceCode, string> = {
   better: 'var(--chart-primary)',

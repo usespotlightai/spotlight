@@ -1,17 +1,16 @@
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatShare } from '@/lib/insights';
-import type { SkillWeek } from '@/lib/insights-tools';
+import {
+  SKILL_WEEK_BAR,
+  SKILL_WEEK_GAP,
+  type SkillWeek,
+} from '@/lib/insights-tools';
 import { formatDay } from '@/lib/judge';
 import { type TooltipNote, tooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
 
 const HEIGHT = 20;
-const BAR = 14;
-const GAP = 2;
 const FLOOR = 1;
-
-export const weeksWidth = (weeks: number): number =>
-  weeks * BAR + Math.max(weeks - 1, 0) * GAP;
 
 const runsOf = (count: number): string =>
   `${count} ${count === 1 ? 'run' : 'runs'}`;
@@ -40,7 +39,7 @@ export function SkillWeeksChart({ weeks, max, onWeek }: SkillWeeksChartProps) {
     <span
       data-slot="skill-weeks-chart"
       className="flex shrink-0 items-end"
-      style={{ height: HEIGHT, gap: GAP }}
+      style={{ height: HEIGHT, gap: SKILL_WEEK_GAP }}
     >
       {weeks.map((week) => {
         const share = week.usedRate ?? 0;
@@ -55,7 +54,7 @@ export function SkillWeeksChart({ weeks, max, onWeek }: SkillWeeksChartProps) {
               aria-label={tooltipText(note)}
               onClick={() => onWeek(week.week)}
               className="group/week flex h-full items-end rounded-[2px] outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-              style={{ width: BAR }}
+              style={{ width: SKILL_WEEK_BAR }}
             >
               {week.runs > 0 && (
                 <span

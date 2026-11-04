@@ -6,7 +6,7 @@ import {
   useState,
 } from 'react';
 import { useOverflows } from '@/hooks/useOverflows';
-import { canAnimate, TRANSITION_TIMING } from '@/lib/motion';
+import { canAnimate, ROW_SETTLED, ROW_TRANSITION } from '@/lib/motion';
 import { cn } from '@/lib/utils';
 
 export type Expansion = {
@@ -23,24 +23,49 @@ type ExpandingRowProps = {
   children: (expansion: Expansion) => ReactNode;
 };
 
+const pending = new WeakMap<HTMLElement, () => void>();
+
+const release = (row: HTMLElement) => {
+  pending.get(row)?.();
+  pending.delete(row);
+  row.style.transition = '';
+  row.style.height = '';
+  row.style.overflow = '';
+};
+
 const settle = (row: HTMLElement): number => {
   const height = row.getBoundingClientRect().height;
 
-  row.getAnimations().forEach((each) => {
-    each.cancel();
-  });
+  release(row);
 
   return height;
 };
 
-const resize = (row: HTMLElement, from: number, to: number): Animation =>
-  row.animate(
-    [
-      { height: `${from}px`, overflow: 'hidden' },
-      { height: `${to}px`, overflow: 'hidden' },
-    ],
-    TRANSITION_TIMING,
-  );
+const resize = (row: HTMLElement, from: number, to: number): Promise<void> =>
+  new Promise((done) => {
+    row.style.overflow = 'hidden';
+    row.style.height = `${from}px`;
+    row.getBoundingClientRect();
+    row.style.transition = ROW_TRANSITION;
+    row.style.height = `${to}px`;
+
+    const finish = () => {
+      release(row);
+      done();
+    };
+    const ended = (event: TransitionEvent) => {
+      if (event.target === row && event.propertyName === 'height') {
+        finish();
+      }
+    };
+    const timer = window.setTimeout(finish, ROW_SETTLED);
+
+    row.addEventListener('transitionend', ended);
+    pending.set(row, () => {
+      window.clearTimeout(timer);
+      row.removeEventListener('transitionend', ended);
+    });
+  });
 
 export function ExpandingRow({ slot, className, children }: ExpandingRowProps) {
   const [expanded, setExpanded] = useState(false);
@@ -94,13 +119,10 @@ export function ExpandingRow({ slot, className, children }: ExpandingRowProps) {
     const to = element.offsetHeight;
     delete element.dataset.clamped;
 
-    resize(element, from, to).finished.then(
-      () => {
-        element.dataset.clamped = '';
-        setClamped(true);
-      },
-      () => undefined,
-    );
+    void resize(element, from, to).then(() => {
+      element.dataset.clamped = '';
+      setClamped(true);
+    });
   };
 
   const toggle = () => (expanded ? close() : open());

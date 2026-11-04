@@ -6,10 +6,15 @@ export const FileDropContext = createContext<
   ((take: TakeFiles | null) => void) | null
 >(null);
 
-export function useFileDropTarget(take: TakeFiles | null) {
+type Closed = { readonly disabled: boolean; readonly pending: boolean };
+
+export function useFileDropTarget(
+  take: TakeFiles,
+  { disabled, pending }: Closed,
+) {
   const register = use(FileDropContext);
   const latest = useRef(take);
-  const taking = take !== null;
+  const taking = !disabled && !pending;
 
   useEffect(() => {
     latest.current = take;
@@ -20,7 +25,7 @@ export function useFileDropTarget(take: TakeFiles | null) {
       return;
     }
 
-    register((files) => latest.current?.(files));
+    register((files) => latest.current(files));
 
     return () => register(null);
   }, [register, taking]);

@@ -2,10 +2,7 @@ import type { ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { SkillTrendMark } from '@/components/features/insights/tools/SkillTrendMark';
-import {
-  SkillWeeksChart,
-  weeksWidth,
-} from '@/components/features/insights/tools/SkillWeeksChart';
+import { SkillWeeksChart } from '@/components/features/insights/tools/SkillWeeksChart';
 import { CollapsibleRows } from '@/components/shared/nested-table/CollapsibleRows';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
@@ -30,6 +27,7 @@ import {
   type SkillReport,
   skillEnabledFilter,
   skillUsedFilter,
+  weeksWidth,
 } from '@/lib/insights-tools';
 import { skillPath } from '@/lib/skills';
 import { cn } from '@/lib/utils';

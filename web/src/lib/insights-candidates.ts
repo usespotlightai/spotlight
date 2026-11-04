@@ -1,3 +1,4 @@
+import { createContext } from 'react';
 import type {
   ReplayedCandidateResponseDto,
   ReplayedCandidatesResponseDto,
@@ -280,3 +281,5 @@ export const REPLAYED_HEADINGS: readonly NestedHeading[] = [
 
 export const CANDIDATES_NOTE =
   'Each candidate config replayed on past tasks, compared with the live config on the same runs. The candidate’s own checks and judge decide success. Replays don’t change the station’s config.';
+
+export const GainScale = createContext(0.5);

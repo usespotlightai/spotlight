@@ -1,10 +1,7 @@
-import {
-  SLICE_TITLE,
-  sliceHeadings,
-} from '@/components/features/insights/CostSlices';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
+import { SLICE_TITLE, sliceHeadings } from '@/lib/insights';
 
 export function CostSlicesSkeleton() {
   return (

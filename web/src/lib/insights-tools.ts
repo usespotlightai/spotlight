@@ -175,3 +175,10 @@ export const UNUSED_SKILLS_NOTE =
 
 export const SERVERS_NOTE =
   'Each MCP server the team’s runs called. Dismissed calls don’t count as calls.';
+
+export const SKILL_WEEK_BAR = 14;
+
+export const SKILL_WEEK_GAP = 2;
+
+export const weeksWidth = (weeks: number): number =>
+  weeks * SKILL_WEEK_BAR + Math.max(weeks - 1, 0) * SKILL_WEEK_GAP;

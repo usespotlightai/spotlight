@@ -19,6 +19,8 @@ import {
   coverageTitle,
   formatRubric,
   formatTrendCaption,
+  type RubricVersion,
+  type StationJudgeAgreement,
   TREND_MIN_PAIRS,
   trendWaitNote,
 } from '@/lib/judge';
@@ -87,8 +89,6 @@ export function JudgeAgreement({
     );
   }
 
-  const { agreement } = shown;
-
   return (
     <div
       data-slot="judge-agreement"
@@ -121,6 +121,30 @@ export function JudgeAgreement({
         <JudgeStatistics stats={comparisonStats(shown)} />
       </TabSection>
 
+      <AgreementDetails
+        shown={shown}
+        judge={judge}
+        minAgreement={calibration.minAgreement}
+      />
+    </div>
+  );
+}
+
+type AgreementDetailsProps = {
+  shown: RubricVersion;
+  judge: StationJudgeAgreement['judge'];
+  minAgreement: number | null;
+};
+
+function AgreementDetails({
+  shown,
+  judge,
+  minAgreement,
+}: AgreementDetailsProps) {
+  const { agreement } = shown;
+
+  return (
+    <>
       {agreement.pairs > 0 && (
         <div className="grid gap-x-12 gap-y-10 @2xl:grid-cols-[auto_minmax(0,1fr)]">
           <TabSection title="Where they disagree">
@@ -152,10 +176,10 @@ export function JudgeAgreement({
           <ClaimAgreements
             agreements={agreement.claims}
             claims={shown.current && judge ? judge.claims : []}
-            minAgreement={calibration.minAgreement}
+            minAgreement={minAgreement}
           />
         </TabSection>
       )}
-    </div>
+    </>
   );
 }

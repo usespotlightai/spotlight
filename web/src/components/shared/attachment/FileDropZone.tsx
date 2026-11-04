@@ -15,22 +15,27 @@ type FileDropZoneProps = {
 };
 
 export function FileDropZone({ children, className }: FileDropZoneProps) {
-  const [take, setTake] = useState<TakeFiles | null>(null);
+  const take = useRef<TakeFiles | null>(null);
   const [over, setOver] = useState(false);
   const depth = useRef(0);
 
+  const leave = useCallback(() => {
+    depth.current = 0;
+    setOver(false);
+  }, []);
+
   const register = useCallback(
-    (next: TakeFiles | null) => setTake(() => next),
-    [],
+    (next: TakeFiles | null) => {
+      take.current = next;
+      if (!next) {
+        leave();
+      }
+    },
+    [leave],
   );
 
   const droppable = (event: DragEvent) =>
-    take !== null && carriesFiles(event.dataTransfer);
-
-  const leave = () => {
-    depth.current = 0;
-    setOver(false);
-  };
+    take.current !== null && carriesFiles(event.dataTransfer);
 
   return (
     <FileDropContext value={register}>
@@ -64,13 +69,14 @@ export function FileDropZone({ children, className }: FileDropZoneProps) {
         }}
         onDropCapture={leave}
         onDrop={(event) => {
-          if (!take || !droppable(event)) {
+          const taking = take.current;
+          if (!taking || !droppable(event)) {
             return;
           }
           event.preventDefault();
           const files = filesIn(event.dataTransfer);
           if (files.length > 0) {
-            take(files);
+            taking(files);
           }
         }}
       >

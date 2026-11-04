@@ -45,7 +45,7 @@ const signedPoints = (share: number): string => {
   return points > 0 ? `+${points}` : points < 0 ? `−${-points}` : '0';
 };
 
-export const formatPoints = (share: number): string =>
+const formatPoints = (share: number): string =>
   `${Math.round(share * POINTS)} pts`;
 
 export const formatGain = (

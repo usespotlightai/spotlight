@@ -78,7 +78,7 @@ export function ChatInput({
     shared,
     draft,
   );
-  useFileDropTarget(disabled || pending ? null : message.attach);
+  useFileDropTarget(message.attach, { disabled, pending });
   const lifted = message.images.length > 0;
   const { inner, writing, height, expanded } = useOneLineFit(
     message.written,

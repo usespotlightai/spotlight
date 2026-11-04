@@ -1,11 +1,11 @@
 import { CandidateStationRows } from '@/components/features/insights/candidates/CandidateStationRows';
-import { GainScale } from '@/components/features/insights/candidates/GainTrack';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { useCollapsibles } from '@/hooks/useCollapsibles';
 import type { StationNames } from '@/lib/insights';
 import {
   type CandidatesStation,
   candidateHeadings,
+  GainScale,
   gainExtentOf,
 } from '@/lib/insights-candidates';
 

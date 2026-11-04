@@ -17,20 +17,12 @@ import {
   type CostSlice,
   formatCount,
   formatShare,
+  SLICE_TITLE,
   type SliceNamer,
   sliceFilter,
+  sliceHeadings,
 } from '@/lib/insights';
-import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { cn } from '@/lib/utils';
-
-export const SLICE_TITLE = 'Spend by';
-
-export const sliceHeadings = (heading: string): readonly NestedHeading[] => [
-  { label: heading, indent: 'edge', size: 'minmax(8rem,3fr)' },
-  { label: 'Share', numeric: true, size: 'minmax(7rem,1fr)' },
-  { label: 'Runs', numeric: true, size: SPREAD },
-  { label: 'Spend', numeric: true, size: SPREAD },
-];
 
 type CostSlicesProps = {
   slicesOf: (dimension: CostDimension) => readonly CostSlice[];
