@@ -1,7 +1,8 @@
+import type { TooltipText } from '@/lib/tooltip-note';
 export type NestedHeading = {
   readonly label: string;
   readonly numeric?: boolean;
-  readonly tooltip?: string;
+  readonly tooltip?: TooltipText;
   readonly indent?: 'edge' | 'outer' | 'inner';
   readonly size?: string;
 };

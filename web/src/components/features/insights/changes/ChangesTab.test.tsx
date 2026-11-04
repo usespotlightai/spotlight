@@ -224,16 +224,11 @@ const REPLAYED = {
 } as InsightsCandidates;
 
 const filter = async (name: string) => {
-  if (!screen.queryByRole('button', { name })) {
-    await userEvent.click(
-      screen.getByRole('button', { name: /^Filter the agent configs/ }),
-    );
-  }
   await userEvent.click(await screen.findByRole('button', { name }));
 };
 
 const narrowingTo = async (station: string) => {
-  await filter('Station: Every station');
+  await filter('Station');
   await userEvent.click(
     await screen.findByRole('menuitemradio', { name: station }),
   );
@@ -386,8 +381,11 @@ describe('the Changes tab', () => {
       '/w/acme/team/team_1/lines/line_1/stations/station_impl/judge',
     );
     expect(calibrations).toHaveTextContent('qualified');
+    await filter('Task size');
     expect(
-      screen.getByText(/Small: up to 50 changed lines/),
+      await screen.findByRole('menuitemradio', {
+        name: /^SmallUp to 50 changed lines/,
+      }),
     ).toBeInTheDocument();
   });
 
@@ -415,9 +413,9 @@ describe('the Changes tab', () => {
   it('narrows the comparison by task size', async () => {
     showing();
 
-    await filter('Task size: Every size');
+    await filter('Task size');
     await userEvent.click(
-      await screen.findByRole('menuitemradio', { name: 'Large' }),
+      await screen.findByRole('menuitemradio', { name: /^Large/ }),
     );
 
     expect(answer.requested.at(-1)).toEqual({ stationId: null, size: 'large' });
@@ -501,7 +499,7 @@ describe('the Changes tab', () => {
   it('hides replayed points while the chart shows an outcome where lower is better', async () => {
     showing();
     await narrowingTo('Implementation');
-    await filter('Outcome: Accepted');
+    await filter('Measure');
     await userEvent.click(
       await screen.findByRole('menuitemradio', { name: 'Sent back' }),
     );
@@ -612,19 +610,23 @@ describe('the Changes tab', () => {
     );
   });
 
-  it('keeps the agent config filters behind one button that counts and clears them', async () => {
+  it('shows the measure and filters as pickers, clearing the narrowed ones', async () => {
     showing();
+
+    expect(screen.getByRole('button', { name: 'Measure' })).toHaveTextContent(
+      'Accepted',
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Clear' }),
+    ).not.toBeInTheDocument();
 
     await narrowingTo('Implementation');
 
-    const button = screen.getByRole('button', {
-      name: 'Filter the agent configs, 1 applied',
-    });
-    expect(button).toHaveTextContent('1');
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Clear filters' }),
+    expect(screen.getByRole('button', { name: 'Station' })).toHaveTextContent(
+      'Implementation',
     );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
 
     expect(answer.requested.at(-1)).toEqual({ stationId: null, size: null });
   });

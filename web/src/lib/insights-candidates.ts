@@ -9,6 +9,7 @@ import { formatCount } from '@/lib/insights';
 import { formatDay, formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { formatHeldOutRuns } from '@/lib/replay-words';
+import type { TooltipNote } from '@/lib/tooltip-note';
 
 export type InsightsCandidates = ReplayedCandidatesResponseDto;
 export type CandidatesStation = ReplayedStationResponseDto;
@@ -206,8 +207,18 @@ export const costBasisNote = ({ shown }: SetCandidate): string | null =>
     ? null
     : 'Cost is over all its scored runs. The live config is priced in another currency.';
 
-const SOURCES_NOTE =
-  'Search: a search agent proposed it, and Spotlight replayed it on this set. Live: the station’s current config, replayed for comparison. Indigo dot, best for the cost: no other config from the same search succeeded as often for less. The live config it started from didn’t either. Best for the cost doesn’t mean it beats live. See Gain over live.';
+const SOURCES_NOTE: TooltipNote = {
+  title: 'Source',
+  rows: [
+    ['Search', 'A search agent proposed it and Spotlight replayed it'],
+    ['Live', 'The station’s current config, replayed to compare'],
+  ],
+};
+
+const CONFIG_NOTE: TooltipNote = {
+  title: 'Best for the cost',
+  body: 'The indigo dot marks a config that no other from the same search, or the live config, matches for less. It can still do worse than live. Gain over live says how it compares.',
+};
 
 const GAIN_STEP = 0.1;
 
@@ -242,7 +253,7 @@ export const candidateHeadings = (
   heldOut: boolean,
   extent: number,
 ): readonly NestedHeading[] => [
-  { label: 'Config', indent: 'inner' },
+  { label: 'Config', indent: 'inner', tooltip: CONFIG_NOTE },
   { label: 'What changed', size: 'minmax(9rem,1fr)' },
   { label: 'Source', tooltip: SOURCES_NOTE },
   { label: 'Candidate', numeric: true },

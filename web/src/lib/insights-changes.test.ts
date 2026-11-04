@@ -4,11 +4,11 @@ import {
   agentConfigPoints,
   formatAgentConfig,
   formatAgentConfigWithin,
-  formatSizeRule,
   frontierOf,
   harnessGroupsOf,
   type InsightsChanges,
   markerOf,
+  sizeHintOf,
 } from '@/lib/insights-changes';
 
 const agentConfig = (over: Partial<AgentConfigOutcome>): AgentConfigOutcome =>
@@ -125,14 +125,14 @@ describe('frontierOf', () => {
   });
 });
 
-describe('formatSizeRule', () => {
+describe('sizeHintOf', () => {
   it('says each size’s bound in lines and steps, and that the largest has none', () => {
-    expect(formatSizeRule({ size: 'small', maxLines: 50, maxSteps: 20 })).toBe(
-      'Small: up to 50 changed lines, or 20 steps for a run that changed none',
+    expect(sizeHintOf({ size: 'small', maxLines: 50, maxSteps: 20 })).toBe(
+      'Up to 50 changed lines or 20 steps',
     );
-    expect(
-      formatSizeRule({ size: 'large', maxLines: null, maxSteps: null }),
-    ).toBe('Large: anything bigger');
+    expect(sizeHintOf({ size: 'large', maxLines: null, maxSteps: null })).toBe(
+      'Anything bigger',
+    );
   });
 });
 

@@ -47,6 +47,7 @@ export function ChangesSkeleton({ names }: { names: StationNames }) {
               measure={DEFAULT_OUTCOME}
               judged={false}
               names={names}
+              sizes={[]}
               onNarrow={ignore}
               onMeasure={ignore}
             />

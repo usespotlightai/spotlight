@@ -5,6 +5,7 @@ import type {
   SetNoiseResponseDto,
 } from '@/lib/api';
 import { formatPercent } from '@/lib/judge';
+import type { TooltipNote } from '@/lib/tooltip-note';
 
 export type ReplayState = NonNullable<
   ReplayedCandidateResponseDto['replayState']
@@ -63,19 +64,37 @@ export const formatGainSignificance = (
 
 const formatMinGain = (minGain: number): string => `+${formatPoints(minGain)}`;
 
-export const gainSignificanceNote = (gain: GainEstimateResponseDto): string => {
-  const minimum = `Minimum real gain: ${formatMinGain(gain.minGain)}`;
-  const over = `on ${counted(gain.tasks, 'task', 'tasks')} with a score on both sides`;
+const noiseReason = (gain: GainEstimateResponseDto): string =>
+  gain.low < 0 && gain.high > 0
+    ? 'It could be chance. Its likely range runs from a loss to a gain.'
+    : 'It could be chance. It falls short of the smallest gain that counts.';
 
-  switch (gain.significance) {
-    case 'better':
-      return `The gain ${over} is real. The likely range stays above zero and reaches the minimum. ${minimum}`;
-    case 'worse':
-      return `The loss ${over} is real. The likely range stays below zero and reaches the minimum. ${minimum}`;
-    default:
-      return `The difference ${over} can be chance. The likely range crosses zero or falls short of the minimum. ${minimum}`;
-  }
+const GAIN_TITLES: Record<GainSignificanceCode, string> = {
+  better: 'Better than live',
+  worse: 'Worse than live',
+  'within-noise': 'Within noise',
 };
+
+export const gainSignificanceNote = (
+  gain: GainEstimateResponseDto,
+): TooltipNote => ({
+  title: GAIN_TITLES[gain.significance],
+  body:
+    gain.significance === 'better'
+      ? 'The gain is likely real, not chance.'
+      : gain.significance === 'worse'
+        ? 'The loss is likely real, not chance.'
+        : noiseReason(gain),
+  rows: [
+    ['Gain', formatGain(gain)],
+    [
+      'Likely range',
+      `${signedPoints(gain.low)} to ${signedPoints(gain.high)} pts`,
+    ],
+    ['Counts from', formatMinGain(gain.minGain)],
+    ['Tasks compared', counted(gain.tasks, 'task', 'tasks')],
+  ],
+});
 
 const NOISE_UNMEASURED = 'Not measured';
 

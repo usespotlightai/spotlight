@@ -19,7 +19,7 @@ export function WithTooltip({ tooltip, named, children }: WithTooltipProps) {
 
   return (
     <>
-      <Tooltip>
+      <Tooltip trackCursorAxis="x">
         <TooltipTrigger
           render={children}
           tabIndex={0}

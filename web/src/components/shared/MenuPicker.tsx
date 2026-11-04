@@ -11,6 +11,7 @@ export type PickerOption = {
   readonly id: string;
   readonly label: string;
   readonly short?: string;
+  readonly hint?: string;
 };
 
 const BADGE =
@@ -65,7 +66,16 @@ export function MenuPicker({
                   {option.short}
                 </span>
               )}
-              <span className="truncate">{option.label}</span>
+              {option.hint ? (
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate">{option.label}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {option.hint}
+                  </span>
+                </span>
+              ) : (
+                <span className="truncate">{option.label}</span>
+              )}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
