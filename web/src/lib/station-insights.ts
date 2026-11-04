@@ -7,9 +7,9 @@ import type {
   TallyCountedResponseDto,
 } from '@/lib/api';
 import { formatShortDuration, spentIn } from '@/lib/inbox';
-import { formatDay, formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
-import { changePhrase } from '@/lib/station-config';
+import { rangeOf } from '@/lib/range';
+import { type ActivityPeriod, LIVE_CONFIG } from '@/lib/station';
 
 export type StationRunOutcome = StationRunOutcomeResponseDto;
 
@@ -148,6 +148,11 @@ export const countedColumnsOf = (counted: TallyCounted): TallyColumn[] =>
 
 export const SUMMARY_TITLE = 'Latest runs on this config';
 
+export const summaryTitleOf = (period: ActivityPeriod): string =>
+  period === LIVE_CONFIG
+    ? SUMMARY_TITLE
+    : `Runs in the ${rangeOf(period).label.toLowerCase()}`;
+
 export const RECENT_RUNS_TITLE = 'Recent runs';
 
 export type SummaryVisual = 'strip' | 'cost' | 'duration' | 'none';
@@ -164,6 +169,7 @@ export const SUMMARY_COLUMNS: readonly SummaryColumn[] = [
   summarized('Failed', 'none'),
   summarized('Accepted', 'none'),
   summarized('Sent back', 'none'),
+  summarized('Merged', 'none'),
   summarized('Cost', 'cost'),
   { ...summarized('Median', 'duration'), label: 'Median run' },
 ];
@@ -200,56 +206,6 @@ export const RECENT_RUN_HEADINGS: readonly NestedHeading[] = [
   { label: 'Run', indent: 'edge', size: 'minmax(10rem,2fr)' },
   ...OUTCOME_HEADINGS.slice(1),
 ];
-
-export type GroupSummary = {
-  readonly name: string;
-  readonly more: readonly string[];
-  readonly tooltip: string | null;
-  readonly days: string | null;
-  readonly checks: string;
-  readonly humanAction: string;
-  readonly pullRequestState: string;
-  readonly duration: string;
-  readonly cost: string;
-};
-
-const rateOf = (rate: number | null, label: string): string =>
-  rate === null ? '–' : `${formatPercent(rate)} ${label}`;
-
-const daysOf = (group: FingerprintGroup): string | null => {
-  const { firstDay, lastDay } = group;
-
-  if (!firstDay || !lastDay) {
-    return null;
-  }
-
-  return firstDay === lastDay
-    ? formatDay(firstDay)
-    : `${formatDay(firstDay)}–${formatDay(lastDay)}`;
-};
-
-export const groupSummary = (group: FingerprintGroup): GroupSummary => {
-  const phrases = group.changes.map(changePhrase);
-  const [first, ...more] = phrases;
-  const hash = group.fingerprint
-    ? `Config ${group.fingerprint.slice(0, 8)}`
-    : null;
-  const { tally, rates } = group;
-
-  return {
-    name: !group.fingerprint
-      ? 'Before the first run with a config'
-      : (first ?? hash ?? ''),
-    more,
-    tooltip: hash && phrases.length > 0 ? [...phrases, hash].join(' · ') : null,
-    days: daysOf(group),
-    checks: rateOf(rates.checksPassed, 'passed'),
-    humanAction: rateOf(rates.accepted, 'accepted'),
-    pullRequestState: rateOf(rates.merged, 'merged'),
-    duration: formatTallyDuration(tally.medianMs),
-    cost: formatCost(tally.cost),
-  };
-};
 
 export type ConfigFingerprint = {
   readonly fingerprint: string;

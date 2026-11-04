@@ -1,21 +1,30 @@
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
+import { SEVEN_TILES } from '@/components/features/insights/overview-layout';
 import { TabSection } from '@/components/features/stations/TabSection';
-import { SectionLinkSkeleton } from '@/components/shared/skeleton/SectionLinkSkeleton';
-import { SUMMARY_COLUMNS, SUMMARY_TITLE } from '@/lib/station-insights';
+import { TALLY_TILES } from '@/lib/insights-tiles';
+import { type ActivityPeriod, LIVE_CONFIG } from '@/lib/station';
+import { SUMMARY_COLUMNS, summaryTitleOf } from '@/lib/station-insights';
 
-const TILES = SUMMARY_COLUMNS.map((column) => ({
+const LIVE_TILES = SUMMARY_COLUMNS.map((column) => ({
   label: column.label,
   detail: Boolean(column.counted),
   trend: column.visual !== 'none',
 }));
 
-export function SummarySkeleton() {
+type SummarySkeletonProps = {
+  period: ActivityPeriod;
+};
+
+export function SummarySkeleton({ period }: SummarySkeletonProps) {
+  const title = summaryTitleOf(period);
+
   return (
-    <TabSection
-      title={SUMMARY_TITLE}
-      action={<SectionLinkSkeleton>See in Insights</SectionLinkSkeleton>}
-    >
-      <InsightsTilesSkeleton label={SUMMARY_TITLE} tiles={TILES} />
+    <TabSection title={title}>
+      <InsightsTilesSkeleton
+        label={title}
+        className={SEVEN_TILES}
+        tiles={period === LIVE_CONFIG ? LIVE_TILES : TALLY_TILES}
+      />
     </TabSection>
   );
 }

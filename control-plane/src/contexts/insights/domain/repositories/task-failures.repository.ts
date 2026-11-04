@@ -10,6 +10,8 @@ export interface TaskFailuresRepository {
 
   of(taskId: TaskId): Promise<TaskFailures | null>;
 
+  ofTasks(taskIds: readonly TaskId[]): Promise<readonly TaskFailures[]>;
+
   removeForTask(taskId: TaskId): Promise<void>;
 
   removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void>;

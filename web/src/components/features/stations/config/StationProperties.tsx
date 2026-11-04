@@ -5,14 +5,12 @@ import { VersionProperties } from '@/components/features/stations/config/Version
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 
 type StationPropertiesProps = {
-  slug: string;
   teamId: string;
   line: LineResponseDto;
   station: StationResponseDto;
 };
 
 export function StationProperties({
-  slug,
   teamId,
   line,
   station,
@@ -23,7 +21,6 @@ export function StationProperties({
       className="grid content-start gap-10 max-lg:order-first sm:max-lg:grid-cols-2 lg:sticky lg:top-3 lg:self-start"
     >
       <VersionProperties
-        slug={slug}
         teamId={teamId}
         lineId={line.id}
         stationId={station.id}

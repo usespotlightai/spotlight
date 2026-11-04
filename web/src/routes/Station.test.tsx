@@ -2,6 +2,9 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { failedAny } from '@/lib/insights';
+import { stationsOf } from '@/mocks/world/insights';
+import { PLATFORM_ID } from '@/mocks/world/platform';
 import { Station } from '@/routes/Station';
 
 const SEARCH = {
@@ -174,6 +177,22 @@ const judgeFailing = vi.fn();
 
 const worthImproving = vi.fn();
 
+const periodReport = () => {
+  const [report] = stationsOf(PLATFORM_ID, '30d').stations.filter(failedAny);
+
+  return { ...report, lineId: 'line_1', stationId: 'station_2' };
+};
+
+vi.mock('@/hooks/api/useInsightsStations', () => ({
+  useInsightsStations: () => ({
+    data: { stations: [periodReport()] },
+    isPending: false,
+    errorUpdateCount: 0,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+}));
+
 vi.mock('@/hooks/api/useInsightsOverview', () => ({
   useInsightsOverview: () => ({
     data: { worthImproving: worthImproving() },
@@ -250,13 +269,18 @@ const OUTCOMES = {
       runs: [run('run_1', 'stopped')],
     },
   ],
-  inForce: { tally: TALLY },
+  inForce: {
+    tally: TALLY,
+    taskFailures: [],
+    runFailures: [{ failure: 'exited', runs: 1, runIds: ['run_failed'] }],
+  },
 };
 
 const CALIBRATION = {
   qualified: true,
   measure: 'kappa',
   agreement: 0.71,
+  reading: 'substantial',
   pairs: 24,
   minAgreement: 0.6,
   hiddenReason: null,
@@ -304,7 +328,7 @@ beforeEach(() => {
   outcomesFailing.mockReturnValue(false);
   outcomesError.mockReturnValue(null);
   refetchOutcomes.mockClear();
-  judged.mockReturnValue({ calibration: CALIBRATION });
+  judged.mockReturnValue({ calibration: CALIBRATION, versions: [] });
   worthImproving.mockReturnValue([]);
   judgeFailing.mockReturnValue(false);
   localStorage.clear();
@@ -428,7 +452,7 @@ describe('Station', () => {
     });
   });
 
-  it('offers the config and the activity as tabs, opening on the config', () => {
+  it('offers the config, the activity and the judge as tabs, opening on the config', () => {
     renderAt('station_2', '');
 
     const tabs = within(screen.getByRole('navigation', { name: 'Station' }));
@@ -436,6 +460,7 @@ describe('Station', () => {
     expect(tabs.getAllByRole('link').map((each) => each.textContent)).toEqual([
       'Config',
       'Activity',
+      'Judge',
     ]);
     expect(tabs.getByRole('link', { name: 'Config' })).toHaveAttribute(
       'aria-current',
@@ -477,7 +502,59 @@ describe('Station', () => {
   });
 
   describe('its overview', () => {
-    it('sums up the latest runs on the live config, linking to the station in Insights', () => {
+    it('says each section’s own period where it differs from the one picked', () => {
+      const { unmount } = renderAt('station_2');
+
+      expect(
+        within(sectionTitled('What needs attention')).getByText('Past 30 days'),
+      ).toBeInTheDocument();
+      expect(
+        within(sectionTitled('Recent runs')).queryByText('Live config'),
+      ).not.toBeInTheDocument();
+      unmount();
+
+      renderAt('station_2', 'activity?period=7d');
+
+      expect(
+        within(sectionTitled('Recent runs')).getByText('Live config'),
+      ).toBeInTheDocument();
+      expect(
+        within(sectionTitled('What needs attention')).queryByText(
+          'Past 30 days',
+        ),
+      ).not.toBeInTheDocument();
+    });
+
+    it('opens the judge’s agreement on its own tab', () => {
+      renderAt('station_2', 'judge');
+
+      expect(screen.getByText('No judged runs yet')).toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', { name: 'What needs attention' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('says why the live config’s runs failed', () => {
+      renderAt('station_2');
+
+      expect(sectionTitled('Why runs failed')).toHaveTextContent('exited');
+    });
+
+    it('sums up a picked period with its changes and why runs failed', () => {
+      renderAt('station_2', 'activity?period=30d');
+
+      expect(
+        screen.getByRole('button', { name: 'Time range' }),
+      ).toHaveTextContent('Past 30 days');
+      expect(
+        document.querySelectorAll(
+          '[data-slot="station-summary"] [data-slot="insights-tile"]',
+        ).length,
+      ).toBeGreaterThan(0);
+      expect(sectionTitled('Why runs failed')).toBeInTheDocument();
+    });
+
+    it('sums up the latest runs on the live config, with the period to pick', () => {
       renderAt('station_2');
 
       expect(
@@ -491,10 +568,8 @@ describe('Station', () => {
         'Sent back37% of runs',
       ]);
       expect(
-        within(sectionTitled('Latest runs on this config')).getByRole('link', {
-          name: 'See in Insights',
-        }),
-      ).toHaveAttribute('href', `${INSIGHTS}?tab=stations&stationId=station_2`);
+        screen.getByRole('button', { name: 'Time range' }),
+      ).toHaveTextContent('Live config');
     });
 
     it('sums up nothing where no run has run a config yet', () => {
@@ -502,8 +577,11 @@ describe('Station', () => {
 
       renderAt('station_2');
 
+      expect(sectionTitled('Latest runs on this config')).toHaveTextContent(
+        'No run on a config yet.',
+      );
       expect(
-        screen.queryByRole('heading', { name: 'Latest runs on this config' }),
+        document.querySelector('[data-slot="station-summary"]'),
       ).not.toBeInTheDocument();
     });
 
@@ -747,7 +825,7 @@ describe('Station', () => {
       ).not.toBeInTheDocument();
     });
 
-    it('says since when the config is live, with its fingerprint on hover, linking to its history', async () => {
+    it('says since when the config is live, with its fingerprint on hover', async () => {
       const user = userEvent.setup();
       renderAt('station_2', 'config');
 
@@ -756,9 +834,6 @@ describe('Station', () => {
       ) as HTMLElement;
 
       expect(live).toHaveTextContent('SinceOct 28');
-      expect(
-        properties().getByRole('link', { name: 'History' }),
-      ).toHaveAttribute('href', `${INSIGHTS}?tab=stations&stationId=station_2`);
 
       await user.hover(within(live).getByText('Oct 28'));
 
@@ -782,18 +857,23 @@ describe('Station', () => {
       );
     });
 
-    it('says how far the judge agrees with people, linking to its agreement in Insights', () => {
+    it('says how far the judge agrees with people, linking to its agreement over time on the Judge tab', () => {
       renderAt('station_2', 'config');
 
       expect(
         document.querySelector('[data-slot="judge-calibration"]'),
-      ).toHaveTextContent('0.71Strong');
+      ).toHaveTextContent('0.71Substantial');
       expect(
-        screen.getByRole('link', { name: 'Agreement history' }),
+        screen.getByRole('link', { name: 'Agreement over time' }),
       ).toHaveAttribute(
         'href',
-        `${INSIGHTS}?tab=stations&stationId=station_2#judge`,
+        '/w/acme/team/team_1/lines/line_1/stations/station_2/judge',
       );
+      expect(
+        screen.queryByRole('heading', {
+          name: 'How far the judge agrees with people',
+        }),
+      ).not.toBeInTheDocument();
     });
 
     it('leaves out how far the judge agrees with people where its agreement could not load', () => {

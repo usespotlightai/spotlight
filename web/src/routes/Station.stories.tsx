@@ -14,7 +14,11 @@ const meta = {
     at: ({ tab }) => (tab === 'config' ? station : `${station}/${tab}`),
     args: { tab: 'config' },
     argTypes: {
-      tab: choice('Tab', { config: 'Config', activity: 'Activity' }),
+      tab: choice('Tab', {
+        config: 'Config',
+        activity: 'Activity',
+        judge: 'Judge',
+      }),
     },
   }),
 } satisfies Meta<PageArgs & StationArgs>;

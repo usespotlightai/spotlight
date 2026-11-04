@@ -120,6 +120,7 @@ describe('RunJudgeScore', () => {
           qualified: false,
           measure: 'kappa',
           agreement: 0.38,
+          reading: 'fair-to-slight',
           pairs: 24,
           minAgreement: 0.6,
           hiddenReason: 'below-min-agreement',

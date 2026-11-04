@@ -1,11 +1,11 @@
 import { useSearchParams } from 'react-router';
 import { CostTab } from '@/components/features/insights/CostTab';
 import { BeforeAfterHost } from '@/components/features/insights/changes/BeforeAfterHost';
+import { EveryStationView } from '@/components/features/insights/EveryStationView';
 import { InsightsTabs } from '@/components/features/insights/InsightsTabs';
 import { OverviewTab } from '@/components/features/insights/OverviewTab';
 import { PeopleTab } from '@/components/features/insights/PeopleTab';
 import { ProductivityTab } from '@/components/features/insights/ProductivityTab';
-import { StationsView } from '@/components/features/insights/StationsView';
 import { ToolsAndSkillsTab } from '@/components/features/insights/ToolsAndSkillsTab';
 import { TraceList } from '@/components/features/trace/list/TraceList';
 import { useLines } from '@/hooks/api/useLines';
@@ -65,9 +65,7 @@ export function TeamInsights({ slug, teamId }: TeamInsightsProps) {
                 onView={onView}
               />
             )}
-            {view.tab === 'stations' && (
-              <StationsView {...shared} stationId={view.filter.stationId} />
-            )}
+            {view.tab === 'stations' && <EveryStationView {...shared} />}
             {view.tab === 'tools' && <ToolsAndSkillsTab {...shared} />}
           </main>
         </BeforeAfterHost>

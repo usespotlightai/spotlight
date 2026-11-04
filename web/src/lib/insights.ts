@@ -164,8 +164,6 @@ const RUN_FILTER_KEYS = [
 
 export type RunFilterKey = (typeof RUN_FILTER_KEYS)[number];
 
-const STATION_FILTER_KEYS = ['stationId'] as const;
-
 export type InsightsFilter = {
   readonly [key in RunFilterKey | PullRequestFilterKey]?: string;
 };
@@ -187,8 +185,6 @@ const filterKeysOf = (tab: InsightsTab): readonly (keyof InsightsFilter)[] => {
       return RUN_FILTER_KEYS;
     case 'productivity':
       return PULL_REQUEST_FILTER_KEYS;
-    case 'stations':
-      return STATION_FILTER_KEYS;
     default:
       return [];
   }
@@ -239,10 +235,6 @@ const filterOf = (
       return runFilterOf(params);
     case 'productivity':
       return pullRequestFilterOf(params);
-    case 'stations': {
-      const stationId = params.get('stationId');
-      return stationId ? { stationId } : {};
-    }
     default:
       return {};
   }
@@ -1073,33 +1065,23 @@ export const tallyTiles = (
   },
 ];
 
-export const failedAny = (report: StationReport): boolean =>
+export const stationReportOf = (
+  stations: InsightsStations | undefined,
+  stationId: string,
+): StationReport | undefined =>
+  stations?.stations.find((each) => each.stationId === stationId);
+
+export type FailureReasons = Pick<
+  StationReport,
+  'runFailures' | 'taskFailures'
+>;
+
+export const failedAny = (report: FailureReasons): boolean =>
   report.taskFailures.length > 0 || report.runFailures.length > 0;
 
-export const insightsCrumbs = (
-  slug: string,
-  teamId: string,
-  view: InsightsView,
-  names: StationNames,
-): BreadcrumbSegment[] => {
-  const tab = INSIGHTS_TABS.find((each) => each.id === view.tab)?.label ?? '';
-  const stationId = view.tab === 'stations' ? view.filter.stationId : undefined;
-
-  return stationId
-    ? [
-        {
-          label: tab,
-          to: insightsPath(slug, teamId, {
-            tab: view.tab,
-            period: view.period,
-            filter: {},
-            page: 1,
-          }),
-        },
-        { label: formatStation(names, stationId) },
-      ]
-    : [{ label: tab }];
-};
+export const insightsCrumbs = (view: InsightsView): BreadcrumbSegment[] => [
+  { label: INSIGHTS_TABS.find((each) => each.id === view.tab)?.label ?? '' },
+];
 
 const signalHeadings = (indent: 'edge' | 'outer'): readonly NestedHeading[] => [
   { label: 'Signal', indent, size: 'minmax(10rem,1fr)' },
@@ -1120,7 +1102,10 @@ export const signalPrompt = (reading: SignalReading): string =>
 
 export const WORTH_IMPROVING_SPAN = rangeOf(DEFAULT_PERIOD).label.toLowerCase();
 
-export const WORTH_IMPROVING_NOTE = `Signals that have declined over the ${WORTH_IMPROVING_SPAN} or fall below team benchmarks.`;
+export const worthImprovingNote = (period: InsightsPeriod): string =>
+  `Signals that have declined over the ${rangeOf(period).label.toLowerCase()} or fall below team benchmarks.`;
+
+export const WORTH_IMPROVING_NOTE = worthImprovingNote(DEFAULT_PERIOD);
 
 export const WORTH_IMPROVING_HEADINGS = signalHeadings('edge');
 
@@ -1178,7 +1163,4 @@ export const workStationCount = (names: StationNames): number =>
   SOME_STATIONS;
 
 export const BY_STATION_NOTE =
-  'The counts are the same as on each station’s page. The line shows runs per day, with failures in red. The number beside it is the change in runs since the previous period.';
-
-export const RUNS_BY_CONFIG_NOTE =
-  'Each config change starts a new group. Compare runs before and after it.';
+  'The counts are the same as on each station’s page. The columns show runs per day, with failed runs in red. The number beside them is the change in runs since the previous period.';

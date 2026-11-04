@@ -144,6 +144,13 @@ export class TaskFailuresInMemory implements TaskFailuresRepository {
     return this.stored.get(taskId.value) ?? null;
   }
 
+  async ofTasks(taskIds: readonly TaskId[]): Promise<readonly TaskFailures[]> {
+    return taskIds.flatMap((each) => {
+      const failures = this.stored.get(each.value);
+      return failures ? [failures] : [];
+    });
+  }
+
   async ofTeamBetween(
     window: TeamWindow,
     max: number,

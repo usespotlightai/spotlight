@@ -17,11 +17,7 @@ export function useStationTabLoading(
   { teamId, lineId, stationId }: StationIds,
 ): boolean {
   const outcomes = useStationInsights(teamId, lineId, stationId);
-  const judge = useStationJudge(
-    teamId,
-    lineId,
-    tab === 'config' ? stationId : undefined,
-  );
+  const judge = useStationJudge(teamId, lineId, stationId);
   const overview = useInsightsOverview(
     tab === 'activity' ? teamId : undefined,
     DEFAULT_PERIOD,
@@ -29,7 +25,10 @@ export function useStationTabLoading(
   const harnesses = useHarnesses();
 
   if (tab === 'activity') {
-    return [outcomes, overview].some(loading);
+    return [outcomes, overview, judge].some(loading);
+  }
+  if (tab === 'judge') {
+    return loading(judge);
   }
   if (tab === 'config') {
     return [outcomes, judge, harnesses].some(loading);

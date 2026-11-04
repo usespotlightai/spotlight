@@ -1,40 +1,49 @@
-import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
-import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
+import { TabSection } from '@/components/features/stations/TabSection';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
-import type { TileBones } from '@/lib/insights-tiles';
-import { COVERAGE_PARTS, DISTRIBUTION_NOTE } from '@/lib/judge';
-
-const TILES: readonly TileBones[] = [
-  { label: null, detail: true },
-  ...COVERAGE_PARTS.map(({ label }) => ({ label, detail: true })),
-];
-
-const CARDS = [
-  { title: 'Statistics' },
-  { title: 'Score comparison' },
-  { title: 'Distribution', description: DISTRIBUTION_NOTE },
-  { title: 'Trend over time' },
-];
+import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import { COVERAGE_PARTS } from '@/lib/judge';
 
 export function JudgeAgreementSkeleton() {
   return (
     <div
       role="status"
       aria-label="Loading how the judge agrees with people"
-      className="flex flex-col gap-3"
+      className="@container flex flex-col gap-10"
     >
-      <InsightsTilesSkeleton label="How far to trust the judge" tiles={TILES} />
-
-      <div className="@container flex flex-col gap-2">
-        <div className="grid auto-rows-[minmax(23rem,auto)] gap-2 @2xl:grid-cols-2 @6xl:grid-cols-4">
-          {CARDS.map((card) => (
-            <InsightsCardSkeleton key={card.title} {...card}>
-              <div className="flex flex-1 items-center justify-center pb-8">
-                <Skeleton className="size-40 rounded-md" />
+      <TabSection title="Who scored the last runs">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-2 w-full rounded-full" />
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
+            {COVERAGE_PARTS.map((part) => (
+              <div key={part.key} className="flex flex-col gap-0.5">
+                <span className="text-muted-foreground text-xs">
+                  {part.label}
+                </span>
+                <SkeletonLine className="w-12 text-sm" />
               </div>
-            </InsightsCardSkeleton>
+            ))}
+          </div>
+        </div>
+      </TabSection>
+
+      <TabSection title="Agreement">
+        <div className="flex flex-wrap gap-x-12 gap-y-4">
+          {[0, 1, 2].map((at) => (
+            <div key={at} className="flex flex-col gap-1">
+              <SkeletonLine className="w-20 text-xs" />
+              <SkeletonLine className="w-12 text-xl leading-7" />
+            </div>
           ))}
         </div>
+      </TabSection>
+
+      <div className="grid gap-x-12 gap-y-10 @2xl:grid-cols-[auto_minmax(0,1fr)]">
+        <TabSection title="Where they disagree">
+          <Skeleton className="size-40 rounded-md" />
+        </TabSection>
+        <TabSection title="Over time">
+          <Skeleton className="h-44 w-full rounded-md" />
+        </TabSection>
       </div>
     </div>
   );

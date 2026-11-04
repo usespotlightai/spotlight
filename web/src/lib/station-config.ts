@@ -3,7 +3,6 @@ import type {
   StationChangeResponseDto,
 } from '@/lib/api';
 import { formatImage } from '@/lib/run';
-import { sharePercent } from '@/lib/station-monitoring';
 
 export type ConfigChange = ConfigChangeResponseDto;
 
@@ -37,8 +36,6 @@ export const configChangesOf = (
     isConfigPart(part) ? [{ ...rest, part }] : [],
   );
 
-const SWITCHES: readonly ConfigChange['part'][] = ['decisions', 'memories'];
-
 export const CHANGED_WITHIN: Partial<Record<ConfigChange['part'], string>> = {
   repository: 'setup changed',
   profile: 'settings changed',
@@ -48,52 +45,3 @@ export const shownValue = (
   part: ConfigChange['part'],
   value: string | null,
 ): string | null => (value && part === 'image' ? formatImage(value) : value);
-
-const shareOf = (value: string | null): string | null =>
-  value === null || Number.isNaN(Number(value))
-    ? null
-    : sharePercent(Number(value));
-
-const SETTING_NAMES: Readonly<Record<string, string>> = {
-  minAgreement: 'min agreement',
-};
-
-const namedPhrase = (change: ConfigChange, label: string, setting: string) => {
-  const name = SETTING_NAMES[setting] ?? setting;
-  const was = change.part === 'judge' ? shareOf(change.was) : null;
-  const now = change.part === 'judge' ? shareOf(change.now) : null;
-
-  if (change.kind !== 'changed') {
-    return `${label} ${name} ${change.kind}`;
-  }
-
-  return was && now
-    ? `${label} ${name} ${was} → ${now}`
-    : `${label} ${name} ${CHANGED_WITHIN[change.part] ?? 'changed'}`;
-};
-
-const valuePhrase = (change: ConfigChange, label: string): string => {
-  const was = shownValue(change.part, change.was);
-  const now = shownValue(change.part, change.now);
-
-  if (change.kind === 'added') {
-    return now ? `${label} set to ${now}` : `${label} added`;
-  }
-  if (change.kind === 'removed') {
-    return was ? `${label} ${was} removed` : `${label} removed`;
-  }
-
-  return was && now ? `${label} ${was} → ${now}` : `${label} changed`;
-};
-
-export const changePhrase = (change: ConfigChange): string => {
-  const label = PART_LABELS[change.part];
-
-  if (SWITCHES.includes(change.part)) {
-    return `${label} ${change.now ?? 'off'}`;
-  }
-
-  return change.name
-    ? namedPhrase(change, label, change.name)
-    : valuePhrase(change, label);
-};

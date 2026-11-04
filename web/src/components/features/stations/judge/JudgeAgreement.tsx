@@ -1,20 +1,30 @@
 import { GraduationCap } from 'lucide-react';
 import { useState } from 'react';
-import { InsightsTile } from '@/components/features/insights/InsightsTile';
-import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
+import { ClaimAgreements } from '@/components/features/stations/judge/ClaimAgreements';
+import { ConfusionMatrix } from '@/components/features/stations/judge/ConfusionMatrix';
 import { JudgeAgreementSkeleton } from '@/components/features/stations/judge/JudgeAgreementSkeleton';
-import { RubricVersionCard } from '@/components/features/stations/judge/RubricVersionCard';
+import { JudgeCoverageBar } from '@/components/features/stations/judge/JudgeCoverage';
+import { JudgeStatistics } from '@/components/features/stations/judge/JudgeStatistics';
+import { JudgeTrend } from '@/components/features/stations/judge/JudgeTrend';
+import { TabSection } from '@/components/features/stations/TabSection';
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { MembersOnly } from '@/components/features/team/MembersOnly';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
+import { MenuPicker } from '@/components/shared/MenuPicker';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
 import { notFound } from '@/lib/error';
-import { formatRubric, judgeTiles } from '@/lib/judge';
+import {
+  comparisonStats,
+  coverageTitle,
+  formatRubric,
+  formatTrendCaption,
+  TREND_MIN_PAIRS,
+  trendWaitNote,
+} from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 
-const BOX = 'flex justify-center rounded-xl border border-border py-10';
+const BOX = 'flex justify-center py-10';
 
 type JudgeAgreementProps = {
   slug: string;
@@ -77,45 +87,75 @@ export function JudgeAgreement({
     );
   }
 
-  return (
-    <div data-slot="judge-agreement" className="flex flex-col gap-3">
-      <InsightsTiles label="How far the judge agrees with people">
-        {judgeTiles(calibration, coverage).map((tile) => (
-          <InsightsTile
-            key={tile.id}
-            label={tile.label}
-            value={tile.value}
-            detail={tile.detail}
-          />
-        ))}
-      </InsightsTiles>
+  const { agreement } = shown;
 
-      {versions.length > 1 && (
-        <div className="flex items-center gap-2">
-          <span aria-hidden className="text-muted-foreground text-xs">
-            Rubric
-          </span>
-          <ChoiceSelect
-            label="Rubric"
-            compact
-            clearable={false}
-            choices={versions.map((version) => ({
-              value: version.rubricVersion,
-              label: formatRubric(version),
-            }))}
-            value={shown.rubricVersion}
-            placeholder="Current version"
-            onChange={setPicked}
-          />
+  return (
+    <div
+      data-slot="judge-agreement"
+      className="@container flex flex-col gap-10"
+    >
+      <TabSection title={coverageTitle(coverage)}>
+        <JudgeCoverageBar coverage={coverage} />
+      </TabSection>
+
+      <TabSection
+        title={`Agreement on ${shown.current ? 'the current' : 'an earlier'} rubric`}
+        action={
+          versions.length > 1 && (
+            <MenuPicker
+              label="Rubric"
+              value={shown.rubricVersion}
+              options={versions.map((version) => ({
+                id: version.rubricVersion,
+                label: formatRubric(version),
+              }))}
+              selected={{
+                id: shown.rubricVersion,
+                label: formatRubric(shown),
+              }}
+              onChange={setPicked}
+            />
+          )
+        }
+      >
+        <JudgeStatistics stats={comparisonStats(shown)} />
+      </TabSection>
+
+      {agreement.pairs > 0 && (
+        <div className="grid gap-x-12 gap-y-10 @2xl:grid-cols-[auto_minmax(0,1fr)]">
+          <TabSection title="Where they disagree">
+            <ConfusionMatrix
+              confusion={shown.confusion}
+              distribution={shown.distribution}
+              observed={agreement.observed}
+              pairs={agreement.pairs}
+            />
+          </TabSection>
+
+          <TabSection
+            title="Over time"
+            description={formatTrendCaption(shown.kind)}
+          >
+            {agreement.pairs >= TREND_MIN_PAIRS && shown.trend.length > 1 ? (
+              <JudgeTrend trend={shown.trend} kind={shown.kind} />
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                {trendWaitNote(agreement.pairs)}
+              </p>
+            )}
+          </TabSection>
         </div>
       )}
 
-      <RubricVersionCard
-        key={shown.rubricVersion}
-        version={shown}
-        claims={shown.current && judge ? judge.claims : []}
-        minAgreement={calibration.minAgreement}
-      />
+      {agreement.claims.length > 0 && (
+        <TabSection title="By claim">
+          <ClaimAgreements
+            agreements={agreement.claims}
+            claims={shown.current && judge ? judge.claims : []}
+            minAgreement={calibration.minAgreement}
+          />
+        </TabSection>
+      )}
     </div>
   );
 }

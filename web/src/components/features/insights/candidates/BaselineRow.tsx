@@ -1,4 +1,3 @@
-import { RateTrack } from '@/components/features/insights/candidates/RateTrack';
 import { ChevronSpace } from '@/components/shared/nested-table/ExpandToggle';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
@@ -44,9 +43,6 @@ export function BaselineRow({ baseline, heldOut }: BaselineRowProps) {
       <NestedCell heading="Source" numeric={false}>
         Live
       </NestedCell>
-      <div className="col-span-full min-w-0 @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1">
-        <RateTrack rate={null} live={baseline.successRate} />
-      </div>
       <NestedCell heading="Candidate">–</NestedCell>
       <NestedCell heading="Live" strong>
         {formatPercent(baseline.successRate)}

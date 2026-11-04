@@ -1,10 +1,10 @@
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import {
-  agreementBand,
   formatCalibration,
   formatStat,
   type JudgeCalibration,
   measureNote,
+  readingWord,
 } from '@/lib/judge';
 
 export function AgreementValue({
@@ -28,7 +28,7 @@ export function AgreementValue({
     );
   }
 
-  const band = agreementBand(measure, agreement);
+  const band = readingWord(calibration.reading);
   const below = hiddenReason === 'below-min-agreement';
 
   return (

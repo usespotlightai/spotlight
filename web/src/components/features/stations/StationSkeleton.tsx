@@ -40,21 +40,31 @@ export function StationSkeleton({ tab }: { tab: StationTab }) {
         </div>
 
         <div className="border-border border-b">
-          <div className={cn(STATION_COLUMN, 'flex items-center gap-1 pl-1')}>
-            {STATION_TABS.map((each) => (
-              <span
-                key={each.id}
-                className={cn(
-                  'relative flex h-9 items-center px-2 text-sm',
-                  each.id === tab ? 'text-foreground' : 'text-muted-foreground',
-                )}
-              >
-                {each.label}
-                {each.id === tab && (
-                  <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-primary" />
-                )}
-              </span>
-            ))}
+          <div
+            className={cn(
+              STATION_COLUMN,
+              'flex items-center justify-between gap-3',
+            )}
+          >
+            <div className="-ml-2 flex items-center gap-1">
+              {STATION_TABS.map((each) => (
+                <span
+                  key={each.id}
+                  className={cn(
+                    'relative flex h-9 items-center px-2 text-sm',
+                    each.id === tab
+                      ? 'text-foreground'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  {each.label}
+                  {each.id === tab && (
+                    <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-primary" />
+                  )}
+                </span>
+              ))}
+            </div>
+            {tab === 'activity' && <Skeleton className="h-7 w-32 rounded-md" />}
           </div>
         </div>
       </div>

@@ -4,24 +4,20 @@ import {
   PropertyList,
 } from '@/components/features/stations/config/PropertyList';
 import { TabSection } from '@/components/features/stations/TabSection';
-import { SectionLink } from '@/components/shared/SectionLink';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import { useStationInsights } from '@/hooks/api/useStationInsights';
 import { formatDay } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
-import { stationInsightsPath } from '@/lib/station';
 import { configFingerprint } from '@/lib/station-insights';
 
 type VersionPropertiesProps = {
-  slug: string;
   teamId: string;
   lineId: string;
   stationId: string;
 };
 
 export function VersionProperties({
-  slug,
   teamId,
   lineId,
   stationId,
@@ -30,17 +26,7 @@ export function VersionProperties({
   const live = configFingerprint(outcomes.data?.groups ?? []);
 
   return (
-    <TabSection
-      level={3}
-      title="Live config"
-      action={
-        live && (
-          <SectionLink to={stationInsightsPath(slug, teamId, stationId)}>
-            History
-          </SectionLink>
-        )
-      }
-    >
+    <TabSection level={3} title="Live config">
       <div data-slot="live-config">
         {loading(outcomes) ? (
           <PropertyList>

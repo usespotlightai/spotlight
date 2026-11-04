@@ -1,4 +1,5 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
+import { ActivityPeriodPicker } from '@/components/features/stations/activity/ActivityPeriodPicker';
 import { StationTabs } from '@/components/features/stations/StationTabs';
 import { STATION_COLUMN } from '@/components/features/stations/station-column';
 import { PageTitle } from '@/components/shared/PageTitle';
@@ -48,13 +49,21 @@ export function StationHeading({
 
       {station.kind === 'work' && (
         <div className="border-border border-b">
-          <StationTabs
-            slug={slug}
-            teamId={teamId}
-            lineId={line.id}
-            stationId={station.id}
-            current={tab}
-          />
+          <div
+            className={cn(
+              STATION_COLUMN,
+              'flex items-center justify-between gap-3',
+            )}
+          >
+            <StationTabs
+              slug={slug}
+              teamId={teamId}
+              lineId={line.id}
+              station={station}
+              current={tab}
+            />
+            {tab === 'activity' && <ActivityPeriodPicker />}
+          </div>
         </div>
       )}
     </div>

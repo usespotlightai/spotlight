@@ -166,6 +166,7 @@ const work: WorkPort = {
 let database: TestDatabase;
 let records: DrizzleRunRecordRepository;
 let taskPullRequests: DrizzleTaskPullRequestRepository;
+let failures: DrizzleTaskFailuresRepository;
 let subscribers: readonly DomainEventSubscriber[];
 let listing: ReadStationInsightsHandler;
 let context: DrizzleContext;
@@ -240,6 +241,7 @@ const listAt = (workspaceId: string, teamId: string) =>
     taskPullRequests,
     configPullRequests,
     work,
+    failures,
   ).execute(
     new ReadStationInsightsQuery(
       teamId,
@@ -288,7 +290,7 @@ beforeAll(async () => {
     context,
     new DrizzleRunFactProjection(context),
   );
-  const failures = new DrizzleTaskFailuresRepository(context);
+  failures = new DrizzleTaskFailuresRepository(context);
   chats = new DrizzleChatRecordRepository(context);
   const pullRequests = new DrizzlePullRequestRecordRepository(context);
   const shapes = new DrizzleTaskChangeShapeRepository(context);
@@ -428,6 +430,7 @@ beforeAll(async () => {
     taskPullRequests,
     configPullRequests,
     work,
+    failures,
   );
 }, 60_000);
 
@@ -642,6 +645,8 @@ describe('how a station’s runs turned out', () => {
     });
     expect(outcomes.inForce).toEqual({
       tally: expect.objectContaining({ runs: 1, cancelled: 0 }),
+      taskFailures: [],
+      runFailures: [],
     });
   });
 

@@ -36,8 +36,6 @@ export const stateNote = (state: ReplayState): string | null =>
 const counted = (count: number, one: string, many: string): string =>
   `${count.toLocaleString()} ${count === 1 ? one : many}`;
 
-export const REPLAY_SET_TITLE = 'Replay set';
-
 const POINTS = 100;
 
 const signedPoints = (share: number): string => {

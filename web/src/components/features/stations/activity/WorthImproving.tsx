@@ -6,7 +6,7 @@ import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
 import { useInsightsOverview } from '@/hooks/api/useInsightsOverview';
 import {
-  DEFAULT_PERIOD,
+  type InsightsPeriod,
   type SignalReading,
   WORTH_IMPROVING_HEADINGS,
   WORTH_IMPROVING_SPAN,
@@ -16,6 +16,7 @@ import { failed, loading } from '@/lib/query';
 type WorthImprovingProps = {
   teamId: string;
   stationId: string;
+  period: InsightsPeriod;
   action: ReactNode;
   actionFor: (reading: SignalReading) => ReactNode;
 };
@@ -23,10 +24,11 @@ type WorthImprovingProps = {
 export function WorthImproving({
   teamId,
   stationId,
+  period,
   action,
   actionFor,
 }: WorthImprovingProps) {
-  const overview = useInsightsOverview(teamId, DEFAULT_PERIOD);
+  const overview = useInsightsOverview(teamId, period);
   const flagged = overview.data?.worthImproving.find(
     (each) => each.stationId === stationId,
   );

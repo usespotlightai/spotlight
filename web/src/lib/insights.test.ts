@@ -166,7 +166,7 @@ describe('the insights view in the address', () => {
     }
   });
 
-  it('reads the station the Stations tab opens, and nothing else', () => {
+  it('reads only the period on the Stations tab', () => {
     const view = viewOf(
       new URLSearchParams(
         'tab=stations&period=90d&stationId=station_build&outcome=failed&page=3',
@@ -176,14 +176,10 @@ describe('the insights view in the address', () => {
     expect(view).toEqual({
       tab: 'stations',
       period: '90d',
-      filter: { stationId: 'station_build' },
+      filter: {},
       page: 1,
     });
-    expect(paramsOf(view)).toEqual({
-      tab: 'stations',
-      period: '90d',
-      stationId: 'station_build',
-    });
+    expect(paramsOf(view)).toEqual({ tab: 'stations', period: '90d' });
   });
 
   it('writes only what differs from the defaults', () => {

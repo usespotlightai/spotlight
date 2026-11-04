@@ -2,6 +2,7 @@ import { FailureSlices } from '@/components/features/insights/FailureSlices';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
+  type FailureReasons,
   formatRunFailure,
   formatTaskFailure,
   type StationReport,
@@ -14,7 +15,7 @@ const LINK = 'hover:underline';
 type StationFailuresProps = {
   slug: string;
   teamId: string;
-  report: StationReport;
+  report: FailureReasons & Pick<StationReport, 'stationId'>;
 };
 
 export function StationFailures({

@@ -7,6 +7,7 @@ type TabSectionProps = {
   title: string;
   id?: string;
   description?: TooltipText;
+  scope?: string;
   level?: 2 | 3;
   action?: ReactNode;
   children: ReactNode;
@@ -16,6 +17,7 @@ export function TabSection({
   title,
   id,
   description,
+  scope,
   level = 2,
   action,
   children,
@@ -42,6 +44,9 @@ export function TabSection({
             {title}
           </Heading>
           {description && <InfoTooltip tooltip={description} />}
+          {scope && (
+            <span className="pl-1 text-muted-foreground text-sm">{scope}</span>
+          )}
         </span>
         {action}
       </header>

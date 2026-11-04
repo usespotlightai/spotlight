@@ -40,13 +40,18 @@ const showing = () =>
         teamId="team_1"
         lineId="line_1"
         stationId="station_1"
+        period="live"
       />
     </MemoryRouter>,
   );
 
 describe('StationSummary', () => {
   it('sums up every listed run of the live config', () => {
-    inForce.mockReturnValue({ tally: TALLY });
+    inForce.mockReturnValue({
+      tally: TALLY,
+      taskFailures: [],
+      runFailures: [],
+    });
 
     showing();
 
@@ -56,13 +61,14 @@ describe('StationSummary', () => {
     ).toHaveTextContent('42');
   });
 
-  it('says nothing where no run has run a config yet', () => {
+  it('says no run has run a config yet, with no tiles', () => {
     inForce.mockReturnValue(null);
 
     showing();
 
+    expect(screen.getByText('No run on a config yet.')).toBeInTheDocument();
     expect(
-      screen.queryByText('Latest runs on this config'),
+      document.querySelector('[data-slot="station-summary"]'),
     ).not.toBeInTheDocument();
   });
 });

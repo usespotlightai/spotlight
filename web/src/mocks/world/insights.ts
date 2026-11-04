@@ -483,7 +483,13 @@ const HOOK_FAILURES: Record<string, StationReportResponseDto['taskFailures']> =
     ],
   };
 
-const runFailuresOf = (runs: readonly HistoryRun[]) => {
+export const hookFailuresAt = (
+  stationId: string,
+): StationReportResponseDto['taskFailures'] => HOOK_FAILURES[stationId] ?? [];
+
+export const runFailuresOf = (
+  runs: readonly Pick<HistoryRun, 'runId' | 'ending' | 'failure'>[],
+) => {
   const failed = runs.filter((run) => run.ending === 'failed');
   return distinct(failed.map((run) => run.failure))
     .map((failure) => {
@@ -532,7 +538,7 @@ export const stationsOf = (
           changes: tallyChangesOf(runs, was),
           seen: seenOf(runs),
           trend: trendOf(runs, span),
-          taskFailures: HOOK_FAILURES[profile.stationId] ?? [],
+          taskFailures: hookFailuresAt(profile.stationId),
           runFailures: runFailuresOf(runs),
         },
       ];

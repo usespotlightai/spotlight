@@ -1,37 +1,49 @@
-import { SetCaveats } from '@/components/features/insights/candidates/SetCaveats';
-import { Pill } from '@/components/shared/Pill';
-import { type CandidatesSet, formatTasks } from '@/lib/insights-candidates';
-import { REPLAY_SET_TITLE } from '@/lib/replay-words';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
+import { WithTooltip } from '@/components/shared/WithTooltip';
+import { type CandidatesSet, replayedTasksOf } from '@/lib/insights-candidates';
+import { healthReadingsOf } from '@/lib/replay-words';
+import type { TooltipNote } from '@/lib/tooltip-note';
 
 type SetSummaryProps = {
   set: CandidatesSet;
 };
 
+const NOT_RUN = new Set(['unknown', 'pending']);
+
 export function SetSummary({ set }: SetSummaryProps) {
+  const readings = healthReadingsOf(set.health, set.health.minGain);
+  const warnings = readings.filter((each) => each.tone === 'bad');
+  const [first] = warnings;
+  const health: TooltipNote = {
+    title: 'Replay set health',
+    rows: readings.map((each) => [
+      each.label,
+      NOT_RUN.has(each.tone) ? 'Not run yet' : each.text,
+    ]),
+  };
+
   return (
     <div
       data-slot="replay-set-health"
-      className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1"
+      className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-muted-foreground"
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="min-w-0 truncate text-foreground">
-          {REPLAY_SET_TITLE}
-        </span>
-        <span className="text-muted-foreground">
-          {set.health.tasks === 0
-            ? 'No tasks yet'
-            : formatTasks(set.health.tasks, set.health.runs)}
-        </span>
-        <SetCaveats health={set.health} minGain={set.health.minGain} />
-        {set.stationGone && <Pill>Station gone</Pill>}
-      </div>
+      <span className="flex items-center gap-1">
+        {replayedTasksOf(set.health.tasks, set.health.runs)}
+        <InfoTooltip tooltip={health} />
+      </span>
 
-      {!set.baseline && (
-        <p className="text-muted-foreground">
-          The live config hasn’t been replayed on this set. Nothing is compared
-          with live.
-        </p>
+      {first && (
+        <WithTooltip tooltip={warnings.map((each) => each.advice).join(' ')}>
+          <span data-slot="set-warning" className="text-outcome-failed">
+            {first.label}: {first.text}
+            {warnings.length > 1 && `, and ${warnings.length - 1} more`}
+          </span>
+        </WithTooltip>
       )}
+
+      {set.stationGone && <span>Station gone</span>}
+
+      {!set.baseline && <span>The live config hasn’t been replayed here.</span>}
     </div>
   );
 }

@@ -52,8 +52,10 @@ export function JudgeSection({
       title="Judge"
       id={JUDGE_ANCHOR}
       action={
-        <SectionLink to={judgeAgreementPath(slug, teamId, { stationId })}>
-          Agreement history
+        <SectionLink
+          to={judgeAgreementPath(slug, teamId, { lineId, stationId })}
+        >
+          Agreement over time
         </SectionLink>
       }
     >

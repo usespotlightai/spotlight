@@ -172,8 +172,10 @@ export const changeLinkOf = (candidate: SetCandidate): string | null =>
 const formatRuns = (runs: number): string =>
   `${formatCount(runs)} ${runs === 1 ? 'run' : 'runs'}`;
 
-export const formatTasks = (tasks: number, runs: number): string =>
-  `${formatCount(tasks)} ${tasks === 1 ? 'task' : 'tasks'}${runs === tasks ? '' : ` (${formatRuns(runs)})`}`;
+export const replayedTasksOf = (tasks: number, runs: number): string =>
+  tasks === 0
+    ? 'No tasks replayed yet'
+    : `${formatCount(tasks)} ${tasks === 1 ? 'task' : 'tasks'} replayed${runs === tasks ? '' : `, ${formatRuns(runs)}`}`;
 
 export const replayedNote = (points: readonly ReplayedPoint[]): string => {
   const scored = Math.max(0, ...points.map((each) => each.scored));
@@ -205,23 +207,51 @@ export const costBasisNote = ({ shown }: SetCandidate): string | null =>
     : 'Cost is over all its scored runs. The live config is priced in another currency.';
 
 const SOURCES_NOTE =
-  'Search: a search agent proposed it, and Spotlight replayed it on this set. Live: the station’s current config, replayed for comparison. Trophy, best value: no other config from the same search succeeded as often for less. The live config it started from didn’t either. Best value doesn’t mean it beats live. See Against live.';
+  'Search: a search agent proposed it, and Spotlight replayed it on this set. Live: the station’s current config, replayed for comparison. Indigo dot, best for the cost: no other config from the same search succeeded as often for less. The live config it started from didn’t either. Best for the cost doesn’t mean it beats live. See Gain over live.';
+
+const GAIN_STEP = 0.1;
+
+export const MIN_GAIN_EXTENT = 0.2;
+
+export const gainExtentOf = (
+  stations: readonly CandidatesStation[],
+): number => {
+  const reach = stations.flatMap((station) =>
+    station.sets.flatMap((set) =>
+      set.candidates.flatMap((each) =>
+        each.gainOverLive
+          ? [Math.abs(each.gainOverLive.low), Math.abs(each.gainOverLive.high)]
+          : [],
+      ),
+    ),
+  );
+
+  return Math.max(
+    MIN_GAIN_EXTENT,
+    Math.ceil(Math.max(0, ...reach) / GAIN_STEP - 1e-9) * GAIN_STEP,
+  );
+};
+
+const gainNote = (extent: number): string => {
+  const points = Math.round(extent * 100);
+
+  return `Success points over the live config on the same tasks, from −${points} to +${points}. The middle line is live. The dot is the gain, the line its likely range, and the dashed line the minimum real gain.`;
+};
 
 export const candidateHeadings = (
   heldOut: boolean,
+  extent: number,
 ): readonly NestedHeading[] => [
   { label: 'Config', indent: 'inner' },
   { label: 'What changed', size: 'minmax(9rem,1fr)' },
   { label: 'Source', tooltip: SOURCES_NOTE },
-  {
-    label: 'Replay success',
-    size: 'minmax(7rem,1fr)',
-    tooltip:
-      'From 0 to 100%. The dot is the candidate and the band its likely range. The line is the live config.',
-  },
   { label: 'Candidate', numeric: true },
   { label: 'Live', numeric: true },
-  { label: 'Against live' },
+  {
+    label: 'Gain over live',
+    size: 'minmax(10rem,1.2fr)',
+    tooltip: gainNote(extent),
+  },
   { label: 'Cost per run', numeric: true },
   { label: 'Live cost', numeric: true },
   ...(heldOut ? [{ label: 'Held out', numeric: true }] : []),

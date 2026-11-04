@@ -1,9 +1,5 @@
-import type {
-  GainEstimateResponseDto,
-  RateIntervalResponseDto,
-} from '@/lib/api';
+import type { GainEstimateResponseDto } from '@/lib/api';
 
-export type RateInterval = RateIntervalResponseDto;
 export type GainEstimate = GainEstimateResponseDto;
 
 export type ReplayedStation = {

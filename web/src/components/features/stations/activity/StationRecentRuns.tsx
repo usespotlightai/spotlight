@@ -11,6 +11,7 @@ import { useStationInsights } from '@/hooks/api/useStationInsights';
 import { DEFAULT_PERIOD, insightsPath } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 import { runPath } from '@/lib/run';
+import { type ActivityPeriod, LIVE_CONFIG } from '@/lib/station';
 import {
   hasRuns,
   RECENT_RUN_HEADINGS,
@@ -25,6 +26,7 @@ type StationRecentRunsProps = {
   teamId: string;
   lineId: string;
   stationId: string;
+  period: ActivityPeriod;
 };
 
 export function StationRecentRuns({
@@ -32,6 +34,7 @@ export function StationRecentRuns({
   teamId,
   lineId,
   stationId,
+  period,
 }: StationRecentRunsProps) {
   const outcomes = useStationInsights(teamId, lineId, stationId);
   const groups = outcomes.data?.groups ?? [];
@@ -51,6 +54,7 @@ export function StationRecentRuns({
   return (
     <TabSection
       title={RECENT_RUNS_TITLE}
+      scope={period === LIVE_CONFIG ? undefined : 'Live config'}
       action={ran && <SectionLink to={all}>All runs</SectionLink>}
     >
       {failed(outcomes) ? (

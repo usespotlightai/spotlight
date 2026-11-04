@@ -13,7 +13,7 @@ export function AuthoredText({
       {label && <p className="text-muted-foreground text-xs">{label}</p>}
       <div
         data-slot="authored-text"
-        className="min-w-0 border-border border-l-2 pl-4"
+        className="min-w-0 rounded-lg bg-background/60 px-5 py-4"
       >
         {children}
       </div>

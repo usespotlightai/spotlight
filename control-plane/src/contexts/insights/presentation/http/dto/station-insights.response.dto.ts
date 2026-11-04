@@ -14,6 +14,10 @@ import { TASK_ACTIONS } from '@insights/domain/value-objects/human-action.vo';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
 import { TASK_PULL_REQUEST_STATES } from '@insights/domain/value-objects/task-pull-request-state';
 import {
+  RunFailureSummaryResponseDto,
+  TaskFailureSummaryResponseDto,
+} from '@insights/presentation/http/dto/failure-summaries.response.dto';
+import {
   ConfigChangeResponseDto,
   StationConfigResponseDto,
 } from '@insights/presentation/http/dto/station-config.response.dto';
@@ -434,8 +438,29 @@ export class ConfigInForceResponseDto {
   })
   readonly tally: RunTallyResponseDto;
 
+  @ApiProperty({
+    type: TaskFailureSummaryResponseDto,
+    isArray: true,
+    description:
+      'Why tasks failed in the runs of the tally, the most raised first',
+  })
+  readonly taskFailures: readonly TaskFailureSummaryResponseDto[];
+
+  @ApiProperty({
+    type: RunFailureSummaryResponseDto,
+    isArray: true,
+    description: 'Why the runs of the tally failed, the most runs first',
+  })
+  readonly runFailures: readonly RunFailureSummaryResponseDto[];
+
   constructor(inForce: ConfigInForceDto) {
     this.tally = new RunTallyResponseDto(inForce.tally);
+    this.taskFailures = inForce.taskFailures.map(
+      (each) => new TaskFailureSummaryResponseDto(each),
+    );
+    this.runFailures = inForce.runFailures.map(
+      (each) => new RunFailureSummaryResponseDto(each),
+    );
   }
 }
 

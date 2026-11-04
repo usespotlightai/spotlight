@@ -1,6 +1,5 @@
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
-import { GainValue } from '@/components/features/insights/candidates/GainValue';
-import { RateTrack } from '@/components/features/insights/candidates/RateTrack';
+import { GainTrack } from '@/components/features/insights/candidates/GainTrack';
 import { ReplayStateIcon } from '@/components/features/insights/candidates/ReplayStateIcon';
 import { ConfigPlan } from '@/components/features/insights/changes/ConfigPlan';
 import { ExternalPillLink } from '@/components/shared/ExternalPillLink';
@@ -28,16 +27,8 @@ import {
   type SetCandidate,
 } from '@/lib/insights-candidates';
 import { formatPercent } from '@/lib/judge';
-import type { GainSignificanceCode } from '@/lib/replay-words';
 import { configChangesOf } from '@/lib/station-config';
 import { cn } from '@/lib/utils';
-
-const INKS: Record<GainSignificanceCode, string> = {
-  better: 'var(--outcome-done)',
-  worse: 'var(--outcome-failed)',
-  'within-noise':
-    'color-mix(in oklab, var(--chart-primary) 55%, var(--muted-foreground))',
-};
 
 type CandidateComparisonRowProps = {
   candidate: SetCandidate;
@@ -88,28 +79,15 @@ export function CandidateComparisonRow({
             </span>
           </NestedCell>
 
-          <div className="col-span-full grid h-5 min-w-0 items-center self-start @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1">
-            <RateTrack
-              rate={shown.successRate}
-              interval={shown.interval}
-              live={shown.liveSuccessRate}
-              ink={
-                candidate.gainOverLive
-                  ? INKS[candidate.gainOverLive.significance]
-                  : undefined
-              }
-            />
-          </div>
-
           <NestedCell heading="Candidate" strong>
             {formatPercent(shown.successRate)}
           </NestedCell>
           <NestedCell heading="Live">
             {formatPercent(shown.liveSuccessRate)}
           </NestedCell>
-          <NestedCell heading="Against live" numeric={false}>
-            <GainValue gain={candidate.gainOverLive} />
-          </NestedCell>
+          <div className="col-span-full grid h-5 min-w-0 items-center self-start @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1">
+            <GainTrack gain={candidate.gainOverLive} />
+          </div>
           <NestedCell heading="Cost per run" strong>
             {costNote ? (
               <Tooltip>

@@ -329,14 +329,19 @@ describe('TeamInsights', () => {
     ).toBeInTheDocument();
   });
 
-  it('opens one station alone where the address names it', () => {
+  it('shows every station even where the address names one', () => {
     showing('?tab=stations&stationId=station_build');
 
     expect(
       within(tabs()).getByRole('link', { name: 'Stations', current: 'page' }),
     ).toBeInTheDocument();
-    expect(sections()).toEqual([]);
-    expect(tabsRequested()).toEqual(['stations']);
+    expect(sections()).toEqual(['Runs', 'Config changes', 'Candidates']);
+    expect(tabsRequested()).toEqual([
+      'stations',
+      'changes',
+      'agent-configs',
+      'candidates',
+    ]);
   });
 
   it('shows where work waits, what the agents ship and the pull requests on the Productivity tab', () => {

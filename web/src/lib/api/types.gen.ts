@@ -5063,11 +5063,48 @@ export type FingerprintGroupResponseDto = {
   lastDay: string | null;
 };
 
+export type TaskFailureSummaryResponseDto = {
+  /**
+   * run, or hook:<name> for a hook’s failure
+   */
+  source: string;
+  /**
+   * What went wrong
+   */
+  code: string;
+  /**
+   * Times it was raised or repeated in the period
+   */
+  occurrences: number;
+  /**
+   * The most times it repeated on one task without a break
+   */
+  maxInARow: number;
+  taskIds: Array<string>;
+};
+
+export type RunFailureSummaryResponseDto = {
+  /**
+   * Why the runs failed, where they said
+   */
+  failure: string | null;
+  runs: number;
+  runIds: Array<string>;
+};
+
 export type ConfigInForceResponseDto = {
   /**
    * One tally over the listed runs of the config the station last ran, as of the listed runs, back to its last change to another config it ran; runs meant for a config that never ran them, between, leave the config interval whole and are not counted
    */
   tally: RunTallyResponseDto;
+  /**
+   * Why tasks failed in the runs of the tally, the most raised first
+   */
+  taskFailures: Array<TaskFailureSummaryResponseDto>;
+  /**
+   * Why the runs of the tally failed, the most runs first
+   */
+  runFailures: Array<RunFailureSummaryResponseDto>;
 };
 
 export type StationInsightsResponseDto = {
@@ -5113,6 +5150,10 @@ export type JudgeCalibrationResponseDto = {
    */
   measure: 'kappa' | 'spearman' | null;
   agreement: number | null;
+  /**
+   * How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s
+   */
+  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair-to-slight' | 'poor' | 'very-strong' | 'strong' | 'weak' | 'inverse' | null;
   /**
    * Runs of the current rubric with both a judge score and people’s
    */
@@ -5846,35 +5887,6 @@ export type DayTallyResponseDto = {
   tally: RunTallyResponseDto;
 };
 
-export type TaskFailureSummaryResponseDto = {
-  /**
-   * run, or hook:<name> for a hook’s failure
-   */
-  source: string;
-  /**
-   * What went wrong
-   */
-  code: string;
-  /**
-   * Times it was raised or repeated in the period
-   */
-  occurrences: number;
-  /**
-   * The most times it repeated on one task without a break
-   */
-  maxInARow: number;
-  taskIds: Array<string>;
-};
-
-export type RunFailureSummaryResponseDto = {
-  /**
-   * Why the runs failed, where they said
-   */
-  failure: string | null;
-  runs: number;
-  runIds: Array<string>;
-};
-
 export type StationReportResponseDto = {
   lineId: string;
   stationId: string;
@@ -6424,6 +6436,10 @@ export type StationJudgeCalibrationResponseDto = {
    */
   measure: 'kappa' | 'spearman' | null;
   agreement: number | null;
+  /**
+   * How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s
+   */
+  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair-to-slight' | 'poor' | 'very-strong' | 'strong' | 'weak' | 'inverse' | null;
   /**
    * Runs of the current rubric with both a judge score and people’s
    */

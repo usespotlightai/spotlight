@@ -99,7 +99,18 @@ const TREND_CAPTIONS: Record<ScoreKind, string> = {
 };
 
 export const formatTrendCaption = (kind: ScoreKind): string =>
-  TREND_CAPTIONS[kind];
+  sentenceOf(TREND_CAPTIONS[kind]);
+
+const sentenceOf = (words: string): string =>
+  `${words.charAt(0).toUpperCase()}${words.slice(1)}.`;
+
+export const TREND_MIN_PAIRS = 30;
+
+export const trendWaitNote = (pairs: number): string =>
+  `The trend shows once ${TREND_MIN_PAIRS} runs on this rubric have both scores. ${pairs} ${pairs === 1 ? 'has' : 'have'} so far.`;
+
+export const coverageTitle = (coverage: JudgeCoverage): string =>
+  `Who scored the last ${coverage.runs} runs`;
 
 export const formatClaim = (
   claims: readonly (string | null)[],
@@ -156,59 +167,73 @@ export const formatMeasure = (measure: JudgeCalibration['measure']): string =>
 
 const MINIMUM_NOTE = 'Below the minimum, judge scores are hidden.';
 
+type Reading = NonNullable<JudgeCalibration['reading']>;
+
+const READING_WORDS: Record<Reading, string> = {
+  'almost-perfect': 'Almost perfect',
+  substantial: 'Substantial',
+  moderate: 'Moderate',
+  'fair-to-slight': 'Fair to slight',
+  poor: 'Less than chance',
+  'very-strong': 'Very strong',
+  strong: 'Strong',
+  weak: 'Weak',
+  inverse: 'Inverse',
+};
+
+export const readingWord = (reading: Reading | null): string | null =>
+  reading ? READING_WORDS[reading] : null;
+
+const KAPPA_ROWS: TooltipNote['rows'] = [
+  ['0.81 – 1.00', 'Almost perfect'],
+  ['0.61 – 0.80', 'Substantial'],
+  ['0.41 – 0.60', 'Moderate'],
+  ['0 – 0.40', 'Fair to slight'],
+  ['Below 0', 'Less than chance'],
+];
+
+const CORRELATION_ROWS: TooltipNote['rows'] = [
+  ['0.90 – 1.00', 'Very strong'],
+  ['0.70 – 0.89', 'Strong'],
+  ['0.50 – 0.69', 'Moderate'],
+  ['0 – 0.49', 'Weak'],
+  ['Below 0', 'Inverse'],
+];
+
+const KAPPA_BODY =
+  'How often the judge and people give the same score to the same run, beyond what chance would give. 1 is perfect agreement.';
+
+const kappaNoteOf = (lead: string | null = null): TooltipNote => ({
+  title: 'Cohen’s kappa',
+  body: lead ? `${lead} ${KAPPA_BODY}` : KAPPA_BODY,
+  rows: KAPPA_ROWS,
+});
+
+const correlationNoteOf = (title: string, ranked: boolean): TooltipNote => ({
+  title,
+  body: ranked
+    ? 'How closely the judge ranks runs the way people do. 1 means the same order and 0 means no relation.'
+    : 'How closely the judge’s scores rise and fall with people’s. 1 means they move in step and 0 means no relation.',
+  rows: CORRELATION_ROWS,
+});
+
 const MEASURE_NOTES: Record<
   NonNullable<JudgeCalibration['measure']>,
   TooltipNote
 > = {
-  kappa: {
-    title: 'Cohen’s kappa',
-    body: `How often the judge and people give the same score to the same run. Agreement by chance does not count. ${MINIMUM_NOTE}`,
-    rows: [
-      ['1.00', 'Full agreement'],
-      ['0.80 – 1.00', 'Very strong'],
-      ['0.60 – 0.80', 'Strong'],
-      ['0.40 – 0.60', 'Moderate'],
-      ['Below 0.40', 'Weak'],
-      ['0 or below', 'No better than chance'],
-    ],
-  },
-  spearman: {
-    title: 'Spearman’s ρ',
-    body: `How well the judge puts runs in the same order as people do, from best to worst. ${MINIMUM_NOTE}`,
-    rows: [
-      ['1.00', 'Same order'],
-      ['0', 'No relation'],
-      ['−1.00', 'Opposite order'],
-    ],
-  },
-};
-
-const KAPPA_BANDS = [
-  [0.8, 'Very strong'],
-  [0.6, 'Strong'],
-  [0.4, 'Moderate'],
-] as const;
-
-export const agreementBand = (
-  measure: JudgeCalibration['measure'],
-  agreement: number | null,
-): string | null => {
-  if (measure !== 'kappa' || agreement === null) {
-    return null;
-  }
-  if (agreement >= 1) {
-    return 'Full agreement';
-  }
-  if (agreement <= 0) {
-    return 'No better than chance';
-  }
-
-  return KAPPA_BANDS.find(([from]) => agreement >= from)?.[1] ?? 'Weak';
+  kappa: kappaNoteOf(),
+  spearman: correlationNoteOf('Spearman’s ρ', true),
 };
 
 export const measureNote = (
   measure: JudgeCalibration['measure'],
-): TooltipNote | null => (measure ? MEASURE_NOTES[measure] : null);
+): TooltipNote | null =>
+  measure
+    ? {
+        ...MEASURE_NOTES[measure],
+        body: `${MEASURE_NOTES[measure].body} ${MINIMUM_NOTE}`,
+      }
+    : null;
 
 export const formatStat = (value: number | null): string =>
   value === null ? '–' : value.toFixed(2);
@@ -260,78 +285,17 @@ export const COVERAGE_PARTS = [
   { key: 'neither', label: 'Neither' },
 ] as const;
 
-export type JudgeTile = {
-  readonly id: string;
-  readonly label: string;
-  readonly value: string;
-  readonly detail: string;
-};
-
-export const judgeTiles = (
-  calibration: JudgeCalibration,
-  coverage: JudgeCoverage,
-): JudgeTile[] => [
-  {
-    id: 'agreement',
-    label: formatMeasure(calibration.measure),
-    value: formatStat(calibration.agreement),
-    detail: calibration.qualified
-      ? `Qualified. Minimum required: ${formatStat(calibration.minAgreement)}`
-      : formatCalibration(calibration),
-  },
-  ...COVERAGE_PARTS.map((part) => ({
-    id: part.label,
-    label: part.label,
-    value: `${coverage[part.key]}`,
-    detail: `${formatPercent(coverage.rates[part.key])} of the last ${coverage.runs}`,
-  })),
-];
-
-type Readings = RubricVersion['agreement']['readings'];
-
-type KappaReading = NonNullable<Readings['kappa']>;
-
-type CorrelationReading = NonNullable<Readings['pearson']>;
-
-const KAPPA_READINGS: Record<KappaReading, string> = {
-  'almost-perfect': 'Almost perfect agreement',
-  substantial: 'Substantial agreement',
-  moderate: 'Moderate agreement',
-  'fair-to-slight': 'Fair to slight agreement',
-  poor: 'Less agreement than chance',
-};
-
-const CORRELATION_READINGS: Record<CorrelationReading, string> = {
-  'very-strong': 'Very strong correlation',
-  strong: 'Strong correlation',
-  moderate: 'Moderate correlation',
-  weak: 'Weak correlation',
-  inverse: 'Inverse correlation',
-};
-
 export type ComparisonStat = {
   readonly label: string;
   readonly value: string;
-  readonly tooltip: string;
+  readonly reading: string | null;
+  readonly note: TooltipNote;
 };
 
-const KAPPA_NOTE =
-  'How often the judge and people agree, beyond chance. 1 is perfect agreement and 0 is chance. Scale: 0.81 and up almost perfect · 0.61 to 0.80 substantial · 0.41 to 0.60 moderate · below 0 less than chance';
-
-const correlationNote = (ranked: boolean): string =>
-  `How closely the judge’s scores ${ranked ? 'rank runs the way people’s scores do' : 'rise and fall with people’s scores'}. 1 means they move in step and 0 means no relation. Scale: 0.9 and up very strong · 0.7 to 0.9 strong · 0.5 to 0.7 moderate · below 0 inverse`;
-
-const read = (reading: string | null, note: string): string =>
-  reading ? `${reading}. ${note}` : note;
-
-const correlationRead = (
-  reading: CorrelationReading | null,
-  ranked: boolean,
-): string =>
-  read(reading && CORRELATION_READINGS[reading], correlationNote(ranked));
-
-const kappaRead = (reading: KappaReading | null, note: string): string =>
-  read(reading && KAPPA_READINGS[reading], note);
+const ERROR_NOTE = (title: string, body: string): TooltipNote => ({
+  title,
+  body: `${body} Lower is better.`,
+});
 
 export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
   const { agreement } = version;
@@ -342,24 +306,32 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
       {
         label: 'Pearson correlation',
         value: formatStat(agreement.pearson),
-        tooltip: correlationRead(readings.pearson, false),
+        reading: readingWord(readings.pearson),
+        note: correlationNoteOf('Pearson correlation', false),
       },
       {
         label: 'Spearman correlation',
         value: formatStat(agreement.spearman),
-        tooltip: correlationRead(readings.spearman, true),
+        reading: readingWord(readings.spearman),
+        note: correlationNoteOf('Spearman correlation', true),
       },
       {
         label: 'Mean absolute error',
         value: formatStat(agreement.mae),
-        tooltip:
-          'How far the judge’s score is from people’s on average, in points on the rubric’s scale. Lower is better.',
+        reading: null,
+        note: ERROR_NOTE(
+          'Mean absolute error',
+          'How far the judge’s score is from people’s on average, in points on the rubric’s scale.',
+        ),
       },
       {
         label: 'Root mean square error',
         value: formatStat(agreement.rmse),
-        tooltip:
-          'This is like mean absolute error, but large misses count for more. Lower is better.',
+        reading: null,
+        note: ERROR_NOTE(
+          'Root mean square error',
+          'Like mean absolute error, but large misses count for more.',
+        ),
       },
     ];
   }
@@ -368,24 +340,28 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
     {
       label: 'Cohen’s kappa',
       value: formatStat(agreement.kappa),
-      tooltip: kappaRead(
-        readings.kappa,
-        version.kind === 'claims'
-          ? `This kappa covers every claim together. ${KAPPA_NOTE}`
-          : KAPPA_NOTE,
+      reading: readingWord(readings.kappa),
+      note: kappaNoteOf(
+        version.kind === 'claims' ? 'It covers every claim together.' : null,
       ),
     },
     {
       label: 'F1 score',
       value: formatStat(agreement.f1),
-      tooltip:
-        'How well the judge’s yes matches people’s yes. A perfect match misses none, adds none and scores 1. Higher is better.',
+      reading: null,
+      note: {
+        title: 'F1 score',
+        body: 'How well the judge finds the runs people scored yes. 1 is a perfect match.',
+      },
     },
     {
       label: 'Overall agreement',
       value: formatPercent(agreement.observed),
-      tooltip:
-        'The share of runs where the judge and people gave the same score. Agreement by chance counts.',
+      reading: null,
+      note: {
+        title: 'Overall agreement',
+        body: 'The share of runs where both gave the same score. It counts lucky guesses, so read it with kappa.',
+      },
     },
   ];
 };
@@ -402,8 +378,4 @@ export const CLAIM_HEADINGS: readonly NestedHeading[] = [
   { label: RUNS_COLUMN, numeric: true, size: SPREAD },
 ];
 
-export const kappaNote = (reading: ClaimAgreement['reading']): string =>
-  kappaRead(reading, KAPPA_NOTE);
-
-export const DISTRIBUTION_NOTE =
-  'How often each score was given. Only runs with both scores count.';
+export const kappaNote = (): TooltipNote => kappaNoteOf();

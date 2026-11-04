@@ -1837,6 +1837,70 @@
           "p90Ms"
         ]
       },
+      "TaskFailureSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "hook:notify",
+            "description": "run, or hook:<name> for a hook’s failure"
+          },
+          "code": {
+            "type": "string",
+            "example": "loop",
+            "description": "What went wrong"
+          },
+          "occurrences": {
+            "type": "number",
+            "example": 3,
+            "description": "Times it was raised or repeated in the period"
+          },
+          "maxInARow": {
+            "type": "number",
+            "example": 3,
+            "description": "The most times it repeated on one task without a break"
+          },
+          "taskIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "source",
+          "code",
+          "occurrences",
+          "maxInARow",
+          "taskIds"
+        ]
+      },
+      "RunFailureSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "failure": {
+            "type": "string",
+            "nullable": true,
+            "example": "exited",
+            "description": "Why the runs failed, where they said"
+          },
+          "runs": {
+            "type": "number",
+            "example": 2
+          },
+          "runIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "failure",
+          "runs",
+          "runIds"
+        ]
+      },
       "InsightsPeriodResponseDto": {
         "type": "object",
         "properties": {
@@ -2891,70 +2955,6 @@
         "required": [
           "day",
           "tally"
-        ]
-      },
-      "TaskFailureSummaryResponseDto": {
-        "type": "object",
-        "properties": {
-          "source": {
-            "type": "string",
-            "example": "hook:notify",
-            "description": "run, or hook:<name> for a hook’s failure"
-          },
-          "code": {
-            "type": "string",
-            "example": "loop",
-            "description": "What went wrong"
-          },
-          "occurrences": {
-            "type": "number",
-            "example": 3,
-            "description": "Times it was raised or repeated in the period"
-          },
-          "maxInARow": {
-            "type": "number",
-            "example": 3,
-            "description": "The most times it repeated on one task without a break"
-          },
-          "taskIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "source",
-          "code",
-          "occurrences",
-          "maxInARow",
-          "taskIds"
-        ]
-      },
-      "RunFailureSummaryResponseDto": {
-        "type": "object",
-        "properties": {
-          "failure": {
-            "type": "string",
-            "nullable": true,
-            "example": "exited",
-            "description": "Why the runs failed, where they said"
-          },
-          "runs": {
-            "type": "number",
-            "example": 2
-          },
-          "runIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "failure",
-          "runs",
-          "runIds"
         ]
       },
       "StationReportResponseDto": {
@@ -4180,6 +4180,23 @@
             "nullable": true,
             "example": 0.71
           },
+          "reading": {
+            "type": "string",
+            "enum": [
+              "almost-perfect",
+              "substantial",
+              "moderate",
+              "fair-to-slight",
+              "poor",
+              "very-strong",
+              "strong",
+              "weak",
+              "inverse",
+              null
+            ],
+            "nullable": true,
+            "description": "How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s"
+          },
           "pairs": {
             "type": "number",
             "example": 24,
@@ -4216,6 +4233,7 @@
           "qualified",
           "measure",
           "agreement",
+          "reading",
           "pairs",
           "minAgreement",
           "hiddenReason",

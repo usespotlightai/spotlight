@@ -1,10 +1,12 @@
 import { CandidateStationRows } from '@/components/features/insights/candidates/CandidateStationRows';
+import { GainScale } from '@/components/features/insights/candidates/GainTrack';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { useCollapsibles } from '@/hooks/useCollapsibles';
 import type { StationNames } from '@/lib/insights';
 import {
   type CandidatesStation,
   candidateHeadings,
+  gainExtentOf,
 } from '@/lib/insights-candidates';
 
 type CandidatesTableProps = {
@@ -25,24 +27,28 @@ export function CandidatesTable({
     ),
   );
 
+  const extent = gainExtentOf(stations);
+
   return (
-    <NestedTable
-      label="Replayed candidates"
-      headings={candidateHeadings(heldOut)}
-      trailing
-      compact
-      headed={!chartStatus}
-    >
-      {stations.map((station) => (
-        <CandidateStationRows
-          key={station.stationId}
-          station={station}
-          names={names}
-          heldOut={heldOut}
-          chartStatus={chartStatus}
-          collapsibles={collapsibles}
-        />
-      ))}
-    </NestedTable>
+    <GainScale value={extent}>
+      <NestedTable
+        label="Replayed candidates"
+        headings={candidateHeadings(heldOut, extent)}
+        trailing
+        compact
+        headed={!chartStatus}
+      >
+        {stations.map((station) => (
+          <CandidateStationRows
+            key={station.stationId}
+            station={station}
+            names={names}
+            heldOut={heldOut}
+            chartStatus={chartStatus}
+            collapsibles={collapsibles}
+          />
+        ))}
+      </NestedTable>
+    </GainScale>
   );
 }

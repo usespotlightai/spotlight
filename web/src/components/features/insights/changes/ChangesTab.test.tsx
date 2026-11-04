@@ -344,7 +344,7 @@ describe('the Changes tab', () => {
       within(judge).getByRole('link', { name: 'Judge score' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=stations&stationId=station_impl#judge',
+      '/w/acme/team/team_1/lines/line_1/stations/station_impl/judge',
     );
     expect(
       within(panel).getByRole('link', { name: 'Open the station' }),
@@ -383,7 +383,7 @@ describe('the Changes tab', () => {
       within(calibrations).getByRole('link', { name: 'Implementation' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=stations&stationId=station_impl#judge',
+      '/w/acme/team/team_1/lines/line_1/stations/station_impl/judge',
     );
     expect(calibrations).toHaveTextContent('qualified');
     expect(
