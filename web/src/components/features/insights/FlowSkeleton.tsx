@@ -16,9 +16,10 @@ export function FlowSkeleton({ stations }: { stations: number }) {
     <div
       role="status"
       aria-label="Loading the flow"
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-10"
     >
       <InsightsCardSkeleton
+        flat
         switchable
         title="Where tasks wait"
         description={WAITS_NOTE}

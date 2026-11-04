@@ -43,7 +43,7 @@ const SPOTLIGHT_SHARE_LEGEND = SPOTLIGHT_SHARE_SERIES.map(
   }),
 );
 
-const AUTHORS = ['Spotlight’s', 'People’s alone'];
+const AUTHORS = ['Spotlight', 'People'];
 
 type PullRequestsSkeletonProps = {
   view: InsightsView;
@@ -63,6 +63,7 @@ export function PullRequestsSkeleton({
       >
         <InsightsTilesSkeleton label="Merged pull requests" tiles={TILES} />
         <InsightsCardSkeleton
+          flat
           switchable
           title="Week by week"
           description={WEEK_BY_WEEK_NOTE}
@@ -74,6 +75,7 @@ export function PullRequestsSkeleton({
         </InsightsCardSkeleton>
 
         <InsightsCardSkeleton
+          flat
           tableOnly
           title="By repository"
           description={BY_REPOSITORY_NOTE}
@@ -85,6 +87,7 @@ export function PullRequestsSkeleton({
         </InsightsCardSkeleton>
 
         <InsightsCardSkeleton
+          flat
           tableOnly
           title="Spotlight against people"
           description={AGAINST_PEOPLE_NOTE}
@@ -97,6 +100,7 @@ export function PullRequestsSkeleton({
         </InsightsCardSkeleton>
 
         <InsightsCardSkeleton
+          flat
           switchable
           title="What Spotlight ships"
           description={TYPES_NOTE}
@@ -108,6 +112,7 @@ export function PullRequestsSkeleton({
         </InsightsCardSkeleton>
 
         <InsightsCardSkeleton
+          flat
           tableOnly
           title="Review depth"
           description={REVIEW_DEPTH_NOTE}
@@ -121,7 +126,8 @@ export function PullRequestsSkeleton({
       </div>
 
       <InsightsCardSkeleton
-        title="Pull requests"
+        flat
+        title="All pull requests"
         description={PULL_REQUEST_LIST_NOTE}
         actions={
           <PullRequestFilters

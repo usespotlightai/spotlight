@@ -80,7 +80,7 @@ export function SpotlightShareChart({
                 dataKey="week"
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
                 tickFormatter={formatDay}
                 minTickGap={24}
               />

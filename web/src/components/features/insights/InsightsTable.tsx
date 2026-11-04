@@ -58,7 +58,7 @@ export function InsightsTable<T>({
       <table
         aria-label={label}
         data-slot="insights-table"
-        className="grid min-w-min gap-x-6 text-xs"
+        className="grid min-w-min gap-x-6 text-sm"
         style={{
           gridTemplateColumns: columnTemplate(headings, widths.widths, false),
         }}
@@ -68,7 +68,7 @@ export function InsightsTable<T>({
             ref={head}
             className={cn(
               ROW,
-              'border-border border-y bg-surface py-1.5 text-[0.7rem] text-muted-foreground',
+              'border-border border-b py-2 text-muted-foreground text-xs',
             )}
           >
             {columns.map((column, at) => (
@@ -104,7 +104,7 @@ export function InsightsTable<T>({
                 aria-selected={picked === null ? undefined : picked === key}
                 className={cn(
                   ROW,
-                  'py-2',
+                  'py-2.5',
                   ROW_DIVIDER,
                   picked === key && 'bg-selected',
                 )}

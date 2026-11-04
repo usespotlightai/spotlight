@@ -68,7 +68,7 @@ export function PullRequestTypesChart({
                 dataKey="label"
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
               />
               <YAxis hide allowDecimals={false} />
               <Tooltip

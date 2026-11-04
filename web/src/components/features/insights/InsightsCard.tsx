@@ -66,7 +66,7 @@ export function InsightsCard({
           !flat && 'px-3 pt-3 pb-4',
         )}
       >
-        <div className="flex min-w-0 flex-1 items-center">
+        <div className="flex shrink-0 grow items-center">
           <CardTitle
             titleId={titleId}
             title={title}

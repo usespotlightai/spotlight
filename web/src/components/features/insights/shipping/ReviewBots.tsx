@@ -11,7 +11,7 @@ const COLUMNS: readonly InsightsColumn<ReviewBot>[] = [
   {
     id: 'login',
     header: 'Agent',
-    cell: (bot) => bot.login,
+    cell: (bot) => bot.login.replace(/\[bot\]$/, ''),
   },
   {
     id: 'comments',
@@ -36,6 +36,7 @@ const COLUMNS: readonly InsightsColumn<ReviewBot>[] = [
 export function ReviewBots({ bots }: { bots: readonly ReviewBot[] }) {
   return (
     <InsightsCard
+      flat
       tableOnly
       scrolls
       title="AI review agents"

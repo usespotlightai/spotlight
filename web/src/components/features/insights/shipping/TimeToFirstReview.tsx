@@ -19,6 +19,7 @@ export function TimeToFirstReview({ days }: { days: readonly ReviewDay[] }) {
 
   return (
     <InsightsCard
+      flat
       title="Time to first review"
       description={FIRST_REVIEW_NOTE}
       actions={

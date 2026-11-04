@@ -21,13 +21,13 @@ export function ProductivitySkeleton({
 }: ProductivitySkeletonProps) {
   return (
     <div className="flex flex-col gap-3">
-      <InsightsSection title="Where work waits">
+      <InsightsSection collapsible={false} title="Where work waits">
         <FlowSkeleton stations={workStationCount(names)} />
       </InsightsSection>
 
       <ShippingSkeleton />
 
-      <InsightsSection title="Pull requests">
+      <InsightsSection collapsible={false} title="Pull requests">
         <PullRequestsSkeleton view={view} onView={onView} />
       </InsightsSection>
     </div>

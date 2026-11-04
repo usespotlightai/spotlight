@@ -28,12 +28,12 @@ export function PipelineStageLabel({
       <span
         className={cn(
           'max-w-32 truncate text-[0.7rem]',
-          worst ? 'text-destructive' : 'text-foreground',
+          worst ? 'text-outcome-failed' : 'text-foreground',
         )}
       >
         {stage.label}
       </span>
-      <span className="font-mono text-[0.7rem] text-muted-foreground">
+      <span className="tabular-nums text-[0.7rem] text-muted-foreground">
         {formatDurationOrNone(stage.ms)}
       </span>
     </span>
@@ -53,7 +53,7 @@ export function PipelineStageLabel({
             {STATION_STAGES.map((part) => (
               <span key={part} className="text-muted-foreground">
                 {formatPart(part)}{' '}
-                <span className="font-mono">
+                <span className="tabular-nums">
                   {formatDurationOrNone(parts[part])}
                 </span>
               </span>

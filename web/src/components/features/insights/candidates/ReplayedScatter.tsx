@@ -85,7 +85,7 @@ export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
                 padding={{ right: 64 }}
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
                 tickFormatter={(cost: number) => costTick(cost, currency)}
                 height={40}
                 label={{
@@ -111,7 +111,7 @@ export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
                   position: 'insideLeft',
                   style: { textAnchor: 'middle' },
                 }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
                 tickFormatter={(value: number) => formatShare(value)}
               />
               <Tooltip

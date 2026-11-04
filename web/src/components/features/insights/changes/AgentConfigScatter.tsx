@@ -120,7 +120,7 @@ export function AgentConfigScatter({
                 padding={{ right: 64 }}
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
                 tickFormatter={(cost: number) => costTick(cost, currency)}
                 height={40}
                 label={{
@@ -139,7 +139,7 @@ export function AgentConfigScatter({
                 tickLine={false}
                 axisLine={false}
                 width={56}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
                 tickFormatter={(value: number) => formatShare(value)}
                 label={{
                   ...AXIS_TITLE,

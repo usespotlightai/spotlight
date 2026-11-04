@@ -34,6 +34,7 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
 
   return (
     <InsightsCard
+      flat
       title="Time to merge"
       description={TIME_TO_MERGE_NOTE}
       actions={
@@ -63,7 +64,7 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
                 {author.label}
               </dt>
               <dd className="flex items-baseline gap-2">
-                <span className="text-[1.375rem] text-foreground tabular-nums leading-none tracking-tight">
+                <span className="font-medium text-foreground text-xl tabular-nums leading-7">
                   {formatDurationOrNone(now[author.key][percentile])}
                 </span>
                 {delta && (
@@ -89,6 +90,7 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
         }))}
         format={formatDuration}
         durations
+        legend={false}
       />
     </InsightsCard>
   );

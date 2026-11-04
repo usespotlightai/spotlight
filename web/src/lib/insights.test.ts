@@ -6,7 +6,7 @@ import {
   formatFilterValue,
   formatRunFailure,
   formatSignal,
-  formatSpread,
+  formatSlowest,
   formatStation,
   formatTaskFailure,
   type Headline,
@@ -288,14 +288,20 @@ describe('durations', () => {
   it('reads minutes, hours and days', () => {
     expect(formatDuration(90_000)).toBe('1m 30s');
     expect(formatDuration(2.5 * HOUR)).toBe('2h 30m');
+    expect(formatDuration(11 * HOUR + 59.6 * 60_000)).toBe('12h');
+    expect(formatDuration(7 * 24 * HOUR + 23.6 * HOUR)).toBe('8d');
+    expect(formatDuration(51 * 60_000 + 52_000)).toBe('52m');
+    expect(formatDuration(59.7 * 60_000)).toBe('1h');
     expect(formatDuration(50 * HOUR)).toBe('2d 2h');
   });
 
-  it('shows a spread as its median and p90', () => {
-    expect(formatSpread({ p50Ms: HOUR, p90Ms: 3 * HOUR, count: 4 })).toBe(
-      '1h · p90 3h',
+  it('names the slowest tenth of a spread where it is known', () => {
+    expect(formatSlowest({ p50Ms: HOUR, p90Ms: 3 * HOUR, count: 4 })).toBe(
+      'Slowest 10%: 3h',
     );
-    expect(formatSpread({ p50Ms: null, p90Ms: null, count: 0 })).toBe('–');
+    expect(
+      formatSlowest({ p50Ms: null, p90Ms: null, count: 0 }),
+    ).toBeUndefined();
   });
 });
 

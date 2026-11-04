@@ -54,19 +54,20 @@ const DEPTH_LEGEND = [
     label: formatRounds(rounds),
     color: ROUND_FILLS[rounds],
   })),
-  { label: 'Merged that week', color: THROUGHPUT },
+  { label: 'Merged that week, right axis', color: THROUGHPUT },
 ];
 
 export function ShippingSkeleton() {
   return (
     <>
-      <InsightsSection title="What the agents ship">
+      <InsightsSection collapsible={false} title="What the agents ship">
         <div
           role="status"
           aria-label="Loading what the agents ship"
           className="flex flex-col gap-2"
         >
           <InsightsCardSkeleton
+            flat
             switchable
             title="Flow through the pipeline"
             description={PIPELINE_NOTE}
@@ -94,8 +95,9 @@ export function ShippingSkeleton() {
             </div>
           </InsightsCardSkeleton>
 
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
             <InsightsCardSkeleton
+              flat
               title="Time to merge"
               description={TIME_TO_MERGE_NOTE}
               actions={
@@ -117,7 +119,7 @@ export function ShippingSkeleton() {
                       {author.label}
                     </dt>
                     <dd className="flex items-baseline gap-2">
-                      <SkeletonLine className="w-20 text-[1.375rem] leading-none" />
+                      <SkeletonLine className="w-20 text-xl leading-7" />
                       <SkeletonLine className="w-12 text-xs" />
                     </dd>
                   </div>
@@ -127,6 +129,7 @@ export function ShippingSkeleton() {
             </InsightsCardSkeleton>
 
             <InsightsCardSkeleton
+              flat
               title="Time to merge by PR type"
               description={MERGE_BY_TYPE_NOTE}
               actions={<div inert>{percentile}</div>}
@@ -151,10 +154,11 @@ export function ShippingSkeleton() {
           </div>
 
           <InsightsCardSkeleton
-            title="Review depth as throughput climbs"
+            flat
+            title="Review depth by week"
             description={DEPTH_OVER_TIME_NOTE}
           >
-            <div className="grid gap-3 md:grid-cols-[1fr_14rem]">
+            <div className="grid gap-x-8 gap-y-6 md:grid-cols-[1fr_14rem]">
               <figure className="flex flex-col gap-2">
                 <ChartSkeleton height={200} />
                 <ChartLegend entries={DEPTH_LEGEND} />
@@ -163,7 +167,7 @@ export function ShippingSkeleton() {
                 {ROUNDS.map((rounds) => (
                   <div
                     key={rounds}
-                    className="flex items-center gap-2 rounded-md px-2 py-1 even:bg-muted/30"
+                    className="flex items-center gap-2 border-border border-t px-2 py-1.5 first:border-t-0"
                   >
                     <span
                       aria-hidden
@@ -187,14 +191,15 @@ export function ShippingSkeleton() {
         </div>
       </InsightsSection>
 
-      <InsightsSection title="Review and approval">
+      <InsightsSection collapsible={false} title="Review and approval">
         <div
           role="status"
           aria-label="Loading the reviews"
           className="flex flex-col gap-2"
         >
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
             <InsightsCardSkeleton
+              flat
               title="Time to first review"
               description={FIRST_REVIEW_NOTE}
               actions={
@@ -207,14 +212,16 @@ export function ShippingSkeleton() {
               <DayChartSkeleton />
             </InsightsCardSkeleton>
             <InsightsCardSkeleton
+              flat
               title="PRs awaiting first review"
               description={AWAITING_REVIEW_NOTE}
             >
               <DayChartSkeleton />
             </InsightsCardSkeleton>
           </div>
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
             <InsightsCardSkeleton
+              flat
               tableOnly
               title="AI review agents"
               description={REVIEW_BOTS_NOTE}
@@ -225,6 +232,7 @@ export function ShippingSkeleton() {
               />
             </InsightsCardSkeleton>
             <InsightsCardSkeleton
+              flat
               title="Human reviews"
               description={HUMAN_REVIEWS_NOTE}
             >

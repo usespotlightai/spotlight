@@ -83,12 +83,12 @@ export function PipelineFlowTable({
                   >
                     {stage.label}
                     {stage.worst && (
-                      <WithTooltip tooltip="Worst bottleneck: the stage with the longest wait">
+                      <WithTooltip tooltip="The stage with the longest wait">
                         <span className="inline-flex shrink-0">
                           <span
                             role="img"
-                            aria-label="Worst bottleneck"
-                            className="size-1.5 rounded-full bg-destructive"
+                            aria-label="Slowest stage"
+                            className="size-1.5 rounded-full bg-outcome-failed"
                           />
                         </span>
                       </WithTooltip>

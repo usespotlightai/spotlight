@@ -34,7 +34,7 @@ export function PipelineFlowLegend({
             background: `linear-gradient(to right, ${bottleneckColor(0)}, ${bottleneckColor(0.5)}, ${bottleneckColor(1)})`,
           }}
         />
-        <span className="text-destructive">bottleneck</span>
+        <span className="text-outcome-failed">bottleneck</span>
         <Tooltip>
           <TooltipTrigger
             render={

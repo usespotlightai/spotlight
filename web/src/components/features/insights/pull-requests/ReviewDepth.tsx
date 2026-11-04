@@ -38,13 +38,13 @@ export function ReviewDepth({ depth, repositories }: ReviewDepthProps) {
     },
     {
       id: 'spotlight',
-      header: 'Spotlight’s',
+      header: 'Spotlight',
       numeric: true,
       cell: (share) => counted(share, 'spotlight'),
     },
     {
       id: 'people',
-      header: 'People’s alone',
+      header: 'People',
       numeric: true,
       cell: (share) => counted(share, 'people'),
     },
@@ -52,6 +52,7 @@ export function ReviewDepth({ depth, repositories }: ReviewDepthProps) {
 
   return (
     <InsightsCard
+      flat
       tableOnly
       scrolls
       title="Review depth"

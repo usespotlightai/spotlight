@@ -21,9 +21,9 @@ type ShippingPanelsProps = {
 export function ShippingPanels({ shipping }: ShippingPanelsProps) {
   return (
     <>
-      <InsightsSection title="What the agents ship">
+      <InsightsSection collapsible={false} title="What the agents ship">
         <PipelineFlow flow={shipping.pipeline} />
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
           <TimeToMerge
             now={shipping.toMerge}
             changes={shipping.toMergeChanges}
@@ -37,10 +37,11 @@ export function ShippingPanels({ shipping }: ShippingPanelsProps) {
         />
       </InsightsSection>
 
-      <InsightsSection title="Review and approval">
-        <div className="grid gap-3 lg:grid-cols-2">
+      <InsightsSection collapsible={false} title="Review and approval">
+        <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
           <TimeToFirstReview days={shipping.reviewDays} />
           <InsightsCard
+            flat
             title="PRs awaiting first review"
             description={AWAITING_REVIEW_NOTE}
           >
@@ -63,9 +64,13 @@ export function ShippingPanels({ shipping }: ShippingPanelsProps) {
             />
           </InsightsCard>
         </div>
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="grid gap-x-12 gap-y-10 lg:grid-cols-2">
           <ReviewBots bots={shipping.bots} />
-          <InsightsCard title="Human reviews" description={HUMAN_REVIEWS_NOTE}>
+          <InsightsCard
+            flat
+            title="Human reviews"
+            description={HUMAN_REVIEWS_NOTE}
+          >
             <DayChart
               label="Reviews by people, day by day"
               points={shipping.reviewDays.map((each) => ({
@@ -76,7 +81,7 @@ export function ShippingPanels({ shipping }: ShippingPanelsProps) {
                 {
                   key: 'reviews',
                   label: 'Reviews',
-                  color: 'var(--chart-2)',
+                  color: 'var(--chart-3)',
                   as: 'bar',
                 },
               ]}

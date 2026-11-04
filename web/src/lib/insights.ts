@@ -316,21 +316,30 @@ export const formatPer = (value: number | null): string =>
   value === null ? '–' : value.toFixed(1);
 
 const HOUR_MS = 3_600_000;
-const DAY_MS = 24 * HOUR_MS;
+
+const MINUTE_MS = 60_000;
+const SECONDS_UP_TO = 10 * MINUTE_MS;
 
 export const formatDuration = (ms: number): string => {
-  if (ms < HOUR_MS) {
+  if (ms < SECONDS_UP_TO) {
     return formatShortDuration(ms);
   }
-  if (ms < DAY_MS) {
-    const hours = Math.floor(ms / HOUR_MS);
-    const minutes = Math.round((ms % HOUR_MS) / 60_000);
-    return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+
+  const minutes = Math.round(ms / MINUTE_MS);
+  if (minutes < 60) {
+    return `${minutes}m`;
   }
 
-  const days = Math.floor(ms / DAY_MS);
-  const hours = Math.round((ms % DAY_MS) / HOUR_MS);
-  return hours ? `${days}d ${hours}h` : `${days}d`;
+  const hours = Math.round(ms / HOUR_MS);
+  if (minutes < 24 * 60) {
+    const whole = Math.floor(minutes / 60);
+    const left = minutes % 60;
+    return left ? `${whole}h ${left}m` : `${whole}h`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const left = hours % 24;
+  return left ? `${days}d ${left}h` : `${days}d`;
 };
 
 export const formatDurationOrNone = (ms: number | null): string =>
@@ -342,10 +351,10 @@ export const formatMedian = (spread: Spread): string =>
 export const formatTail = (spread: Spread): string | null =>
   spread.p50Ms === null ? null : `p90 ${formatDurationOrNone(spread.p90Ms)}`;
 
-export const formatSpread = (spread: Spread): string =>
-  spread.p50Ms === null
-    ? '–'
-    : `${formatDuration(spread.p50Ms)} · p90 ${formatDurationOrNone(spread.p90Ms)}`;
+export const formatSlowest = (spread: Spread): string | undefined =>
+  spread.p90Ms === null
+    ? undefined
+    : `Slowest 10%: ${formatDuration(spread.p90Ms)}`;
 
 export type Delta = DeltaResponseDto;
 
@@ -1160,7 +1169,7 @@ export const WAITS_NOTE =
   'Median time that tasks spend queued, running and in the inbox at each station. Stations show in the order they first ran.';
 
 export const DELIVERY_NOTE =
-  'Time from when a task opens to its pull request, first human review and merge. Times: median and p90';
+  'Time from when a task opens to its pull request, first human review and merge. Times are medians; the slowest 10% shows on hover.';
 
 const SOME_STATIONS = 4;
 

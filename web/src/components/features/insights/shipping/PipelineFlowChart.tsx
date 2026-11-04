@@ -111,7 +111,7 @@ export function PipelineFlowChart({
                 y2={MARKS_END}
                 strokeDasharray="2 3"
                 stroke={
-                  at === worstAt ? 'var(--destructive)' : 'var(--chart-grid)'
+                  at === worstAt ? 'var(--outcome-failed)' : 'var(--chart-grid)'
                 }
                 strokeOpacity={at === worstAt ? 0.8 : 1}
               />
@@ -157,18 +157,20 @@ export function PipelineFlowChart({
 
         {worst && worst.ms !== null && (
           <span
-            className="-translate-x-1/2 absolute flex items-center gap-1.5 whitespace-nowrap rounded-full border border-destructive/50 bg-card px-2 py-0.5 text-[0.7rem] text-destructive"
+            className="-translate-x-1/2 absolute flex items-center gap-1.5 whitespace-nowrap rounded-full border border-outcome-failed/50 bg-card px-2 py-0.5 text-[0.7rem] text-outcome-failed"
             style={{ left: geometry.centers[worstAt], top: MARKS_END - 2 }}
           >
             <span
               aria-hidden
-              className="size-1.5 rounded-full bg-destructive"
+              className="size-1.5 rounded-full bg-outcome-failed"
             />
-            Worst bottleneck
-            <span className="text-destructive/50">|</span>
-            <span className="font-mono">{formatDurationOrNone(worst.ms)}</span>
+            Slowest stage
+            <span className="text-outcome-failed/50">|</span>
+            <span className="tabular-nums">
+              {formatDurationOrNone(worst.ms)}
+            </span>
             {worstPart && (
-              <span className="text-destructive/80">
+              <span className="text-outcome-failed/80">
                 mostly {formatPart(worstPart)}
               </span>
             )}

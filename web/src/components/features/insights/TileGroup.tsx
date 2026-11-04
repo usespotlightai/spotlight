@@ -10,8 +10,8 @@ type TileGroupProps = {
 
 export function TileGroup({ title, tooltip, children }: TileGroupProps) {
   return (
-    <section data-slot="tile-group" className="flex flex-col gap-1.5">
-      <h3 className="flex items-center gap-1.5 font-medium text-foreground text-xs">
+    <section data-slot="tile-group" className="flex flex-col gap-3">
+      <h3 className="flex min-h-7 items-center gap-1.5 font-medium text-foreground text-sm">
         {title}
         {tooltip && <InfoTooltip tooltip={tooltip} />}
       </h3>

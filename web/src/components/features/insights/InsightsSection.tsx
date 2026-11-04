@@ -1,5 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
+import { SectionLevel } from '@/components/features/insights/section-level';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { TooltipText } from '@/lib/tooltip-note';
 import { cn } from '@/lib/utils';
@@ -29,21 +30,21 @@ export function InsightsSection({
         aria-labelledby={contentId}
         className="flex flex-col gap-3"
       >
-        <span className="flex min-h-7 items-center gap-1.5">
-          <h2
-            id={contentId}
-            className="whitespace-nowrap font-medium text-foreground text-sm"
-          >
-            {title}
-          </h2>
+        <h2
+          id={contentId}
+          className="flex min-h-7 items-center gap-1.5 whitespace-nowrap font-medium text-base text-foreground"
+        >
+          {title}
           {aside && (
-            <span className="text-muted-foreground text-sm tabular-nums">
+            <span className="font-normal text-muted-foreground text-sm tabular-nums">
               {aside}
             </span>
           )}
           {tooltip && <InfoTooltip tooltip={tooltip} />}
-        </span>
-        {children}
+        </h2>
+        <SectionLevel value={3}>
+          <div className="flex flex-col gap-10">{children}</div>
+        </SectionLevel>
       </section>
     );
   }

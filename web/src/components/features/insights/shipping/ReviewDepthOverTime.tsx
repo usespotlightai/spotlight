@@ -65,10 +65,11 @@ export function ReviewDepthOverTime({
 
   return (
     <InsightsCard
-      title="Review depth as throughput climbs"
+      flat
+      title="Review depth by week"
       description={DEPTH_OVER_TIME_NOTE}
     >
-      <div className="grid gap-3 md:grid-cols-[1fr_14rem]">
+      <div className="grid gap-x-8 gap-y-6 md:grid-cols-[1fr_14rem]">
         <figure
           aria-label="Review depth week by week"
           className="flex flex-col gap-2"
@@ -85,7 +86,7 @@ export function ReviewDepthOverTime({
                     dataKey="week"
                     tickLine={false}
                     axisLine={{ stroke: 'var(--chart-grid)' }}
-                    tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                    tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
                     tickFormatter={formatDay}
                   />
                   <YAxis
@@ -94,7 +95,7 @@ export function ReviewDepthOverTime({
                     tickLine={false}
                     axisLine={false}
                     domain={[0, 1]}
-                    tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                    tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
                     tickFormatter={formatShare}
                   />
                   <YAxis
@@ -104,7 +105,7 @@ export function ReviewDepthOverTime({
                     tickLine={false}
                     axisLine={false}
                     allowDecimals={false}
-                    tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                    tick={{ fill: 'var(--chart-axis)', fontSize: 11 }}
                   />
                   <Tooltip
                     {...cursor.tooltip}
@@ -139,7 +140,7 @@ export function ReviewDepthOverTime({
                 label: formatRounds(rounds),
                 color: ROUND_FILLS[rounds],
               })),
-              { label: 'Merged that week', color: THROUGHPUT },
+              { label: 'Merged that week, right axis', color: THROUGHPUT },
             ]}
           />
         </figure>
@@ -148,7 +149,7 @@ export function ReviewDepthOverTime({
           {totals.map((total) => (
             <div
               key={total.rounds}
-              className="flex items-center gap-2 rounded-md px-2 py-1 even:bg-muted/30"
+              className="flex items-center gap-2 border-border border-t px-2 py-1.5 first:border-t-0"
             >
               <span
                 aria-hidden

@@ -6,7 +6,11 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { PERCENTILES, type Percentile } from '@/lib/insights-shipping';
+import {
+  PERCENTILES,
+  type Percentile,
+  percentileName,
+} from '@/lib/insights-shipping';
 
 type PercentilePickerProps = {
   value: Percentile;
@@ -18,12 +22,12 @@ export function PercentilePicker({ value, onChange }: PercentilePickerProps) {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="Percentile"
-        className="flex h-6 items-center gap-1 rounded-md border border-border bg-background px-1.5 text-[0.7rem] outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-muted"
+        className="flex h-7 items-center gap-1 whitespace-nowrap rounded-lg bg-muted px-2.5 font-medium text-foreground text-xs outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 data-[popup-open]:bg-accent dark:bg-background"
       >
-        {value}
+        {percentileName(value)}
         <ChevronDown aria-hidden className="size-3 text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={4} className="min-w-24">
+      <DropdownMenuContent align="end" sideOffset={4} className="min-w-32">
         <DropdownMenuRadioGroup
           value={value}
           onValueChange={(next) => onChange(next as Percentile)}
@@ -34,7 +38,7 @@ export function PercentilePicker({ value, onChange }: PercentilePickerProps) {
               value={percentile}
               className="text-xs"
             >
-              {percentile}
+              {percentileName(percentile)}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

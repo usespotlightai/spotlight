@@ -39,7 +39,7 @@ const TipContent = ({
 
   return (
     <ChartTip placement={placement}>
-      <p className="text-foreground">{row.label}, typically</p>
+      <p className="text-foreground">{row.label}, median</p>
       {WAIT_SERIES.map((wait) => (
         <p key={wait.key} className="text-muted-foreground">
           {wait.label} {formatDuration(row[wait.key])}
@@ -67,6 +67,7 @@ export function StationWaits({
 
   return (
     <InsightsCard
+      flat
       title="Where tasks wait"
       description={WAITS_NOTE}
       table={
