@@ -1,6 +1,6 @@
 import { ApprovalApproveButton } from '@/components/features/inbox/conversation/approval/ApprovalApproveButton';
+import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionControls } from '@/components/shared/DecisionControls';
-import { DecisionPill } from '@/components/shared/DecisionPill';
 import type { Approval } from '@/lib/approval';
 
 type ApprovalEditControlsProps = {
@@ -20,9 +20,9 @@ export function ApprovalEditControls({
 }: ApprovalEditControlsProps) {
   return (
     <DecisionControls>
-      <DecisionPill disabled={pending} onClick={onCancel}>
+      <DecisionButton disabled={pending} onClick={onCancel}>
         Cancel
-      </DecisionPill>
+      </DecisionButton>
       <ApprovalApproveButton
         approval={approval}
         disabled={pending || blank}
