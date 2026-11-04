@@ -18,7 +18,7 @@ export function CardTitle({
 
   return (
     <span className="flex min-w-0 items-center gap-1.5">
-      <Heading id={titleId} className="font-medium text-foreground text-xs">
+      <Heading id={titleId} className="font-medium text-foreground text-sm">
         {title}
       </Heading>
       {description && <InfoTooltip tooltip={description} />}

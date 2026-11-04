@@ -10,10 +10,10 @@ export function AuthoredText({
 }) {
   return (
     <div className={cn('flex min-w-0 flex-col gap-2', label && 'pt-2')}>
-      {label && <p className="text-muted-foreground text-sm">{label}</p>}
+      {label && <p className="text-muted-foreground text-xs">{label}</p>}
       <div
         data-slot="authored-text"
-        className="min-w-0 rounded-lg bg-background/60 px-5 py-4"
+        className="min-w-0 border-border border-l-2 pl-4"
       >
         {children}
       </div>

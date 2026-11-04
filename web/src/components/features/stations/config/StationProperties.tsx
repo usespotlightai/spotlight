@@ -20,7 +20,7 @@ export function StationProperties({
   return (
     <aside
       aria-label="Properties"
-      className="flex flex-col gap-8 lg:sticky lg:top-3 lg:self-start"
+      className="grid content-start gap-10 max-lg:order-first sm:max-lg:grid-cols-2 lg:sticky lg:top-3 lg:self-start"
     >
       <VersionProperties
         slug={slug}

@@ -353,7 +353,7 @@ describe('the Changes tab', () => {
       '/w/acme/team/team_1/lines/line_1/stations/station_impl',
     );
     expect(
-      within(panel).getByRole('link', { name: 'Improve' }),
+      within(panel).getByRole('link', { name: 'Ask the agent' }),
     ).toBeInTheDocument();
   });
 

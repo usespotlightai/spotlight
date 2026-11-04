@@ -19,7 +19,7 @@ export function SignalDumbbell({ reading }: { reading: SignalReading }) {
   return (
     <div
       aria-hidden
-      className="flex items-center gap-2 text-[0.625rem] text-muted-foreground tabular-nums leading-4"
+      className="flex items-center gap-2 text-muted-foreground text-xs tabular-nums leading-4"
     >
       <span className="w-6 shrink-0 text-right">{signalTick(reading, 0)}</span>
       <svg

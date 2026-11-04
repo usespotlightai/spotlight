@@ -33,7 +33,12 @@ export function StationConfig({
           stationId={station.id}
           judge={station.judge}
         />
-        {station.alerts.length > 0 && <AlertsSection alerts={station.alerts} />}
+        {station.alerts.length > 0 && (
+          <AlertsSection
+            alerts={station.alerts}
+            currency={station.search?.currency ?? line.search.currency}
+          />
+        )}
       </div>
 
       <StationProperties

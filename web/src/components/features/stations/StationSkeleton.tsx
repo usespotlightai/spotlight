@@ -17,6 +17,7 @@ export function StationSkeleton({ tab }: { tab: StationTab }) {
     >
       <PageHeader
         bordered={false}
+        heading={false}
         title={
           <>
             <Skeleton className="size-6 rounded" />

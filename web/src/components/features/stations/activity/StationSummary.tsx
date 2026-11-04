@@ -1,7 +1,8 @@
+import { InsightsTile } from '@/components/features/insights/InsightsTile';
+import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { TileSparkline } from '@/components/features/insights/TileSparkline';
 import { RunStrip } from '@/components/features/stations/activity/RunStrip';
 import { SummarySkeleton } from '@/components/features/stations/activity/SummarySkeleton';
-import { SummaryTile } from '@/components/features/stations/activity/SummaryTile';
 import { TabSection } from '@/components/features/stations/TabSection';
 import { SectionLink } from '@/components/shared/SectionLink';
 import { useStationInsights } from '@/hooks/api/useStationInsights';
@@ -11,7 +12,6 @@ import { stationInsightsPath } from '@/lib/station';
 import {
   liveRuns,
   SUMMARY_COLUMNS,
-  SUMMARY_GRID,
   SUMMARY_TITLE,
   type SummaryColumn,
 } from '@/lib/station-insights';
@@ -53,16 +53,12 @@ export function StationSummary({
     }
     if (visual === 'cost') {
       return trendable(costs) ? (
-        <TileSparkline label="Cost, run by run" values={costs} tone="done" />
+        <TileSparkline label="Cost, run by run" values={costs} />
       ) : null;
     }
     if (visual === 'duration') {
       return trendable(durations) ? (
-        <TileSparkline
-          label="Duration, run by run"
-          values={durations}
-          tone="done"
-        />
+        <TileSparkline label="Duration, run by run" values={durations} />
       ) : null;
     }
 
@@ -78,26 +74,23 @@ export function StationSummary({
         </SectionLink>
       }
     >
-      <dl
-        aria-label={SUMMARY_TITLE}
-        data-slot="station-summary"
-        className={SUMMARY_GRID}
-      >
-        {SUMMARY_COLUMNS.map((column) => (
-          <SummaryTile
-            key={column.label}
-            label={column.label}
-            value={column.render(tally)}
-            detail={
-              column.counted && tally.runs > 0
-                ? formatPercent(tally[column.counted] / tally.runs)
-                : undefined
-            }
-          >
-            {visualOf(column)}
-          </SummaryTile>
-        ))}
-      </dl>
+      <div data-slot="station-summary">
+        <InsightsTiles label={SUMMARY_TITLE} topAligned>
+          {SUMMARY_COLUMNS.map((column) => (
+            <InsightsTile
+              key={column.label}
+              label={column.label}
+              value={column.render(tally)}
+              detail={
+                column.counted && tally.runs > 0
+                  ? `${formatPercent(tally[column.counted] / tally.runs)} of runs`
+                  : undefined
+              }
+              visual={visualOf(column)}
+            />
+          ))}
+        </InsightsTiles>
+      </div>
     </TabSection>
   );
 }

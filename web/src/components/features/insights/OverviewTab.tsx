@@ -4,6 +4,7 @@ import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRuns } from '@/components/features/insights/NoRuns';
 import { OutputAgainstCost } from '@/components/features/insights/OutputAgainstCost';
 import { OverviewSkeleton } from '@/components/features/insights/OverviewSkeleton';
+import { OVERVIEW_LAYOUT } from '@/components/features/insights/overview-layout';
 import { WorthImprovingList } from '@/components/features/insights/WorthImprovingList';
 import { useInsightsOverview } from '@/hooks/api/useInsightsOverview';
 import {
@@ -55,7 +56,7 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={OVERVIEW_LAYOUT}>
       <InsightsTiles label="Headline numbers" topAligned>
         {headlineTiles(headline, changes).map((tile) => (
           <InsightsTile

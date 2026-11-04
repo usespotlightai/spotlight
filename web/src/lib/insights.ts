@@ -442,15 +442,15 @@ export const headlineTiles = (
     detail:
       now.taskToMerge.p90Ms === null
         ? undefined
-        : `p90 ${formatDuration(now.taskToMerge.p90Ms)}`,
+        : `Slowest 10%: ${formatDuration(now.taskToMerge.p90Ms)}`,
     delta: shownDeltaOf(changes.taskToMerge),
     drill: { tab: 'traces', filter: mergedFilter(now.mergedTaskIds) },
   },
   {
     id: 'human-actions',
-    label: 'Human actions per task worked',
+    label: 'Actions per task',
     value: formatPer(now.humanActionsPerTask),
-    detail: `${formatCount(now.humanActions)} over ${formatCount(now.tasks)} ${now.tasks === 1 ? 'task' : 'tasks'}`,
+    detail: `Over ${formatCount(now.tasks)} ${now.tasks === 1 ? 'task' : 'tasks'}`,
     delta: shownDeltaOf(changes.humanActionsPerTask),
     drill: { tab: 'people' },
   },
@@ -1042,7 +1042,10 @@ export const tallyTiles = (
     id: 'median',
     label: 'Median run',
     value: formatDurationOrNone(now.medianMs),
-    detail: now.p90Ms === null ? undefined : `p90 ${formatDuration(now.p90Ms)}`,
+    detail:
+      now.p90Ms === null
+        ? undefined
+        : `Slowest 10%: ${formatDuration(now.p90Ms)}`,
     delta: shownDeltaOf(changes.median),
     drill: undefined,
   },
@@ -1096,6 +1099,8 @@ export const signalPrompt = (reading: SignalReading): string =>
 export const WORTH_IMPROVING_SPAN = rangeOf(DEFAULT_PERIOD).label.toLowerCase();
 
 export const WORTH_IMPROVING_NOTE = `Signals that have declined over the ${WORTH_IMPROVING_SPAN} or fall below team benchmarks.`;
+
+export const WORTH_IMPROVING_HEADINGS = signalHeadings('edge');
 
 export const STATIONS_WORTH_IMPROVING_HEADINGS = signalHeadings('outer');
 

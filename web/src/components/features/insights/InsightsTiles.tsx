@@ -23,7 +23,7 @@ export function InsightsTiles({
       data-top-aligned={topAligned || undefined}
       data-stacked={stacked || undefined}
       className={cn(
-        'group/tiles grid grid-cols-2 gap-2 sm:grid-cols-3',
+        'group/tiles grid grid-cols-2 gap-3 sm:grid-cols-3',
         tilesInARow(count),
         className,
       )}

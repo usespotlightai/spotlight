@@ -2,7 +2,6 @@ import { ATTENTION_TITLE } from '@/components/features/stations/activity/attenti
 import { WorthImproving } from '@/components/features/stations/activity/WorthImproving';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
 import { TabSection } from '@/components/features/stations/TabSection';
-import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import { signalPrompt, WORTH_IMPROVING_NOTE } from '@/lib/insights';
 import type { ReplayedStation } from '@/lib/replay';
@@ -24,10 +23,7 @@ export function StationAttention({ line, station, at }: StationAttentionProps) {
   };
 
   return (
-    <TabSection
-      title={ATTENTION_TITLE}
-      action={<InfoTooltip tooltip={WORTH_IMPROVING_NOTE} />}
-    >
+    <TabSection title={ATTENTION_TITLE} description={WORTH_IMPROVING_NOTE}>
       <WorthImproving
         teamId={at.teamId}
         stationId={station.id}
@@ -36,7 +32,7 @@ export function StationAttention({ line, station, at }: StationAttentionProps) {
             slug={at.slug}
             teamId={at.teamId}
             targetStation={targetStation}
-            label="Review with agent"
+            label="Ask the agent"
           />
         }
         actionFor={(reading) => (

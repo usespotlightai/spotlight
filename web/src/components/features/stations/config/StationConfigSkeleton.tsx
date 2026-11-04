@@ -34,7 +34,7 @@ export function StationConfigSkeleton() {
     <div className={CONFIG_LAYOUT}>
       <div className={CONFIG_MAIN}>
         <TabSection title="Prompt">
-          <div className="flex flex-col rounded-lg bg-background/60 px-5 py-4">
+          <div className="flex flex-col border-border border-l-2 pl-4">
             {PROMPT.map((width, at) => (
               <SkeletonLine
                 // biome-ignore lint/suspicious/noArrayIndexKey: placeholder lines have no identity
@@ -52,13 +52,17 @@ export function StationConfigSkeleton() {
             </dd>
             <dt className="text-muted-foreground">Agreement</dt>
             <dd>
-              <SkeletonLine className="w-40" />
+              <SkeletonLine className="w-24" />
+            </dd>
+            <dt className="text-muted-foreground">Minimum agreement</dt>
+            <dd>
+              <SkeletonLine className="w-10" />
             </dd>
           </dl>
         </TabSection>
       </div>
 
-      <div className="flex flex-col gap-8">
+      <div className="grid content-start gap-10 max-lg:order-first sm:max-lg:grid-cols-2">
         {GROUPS.map(([title, rows]) => (
           <TabSection key={title} title={title}>
             <dl className={PROPERTY_GRID}>

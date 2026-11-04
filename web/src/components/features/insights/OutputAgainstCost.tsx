@@ -14,6 +14,7 @@ import { OutputLegend } from '@/components/features/insights/OutputLegend';
 import { OutputTable } from '@/components/features/insights/OutputTable';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
+import { costTick } from '@/lib/chart';
 import { spentIn } from '@/lib/inbox';
 import { type DayOutput, OUTPUT_NOTE, type StationNames } from '@/lib/insights';
 import { formatDay } from '@/lib/judge';
@@ -23,6 +24,10 @@ export const OUTPUT_CHART_HEIGHT = 200;
 const spendOf = (day: DayOutput): number | null => day.spend?.amount ?? null;
 
 const INSET = 8;
+
+const AXIS_WIDTH = 36;
+
+const AXIS_TICK = { fill: 'var(--chart-axis)', fontSize: 11 } as const;
 
 export const TipContent = ({
   placement,
@@ -77,6 +82,7 @@ export function OutputAgainstCost({
 
   return (
     <InsightsCard
+      flat
       title="Output against cost"
       description={
         priced
@@ -101,18 +107,43 @@ export function OutputAgainstCost({
             <ResponsiveContainer width="100%" height={OUTPUT_CHART_HEIGHT}>
               <ComposedChart
                 data={[...days]}
-                margin={{ top: 8, right: INSET, bottom: 0, left: INSET }}
+                margin={{
+                  top: 8,
+                  right: priced ? INSET : INSET + AXIS_WIDTH,
+                  bottom: 0,
+                  left: INSET,
+                }}
               >
                 <XAxis
                   dataKey="day"
                   tickLine={false}
                   axisLine={{ stroke: 'var(--chart-grid)' }}
-                  tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                  tick={AXIS_TICK}
                   tickFormatter={formatDay}
                   minTickGap={24}
                 />
-                <YAxis yAxisId="merged" hide allowDecimals={false} />
-                <YAxis yAxisId="spend" hide orientation="right" />
+                <YAxis
+                  yAxisId="merged"
+                  allowDecimals={false}
+                  axisLine={false}
+                  tickLine={false}
+                  tickCount={3}
+                  width={AXIS_WIDTH}
+                  tick={AXIS_TICK}
+                />
+                <YAxis
+                  yAxisId="spend"
+                  orientation="right"
+                  hide={!priced}
+                  axisLine={false}
+                  tickLine={false}
+                  tickCount={3}
+                  width={AXIS_WIDTH}
+                  tick={AXIS_TICK}
+                  tickFormatter={(spend: number) =>
+                    currency ? costTick(spend, currency) : String(spend)
+                  }
+                />
                 <Tooltip
                   {...cursor.tooltip}
                   content={
@@ -138,7 +169,9 @@ export function OutputAgainstCost({
                   yAxisId="merged"
                   dataKey="merged"
                   name="PRs merged"
-                  fill="var(--chart-2)"
+                  fill="var(--chart-primary)"
+                  fillOpacity={0.22}
+                  radius={[2, 2, 0, 0]}
                   isAnimationActive={false}
                 />
                 {priced && (
@@ -163,7 +196,7 @@ export function OutputAgainstCost({
           teamId={teamId}
           days={days}
           names={names}
-          inset={INSET}
+          inset={INSET + AXIS_WIDTH}
         />
       </figure>
     </InsightsCard>

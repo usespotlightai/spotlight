@@ -148,6 +148,8 @@ export const countedColumnsOf = (counted: TallyCounted): TallyColumn[] =>
 
 export const SUMMARY_TITLE = 'Latest runs on this config';
 
+export const RECENT_RUNS_TITLE = 'Recent runs';
+
 export type SummaryVisual = 'strip' | 'cost' | 'duration' | 'none';
 
 export type SummaryColumn = TallyColumn & { readonly visual: SummaryVisual };
@@ -163,11 +165,8 @@ export const SUMMARY_COLUMNS: readonly SummaryColumn[] = [
   summarized('Sent back', 'none'),
   summarized('Failed', 'none'),
   summarized('Cost', 'cost'),
-  summarized('Median', 'duration'),
+  { ...summarized('Median', 'duration'), label: 'Median run' },
 ];
-
-export const SUMMARY_GRID =
-  'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6';
 
 const newestLive = (
   groups: readonly FingerprintGroup[],
@@ -195,6 +194,11 @@ export const OUTCOME_HEADINGS: readonly NestedHeading[] = [
   { label: 'Duration', numeric: true, size: SPREAD },
   { label: 'Cost', numeric: true, size: SPREAD },
   { label: 'Ended', numeric: true, size: SPREAD },
+];
+
+export const RECENT_RUN_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Run', indent: 'edge', size: 'minmax(10rem,2fr)' },
+  ...OUTCOME_HEADINGS.slice(1),
 ];
 
 export type GroupSummary = {

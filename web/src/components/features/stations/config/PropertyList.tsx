@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 export const PROPERTY_GRID =
-  'grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm leading-5';
+  'grid grid-cols-[8.5rem_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm leading-5';
 
 export function PropertyList({ children }: { children: ReactNode }) {
   return <dl className={PROPERTY_GRID}>{children}</dl>;

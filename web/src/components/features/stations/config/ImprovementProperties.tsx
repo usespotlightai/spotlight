@@ -3,7 +3,6 @@ import {
   PropertyList,
 } from '@/components/features/stations/config/PropertyList';
 import { TabSection } from '@/components/features/stations/TabSection';
-import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import {
   durationWords,
   type SearchPolicy,
@@ -15,9 +14,7 @@ export function ImprovementProperties({ policy }: { policy: SearchPolicy }) {
   return (
     <TabSection
       title="Automatic improvement"
-      action={
-        policy.enabled && <InfoTooltip tooltip={searchPolicyNote(policy)} />
-      }
+      description={policy.enabled ? searchPolicyNote(policy) : undefined}
     >
       <div data-slot="search-policy">
         <PropertyList>

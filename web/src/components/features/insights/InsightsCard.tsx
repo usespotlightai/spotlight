@@ -16,6 +16,7 @@ type InsightsCardProps = {
   tableOnly?: boolean;
   level?: 2 | 3;
   scrolls?: boolean;
+  flat?: boolean;
   className?: string;
   children: ReactNode;
 };
@@ -29,6 +30,7 @@ export function InsightsCard({
   tableOnly = false,
   level,
   scrolls = false,
+  flat = false,
   className,
   children,
 }: InsightsCardProps) {
@@ -46,11 +48,19 @@ export function InsightsCard({
       aria-labelledby={titleId}
       data-slot="insights-card"
       className={cn(
-        'flex min-w-0 scroll-mt-4 flex-col overflow-hidden rounded-lg border border-border bg-card',
+        'flex min-w-0 scroll-mt-4 flex-col',
+        flat
+          ? 'gap-3'
+          : 'overflow-hidden rounded-lg border border-border bg-card',
         className,
       )}
     >
-      <header className="flex min-h-6 flex-wrap items-center gap-2 px-3 pt-3 pb-4">
+      <header
+        className={cn(
+          'flex min-h-6 flex-wrap items-center gap-2',
+          !flat && 'px-3 pt-3 pb-4',
+        )}
+      >
         <div className="flex min-w-0 flex-1 items-center">
           <CardTitle
             titleId={titleId}
@@ -64,11 +74,18 @@ export function InsightsCard({
       </header>
 
       {tabling || tableOnly ? (
-        <div className="flex min-w-0 flex-1 flex-col px-3 pb-3">
+        <div
+          className={cn('flex min-w-0 flex-1 flex-col', !flat && 'px-3 pb-3')}
+        >
           {tabling ? capped(table) : shown}
         </div>
       ) : (
-        <div className="flex min-w-0 flex-1 flex-col gap-2 px-3 pb-3">
+        <div
+          className={cn(
+            'flex min-w-0 flex-1 flex-col gap-2',
+            !flat && 'px-3 pb-3',
+          )}
+        >
           {shown}
         </div>
       )}

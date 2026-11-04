@@ -19,7 +19,7 @@ export function ImproveStationLink({
   slug,
   teamId,
   targetStation,
-  label = 'Improve',
+  label = 'Ask the agent',
   prompt,
   variant,
   size,

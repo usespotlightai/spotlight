@@ -59,7 +59,11 @@ export function Station() {
 
   return (
     <TrailContext value={forward}>
-      <PageHeader title={<Breadcrumbs segments={trail} />} bordered={false} />
+      <PageHeader
+        title={<Breadcrumbs segments={trail} />}
+        bordered={false}
+        heading={false}
+      />
 
       <StationHeading
         slug={slug}

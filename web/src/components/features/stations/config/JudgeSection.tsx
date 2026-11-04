@@ -53,7 +53,7 @@ export function JudgeSection({
       id={JUDGE_ANCHOR}
       action={
         <SectionLink to={judgeAgreementPath(slug, teamId, { stationId })}>
-          Agreement
+          Agreement history
         </SectionLink>
       }
     >
@@ -77,7 +77,7 @@ export function JudgeSection({
             <AgreementValue calibration={agreement.data.calibration} />
           )}
         </Property>
-        <Property label="Qualifies at" slot="min-agreement">
+        <Property label="Minimum agreement" slot="min-agreement">
           <span className="tabular-nums">{formatStat(judge.minAgreement)}</span>
         </Property>
       </PropertyList>

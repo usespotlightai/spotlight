@@ -28,7 +28,9 @@ export function RangePicker({
         <span className="rounded bg-muted px-1.5 py-0.5 text-muted-foreground text-xs tabular-nums">
           {selected.short}
         </span>
-        <span className="text-foreground">{selected.label}</span>
+        <span className="hidden text-foreground sm:inline">
+          {selected.label}
+        </span>
         <ChevronDown
           className="size-3 shrink-0 text-muted-foreground"
           aria-hidden

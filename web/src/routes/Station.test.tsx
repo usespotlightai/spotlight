@@ -322,7 +322,10 @@ describe('Station', () => {
     renderAt('station_1');
 
     expect(
-      screen.getByRole('heading', { name: /Platform\s*Default\s*Triage/ }),
+      screen.getByRole('navigation', { name: 'Breadcrumb' }),
+    ).toHaveTextContent(/Platform\s*Default\s*Triage/);
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Triage' }),
     ).toBeInTheDocument();
   });
 
@@ -330,7 +333,7 @@ describe('Station', () => {
     renderAt('station_1');
 
     const crumbs = within(
-      screen.getByRole('heading', { name: /Platform\s*Default\s*Triage/ }),
+      screen.getByRole('navigation', { name: 'Breadcrumb' }),
     );
 
     expect(crumbs.getByRole('link', { name: /Platform/ })).toHaveAttribute(
@@ -478,10 +481,15 @@ describe('Station', () => {
       renderAt('station_2');
 
       expect(
-        [...document.querySelectorAll('[data-slot="summary-tile"]')]
+        [...document.querySelectorAll('[data-slot="insights-tile"]')]
           .slice(0, 4)
           .map((stat) => stat.textContent),
-      ).toEqual(['Runs42', 'Accepted2867%', 'Sent back37%', 'Failed12%']);
+      ).toEqual([
+        'Runs42',
+        'Accepted2867% of runs',
+        'Sent back37% of runs',
+        'Failed12% of runs',
+      ]);
       expect(
         within(sectionTitled('Latest runs on this config')).getByRole('link', {
           name: 'See in Insights',
@@ -654,7 +662,7 @@ describe('Station', () => {
       );
 
       expect(
-        screen.queryByRole('link', { name: 'Review with agent' }),
+        document.querySelector('[data-slot="signals-healthy"]'),
       ).not.toBeInTheDocument();
       expect(
         document.querySelector('[data-slot="handed-prompt"]'),
@@ -683,7 +691,7 @@ describe('Station', () => {
 
       await user.click(
         within(sectionTitled('What needs attention')).getByRole('link', {
-          name: 'Review with agent',
+          name: 'Ask the agent',
         }),
       );
 
@@ -766,7 +774,7 @@ describe('Station', () => {
 
       expect(rows.map((each) => each.getAttribute('aria-label'))).toEqual([
         'Alerts when the sent-back rate rises 20 points or more over 20 runs',
-        'Alerts when the cost per run goes above 2.00 over 10 runs',
+        'Alerts when the cost per run goes above $2.00 over 10 runs',
         'Alerts when the accepted rate falls 10 points or more over 20 runs',
       ]);
       expect(rows[0]).toHaveTextContent(
@@ -780,7 +788,9 @@ describe('Station', () => {
       expect(
         document.querySelector('[data-slot="judge-calibration"]'),
       ).toHaveTextContent('0.71Strong');
-      expect(screen.getByRole('link', { name: 'Agreement' })).toHaveAttribute(
+      expect(
+        screen.getByRole('link', { name: 'Agreement history' }),
+      ).toHaveAttribute(
         'href',
         `${INSIGHTS}?tab=stations&stationId=station_2#judge`,
       );
@@ -796,7 +806,7 @@ describe('Station', () => {
         document.querySelector('[data-slot="judge-calibration"]'),
       ).not.toBeInTheDocument();
       expect(sectionTitled('Judge')).toHaveTextContent(
-        'AgreementSorry, it couldn’t be loaded.Qualifies at0.60',
+        'AgreementSorry, it couldn’t be loaded.Minimum agreement0.60',
       );
     });
 
@@ -804,7 +814,7 @@ describe('Station', () => {
       renderAt('station_1', 'config');
 
       expect(
-        screen.queryByRole('link', { name: 'Agreement' }),
+        screen.queryByRole('link', { name: 'Agreement history' }),
       ).not.toBeInTheDocument();
       expect(
         screen.queryByRole('heading', { name: 'Alert rules' }),
@@ -873,7 +883,7 @@ describe('Station', () => {
       const judge = sectionTitled('Judge');
 
       expect(judge).toHaveTextContent('Scores20% of runs');
-      expect(judge).toHaveTextContent('Qualifies at0.60');
+      expect(judge).toHaveTextContent('Minimum agreement0.60');
     });
 
     it('shows the rubric read-only in the judge section', async () => {

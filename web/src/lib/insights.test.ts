@@ -314,7 +314,7 @@ describe('headlineTiles', () => {
       ['Merge rate', '80%'],
       ['Cost per merged PR', '$15.00'],
       ['Task to merge', '1d 2h'],
-      ['Human actions per task worked', '3.0'],
+      ['Actions per task', '3.0'],
       ['Active people', '4'],
     ]);
     expect(tiles[0]?.delta).toEqual({ shown: '+20%', tone: 'flat' });
