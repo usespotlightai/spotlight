@@ -92,6 +92,9 @@ const TipContent = ({
   );
 };
 
+export const TRACES_FILL =
+  'color-mix(in oklab, var(--chart-primary) 55%, transparent)';
+
 export function TraceVolume({
   volume,
   from,
@@ -147,13 +150,15 @@ export function TraceVolume({
             <Bar
               dataKey="count"
               name="Traces"
-              fill="var(--chart-primary)"
+              fill={TRACES_FILL}
+              radius={[2, 2, 0, 0]}
               isAnimationActive={false}
             />
             <Bar
               dataKey="errors"
               name="Errors"
-              fill="var(--destructive)"
+              fill="var(--outcome-failed)"
+              radius={[2, 2, 0, 0]}
               isAnimationActive={false}
             />
           </BarChart>

@@ -9,7 +9,7 @@ export const LABEL_ROOM = 128;
 const fills: Record<TraceNode['category'], string> = {
   agent: 'bg-primary',
   overhead: 'bg-faint',
-  failed: 'bg-destructive',
+  failed: 'bg-outcome-failed',
 };
 
 export function TraceBar({ node, trace }: { node: TraceNode; trace: Trace }) {

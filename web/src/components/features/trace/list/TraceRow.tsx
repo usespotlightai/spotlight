@@ -86,7 +86,7 @@ export function TraceRow({
       <span
         className={cn(
           'truncate text-right text-xs tabular-nums',
-          trace.errors > 0 ? 'text-destructive' : 'text-muted-foreground',
+          trace.errors > 0 ? 'text-outcome-failed' : 'text-muted-foreground',
         )}
       >
         {trace.errors > 0 ? trace.errors : '–'}
