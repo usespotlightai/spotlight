@@ -1,5 +1,13 @@
 import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
-export function EmptyFrame({ children }: { children: ReactNode }) {
-  return <div className="flex justify-center py-10">{children}</div>;
+type EmptyFrameProps = {
+  children: ReactNode;
+  className?: string;
+};
+
+export function EmptyFrame({ children, className }: EmptyFrameProps) {
+  return (
+    <div className={cn('flex justify-center py-10', className)}>{children}</div>
+  );
 }
