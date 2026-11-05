@@ -1,5 +1,6 @@
 import { FileIcon } from 'lucide-react';
 import { useParams } from 'react-router';
+import { ZoomableImage } from '@/components/shared/attachment/ZoomableImage';
 import {
   type Attachment,
   attachmentPath,
@@ -7,6 +8,10 @@ import {
   drawn,
   sized,
 } from '@/lib/attachment';
+import { cn } from '@/lib/utils';
+
+const TILE =
+  'flex size-28 items-center justify-center overflow-hidden rounded-lg border border-border bg-card';
 
 const kind = (name: string, contentType: string): string => {
   const dot = name.lastIndexOf('.');
@@ -32,32 +37,29 @@ export function AttachmentTiles({
 
         return (
           <li key={each.id} className="w-28">
-            <a
-              href={
-                shown
-                  ? attachmentPath(slug, each.id)
-                  : downloadPath(slug, each.id)
-              }
-              {...(shown ? { target: '_blank', rel: 'noreferrer' } : {})}
-              aria-label={each.name}
-              className="flex size-28 items-center justify-center overflow-hidden rounded-lg border border-border bg-card transition-colors hover:bg-accent"
-            >
-              {shown ? (
-                <img
+            {shown ? (
+              <span className={TILE}>
+                <ZoomableImage
                   src={attachmentPath(slug, each.id)}
-                  alt={each.name}
+                  name={each.name}
                   loading="lazy"
                   className="size-full object-cover"
                 />
-              ) : (
+              </span>
+            ) : (
+              <a
+                href={downloadPath(slug, each.id)}
+                aria-label={each.name}
+                className={cn(TILE, 'transition-colors hover:bg-accent')}
+              >
                 <span className="flex flex-col items-center gap-1 text-muted-foreground">
                   <FileIcon className="size-5" aria-hidden />
                   <span className="max-w-20 truncate font-medium text-[0.7rem] uppercase">
                     {kind(each.name, each.contentType)}
                   </span>
                 </span>
-              )}
-            </a>
+              </a>
+            )}
 
             <span
               title={each.name}

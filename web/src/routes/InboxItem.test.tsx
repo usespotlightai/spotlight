@@ -353,7 +353,7 @@ describe('InboxItem', () => {
     renderItem();
 
     const shown = screen.getByText('The pull request was commented on.');
-    expect(shown.closest('li')).not.toHaveTextContent('Triage');
+    expect(shown.closest('[data-note]')).not.toHaveTextContent('Triage');
   });
 
   it('signs what came from outside with the member who wrote it', () => {
@@ -377,7 +377,7 @@ describe('InboxItem', () => {
       'Try again, the CI results are readable now.',
     );
     expect(
-      within(shown.closest('li') as HTMLElement).getByLabelText(
+      within(shown.closest('[data-note]') as HTMLElement).getByLabelText(
         'Maya wrote this',
       ),
     ).toBeInTheDocument();
@@ -495,6 +495,30 @@ describe('InboxItem', () => {
           voice: 'person',
           author: { id: 'user_2', name: 'Leon', image: null },
           coAuthors: [],
+        }),
+        note({ position: 2, body: 'And Triage answered.' }),
+      ]),
+    );
+
+    renderItem();
+
+    const turns = screen.getAllByRole('list');
+
+    expect(turns).toHaveLength(2);
+    expect(turns[0]).toHaveTextContent('Triage wrote this.');
+    expect(turns[0]).not.toHaveTextContent('And Triage answered.');
+    expect(turns[1]).toHaveTextContent('And Triage answered.');
+  });
+
+  it('opens a turn of its own at each message from outside', () => {
+    waiting.mockReturnValue(
+      item([
+        note({ body: 'Triage wrote this.' }),
+        note({
+          position: 1,
+          kind: 'message',
+          voice: 'world',
+          body: 'The pull request was commented on.',
         }),
         note({ position: 2, body: 'And Triage answered.' }),
       ]),

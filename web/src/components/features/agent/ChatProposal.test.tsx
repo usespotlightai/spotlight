@@ -91,7 +91,9 @@ describe('ChatProposal', () => {
     render(proposing(OPEN, [MOCKUP]));
 
     expect(screen.getByText('Files')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'mockup.png' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'View mockup.png' }),
+    ).toBeInTheDocument();
   });
 
   it('shows no files where the proposal has none', () => {

@@ -24,7 +24,7 @@ export function PendingAttachmentChip({
     ) : attachment.image ? (
       <ImagePreview
         image={attachment.image}
-        alt=""
+        name={attachment.name}
         className="size-full object-cover"
       />
     ) : undefined;
