@@ -4,7 +4,6 @@ import { ApprovalCard } from '@/components/features/inbox/conversation/approval/
 import type { Deciding } from '@/components/features/inbox/conversation/Conversation';
 import { ConnectionCard } from '@/components/features/inbox/conversation/connection/ConnectionCard';
 import { InboxWork } from '@/components/features/inbox/conversation/InboxWork';
-import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
 import { SetupSteps } from '@/components/features/onboarding/SetupSteps';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
@@ -12,11 +11,9 @@ import { useSession } from '@/hooks/api/useSession';
 import { useInAppLinks } from '@/hooks/useInAppLinks';
 import {
   ARRIVING,
-  authorsOf,
   type ConversationItem,
   type Note,
   type RunJournal,
-  STICKY_AT_TOP,
 } from '@/lib/inbox';
 import { stationShare } from '@/lib/station';
 import { cn } from '@/lib/utils';
@@ -46,18 +43,6 @@ export function InboxNote({
   const written = useRef<HTMLDivElement>(null);
   const arriving = arrived ? ARRIVING : undefined;
   useInAppLinks(written);
-
-  if (note.voice === 'world' || note.voice === 'person') {
-    return (
-      <li data-note={note.position} className={cn(STICKY_AT_TOP, arriving)}>
-        <PersonMessage
-          body={note.body}
-          attachments={note.attachments}
-          authors={authorsOf(note)}
-        />
-      </li>
-    );
-  }
 
   const shows = note.form === 'setup' && teamId;
   const approval = note.approval;

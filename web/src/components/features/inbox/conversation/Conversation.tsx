@@ -34,7 +34,7 @@ const turnsOf = (item: ConversationItem): Turn[] => {
   const cut: Turn[] = [{ prompt: null, notes: [] }];
 
   for (const note of item.notes.filter(shown)) {
-    if (note.voice === 'person') {
+    if (note.voice === 'person' || note.voice === 'world') {
       cut.push({ prompt: note, notes: [] });
     } else {
       cut[cut.length - 1]?.notes.push(note);
@@ -221,6 +221,7 @@ export function Conversation({
 
               {head && (
                 <div
+                  data-note={turn.prompt?.position}
                   className={cn(
                     STICKY_AT_TOP,
                     turn.prompt && arrived(turn.prompt.position) && ARRIVING,
