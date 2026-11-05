@@ -4,10 +4,8 @@ import {
   CONFIG_MAIN,
 } from '@/components/features/stations/config/StationConfig';
 import { TabSection } from '@/components/features/stations/TabSection';
+import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
-import { cn } from '@/lib/utils';
-
-const PROMPT = ['w-1/4', 'w-full', 'w-5/6', 'w-full', 'w-2/3', 'w-3/4'];
 
 const GROUPS = [
   ['Live config', [['Since', 'w-14']]],
@@ -34,15 +32,7 @@ export function StationConfigSkeleton() {
     <div className={CONFIG_LAYOUT}>
       <div className={CONFIG_MAIN}>
         <TabSection title="Prompt">
-          <div className="flex flex-col border-border border-l-2 pl-4">
-            {PROMPT.map((width, at) => (
-              <SkeletonLine
-                // biome-ignore lint/suspicious/noArrayIndexKey: placeholder lines have no identity
-                key={at}
-                className={cn(width, 'text-sm leading-6')}
-              />
-            ))}
-          </div>
+          <Skeleton className="h-40 w-full rounded-lg" />
         </TabSection>
         <TabSection title="Judge">
           <dl className={PROPERTY_GRID}>
