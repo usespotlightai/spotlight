@@ -9,6 +9,7 @@ import type {
   StationRunOutcomeResponseDto,
 } from '@/lib/api';
 import { world } from '@/mocks/world';
+import { hookFailuresAt, runFailuresOf } from '@/mocks/world/insights';
 import { type HistoryRun, history } from '@/mocks/world/insights-history';
 import { profileOf } from '@/mocks/world/insights-profiles';
 import { historyTaskOf, visitOf } from '@/mocks/world/past-work';
@@ -239,6 +240,12 @@ export const stationRunOutcomes = (
   return {
     stationId,
     groups,
-    inForce: current ? { tally: current.tally } : null,
+    inForce: current
+      ? {
+          tally: current.tally,
+          taskFailures: hookFailuresAt(stationId),
+          runFailures: runFailuresOf(current.runs),
+        }
+      : null,
   };
 };

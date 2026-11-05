@@ -3,6 +3,7 @@ import { AgentChatSkeleton } from '@/components/features/agent/AgentChatSkeleton
 import { ChatComposer } from '@/components/features/agent/ChatComposer';
 import { ChatThread } from '@/components/features/agent/ChatThread';
 import { OpenInEditor } from '@/components/features/editor/OpenInEditor';
+import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
@@ -62,7 +63,7 @@ export function AgentChat() {
 
   return (
     <TrailContext value={forward}>
-      <div className="flex min-h-0 flex-1 flex-col">
+      <FileDropZone className="flex min-h-0 flex-1 flex-col rounded-lg">
         <PageHeader
           title={<Breadcrumbs segments={trail} />}
           actions={<OpenInEditor slug={slug} target={editing} />}
@@ -84,7 +85,7 @@ export function AgentChat() {
             </ComposerFooter>
           }
         />
-      </div>
+      </FileDropZone>
     </TrailContext>
   );
 }

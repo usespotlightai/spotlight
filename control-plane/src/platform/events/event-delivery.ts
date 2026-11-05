@@ -28,10 +28,17 @@ import {
   TELEMETRY,
   type TelemetryPort,
 } from '@shared-kernel/application/ports/telemetry.port';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { and, asc, count, eq, isNull, lte } from 'drizzle-orm';
 
 export const MAX_ATTEMPTS = 8;
+
+export const LEASE_MS = 5 * 60 * 1000;
+
+export const LEASE_RENEWAL_MS = 60 * 1000;
+
+export const LONGEST_LEASE_MS = 30 * 60 * 1000;
 
 const DELIVERIES_METRIC = 'spotlight.outbox.deliveries';
 
@@ -40,6 +47,20 @@ const backoffMs = (attempts: number): number =>
 
 const because = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
+
+type Outcome = 'delivered' | 'retried' | 'dead_lettered' | 'lost';
+
+type Claim =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'settled' }
+  | { readonly kind: 'leased'; readonly due: Due; readonly lease: Date };
+
+interface Lease {
+  current: Date;
+  readonly until: Date;
+  renewing: Promise<void>;
+  readonly timer: ReturnType<typeof setInterval>;
+}
 
 interface Due {
   readonly eventId: string;
@@ -104,6 +125,16 @@ export class EventDelivery {
   }
 
   private async deliverOne(): Promise<boolean> {
+    const claim = await this.claimNext();
+
+    if (claim.kind === 'leased') {
+      await this.deliverLeased(claim.due, claim.lease);
+    }
+
+    return claim.kind !== 'none';
+  }
+
+  private async claimNext(): Promise<Claim> {
     const claimed: { due: Due | null; failure: { error: unknown } | null } = {
       due: null,
       failure: null,
@@ -118,8 +149,14 @@ export class EventDelivery {
           return null;
         }
 
+        if (this.subscribers.named(due.subscriber)?.callsOut) {
+          return { due, lease: await this.leased(due) };
+        }
+
         try {
-          await this.context.inSavepoint(() => this.handle(due));
+          await this.context.inSavepoint(() =>
+            this.handled(due, async (raised) => this.outbox.record(raised)),
+          );
         } catch (error) {
           claimed.failure = { error };
           const failed = await this.failed(due, error);
@@ -136,11 +173,19 @@ export class EventDelivery {
         return 'delivered' as const;
       });
 
-      if (outcome && outcome !== 'lost' && claimed.due) {
+      if (outcome === null) {
+        return { kind: 'none' };
+      }
+
+      if (typeof outcome === 'object') {
+        return { kind: 'leased', ...outcome };
+      }
+
+      if (outcome !== 'lost' && claimed.due) {
         this.counted(claimed.due, outcome);
       }
 
-      return outcome !== null;
+      return { kind: 'settled' };
     } catch (error) {
       const due = claimed.due;
 
@@ -157,22 +202,181 @@ export class EventDelivery {
         });
 
       if (outcome === 'lost') {
-        this.logger.warn(
-          {
-            err: failure,
-            eventId: due.eventId,
-            subscriber: due.subscriber,
-            ...idsOf(due.payload),
-          },
-          'Another instance settled this domain event delivery first',
-        );
-        return true;
+        this.lost(due, failure);
+        return { kind: 'settled' };
       }
 
       this.reported(due, failure);
       this.counted(due, outcome);
-      return true;
+      return { kind: 'settled' };
     }
+  }
+
+  private async leased(due: Due): Promise<Date> {
+    const lease = new Date(this.clock.now().getTime() + LEASE_MS);
+
+    await this.context.db
+      .update(eventDelivery)
+      .set({ dueAt: lease })
+      .where(this.at(due));
+
+    return lease;
+  }
+
+  private async deliverLeased(due: Due, lease: Date): Promise<void> {
+    const held = this.renewing(due, lease);
+    let outcome: Outcome | 'unsettled';
+
+    try {
+      outcome = await this.handled(due, async (raised) => {
+        const current = await this.released(held);
+
+        return this.context
+          .inTransaction(() => this.settled(due, current, raised))
+          .catch((error: unknown) => {
+            this.unsettled(due, error);
+
+            return 'unsettled' as const;
+          });
+      });
+    } catch (error) {
+      const current = await this.released(held);
+
+      outcome = await this.context
+        .inTransaction(() => this.failed(due, error, current))
+        .catch((written: unknown) => {
+          this.reported(due, error);
+          throw written;
+        });
+
+      if (outcome === 'lost') {
+        this.leaseLost(due, error);
+        return;
+      }
+
+      this.reported(due, error);
+    }
+
+    if (outcome === 'unsettled') {
+      return;
+    }
+
+    if (outcome === 'lost') {
+      this.leaseLost(due);
+      return;
+    }
+
+    this.counted(due, outcome);
+  }
+
+  private renewing(due: Due, lease: Date): Lease {
+    const held: Lease = {
+      current: lease,
+      until: new Date(this.clock.now().getTime() + LONGEST_LEASE_MS),
+      renewing: Promise.resolve(),
+      timer: setInterval(() => {
+        held.renewing = held.renewing.then(() => this.renewed(due, held));
+      }, LEASE_RENEWAL_MS),
+    };
+
+    return held;
+  }
+
+  private async renewed(due: Due, held: Lease): Promise<void> {
+    const next = new Date(this.clock.now().getTime() + LEASE_MS);
+
+    if (next > held.until) {
+      clearInterval(held.timer);
+      return;
+    }
+
+    try {
+      const written = await this.context.db
+        .update(eventDelivery)
+        .set({ dueAt: next })
+        .where(this.open(due, held.current))
+        .returning({ eventId: eventDelivery.eventId });
+
+      if (written.length > 0) {
+        held.current = next;
+      } else {
+        clearInterval(held.timer);
+      }
+    } catch (error) {
+      this.logger.warn(
+        {
+          err: error,
+          eventId: due.eventId,
+          subscriber: due.subscriber,
+          ...idsOf(due.payload),
+        },
+        'Renewing the lease of a domain event delivery',
+      );
+    }
+  }
+
+  private async released(held: Lease): Promise<Date> {
+    clearInterval(held.timer);
+    await held.renewing;
+
+    return held.current;
+  }
+
+  private async settled(
+    due: Due,
+    lease: Date,
+    raised: readonly DomainEvent[],
+  ): Promise<'delivered' | 'lost'> {
+    const written = await this.context.db
+      .update(eventDelivery)
+      .set({ deliveredAt: this.clock.now(), attempts: due.attempts + 1 })
+      .where(this.open(due, lease))
+      .returning({ eventId: eventDelivery.eventId });
+
+    if (written.length === 0) {
+      return 'lost';
+    }
+
+    await this.outbox.record(raised);
+
+    return 'delivered';
+  }
+
+  private unsettled(due: Due, error: unknown): void {
+    this.logger.error(
+      {
+        err: error,
+        eventId: due.eventId,
+        eventKind: due.kind,
+        subscriber: due.subscriber,
+        ...idsOf(due.payload),
+      },
+      'Recording a handled domain event delivery; it is retried once its lease ends',
+    );
+  }
+
+  private leaseLost(due: Due, error?: unknown): void {
+    this.logger.warn(
+      {
+        err: error,
+        eventId: due.eventId,
+        subscriber: due.subscriber,
+        ...idsOf(due.payload),
+      },
+      'Another instance took over this domain event delivery after its lease ended',
+    );
+  }
+
+  private lost(due: Due, error: unknown): void {
+    this.logger.warn(
+      {
+        err: error,
+        eventId: due.eventId,
+        subscriber: due.subscriber,
+        ...idsOf(due.payload),
+      },
+      'Another instance settled this domain event delivery first',
+    );
   }
 
   private async nextDue(): Promise<Due | null> {
@@ -202,14 +406,17 @@ export class EventDelivery {
     return row ?? null;
   }
 
-  private async handle(due: Due): Promise<void> {
+  private async handled<T>(
+    due: Due,
+    then: (raised: readonly DomainEvent[]) => Promise<T>,
+  ): Promise<T> {
     const subscriber = this.subscribers.named(due.subscriber);
 
     if (!subscriber) {
       throw new Error(`No subscriber is called ${due.subscriber} any more`);
     }
 
-    await this.telemetry.inSpan(
+    return this.telemetry.inSpan(
       due.subscriber,
       {
         eventId: due.eventId,
@@ -224,7 +431,7 @@ export class EventDelivery {
             this.outbox.decode(due.payload),
           );
 
-          await this.outbox.record(raised);
+          return then(raised);
         }),
       due.traceparent,
     );
@@ -233,6 +440,7 @@ export class EventDelivery {
   private async failed(
     due: Due,
     error: unknown,
+    lease: Date | null = null,
   ): Promise<'retried' | 'dead_lettered' | 'lost'> {
     const attempts = due.attempts + 1;
     const now = this.clock.now();
@@ -246,13 +454,7 @@ export class EventDelivery {
         dueAt: new Date(now.getTime() + backoffMs(attempts)),
         deadLetteredAt: deadLettering ? now : null,
       })
-      .where(
-        and(
-          this.at(due),
-          isNull(eventDelivery.deliveredAt),
-          eq(eventDelivery.attempts, due.attempts),
-        ),
-      )
+      .where(this.open(due, lease))
       .returning({ eventId: eventDelivery.eventId });
 
     if (written.length === 0) {
@@ -296,6 +498,15 @@ export class EventDelivery {
       'spotlight.subscriber': due.subscriber,
       'spotlight.delivery.outcome': outcome,
     });
+  }
+
+  private open(due: Due, lease: Date | null) {
+    return and(
+      this.at(due),
+      isNull(eventDelivery.deliveredAt),
+      eq(eventDelivery.attempts, due.attempts),
+      lease ? eq(eventDelivery.dueAt, lease) : undefined,
+    );
   }
 
   private at(due: Due) {

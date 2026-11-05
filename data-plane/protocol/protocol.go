@@ -156,6 +156,7 @@ type inputSchema struct {
 	Type  json.RawMessage `json:"type"`
 	Enum  []any           `json:"enum"`
 	Const json.RawMessage `json:"const"`
+	Items json.RawMessage `json:"items"`
 }
 
 func (i ToolInputManifest) Kind() string {
@@ -212,6 +213,15 @@ func kindOfValues(values []any) string {
 	}
 
 	return kind
+}
+
+func (i ToolInputManifest) TextList() bool {
+	var shape inputSchema
+	if i.Kind() != "array" || json.Unmarshal(i.Schema, &shape) != nil || shape.Items == nil {
+		return false
+	}
+
+	return ToolInputManifest{Schema: shape.Items}.Kind() == "string"
 }
 
 func (i ToolInputManifest) Scalar() bool {

@@ -148,6 +148,23 @@ const requestSchema = z.object({
     .optional(),
 });
 
+const readySchema = requestSchema.extend({
+  attempts: z
+    .number()
+    .int()
+    .min(1, 'is 1 to 30 attempts')
+    .max(30, 'is 1 to 30 attempts')
+    .default(10),
+});
+
+const uploadsSchema = z.object({
+  each: expression,
+  prepare: requestSchema,
+  send: requestSchema,
+  complete: requestSchema.optional(),
+  ready: readySchema.optional(),
+});
+
 const actionSchema = z.object({
   from: z.enum(['spotlight', 'network']).optional(),
   timeoutSeconds: z
@@ -157,6 +174,7 @@ const actionSchema = z.object({
     .max(60, 'is 1 to 60 seconds')
     .optional(),
   request: requestSchema,
+  uploads: uploadsSchema.optional(),
 });
 
 const SCALAR_INPUT_TYPES = ['string', 'number', 'integer', 'boolean'] as const;
@@ -381,12 +399,16 @@ export const integrationSchema = z
     on: z
       .record(
         z.string(),
-        z.object({
-          action: key('post-message'),
-          to: z.record(z.string(), expression).default({}),
-          routes: z.record(z.string(), z.string()).default({}),
-          mark: z.array(markSchema).default([]),
-        }),
+        z
+          .array(
+            z.object({
+              action: key('post-message'),
+              to: z.record(z.string(), expression).default({}),
+              routes: z.record(z.string(), z.string()).default({}),
+              mark: z.array(markSchema).default([]),
+            }),
+          )
+          .min(1, 'runs at least one action'),
       )
       .default({}),
   })
@@ -412,6 +434,7 @@ export type EventFile = z.infer<typeof eventSchema>;
 export type AuthFile = AuthOptions;
 export type RequestFile = z.infer<typeof requestSchema>;
 export type ActionFile = z.infer<typeof actionSchema>;
+export type UploadsFile = z.infer<typeof uploadsSchema>;
 export type RaiseFile = z.infer<typeof raiseSchema>;
 export type OpenApiFile = z.infer<typeof openapiSchema>;
 export type GraphQlFile = z.infer<typeof graphqlSchema>;

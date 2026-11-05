@@ -1,9 +1,9 @@
 import { Cell, Pie, PieChart } from 'recharts';
 import { sliceFill } from '@/components/features/insights/chart-series';
 
-export const DONUT_SIZE = 120;
+const DONUT_SIZE = 120;
 
-export const DONUT_RING = 16;
+const DONUT_RING = 16;
 
 type DonutSlice = {
   key: string;

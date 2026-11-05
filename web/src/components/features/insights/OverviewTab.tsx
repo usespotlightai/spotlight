@@ -4,6 +4,10 @@ import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRuns } from '@/components/features/insights/NoRuns';
 import { OutputAgainstCost } from '@/components/features/insights/OutputAgainstCost';
 import { OverviewSkeleton } from '@/components/features/insights/OverviewSkeleton';
+import {
+  OVERVIEW_LAYOUT,
+  SEVEN_TILES,
+} from '@/components/features/insights/overview-layout';
 import { WorthImprovingList } from '@/components/features/insights/WorthImprovingList';
 import { useInsightsOverview } from '@/hooks/api/useInsightsOverview';
 import {
@@ -55,14 +59,15 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <InsightsTiles label="Headline numbers" topAligned>
+    <div className={OVERVIEW_LAYOUT}>
+      <InsightsTiles label="Headline numbers" className={SEVEN_TILES}>
         {headlineTiles(headline, changes).map((tile) => (
           <InsightsTile
             key={tile.id}
             label={tile.label}
             value={tile.value}
             detail={tile.detail}
+            tooltip={tile.tooltip}
             delta={tile.delta}
             drill={tile.drill}
             trend={trends[tile.id]}

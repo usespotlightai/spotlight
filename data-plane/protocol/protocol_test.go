@@ -36,6 +36,21 @@ func TestReadsAnInputsKindFromItsSchema(t *testing.T) {
 	}
 }
 
+func TestReadsAListOfTextFromItsSchema(t *testing.T) {
+	for schema, want := range map[string]bool{
+		`{"type":"array","items":{"type":"string"}}`:  true,
+		`{"type":"array","items":{"enum":["a","b"]}}`: true,
+		`{"type":"array","items":{"type":"number"}}`:  false,
+		`{"type":"array"}`:                            false,
+		`{"type":"string"}`:                           false,
+	} {
+		input := ToolInputManifest{Name: "labels", Schema: json.RawMessage(schema)}
+		if textList := input.TextList(); textList != want {
+			t.Errorf("%s: text list %v, want %v", schema, textList, want)
+		}
+	}
+}
+
 func TestReadsWhyAToolWaitsForAPersonAndWhereItComesFrom(t *testing.T) {
 	var tools []ToolManifest
 	written := `[{"name":"linear.issue-create","description":"Create an issue.","approval":{"because":"It is public."},"integration":"Linear"},{"name":"pull-request","description":"Open one.","approval":null}]`

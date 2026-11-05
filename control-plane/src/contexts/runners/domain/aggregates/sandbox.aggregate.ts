@@ -275,6 +275,16 @@ export class Sandbox extends EventRecorder {
     });
   }
 
+  retireRun(runId: string, at: Date): Sandbox {
+    if (!this.holdsRun(runId)) {
+      return this;
+    }
+
+    const released = this.releaseRun(runId, at);
+
+    return released.leases.length === 0 ? released.drain() : released;
+  }
+
   holdEditor(holder: string, at: Date): Sandbox {
     if (!this.isOpen) {
       throw new InconsistentStateError(

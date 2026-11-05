@@ -1,5 +1,5 @@
 import { Pause, Play } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
 import { PipelineFlowChart } from '@/components/features/insights/shipping/PipelineFlowChart';
@@ -7,6 +7,7 @@ import { PipelineFlowLegend } from '@/components/features/insights/shipping/Pipe
 import { PipelineFlowTable } from '@/components/features/insights/shipping/PipelineFlowTable';
 import { Segmented } from '@/components/shared/Segmented';
 import { Button } from '@/components/ui/button';
+import { useElementWidth } from '@/hooks/useElementWidth';
 import { formatCount, formatDurationOrNone } from '@/lib/insights';
 import { formatType, type PullRequestType } from '@/lib/insights-pull-requests';
 import {
@@ -18,6 +19,8 @@ import {
   type Percentile,
   PIPELINE_NOTE,
 } from '@/lib/insights-shipping';
+
+const NARROW = 640;
 
 export function PipelineFlow({ flow }: { flow: Flow }) {
   const [percentile, setPercentile] = useState<Percentile>(DEFAULT_PERCENTILE);
@@ -34,53 +37,80 @@ export function PipelineFlow({ flow }: { flow: Flow }) {
     ? (flow.types.find((each) => each.type === focus)?.merged ?? 0)
     : flow.merged;
   const which = focus ? `${formatType(focus).toLowerCase()} ` : '';
+  const frame = useRef<HTMLDivElement>(null);
+  const width = useElementWidth(frame);
+  const narrow = width > 0 && width < NARROW;
+  const pickers = (
+    <>
+      <Segmented
+        label="Show coding as"
+        segments={FLOW_LAYOUTS}
+        value={layout}
+        onChange={setLayout}
+      />
+      <PercentilePicker value={percentile} onChange={setPercentile} />
+    </>
+  );
+
+  if (narrow) {
+    return (
+      <div ref={frame}>
+        <InsightsCard
+          flat
+          tableOnly
+          title="Flow through the pipeline"
+          description={PIPELINE_NOTE}
+          actions={<div className="flex items-center gap-1.5">{pickers}</div>}
+        >
+          <PipelineFlowTable stages={stages} />
+        </InsightsCard>
+      </div>
+    );
+  }
 
   return (
-    <InsightsCard
-      title="Flow through the pipeline"
-      description={PIPELINE_NOTE}
-      table={<PipelineFlowTable stages={stages} />}
-      actions={
-        <div className="flex items-center gap-1.5">
-          <span className="text-[0.7rem] text-muted-foreground tabular-nums">
-            {formatCount(merged)} {which}PRs merged
-          </span>
-          <Segmented
-            label="Show coding as"
-            segments={FLOW_LAYOUTS}
-            value={layout}
-            onChange={setLayout}
-          />
-          <PercentilePicker value={percentile} onChange={setPercentile} />
-          <Button
-            type="button"
-            variant="outline"
-            size="xs"
-            aria-pressed={!playing}
-            onClick={() => setPlaying((was) => !was)}
-          >
-            {playing ? <Pause aria-hidden /> : <Play aria-hidden />}
-            {playing ? 'Pause' : 'Play'}
-          </Button>
-        </div>
-      }
-    >
-      <PipelineFlowChart
-        stages={stages}
-        shares={flow.types}
-        focus={focus}
-        playing={playing}
-        label={`${formatCount(merged)} merged ${which}pull requests at ${percentile}: ${stages
-          .map((stage) => `${stage.label} ${formatDurationOrNone(stage.ms)}`)
-          .join(
-            ', ',
-          )}.${worst ? ` The worst bottleneck is ${worst.label}.` : ''}`}
-      />
-      <PipelineFlowLegend
-        shares={flow.types}
-        focus={focus}
-        onFocus={setFocus}
-      />
-    </InsightsCard>
+    <div ref={frame}>
+      <InsightsCard
+        flat
+        title="Flow through the pipeline"
+        description={PIPELINE_NOTE}
+        table={<PipelineFlowTable stages={stages} />}
+        actions={
+          <div className="flex items-center gap-1.5">
+            <span className="hidden whitespace-nowrap text-muted-foreground text-xs tabular-nums sm:inline">
+              {formatCount(merged)} {which}PRs merged
+            </span>
+            {pickers}
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              aria-pressed={playing}
+              onClick={() => setPlaying((was) => !was)}
+            >
+              {playing ? <Pause aria-hidden /> : <Play aria-hidden />}
+              {playing ? 'Pause' : 'Play'}
+            </Button>
+          </div>
+        }
+      >
+        <PipelineFlowChart
+          stages={stages}
+          shares={flow.types}
+          focus={focus}
+          playing={playing}
+          label={`${formatCount(merged)} merged ${which}pull requests at ${percentile}: ${stages
+            .map((stage) => `${stage.label} ${formatDurationOrNone(stage.ms)}`)
+            .join(
+              ', ',
+            )}.${worst ? ` The slowest stage is ${worst.label}.` : ''}`}
+        />
+        <PipelineFlowLegend
+          shares={flow.types}
+          focus={focus}
+          onFocus={setFocus}
+        />
+      </InsightsCard>
+    </div>
   );
 }

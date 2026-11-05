@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
 import { CardTitle } from '@/components/features/insights/CardHeading';
 import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
@@ -16,6 +17,9 @@ type InsightsCardProps = {
   tableOnly?: boolean;
   level?: 2 | 3;
   scrolls?: boolean;
+  flat?: boolean;
+  tableHeight?: string;
+  chartIcon?: LucideIcon;
   className?: string;
   children: ReactNode;
 };
@@ -29,6 +33,9 @@ export function InsightsCard({
   tableOnly = false,
   level,
   scrolls = false,
+  flat = false,
+  tableHeight = TABLE_HEIGHT,
+  chartIcon,
   className,
   children,
 }: InsightsCardProps) {
@@ -36,7 +43,7 @@ export function InsightsCard({
   const [tabled, setTabled] = useState(false);
   const tabling = Boolean(table && tabled);
   const capped = (body: ReactNode) => (
-    <OverflowFade className={TABLE_HEIGHT}>{body}</OverflowFade>
+    <OverflowFade className={tableHeight}>{body}</OverflowFade>
   );
   const shown = scrolls ? capped(children) : children;
 
@@ -46,12 +53,20 @@ export function InsightsCard({
       aria-labelledby={titleId}
       data-slot="insights-card"
       className={cn(
-        'flex min-w-0 scroll-mt-4 flex-col overflow-hidden rounded-lg border border-border bg-card',
+        'flex min-w-0 scroll-mt-4 flex-col',
+        flat
+          ? 'gap-3'
+          : 'overflow-hidden rounded-lg border border-border bg-card',
         className,
       )}
     >
-      <header className="flex min-h-6 flex-wrap items-center gap-2 px-3 pt-3 pb-4">
-        <div className="flex min-w-0 flex-1 items-center">
+      <header
+        className={cn(
+          'flex min-h-7 flex-wrap items-center gap-2',
+          !flat && 'px-3 pt-3 pb-4',
+        )}
+      >
+        <div className="flex shrink-0 grow items-center">
           <CardTitle
             titleId={titleId}
             title={title}
@@ -60,15 +75,28 @@ export function InsightsCard({
           />
         </div>
         {actions}
-        {table && <ChartTableSwitch tabled={tabled} onTabled={setTabled} />}
+        {table && (
+          <ChartTableSwitch
+            tabled={tabled}
+            onTabled={setTabled}
+            chartIcon={chartIcon}
+          />
+        )}
       </header>
 
       {tabling || tableOnly ? (
-        <div className="flex min-w-0 flex-1 flex-col px-3 pb-3">
+        <div
+          className={cn('flex min-w-0 flex-1 flex-col', !flat && 'px-3 pb-3')}
+        >
           {tabling ? capped(table) : shown}
         </div>
       ) : (
-        <div className="flex min-w-0 flex-1 flex-col gap-2 px-3 pb-3">
+        <div
+          className={cn(
+            'flex min-w-0 flex-1 flex-col gap-2',
+            !flat && 'px-3 pb-3',
+          )}
+        >
           {shown}
         </div>
       )}

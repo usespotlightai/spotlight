@@ -58,6 +58,7 @@ export class ChatMessage {
     placement: ProposalPlacement;
     title: TaskTitle;
     description: TaskDescription | null;
+    attachments?: readonly Attachment[];
     at: Date;
   }): ChatMessage {
     return new ChatMessage(
@@ -67,7 +68,7 @@ export class ChatMessage {
       input.at,
       null,
       input.runId,
-      [],
+      input.attachments ?? [],
       [],
       TaskProposal.open(input),
       input.at,

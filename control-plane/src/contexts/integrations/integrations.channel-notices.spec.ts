@@ -1,6 +1,7 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { ChannelNotices } from '@integrations/infrastructure/acl/channel-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
@@ -46,6 +47,7 @@ const runtimeWith = (
     unlimited,
     unscoped,
     noNetwork,
+    noFiles,
   );
 
 const SLACK = `
@@ -60,10 +62,10 @@ actions:
         success: '\${{ response.ok }}'
 on:
   chat.replied:
-    action: post-reply
-    to:
-      channel: '\${{ chat.marks["slack.channel"] }}'
-      thread: '\${{ chat.marks["slack.thread_ts"] }}'
+    - action: post-reply
+      to:
+        channel: '\${{ chat.marks["slack.channel"] }}'
+        thread: '\${{ chat.marks["slack.thread_ts"] }}'
 `;
 
 const notice = (input: Partial<ChannelNoticeDto> = {}): ChannelNoticeDto => ({
@@ -75,12 +77,13 @@ const notice = (input: Partial<ChannelNoticeDto> = {}): ChannelNoticeDto => ({
     { kind: 'slack.thread_ts', value: '1700.1' },
   ],
   body: 'They time out.',
+  proposals: [],
   chatId: 'chat_1',
   taskId: null,
   ...input,
 });
 
-const notifying = () => {
+const notifying = (definition = SLACK) => {
   const run = vi.fn(
     async (
       _action: unknown,
@@ -97,7 +100,7 @@ const notifying = () => {
 
   const notices = new ChannelNotices(
     {
-      ofTeam: vi.fn(async () => [defined(SLACK)]),
+      ofTeam: vi.fn(async () => [defined(definition)]),
     } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
     callAuthFor(injecting().injection),
@@ -113,7 +116,11 @@ const notifying = () => {
 
 const posted = (run: ReturnType<typeof notifying>['run']) =>
   run.mock.calls[0]?.[1] as {
-    reply: { body: string; link: string | null };
+    reply: {
+      body: string;
+      link: string | null;
+      proposals: readonly unknown[];
+    };
     target: { channel?: string; thread?: string };
   };
 
@@ -128,6 +135,7 @@ describe('ChannelNotices', () => {
     expect(action.reply).toEqual({
       body: 'They time out.',
       link: 'https://app.example/w/acme/team/team_1/agent/chat_1',
+      proposals: [],
     });
   });
 
@@ -139,6 +147,60 @@ describe('ChannelNotices', () => {
     expect(posted(run).reply.link).toBe(
       'https://app.example/w/acme/team/team_1/tasks/task_9',
     );
+  });
+
+  it('runs each action bound to an event, in order', async () => {
+    const { notices, run } = notifying(`${SLACK}  chat.dispatched:
+    - action: post-reply
+      to:
+        channel: '\${{ chat.marks["slack.channel"] }}'
+        thread: '\${{ "first" }}'
+    - action: post-reply
+      to:
+        channel: '\${{ chat.marks["slack.channel"] }}'
+        thread: '\${{ "second" }}'
+`);
+
+    await notices.notify(notice(), 'chat.dispatched');
+
+    expect(
+      run.mock.calls.map(
+        (each) => (each[1] as { target: { thread: string } }).target.thread,
+      ),
+    ).toEqual(['first', 'second']);
+  });
+
+  it('runs the next action when one fails', async () => {
+    const { notices, run, warn } = notifying(`${SLACK}  chat.dispatched:
+    - action: post-reply
+      to:
+        channel: '\${{ chat.marks["slack.channel"] }}'
+        thread: '\${{ "first" }}'
+    - action: post-reply
+      to:
+        channel: '\${{ chat.marks["slack.channel"] }}'
+        thread: '\${{ "second" }}'
+`);
+    run.mockRejectedValueOnce(new Error('Slack is down'));
+
+    await notices.notify(notice(), 'chat.dispatched');
+
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: { status: 0, output: 'Slack is down' },
+      }),
+      'A service answered a chat’s word with an error',
+    );
+  });
+
+  it('gives the open proposals to the action', async () => {
+    const { notices, run } = notifying();
+    const proposal = { number: 1, title: 'Retry', line: null, station: null };
+
+    await notices.notify(notice({ proposals: [proposal] }), 'chat.replied');
+
+    expect(posted(run).reply.proposals).toEqual([proposal]);
   });
 
   it('posts nothing for an event the integration does not bind', async () => {

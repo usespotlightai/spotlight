@@ -128,6 +128,7 @@ export class Task extends EventRecorder {
     readonly workspaceId: WorkspaceId,
     readonly stationId: StationId,
     readonly title: TaskTitle,
+    readonly branch: Branch,
     readonly description: TaskDescription | null,
     readonly rank: TaskRank,
     readonly currentRunId: RunId | null,
@@ -167,11 +168,13 @@ export class Task extends EventRecorder {
     const createdBy = input.createdBy ?? null;
     const receivedFrom = input.receivedFrom ?? null;
 
+    const id = TaskId.of(input.newId());
     const task = new Task(
-      TaskId.of(input.newId()),
+      id,
       input.line.workspaceId,
       station.id,
       input.title,
+      Branch.for(id, input.title),
       input.description ?? null,
       input.rank,
       null,
@@ -214,6 +217,7 @@ export class Task extends EventRecorder {
     workspaceId: WorkspaceId;
     stationId: StationId;
     title: TaskTitle;
+    branch: Branch;
     description: TaskDescription | null;
     rank: TaskRank;
     currentRunId: RunId | null;
@@ -256,6 +260,7 @@ export class Task extends EventRecorder {
       input.workspaceId,
       input.stationId,
       input.title,
+      input.branch,
       input.description,
       input.rank,
       input.currentRunId,
@@ -527,10 +532,6 @@ export class Task extends EventRecorder {
     return this.assignee ? this : this.with({ assignee: userId });
   }
 
-  get branch(): Branch {
-    return Branch.for(this.id);
-  }
-
   recordPullRequest(
     by: RunId,
     url: PullRequestUrl,
@@ -688,6 +689,44 @@ export class Task extends EventRecorder {
     }
 
     return withMessage;
+  }
+
+  reopenableOn(line: Line): boolean {
+    return this.finished && !line.completed.id.equals(this.stationId);
+  }
+
+  reopen(line: Line, to: StationId, rank: TaskRank, newNote: NewNote): Task {
+    if (!this.reopenableOn(line)) {
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} is not finished, or it is completed. A word cannot reopen it.`,
+      );
+    }
+
+    const sender = newNote.voice.isPerson ? newNote.voice.author : null;
+
+    if (!sender) {
+      throw new InvalidTaskTransitionError(
+        `Task ${this.id.value} can be reopened only by a person.`,
+      );
+    }
+
+    const reopened = this.stationId.equals(to)
+      ? this.addMessage(newNote)
+      : this.react(line, to, rank, newNote);
+
+    reopened.record(
+      new TaskActedOn(
+        this.id,
+        this.workspaceId,
+        this.stationId,
+        'sent-back',
+        sender,
+        this.lastRun,
+        newNote.at,
+      ),
+    );
+
+    return reopened;
   }
 
   get awaitsAnAnswer(): boolean {
@@ -1477,6 +1516,7 @@ export class Task extends EventRecorder {
       this.workspaceId,
       part.stationId ?? this.stationId,
       this.title,
+      this.branch,
       this.description,
       part.rank ?? this.rank,
       part.currentRunId !== undefined ? part.currentRunId : this.currentRunId,

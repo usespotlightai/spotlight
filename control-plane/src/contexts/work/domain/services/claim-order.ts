@@ -19,12 +19,26 @@ const takeable = (run: Run, by: Claimant, now: Date): boolean =>
     : !run.isReservedAt(now) || (run.reservation?.isFor(by.runner) ?? false)) &&
   fits(run, by);
 
+type RequestedSandboxClaim = 'skip' | 'run-of-its-key' | 'start';
+
+const forRequested = (
+  newest: Run | null,
+  by: Pick<Claimant, 'harnesses' | 'offer'>,
+): RequestedSandboxClaim =>
+  newest && !fits(newest, by)
+    ? 'skip'
+    : newest?.state === 'queued'
+      ? 'run-of-its-key'
+      : 'start';
+
 const sooner = (a: WaitingRun, b: WaitingRun): number =>
   b.run.priority.value - a.run.priority.value ||
   a.queuedAt.getTime() - b.queuedAt.getTime();
 
 export const ClaimOrder = {
   fits,
+
+  forRequested,
 
   takeable,
 

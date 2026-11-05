@@ -2,6 +2,7 @@ import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCar
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
 import { OUTPUT_CHART_HEIGHT } from '@/components/features/insights/OutputAgainstCost';
 import { OutputLegend } from '@/components/features/insights/OutputLegend';
+import { OVERVIEW_LAYOUT } from '@/components/features/insights/overview-layout';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
 import { ChartSkeleton } from '@/components/shared/skeleton/ChartSkeleton';
 import {
@@ -17,7 +18,7 @@ const TILES: readonly TileBones[] = [
   { label: 'Merge rate', delta: true },
   { label: 'Cost per merged PR', wide: true, delta: true },
   { label: 'Task to merge', delta: true, detail: true },
-  { label: 'Human actions per task worked', delta: true, detail: true },
+  { label: 'Actions per task', delta: true, detail: true },
   { label: 'Active people', delta: true },
 ];
 
@@ -26,16 +27,13 @@ export function OverviewSkeleton() {
     <div
       role="status"
       aria-label="Loading the overview"
-      className="flex flex-col gap-3"
+      className={OVERVIEW_LAYOUT}
     >
-      <InsightsTilesSkeleton
-        label="Headline numbers"
-        tiles={TILES}
-        topAligned
-      />
+      <InsightsTilesSkeleton label="Headline numbers" tiles={TILES} />
 
       <InsightsCardSkeleton
         switchable
+        flat
         title="Output against cost"
         description={OUTPUT_NOTE}
       >
@@ -47,6 +45,7 @@ export function OverviewSkeleton() {
       </InsightsCardSkeleton>
 
       <InsightsCardSkeleton
+        flat
         title="Stations worth improving"
         description={STATIONS_WORTH_IMPROVING_NOTE}
       >

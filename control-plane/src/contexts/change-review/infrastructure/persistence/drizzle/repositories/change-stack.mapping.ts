@@ -15,6 +15,7 @@ import {
   CohortId,
   HunkId,
   LayerId,
+  QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
 import {
   type ChangeStackState,
@@ -78,6 +79,7 @@ export const cohortsOf = (
     kind: cohort.kind,
     title: cohort.title,
     intent: cohort.intent,
+    joinedBecause: cohort.joinedBecause,
     layers: cohort.layers.map((layer) => ({
       id: LayerId.of(layer.id),
       title: layer.title,
@@ -88,6 +90,12 @@ export const cohortsOf = (
       })),
       hunks: layer.hunks.map((entry) => ({ hunk: HunkId.of(entry.hunk) })),
       notes: layer.notes.map((note) => ({ ...note })),
+      questions: (layer.questions ?? []).map((each) => ({
+        id: QuestionId.of(each.id),
+        question: each.question,
+        answer: each.answer,
+        hunks: each.hunks.map((hunk) => HunkId.of(hunk)),
+      })),
     })),
   }));
 
@@ -127,5 +135,9 @@ export const cohortRows = (cohorts: readonly StackCohort[]): StoredCohort[] =>
       dependsOn: layer.dependsOn.map((each) => ({ ...each })),
       hunks: layer.hunks.map((entry) => ({ ...entry })),
       notes: layer.notes.map((note) => ({ ...note })),
+      questions: layer.questions.map((each) => ({
+        ...each,
+        hunks: [...each.hunks],
+      })),
     })),
   }));

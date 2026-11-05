@@ -208,7 +208,7 @@ describe('TraceView', () => {
     view();
 
     expect(screen.getByRole('button', { name: 'npm test' })).toHaveClass(
-      'text-destructive',
+      'text-outcome-failed',
     );
   });
 
@@ -365,7 +365,7 @@ describe('TraceView', () => {
       expect(paste).toHaveTextContent('paste.example.net×3');
       expect(
         screen.getByRole('button', { name: 'paste.example.net' }),
-      ).toHaveClass('text-destructive');
+      ).toHaveClass('text-outcome-failed');
       expect(linear).toHaveTextContent('mcp.linear.app');
       expect(linear).not.toHaveTextContent('×');
     });

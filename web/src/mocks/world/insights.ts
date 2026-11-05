@@ -483,7 +483,13 @@ const HOOK_FAILURES: Record<string, StationReportResponseDto['taskFailures']> =
     ],
   };
 
-const runFailuresOf = (runs: readonly HistoryRun[]) => {
+export const hookFailuresAt = (
+  stationId: string,
+): StationReportResponseDto['taskFailures'] => HOOK_FAILURES[stationId] ?? [];
+
+export const runFailuresOf = (
+  runs: readonly Pick<HistoryRun, 'runId' | 'ending' | 'failure'>[],
+) => {
   const failed = runs.filter((run) => run.ending === 'failed');
   return distinct(failed.map((run) => run.failure))
     .map((failure) => {
@@ -532,7 +538,7 @@ export const stationsOf = (
           changes: tallyChangesOf(runs, was),
           seen: seenOf(runs),
           trend: trendOf(runs, span),
-          taskFailures: HOOK_FAILURES[profile.stationId] ?? [],
+          taskFailures: hookFailuresAt(profile.stationId),
           runFailures: runFailuresOf(runs),
         },
       ];
@@ -688,22 +694,19 @@ const repositoryOf = (run: HistoryRun): string | null =>
 const flowOfCost = (runs: readonly HistoryRun[]) => {
   const priced = runs.filter((run) => run.cost !== null);
   const nodeId = (kind: string, key: string | null) => `${kind}:${key ?? ''}`;
+  const nodesOf = (
+    kind: CostFlowNodeResponseDto['kind'],
+    keyOf: (run: HistoryRun) => string | null,
+  ): CostFlowNodeResponseDto[] =>
+    slicesOf(priced, keyOf).map(({ key }) => ({
+      id: nodeId(kind, key),
+      kind,
+      key,
+    }));
   const nodes: CostFlowNodeResponseDto[] = [
-    ...distinct(priced.map((run) => run.model)).map((key) => ({
-      id: nodeId('model', key),
-      kind: 'model' as const,
-      key,
-    })),
-    ...distinct(priced.map((run) => run.stationId)).map((key) => ({
-      id: nodeId('station', key),
-      kind: 'station' as const,
-      key,
-    })),
-    ...distinct(priced.map(repositoryOf)).map((key) => ({
-      id: nodeId('repository', key),
-      kind: 'repository' as const,
-      key,
-    })),
+    ...nodesOf('model', (run) => run.model),
+    ...nodesOf('station', (run) => run.stationId),
+    ...nodesOf('repository', repositoryOf),
   ];
   const linksBetween = (
     source: (run: HistoryRun) => string,
@@ -714,10 +717,12 @@ const flowOfCost = (runs: readonly HistoryRun[]) => {
       const key = `${source(run)}>${target(run)}`;
       sums.set(key, (sums.get(key) ?? 0) + (run.cost?.amount ?? 0));
     }
-    return [...sums].map(([key, amount]) => {
-      const [from, to] = key.split('>');
-      return { source: from ?? '', target: to ?? '', amount: cents(amount) };
-    });
+    return [...sums]
+      .map(([key, amount]) => {
+        const [from, to] = key.split('>');
+        return { source: from ?? '', target: to ?? '', amount: cents(amount) };
+      })
+      .sort((one, other) => other.amount - one.amount);
   };
 
   return {
@@ -776,12 +781,14 @@ export const costOf = (
       byRepository: slicesOf(runs, repositoryOf),
       ...flowOfCost(runs),
       cache: cacheOf(runs),
-      cacheByStation: distinct(runs.map((run) => run.stationId)).map(
-        (stationId): StationCacheUseResponseDto => ({
-          stationId,
-          ...cacheOf(runs.filter((run) => run.stationId === stationId)),
-        }),
-      ),
+      cacheByStation: distinct(runs.map((run) => run.stationId))
+        .map(
+          (stationId): StationCacheUseResponseDto => ({
+            stationId,
+            ...cacheOf(runs.filter((run) => run.stationId === stationId)),
+          }),
+        )
+        .sort((one, other) => (other.input ?? -1) - (one.input ?? -1)),
     },
     spendChange: changeOf(
       spend,

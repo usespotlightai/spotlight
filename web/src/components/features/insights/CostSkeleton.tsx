@@ -2,20 +2,18 @@ import { COST_SANKEY_HEIGHT } from '@/components/features/insights/CostSankey';
 import { CostSlicesSkeleton } from '@/components/features/insights/CostSlicesSkeleton';
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { InsightsTilesSkeleton } from '@/components/features/insights/InsightsTilesSkeleton';
+import {
+  OVERVIEW_LAYOUT,
+  PAIR_GRID,
+} from '@/components/features/insights/overview-layout';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
 import { ChartSkeleton } from '@/components/shared/skeleton/ChartSkeleton';
-import {
-  CACHE_HEADINGS,
-  CACHE_NOTE,
-  COST_DIMENSIONS,
-  COST_SANKEY_NOTE,
-} from '@/lib/insights';
+import { CACHE_HEADINGS, CACHE_NOTE, COST_SANKEY_NOTE } from '@/lib/insights';
 import type { TileBones } from '@/lib/insights-tiles';
 
 const TILES: readonly TileBones[] = [
   { label: 'Spend', wide: true, delta: true },
-  { label: 'Runs with no price', detail: 'Harness reports no cost' },
-  { label: 'Cache share', detail: 'Share of input tokens read from cache' },
+  { label: 'Cache share', detail: 'Of tokens read' },
 ];
 
 export function CostSkeleton() {
@@ -23,37 +21,35 @@ export function CostSkeleton() {
     <div
       role="status"
       aria-label="Loading the cost"
-      className="flex flex-col gap-3"
+      className={OVERVIEW_LAYOUT}
     >
       <InsightsTilesSkeleton label="Spend" tiles={TILES} />
 
-      <div className="grid gap-3 md:grid-cols-2">
-        {COST_DIMENSIONS.map((dimension) => (
-          <InsightsCardSkeleton key={dimension.id} title={dimension.label}>
-            <CostSlicesSkeleton />
-          </InsightsCardSkeleton>
-        ))}
-      </div>
-
       <InsightsCardSkeleton
         switchable
+        flat
         title="Where the spend goes"
         description={COST_SANKEY_NOTE}
       >
         <ChartSkeleton height={COST_SANKEY_HEIGHT} />
       </InsightsCardSkeleton>
 
-      <InsightsCardSkeleton
-        tableOnly
-        title="Read from cache"
-        description={CACHE_NOTE}
-      >
-        <NestedTableSkeleton
-          label="Loading the cache share"
-          headings={CACHE_HEADINGS}
-          rowClassName="py-2"
-        />
-      </InsightsCardSkeleton>
+      <div className={PAIR_GRID}>
+        <CostSlicesSkeleton />
+        <InsightsCardSkeleton
+          tableOnly
+          flat
+          title="Cache share by station"
+          description={CACHE_NOTE}
+        >
+          <NestedTableSkeleton
+            label="Loading the cache share"
+            headings={CACHE_HEADINGS}
+            compact
+            rowClassName="py-2"
+          />
+        </InsightsCardSkeleton>
+      </div>
     </div>
   );
 }

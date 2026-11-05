@@ -76,6 +76,8 @@ import type { SetupPullRequestOpened } from '@work/domain/events/setup-pull-requ
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskDispatched } from '@work/domain/events/task-dispatched.event';
+import type { TaskFailed } from '@work/domain/events/task-failed.event';
+import type { TaskFinished } from '@work/domain/events/task-finished.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ToolUsed } from '@work/domain/events/tool-used.event';
 
@@ -101,12 +103,19 @@ const signedUp = (event: TeamCreatedIntegrationEvent): boolean =>
 const reactingToOutcomes = (
   name: string,
   outcomes: RunOutcomes,
+  { callsOut } = { callsOut: false },
 ): readonly DomainEventSubscriber[] => [
-  subscribing<RunCompleted>(`${name}.completed`, ['run.completed'], (event) =>
-    outcomes.onRunCompleted(event),
+  subscribing<RunCompleted>(
+    `${name}.completed`,
+    ['run.completed'],
+    (event) => outcomes.onRunCompleted(event),
+    { callsOut },
   ),
-  subscribing<RunExhausted>(`${name}.exhausted`, ['run.exhausted'], (event) =>
-    outcomes.onRunExhausted(event),
+  subscribing<RunExhausted>(
+    `${name}.exhausted`,
+    ['run.exhausted'],
+    (event) => outcomes.onRunExhausted(event),
+    { callsOut },
   ),
 ];
 
@@ -168,17 +177,14 @@ export const workSubscribers = (reactions: {
     ['run.completed', 'run.exhausted', 'run.cancelled'],
     (event) => reactions.runners.runEnded(event.runId),
   ),
-  subscribing<
-    RunCompleted | RunExhausted | RunCancelled | RunLeaseExpired | RunSuspended
-  >(
+  subscribing<RunCompleted | RunExhausted | RunCancelled>(
+    'work.release-sandbox-of-ended-run',
+    ['run.completed', 'run.exhausted', 'run.cancelled'],
+    (event) => reactions.sandboxes.runEnded(event.runId),
+  ),
+  subscribing<RunLeaseExpired | RunSuspended>(
     'work.release-sandbox-of-left-run',
-    [
-      'run.completed',
-      'run.exhausted',
-      'run.cancelled',
-      'run.lease-expired',
-      'run.suspended',
-    ],
+    ['run.lease-expired', 'run.suspended'],
     (event) => reactions.sandboxes.runLeft(event.runId),
   ),
   subscribing<ToolUsed>(
@@ -229,26 +235,38 @@ export const workSubscribers = (reactions: {
   ),
   ...reactingToOutcomes('work.hand-over', reactions.handOver),
   ...reactingToOutcomes('work.chat-outcomes', reactions.chatOutcomes),
-  ...reactingToOutcomes('work.notify-channel', reactions.channel),
+  ...reactingToOutcomes('work.notify-channel', reactions.channel, {
+    callsOut: true,
+  }),
   subscribing<ChatStarted>(
     'work.notify-channel.started',
     ['chat.started'],
     (event) => reactions.channel.onChatStarted(event),
+    { callsOut: true },
+  ),
+  subscribing<ChatDispatched>(
+    'work.notify-channel.dispatched',
+    ['chat.dispatched'],
+    (event) => reactions.channel.onChatDispatched(event),
+    { callsOut: true },
   ),
   subscribing<ChatRunNotStarted>(
     'work.notify-channel.run-not-started',
     ['chat.run-not-started'],
     (event) => reactions.channel.onRunNotStarted(event),
+    { callsOut: true },
   ),
   subscribing<TaskOpened>(
     'work.notify-channel.task-opened',
     ['task.opened'],
     (event) => reactions.channel.onTaskOpened(event),
+    { callsOut: true },
   ),
   subscribing<ProposalDismissed>(
     'work.notify-channel.proposal-dismissed',
     ['chat.proposal-dismissed'],
     (event) => reactions.channel.onProposalDismissed(event),
+    { callsOut: true },
   ),
   subscribing<RunCompleted>(
     'work.record-run-usage.completed',
@@ -285,10 +303,13 @@ export const workSubscribers = (reactions: {
     ['task.opened'],
     (event) => reactions.acceptances.onTaskOpened(event),
   ),
-  subscribing<TaskOpened | PullRequestOpened | TaskAsked>(
+  subscribing<
+    TaskOpened | PullRequestOpened | TaskAsked | TaskFinished | TaskFailed
+  >(
     'work.notify-outside-tools',
     BINDABLE_TASK_EVENTS,
     (event) => reactions.outsideTools.on(event),
+    { callsOut: true },
   ),
   subscribing<TaskDispatched>(
     'work.enqueue-task-run',

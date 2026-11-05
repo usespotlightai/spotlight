@@ -47,6 +47,13 @@ export class ResumeKey {
     return chat ? { kind: 'chat', chatId: ChatId.of(chat) } : null;
   }
 
+  get isRejoinable(): boolean {
+    return [TASK, CHAT].some(
+      (prefix) =>
+        this.value.startsWith(prefix) && this.value.length > prefix.length,
+    );
+  }
+
   equals(other: ResumeKey): boolean {
     return this.value === other.value;
   }

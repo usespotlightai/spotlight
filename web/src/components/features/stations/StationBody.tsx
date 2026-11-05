@@ -1,5 +1,9 @@
+import {
+  ACTIVITY_LAYOUT,
+  StationActivity,
+} from '@/components/features/stations/activity/StationActivity';
 import { StationConfig } from '@/components/features/stations/config/StationConfig';
-import { StationOverview } from '@/components/features/stations/overview/StationOverview';
+import { JudgeAgreement } from '@/components/features/stations/judge/JudgeAgreement';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import type { StationTab } from '@/lib/station';
 
@@ -33,14 +37,33 @@ export function StationBody({
     );
   }
 
-  return tab === 'overview' ? (
-    <StationOverview
+  if (tab === 'judge') {
+    return (
+      <div className={ACTIVITY_LAYOUT}>
+        {station.judge ? (
+          <JudgeAgreement
+            slug={slug}
+            teamId={teamId}
+            lineId={line.id}
+            stationId={station.id}
+          />
+        ) : (
+          <p className="text-muted-foreground text-sm">
+            No judge. Only people score runs here.
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return tab === 'config' ? (
+    <StationConfig slug={slug} teamId={teamId} line={line} station={station} />
+  ) : (
+    <StationActivity
       slug={slug}
       teamId={teamId}
       line={line}
       station={station}
     />
-  ) : (
-    <StationConfig slug={slug} teamId={teamId} line={line} station={station} />
   );
 }

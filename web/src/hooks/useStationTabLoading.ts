@@ -17,19 +17,18 @@ export function useStationTabLoading(
   { teamId, lineId, stationId }: StationIds,
 ): boolean {
   const outcomes = useStationInsights(teamId, lineId, stationId);
-  const judge = useStationJudge(
-    teamId,
-    lineId,
-    tab === 'config' ? stationId : undefined,
-  );
+  const judge = useStationJudge(teamId, lineId, stationId);
   const overview = useInsightsOverview(
-    tab === 'overview' ? teamId : undefined,
+    tab === 'activity' ? teamId : undefined,
     DEFAULT_PERIOD,
   );
   const harnesses = useHarnesses();
 
-  if (tab === 'overview') {
-    return [outcomes, overview].some(loading);
+  if (tab === 'activity') {
+    return [outcomes, overview, judge].some(loading);
+  }
+  if (tab === 'judge') {
+    return loading(judge);
   }
   if (tab === 'config') {
     return [outcomes, judge, harnesses].some(loading);

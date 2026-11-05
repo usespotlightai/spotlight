@@ -49,6 +49,20 @@ describe('ChangeStackHttpMapper', () => {
                       note: 'Adds the invite function.',
                     },
                   ],
+                  questions: [
+                    {
+                      id: 'c1.l1.q1',
+                      question: 'Who gets the invitation?',
+                      hunks: ['h1'],
+                      answered: {
+                        questionId: 'c1.l1.q1',
+                        reply: null,
+                        verdict: 'missed',
+                        feedback: null,
+                        expected: 'The address the admin typed.',
+                      },
+                    },
+                  ],
                 },
               ],
             },
@@ -66,6 +80,20 @@ describe('ChangeStackHttpMapper', () => {
       summary: 'The function',
       hunks: [{ hunk: 'h1' }],
       notes: [{ path: 'src/invite.ts', note: 'Adds the invite function.' }],
+      questions: [
+        {
+          id: 'c1.l1.q1',
+          question: 'Who gets the invitation?',
+          hunks: ['h1'],
+          answered: {
+            questionId: 'c1.l1.q1',
+            reply: null,
+            verdict: 'missed',
+            feedback: null,
+            expected: 'The address the admin typed.',
+          },
+        },
+      ],
     });
   });
 

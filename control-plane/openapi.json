@@ -6840,6 +6840,12 @@
                     "minimum": 1,
                     "maximum": 60,
                     "default": 15
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "default": "",
+                    "example": "Deploys the platform from the main branch"
                   }
                 }
               }
@@ -7254,6 +7260,12 @@
                     "minimum": 1,
                     "maximum": 60,
                     "default": 15
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "default": "",
+                    "example": "Deploys the platform from the main branch"
                   }
                 }
               }
@@ -15410,6 +15422,83 @@
         ]
       }
     },
+    "/teams/{teamId}/runs/{runId}/change-stacks/{stackId}/questions/{questionId}/answers": {
+      "post": {
+        "operationId": "answerStackQuestion",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stackId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "questionId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswerQuestionRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionAnswerResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The reply is not words or null, or it is too long"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such change stack or question for this caller"
+          },
+          "409": {
+            "description": "The caller already answered it"
+          }
+        },
+        "summary": "Answer a question about a layer of a change stack, and get it graded against the expected answer",
+        "tags": [
+          "change-stacks"
+        ]
+      }
+    },
     "/teams/{teamId}/tasks/{taskId}/change-stack": {
       "get": {
         "operationId": "readTaskChangeStack",
@@ -20720,7 +20809,7 @@
   },
   "info": {
     "title": "Spotlight Control Plane",
-    "description": "HTTP API for the Spotlight Control Plane.\n\n## Resource conventions\n\nOperations marked `x-spotlight-resource` manage configuration resources, the ones the Terraform provider writes. They live under `/v1/resources` and address everything by id. Every resource follows these rules, and a conformance suite checks each one against them.\n\n- **Stable ids.** Spotlight issues a resource's `id` when it is created. It never changes for the resource's life, whatever else does.\n- **Reads return every field.** A read returns the whole resource, defaults filled in, so a client comparing it with what it wrote sees any drift. A write returns exactly what a read returns.\n- **Versions.** Every resource carries a `version` that rises with each change, and each response carries it as a strong `ETag` (`\"3\"`). An update or delete must send it back as `If-Match`: without one it fails with 428, and against a version that is no longer current with 409, whose body gives the `currentVersion` and whose `ETag` names it. A write that would remove something another resource still uses fails with 409 `in-use`.\n- **Idempotent creates.** A create must carry an `Idempotency-Key`. Retrying with the same key and body within 24 hours returns the resource that the first attempt created, marked `Idempotent-Replayed: true`, and creates nothing more; the same key with a different body fails with 422.\n- **Problems name fields.** Errors are `application/problem+json` (RFC 9457). `type` is stable and safe to branch on. An invalid request lists `errors`, each with the `path` of the attribute it is about, as in `stations[2].check`; a key that is not a plain name is quoted, as Terraform addresses it: `on[\"task.opened\"].to.thread`.\n- **API versions.** The path names the major version, as in `/v1`; a change that is not additive gets a new path. Within it, a client may send `Spotlight-Api-Version`; every response names the version that it uses, currently `2026-09-23`. Changes within a version are additive only: fields and operations are added, never removed, renamed or given a new meaning.\n- **Expression checks.** `POST /v1/expressions/check` type-checks one CEL expression at the attribute that contains it, named within the resource's whole definition (`integration.webhook.events[0].when`), as `terraform plan` needs. What the expression may read is worked out from that definition exactly as applying it would, so a plan fails where an apply would; a definition that has an error fails with 422, each error under `definition`. It returns the type and any errors, each with the span it is about and a suggestion where a declared name is near, and warnings about the definition, such as a capture shadowing a built-in name. `GET /v1/expressions/positions` lists every position, with `[*]` for any index or key, and the variables an expression there can read. They follow these headers and problems, but are not resources.\n- **Credentials.** A client calls with a person's session or with a workspace token. A script or Terraform sends a workspace token, or the login that `spotlight login` stores, as `Authorization: Bearer <token>`. A login acts as its person, with that person's role. A token acts only within its own workspace and only as its scopes allow. `read`, `plan` and `configure` are a ladder: `read` reads, `plan` also checks expressions, and `configure` also creates, updates and deletes configuration as a workspace admin may, except secrets, runners and OIDC trusts. `secrets` is granted beside one of them and lets the token create, rebind, rotate and delete secrets; Terraform that manages secrets uses `[\"configure\", \"secrets\"]`. `runners` is granted the same way and lets the token create, rekey and delete runners and runner trusts and create, update and delete the workspace's runners, since a runner claims runs, checks out repositories and keeps git credentials; Terraform that manages runners uses `[\"configure\", \"runners\"]`. `trusts` is granted the same way and lets the token create, update and delete OIDC trusts, since a trust hands out tokens; a token can only create a trust that grants scopes it has itself, so bootstrap the trusts once with a token that has `trusts` and every scope they grant, as in `[\"configure\", \"secrets\", \"trusts\"]`, and revoke it. No token manages members or tokens, or reads the audit.\n- **CI without a stored token.** A workspace admin, or a token granted `trusts`, creates an OIDC trust naming an OIDC issuer, audience, subject and claims, and the scopes and lifetime (at most an hour) of the tokens it issues. A CI job exchanges the OIDC token its platform issues it at `POST /v1/workspace-tokens/exchange` with `{ \"trust\": <trust id>, \"token\": <OIDC token> }`, and calls with the short-lived token it gets back. Deleting the trust stops every token that it issued at once, and the audit names the trust and the workload's subject beside each exchange and each change made with an issued token.\n- **Forbidden changes.** A change by someone who may read the resource but not change it, person or token, fails with 403 `forbidden`, whose `permission` names what the caller lacks, one of `configure`, `secrets`, `runners`, `trusts`, `administer`, `create-workspaces`, `plan`. Anything they may not see at all returns 404.\n- **Who changed what.** A client names itself in `Spotlight-Client` (`terraform-provider/<version>` or `web`), and every configuration change is recorded with who made it, person or token, and through which client. A secret's change also records the value version it moved to and the hosts it is bound to, never its value.\n- **Import by address.** Each resource has an `address` that names it within its workspace, such as `core/linear`, and an import operation that returns the resource at that address, as `terraform import` needs. A workspace's address is its slug; a team's is its key; anything a team owns is the team's key and its own, as in `core/delivery`.",
+    "description": "HTTP API for the Spotlight Control Plane.\n\n## Resource conventions\n\nOperations marked `x-spotlight-resource` manage configuration resources, the ones the Terraform provider writes. They live under `/v1/resources` and address everything by id. Every resource follows these rules, and a conformance suite checks each one against them.\n\n- **Stable ids.** Spotlight issues a resource's `id` when it is created. It never changes for the resource's life, whatever else does.\n- **Reads return every field.** A read returns the whole resource, defaults filled in, so a client comparing it with what it wrote sees any drift. A write returns exactly what a read returns.\n- **Versions.** Every resource carries a `version` that rises with each change, and each response carries it as a strong `ETag` (`\"3\"`). An update or delete must send it back as `If-Match`: without one it fails with 428, and against a version that is no longer current with 409, whose body gives the `currentVersion` and whose `ETag` names it. A write that would remove something another resource still uses fails with 409 `in-use`.\n- **Idempotent creates.** A create must carry an `Idempotency-Key`. Retrying with the same key and body within 24 hours returns the resource that the first attempt created, marked `Idempotent-Replayed: true`, and creates nothing more; the same key with a different body fails with 422.\n- **Problems name fields.** Errors are `application/problem+json` (RFC 9457). `type` is stable and safe to branch on. An invalid request lists `errors`, each with the `path` of the attribute it is about, as in `stations[2].check`; a key that is not a plain name is quoted, as Terraform addresses it: `on[\"task.opened\"][0].to.thread`.\n- **API versions.** The path names the major version, as in `/v1`; a change that is not additive gets a new path. Within it, a client may send `Spotlight-Api-Version`; every response names the version that it uses, currently `2026-09-23`. Changes within a version are additive only: fields and operations are added, never removed, renamed or given a new meaning.\n- **Expression checks.** `POST /v1/expressions/check` type-checks one CEL expression at the attribute that contains it, named within the resource's whole definition (`integration.webhook.events[0].when`), as `terraform plan` needs. What the expression may read is worked out from that definition exactly as applying it would, so a plan fails where an apply would; a definition that has an error fails with 422, each error under `definition`. It returns the type and any errors, each with the span it is about and a suggestion where a declared name is near, and warnings about the definition, such as a capture shadowing a built-in name. `GET /v1/expressions/positions` lists every position, with `[*]` for any index or key, and the variables an expression there can read. They follow these headers and problems, but are not resources.\n- **Credentials.** A client calls with a person's session or with a workspace token. A script or Terraform sends a workspace token, or the login that `spotlight login` stores, as `Authorization: Bearer <token>`. A login acts as its person, with that person's role. A token acts only within its own workspace and only as its scopes allow. `read`, `plan` and `configure` are a ladder: `read` reads, `plan` also checks expressions, and `configure` also creates, updates and deletes configuration as a workspace admin may, except secrets, runners and OIDC trusts. `secrets` is granted beside one of them and lets the token create, rebind, rotate and delete secrets; Terraform that manages secrets uses `[\"configure\", \"secrets\"]`. `runners` is granted the same way and lets the token create, rekey and delete runners and runner trusts and create, update and delete the workspace's runners, since a runner claims runs, checks out repositories and keeps git credentials; Terraform that manages runners uses `[\"configure\", \"runners\"]`. `trusts` is granted the same way and lets the token create, update and delete OIDC trusts, since a trust hands out tokens; a token can only create a trust that grants scopes it has itself, so bootstrap the trusts once with a token that has `trusts` and every scope they grant, as in `[\"configure\", \"secrets\", \"trusts\"]`, and revoke it. No token manages members or tokens, or reads the audit.\n- **CI without a stored token.** A workspace admin, or a token granted `trusts`, creates an OIDC trust naming an OIDC issuer, audience, subject and claims, and the scopes and lifetime (at most an hour) of the tokens it issues. A CI job exchanges the OIDC token its platform issues it at `POST /v1/workspace-tokens/exchange` with `{ \"trust\": <trust id>, \"token\": <OIDC token> }`, and calls with the short-lived token it gets back. Deleting the trust stops every token that it issued at once, and the audit names the trust and the workload's subject beside each exchange and each change made with an issued token.\n- **Forbidden changes.** A change by someone who may read the resource but not change it, person or token, fails with 403 `forbidden`, whose `permission` names what the caller lacks, one of `configure`, `secrets`, `runners`, `trusts`, `administer`, `create-workspaces`, `plan`. Anything they may not see at all returns 404.\n- **Who changed what.** A client names itself in `Spotlight-Client` (`terraform-provider/<version>` or `web`), and every configuration change is recorded with who made it, person or token, and through which client. A secret's change also records the value version it moved to and the hosts it is bound to, never its value.\n- **Import by address.** Each resource has an `address` that names it within its workspace, such as `core/linear`, and an import operation that returns the resource at that address, as `terraform import` needs. A workspace's address is its slug; a team's is its key; anything a team owns is the team's key and its own, as in `core/delivery`.",
     "version": "2026-09-23",
     "contact": {}
   },
@@ -27116,6 +27205,11 @@
             "maximum": 60,
             "description": "How many minutes a token it issues stays valid"
           },
+          "description": {
+            "type": "string",
+            "example": "Deploys the platform from the main branch",
+            "description": "Why the trust exists. Empty when not set"
+          },
           "createdBy": {
             "type": "string",
             "example": "kR3vUzPq9sY2mB8nT1wXcA",
@@ -27135,6 +27229,7 @@
           "claims",
           "scopes",
           "lifetimeMinutes",
+          "description",
           "createdBy"
         ]
       },
@@ -27713,6 +27808,11 @@
             "type": "number",
             "example": 15
           },
+          "description": {
+            "type": "string",
+            "example": "Deploys the platform from the main branch",
+            "description": "Why the trust exists. Empty when not set"
+          },
           "createdBy": {
             "description": "The person who created the trust. Its tokens act for them",
             "allOf": [
@@ -27742,6 +27842,7 @@
           "claims",
           "scopes",
           "lifetimeMinutes",
+          "description",
           "createdBy",
           "createdAt",
           "lastIssuedAt"
@@ -29754,6 +29855,84 @@
           "note"
         ]
       },
+      "QuestionAnswerResponseDto": {
+        "type": "object",
+        "properties": {
+          "questionId": {
+            "type": "string",
+            "example": "c1.l2.q1"
+          },
+          "reply": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the reviewer answered; null when they did not know"
+          },
+          "verdict": {
+            "type": "string",
+            "enum": [
+              "right",
+              "partly-right",
+              "missed"
+            ]
+          },
+          "feedback": {
+            "type": "string",
+            "nullable": true,
+            "description": "What the answer missed or got wrong, or one fact it left out"
+          },
+          "expected": {
+            "type": "string",
+            "example": "It answers 409 and sends no invitation.",
+            "description": "The answer that Spotlight expected"
+          }
+        },
+        "required": [
+          "questionId",
+          "reply",
+          "verdict",
+          "feedback",
+          "expected"
+        ]
+      },
+      "LayerQuestionResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "c1.l2.q1"
+          },
+          "question": {
+            "type": "string",
+            "example": "What happens when the address is already a member?"
+          },
+          "hunks": {
+            "example": [
+              "h3"
+            ],
+            "description": "The hunks that show the answer",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "answered": {
+            "nullable": true,
+            "description": "The caller’s answer, with the expected answer; null until the caller answers",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/QuestionAnswerResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "hunks",
+          "answered"
+        ]
+      },
       "StackLayerResponseDto": {
         "type": "object",
         "properties": {
@@ -29780,6 +29959,13 @@
             "items": {
               "$ref": "#/components/schemas/FileNoteResponseDto"
             }
+          },
+          "questions": {
+            "description": "Questions that test whether the reviewer understood the layer; empty for incidental changes",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LayerQuestionResponseDto"
+            }
           }
         },
         "required": [
@@ -29787,7 +29973,8 @@
           "title",
           "summary",
           "hunks",
-          "notes"
+          "notes",
+          "questions"
         ]
       },
       "StackCohortResponseDto": {
@@ -29965,6 +30152,20 @@
         },
         "required": [
           "stacks"
+        ]
+      },
+      "AnswerQuestionRequestDto": {
+        "type": "object",
+        "properties": {
+          "reply": {
+            "type": "string",
+            "nullable": true,
+            "example": "It sends no invitation.",
+            "description": "The answer in the reviewer’s own words; null to say they do not know"
+          }
+        },
+        "required": [
+          "reply"
         ]
       },
       "LatestChangeStackResponseDto": {
@@ -33038,6 +33239,70 @@
           "lastDay"
         ]
       },
+      "TaskFailureSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string",
+            "example": "hook:notify",
+            "description": "run, or hook:<name> for a hook’s failure"
+          },
+          "code": {
+            "type": "string",
+            "example": "loop",
+            "description": "What went wrong"
+          },
+          "occurrences": {
+            "type": "number",
+            "example": 3,
+            "description": "Times it was raised or repeated in the period"
+          },
+          "maxInARow": {
+            "type": "number",
+            "example": 3,
+            "description": "The most times it repeated on one task without a break"
+          },
+          "taskIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "source",
+          "code",
+          "occurrences",
+          "maxInARow",
+          "taskIds"
+        ]
+      },
+      "RunFailureSummaryResponseDto": {
+        "type": "object",
+        "properties": {
+          "failure": {
+            "type": "string",
+            "nullable": true,
+            "example": "exited",
+            "description": "Why the runs failed, where they said"
+          },
+          "runs": {
+            "type": "number",
+            "example": 2
+          },
+          "runIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "failure",
+          "runs",
+          "runIds"
+        ]
+      },
       "ConfigInForceResponseDto": {
         "type": "object",
         "properties": {
@@ -33048,10 +33313,26 @@
                 "$ref": "#/components/schemas/RunTallyResponseDto"
               }
             ]
+          },
+          "taskFailures": {
+            "description": "Why tasks failed in the runs of the tally, the most raised first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskFailureSummaryResponseDto"
+            }
+          },
+          "runFailures": {
+            "description": "Why the runs of the tally failed, the most runs first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RunFailureSummaryResponseDto"
+            }
           }
         },
         "required": [
-          "tally"
+          "tally",
+          "taskFailures",
+          "runFailures"
         ]
       },
       "StationInsightsResponseDto": {
@@ -33158,6 +33439,23 @@
             "nullable": true,
             "example": 0.71
           },
+          "reading": {
+            "type": "string",
+            "enum": [
+              "almost-perfect",
+              "substantial",
+              "moderate",
+              "fair-to-slight",
+              "poor",
+              "very-strong",
+              "strong",
+              "weak",
+              "inverse",
+              null
+            ],
+            "nullable": true,
+            "description": "How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s"
+          },
           "pairs": {
             "type": "number",
             "example": 24,
@@ -33186,6 +33484,7 @@
           "qualified",
           "measure",
           "agreement",
+          "reading",
           "pairs",
           "minAgreement",
           "hiddenReason"
@@ -35031,70 +35330,6 @@
           "tally"
         ]
       },
-      "TaskFailureSummaryResponseDto": {
-        "type": "object",
-        "properties": {
-          "source": {
-            "type": "string",
-            "example": "hook:notify",
-            "description": "run, or hook:<name> for a hook’s failure"
-          },
-          "code": {
-            "type": "string",
-            "example": "loop",
-            "description": "What went wrong"
-          },
-          "occurrences": {
-            "type": "number",
-            "example": 3,
-            "description": "Times it was raised or repeated in the period"
-          },
-          "maxInARow": {
-            "type": "number",
-            "example": 3,
-            "description": "The most times it repeated on one task without a break"
-          },
-          "taskIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "source",
-          "code",
-          "occurrences",
-          "maxInARow",
-          "taskIds"
-        ]
-      },
-      "RunFailureSummaryResponseDto": {
-        "type": "object",
-        "properties": {
-          "failure": {
-            "type": "string",
-            "nullable": true,
-            "example": "exited",
-            "description": "Why the runs failed, where they said"
-          },
-          "runs": {
-            "type": "number",
-            "example": 2
-          },
-          "runIds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "failure",
-          "runs",
-          "runIds"
-        ]
-      },
       "StationReportResponseDto": {
         "type": "object",
         "properties": {
@@ -35817,6 +36052,11 @@
             "nullable": true,
             "example": 0.43,
             "description": "The fraction of that week’s runs that read it; none where no run ended that week"
+          },
+          "partial": {
+            "type": "boolean",
+            "example": false,
+            "description": "Whether the week runs past either end of the period, so it counts only some of its days"
           }
         },
         "required": [
@@ -35824,7 +36064,8 @@
           "runs",
           "enabled",
           "used",
-          "usedRate"
+          "usedRate",
+          "partial"
         ]
       },
       "SkillAtStationResponseDto": {
@@ -35862,6 +36103,12 @@
             "nullable": true,
             "example": "flat",
             "description": "rising or falling where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; flat where it moved less; none where either side had too few runs"
+          },
+          "usedRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.4,
+            "description": "The fraction of the station’s runs in the period that read it; none where none ended"
           }
         },
         "required": [
@@ -35870,7 +36117,8 @@
           "runs",
           "enabled",
           "used",
-          "trend"
+          "trend",
+          "usedRate"
         ]
       },
       "SkillReportResponseDto": {
@@ -35914,6 +36162,12 @@
             "example": "rising",
             "description": "rising or falling where the share of runs that used it moved by the trend rule’s points between the latest weeks and the weeks before; flat where it moved less; none where either side had too few runs"
           },
+          "usedRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.2,
+            "description": "The fraction of the team’s runs in the period that read it; none where none ended"
+          },
           "stations": {
             "description": "Each station that enabled it for its runs or whose runs read it",
             "type": "array",
@@ -35929,6 +36183,7 @@
           "used",
           "weeks",
           "trend",
+          "usedRate",
           "stations"
         ]
       },
@@ -35986,6 +36241,18 @@
             "type": "number",
             "example": 2,
             "description": "Runs in which a person dismissed an approval for one of its tools"
+          },
+          "failingRunRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.1,
+            "description": "Failing runs as a fraction of the runs that called it"
+          },
+          "dismissedRate": {
+            "type": "number",
+            "nullable": true,
+            "example": 0.05,
+            "description": "Runs with a dismissed approval as a fraction of the runs that called it"
           }
         },
         "required": [
@@ -35998,7 +36265,9 @@
           "failedCalls",
           "errorRate",
           "failingRuns",
-          "dismissed"
+          "dismissed",
+          "failingRunRate",
+          "dismissedRate"
         ]
       },
       "ToolDismissalsResponseDto": {
@@ -36318,6 +36587,23 @@
             "nullable": true,
             "example": 0.71
           },
+          "reading": {
+            "type": "string",
+            "enum": [
+              "almost-perfect",
+              "substantial",
+              "moderate",
+              "fair-to-slight",
+              "poor",
+              "very-strong",
+              "strong",
+              "weak",
+              "inverse",
+              null
+            ],
+            "nullable": true,
+            "description": "How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s"
+          },
           "pairs": {
             "type": "number",
             "example": 24,
@@ -36354,6 +36640,7 @@
           "qualified",
           "measure",
           "agreement",
+          "reading",
           "pairs",
           "minAgreement",
           "hiddenReason",

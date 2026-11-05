@@ -49,18 +49,18 @@ const TEXT = {
 const SM: EditorThemeClasses = {
   code: 'my-2 block overflow-x-auto rounded-md bg-muted p-3 font-mono text-foreground text-xs leading-5',
   heading: {
-    h1: 'mt-5 mb-1 font-semibold text-base text-foreground first:mt-0',
-    h2: 'mt-5 mb-1 font-semibold text-foreground text-sm first:mt-0',
+    h1: 'mt-5 mb-1 font-medium text-base text-foreground first:mt-0',
+    h2: 'mt-5 mb-1 font-medium text-foreground text-sm first:mt-0',
     h3: 'mt-4 mb-1 font-medium text-foreground text-sm first:mt-0',
   },
   link: 'text-primary underline underline-offset-2',
   list: {
-    listitem: 'my-0.5 ml-1 text-foreground text-sm leading-6',
+    listitem: 'my-0.5 ml-1 text-foreground text-sm leading-5',
     nested: { listitem: 'list-none' },
     ol: 'my-1 list-decimal pl-5 marker:text-muted-foreground',
     ul: 'my-1 list-disc pl-5 marker:text-muted-foreground',
   },
-  paragraph: 'text-foreground text-sm leading-6',
+  paragraph: 'text-foreground text-sm leading-5',
   quote: 'my-2 border-border border-l-2 pl-3 text-muted-foreground text-sm',
   text: TEXT,
 };

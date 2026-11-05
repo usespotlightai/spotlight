@@ -31,18 +31,18 @@ const NONE = '';
 
 const LOOKS = {
   field: {
-    trigger: 'h-8 gap-2 rounded-full bg-card px-3 text-xs',
+    trigger: 'h-8 gap-2 rounded-md bg-card px-3 text-xs',
     chevron: 'size-3',
     Chevron: ChevronsUpDown,
     menu: 'w-max min-w-[max(var(--anchor-width),12rem)] max-w-(--available-width)',
     item: undefined,
   },
   compact: {
-    trigger: 'h-6 gap-1 rounded-full bg-card px-2 text-[0.7rem]',
-    chevron: 'size-2.5',
+    trigger: 'h-7 gap-1.5 rounded-md bg-card px-2 text-sm',
+    chevron: 'size-3',
     Chevron: ChevronsUpDown,
     menu: 'w-max min-w-36 max-w-72',
-    item: "py-0.5 pr-7 text-xs [&_svg:not([class*='size-'])]:size-3",
+    item: "pr-7 text-sm [&_svg:not([class*='size-'])]:size-3.5",
   },
   toolbar: {
     trigger: 'h-7 gap-2 rounded-md px-2 text-sm',
@@ -87,7 +87,7 @@ export function ChoiceSelect({
         aria-label={`${label}: ${chosen?.label ?? placeholder}`}
         disabled={disabled}
         className={cn(
-          'flex min-w-0 items-center border border-border text-left outline-none transition-colors hover:bg-accent disabled:opacity-50 data-[popup-open]:bg-accent',
+          'flex min-w-0 items-center border border-border text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-50 data-[popup-open]:bg-accent',
           look.trigger,
           className,
         )}

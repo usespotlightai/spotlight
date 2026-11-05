@@ -1,97 +1,73 @@
-import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { TYPE_SERIES } from '@/components/features/insights/chart-series';
+import { AUTHOR_SERIES } from '@/components/features/insights/chart-series';
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
-import { ChartTip } from '@/components/shared/chart/ChartTip';
-import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatSpend } from '@/lib/insights';
 import { formatType, type TypeShare } from '@/lib/insights-pull-requests';
 
-export const TYPES_CHART_HEIGHT = 180;
-
-type TypeBar = TypeShare & { readonly label: string };
-
-const TipContent = ({
-  placement,
-  active,
-  payload,
-}: {
-  placement: TipPlacement;
-  active?: boolean;
-  payload?: { payload: TypeBar }[];
-}) => {
-  const bar = payload?.[0]?.payload;
-
-  if (!active || !bar) {
-    return null;
-  }
-
-  return (
-    <ChartTip placement={placement}>
-      <p className="text-muted-foreground">{bar.label}</p>
-      <p className="text-foreground">{bar.spotlight} by Spotlight</p>
-      <p className="text-foreground">{bar.people} by people alone</p>
-      <p className="text-muted-foreground">
-        Spotlight spent {formatSpend(bar.spend)}
-      </p>
-    </ChartTip>
-  );
-};
+const widthOf = (count: number, most: number): string =>
+  most === 0 ? '0%' : `${(count / most) * 100}%`;
 
 export function PullRequestTypesChart({
   types,
 }: {
   types: readonly TypeShare[];
 }) {
-  const cursor = useCursorTooltip();
-  return (
-    <figure data-slot="types-chart" className="flex flex-col gap-1">
-      <ChartLegend entries={TYPE_SERIES} />
+  const most = Math.max(
+    0,
+    ...types.flatMap((each) => [each.spotlight, each.people]),
+  );
 
-      <div className="[&_*:focus:not(:focus-visible)]:outline-none">
-        <div {...cursor.area}>
-          <ResponsiveContainer width="100%" height={TYPES_CHART_HEIGHT}>
-            <BarChart
-              data={types.map((each) => ({
-                ...each,
-                label: formatType(each.type),
-              }))}
-              margin={{ top: 8, right: 8, bottom: 0, left: 8 }}
+  return (
+    <figure data-slot="types-chart" className="flex flex-col gap-3">
+      <ul
+        aria-label="Merged pull requests by type"
+        className="flex flex-col gap-2"
+      >
+        {types.map((each) => (
+          <li key={each.type}>
+            <WithTooltip
+              tooltip={{
+                title: formatType(each.type),
+                rows: [
+                  ['By Spotlight', `${each.spotlight}`],
+                  ['By people alone', `${each.people}`],
+                  ['Spotlight spent', formatSpend(each.spend)],
+                ],
+              }}
             >
-              <XAxis
-                dataKey="label"
-                tickLine={false}
-                axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-              />
-              <YAxis hide allowDecimals={false} />
-              <Tooltip
-                {...cursor.tooltip}
-                content={<TipContent placement={cursor.placement} />}
-                cursor={{ fill: 'var(--accent)' }}
-              />
-              <Bar
-                dataKey="spotlight"
-                name="Spotlight"
-                fill="var(--chart-primary)"
-                isAnimationActive={false}
-              />
-              <Bar
-                dataKey="people"
-                name="People alone"
-                fill="var(--chart-1)"
-                isAnimationActive={false}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+              <div className="flex cursor-default flex-col gap-1">
+                <div className="flex items-baseline justify-between gap-2 text-sm">
+                  <span className="text-foreground">
+                    {formatType(each.type)}
+                  </span>
+                  <span className="flex items-baseline gap-3 tabular-nums">
+                    <span className="text-foreground">{each.spotlight}</span>
+                    <span className="w-8 text-right text-muted-foreground">
+                      {each.people}
+                    </span>
+                  </span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="h-1.5 rounded-full bg-muted">
+                    <span
+                      className="block h-full rounded-full bg-chart-primary"
+                      style={{ width: widthOf(each.spotlight, most) }}
+                    />
+                  </span>
+                  <span className="h-1 rounded-full bg-muted">
+                    <span
+                      className="block h-full rounded-full bg-chart-2"
+                      style={{ width: widthOf(each.people, most) }}
+                    />
+                  </span>
+                </div>
+              </div>
+            </WithTooltip>
+          </li>
+        ))}
+      </ul>
+
+      <ChartLegend entries={AUTHOR_SERIES} />
     </figure>
   );
 }

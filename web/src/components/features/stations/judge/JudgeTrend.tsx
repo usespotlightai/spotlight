@@ -1,4 +1,5 @@
 import {
+  CartesianGrid,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -12,7 +13,6 @@ import {
   formatDay,
   formatPercent,
   formatStat,
-  formatTrendCaption,
   type ScoreKind,
   sharesOn,
   type TrendPoint,
@@ -39,17 +39,21 @@ const TipContent = ({
   }
 
   return (
-    <ChartTip placement={placement}>
-      <p className="text-muted-foreground">{formatDay(point.day)}</p>
-      <p className="pt-0.5 text-foreground">
-        {point.judge === null
-          ? `Judge hidden over ${point.judged}`
-          : `Judge ${scoreOf(kind, point.judge)} over ${point.judged}`}
-      </p>
-      <p className="text-muted-foreground">
-        People {scoreOf(kind, point.people)} over {point.labelled}
-      </p>
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title: formatDay(point.day),
+        rows: [
+          [
+            'Judge',
+            point.judge === null
+              ? `Hidden, over ${point.judged}`
+              : `${scoreOf(kind, point.judge)} over ${point.judged}`,
+          ],
+          ['People', `${scoreOf(kind, point.people)} over ${point.labelled}`],
+        ],
+      }}
+    />
   );
 };
 
@@ -81,25 +85,33 @@ export function JudgeTrend({
           />
           People
         </span>
-        <span>{formatTrendCaption(kind)}</span>
       </figcaption>
 
-      <div className="flex min-h-35 flex-1 flex-col [&_*:focus:not(:focus-visible)]:outline-none">
+      <div className="flex h-44 flex-col [&_*:focus:not(:focus-visible)]:outline-none">
         <div {...cursor.area} className="flex-1">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={[...trend]}
-              margin={{ top: 8, right: 8, bottom: 0, left: 8 }}
+              margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
             >
               <XAxis
                 dataKey="day"
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 tickFormatter={formatDay}
                 minTickGap={24}
               />
-              <YAxis hide domain={sharesOn(kind) ? [0, 1] : [1, 5]} />
+              <YAxis
+                domain={sharesOn(kind) ? [0, 1] : [1, 5]}
+                ticks={sharesOn(kind) ? [0, 0.5, 1] : [1, 3, 5]}
+                tickFormatter={(value: number) => scoreOf(kind, value)}
+                tickLine={false}
+                axisLine={false}
+                width={40}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
+              />
+              <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
               <Tooltip
                 {...cursor.tooltip}
                 content={

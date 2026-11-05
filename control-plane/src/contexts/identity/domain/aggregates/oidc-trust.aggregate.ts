@@ -5,6 +5,7 @@ import { OidcTrustUpdated } from '@identity/domain/events/oidc-trust-updated.eve
 import { OidcTrustVersionConflictError } from '@identity/domain/exceptions/oidc-trust-version-conflict.error';
 import { ScopesExceedCallerError } from '@identity/domain/exceptions/scopes-exceed-caller.error';
 import { WorkloadNotMatchedError } from '@identity/domain/exceptions/workload-not-matched.error';
+import type { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import type { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import type { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import type { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
@@ -29,6 +30,7 @@ export interface OidcTrustSpec {
   readonly workload: WorkloadRule;
   readonly scopes: TokenScopes;
   readonly lifetime: TokenLifetime;
+  readonly description: OidcTrustDescription;
 }
 
 interface Props extends OidcTrustSpec {
@@ -37,6 +39,7 @@ interface Props extends OidcTrustSpec {
   readonly createdBy: UserId;
   readonly createdAt: Date;
   readonly version: number;
+  readonly grantVersion: number;
 }
 
 interface State extends Props {
@@ -69,9 +72,11 @@ export class OidcTrust extends EventRecorder {
       workload: input.workload,
       scopes: input.scopes,
       lifetime: input.lifetime,
+      description: input.description,
       createdBy: input.createdBy,
       createdAt: input.now,
       version: 0,
+      grantVersion: 0,
       deleted: false,
     });
 
@@ -92,6 +97,13 @@ export class OidcTrust extends EventRecorder {
       throw new InconsistentStateError(
         'OIDC trust',
         `has an impossible version (${input.version})`,
+      );
+    }
+
+    if (!Number.isInteger(input.grantVersion) || input.grantVersion < 0) {
+      throw new InconsistentStateError(
+        'OIDC trust',
+        `has an impossible grant version (${input.grantVersion})`,
       );
     }
 
@@ -134,6 +146,10 @@ export class OidcTrust extends EventRecorder {
       workload: spec.workload,
       scopes: spec.scopes,
       lifetime: spec.lifetime,
+      description: spec.description,
+      grantVersion: this.grantsAs(spec)
+        ? this.grantVersion
+        : this.grantVersion + 1,
     });
 
     updated.record(
@@ -192,7 +208,7 @@ export class OidcTrust extends EventRecorder {
       hash: issued.hash,
       issuedBy: this.createdBy,
       issuedByTrustId: this.id,
-      trustVersion: this.version,
+      trustVersion: this.grantVersion,
       subject: workload.subject,
       now: issued.now,
       client: issued.client,
@@ -203,7 +219,7 @@ export class OidcTrust extends EventRecorder {
     return (
       !this.isDeleted &&
       token.issuedByTrustId?.equals(this.id) === true &&
-      token.trustVersion === this.version
+      token.trustVersion === this.grantVersion
     );
   }
 
@@ -231,6 +247,10 @@ export class OidcTrust extends EventRecorder {
     return this.state.lifetime;
   }
 
+  get description(): OidcTrustDescription {
+    return this.state.description;
+  }
+
   get createdBy(): UserId {
     return this.state.createdBy;
   }
@@ -241,6 +261,10 @@ export class OidcTrust extends EventRecorder {
 
   get version(): number {
     return this.state.version;
+  }
+
+  get grantVersion(): number {
+    return this.state.grantVersion;
   }
 
   get isDeleted(): boolean {
@@ -256,6 +280,10 @@ export class OidcTrust extends EventRecorder {
   }
 
   private hasSpec(spec: OidcTrustSpec): boolean {
+    return this.grantsAs(spec) && spec.description.equals(this.description);
+  }
+
+  private grantsAs(spec: OidcTrustSpec): boolean {
     return (
       spec.workload.equals(this.workload) &&
       spec.scopes.equals(this.scopes) &&

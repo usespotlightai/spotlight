@@ -6,6 +6,7 @@ import { TYPES_NOTE, type TypeShare } from '@/lib/insights-pull-requests';
 export function PullRequestTypes({ types }: { types: readonly TypeShare[] }) {
   return (
     <InsightsCard
+      flat
       title="What Spotlight ships"
       description={TYPES_NOTE}
       table={<PullRequestTypesTable types={types} />}

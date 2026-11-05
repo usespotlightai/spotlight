@@ -18,7 +18,6 @@ import {
   type ChatReaderPort,
 } from '@work/application/ports/chat-reader.port';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
@@ -123,7 +122,6 @@ describe('setting a team up as code (e2e)', () => {
     await chats().save(
       (found as Chat).openSetup(
         RunId.of(runId),
-        Branch.of('spotlight-configuration'),
         PullRequestUrl.of(PULL_REQUEST),
         NOW,
       ),

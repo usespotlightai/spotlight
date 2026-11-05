@@ -11,7 +11,7 @@ export function StepBody({ shown, command }: StepBodyProps) {
   if (shown.prose) {
     return (
       <ScrollArea orientation="both" className="mt-0.5 mb-1 max-h-64">
-        <p className="ms-1 whitespace-pre-wrap text-muted-foreground text-xs leading-5">
+        <p className="ms-2 whitespace-pre-wrap text-muted-foreground text-xs leading-5">
           {shown.body}
         </p>
       </ScrollArea>
@@ -19,10 +19,11 @@ export function StepBody({ shown, command }: StepBodyProps) {
   }
 
   return (
-    <CodeBlock
-      command={shown.terminal ? command : undefined}
-      output={shown.body ?? ''}
-      className="mt-2 mb-1 ms-1"
-    />
+    <div className="pt-1.5 pb-1">
+      <CodeBlock
+        command={shown.terminal ? command : undefined}
+        output={shown.body ?? ''}
+      />
+    </div>
   );
 }

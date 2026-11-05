@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   type AlertRule,
-  alertFace,
   alertPhrase,
+  alertRow,
   sharePercent,
 } from '@/lib/station-monitoring';
 
@@ -66,30 +66,27 @@ describe('alertPhrase', () => {
   });
 });
 
-describe('alertFace', () => {
-  it('shows a rate change in signed points over its window', () => {
-    expect(alertFace(alert('sent_back_rate', { risesBy: 0.2 }))).toEqual({
+describe('alertRow', () => {
+  it('splits a rate change into its measure, its change and its window', () => {
+    expect(alertRow(alert('sent_back_rate', { risesBy: 0.2 }))).toEqual({
       measure: 'Sent-back rate',
-      condition: 'rises',
-      threshold: '+20 pts',
+      change: 'rises 20 points or more',
       window: 'over 20 runs',
     });
-    expect(alertFace(alert('accepted_rate', { fallsBy: 0.1 }))).toEqual({
+    expect(alertRow(alert('accepted_rate', { fallsBy: 0.1 }))).toEqual({
       measure: 'Accepted rate',
-      condition: 'falls',
-      threshold: '−10 pts',
+      change: 'falls 10 points or more',
       window: 'over 20 runs',
     });
   });
 
   it('shows a level as a bound, a cost as a bare amount', () => {
-    expect(
-      alertFace(alert('cost_per_run', { above: 2, over: 10 })).threshold,
-    ).toBe('> 2.00');
-    expect(alertFace(alert('merged_rate', { below: 0.5, over: 1 }))).toEqual({
+    expect(alertRow(alert('cost_per_run', { above: 2, over: 10 })).change).toBe(
+      'goes above 2.00',
+    );
+    expect(alertRow(alert('merged_rate', { below: 0.5, over: 1 }))).toEqual({
       measure: 'Merged rate',
-      condition: 'below',
-      threshold: '< 50%',
+      change: 'drops below 50%',
       window: 'in a single run',
     });
   });

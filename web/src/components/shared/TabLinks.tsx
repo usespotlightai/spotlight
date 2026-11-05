@@ -23,7 +23,7 @@ const LOOKS = {
     current: 'bg-muted',
   },
   underline: {
-    tab: 'flex h-9 shrink-0 items-center px-2 text-[0.8rem] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset',
+    tab: 'flex h-9 shrink-0 items-center px-2 text-muted-foreground text-sm outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset',
     current: 'text-foreground',
   },
 } as const;

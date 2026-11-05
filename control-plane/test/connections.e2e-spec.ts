@@ -90,6 +90,8 @@ describe('each person’s own connections (e2e)', () => {
         taskId: 'task_1',
         workspaceId,
         teamId: workspaceId,
+        title: 'Drain the queue',
+        pullRequest: null,
         line: 'delivery',
         station: 'Implementation',
         stationKey: 'implementation',

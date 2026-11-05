@@ -59,7 +59,7 @@ export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-10">
       <ChangeMarkerList
         slug={slug}
         teamId={teamId}

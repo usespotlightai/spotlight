@@ -44,5 +44,6 @@ export const configurationSubscribers = (
     [WORKSPACE_DELETED],
     (event) =>
       deletingStates.deleteForWorkspace(WorkspaceId.of(event.workspaceId)),
+    { callsOut: true },
   ),
 ];

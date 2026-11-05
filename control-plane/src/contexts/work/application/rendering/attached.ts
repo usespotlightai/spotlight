@@ -1,8 +1,12 @@
 import type { AttachmentShape } from '@work/application/contracts/run-spec.contract';
+import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
+
+const PLACED = '.spotlight/attachments/';
 
 const placed = (attachment: Attachment): string =>
-  `.spotlight/attachments/${attachment.id.value}/${attachment.name}`;
+  `${PLACED}${attachment.id.value}/${attachment.name}`;
 
 const KB = 1024;
 const MB = KB * KB;
@@ -15,6 +19,23 @@ const sized = (bytes: number): string =>
       : `${(bytes / MB).toFixed(1)} MB`;
 
 export const Attached = {
+  idIn(reference: string): AttachmentId {
+    const trimmed = reference.trim();
+    const at = trimmed.indexOf(PLACED);
+
+    if (at < 0 && trimmed.includes('/')) {
+      throw new InvalidAttachmentError(
+        `${trimmed} is not under ${PLACED.slice(0, -1)}`,
+      );
+    }
+
+    return AttachmentId.of(
+      at < 0
+        ? trimmed
+        : (trimmed.slice(at + PLACED.length).split('/')[0] ?? ''),
+    );
+  },
+
   shapes(attachments: readonly Attachment[]): AttachmentShape[] {
     return attachments.map((each) => ({
       id: each.id.value,

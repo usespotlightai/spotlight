@@ -369,6 +369,10 @@ export class Run extends EventRecorder {
     return this.spec.resumeKey;
   }
 
+  get sandboxIsRejoinable(): boolean {
+    return this.resumeKey?.isRejoinable ?? false;
+  }
+
   get archiveHolder(): ArchiveHolder | null {
     return this.subject?.archiveHolder ?? null;
   }

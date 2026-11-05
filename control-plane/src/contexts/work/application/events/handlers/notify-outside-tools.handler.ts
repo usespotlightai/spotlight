@@ -3,6 +3,8 @@ import type { OutboundTaskNotifierPort } from '@work/application/ports/outbound-
 import { reassignTaskMarks } from '@work/application/services/task-marks';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
+import type { TaskFailed } from '@work/domain/events/task-failed.event';
+import type { TaskFinished } from '@work/domain/events/task-finished.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
@@ -13,7 +15,14 @@ export class NotifyOutsideTools {
     private readonly transaction: TransactionPort,
   ) {}
 
-  async on(event: TaskOpened | PullRequestOpened | TaskAsked): Promise<void> {
+  async on(
+    event:
+      | TaskOpened
+      | PullRequestOpened
+      | TaskAsked
+      | TaskFinished
+      | TaskFailed,
+  ): Promise<void> {
     if (event.kind === 'task.opened' && !event.fromIntegration) {
       return;
     }

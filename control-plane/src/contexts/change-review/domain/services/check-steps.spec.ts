@@ -22,6 +22,7 @@ const cohort = (
   kind,
   title: id,
   intent: id,
+  joinedBecause: null,
   layers: Object.entries(layers).map(([layer, hunks]) => ({
     id: LayerId.of(layer),
     title: layer,
@@ -29,6 +30,7 @@ const cohort = (
     dependsOn: [],
     hunks: hunks.map((hunk) => ({ hunk: HunkId.of(hunk) })),
     notes: [],
+    questions: [],
   })),
 });
 

@@ -1,6 +1,5 @@
-import { WithTooltip } from '@/components/shared/WithTooltip';
+import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { ComparisonStat } from '@/lib/judge';
-import { cn } from '@/lib/utils';
 
 export function JudgeStatistics({
   stats,
@@ -10,20 +9,25 @@ export function JudgeStatistics({
   return (
     <dl
       data-slot="judge-statistics"
-      className={cn(
-        'grid justify-items-center gap-x-10 gap-y-6',
-        stats.length === 4 ? 'grid-cols-2' : 'grid-cols-3',
-      )}
+      className="flex flex-wrap gap-x-12 gap-y-4"
     >
       {stats.map((stat) => (
-        <WithTooltip key={stat.label} tooltip={stat.tooltip}>
-          <div className="flex min-w-0 cursor-default flex-col items-center gap-1 text-center">
-            <dt className="text-muted-foreground text-xs">{stat.label}</dt>
-            <dd className="font-normal text-[1.375rem] text-foreground tabular-nums leading-none tracking-tight">
+        <div key={stat.label} className="flex min-w-0 flex-col gap-1">
+          <dt className="flex items-center gap-1 text-muted-foreground text-xs">
+            {stat.label}
+            <InfoTooltip tooltip={stat.note} />
+          </dt>
+          <dd className="flex items-baseline gap-2">
+            <span className="font-medium text-foreground text-xl tabular-nums leading-7">
               {stat.value}
-            </dd>
-          </div>
-        </WithTooltip>
+            </span>
+            {stat.reading && (
+              <span className="text-muted-foreground text-sm">
+                {stat.reading}
+              </span>
+            )}
+          </dd>
+        </div>
       ))}
     </dl>
   );

@@ -44,7 +44,7 @@ export function FlowTab({ slug, teamId, period, names }: FlowTabProps) {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-10">
       {now.stations.length > 0 && (
         <StationWaits
           slug={slug}

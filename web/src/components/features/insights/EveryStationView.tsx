@@ -2,6 +2,7 @@ import { CandidatesTab } from '@/components/features/insights/candidates/Candida
 import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
 import { EveryStationSkeleton } from '@/components/features/insights/EveryStationSkeleton';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
+import { OVERVIEW_LAYOUT } from '@/components/features/insights/overview-layout';
 import { StationsTab } from '@/components/features/insights/StationsTab';
 import { useInsightsAgentConfigs } from '@/hooks/api/useInsightsAgentConfigs';
 import { useInsightsCandidates } from '@/hooks/api/useInsightsCandidates';
@@ -32,8 +33,8 @@ export function EveryStationView(shared: EveryStationViewProps) {
   }
 
   return (
-    <>
-      <InsightsSection title="Runs at each station">
+    <div className={OVERVIEW_LAYOUT}>
+      <InsightsSection title="Runs">
         <StationsTab {...shared} />
       </InsightsSection>
 
@@ -44,6 +45,6 @@ export function EveryStationView(shared: EveryStationViewProps) {
       <InsightsSection title="Candidates">
         <CandidatesTab {...shared} />
       </InsightsSection>
-    </>
+    </div>
   );
 }

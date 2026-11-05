@@ -1,4 +1,4 @@
-import { useXAxisScale, useYAxisScale } from 'recharts';
+import { usePlotArea, useXAxisScale, useYAxisScale } from 'recharts';
 import { LABEL_SIZE, placeLabels } from '@/lib/point-labels';
 
 export type ChartLabel = {
@@ -11,6 +11,7 @@ export type ChartLabel = {
 export function PointLabels({ labels }: { labels: readonly ChartLabel[] }) {
   const across = useXAxisScale();
   const up = useYAxisScale();
+  const plot = usePlotArea();
 
   if (!across || !up) {
     return null;
@@ -25,6 +26,7 @@ export function PointLabels({ labels }: { labels: readonly ChartLabel[] }) {
         ? []
         : [{ key: label.key, text: label.text, x, y }];
     }),
+    plot ? { left: plot.x, right: plot.x + plot.width } : undefined,
   );
 
   return (

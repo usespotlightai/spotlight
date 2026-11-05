@@ -1,8 +1,10 @@
+import { AnswerQuestionCommand } from '@change-review/application/commands/answer-question.command';
 import { DeleteReviewCommentCommand } from '@change-review/application/commands/delete-review-comment.command';
 import { DisputeDecisionCommand } from '@change-review/application/commands/dispute-decision.command';
 import { DraftReviewCommentCommand } from '@change-review/application/commands/draft-review-comment.command';
 import { EditReviewCommentCommand } from '@change-review/application/commands/edit-review-comment.command';
 import { GenerateRunChangeStackCommand } from '@change-review/application/commands/generate-run-change-stack.command';
+import { AnswerQuestionHandler } from '@change-review/application/commands/handlers/answer-question.handler';
 import { DeleteReviewCommentHandler } from '@change-review/application/commands/handlers/delete-review-comment.handler';
 import { DisputeDecisionHandler } from '@change-review/application/commands/handlers/dispute-decision.handler';
 import { DraftReviewCommentHandler } from '@change-review/application/commands/handlers/draft-review-comment.handler';
@@ -17,6 +19,7 @@ import { DecisionReactions } from '@change-review/application/events/handlers/de
 import { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
 import { CHANGE_REVIEW_EVENT_MAPPERS } from '@change-review/application/integration-events/change-review.event-mappers';
+import { ANSWER_GRADER } from '@change-review/application/ports/answer-grader.port';
 import {
   CHANGE_STACK_GENERATOR,
   type ChangeStackGeneratorPort,
@@ -123,6 +126,7 @@ import { GitHubConnections } from '@change-review/infrastructure/acl/github-conn
 import { People } from '@change-review/infrastructure/acl/people.adapter';
 import { Work } from '@change-review/infrastructure/acl/work.adapter';
 import { Workspaces } from '@change-review/infrastructure/acl/workspaces.adapter';
+import { OpenRouterAnswerGrader } from '@change-review/infrastructure/answers/openrouter-answer.grader';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { GitPatchWriter } from '@change-review/infrastructure/change-stacks/git-patch.writer';
 import { OpenRouterChangeStackGenerator } from '@change-review/infrastructure/change-stacks/openrouter-change-stack.generator';
@@ -134,6 +138,7 @@ import { DrizzleChangeStackReader } from '@change-review/infrastructure/persiste
 import { DrizzleChangeStackRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.repository';
 import { DrizzleDecisionReader } from '@change-review/infrastructure/persistence/drizzle/repositories/decision.reader';
 import { DrizzleDecisionSetRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/decision-set.repository';
+import { DrizzleQuestionAnswerRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/question-answer.repository';
 import { DrizzleReviewReader } from '@change-review/infrastructure/persistence/drizzle/repositories/review.reader';
 import { DrizzleReviewRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review.repository';
 import { DrizzleReviewCommentRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/review-comment.repository';
@@ -265,6 +270,7 @@ const upstream: Provider[] = [
 
 const adapters: Provider[] = [
   DrizzleChangeStackRepository,
+  DrizzleQuestionAnswerRepository,
   DrizzleDecisionSetRepository,
   { provide: DECISION_READER, useClass: DrizzleDecisionReader },
   DrizzleStackCheckRepository,
@@ -350,6 +356,15 @@ const adapters: Provider[] = [
       ),
   },
   {
+    provide: ANSWER_GRADER,
+    inject: [ENV],
+    useFactory: (env: Env) =>
+      new OpenRouterAnswerGrader(
+        env.OPENROUTER_API_KEY,
+        env.CHANGE_STACK_MODEL,
+      ),
+  },
+  {
     provide: REVIEW_LINKS,
     inject: [ENV],
     useFactory: (env: Env) => new WebReviewLinks(publicUrlOf(env)),
@@ -392,12 +407,18 @@ const services: Provider[] = [
   },
   {
     provide: RedraftChangeStack,
-    inject: [CHANGE_STACK_GENERATOR, CLOCK, LOGGER],
+    inject: [
+      DrizzleChangeStackRepository,
+      CHANGE_STACK_GENERATOR,
+      CLOCK,
+      LOGGER,
+    ],
     useFactory: (
+      stacks: DrizzleChangeStackRepository,
       generator: ChangeStackGeneratorPort,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new RedraftChangeStack(generator, clock, logger),
+    ) => new RedraftChangeStack(stacks, generator, clock, logger),
   },
   {
     provide: WorkChangeStacks,
@@ -808,6 +829,14 @@ const handlers: Provider[] = [
     DecisionAccess,
     DECISION_READER,
     PEOPLE,
+  ]),
+  ...bindCommandHandler(AnswerQuestionCommand, AnswerQuestionHandler, [
+    ChangeStackAccess,
+    DrizzleChangeStackRepository,
+    DrizzleQuestionAnswerRepository,
+    ANSWER_GRADER,
+    ID_GENERATOR,
+    CLOCK,
   ]),
   ...bindQueryHandler(ListRunChangeStacksQuery, ListRunChangeStacksHandler, [
     ChangeStackAccess,

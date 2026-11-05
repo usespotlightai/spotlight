@@ -1,11 +1,12 @@
 import { useId } from 'react';
 import { ProposedTaskFacts } from '@/components/features/agent/ProposedTaskFacts';
 import { CopyIconAction } from '@/components/shared/CopyIconAction';
+import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionCard } from '@/components/shared/DecisionCard';
 import { DecisionControls } from '@/components/shared/DecisionControls';
 import { DecisionHeader } from '@/components/shared/DecisionHeader';
-import { DecisionPill } from '@/components/shared/DecisionPill';
 import { DecisionTitle } from '@/components/shared/DecisionTitle';
+import type { Attachment } from '@/lib/attachment';
 import {
   type Proposal,
   proposalStatusOf,
@@ -18,6 +19,7 @@ type ProposedTaskCardProps = {
   slug: string;
   teamId: string;
   proposal: Proposal;
+  attachments: readonly Attachment[];
   pending: boolean;
   onCreate: () => void;
   onDismiss: () => void;
@@ -27,6 +29,7 @@ export function ProposedTaskCard({
   slug,
   teamId,
   proposal,
+  attachments,
   pending,
   onCreate,
   onDismiss,
@@ -57,25 +60,26 @@ export function ProposedTaskCard({
         slug={slug}
         teamId={teamId}
         proposal={proposal}
+        attachments={attachments}
         titleId={titleId}
       />
 
       <DecisionControls>
-        <DecisionPill
+        <DecisionButton
           disabled={pending || !open}
           onClick={onDismiss}
           aria-describedby={titleId}
         >
           Dismiss
-        </DecisionPill>
-        <DecisionPill
+        </DecisionButton>
+        <DecisionButton
           variant="default"
           disabled={pending || !open || !proposal.stationName}
           onClick={onCreate}
           aria-describedby={titleId}
         >
           Create task
-        </DecisionPill>
+        </DecisionButton>
       </DecisionControls>
     </DecisionCard>
   );

@@ -285,6 +285,29 @@ const inFirstOrder = <T extends { readonly first: CostPlace }>(
     (a, b) => a.first.run - b.first.run || a.first.offset - b.first.offset,
   );
 
+const STAGES: Record<FlowNodeKind, number> = {
+  model: 0,
+  station: 1,
+  repository: 2,
+};
+
+const byStageThenAmount = <
+  T extends { readonly amount: number; readonly first: CostPlace },
+>(
+  stageOf: (item: T) => number,
+  items: readonly T[],
+): T[] =>
+  inFirstOrder(items).sort(
+    (a, b) => stageOf(a) - stageOf(b) || b.amount - a.amount,
+  );
+
+const byInputSpent = (
+  stations: readonly StationCacheTotals[],
+): StationCacheTotals[] =>
+  [...stations]
+    .sort((a, b) => a.first - b.first)
+    .sort((a, b) => (b.cache?.input ?? -1) - (a.cache?.input ?? -1));
+
 export const costBreakdownFrom = (counts: CostCounts): CostBreakdown => {
   const { spend } = counts;
   const priced = spend !== null;
@@ -309,25 +332,26 @@ export const costBreakdownFrom = (counts: CostCounts): CostBreakdown => {
     byStation: slicesOf('station'),
     byRepository: slicesOf('repository'),
     nodes: priced
-      ? inFirstOrder(
+      ? byStageThenAmount(
+          (each) => STAGES[each.kind],
           counts.shares.flatMap((each) =>
             each.part === 'harness' ? [] : [{ ...each, kind: each.part }],
           ),
         ).map(({ kind, key }) => ({ id: nodeId({ kind, key }), kind, key }))
       : [],
     links: priced
-      ? inFirstOrder(counts.links).map((each) => ({
-          source: nodeId(each.source),
-          target: nodeId(each.target),
-          amount: each.amount,
-        }))
+      ? byStageThenAmount((each) => STAGES[each.source.kind], counts.links).map(
+          (each) => ({
+            source: nodeId(each.source),
+            target: nodeId(each.target),
+            amount: each.amount,
+          }),
+        )
       : [],
     cache: cacheUseOf(counts.cache),
-    cacheByStation: [...counts.cacheByStation]
-      .sort((a, b) => a.first - b.first)
-      .map((each) => ({
-        stationId: each.stationId,
-        ...cacheUseOf(each.cache),
-      })),
+    cacheByStation: byInputSpent(counts.cacheByStation).map((each) => ({
+      stationId: each.stationId,
+      ...cacheUseOf(each.cache),
+    })),
   };
 };

@@ -1,6 +1,7 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
+import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import type { HunkLink } from '@change-review/domain/services/diff-facts';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import {
@@ -13,7 +14,10 @@ import type {
   ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
-import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import {
+  HunkId,
+  QuestionId,
+} from '@change-review/domain/value-objects/stack-ids';
 import { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
@@ -84,6 +88,7 @@ const layer = (
   notes: [
     ...new Set(hunks.flatMap((each) => DIFF.fileOf(each)?.path ?? [])),
   ].map((path) => ({ path, note: 'Why it changes' })),
+  questions: [],
 });
 
 const invitations = (layers: ProposedLayer[]): ProposedCohort => ({
@@ -282,6 +287,29 @@ describe('ChangeStack', () => {
     const failed = generating().fail('No', LATER);
 
     expect(() => failed.fail('Again', LATER)).toThrow(InvalidChangeStackError);
+  });
+
+  it('renews the lease of a worker still generating it, without counting another attempt', () => {
+    const renewed = generating().leaseJob(NOW).renewJobLease(LATER);
+
+    expect(renewed.job.attempts).toBe(1);
+    expect(renewed.job.isDue(new Date(NOW.getTime() + JOB_LEASE_MS + 1))).toBe(
+      false,
+    );
+    expect(
+      renewed.job.isDue(new Date(LATER.getTime() + JOB_LEASE_MS + 1)),
+    ).toBe(true);
+  });
+
+  it('fails a stack whose answer was cut off, and retries one whose call failed', () => {
+    const leased = generating().leaseJob(NOW);
+
+    expect(leased.settleFailedCall({ truncated: true }, LATER).failure).toBe(
+      'The change is too large for one change stack.',
+    );
+    expect(leased.settleFailedCall({ truncated: false }, LATER).state).toBe(
+      'generating',
+    );
   });
 
   it('is leased to one worker at a time while it is generated', () => {
@@ -508,5 +536,50 @@ describe('ChangeStack read back from what was stored', () => {
         progress: StackProgress.generating(NOW),
       }),
     ).toThrow('is still generating, yet already has cohorts');
+  });
+
+  describe('questions', () => {
+    const asking = () =>
+      generating().propose(
+        [
+          invitations([
+            layer('Add the table', ['h1']),
+            {
+              ...layer('Add the API and the form', ['h2', 'h3']),
+              questions: [
+                {
+                  question: 'What does the form send when the table is full?',
+                  answer: 'Nothing; the API refuses it first.',
+                  hunks: [HunkId.of('h1'), HunkId.of('h2')],
+                },
+              ],
+            },
+          ]),
+        ],
+        LATER,
+      );
+
+    it('finds a question it asks, with the hunks that show its answer', () => {
+      const stack = asking();
+      const question = stack.question(QuestionId.of('c1.l2.q1'));
+
+      expect(question.answer).toBe('Nothing; the API refuses it first.');
+      expect(stack.citedBy(question)).toEqual([
+        { path: 'schema.ts', patch: '@@ -1 +1 @@\n-before\n+invitation table' },
+        {
+          path: 'invite.api.ts',
+          patch: '@@ -1 +1 @@\n-before\n+POST /invitations',
+        },
+      ]);
+    });
+
+    it('asks nothing it did not generate, and nothing before it is ready', () => {
+      expect(() => asking().question(QuestionId.of('c1.l1.q1'))).toThrow(
+        UnknownQuestionError,
+      );
+      expect(() => generating().question(QuestionId.of('c1.l2.q1'))).toThrow(
+        UnknownQuestionError,
+      );
+    });
   });
 });

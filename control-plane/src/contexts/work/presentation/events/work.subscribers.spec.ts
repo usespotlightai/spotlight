@@ -166,30 +166,35 @@ describe('workSubscribers', () => {
     expect(runners.reservationDropped).toHaveBeenCalledWith('runner_1');
   });
 
-  it('releases the sandbox lease of a run once the run ends, its lease expires, or it is suspended', async () => {
-    const sandboxes = { runLeft: vi.fn(async () => {}) };
-    const releasing = workSubscribers({
+  it('ends the sandbox lease of a run that ended, and only lets go of it for a run that comes back', async () => {
+    const sandboxes = {
+      runLeft: vi.fn(async () => {}),
+      runEnded: vi.fn(async () => {}),
+    };
+    const subscribers = workSubscribers({
       sandboxes,
-    } as unknown as Parameters<typeof workSubscribers>[0]).find(
-      (each) => each.name === 'work.release-sandbox-of-left-run',
-    );
+    } as unknown as Parameters<typeof workSubscribers>[0]);
+    const named = (name: string) =>
+      subscribers.find((each) => each.name === name);
+    const ended = named('work.release-sandbox-of-ended-run');
+    const left = named('work.release-sandbox-of-left-run');
     const run = RunId.of('run_1');
     const workspace = WorkspaceId.of('ws_1');
     const at = new Date('2026-10-30T09:00:00.000Z');
 
-    await releasing?.handle(
+    await left?.handle(
       new RunLeaseExpired(run, workspace, RunnerId.of('runner_1'), at, 1),
     );
-    await releasing?.handle(new RunCancelled(run, workspace, null, 2));
+    await ended?.handle(new RunCancelled(run, workspace, null, 2));
 
-    expect(releasing?.kinds).toEqual([
+    expect(ended?.kinds).toEqual([
       'run.completed',
       'run.exhausted',
       'run.cancelled',
-      'run.lease-expired',
-      'run.suspended',
     ]);
-    expect(sandboxes.runLeft.mock.calls).toEqual([[run], [run]]);
+    expect(left?.kinds).toEqual(['run.lease-expired', 'run.suspended']);
+    expect(sandboxes.runLeft.mock.calls).toEqual([[run]]);
+    expect(sandboxes.runEnded.mock.calls).toEqual([[run]]);
   });
 
   it('takes up the run a person answered, whichever way the answer came', async () => {

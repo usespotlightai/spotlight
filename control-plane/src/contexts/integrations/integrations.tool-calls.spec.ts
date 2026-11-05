@@ -1,4 +1,6 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
@@ -57,6 +59,10 @@ import type {
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
+const NO_LINKS = {
+  task: async () => 'https://app.example/tasks/task_1',
+} as unknown as InboxLinksPort;
+
 const expressions = new CelExpressionEngine();
 
 const ATTEMPT: RunAttemptDto = { runId: 'run_1', attempt: 2 };
@@ -77,6 +83,7 @@ const runtimeWith = (
     limits,
     unscoped,
     noNetwork,
+    noFiles,
   );
 
 const LINEAR = `integration: linear
@@ -111,6 +118,8 @@ const task = (marked = true): IntegrationTaskViewDto => ({
   taskId: 'task_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
+  title: 'Drain the queue',
+  pullRequest: null,
   line: 'delivery',
   station: 'Implementation',
   stationKey: 'implementation',
@@ -150,6 +159,7 @@ const using = (
     callAuthFor(),
     inferringInto(schemas),
     personRulesFrom(over.policies),
+    NO_LINKS,
   );
 
   const resolving = (tool: string, marked = true) =>
@@ -265,6 +275,7 @@ describe('IntegrationToolCalls', () => {
         callAuthFor(secrets.injection),
         inferringInto(),
         personRulesFrom(),
+        NO_LINKS,
       );
 
       const comment = async () => {
@@ -565,10 +576,12 @@ graphql:
           unlimited,
           hosts,
           noNetwork,
+          noFiles,
         ),
         callAuthFor(secrets.injection),
         inferringInto(),
         personRulesFrom(),
+        NO_LINKS,
       );
 
       return {

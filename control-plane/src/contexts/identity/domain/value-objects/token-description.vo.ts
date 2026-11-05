@@ -1,4 +1,5 @@
 import { InvalidWorkspaceTokenError } from '@identity/domain/exceptions/invalid-workspace-token.error';
+import { trimmedWithin } from '@identity/domain/value-objects/trimmed-within';
 
 const LONGEST = 255;
 
@@ -8,16 +9,13 @@ export class TokenDescription {
   private constructor(readonly value: string) {}
 
   static of(raw: string): TokenDescription {
-    const trimmed = raw.trim();
-
-    if (trimmed.length > LONGEST) {
-      throw new InvalidWorkspaceTokenError(
-        'description',
-        `must be at most ${LONGEST} characters`,
-      );
-    }
-
-    return new TokenDescription(trimmed);
+    return new TokenDescription(
+      trimmedWithin(
+        raw,
+        LONGEST,
+        (because) => new InvalidWorkspaceTokenError('description', because),
+      ),
+    );
   }
 
   equals(other: TokenDescription): boolean {

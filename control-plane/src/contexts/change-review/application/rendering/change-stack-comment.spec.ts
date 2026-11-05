@@ -69,6 +69,7 @@ const checked = () =>
               note: 'Why it changes',
             },
           ],
+          questions: [],
         })),
       },
       {
@@ -82,6 +83,7 @@ const checked = () =>
             dependsOn: [],
             hunks: [{ hunk: HunkId.of('h3') }],
             notes: [],
+            questions: [],
           },
         ],
       },

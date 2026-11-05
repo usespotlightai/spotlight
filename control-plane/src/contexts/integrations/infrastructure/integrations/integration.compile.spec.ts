@@ -208,10 +208,20 @@ describe('compiling an integration', () => {
     it('rejects an on-binding to an action that is not defined', () => {
       const text = `${WHOLE}on:
   task.asked:
-    action: missing
+    - action: missing
 `;
 
-      expect(complaining(text, 'on.task.asked.action')).toHaveLength(1);
+      expect(complaining(text, 'on.task.asked.0.action')).toHaveLength(1);
+    });
+
+    it('rejects an event bound to no action', () => {
+      const text = `${WHOLE}on:
+  task.asked: []
+`;
+
+      expect(complaining(text, 'on.task.asked')[0]?.reason).toMatch(
+        /runs at least one action/,
+      );
     });
 
     it('rejects an on-binding to an event Spotlight never raises', () => {
@@ -221,11 +231,11 @@ describe('compiling an integration', () => {
       url: https://example.com
 on:
   task.moved:
-    action: post
+    - action: post
 `;
 
       const [problem] = problems(text).filter(
-        (each) => dottedOf(each.field) === 'on.task.moved',
+        (each) => dottedOf(each.field) === 'on.task.moved.0',
       );
 
       expect(problem?.reason).toMatch(/must be one of/);
@@ -568,9 +578,9 @@ webhook:
       body: '\${{ {"text": ask.body, "thread": target.thread} }}'
 on:
   task.asked:
-    action: post
-    to:
-      thread: \${{ task.marks["slack.thread"] }}
+    - action: post
+      to:
+        thread: \${{ task.marks["slack.thread"] }}
 `;
 
     it('has nothing to say about one that reads only what is there', () => {
@@ -584,7 +594,7 @@ on:
       expect(read.ok).toBe(true);
       expect(warnings(text)).toHaveLength(1);
       expect(warnings(text)[0]?.field.rendered).toBe(
-        'on["task.asked"].to.thread',
+        'on["task.asked"][0].to.thread',
       );
       expect(warnings(text)[0]?.reason).toMatch(
         /No such key: makrs\. Did you mean task\.marks\?/,
@@ -1544,5 +1554,176 @@ poll:
 
     expect(read.ok ? [] : read.problems.map((each) => each.reason)).toEqual([]);
     expect(read.ok && read.readable.poll?.request.fromNetwork).toBeNull();
+  });
+});
+
+describe('an action that uploads files', () => {
+  const ACTION = `integration: slack
+actions:
+  post:
+    uploads:
+      each: \${{ ask.attachments }}
+      prepare:
+        method: GET
+        url: https://slack.com/api/files.getUploadURLExternal
+        query:
+          filename: \${{ file.name }}
+        capture:
+          url: \${{ response.upload_url }}
+      send:
+        method: POST
+        url: \${{ prepared.url }}
+      complete:
+        method: POST
+        url: https://slack.com/api/files.completeUploadExternal
+        body: '\${{ {"files": uploaded.map(each, {"id": each.prepared.id})} }}'
+    request:
+      method: POST
+      url: https://slack.com/api/chat.postMessage
+      body: '\${{ {"text": ask.body, "files": uploaded} }}'
+on:
+  task.asked:
+    - action: post
+      to:
+        channel: \${{ "C0REQ" }}
+`;
+
+  const compiled = (text: string) =>
+    compileIntegration(parseYaml(text), expressions);
+
+  const refused = (text: string) => {
+    const read = compiled(text);
+
+    return read.ok
+      ? []
+      : read.problems
+          .filter((each) => !each.isWarning)
+          .map((each) => [dottedOf(each.field), each.reason]);
+  };
+
+  const warned = (text: string) => {
+    const read = compiled(text);
+
+    return read.ok
+      ? read.warnings
+      : read.problems.filter((each) => each.isWarning);
+  };
+
+  it('reads the file, what was prepared and what was uploaded, each where it is there', () => {
+    expect(warned(ACTION)).toEqual([]);
+
+    const read = compiled(ACTION);
+    expect(read.ok && read.readable.actions.get('post')?.uploads).toEqual(
+      expect.objectContaining({ complete: expect.anything() }),
+    );
+  });
+
+  const READY = ACTION.replace(
+    '    request:\n',
+    () => `      ready:
+        method: GET
+        url: https://slack.com/api/files.info
+        query:
+          file: \${{ prepared.id }}
+        expect:
+          success: \${{ response.ok }}
+        attempts: 5
+    request:
+`,
+  );
+
+  it('checks each file is ready with what was prepared for it', () => {
+    expect(warned(READY)).toEqual([]);
+
+    const read = compiled(READY);
+    expect(
+      read.ok && read.readable.actions.get('post')?.uploads?.ready,
+    ).toEqual(expect.objectContaining({ attempts: 5 }));
+  });
+
+  it('checks a file 1 to 30 times', () => {
+    for (const attempts of ['0', '31']) {
+      expect(
+        refused(READY.replace('attempts: 5', `attempts: ${attempts}`)),
+      ).toEqual([
+        ['actions.post.uploads.ready.attempts', 'is 1 to 30 attempts'],
+      ]);
+    }
+  });
+
+  it('checks a file 10 times unless it says otherwise', () => {
+    const read = compiled(READY.replace('        attempts: 5\n', ''));
+
+    expect(
+      read.ok && read.readable.actions.get('post')?.uploads?.ready?.attempts,
+    ).toBe(10);
+  });
+
+  it('warns about a file read where no file is there', () => {
+    expect(
+      warned(ACTION.replace('"text": ask.body', '"text": file.name')).map(
+        (each) => each.field.rendered,
+      ),
+    ).toEqual(['actions.post.request.body']);
+  });
+
+  it('warns about a field a file does not have', () => {
+    expect(
+      warned(
+        ACTION.replace(
+          `filename: \${{ file.name }}`,
+          `filename: \${{ file.nmae }}`,
+        ),
+      ).map((each) => each.field.rendered),
+    ).toEqual(['actions.post.uploads.prepare.query.filename']);
+  });
+
+  it('sends the bytes of the file, so the send request has no body', () => {
+    expect(
+      refused(
+        ACTION.replace(
+          `url: \${{ prepared.url }}`,
+          `url: \${{ prepared.url }}\n        body: hello`,
+        ),
+      ),
+    ).toEqual([
+      [
+        'actions.post.uploads.send.body',
+        expect.stringContaining('Please remove body'),
+      ],
+    ]);
+  });
+
+  it('cannot be sent from the network', () => {
+    expect(
+      refused(ACTION.replace('  post:\n', '  post:\n    from: network\n')),
+    ).toEqual([
+      ['actions.post.uploads', expect.stringContaining('cannot read them')],
+    ]);
+  });
+
+  it('is not sent for a chat event, which has no files', () => {
+    expect(refused(ACTION.replace('  task.asked:', '  chat.replied:'))).toEqual(
+      [
+        [
+          'on.chat.replied.0.action',
+          expect.stringContaining('A chat event has no files'),
+        ],
+      ],
+    );
+  });
+
+  it('is sent only by an event, not by a tool', () => {
+    expect(
+      refused(
+        `${ACTION}tools:
+  post-files:
+    action: post
+    description: Post files.
+`,
+      ),
+    ).toEqual([
+      ['tools.post-files.action', expect.stringContaining('uploads files')],
+    ]);
   });
 });

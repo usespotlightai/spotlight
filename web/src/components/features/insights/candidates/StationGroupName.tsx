@@ -9,7 +9,7 @@ export function StationGroupName({ stationId, names }: StationGroupNameProps) {
   const line = names.get(stationId)?.lineName;
 
   return (
-    <p className="flex min-w-0 items-baseline gap-2 text-xs">
+    <p className="flex min-w-0 items-baseline gap-2">
       <span className="truncate font-medium text-foreground">
         {formatStation(names, stationId)}
       </span>

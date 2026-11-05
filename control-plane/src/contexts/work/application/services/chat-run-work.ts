@@ -35,8 +35,9 @@ export class ChatRunWork implements RunWork {
 
   attachment(attachmentId: string): Attachment | null {
     return (
-      this.chat.allAttachments.find((each) => each.id.value === attachmentId) ??
-      null
+      this.chat.sharedAttachments.find(
+        (each) => each.id.value === attachmentId,
+      ) ?? null
     );
   }
 

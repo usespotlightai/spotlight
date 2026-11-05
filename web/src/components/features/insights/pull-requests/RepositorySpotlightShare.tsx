@@ -4,6 +4,7 @@ import {
   type InsightsColumn,
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
+import { WithTooltip } from '@/components/shared/WithTooltip';
 import { formatCount, formatShare } from '@/lib/insights';
 import {
   BY_REPOSITORY_NOTE,
@@ -21,16 +22,16 @@ type RepositorySpotlightShareProps = {
 
 const weekCell = (repository: Repository, week: WeekShare | undefined) =>
   week && week.merged > 0 ? (
-    <InsightsLink
-      tab="productivity"
-      filter={weekFilter(week.week, repository.repository)}
+    <WithTooltip
+      tooltip={`${week.spotlight} of ${week.merged} made or reviewed by Spotlight`}
     >
-      <span
-        title={`${week.spotlight} of ${week.merged} made or reviewed by Spotlight`}
+      <InsightsLink
+        tab="productivity"
+        filter={weekFilter(week.week, repository.repository)}
       >
         {formatShare(week.rate)}
-      </span>
-    </InsightsLink>
+      </InsightsLink>
+    </WithTooltip>
   ) : (
     '–'
   );
@@ -85,6 +86,7 @@ export function RepositorySpotlightShare({
 
   return (
     <InsightsCard
+      flat
       tableOnly
       scrolls
       title="By repository"

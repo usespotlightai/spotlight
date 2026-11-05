@@ -4,11 +4,11 @@ import {
   agentConfigPoints,
   formatAgentConfig,
   formatAgentConfigWithin,
-  formatSizeRule,
   frontierOf,
   harnessGroupsOf,
   type InsightsChanges,
   markerOf,
+  sizeHintOf,
 } from '@/lib/insights-changes';
 
 const agentConfig = (over: Partial<AgentConfigOutcome>): AgentConfigOutcome =>
@@ -51,7 +51,7 @@ describe('formatAgentConfig', () => {
         agentConfig({ model: null, effort: 'high', profileKey: 'careful' }),
         HARNESSES,
       ),
-    ).toBe('Claude Code · Harness default · high effort · careful profile');
+    ).toBe('Claude Code, Harness default, high effort, careful profile');
   });
 });
 
@@ -69,8 +69,8 @@ describe('harnessGroupsOf and formatAgentConfigWithin', () => {
         group.agentConfigs.map(formatAgentConfigWithin),
       ]),
     ).toEqual([
-      ['claude-code', ['sonnet', 'opus · high effort']],
-      ['cursor', ['Harness default · careful profile']],
+      ['claude-code', ['sonnet', 'opus, high effort']],
+      ['cursor', ['Harness default, careful profile']],
     ]);
   });
 });
@@ -94,7 +94,7 @@ describe('agentConfigPoints', () => {
     expect(points).toEqual([
       {
         key: JSON.stringify(['claude-code', 'sonnet', null, null]),
-        label: 'Claude Code · sonnet',
+        label: 'Claude Code, sonnet',
         cost: 1,
         value: 0.5,
         runs: 5,
@@ -125,14 +125,14 @@ describe('frontierOf', () => {
   });
 });
 
-describe('formatSizeRule', () => {
+describe('sizeHintOf', () => {
   it('says each size’s bound in lines and steps, and that the largest has none', () => {
-    expect(formatSizeRule({ size: 'small', maxLines: 50, maxSteps: 20 })).toBe(
-      'Small: up to 50 changed lines, or 20 steps for a run that changed none',
+    expect(sizeHintOf({ size: 'small', maxLines: 50, maxSteps: 20 })).toBe(
+      'Up to 50 changed lines or 20 steps',
     );
-    expect(
-      formatSizeRule({ size: 'large', maxLines: null, maxSteps: null }),
-    ).toBe('Large: anything bigger');
+    expect(sizeHintOf({ size: 'large', maxLines: null, maxSteps: null })).toBe(
+      'Anything bigger',
+    );
   });
 });
 

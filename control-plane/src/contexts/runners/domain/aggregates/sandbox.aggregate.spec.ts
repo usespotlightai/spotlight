@@ -70,6 +70,30 @@ describe('Sandbox', () => {
     expect(released.idleSince).toEqual(later(1_000));
   });
 
+  it('drains when the run that retires it holds its last lease, and ignores a run that does not hold it', () => {
+    const sandbox = started().reported();
+
+    expect(sandbox.retireRun('run_2', later(1_000))).toBe(sandbox);
+
+    const retired = sandbox.retireRun('run_1', later(1_000));
+
+    expect(retired.current).toBe('draining');
+    expect(retired.mustDrain).toBe(true);
+    expect(retired.leases).toEqual([]);
+  });
+
+  it('stays ready when a run retires it while another run holds it', () => {
+    const shared = started().reported().holdRun('run_2', later(500));
+
+    expect(shared.retireRun('run_1', later(1_000)).current).toBe('ready');
+  });
+
+  it('stays ready when a run retires it while an editor holds it', () => {
+    const edited = started().reported().holdEditor('conn_1', later(500));
+
+    expect(edited.retireRun('run_1', later(1_000)).current).toBe('ready');
+  });
+
   it('takes the next run on its host once ready and idle, and holds it', () => {
     const idle = started().reported().releaseRun('run_1', later(1_000));
 

@@ -12,6 +12,12 @@ export const STACK_CHECK_STATUS_NAMES = [
 
 export const COHORT_KIND_NAMES = ['change', 'incidental'] as const;
 
+export const ANSWER_VERDICT_NAMES = [
+  'right',
+  'partly-right',
+  'missed',
+] as const;
+
 export const DIFF_FILE_STATUS_NAMES = [
   'added',
   'deleted',
@@ -36,6 +42,21 @@ interface DiffFileDto {
   readonly hunks: readonly DiffHunkDto[];
 }
 
+export interface QuestionAnswerDto {
+  readonly questionId: string;
+  readonly reply: string | null;
+  readonly verdict: (typeof ANSWER_VERDICT_NAMES)[number];
+  readonly feedback: string | null;
+  readonly expected: string;
+}
+
+interface LayerQuestionDto {
+  readonly id: string;
+  readonly question: string;
+  readonly hunks: readonly string[];
+  readonly answered: QuestionAnswerDto | null;
+}
+
 interface StackLayerDto {
   readonly id: string;
   readonly title: string;
@@ -51,6 +72,7 @@ interface StackLayerDto {
     readonly path: string;
     readonly note: string;
   }[];
+  readonly questions: readonly LayerQuestionDto[];
 }
 
 export interface StackCohortDto {
@@ -59,6 +81,10 @@ export interface StackCohortDto {
   readonly title: string;
   readonly intent: string;
   readonly layers: readonly StackLayerDto[];
+}
+
+export interface OutlinedCohortDto extends Omit<StackCohortDto, 'layers'> {
+  readonly layers: readonly Omit<StackLayerDto, 'questions'>[];
 }
 
 export interface CheckedStepDto {

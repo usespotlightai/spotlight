@@ -14,6 +14,7 @@ import {
   shareOf,
   spanOf,
   sumOf,
+  type Window,
   weekOf,
 } from '@/mocks/world/insights-measures';
 import { runsIn } from '@/mocks/world/insights-tally';
@@ -59,11 +60,20 @@ const trendOf = (
 const touches = (run: HistoryRun, skill: string): boolean =>
   run.skillsEnabled.includes(skill) || run.skillsUsed.includes(skill);
 
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+const partialOf = (week: string, now: Window): boolean => {
+  const start = Date.parse(`${week}T00:00:00.000Z`);
+
+  return start < now.from || start + WEEK_MS > now.to;
+};
+
 const skillOf = (
   runs: readonly HistoryRun[],
   weeks: readonly string[],
   skill: string,
   defined: readonly string[],
+  now: Window,
 ): SkillReportResponseDto => {
   const countOf = (some: readonly HistoryRun[]) => ({
     enabled: some.filter((run) => run.skillsEnabled.includes(skill)).length,
@@ -77,6 +87,7 @@ const skillOf = (
     key: skill,
     defined: defined.includes(skill),
     ...countOf(runs),
+    usedRate: shareOf(countOf(runs).used, runs.length),
     weeks: weeks.map((week) => {
       const inWeek = runs.filter((run) => weekOf(run.at) === week);
       const counted = countOf(inWeek);
@@ -85,6 +96,7 @@ const skillOf = (
         runs: inWeek.length,
         ...counted,
         usedRate: shareOf(counted.used, inWeek.length),
+        partial: partialOf(week, now),
       };
     }),
     trend: trendOf(runs, weeks, skill),
@@ -95,6 +107,7 @@ const skillOf = (
         stationId,
         runs: atStation.length,
         ...countOf(atStation),
+        usedRate: shareOf(countOf(atStation).used, atStation.length),
         trend: trendOf(atStation, weeks, skill),
       };
     }),
@@ -127,7 +140,15 @@ const serverOf = (
     failedCalls,
     errorRate: shareOf(failedCalls, total),
     failingRuns: calls.filter((call) => call.failed > 0).length,
+    failingRunRate: shareOf(
+      calls.filter((call) => call.failed > 0).length,
+      calls.length,
+    ),
     dismissed: calls.filter((call) => call.dismissed !== null).length,
+    dismissedRate: shareOf(
+      calls.filter((call) => call.dismissed !== null).length,
+      calls.length,
+    ),
   };
 };
 
@@ -154,7 +175,7 @@ export const toolsOf = (
     runs: runs.length,
     trendRule: TREND_RULE,
     skills: seen
-      .map((skill) => skillOf(runs, weeks, skill, defined))
+      .map((skill) => skillOf(runs, weeks, skill, defined, span.now))
       .sort((one, other) => other.used - one.used),
     unused: defined.filter(
       (skill) => !runs.some((run) => run.skillsUsed.includes(skill)),

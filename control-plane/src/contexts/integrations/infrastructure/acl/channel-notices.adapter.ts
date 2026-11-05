@@ -42,12 +42,21 @@ export class ChannelNotices implements ChannelNoticesPort {
           notice.marks.map((each) => [each.kind, each.value]),
         ),
       },
-      reply: { body: notice.body, link: await this.linkOf(notice) },
+      reply: {
+        body: notice.body,
+        link: await this.linkOf(notice),
+        proposals: notice.proposals.map((each) => ({
+          number: each.number,
+          title: each.title,
+          line: each.line,
+          station: each.station,
+        })),
+      },
     };
 
     for (const integration of posting) {
       try {
-        const posted = await this.runtime.post(
+        const results = await this.runtime.post(
           definitions,
           integration,
           event,
@@ -55,16 +64,18 @@ export class ChannelNotices implements ChannelNoticesPort {
           await this.callAuthResolver.of(teamId, integration),
         );
 
-        if (posted.kind === 'failed') {
-          this.log.warn(
-            {
-              chat: notice.chatId,
-              error: posted.error,
-              target: posted.target,
-              marks: payload.chat.marks,
-            },
-            'A service answered a chat’s word with an error',
-          );
+        for (const posted of results) {
+          if (posted.kind === 'failed') {
+            this.log.warn(
+              {
+                chat: notice.chatId,
+                error: posted.error,
+                target: posted.target,
+                marks: payload.chat.marks,
+              },
+              'A service answered a chat’s word with an error',
+            );
+          }
         }
       } catch (error) {
         this.log.warn(

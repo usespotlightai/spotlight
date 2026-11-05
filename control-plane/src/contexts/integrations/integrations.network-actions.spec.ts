@@ -1,4 +1,5 @@
 import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
@@ -60,6 +61,9 @@ const TASK = {
   taskId: 'task_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
+  title: 'Drain the queue',
+  url: null,
+  pullRequest: null,
   line: 'delivery',
   station: 'Implementation',
   stationKey: 'implementation',
@@ -124,6 +128,7 @@ const sending = (
       calls,
       { now: () => NOW, sleep: async () => {} },
     ),
+    noFiles,
   );
   const callAuth: CallAuth = {
     workspace: async () => 'ws_1',

@@ -22,11 +22,11 @@ export function TeamMemorySkeleton() {
             )}
           >
             <SkeletonLine className={width} />
-            <SkeletonLine className="w-16 text-xs" />
-            <SkeletonLine className="w-24 text-xs" />
-            <SkeletonLine className="w-12 text-xs" />
-            <SkeletonLine className="w-16 text-xs" />
-            <SkeletonLine className="ml-auto w-6 text-xs" />
+            <SkeletonLine className="w-16 text-sm" />
+            <SkeletonLine className="w-24 text-sm" />
+            <SkeletonLine className="w-12 text-sm" />
+            <SkeletonLine className="w-16 text-sm" />
+            <SkeletonLine className="ml-auto w-6 text-sm" />
           </li>
         ))}
       </TeamMemoryTable>

@@ -1,5 +1,10 @@
 import { DiffStat } from '@/components/shared/DiffStat';
-import type { LocatedLayer } from '@/lib/change-stack';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { type LocatedLayer, toReadAgain } from '@/lib/change-stack';
 import { cn } from '@/lib/utils';
 
 type StackNavLayerProps = {
@@ -51,6 +56,22 @@ export function StackNavLayer({
               {files} {files === 1 ? 'file' : 'files'}
             </span>
             <DiffStat added={tally.added} removed={tally.removed} />
+            {toReadAgain(located.layer) && (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span
+                      role="img"
+                      aria-label="Read again"
+                      className="size-1.5 rounded-full bg-amber-500"
+                    />
+                  }
+                />
+                <TooltipContent className="text-xs">
+                  An answer about this layer is not right. Read the layer again.
+                </TooltipContent>
+              </Tooltip>
+            )}
           </span>
         </span>
       </button>

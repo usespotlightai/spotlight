@@ -1,4 +1,4 @@
-import { DecisionPill } from '@/components/shared/DecisionPill';
+import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
 import type { Approval } from '@/lib/approval';
 
@@ -18,7 +18,7 @@ export function ApprovalApproveButton({
   return (
     <DisabledReasonTooltip reason={disabledBecause}>
       {(describedBy) => (
-        <DecisionPill
+        <DecisionButton
           variant="default"
           disabled={disabled}
           aria-describedby={describedBy}
@@ -26,7 +26,7 @@ export function ApprovalApproveButton({
           aria-label={`Approve ${approval.name}`}
         >
           Approve
-        </DecisionPill>
+        </DecisionButton>
       )}
     </DisabledReasonTooltip>
   );

@@ -72,6 +72,10 @@ export class Attachment {
     return size > MAX_ATTACHMENT_BYTES;
   }
 
+  copiedAs(id: AttachmentId): Attachment {
+    return new Attachment(id, this.name, this.contentType, this.size);
+  }
+
   get image(): boolean {
     return this.contentType.startsWith('image/');
   }

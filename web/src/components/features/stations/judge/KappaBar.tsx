@@ -1,5 +1,10 @@
 import { WithTooltip } from '@/components/shared/WithTooltip';
-import { type ClaimAgreement, formatStat, kappaNote } from '@/lib/judge';
+import {
+  type ClaimAgreement,
+  formatStat,
+  kappaNote,
+  readingWord,
+} from '@/lib/judge';
 
 const percent = (value: number): string =>
   `${Math.round(Math.min(Math.max(value, 0), 1) * 100)}%`;
@@ -12,7 +17,14 @@ type KappaBarProps = {
 
 export function KappaBar({ kappa, reading, minAgreement }: KappaBarProps) {
   return (
-    <WithTooltip tooltip={kappaNote(reading)}>
+    <WithTooltip
+      tooltip={{
+        ...kappaNote(),
+        title: reading
+          ? `Cohen’s kappa: ${readingWord(reading)?.toLowerCase()}`
+          : 'Cohen’s kappa',
+      }}
+    >
       <span className="flex min-w-0 cursor-default items-center gap-2">
         <span className="w-8 shrink-0 text-foreground tabular-nums">
           {formatStat(kappa)}

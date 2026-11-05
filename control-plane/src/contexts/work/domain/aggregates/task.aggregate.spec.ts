@@ -58,6 +58,7 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     workspaceId: task.workspaceId,
     stationId: task.stationId,
     title: task.title,
+    branch: task.branch,
     description: task.description,
     rank: task.rank,
     currentRunId: task.currentRunId,
@@ -310,6 +311,67 @@ describe('Task', () => {
 
   it('is the same task as another of the same id', () => {
     expect(added().equals(added())).toBe(true);
+  });
+});
+
+describe('Task, reopened by a word', () => {
+  const ADA = UserId.of('ada');
+  const said = { ...newNote, voice: Voice.person(ADA) };
+  const ended = () =>
+    added().assignRun(RUN, LINE).finishHere(RUN, LINE, newNote);
+
+  it('reopens a finished task where it is, with the word, as a send-back', () => {
+    const reopened = ended().reopen(LINE, HERE, TaskRank.of('m'), said);
+
+    expect(reopened.finished).toBe(false);
+    expect(reopened.stationId).toEqual(HERE);
+    expect(reopened.wantsRun(LINE)).toBe(true);
+    expect(actsOf(reopened)).toContainEqual({
+      action: 'sent-back',
+      by: 'ada',
+      after: null,
+    });
+  });
+
+  it('reopens a finished task at another station', () => {
+    const reopened = ended().reopen(
+      LINE,
+      StationId.of('station_2'),
+      TaskRank.of('m'),
+      said,
+    );
+
+    expect(reopened.finished).toBe(false);
+    expect(reopened.stationId).toEqual(StationId.of('station_2'));
+  });
+
+  it('does not reopen a task that is not finished', () => {
+    expect(() => added().reopen(LINE, HERE, TaskRank.of('m'), said)).toThrow(
+      InvalidTaskTransitionError,
+    );
+  });
+
+  it('does not reopen a completed task', () => {
+    const completed = added().react(
+      LINE,
+      StationId.of('completed_1'),
+      TaskRank.of('m'),
+      newNote,
+    );
+
+    expect(completed.reopenableOn(LINE)).toBe(false);
+    expect(() => completed.reopen(LINE, HERE, TaskRank.of('m'), said)).toThrow(
+      InvalidTaskTransitionError,
+    );
+  });
+
+  it('does not take a word from the world as a reopening', () => {
+    expect(() =>
+      ended().reopen(LINE, HERE, TaskRank.of('m'), {
+        ...newNote,
+        voice: Voice.world(),
+      }),
+    ).toThrow(InvalidTaskTransitionError);
   });
 });
 

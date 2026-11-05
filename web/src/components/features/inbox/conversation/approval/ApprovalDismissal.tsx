@@ -1,4 +1,4 @@
-import { DecisionPill } from '@/components/shared/DecisionPill';
+import { DecisionButton } from '@/components/shared/DecisionButton';
 import { FieldInput } from '@/components/shared/form/FieldInput';
 import type { Approval } from '@/lib/approval';
 
@@ -36,17 +36,17 @@ export function ApprovalDismissal({
         aria-label={`Why dismiss ${approval.name}`}
         className="h-6 w-auto min-w-0 flex-1 border-0 bg-transparent px-0"
       />
-      <DecisionPill type="button" disabled={pending} onClick={onCancel}>
+      <DecisionButton type="button" disabled={pending} onClick={onCancel}>
         Cancel
-      </DecisionPill>
-      <DecisionPill
+      </DecisionButton>
+      <DecisionButton
         type="submit"
         variant="default"
         disabled={pending}
         aria-label={`Dismiss ${approval.name}`}
       >
         Dismiss
-      </DecisionPill>
+      </DecisionButton>
     </form>
   );
 }

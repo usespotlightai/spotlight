@@ -1,8 +1,11 @@
+import { Fragment } from 'react';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
+  LEAD_CELL,
   ROW_DIVIDER,
+  TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import { spentIn } from '@/lib/inbox';
 import type { FlowLinkRow } from '@/lib/insights';
@@ -25,31 +28,33 @@ export function CostFlowTable({ rows, currency }: CostFlowTableProps) {
     <NestedTable
       label="Spend from model to station to repository"
       headings={HEADINGS}
+      compact
     >
-      {rows.map((row) => (
-        <li
-          key={`${row.from}→${row.to}`}
-          data-slot="cost-flow"
-          className={cn(
-            'col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 text-xs @4xl:grid-cols-subgrid',
-            ROW_DIVIDER,
+      {rows.map((row, at) => (
+        <Fragment key={`${row.stage}:${row.from}→${row.to}`}>
+          {row.stage !== rows[at - 1]?.stage && (
+            <li
+              data-slot="cost-flow-stage"
+              className={cn(
+                'col-span-full pt-4 pb-1 text-muted-foreground text-xs first:pt-2',
+                EDGE_INDENT,
+              )}
+            >
+              {row.stage}
+            </li>
           )}
-        >
-          <span
-            className={cn(
-              'col-span-full min-w-0 truncate text-foreground @4xl:col-span-1',
-              EDGE_INDENT,
-            )}
-          >
-            {row.from}
-          </span>
-          <NestedCell heading="To" numeric={false} strong>
-            {row.to}
-          </NestedCell>
-          <NestedCell heading="Spend" strong>
-            {spentIn(row.amount, currency)}
-          </NestedCell>
-        </li>
+          <li data-slot="cost-flow" className={cn(TABLE_ROW, ROW_DIVIDER)}>
+            <span className={cn(LEAD_CELL, EDGE_INDENT)}>
+              <span className="truncate text-foreground">{row.from}</span>
+            </span>
+            <NestedCell heading="To" numeric={false}>
+              <span className="text-foreground">{row.to}</span>
+            </NestedCell>
+            <NestedCell heading="Spend" strong>
+              {spentIn(row.amount, currency)}
+            </NestedCell>
+          </li>
+        </Fragment>
       ))}
     </NestedTable>
   );

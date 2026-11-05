@@ -1,31 +1,35 @@
 import { TabLinks } from '@/components/shared/TabLinks';
-import { STATION_TABS, type StationTab, stationTabPath } from '@/lib/station';
+import type { StationResponseDto } from '@/lib/api';
+import { type StationTab, stationTabPath, stationTabsOf } from '@/lib/station';
+import { cn } from '@/lib/utils';
 
 type StationTabsProps = {
   slug: string;
   teamId: string;
   lineId: string;
-  stationId: string;
+  station: StationResponseDto;
   current: StationTab;
+  className?: string;
 };
 
 export function StationTabs({
   slug,
   teamId,
   lineId,
-  stationId,
+  station,
   current,
+  className,
 }: StationTabsProps) {
   return (
     <TabLinks
       label="Station"
       current={current}
       variant="underline"
-      className="border-border border-b px-3"
-      tabs={STATION_TABS.map((tab) => ({
+      className={cn('-ml-2', className)}
+      tabs={stationTabsOf(station).map((tab) => ({
         id: tab.id,
         label: tab.label,
-        to: stationTabPath(slug, teamId, lineId, stationId, tab.id),
+        to: stationTabPath(slug, teamId, lineId, station.id, tab.id),
       }))}
     />
   );

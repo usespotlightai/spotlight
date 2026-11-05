@@ -16,8 +16,8 @@ import type { ChannelNoticesPort } from '@work/application/ports/channel-notices
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import {
+  type ChannelAnswer,
   ChannelChats,
-  type ChannelRefusal,
 } from '@work/application/services/channel-chats.service';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
@@ -154,7 +154,7 @@ const channels = ({
   return { service, added, saved, notify, warn };
 };
 
-const refusalOf = (refusal: ChannelRefusal | null) => refusal?.body ?? null;
+const refusalOf = (refusal: ChannelAnswer | null) => refusal?.body ?? null;
 
 describe('ChannelChats', () => {
   it('starts a chat for the person on the team, with the repositories of its lines', async () => {
@@ -343,10 +343,11 @@ describe('ChannelChats', () => {
     notify.mockRejectedValueOnce(new Error('no definitions'));
 
     await expect(
-      service.refuse({
+      service.answer({
         workspaceId: WORKSPACE,
         teamId: TEAM,
         happened: mentioned('Why?'),
+        event: 'chat.refused',
         body: ChannelReplies.notInTeam,
       }),
     ).resolves.toBeUndefined();
@@ -356,10 +357,11 @@ describe('ChannelChats', () => {
   it('posts a refusal back to where it came from', async () => {
     const { service, notify } = channels();
 
-    await service.refuse({
+    await service.answer({
       workspaceId: WORKSPACE,
       teamId: TEAM,
       happened: mentioned('Why?'),
+      event: 'chat.refused',
       body: ChannelReplies.notInTeam,
     });
 
@@ -372,10 +374,28 @@ describe('ChannelChats', () => {
           { kind: 'slack.channel', value: 'C1' },
         ],
         body: ChannelReplies.notInTeam,
+        proposals: [],
         chatId: null,
         taskId: null,
       },
       'chat.refused',
+    );
+  });
+
+  it('posts an acknowledgement back to where it came from', async () => {
+    const { service, notify } = channels();
+
+    await service.answer({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      happened: mentioned('Why?'),
+      event: 'chat.acknowledged',
+      body: '',
+    });
+
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({ body: '' }),
+      'chat.acknowledged',
     );
   });
 });

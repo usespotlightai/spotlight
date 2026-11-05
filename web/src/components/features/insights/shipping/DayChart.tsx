@@ -53,21 +53,16 @@ const TipContent = ({
   }
 
   return (
-    <ChartTip placement={placement}>
-      <p className="text-muted-foreground">{formatDay(String(point.day))}</p>
-      {series.map((each) => {
-        const value = point[each.key];
-
-        return (
-          <p key={each.key} className="text-foreground">
-            {each.label}{' '}
-            <span className="tabular-nums">
-              {typeof value === 'number' ? format(value) : '–'}
-            </span>
-          </p>
-        );
-      })}
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title: formatDay(String(point.day)),
+        rows: series.map((each): [string, string] => {
+          const value = point[each.key];
+          return [each.label, typeof value === 'number' ? format(value) : '–'];
+        }),
+      }}
+    />
   );
 };
 
@@ -106,7 +101,7 @@ export function DayChart({
                 dataKey="day"
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 tickFormatter={formatDay}
                 minTickGap={32}
               />
@@ -114,7 +109,7 @@ export function DayChart({
                 width={44}
                 tickLine={false}
                 axisLine={false}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 ticks={ticks}
                 domain={ticks ? [0, ticks[ticks.length - 1] ?? 0] : undefined}
                 allowDecimals={false}

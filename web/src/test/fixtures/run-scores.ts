@@ -10,6 +10,7 @@ const TRUSTED: JudgeCalibrationResponseDto = {
   qualified: true,
   measure: 'kappa',
   agreement: 0.71,
+  reading: 'substantial',
   pairs: 24,
   minAgreement: 0.6,
   hiddenReason: null,

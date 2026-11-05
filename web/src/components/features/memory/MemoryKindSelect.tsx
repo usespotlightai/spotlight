@@ -14,7 +14,7 @@ export function MemoryKindSelect({ value, onChange }: MemoryKindSelectProps) {
       choices={KIND_OPTIONS}
       value={value}
       placeholder="Kind"
-      className="w-full rounded-md"
+      className="-my-1 w-full rounded-md"
       onChange={onChange}
     />
   );

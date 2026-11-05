@@ -3,6 +3,7 @@ import type {
   IntegrationTaskView,
   ResolvedTool,
 } from '@integrations/application/ports/integration-runtime.port';
+import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
 import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { ToolAskedMidCallError } from '@integrations/domain/exceptions/tool-asked-mid-call.error';
@@ -68,6 +69,9 @@ const TASK: IntegrationTaskView = {
   taskId: 'task_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
+  title: 'Drain the queue',
+  url: null,
+  pullRequest: null,
   line: 'delivery',
   station: 'Implementation',
   stationKey: 'implementation',
@@ -100,6 +104,7 @@ const resolving = async (
     unlimited,
     hosts,
     noNetwork,
+    noFiles,
   );
   const resolved = await runtime.tool(
     [

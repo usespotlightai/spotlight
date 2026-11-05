@@ -1,13 +1,18 @@
 import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
 import { InsightsCardSkeleton } from '@/components/features/insights/InsightsCardSkeleton';
 import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
-import { CANDIDATES_NOTE, candidateHeadings } from '@/lib/insights-candidates';
+import {
+  CANDIDATES_NOTE,
+  candidateHeadings,
+  MIN_GAIN_EXTENT,
+} from '@/lib/insights-candidates';
 import { ignore } from '@/lib/utils';
 
 export function CandidatesSkeleton() {
   return (
     <div role="status" aria-label="Loading the candidates">
       <InsightsCardSkeleton
+        flat
         title="Replayed candidates"
         description={CANDIDATES_NOTE}
         actions={
@@ -18,7 +23,7 @@ export function CandidatesSkeleton() {
       >
         <NestedTableSkeleton
           label="Loading the replayed candidates"
-          headings={candidateHeadings(false)}
+          headings={candidateHeadings(false, MIN_GAIN_EXTENT)}
           rows={3}
           trailing
         />

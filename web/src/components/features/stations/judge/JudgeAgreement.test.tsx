@@ -19,7 +19,46 @@ vi.mock('@/hooks/api/useStationJudge', () => ({
 const statistics = () =>
   document.querySelector('[data-slot="judge-statistics"]')?.textContent;
 
+const showing = () =>
+  render(
+    <MemoryRouter>
+      <JudgeAgreement
+        slug="acme"
+        teamId="team_1"
+        lineId="line_1"
+        stationId="station_1"
+      />
+    </MemoryRouter>,
+  );
+
 describe('JudgeAgreement', () => {
+  it('shows who scored the last runs, where the scores differ with their totals, and when the trend shows', () => {
+    showing();
+
+    const { coverage } = JUDGE_AGREEMENT;
+    expect(
+      screen.getByRole('heading', {
+        name: `Who scored the last ${coverage.runs} runs`,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="judge-coverage"] dl')?.textContent,
+    ).toContain(`Both scores${coverage.both}`);
+    expect(
+      screen.getAllByRole('columnheader').map((each) => each.textContent),
+    ).toEqual(['Judge said', 'People said', 'no', 'yes', 'Total']);
+    expect(
+      [
+        ...document.querySelectorAll(
+          '[data-slot="confusion-matrix"] td[data-agree="false"]',
+        ),
+      ].length,
+    ).toBe(2);
+    expect(
+      screen.getByText(/^The trend shows once 30 runs on this rubric/),
+    ).toHaveTextContent('24 have so far.');
+  });
+
   it('shows the current rubric version, and an earlier one picked from the dropdown', async () => {
     render(
       <MemoryRouter>
@@ -34,9 +73,7 @@ describe('JudgeAgreement', () => {
 
     expect(statistics()).toMatch(/^Cohen’s kappa/);
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Rubric: Current version' }),
-    );
+    await userEvent.click(screen.getByRole('button', { name: 'Rubric' }));
     expect(
       (await screen.findAllByRole('menuitemradio')).map(
         (each) => each.textContent,

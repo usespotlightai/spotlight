@@ -1,12 +1,15 @@
+import type { TooltipText } from '@/lib/tooltip-note';
 export type NestedHeading = {
   readonly label: string;
   readonly numeric?: boolean;
-  readonly tooltip?: string;
+  readonly tooltip?: TooltipText;
   readonly indent?: 'edge' | 'outer' | 'inner';
   readonly size?: string;
 };
 
 export const SPREAD = 'minmax(max-content,1fr)';
+
+export const FIGURE = 'minmax(6rem,max-content)';
 
 const FILLER = 'minmax(0,1fr)';
 

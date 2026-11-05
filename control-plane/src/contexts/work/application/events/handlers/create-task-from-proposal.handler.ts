@@ -1,6 +1,7 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
+import type { AttachmentCopies } from '@work/application/services/attachment-copies';
 import type { CreateTask } from '@work/application/services/create-task';
 import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -17,6 +18,7 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
     private readonly lines: LineRepository,
     private readonly placements: TaskPlacementsPort,
     private readonly createTask: CreateTask,
+    private readonly copies: AttachmentCopies,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
@@ -35,12 +37,19 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
       return;
     }
 
+    const attachments = await this.copies.copy(
+      event.workspaceId,
+      event.attachments,
+      (place) => `${event.chatId.value}-${event.position.value}-task-${place}`,
+    );
+
     await this.createTask.create({
       task: Task.add({
         line,
         at: station.id,
         title: event.title,
         description: event.description,
+        attachments,
         rank: Placement.atTheBack(
           (await this.placements.placementsAt(station.id)).map(
             (each) => each.rank,

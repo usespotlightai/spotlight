@@ -60,6 +60,7 @@ const taskOnLine = async (...names: string[]) => {
   );
   await db.insert(schema.task).values({
     id: taskId,
+    branch: `feat/test-${taskId}`,
     openedFrom: 'person',
     workspaceId: 'ws_1',
     stationId: stations[stations.length - 1],

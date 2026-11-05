@@ -7,6 +7,7 @@ import { ChangeStackRedraftingEnded } from '@change-review/domain/events/change-
 import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
+import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
@@ -22,11 +23,15 @@ import type {
   CheckStep,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import type {
+  LayerQuestion,
   ProposedCohort,
   StackCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
-import type { LayerId } from '@change-review/domain/value-objects/stack-ids';
+import type {
+  LayerId,
+  QuestionId,
+} from '@change-review/domain/value-objects/stack-ids';
 import {
   type ChangeStackState,
   INTERRUPTED,
@@ -44,7 +49,16 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
+export interface CitedHunk {
+  readonly path: string;
+  readonly patch: string;
+}
+
 const NOT_GENERATED = 'Spotlight couldn’t generate the change stack.';
+
+const TOO_LARGE = 'The change is too large for one change stack.';
+
+const BROKE_RULES = 'The generated stack did not assign every hunk in order.';
 
 const changeLayers = (
   stack: readonly { kind: string; layers: readonly unknown[] }[],
@@ -270,6 +284,31 @@ export class ChangeStack
       .map((layer) => layer.id);
   }
 
+  question(id: QuestionId): LayerQuestion {
+    const found =
+      this.state === 'ready'
+        ? this.cohorts
+            .flatMap((cohort) => cohort.layers)
+            .flatMap((layer) => layer.questions)
+            .find((each) => each.id === id)
+        : undefined;
+
+    if (!found) {
+      throw new UnknownQuestionError();
+    }
+
+    return found;
+  }
+
+  citedBy(question: LayerQuestion): CitedHunk[] {
+    return question.hunks.flatMap((id) => {
+      const file = this.diff.fileOf(id);
+      const hunk = file?.hunks.find((each) => each.id === id);
+
+      return file && hunk ? [{ path: file.path, patch: hunk.patch }] : [];
+    });
+  }
+
   checkSteps(entries: readonly CheckEntry[]): CheckStep[] {
     return checkStepsOf({
       hunks: this.diff.hunks.map((hunk) => hunk.id),
@@ -315,11 +354,36 @@ export class ChangeStack
   }
 
   deadLetter(now: Date): ChangeStack {
-    if (this.state === 'generating') {
-      return this.fail(NOT_GENERATED, now);
+    return this.stopWith(NOT_GENERATED, now);
+  }
+
+  renewJobLease(now: Date): ChangeStack {
+    if (!this.hasPendingJob) {
+      throw InvalidChangeStackError.because(
+        'has nothing to generate or redraft',
+      );
     }
 
-    return this.stopRedrafting();
+    return this.with({ job: this.job.renewLease(now) });
+  }
+
+  settleFailedCall(
+    failure: { readonly truncated: boolean },
+    now: Date,
+  ): ChangeStack {
+    return failure.truncated
+      ? this.stopWith(TOO_LARGE, now)
+      : this.scheduleRetry(now);
+  }
+
+  stopForBrokenRules(now: Date): ChangeStack {
+    return this.stopWith(BROKE_RULES, now);
+  }
+
+  private stopWith(failure: string, now: Date): ChangeStack {
+    return this.state === 'generating'
+      ? this.fail(failure, now)
+      : this.stopRedrafting();
   }
 
   redrafted(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {

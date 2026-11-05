@@ -26,6 +26,7 @@ import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
@@ -178,6 +179,7 @@ const toTask = (
     workspaceId: WorkspaceId.of(row.workspaceId),
     stationId: StationId.of(row.stationId),
     title: TaskTitle.of(row.title),
+    branch: Branch.of(row.branch),
     description: row.description ? TaskDescription.of(row.description) : null,
     rank: TaskRank.of(row.rank),
     currentRunId: row.currentRunId ? RunId.of(row.currentRunId) : null,
@@ -239,6 +241,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         workspaceId: added.workspaceId.value,
         stationId: added.stationId.value,
         title: added.title.value,
+        branch: added.branch.value,
         description: added.description?.value ?? null,
         rank: added.rank.value,
         currentRunId: added.currentRunId?.value ?? null,
@@ -426,8 +429,8 @@ export class DrizzleTaskRepository implements TaskRepository {
     workspaceId: WorkspaceId,
     correlationKeys: CorrelationKeys,
   ): Promise<Task | null> {
-    const named = correlationKeys.taskId
-      ? eq(task.id, correlationKeys.taskId.value)
+    const named = correlationKeys.branch
+      ? eq(task.branch, correlationKeys.branch.value)
       : undefined;
 
     const marked = correlationKeys.marks.length

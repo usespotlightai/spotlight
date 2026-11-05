@@ -5,6 +5,8 @@ import type { StationNames } from '@/lib/insights';
 import {
   type CandidatesStation,
   candidateHeadings,
+  GainScale,
+  gainExtentOf,
 } from '@/lib/insights-candidates';
 
 type CandidatesTableProps = {
@@ -25,23 +27,28 @@ export function CandidatesTable({
     ),
   );
 
+  const extent = gainExtentOf(stations);
+
   return (
-    <NestedTable
-      label="Replayed candidates"
-      headings={candidateHeadings(heldOut)}
-      trailing
-      headed={!chartStatus}
-    >
-      {stations.map((station) => (
-        <CandidateStationRows
-          key={station.stationId}
-          station={station}
-          names={names}
-          heldOut={heldOut}
-          chartStatus={chartStatus}
-          collapsibles={collapsibles}
-        />
-      ))}
-    </NestedTable>
+    <GainScale value={extent}>
+      <NestedTable
+        label="Replayed candidates"
+        headings={candidateHeadings(heldOut, extent)}
+        trailing
+        compact
+        headed={!chartStatus}
+      >
+        {stations.map((station) => (
+          <CandidateStationRows
+            key={station.stationId}
+            station={station}
+            names={names}
+            heldOut={heldOut}
+            chartStatus={chartStatus}
+            collapsibles={collapsibles}
+          />
+        ))}
+      </NestedTable>
+    </GainScale>
   );
 }

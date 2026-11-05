@@ -19,7 +19,7 @@ interface NamedHunk {
   readonly layer: number | null;
 }
 
-interface NamedFile {
+export interface NamedFile {
   readonly path: string;
   readonly hunks: readonly NamedHunk[];
 }
@@ -120,4 +120,27 @@ export const redraftRequestOf = (
         })),
         failed,
       };
+};
+
+export const cohortRedraft = (
+  request: RedraftRequest,
+  cohort: number,
+): RedraftRequest | null => {
+  const failed = request.failed.filter((each) => each.cohort === cohort);
+  const redrafted = request.stack[cohort];
+
+  return failed.length > 0 && redrafted
+    ? {
+        command: request.command,
+        stack: [redrafted],
+        failed: failed.map((each) => ({
+          ...each,
+          cohort: 0,
+          named: each.named.flatMap((file) => {
+            const hunks = file.hunks.filter((hunk) => hunk.layer !== null);
+            return hunks.length > 0 ? [{ ...file, hunks }] : [];
+          }),
+        })),
+      }
+    : null;
 };

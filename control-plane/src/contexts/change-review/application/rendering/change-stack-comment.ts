@@ -1,10 +1,10 @@
 import type {
+  OutlinedCohortDto,
   StackCheckDto,
-  StackCohortDto,
 } from '@change-review/application/dto/change-stack.dto';
 
 export interface CommentedStack {
-  readonly cohorts: readonly StackCohortDto[];
+  readonly cohorts: readonly OutlinedCohortDto[];
   readonly check: StackCheckDto | null;
 }
 

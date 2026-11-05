@@ -18,16 +18,27 @@ import type {
   ToolInputValues,
 } from '@work/application/contracts/tools.contract';
 
+interface NoticeFileView {
+  readonly id: string;
+  readonly name: string;
+  readonly type: string;
+  readonly size: number;
+}
+
 interface IntegrationTaskViewWaiting {
   readonly conversationId: string;
   readonly body: string;
   readonly awaitsApproval: boolean;
+  readonly attachments: readonly NoticeFileView[];
 }
 
 export interface IntegrationTaskView {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly teamId: string;
+  readonly title: string;
+  readonly url: string | null;
+  readonly pullRequest: string | null;
   readonly line: string;
   readonly station: string;
   readonly stationKey: string;
@@ -98,12 +109,24 @@ export interface TaskPayload {
     readonly body: string;
     readonly link: string | null;
     readonly station: string;
+    readonly attachments: readonly NoticeFileView[];
   };
+}
+
+interface ProposalView {
+  readonly number: number;
+  readonly title: string;
+  readonly line: string | null;
+  readonly station: string | null;
 }
 
 export interface ChatPayload {
   readonly chat: { readonly marks: Readonly<Record<string, string>> };
-  readonly reply: { readonly body: string; readonly link: string | null };
+  readonly reply: {
+    readonly body: string;
+    readonly link: string | null;
+    readonly proposals: readonly ProposalView[];
+  };
 }
 
 export type NoticePayload = TaskPayload | ChatPayload;
@@ -155,7 +178,7 @@ export interface IntegrationRuntimePort {
     event: string,
     payload: NoticePayload,
     callAuth: CallAuth,
-  ): Promise<PostResult>;
+  ): Promise<readonly PostResult[]>;
 
   tool(
     definitions: readonly DefinedIntegration[],

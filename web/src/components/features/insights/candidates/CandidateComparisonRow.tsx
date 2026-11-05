@@ -1,7 +1,6 @@
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
-import { GainValue } from '@/components/features/insights/candidates/GainValue';
-import { RateTrack } from '@/components/features/insights/candidates/RateTrack';
-import { ReplayStatePill } from '@/components/features/insights/candidates/ReplayStatePill';
+import { GainTrack } from '@/components/features/insights/candidates/GainTrack';
+import { ReplayStateIcon } from '@/components/features/insights/candidates/ReplayStateIcon';
 import { ConfigPlan } from '@/components/features/insights/changes/ConfigPlan';
 import { ExternalPillLink } from '@/components/shared/ExternalPillLink';
 import { ClampedCell } from '@/components/shared/nested-table/ClampedCell';
@@ -28,16 +27,8 @@ import {
   type SetCandidate,
 } from '@/lib/insights-candidates';
 import { formatPercent } from '@/lib/judge';
-import { COMPACT_PILL } from '@/lib/pill';
-import type { GainSignificanceCode } from '@/lib/replay-words';
 import { configChangesOf } from '@/lib/station-config';
 import { cn } from '@/lib/utils';
-
-const INKS: Record<GainSignificanceCode, string> = {
-  better: 'var(--chart-success)',
-  worse: 'var(--destructive)',
-  'within-noise': 'var(--chart-axis)',
-};
 
 type CandidateComparisonRowProps = {
   candidate: SetCandidate;
@@ -62,7 +53,7 @@ export function CandidateComparisonRow({
         <>
           <div
             className={cn(
-              'col-span-full flex min-w-0 flex-col gap-0.5 @4xl:col-span-1',
+              'col-span-full flex min-w-0 flex-col gap-0.5 @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1',
               OUTER_INDENT,
             )}
           >
@@ -73,10 +64,7 @@ export function CandidateComparisonRow({
               {candidate.onFrontier && <BestValueMark />}
               {candidate.replayState &&
                 candidate.replayState !== 'finished' && (
-                  <ReplayStatePill
-                    state={candidate.replayState}
-                    className={cn(COMPACT_PILL, 'shrink-0')}
-                  />
+                  <ReplayStateIcon state={candidate.replayState} />
                 )}
             </div>
           </div>
@@ -91,28 +79,15 @@ export function CandidateComparisonRow({
             </span>
           </NestedCell>
 
-          <div className="col-span-full min-w-0 @4xl:col-span-1">
-            <RateTrack
-              rate={shown.successRate}
-              interval={shown.interval}
-              live={shown.liveSuccessRate}
-              ink={
-                candidate.gainOverLive
-                  ? INKS[candidate.gainOverLive.significance]
-                  : undefined
-              }
-            />
-          </div>
-
           <NestedCell heading="Candidate" strong>
             {formatPercent(shown.successRate)}
           </NestedCell>
           <NestedCell heading="Live">
             {formatPercent(shown.liveSuccessRate)}
           </NestedCell>
-          <NestedCell heading="Against live" numeric={false}>
-            <GainValue gain={candidate.gainOverLive} />
-          </NestedCell>
+          <div className="col-span-full grid h-5 min-w-0 items-center self-start @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1">
+            <GainTrack gain={candidate.gainOverLive} />
+          </div>
           <NestedCell heading="Cost per run" strong>
             {costNote ? (
               <Tooltip>
@@ -142,12 +117,12 @@ export function CandidateComparisonRow({
           {link ? (
             <ExternalPillLink
               href={link}
-              className="justify-self-start whitespace-nowrap @4xl:justify-self-end"
+              className="-my-0.5 justify-self-start whitespace-nowrap @4xl:justify-self-end @lg:group-data-compact/nested:justify-self-end"
             >
               Pull request
             </ExternalPillLink>
           ) : (
-            <span className="hidden @4xl:block" />
+            <span className="hidden @4xl:block @lg:group-data-compact/nested:block" />
           )}
         </>
       )}

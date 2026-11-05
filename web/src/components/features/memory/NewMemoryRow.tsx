@@ -48,13 +48,13 @@ export function NewMemoryRow({ teamId, lines, onDone }: NewMemoryRowProps) {
         />
         <MemoryKindSelect value={draft.kind} onChange={draft.setKind} />
         <MemoryPlaceEditor draft={draft} lines={lines} />
-        <span className="truncate text-muted-foreground text-xs leading-5">
+        <span className="truncate text-muted-foreground text-sm leading-5">
           {SOURCE_LABELS.person}
         </span>
-        <span className="truncate text-muted-foreground text-xs leading-5">
+        <span className="truncate text-muted-foreground text-sm leading-5">
           {session?.user.name ?? 'You'}
         </span>
-        <span className="text-right text-muted-foreground text-xs leading-5 tabular-nums">
+        <span className="text-right text-muted-foreground text-sm leading-5 tabular-nums">
           0
         </span>
       </div>

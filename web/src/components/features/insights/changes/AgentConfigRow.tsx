@@ -31,18 +31,18 @@ export function AgentConfigRow({
     <li
       data-slot="agent-config-row"
       className={cn(
-        'relative col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 @4xl:grid-cols-subgrid',
+        'relative col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 @4xl:grid-cols-subgrid @lg:group-data-compact/nested:grid-cols-subgrid',
         OUTER_GUIDE,
         OUTER_DIVIDER,
       )}
     >
       <div
         className={cn(
-          'col-span-full flex min-w-0 items-center gap-2 @4xl:col-span-1',
+          'col-span-full flex min-w-0 items-center gap-2 @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1',
           OUTER_INDENT,
         )}
       >
-        <span className="min-w-0 truncate font-medium text-foreground text-xs">
+        <span className="min-w-0 truncate text-foreground">
           {formatAgentConfigWithin(agentConfig)}
         </span>
         {agentConfig.frontier.includes(measure) && <BestValueMark />}

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { RetireReply } from '@/components/features/memory/RetireReply';
 import { SaveCancelButtons } from '@/components/features/memory/SaveCancelButtons';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
-import { PillButton } from '@/components/shared/PillButton';
+import { DecisionButton } from '@/components/shared/DecisionButton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useTeamMemory } from '@/hooks/api/useTeamMemory';
 import { failed, loading } from '@/lib/query';
@@ -42,7 +42,7 @@ export function MemoryDetails({
       <div
         role="status"
         aria-label="Loading the memory"
-        className="flex flex-col text-xs leading-5"
+        className="flex flex-col text-sm leading-5"
       >
         <SkeletonLine className="w-2/3" />
         <SkeletonLine className="w-1/3" />
@@ -80,14 +80,15 @@ export function MemoryDetails({
 
       {memory.status === 'active' && !retiring && !editing && (
         <div className="flex flex-wrap items-center gap-2">
-          <PillButton onClick={onEdit}>Edit</PillButton>
-          <PillButton
-            variant="ghost"
-            className="text-muted-foreground"
+          <DecisionButton className="min-w-0" onClick={onEdit}>
+            Edit
+          </DecisionButton>
+          <DecisionButton
+            className="min-w-0 hover:text-outcome-failed"
             onClick={() => setRetiring(true)}
           >
             Retire
-          </PillButton>
+          </DecisionButton>
         </div>
       )}
 

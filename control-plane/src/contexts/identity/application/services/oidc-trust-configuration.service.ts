@@ -20,6 +20,7 @@ const configured = (trust: OidcTrustRecord): OidcTrustView => ({
   claims: { ...trust.claims },
   scopes: [...trust.scopes],
   lifetimeMinutes: trust.lifetimeMinutes,
+  description: trust.description,
 });
 
 export class OidcTrustConfiguration implements OidcTrustConfigurationPort {

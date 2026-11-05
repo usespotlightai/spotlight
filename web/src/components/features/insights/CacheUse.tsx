@@ -3,7 +3,9 @@ import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
+  LEAD_CELL,
   ROW_DIVIDER,
+  TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
@@ -30,9 +32,9 @@ type CacheUseProps = {
 export function CacheUse({ slug, teamId, stations, names }: CacheUseProps) {
   return (
     <InsightsCard
+      flat
       tableOnly={stations.length > 0}
-      scrolls
-      title="Read from cache"
+      title="Cache share by station"
       description={CACHE_NOTE}
     >
       {stations.length === 0 ? (
@@ -40,7 +42,11 @@ export function CacheUse({ slug, teamId, stations, names }: CacheUseProps) {
           No station reported tokens in this period.
         </p>
       ) : (
-        <NestedTable label="Cache share by station" headings={CACHE_HEADINGS}>
+        <NestedTable
+          label="Cache share by station"
+          headings={CACHE_HEADINGS}
+          compact
+        >
           {stations.map((station) => {
             const named = names.get(station.stationId);
 
@@ -48,14 +54,12 @@ export function CacheUse({ slug, teamId, stations, names }: CacheUseProps) {
               <li
                 key={station.stationId}
                 data-slot="station-cache"
-                className={cn(
-                  'col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 text-xs @4xl:grid-cols-subgrid',
-                  ROW_DIVIDER,
-                )}
+                className={cn(TABLE_ROW, ROW_DIVIDER)}
               >
                 <span
                   className={cn(
-                    'col-span-full min-w-0 truncate font-medium text-foreground @4xl:col-span-1',
+                    LEAD_CELL,
+                    'truncate text-foreground',
                     EDGE_INDENT,
                   )}
                 >

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { Workspace } from '@/routes/Workspace';
+import { quietBrowser } from '@/test/signed-in';
 
 vi.mock('@/hooks/api/useWorkspace', () => ({ useWorkspace: vi.fn() }));
 vi.mock('@/hooks/api/useSettingUp', () => ({ useSettingUp: vi.fn() }));
@@ -96,6 +97,8 @@ beforeEach(() => {
     { id: 'h3', name: 'three', online: false },
   ]);
 });
+
+quietBrowser();
 
 describe('Workspace', () => {
   it('says the workspace is being set up, in place of the sidebar and page', () => {

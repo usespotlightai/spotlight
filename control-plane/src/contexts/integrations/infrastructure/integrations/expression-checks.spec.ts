@@ -61,10 +61,12 @@ const LINEAR = {
     },
   },
   on: {
-    'task.opened': {
-      action: 'comment',
-      to: { thread: e('task.marks["slack.thread"] + ask.bdoy') },
-    },
+    'task.opened': [
+      {
+        action: 'comment',
+        to: { thread: e('task.marks["slack.thread"] + ask.bdoy') },
+      },
+    ],
   },
 };
 
@@ -133,7 +135,7 @@ const outcomeOf = (position: string) =>
 
 const WHEN = 'integration.webhook.events[0].when';
 const WALKING = 'integration.webhook.events[1].when';
-const THREAD = 'integration.on["task.opened"].to.thread';
+const THREAD = 'integration.on["task.opened"][0].to.thread';
 
 describe('checking an expression where a definition contains it', () => {
   it('answers the type a sound one evaluates to', () => {
@@ -267,10 +269,12 @@ describe('a definition that is not valid', () => {
       problemsOf(THREAD, 'ask.body', {
         ...LINEAR,
         on: {
-          'task.opened': { ...LINEAR.on['task.opened'], action: 'missing' },
+          'task.opened': [
+            { ...LINEAR.on['task.opened'][0], action: 'missing' },
+          ],
         },
       }).map((each) => each.at),
-    ).toEqual(['on["task.opened"].action']);
+    ).toEqual(['on["task.opened"][0].action']);
   });
 
   it('is still checked where it only warns', () => {
@@ -391,13 +395,14 @@ describe('the positions an expression is written at', () => {
 
   it('describes the fields Spotlight shapes', () => {
     expect(
-      listed('integration.on[*].to[*]')?.variables.find(
+      listed('integration.on[*][*].to[*]')?.variables.find(
         (each) => each.name === 'ask',
       ),
     ).toEqual({
       name: 'ask',
       type: 'object',
       fields: [
+        { name: 'attachments', type: 'list', fields: [] },
         { name: 'body', type: 'string', fields: [] },
         { name: 'link', type: 'dyn', fields: [] },
         { name: 'station', type: 'string', fields: [] },
@@ -496,7 +501,19 @@ describe('the positions an expression is written at', () => {
         cursor: NOPE,
         events: [event('kitchen.polled'), chatting('kitchen.answered')],
       },
-      actions: { k: { request } },
+      actions: {
+        k: { request },
+        u: {
+          uploads: {
+            each: NOPE,
+            prepare: request,
+            send: { ...request, body: undefined },
+            complete: request,
+            ready: { ...request, attempts: 3 },
+          },
+          request,
+        },
+      },
       tools: {
         k: {
           action: 'k',
@@ -506,11 +523,13 @@ describe('the positions an expression is written at', () => {
         },
       },
       on: {
-        'task.opened': {
-          action: 'k',
-          to: { k: NOPE },
-          mark: [{ kind: 'kitchen.mark', value: NOPE }],
-        },
+        'task.opened': [
+          {
+            action: 'k',
+            to: { k: NOPE },
+            mark: [{ kind: 'kitchen.mark', value: NOPE }],
+          },
+        ],
       },
     });
 

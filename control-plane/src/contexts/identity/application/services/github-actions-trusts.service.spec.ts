@@ -9,6 +9,7 @@ import type {
 import { GitHubActionsTrusts } from '@identity/application/services/github-actions-trusts.service';
 import type { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
+import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
@@ -196,6 +197,7 @@ describe('GitHubActionsTrusts', () => {
           }),
           scopes: apply.scopes,
           lifetime: apply.lifetime,
+          description: OidcTrustDescription.of(''),
         },
         ScopeCeiling.of(PersonPrincipal.of(UserId.of('admin_1'))),
         ChangeActor.spotlight(WorkspaceId.of('ws_1')),
@@ -268,6 +270,7 @@ describe('GitHubActionsTrusts', () => {
           workload: apply.workload,
           scopes: TokenScopes.named(['configure']),
           lifetime: TokenLifetime.ofMinutes(10),
+          description: OidcTrustDescription.of(''),
         },
         ScopeCeiling.of(PersonPrincipal.of(UserId.of('admin_1'))),
         ChangeActor.spotlight(WorkspaceId.of('ws_1')),

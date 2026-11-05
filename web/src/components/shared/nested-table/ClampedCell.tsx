@@ -14,7 +14,7 @@ export function ClampedCell({
     <div
       ref={clamp}
       data-clamp
-      className="col-span-full min-w-0 @4xl:col-span-1 @4xl:group-data-clamped/row:max-h-4 @4xl:group-data-clamped/row:overflow-hidden"
+      className="col-span-full min-w-0 @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1 @4xl:group-data-clamped/row:max-h-4 @lg:group-data-compact/nested:group-data-clamped/row:max-h-4 @4xl:group-data-clamped/row:overflow-hidden @lg:group-data-compact/nested:group-data-clamped/row:overflow-hidden"
     >
       {children}
     </div>

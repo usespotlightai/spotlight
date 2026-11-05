@@ -2,11 +2,17 @@ import type { IntegrationTaskView } from '@integrations/application/ports/integr
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 
 export const IntegrationTaskViewMapper = {
-  toView(task: IntegrationTaskViewDto): IntegrationTaskView {
+  toView(
+    task: IntegrationTaskViewDto,
+    url: string | null,
+  ): IntegrationTaskView {
     return {
       taskId: task.taskId,
       workspaceId: task.workspaceId,
       teamId: task.teamId,
+      title: task.title,
+      url,
+      pullRequest: task.pullRequest,
       line: task.line,
       station: task.station,
       stationKey: task.stationKey,
@@ -16,6 +22,12 @@ export const IntegrationTaskViewMapper = {
             conversationId: task.waiting.conversationId,
             body: task.waiting.body,
             awaitsApproval: task.waiting.awaitsApproval,
+            attachments: task.waiting.attachments.map((file) => ({
+              id: file.id,
+              name: file.name,
+              type: file.contentType,
+              size: file.size,
+            })),
           }
         : null,
     };

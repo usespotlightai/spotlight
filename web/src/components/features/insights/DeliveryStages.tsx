@@ -4,7 +4,8 @@ import {
   DELIVERY_NOTE,
   type Flow,
   formatCount,
-  formatSpread,
+  formatMedian,
+  formatSlowest,
   mergedFilter,
   shownDeltaOf,
   tasksFilter,
@@ -23,21 +24,24 @@ export function DeliveryStages({ delivery }: DeliveryStagesProps) {
       <InsightsTile
         label="PRs opened"
         value={formatCount(delivery.opened)}
-        detail={`Task to PR ${formatSpread(delivery.toPullRequest)}`}
+        detail={`Task to PR ${formatMedian(delivery.toPullRequest)}`}
+        tooltip={formatSlowest(delivery.toPullRequest)}
         delta={shownDeltaOf(delivery.changes.opened)}
         drill={opened ? { tab: 'traces', filter: opened } : undefined}
       />
       <InsightsTile
         label="First reviews"
         value={formatCount(delivery.reviewed)}
-        detail={`PR to review ${formatSpread(delivery.toFirstReview)}`}
+        detail={`PR to review ${formatMedian(delivery.toFirstReview)}`}
+        tooltip={formatSlowest(delivery.toFirstReview)}
         delta={shownDeltaOf(delivery.changes.reviewed)}
         drill={reviewed ? { tab: 'traces', filter: reviewed } : undefined}
       />
       <InsightsTile
         label="PRs merged"
         value={formatCount(delivery.merged)}
-        detail={`Review to merge ${formatSpread(delivery.toMerge)}`}
+        detail={`Review to merge ${formatMedian(delivery.toMerge)}`}
+        tooltip={formatSlowest(delivery.toMerge)}
         delta={shownDeltaOf(delivery.changes.merged)}
         drill={{ tab: 'traces', filter: mergedFilter(delivery.mergedTaskIds) }}
       />

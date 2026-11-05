@@ -2,6 +2,7 @@ import type {
   CohortId,
   HunkId,
   LayerId,
+  QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
 
 export const COHORT_KINDS = ['change', 'incidental'] as const;
@@ -10,6 +11,10 @@ export type CohortKind = (typeof COHORT_KINDS)[number];
 
 export const needsFileNotes = (kind: CohortKind): boolean => kind === 'change';
 
+export const MAX_QUESTIONS = 2;
+
+export const asksQuestions = (kind: CohortKind): boolean => kind === 'change';
+
 interface StackHunk {
   readonly hunk: HunkId;
 }
@@ -17,6 +22,16 @@ interface StackHunk {
 export interface FileNote {
   readonly path: string;
   readonly note: string;
+}
+
+export interface ProposedQuestion {
+  readonly question: string;
+  readonly answer: string;
+  readonly hunks: readonly HunkId[];
+}
+
+export interface LayerQuestion extends ProposedQuestion {
+  readonly id: QuestionId;
 }
 
 export interface LayerDependency {
@@ -31,6 +46,7 @@ interface StackLayer {
   readonly dependsOn: readonly LayerDependency[];
   readonly hunks: readonly StackHunk[];
   readonly notes: readonly FileNote[];
+  readonly questions: readonly LayerQuestion[];
 }
 
 export interface StackCohort {
@@ -38,6 +54,7 @@ export interface StackCohort {
   readonly kind: CohortKind;
   readonly title: string;
   readonly intent: string;
+  readonly joinedBecause: string | null;
   readonly layers: readonly StackLayer[];
 }
 
@@ -50,6 +67,7 @@ export interface ProposedLayer {
   }[];
   readonly hunks: readonly StackHunk[];
   readonly notes: readonly FileNote[];
+  readonly questions: readonly ProposedQuestion[];
 }
 
 export interface ProposedCohort {
@@ -58,4 +76,12 @@ export interface ProposedCohort {
   readonly intent: string;
   readonly joinedBecause?: string | null;
   readonly layers: readonly ProposedLayer[];
+}
+
+export interface OutlinedCohort {
+  readonly kind: CohortKind;
+  readonly title: string;
+  readonly intent: string;
+  readonly joinedBecause: string | null;
+  readonly hunks: readonly HunkId[];
 }

@@ -2,10 +2,11 @@ import type {
   ChangeStackResponseDto,
   JournalStepResponseDto,
   NoteResponseDto,
+  QuestionAnswerResponseDto,
   RunJournalResponseDto,
   TaskRunResponseDto,
 } from '@/lib/api';
-import { world } from '@/mocks/world';
+import { perWorld, world } from '@/mocks/world';
 import type { HistoryRun } from '@/mocks/world/insights-history';
 import { MINUTE_MS } from '@/mocks/world/insights-measures';
 import { pullRequestUrlOf } from '@/mocks/world/insights-pull-requests';
@@ -648,6 +649,7 @@ const pastStacksOf = (runId: string): ChangeStackResponseDto[] => {
                 summary: storyOf(runId).output ?? '',
                 hunks: [{ hunk: `${runId}_h${place + 1}` }],
                 notes: [],
+                questions: [],
               })),
             },
           ],
@@ -655,10 +657,58 @@ const pastStacksOf = (runId: string): ChangeStackResponseDto[] => {
       ];
 };
 
+const stackAnswers = perWorld(
+  (): Record<string, QuestionAnswerResponseDto> => ({}),
+);
+
+const EXPECTED: Record<string, string> = {
+  'c1.l2.q1':
+    'The rewrite locks the table, so writes to invoices wait until it ends, for about 1.3M rows.',
+  'c1.l2.q2':
+    'No. The API still answers in milliseconds, so values in the same millisecond keep their order.',
+};
+
+export const answerStackQuestion = (
+  stackId: string,
+  questionId: string,
+  reply: string | null,
+): QuestionAnswerResponseDto => {
+  const answer: QuestionAnswerResponseDto = {
+    questionId,
+    reply: reply?.trim() || null,
+    verdict: reply?.trim() ? 'partly-right' : 'missed',
+    feedback: reply?.trim()
+      ? 'You are right that it takes long. You missed that writes to invoices wait for it.'
+      : null,
+    expected: EXPECTED[questionId] ?? 'The answer that the hunks show.',
+  };
+
+  stackAnswers()[`${stackId}/${questionId}`] = answer;
+  return answer;
+};
+
+const withAnswers = (
+  stacks: ChangeStackResponseDto[],
+): ChangeStackResponseDto[] =>
+  stacks.map((stack) => ({
+    ...stack,
+    cohorts: stack.cohorts.map((cohort) => ({
+      ...cohort,
+      layers: cohort.layers.map((layer) => ({
+        ...layer,
+        questions: layer.questions.map((question) => ({
+          ...question,
+          answered:
+            stackAnswers()[`${stack.id}/${question.id}`] ?? question.answered,
+        })),
+      })),
+    })),
+  }));
+
 export const changeStacksOf = (runId: string): ChangeStackResponseDto[] => {
   const core = RUN_CHANGE_STACKS[runId];
   if (core) {
-    return core;
+    return withAnswers(core);
   }
   const found = pastStacks.get(runId) ?? pastStacksOf(runId);
   pastStacks.set(runId, found);

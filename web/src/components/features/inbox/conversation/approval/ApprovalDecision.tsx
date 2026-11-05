@@ -1,6 +1,6 @@
 import { ApprovalApproveButton } from '@/components/features/inbox/conversation/approval/ApprovalApproveButton';
+import { DecisionButton } from '@/components/shared/DecisionButton';
 import { DecisionControls } from '@/components/shared/DecisionControls';
-import { DecisionPill } from '@/components/shared/DecisionPill';
 import type { Approval } from '@/lib/approval';
 
 type ApprovalDecisionProps = {
@@ -20,13 +20,13 @@ export function ApprovalDecision({
 }: ApprovalDecisionProps) {
   return (
     <DecisionControls>
-      <DecisionPill
+      <DecisionButton
         disabled={pending || !onDismiss}
         onClick={onDismiss}
         aria-label={`Dismiss ${approval.name}`}
       >
         Dismiss
-      </DecisionPill>
+      </DecisionButton>
       <ApprovalApproveButton
         approval={approval}
         disabled={pending || !onApprove}

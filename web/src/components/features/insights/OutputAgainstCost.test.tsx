@@ -2,7 +2,10 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
-import { OutputAgainstCost } from '@/components/features/insights/OutputAgainstCost';
+import {
+  OutputAgainstCost,
+  TipContent,
+} from '@/components/features/insights/OutputAgainstCost';
 import type { LineResponseDto } from '@/lib/api';
 import { BeforeAfterPanelContext } from '@/lib/before-after-panel';
 import { type DayOutput, stationNamesOf } from '@/lib/insights';
@@ -171,5 +174,20 @@ describe('OutputAgainstCost', () => {
     expect(
       screen.getByText(/Spend not shown\. Prices in more than one currency/),
     ).toBeInTheDocument();
+  });
+
+  it('leaves config changes out of the day tooltip', () => {
+    render(
+      <TipContent
+        placement={{ left: false, above: false }}
+        active
+        payload={[{ payload: DAYS[1] }]}
+        currency="USD"
+      />,
+    );
+
+    expect(screen.getByText('Runs').nextSibling).toHaveTextContent('5');
+    expect(screen.getByText('PRs merged').nextSibling).toHaveTextContent('1');
+    expect(screen.queryByText(/Config changed at/)).not.toBeInTheDocument();
   });
 });

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   type CandidatesSet,
+  type CandidatesStation,
   changeLinkOf,
   costBasisNote,
   formatSource,
+  gainExtentOf,
+  MIN_GAIN_EXTENT,
   replayedFrontiersOf,
   replayedPoints,
   type SetCandidate,
@@ -173,5 +176,38 @@ describe('costBasisNote', () => {
     ).toBe(
       'Cost is over all its scored runs. The live config is priced in another currency.',
     );
+  });
+});
+
+const stationWith = (
+  gains: readonly ({ low: number; high: number } | null)[],
+): CandidatesStation =>
+  ({
+    sets: [
+      {
+        candidates: gains.map((gain) => ({
+          gainOverLive: gain && { ...gain, gain: (gain.low + gain.high) / 2 },
+        })),
+      },
+    ],
+  }) as unknown as CandidatesStation;
+
+describe('gainExtentOf', () => {
+  it('reaches the widest likely range on either side, up to the next 10 points', () => {
+    expect(
+      gainExtentOf([
+        stationWith([
+          { low: -0.12, high: 0.31 },
+          { low: -0.44, high: 0.02 },
+        ]),
+      ]),
+    ).toBeCloseTo(0.5);
+  });
+
+  it('keeps a floor where every gain is small or none was compared', () => {
+    expect(gainExtentOf([stationWith([{ low: -0.03, high: 0.05 }])])).toBe(
+      MIN_GAIN_EXTENT,
+    );
+    expect(gainExtentOf([stationWith([null])])).toBe(MIN_GAIN_EXTENT);
   });
 });

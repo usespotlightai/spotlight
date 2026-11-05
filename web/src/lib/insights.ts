@@ -43,6 +43,7 @@ import { formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { RANGES, type Range, rangeOf } from '@/lib/range';
 import { teamSectionPath } from '@/lib/team';
+import { fitToWidth } from '@/lib/textFit';
 
 export type InsightsOverview = InsightsOverviewResponseDto;
 export type InsightsFlow = InsightsFlowResponseDto;
@@ -163,8 +164,6 @@ const RUN_FILTER_KEYS = [
 
 export type RunFilterKey = (typeof RUN_FILTER_KEYS)[number];
 
-const STATION_FILTER_KEYS = ['stationId'] as const;
-
 export type InsightsFilter = {
   readonly [key in RunFilterKey | PullRequestFilterKey]?: string;
 };
@@ -186,8 +185,6 @@ const filterKeysOf = (tab: InsightsTab): readonly (keyof InsightsFilter)[] => {
       return RUN_FILTER_KEYS;
     case 'productivity':
       return PULL_REQUEST_FILTER_KEYS;
-    case 'stations':
-      return STATION_FILTER_KEYS;
     default:
       return [];
   }
@@ -238,10 +235,6 @@ const filterOf = (
       return runFilterOf(params);
     case 'productivity':
       return pullRequestFilterOf(params);
-    case 'stations': {
-      const stationId = params.get('stationId');
-      return stationId ? { stationId } : {};
-    }
     default:
       return {};
   }
@@ -315,21 +308,30 @@ export const formatPer = (value: number | null): string =>
   value === null ? '–' : value.toFixed(1);
 
 const HOUR_MS = 3_600_000;
-const DAY_MS = 24 * HOUR_MS;
+
+const MINUTE_MS = 60_000;
+const SECONDS_UP_TO = 10 * MINUTE_MS;
 
 export const formatDuration = (ms: number): string => {
-  if (ms < HOUR_MS) {
+  if (ms < SECONDS_UP_TO) {
     return formatShortDuration(ms);
   }
-  if (ms < DAY_MS) {
-    const hours = Math.floor(ms / HOUR_MS);
-    const minutes = Math.round((ms % HOUR_MS) / 60_000);
-    return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+
+  const minutes = Math.round(ms / MINUTE_MS);
+  if (minutes < 60) {
+    return `${minutes}m`;
   }
 
-  const days = Math.floor(ms / DAY_MS);
-  const hours = Math.round((ms % DAY_MS) / HOUR_MS);
-  return hours ? `${days}d ${hours}h` : `${days}d`;
+  const hours = Math.round(ms / HOUR_MS);
+  if (minutes < 24 * 60) {
+    const whole = Math.floor(minutes / 60);
+    const left = minutes % 60;
+    return left ? `${whole}h ${left}m` : `${whole}h`;
+  }
+
+  const days = Math.floor(hours / 24);
+  const left = hours % 24;
+  return left ? `${days}d ${left}h` : `${days}d`;
 };
 
 export const formatDurationOrNone = (ms: number | null): string =>
@@ -341,10 +343,10 @@ export const formatMedian = (spread: Spread): string =>
 export const formatTail = (spread: Spread): string | null =>
   spread.p50Ms === null ? null : `p90 ${formatDurationOrNone(spread.p90Ms)}`;
 
-export const formatSpread = (spread: Spread): string =>
-  spread.p50Ms === null
-    ? '–'
-    : `${formatDuration(spread.p50Ms)} · p90 ${formatDurationOrNone(spread.p90Ms)}`;
+export const formatSlowest = (spread: Spread): string | undefined =>
+  spread.p90Ms === null
+    ? undefined
+    : `Slowest 10%: ${formatDuration(spread.p90Ms)}`;
 
 export type Delta = DeltaResponseDto;
 
@@ -394,6 +396,7 @@ export type HeadlineTile = {
   readonly label: string;
   readonly value: string;
   readonly detail?: string;
+  readonly tooltip?: string;
   readonly delta: ShownDelta | null;
   readonly drill: TileDrill;
 };
@@ -438,18 +441,18 @@ export const headlineTiles = (
     id: 'task-to-merge',
     label: 'Task to merge',
     value: formatDurationOrNone(now.taskToMerge.p50Ms),
-    detail:
+    tooltip:
       now.taskToMerge.p90Ms === null
         ? undefined
-        : `p90 ${formatDuration(now.taskToMerge.p90Ms)}`,
+        : `Slowest 10%: ${formatDuration(now.taskToMerge.p90Ms)}`,
     delta: shownDeltaOf(changes.taskToMerge),
     drill: { tab: 'traces', filter: mergedFilter(now.mergedTaskIds) },
   },
   {
     id: 'human-actions',
-    label: 'Human actions per task worked',
+    label: 'Actions per task',
     value: formatPer(now.humanActionsPerTask),
-    detail: `${formatCount(now.humanActions)} over ${formatCount(now.tasks)} ${now.tasks === 1 ? 'task' : 'tasks'}`,
+    detail: `Over ${formatCount(now.tasks)} ${now.tasks === 1 ? 'task' : 'tasks'}`,
     delta: shownDeltaOf(changes.humanActionsPerTask),
     drill: { tab: 'people' },
   },
@@ -635,7 +638,7 @@ export const formatSignal = (reading: SignalReading): string => {
 };
 
 export const formatTaskFailure = (failure: TaskFailureSummary): string =>
-  `${failure.source} · ${failure.code}`;
+  `${failure.source}, ${failure.code}`;
 
 export const formatRunFailure = (failure: RunFailureSummary): string =>
   failure.failure ?? 'No reason given';
@@ -679,10 +682,10 @@ export const COST_DIMENSIONS: readonly {
   readonly id: CostDimension;
   readonly label: string;
 }[] = [
-  { id: 'harness', label: 'By harness' },
-  { id: 'model', label: 'By model' },
-  { id: 'station', label: 'By station' },
-  { id: 'repository', label: 'By repository' },
+  { id: 'harness', label: 'Harness' },
+  { id: 'model', label: 'Model' },
+  { id: 'station', label: 'Station' },
+  { id: 'repository', label: 'Repository' },
 ];
 
 export const slicesOf = (
@@ -789,18 +792,104 @@ export const sankeyOf = (
   };
 };
 
+const SANKEY_DEPTH: Record<CostFlowNode['kind'], number> = {
+  model: 0,
+  station: 1,
+  repository: 2,
+};
+
+const SANKEY_LABEL_GAP = 6;
+const SANKEY_LABEL_SLACK = 4;
+const SANKEY_MIN_DIAGRAM = 120;
+
+export type SankeyLayout = {
+  readonly left: number;
+  readonly right: number;
+  readonly names: string[];
+};
+
+export const sankeyLayout = (
+  shown: SankeyShown,
+  width: number,
+  measure: (text: string) => number,
+  cap: number,
+  currency: string,
+): SankeyLayout => {
+  const values = shown.nodes.map((_, index) => {
+    const into = shown.links
+      .filter((link) => link.target === index)
+      .reduce((sum, link) => sum + link.value, 0);
+    const out = shown.links
+      .filter((link) => link.source === index)
+      .reduce((sum, link) => sum + link.value, 0);
+
+    return Math.max(into, out);
+  });
+  const amounts = values.map(
+    (value) => SANKEY_LABEL_GAP + measure(spentIn(value, currency)),
+  );
+  const room = (depth: number, name: (index: number) => string) =>
+    Math.max(
+      0,
+      ...shown.nodes.flatMap((node, index) =>
+        SANKEY_DEPTH[node.kind] === depth
+          ? [
+              SANKEY_LABEL_GAP +
+                SANKEY_LABEL_SLACK +
+                measure(name(index)) +
+                (amounts[index] ?? 0),
+            ]
+          : [],
+      ),
+    );
+
+  const left = Math.ceil(room(0, (index) => shown.nodes[index]?.name ?? ''));
+  const limit = Math.max(0, Math.min(cap, width - left - SANKEY_MIN_DIAGRAM));
+  const right = Math.ceil(
+    Math.min(
+      limit,
+      room(SANKEY_DEPTH.repository, (index) => shown.nodes[index]?.name ?? ''),
+    ),
+  );
+
+  const names = shown.nodes.map((node, index) => {
+    if (SANKEY_DEPTH[node.kind] !== SANKEY_DEPTH.repository) {
+      return node.name;
+    }
+
+    const spare =
+      right - SANKEY_LABEL_GAP - SANKEY_LABEL_SLACK - (amounts[index] ?? 0);
+
+    return fitToWidth(node.name, measure, spare);
+  });
+
+  return { left, right, names };
+};
+
 export type FlowLinkRow = {
+  readonly stage: string;
   readonly from: string;
   readonly to: string;
   readonly amount: number;
 };
 
+const STAGE_NAMES: Record<CostFlowNode['kind'], string> = {
+  model: 'Model to station',
+  station: 'Station to repository',
+  repository: 'Repository',
+};
+
 export const flowLinkRows = (shown: SankeyShown): FlowLinkRow[] =>
-  shown.links.map((link) => ({
-    from: shown.nodes[link.source]?.name ?? '–',
-    to: shown.nodes[link.target]?.name ?? '–',
-    amount: link.value,
-  }));
+  shown.links.map((link) => {
+    const source = shown.nodes[link.source];
+
+    return {
+      stage: source ? STAGE_NAMES[source.kind] : '–',
+      from: source?.name ?? '–',
+      to: shown.nodes[link.target]?.name ?? '–',
+      amount: link.value,
+    };
+  });
 
 type Paged = {
   readonly total: number;
@@ -967,39 +1056,32 @@ export const tallyTiles = (
     id: 'median',
     label: 'Median run',
     value: formatDurationOrNone(now.medianMs),
-    detail: now.p90Ms === null ? undefined : `p90 ${formatDuration(now.p90Ms)}`,
+    tooltip:
+      now.p90Ms === null
+        ? undefined
+        : `Slowest 10%: ${formatDuration(now.p90Ms)}`,
     delta: shownDeltaOf(changes.median),
     drill: undefined,
   },
 ];
 
-export const failedAny = (report: StationReport): boolean =>
+export const stationReportOf = (
+  stations: InsightsStations | undefined,
+  stationId: string,
+): StationReport | undefined =>
+  stations?.stations.find((each) => each.stationId === stationId);
+
+export type FailureReasons = Pick<
+  StationReport,
+  'runFailures' | 'taskFailures'
+>;
+
+export const failedAny = (report: FailureReasons): boolean =>
   report.taskFailures.length > 0 || report.runFailures.length > 0;
 
-export const insightsCrumbs = (
-  slug: string,
-  teamId: string,
-  view: InsightsView,
-  names: StationNames,
-): BreadcrumbSegment[] => {
-  const tab = INSIGHTS_TABS.find((each) => each.id === view.tab)?.label ?? '';
-  const stationId = view.tab === 'stations' ? view.filter.stationId : undefined;
-
-  return stationId
-    ? [
-        {
-          label: tab,
-          to: insightsPath(slug, teamId, {
-            tab: view.tab,
-            period: view.period,
-            filter: {},
-            page: 1,
-          }),
-        },
-        { label: formatStation(names, stationId) },
-      ]
-    : [{ label: tab }];
-};
+export const insightsCrumbs = (view: InsightsView): BreadcrumbSegment[] => [
+  { label: INSIGHTS_TABS.find((each) => each.id === view.tab)?.label ?? '' },
+];
 
 const signalHeadings = (indent: 'edge' | 'outer'): readonly NestedHeading[] => [
   { label: 'Signal', indent, size: 'minmax(10rem,1fr)' },
@@ -1020,7 +1102,8 @@ export const signalPrompt = (reading: SignalReading): string =>
 
 export const WORTH_IMPROVING_SPAN = rangeOf(DEFAULT_PERIOD).label.toLowerCase();
 
-export const WORTH_IMPROVING_NOTE = `Signals that have declined over the ${WORTH_IMPROVING_SPAN} or fall below team benchmarks. The team’s agent analyzes recent runs and configuration to suggest improvements.`;
+export const worthImprovingNote = (period: InsightsPeriod): string =>
+  `Signals that have declined over the ${rangeOf(period).label.toLowerCase()} or fall below team benchmarks.`;
 
 export const WORTH_IMPROVING_HEADINGS = signalHeadings('edge');
 
@@ -1048,15 +1131,19 @@ export const COST_SANKEY_NOTE =
 
 export const PEOPLE_HEADINGS: readonly NestedHeading[] = [
   { label: 'Person', indent: 'edge', size: 'minmax(10rem,2fr)' },
+  {
+    label: 'Actions',
+    numeric: true,
+    size: SPREAD,
+    tooltip: 'Moves, answers, approvals, dismissals and sends-back',
+  },
   { label: 'Tasks opened', numeric: true, size: SPREAD },
-  { label: 'Actions', numeric: true, size: SPREAD },
   { label: 'Chats', numeric: true, size: SPREAD },
-  { label: 'First seen', numeric: true, size: SPREAD },
   { label: 'Last active', numeric: true, size: SPREAD },
 ];
 
 export const ADOPTION_NOTE =
-  'Weekly and monthly always count the last 7 and 30 days.';
+  'People who acted in this period. The last 7 and 30 days count the same way, whatever the period.';
 
 export const TRUNCATED_TRACES =
   'Only the newest runs show. Narrow the list or pick a shorter period to see the rest.';
@@ -1065,7 +1152,7 @@ export const WAITS_NOTE =
   'Median time that tasks spend queued, running and in the inbox at each station. Stations show in the order they first ran.';
 
 export const DELIVERY_NOTE =
-  'Time from when a task opens to its pull request, first human review and merge. Times: median and p90';
+  'Time from when a task opens to its pull request, first human review and merge. Times are medians; the slowest 10% shows on hover.';
 
 const SOME_STATIONS = 4;
 
@@ -1074,7 +1161,13 @@ export const workStationCount = (names: StationNames): number =>
   SOME_STATIONS;
 
 export const BY_STATION_NOTE =
-  'The counts are the same as on each station’s page. The line shows runs per day, with failures in red. The number beside it is the change in runs since the previous period.';
+  'The counts are the same as on each station’s page. The columns show runs per day, with failed runs in red. The number beside them is the change in runs since the previous period.';
 
-export const RUNS_BY_CONFIG_NOTE =
-  'Each config change starts a new group. Compare runs before and after it.';
+export const SLICE_TITLE = 'Spend by';
+
+export const sliceHeadings = (heading: string): readonly NestedHeading[] => [
+  { label: heading, indent: 'edge', size: 'minmax(8rem,3fr)' },
+  { label: 'Share', numeric: true, size: 'minmax(7rem,1fr)' },
+  { label: 'Runs', numeric: true, size: SPREAD },
+  { label: 'Spend', numeric: true, size: SPREAD },
+];

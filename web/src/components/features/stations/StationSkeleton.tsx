@@ -1,5 +1,6 @@
 import { StationPane } from '@/components/features/stations/StationPane';
 import { StationTabSkeleton } from '@/components/features/stations/StationTabSkeleton';
+import { STATION_COLUMN } from '@/components/features/stations/station-column';
 import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
@@ -16,6 +17,7 @@ export function StationSkeleton({ tab }: { tab: StationTab }) {
     >
       <PageHeader
         bordered={false}
+        heading={false}
         title={
           <>
             <Skeleton className="size-6 rounded" />
@@ -28,31 +30,44 @@ export function StationSkeleton({ tab }: { tab: StationTab }) {
         }
       />
 
-      <div className="flex shrink-0 flex-col gap-4 pt-2">
-        <div className="flex min-w-0 items-center gap-3 px-3">
-          <Skeleton className="size-10 shrink-0 rounded-lg" />
-
-          <div className="flex min-w-0 flex-col">
-            <SkeletonLine className="w-44 font-semibold text-2xl leading-8 tracking-tight" />
-            <SkeletonLine className="w-56 text-sm leading-5" />
+      <div className="flex shrink-0 flex-col gap-3 pt-3">
+        <div className={cn(STATION_COLUMN, 'flex min-w-0 flex-col gap-1')}>
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2.5 text-xl leading-7">
+              <Skeleton className="size-[1.125rem] shrink-0 rounded-full" />
+              <SkeletonLine className="w-44" />
+            </span>
+            {tab === 'activity' && <Skeleton className="h-7 w-32 rounded-md" />}
           </div>
+          <SkeletonLine className="w-56 text-sm leading-5" />
         </div>
 
-        <div className="flex items-center gap-1 border-border border-b px-3">
-          {STATION_TABS.map((each) => (
-            <span
-              key={each.id}
-              className={cn(
-                'relative flex h-9 items-center px-2 text-[0.8rem]',
-                each.id === tab ? 'text-foreground' : 'text-muted-foreground',
-              )}
-            >
-              {each.label}
-              {each.id === tab && (
-                <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-primary" />
-              )}
-            </span>
-          ))}
+        <div className="border-border border-b">
+          <div
+            className={cn(
+              STATION_COLUMN,
+              'flex items-center justify-between gap-3',
+            )}
+          >
+            <div className="-ml-2 flex items-center gap-1">
+              {STATION_TABS.map((each) => (
+                <span
+                  key={each.id}
+                  className={cn(
+                    'relative flex h-9 items-center px-2 text-sm',
+                    each.id === tab
+                      ? 'text-foreground'
+                      : 'text-muted-foreground',
+                  )}
+                >
+                  {each.label}
+                  {each.id === tab && (
+                    <span className="absolute inset-x-0 bottom-0 h-[3px] rounded-full bg-primary" />
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 

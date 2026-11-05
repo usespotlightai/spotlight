@@ -89,6 +89,7 @@ export function ChatThread({
                             chatId={chat.id}
                             position={moment.message.position}
                             proposal={moment.proposal}
+                            attachments={moment.message.attachments}
                           />
                         )}
 

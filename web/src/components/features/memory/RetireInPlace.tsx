@@ -8,8 +8,8 @@ import {
 import { MessageCard } from '@/components/features/inbox/conversation/MessageCard';
 import { NOTE_BOX, PersonNote } from '@/components/features/memory/PersonNote';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
+import { DecisionButton } from '@/components/shared/DecisionButton';
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
-import { PillButton } from '@/components/shared/PillButton';
 import { useRetireMemory } from '@/hooks/api/useRetireMemory';
 import { useMe } from '@/hooks/useMe';
 import { MAX_RETIRE_REASON } from '@/lib/memory';
@@ -73,12 +73,12 @@ export function RetireInPlace({
         </MessageCard>
 
         <div className="flex items-center justify-end gap-2 pt-1">
-          <PillButton type="button" onClick={onCancel}>
+          <DecisionButton type="button" onClick={onCancel}>
             Cancel
-          </PillButton>
-          <PillButton type="submit" variant="default" disabled={!ready}>
+          </DecisionButton>
+          <DecisionButton type="submit" variant="default" disabled={!ready}>
             Retire
-          </PillButton>
+          </DecisionButton>
         </div>
       </PersonNote>
     </form>

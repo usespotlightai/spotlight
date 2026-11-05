@@ -59,6 +59,9 @@ export interface DiffFacts {
 
 export const NO_FACTS: DiffFacts = { hunks: [], links: [], imports: [] };
 
+export const placedHunks = (facts: DiffFacts): HunkId[] =>
+  facts.hunks.filter((each) => !each.incidental).map((each) => each.hunk);
+
 export interface CodeReading {
   classOf(path: string): FileClass;
 

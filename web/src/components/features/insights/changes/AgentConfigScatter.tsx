@@ -7,6 +7,7 @@ import {
   YAxis,
   ZAxis,
 } from 'recharts';
+import { BEST_VALUE } from '@/components/features/insights/BestValueMark';
 import { ReplayedLegend } from '@/components/features/insights/candidates/ReplayedLegend';
 import {
   ReplayedPointMark,
@@ -64,17 +65,20 @@ const TipContent = ({
   }
 
   return (
-    <ChartTip placement={placement}>
-      <p className="text-foreground">{point.label}</p>
-      <p className="text-muted-foreground">
-        {outcomeLabel(measure)} {formatShare(point.value)} ·{' '}
-        {spentIn(point.cost, currency)} a run
-      </p>
-      <p className="text-muted-foreground">
-        {formatCount(point.runs)} {point.runs === 1 ? 'run' : 'runs'}
-        {point.frontier ? ' · on the frontier' : ''}
-      </p>
-    </ChartTip>
+    <ChartTip
+      placement={placement}
+      note={{
+        title: point.label,
+        rows: [
+          [outcomeLabel(measure), formatShare(point.value)],
+          ['Cost per run', spentIn(point.cost, currency)],
+          ['Runs', formatCount(point.runs)],
+          ...(point.frontier
+            ? ([['Best for the cost', 'Yes']] as [string, string][])
+            : []),
+        ],
+      }}
+    />
   );
 };
 
@@ -120,7 +124,7 @@ export function AgentConfigScatter({
                 padding={{ right: 64 }}
                 tickLine={false}
                 axisLine={{ stroke: 'var(--chart-grid)' }}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 tickFormatter={(cost: number) => costTick(cost, currency)}
                 height={40}
                 label={{
@@ -139,13 +143,13 @@ export function AgentConfigScatter({
                 tickLine={false}
                 axisLine={false}
                 width={56}
-                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 12 }}
                 tickFormatter={(value: number) => formatShare(value)}
                 label={{
                   ...AXIS_TITLE,
                   value:
                     replayed.length > 0
-                      ? `${outcomeLabel(measure)} · replay success`
+                      ? `${outcomeLabel(measure)} and replay success`
                       : outcomeLabel(measure),
                   angle: -90,
                   position: 'insideLeft',
@@ -177,7 +181,7 @@ export function AgentConfigScatter({
                 isAnimationActive={false}
               />
               <Scatter
-                name="On the frontier"
+                name={BEST_VALUE}
                 data={frontier}
                 fill="var(--chart-primary)"
                 isAnimationActive={false}
@@ -202,11 +206,11 @@ export function AgentConfigScatter({
           </ResponsiveContainer>
         </div>
       </div>
-      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 pl-14 text-muted-foreground text-[0.7rem]">
+      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 pl-14 text-muted-foreground text-xs">
         <RunsSizeLegend scale={runs} />
         <span className="flex items-center gap-1.5">
           <span aria-hidden className="size-2 rounded-full bg-chart-primary" />
-          On the frontier
+          {BEST_VALUE}
         </span>
         <span className="flex items-center gap-1.5">
           <span aria-hidden className="size-2 rounded-full bg-chart-1" />

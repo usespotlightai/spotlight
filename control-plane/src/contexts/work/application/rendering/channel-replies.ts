@@ -1,9 +1,4 @@
-export interface ListedProposal {
-  readonly number: number;
-  readonly title: string;
-  readonly line: string | null;
-  readonly station: string | null;
-}
+import type { ListedProposal } from '@work/application/contracts/listed-proposal.contract';
 
 const placed = (proposal: ListedProposal): string =>
   proposal.line && proposal.station
@@ -21,6 +16,9 @@ export const ChannelReplies = {
     'Only the person who started this chat can talk to it. To ask your own question, mention Spotlight in a new message.',
 
   nothingSaid: 'Please write your question after the mention.',
+
+  taskCompleted:
+    'This task is completed, so Spotlight cannot reopen it. To ask for more, mention Spotlight in a new message.',
 
   failed: 'Sorry, Spotlight could not finish this answer. Please try again.',
 

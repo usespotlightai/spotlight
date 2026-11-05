@@ -81,6 +81,7 @@ const layer = (
     path: DIFF.fileOf(hunk)?.path ?? hunk,
     note: `Why ${title} changes`,
   })),
+  questions: [],
 });
 
 describe('arranged', () => {
@@ -151,6 +152,32 @@ describe('arranged', () => {
 
     expect(cohort?.layers[0]?.notes).toEqual([
       { path: 'src/schema.ts', note: 'Why Model changes' },
+    ]);
+  });
+
+  it('keeps a question only with the cited hunks that stay in the cohort', () => {
+    const asked = (hunks: string[]) => ({
+      question: `What does ${hunks.join(' and ')} show?`,
+      answer: 'The invitation flow.',
+      hunks: hunks.map((each) => HunkId.of(each)),
+    });
+
+    const [cohort] = arranged(DIFF, FACTS, [
+      {
+        kind: 'change',
+        title: 'Invitations',
+        intent: 'Let admins invite people',
+        layers: [
+          {
+            ...layer('Everything', ['h1', 'h2', 'h3']),
+            questions: [asked(['h1', 'h2']), asked(['h2'])],
+          },
+        ],
+      },
+    ]);
+
+    expect(cohort?.layers[0]?.questions).toEqual([
+      { ...asked(['h1', 'h2']), hunks: [HunkId.of('h1')] },
     ]);
   });
 

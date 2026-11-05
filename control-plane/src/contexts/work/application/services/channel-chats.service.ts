@@ -7,6 +7,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { BindableChatEvent } from '@work/application/contracts/bindable-chat-events.contract';
 import type {
   ReceivedHappening,
   StartsChat,
@@ -26,10 +27,14 @@ import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatReply } from '@work/domain/value-objects/chat-reply.vo';
 
-export interface ChannelRefusal {
+export interface ChannelAnswer {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
   readonly happened: ReceivedHappening;
+  readonly event: Extract<
+    BindableChatEvent,
+    'chat.refused' | 'chat.acknowledged'
+  >;
   readonly body: string;
 }
 
@@ -59,7 +64,7 @@ export class ChannelChats {
     teamId: TeamId | null,
     happened: Reached,
     attachments: readonly Attachment[],
-  ): Promise<ChannelRefusal | null> {
+  ): Promise<ChannelAnswer | null> {
     const speaker = happened.chat.email
       ? await this.members.byEmail(workspaceId, happened.chat.email)
       : null;
@@ -95,31 +100,33 @@ export class ChannelChats {
     );
   }
 
-  async refuse(refusal: ChannelRefusal): Promise<void> {
+  async answer(answer: ChannelAnswer): Promise<void> {
     try {
       await this.notices.notify(
         {
-          workspaceId: refusal.workspaceId.value,
-          teamId: refusal.teamId.value,
+          workspaceId: answer.workspaceId.value,
+          teamId: answer.teamId.value,
           marks:
-            refusal.happened.chat?.marks.map((each) => ({
+            answer.happened.chat?.marks.map((each) => ({
               kind: each.mark.kind,
               value: each.mark.value,
             })) ?? [],
-          body: refusal.body,
+          body: answer.body,
+          proposals: [],
           chatId: null,
           taskId: null,
         } satisfies ChannelNoticeDto,
-        'chat.refused',
+        answer.event,
       );
     } catch (error) {
       this.logger.warn(
         {
           err: error,
-          workspaceId: refusal.workspaceId.value,
-          happening: refusal.happened.payload.happening.value,
+          workspaceId: answer.workspaceId.value,
+          happening: answer.happened.payload.happening.value,
+          event: answer.event,
         },
-        'Could not post why a word did not reach a chat',
+        'Could not answer a word in its channel',
       );
     }
   }
@@ -130,11 +137,12 @@ export class ChannelChats {
     said: string,
     happened: Reached,
     attachments: readonly Attachment[],
-  ): Promise<ChannelRefusal | null> {
-    const refused = (body: string): ChannelRefusal => ({
+  ): Promise<ChannelAnswer | null> {
+    const refused = (body: string): ChannelAnswer => ({
       workspaceId: chat.workspaceId,
       teamId: chat.teamId,
       happened,
+      event: 'chat.refused',
       body,
     });
 
@@ -201,11 +209,12 @@ export class ChannelChats {
     said: string,
     happened: Reached,
     attachments: readonly Attachment[],
-  ): Promise<ChannelRefusal | null> {
-    const refused = (body: string): ChannelRefusal => ({
+  ): Promise<ChannelAnswer | null> {
+    const refused = (body: string): ChannelAnswer => ({
       workspaceId,
       teamId,
       happened,
+      event: 'chat.refused',
       body,
     });
 

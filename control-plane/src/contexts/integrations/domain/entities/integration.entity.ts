@@ -92,14 +92,6 @@ export class Integration {
     }
 
     const bindings = input.bindings ?? [];
-    const events = bindings.map((each) => each.event);
-
-    if (new Set(events).size !== events.length) {
-      throw new InvalidIntegrationError(
-        key.value,
-        'binds an event more than once',
-      );
-    }
 
     const actions = input.actions ?? DefinedActions.of([]);
     const schedule = input.schedule ?? null;
@@ -155,10 +147,6 @@ export class Integration {
 
   postsOn(event: string): boolean {
     return this.bindings.some((each) => each.isFor(event));
-  }
-
-  bindingFor(event: string): Binding | null {
-    return this.bindings.find((each) => each.isFor(event)) ?? null;
   }
 
   get generatedFrom(): ContentHash | null {

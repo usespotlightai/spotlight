@@ -62,6 +62,7 @@ const cohort = (hunks: string[][]): ProposedCohort => ({
       path: DIFF.fileOf(hunk)?.path ?? hunk,
       note: 'Why',
     })),
+    questions: [],
   })),
 });
 

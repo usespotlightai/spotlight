@@ -10,6 +10,7 @@ export function WriteMemoryButton({ size }: { size?: PillSize }) {
   return (
     <PillButton
       size={size}
+      className={size === 'regular' ? undefined : 'h-7 px-3 text-sm'}
       onClick={() =>
         setParams(
           (was) => {
@@ -21,7 +22,10 @@ export function WriteMemoryButton({ size }: { size?: PillSize }) {
         )
       }
     >
-      <Plus aria-hidden className={size === 'regular' ? undefined : 'size-3'} />
+      <Plus
+        aria-hidden
+        className={size === 'regular' ? undefined : 'size-3.5'}
+      />
       Write a memory
     </PillButton>
   );

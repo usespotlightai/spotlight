@@ -6,7 +6,7 @@ import {
   formatFilterValue,
   formatRunFailure,
   formatSignal,
-  formatSpread,
+  formatSlowest,
   formatStation,
   formatTaskFailure,
   type Headline,
@@ -16,6 +16,7 @@ import {
   lastPageOf,
   pageShownOf,
   paramsOf,
+  sankeyLayout,
   sankeyOf,
   shownDeltaOf,
   sliceFilter,
@@ -165,7 +166,7 @@ describe('the insights view in the address', () => {
     }
   });
 
-  it('reads the station the Stations tab opens, and nothing else', () => {
+  it('reads only the period on the Stations tab', () => {
     const view = viewOf(
       new URLSearchParams(
         'tab=stations&period=90d&stationId=station_build&outcome=failed&page=3',
@@ -175,14 +176,10 @@ describe('the insights view in the address', () => {
     expect(view).toEqual({
       tab: 'stations',
       period: '90d',
-      filter: { stationId: 'station_build' },
+      filter: {},
       page: 1,
     });
-    expect(paramsOf(view)).toEqual({
-      tab: 'stations',
-      period: '90d',
-      stationId: 'station_build',
-    });
+    expect(paramsOf(view)).toEqual({ tab: 'stations', period: '90d' });
   });
 
   it('writes only what differs from the defaults', () => {
@@ -287,14 +284,20 @@ describe('durations', () => {
   it('reads minutes, hours and days', () => {
     expect(formatDuration(90_000)).toBe('1m 30s');
     expect(formatDuration(2.5 * HOUR)).toBe('2h 30m');
+    expect(formatDuration(11 * HOUR + 59.6 * 60_000)).toBe('12h');
+    expect(formatDuration(7 * 24 * HOUR + 23.6 * HOUR)).toBe('8d');
+    expect(formatDuration(51 * 60_000 + 52_000)).toBe('52m');
+    expect(formatDuration(59.7 * 60_000)).toBe('1h');
     expect(formatDuration(50 * HOUR)).toBe('2d 2h');
   });
 
-  it('shows a spread as its median and p90', () => {
-    expect(formatSpread({ p50Ms: HOUR, p90Ms: 3 * HOUR, count: 4 })).toBe(
-      '1h · p90 3h',
+  it('names the slowest tenth of a spread where it is known', () => {
+    expect(formatSlowest({ p50Ms: HOUR, p90Ms: 3 * HOUR, count: 4 })).toBe(
+      'Slowest 10%: 3h',
     );
-    expect(formatSpread({ p50Ms: null, p90Ms: null, count: 0 })).toBe('–');
+    expect(
+      formatSlowest({ p50Ms: null, p90Ms: null, count: 0 }),
+    ).toBeUndefined();
   });
 });
 
@@ -313,7 +316,7 @@ describe('headlineTiles', () => {
       ['Merge rate', '80%'],
       ['Cost per merged PR', '$15.00'],
       ['Task to merge', '1d 2h'],
-      ['Human actions per task worked', '3.0'],
+      ['Actions per task', '3.0'],
       ['Active people', '4'],
     ]);
     expect(tiles[0]?.delta).toEqual({ shown: '+20%', tone: 'flat' });
@@ -390,7 +393,7 @@ describe('what to show for failures and signals', () => {
         maxInARow: 3,
         taskIds: [],
       }),
-    ).toBe('hook:notify · loop');
+    ).toBe('hook:notify, loop');
     expect(formatRunFailure({ failure: null, runs: 2, runIds: [] })).toBe(
       'No reason given',
     );
@@ -550,5 +553,62 @@ describe('tallyTiles', () => {
       detail: '20% of runs',
       delta: { tone: 'good' },
     });
+  });
+});
+
+describe('sankey layout', () => {
+  const measure = (text: string) => text.length * 6;
+  const LONG = 'usespotlightai/terraform-aws-spotlight-runner-daytona';
+  const shown = {
+    nodes: [
+      { name: 'Harness default', kind: 'model' as const },
+      { name: 'Coder', kind: 'station' as const },
+      { name: LONG, kind: 'repository' as const },
+      { name: 'a/b', kind: 'repository' as const },
+    ],
+    links: [
+      { source: 0, target: 1, value: 19.18 },
+      { source: 1, target: 2, value: 0.45 },
+      { source: 1, target: 3, value: 0.1 },
+    ],
+  };
+
+  it('fits the widest first-column label in the left margin', () => {
+    const { left } = sankeyLayout(shown, 1400, measure, 560, 'USD');
+
+    expect(left).toBeGreaterThanOrEqual(
+      measure('Harness default') + measure('$19.18'),
+    );
+  });
+
+  it('fits the widest last-column label and its amount in the right margin', () => {
+    const { right } = sankeyLayout(shown, 1400, measure, 560, 'USD');
+
+    expect(right).toBeGreaterThanOrEqual(measure(LONG) + measure('$0.45'));
+  });
+
+  it('leaves names whole on a wide card', () => {
+    expect(sankeyLayout(shown, 1400, measure, 560, 'USD').names).toEqual([
+      'Harness default',
+      'Coder',
+      LONG,
+      'a/b',
+    ]);
+  });
+
+  it('ellipsizes the long repository name on a narrow card and keeps room for the amount', () => {
+    const layout = sankeyLayout(shown, 800, measure, 320, 'USD');
+    const name = layout.names[2] ?? '';
+
+    expect(layout.right).toBeLessThanOrEqual(320);
+    expect(name.endsWith('…')).toBe(true);
+    expect(measure(name) + measure('$0.45')).toBeLessThanOrEqual(layout.right);
+    expect(layout.names[3]).toBe('a/b');
+  });
+
+  it('never leaves a non-positive diagram width', () => {
+    const { left, right } = sankeyLayout(shown, 300, measure, 1000, 'USD');
+
+    expect(300 - left - right).toBeGreaterThan(0);
   });
 });

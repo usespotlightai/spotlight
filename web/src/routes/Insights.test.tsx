@@ -46,18 +46,13 @@ describe('Insights', () => {
       </MemoryRouter>,
     );
 
-  it('names the tab and the station shown in the breadcrumb, leading back to each', () => {
+  it('names only the tab in the breadcrumb, leading back to Insights', () => {
     showing('/w/acme/team/team_1/insights?tab=stations&stationId=station_impl');
 
     expect(
-      screen.getByRole('heading', {
-        name: /Platform\s*Insights\s*Stations\s*Implementation/,
-      }),
+      screen.getByRole('heading', { name: /Platform\s*Insights\s*Stations/ }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Stations' })).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/insights?tab=stations',
-    );
+    expect(screen.queryByText('Implementation')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Insights' })).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/insights',

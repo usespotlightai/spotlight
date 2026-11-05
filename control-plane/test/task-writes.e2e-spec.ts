@@ -193,16 +193,20 @@ describe('a person moving a task by hand', () => {
   const taskAt = async (stationId: string) => {
     const id = randomUUID();
 
-    await app.get<DrizzleDatabase>(DRIZZLE).insert(schema.task).values({
-      id,
-      openedFrom: 'person',
-      workspaceId: team.workspaceId.value,
-      stationId,
-      title: 'Drain the queue',
-      originStationId: stationId,
-      createdById: team.owner.value,
-      assigneeId: team.owner.value,
-    });
+    await app
+      .get<DrizzleDatabase>(DRIZZLE)
+      .insert(schema.task)
+      .values({
+        id,
+        branch: `feat/test-${id}`,
+        openedFrom: 'person',
+        workspaceId: team.workspaceId.value,
+        stationId,
+        title: 'Drain the queue',
+        originStationId: stationId,
+        createdById: team.owner.value,
+        assigneeId: team.owner.value,
+      });
 
     return id;
   };

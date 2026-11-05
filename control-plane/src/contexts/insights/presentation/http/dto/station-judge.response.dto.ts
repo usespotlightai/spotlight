@@ -9,7 +9,11 @@ import type {
 } from '@insights/application/dto/station-judge.dto';
 import {
   CORRELATION_READINGS,
+  type CorrelationReading,
+  correlationReadingOf,
   KAPPA_READINGS,
+  type KappaReading,
+  kappaReadingOf,
 } from '@insights/domain/services/agreement-reading';
 import type {
   AgreementReadings,
@@ -43,6 +47,14 @@ export class JudgeCalibrationResponseDto {
   readonly agreement: number | null;
 
   @ApiProperty({
+    enum: [...new Set([...KAPPA_READINGS, ...CORRELATION_READINGS]), null],
+    nullable: true,
+    description:
+      'How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s',
+  })
+  readonly reading: KappaReading | CorrelationReading | null;
+
+  @ApiProperty({
     example: 24,
     description:
       'Runs of the current rubric with both a judge score and people’s',
@@ -63,6 +75,12 @@ export class JudgeCalibrationResponseDto {
     this.qualified = calibration.qualified;
     this.measure = calibration.measure;
     this.agreement = calibration.agreement;
+    this.reading =
+      calibration.measure === 'kappa'
+        ? kappaReadingOf(calibration.agreement)
+        : calibration.measure === 'spearman'
+          ? correlationReadingOf(calibration.agreement)
+          : null;
     this.pairs = calibration.pairs;
     this.minAgreement = calibration.minAgreement;
     this.hiddenReason = calibration.hiddenReason;

@@ -1,6 +1,7 @@
 import { ChevronsUpDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { InitialAvatar } from '@/components/shared/avatar/InitialAvatar';
+import { ThemeToggle } from '@/components/shell/layout/ThemeToggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,7 @@ import {
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
+import { useTheme } from '@/hooks/useTheme';
 import { membersPath } from '@/lib/members';
 import { settingsPath } from '@/lib/settings';
 import { workspacePath } from '@/lib/workspace';
@@ -37,6 +39,7 @@ export function WorkspaceMenu({
   const signOut = useSignOut();
   const { data: session } = useSession();
   const { data: workspaces } = useWorkspaces();
+  const { theme, setTheme } = useTheme();
 
   return (
     <DropdownMenu>
@@ -59,6 +62,10 @@ export function WorkspaceMenu({
         sideOffset={6}
         className="min-w-56 origin-top"
       >
+        <ThemeToggle theme={theme} onChange={setTheme} />
+
+        <DropdownMenuSeparator />
+
         <DropdownMenuItem
           closeOnClick
           render={<Link to={settingsPath(slug)}>Settings</Link>}

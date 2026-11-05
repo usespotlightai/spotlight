@@ -135,6 +135,7 @@ const aTask = async (title: string): Promise<string> => {
 
   await db.insert(schema.task).values({
     id: taskId,
+    branch: `feat/test-${taskId}`,
     openedFrom: 'person',
     workspaceId: team.workspaceId.value,
     stationId: BUILD,

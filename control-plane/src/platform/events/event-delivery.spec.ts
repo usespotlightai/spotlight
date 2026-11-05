@@ -1,4 +1,10 @@
-import { EventDelivery, MAX_ATTEMPTS } from '@platform/events/event-delivery';
+import {
+  EventDelivery,
+  LEASE_MS,
+  LEASE_RENEWAL_MS,
+  LONGEST_LEASE_MS,
+  MAX_ATTEMPTS,
+} from '@platform/events/event-delivery';
 import type { EventOutbox } from '@platform/events/event-outbox';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -20,10 +26,26 @@ const thenable = (result: unknown): unknown => {
   return chained;
 };
 
+const datesIn = (node: unknown, seen = new Set<unknown>()): Date[] => {
+  if (node instanceof Date) {
+    return [node];
+  }
+
+  if (typeof node !== 'object' || node === null || seen.has(node)) {
+    return [];
+  }
+
+  seen.add(node);
+
+  return Object.values(node).flatMap((each) => datesIn(each, seen));
+};
+
 class FakeContext {
   readonly steps: string[] = [];
   readonly updates: Record<string, unknown>[] = [];
   failingUpdates = 0;
+  failingUpdateAt: number | null = null;
+  readonly leasesGuarded: Date[] = [];
   settledElsewhere = false;
   private committed: (() => void)[] = [];
   private claimable = true;
@@ -53,8 +75,14 @@ class FakeContext {
       },
       update: () => ({
         set: (values: Record<string, unknown>) => ({
-          where: () => {
+          where: (condition: unknown) => {
+            this.leasesGuarded.push(...datesIn(condition));
             const written = async () => {
+              if (this.failingUpdateAt === this.updates.length) {
+                this.failingUpdateAt = null;
+                this.steps.push('update failed');
+                throw new Error('connection terminated');
+              }
               if (this.failingUpdates > 0) {
                 this.failingUpdates -= 1;
                 this.steps.push('update failed');
@@ -109,10 +137,17 @@ class FakeContext {
   }
 }
 
-const delivering = (handle: () => Promise<void>, attempts = 0) => {
+const delivering = (
+  handle: () => Promise<void>,
+  attempts = 0,
+  options = { callsOut: false },
+  clock = { now: () => NOW },
+) => {
   const context = new FakeContext(attempts);
   const subscribers = new EventSubscribers();
-  subscribers.register([subscribing('test.door', ['bell.rang'], handle)]);
+  subscribers.register([
+    subscribing('test.door', ['bell.rang'], handle, options),
+  ]);
   const logger = {
     debug: vi.fn(),
     info: vi.fn(),
@@ -132,7 +167,7 @@ const delivering = (handle: () => Promise<void>, attempts = 0) => {
       record: async () => undefined,
     } as unknown as EventOutbox,
     subscribers,
-    { now: () => NOW, sleep: async () => undefined },
+    { now: () => clock.now(), sleep: async () => undefined },
     logger,
     { runWith: (_chain, work) => work() } as CausationPort,
     reports,
@@ -254,5 +289,171 @@ describe('EventDelivery', () => {
       expect.objectContaining({ err: new Error('nobody home') }),
       'Another instance settled this domain event delivery first',
     );
+  });
+
+  describe('to a subscriber that calls out', () => {
+    const CALLS_OUT = { callsOut: true };
+    const LEASED = { dueAt: new Date(NOW.getTime() + LEASE_MS) };
+
+    it('leases the delivery in a transaction of its own, calls out with none open, and records it in another', async () => {
+      const { delivery, context, telemetry } = delivering(
+        async () => {
+          context.steps.push('called out');
+        },
+        0,
+        CALLS_OUT,
+      );
+
+      expect(await delivery.processDue()).toBe(1);
+      expect(context.steps.slice(0, 8)).toEqual([
+        'begin',
+        'claim',
+        'update',
+        'commit',
+        'called out',
+        'begin',
+        'update',
+        'commit',
+      ]);
+      expect(context.updates).toEqual([
+        LEASED,
+        { deliveredAt: NOW, attempts: 1 },
+      ]);
+      expect(telemetry.count).toHaveBeenCalledWith(
+        'spotlight.outbox.deliveries',
+        expect.objectContaining({ 'spotlight.delivery.outcome': 'delivered' }),
+      );
+    });
+
+    it('renews the lease while the call takes longer, and records it under the renewed lease', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+      let now = NOW;
+      const later = new Date(NOW.getTime() + LEASE_RENEWAL_MS);
+      const { delivery, context } = delivering(
+        async () => {
+          now = later;
+          await vi.advanceTimersByTimeAsync(LEASE_RENEWAL_MS);
+        },
+        0,
+        CALLS_OUT,
+        { now: () => now },
+      );
+
+      await delivery.processDue();
+      vi.useRealTimers();
+
+      expect(context.updates).toEqual([
+        LEASED,
+        { dueAt: new Date(later.getTime() + LEASE_MS) },
+        { deliveredAt: later, attempts: 1 },
+      ]);
+      expect(context.leasesGuarded).toEqual([
+        LEASED.dueAt,
+        new Date(later.getTime() + LEASE_MS),
+      ]);
+    });
+
+    it('stops renewing a lease it has held for the longest a lease is held', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+      let now = NOW;
+      const { delivery, context } = delivering(
+        async () => {
+          now = new Date(NOW.getTime() + LONGEST_LEASE_MS);
+          await vi.advanceTimersByTimeAsync(3 * LEASE_RENEWAL_MS);
+        },
+        0,
+        CALLS_OUT,
+        { now: () => now },
+      );
+
+      await delivery.processDue();
+      vi.useRealTimers();
+
+      expect(
+        context.updates.filter(
+          (each) => 'dueAt' in each && !('attempts' in each),
+        ),
+      ).toEqual([LEASED]);
+    });
+
+    it('records a failed call and its backoff once it failed', async () => {
+      const { delivery, context, logger } = delivering(
+        async () => {
+          throw new Error('nobody home');
+        },
+        2,
+        CALLS_OUT,
+      );
+
+      await delivery.processDue();
+
+      expect(context.updates).toEqual([
+        LEASED,
+        {
+          attempts: 3,
+          lastError: 'nobody home',
+          dueAt: new Date(NOW.getTime() + 8000),
+          deadLetteredAt: null,
+        },
+      ]);
+      expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ err: new Error('nobody home'), attempts: 3 }),
+        'Delivering a domain event',
+      );
+    });
+
+    it('dead-letters a call that fails on the last attempt, and reports it', async () => {
+      const { delivery, reports } = delivering(
+        async () => {
+          throw new Error('nobody home');
+        },
+        MAX_ATTEMPTS - 1,
+        CALLS_OUT,
+      );
+
+      await delivery.processDue();
+
+      expect(reports.report).toHaveBeenCalledExactlyOnceWith(
+        new Error('nobody home'),
+        { source: 'test.door' },
+      );
+    });
+
+    it('counts and reports nothing where another instance took the delivery over', async () => {
+      const { delivery, context, logger, reports, telemetry } = delivering(
+        async () => undefined,
+        0,
+        CALLS_OUT,
+      );
+      context.settledElsewhere = true;
+
+      await delivery.processDue();
+
+      expect(context.updates).toEqual([LEASED]);
+      expect(reports.report).not.toHaveBeenCalled();
+      expect(telemetry.count).not.toHaveBeenCalled();
+      expect(logger.warn).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ eventId: 'event_1' }),
+        'Another instance took over this domain event delivery after its lease ended',
+      );
+    });
+
+    it('does not count a call that worked as failed when recording it fails, and leaves it to its lease', async () => {
+      const { delivery, context, logger, reports } = delivering(
+        async () => undefined,
+        MAX_ATTEMPTS - 1,
+        CALLS_OUT,
+      );
+      context.failingUpdateAt = 1;
+
+      await delivery.processDue();
+
+      expect(context.updates).toEqual([LEASED]);
+      expect(reports.report).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ err: new Error('connection terminated') }),
+        'Recording a handled domain event delivery; it is retried once its lease ends',
+      );
+    });
   });
 });

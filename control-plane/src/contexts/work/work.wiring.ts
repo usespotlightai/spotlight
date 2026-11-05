@@ -349,6 +349,7 @@ import {
   type MemoriesBriefedBeforePort,
 } from '@work/application/ports/memories-briefed-before.port';
 import { NETWORK_CALLS } from '@work/application/ports/network-calls.port';
+import { NOTE_FILES } from '@work/application/ports/note-files.port';
 import { NOTICES } from '@work/application/ports/notices.port';
 import {
   OUTBOUND_TASK_NOTIFIER,
@@ -561,6 +562,7 @@ import {
 } from '@work/application/queries/task-draft.queries';
 import { WatchRunQuery } from '@work/application/queries/watch-run.query';
 import { ApplyLines } from '@work/application/services/apply-lines.service';
+import { AttachmentCopies } from '@work/application/services/attachment-copies';
 import {
   BUILT_IN_TOOL_USES,
   BuiltInTools,
@@ -597,6 +599,7 @@ import { LineLoader } from '@work/application/services/line-loader.service';
 import { LineViews } from '@work/application/services/line-views.service';
 import { LongPoll } from '@work/application/services/long-poll';
 import { NetworkCalls } from '@work/application/services/network-calls.service';
+import { NoteFiles } from '@work/application/services/note-files.service';
 import { NoticeLoader } from '@work/application/services/notice-loader.service';
 import { Notices } from '@work/application/services/notices.service';
 import { OpenPullRequest } from '@work/application/services/open-pull-request.service';
@@ -1120,6 +1123,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: NOTE_FILES,
+    inject: [DrizzleTaskRepository, ATTACHMENT_STORE],
+    useFactory: (tasks: DrizzleTaskRepository, files: AttachmentStorePort) =>
+      new NoteFiles(tasks, files),
+  },
+
+  {
     provide: TracesLoader,
     inject: [TRACED_TASK_READER],
     useFactory: (tasks: TracedTaskReaderPort) => new TracesLoader(tasks),
@@ -1460,12 +1470,19 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
+    provide: AttachmentCopies,
+    inject: [ATTACHMENT_STORE],
+    useFactory: (store: AttachmentStorePort) => new AttachmentCopies(store),
+  },
+
+  {
     provide: CreateTaskFromProposal,
     inject: [
       DrizzleChatRepository,
       DrizzleLineRepository,
       TASK_PLACEMENTS,
       CreateTask,
+      AttachmentCopies,
       ID_GENERATOR,
       CLOCK,
     ],
@@ -1474,6 +1491,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       lines: DrizzleLineRepository,
       placements: TaskPlacementsPort,
       createTask: CreateTask,
+      copies: AttachmentCopies,
       ids: IdGeneratorPort,
       clock: ClockPort,
     ) =>
@@ -1482,6 +1500,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         lines,
         placements,
         createTask,
+        copies,
         ids,
         clock,
       ),
@@ -2106,9 +2125,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: SandboxLeases,
-    inject: [SANDBOXES, CLOCK],
-    useFactory: (sandboxes: SandboxesPort, clock: ClockPort) =>
-      new SandboxLeases(sandboxes, clock),
+    inject: [SANDBOXES, DrizzleRunRepository, CLOCK],
+    useFactory: (
+      sandboxes: SandboxesPort,
+      runs: DrizzleRunRepository,
+      clock: ClockPort,
+    ) => new SandboxLeases(sandboxes, runs, clock),
   },
 
   {
@@ -2396,6 +2418,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       STATION_CHANGE_TESTS,
       DrizzleTaskRepository,
       CHECK_RUNS,
+      AttachmentCopies,
     ],
     useFactory: (
       opening: OpenPullRequest,
@@ -2408,10 +2431,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tests: StationChangeTestsPort,
       tasks: DrizzleTaskRepository,
       checkRuns: CheckRunsPort,
+      copies: AttachmentCopies,
     ): readonly BuiltInToolUse[] => [
       new PullRequestToolUse(opening),
       new ChecksToolUse(tasks, checkRuns),
-      new ProposeTaskToolUse(chats, lines, clock),
+      new ProposeTaskToolUse(chats, lines, copies, clock),
       new SetupPullRequestToolUse(chats, pullRequests, transaction, clock),
       new ReviewCommentToolUse(reviewing),
       new ReviewToolUse(reviewing),

@@ -11,7 +11,10 @@ export const RUBRIC =
 export const EARLIER_RUBRIC =
   '41d7a0c8e2f6b3d5a7c9e1f3b5d7a9c1e3f5b7d9a1c3e5f7b9d1a3c5e7f9b1d3';
 
-const STATION_WITH_JUDGE_HISTORY = 'station_implementation';
+const STATIONS_WITH_JUDGE_HISTORY = new Set([
+  'station_implementation',
+  'station_design',
+]);
 
 const EARLIER_RUBRIC_DAYS = { from: 37, until: 26 } as const;
 
@@ -150,6 +153,7 @@ export const stationJudge = (
         qualified: false,
         measure: null,
         agreement: null,
+        reading: null,
         pairs: 0,
         minAgreement: null,
         hiddenReason: 'no-judge',
@@ -171,7 +175,7 @@ export const stationJudge = (
   if (
     world().kind === 'empty' ||
     runs.length === 0 ||
-    stationId !== STATION_WITH_JUDGE_HISTORY
+    !STATIONS_WITH_JUDGE_HISTORY.has(stationId)
   ) {
     return {
       stationId,
@@ -180,6 +184,7 @@ export const stationJudge = (
         qualified: false,
         measure: 'kappa',
         agreement: null,
+        reading: null,
         pairs: 0,
         minAgreement: judge.minAgreement,
         hiddenReason: 'too-few-pairs',
@@ -196,6 +201,7 @@ export const stationJudge = (
       qualified: 0.63 >= judge.minAgreement,
       measure: 'kappa',
       agreement: 0.63,
+      reading: 'substantial',
       pairs: 12,
       minAgreement: judge.minAgreement,
       hiddenReason: 0.63 >= judge.minAgreement ? null : 'below-min-agreement',

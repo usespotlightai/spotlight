@@ -185,14 +185,23 @@ export const formatShortDuration = (ms: number): string => {
   if (ms < 1_000) {
     return `${ms}ms`;
   }
-  if (ms < 60_000) {
-    return `${Math.round(ms / 1_000)}s`;
+
+  const total = Math.round(ms / 1_000);
+
+  if (total < 60) {
+    return `${total}s`;
+  }
+  if (total < 3_600) {
+    const seconds = total % 60;
+    const minutes = (total - seconds) / 60;
+
+    return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
   }
 
-  const minutes = Math.floor(ms / 60_000);
-  const seconds = Math.round((ms % 60_000) / 1_000);
+  const minutes = Math.round(total / 60) % 60;
+  const hours = Math.floor(Math.round(total / 60) / 60);
 
-  return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
 };
 
 export const counted = (tokens: number): string => {

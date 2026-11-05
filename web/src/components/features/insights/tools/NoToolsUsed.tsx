@@ -1,4 +1,5 @@
 import { Wrench } from 'lucide-react';
+import { EmptyFrame } from '@/components/shared/EmptyFrame';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button-variants';
@@ -12,7 +13,7 @@ type NoToolsUsedProps = {
 
 export function NoToolsUsed({ slug, teamId }: NoToolsUsedProps) {
   return (
-    <div className="flex justify-center rounded-xl border border-border px-4 py-10">
+    <EmptyFrame>
       <EmptyState
         icon={Wrench}
         title="No skills or MCP servers used in this period"
@@ -31,6 +32,6 @@ export function NoToolsUsed({ slug, teamId }: NoToolsUsedProps) {
         Skill reads and MCP server calls show here once a station enables skills
         or MCP servers for its runs.
       </EmptyState>
-    </div>
+    </EmptyFrame>
   );
 }

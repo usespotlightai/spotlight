@@ -27,6 +27,8 @@ export class IntegrationTaskViews {
       taskId: task.id.value,
       workspaceId: task.workspaceId.value,
       teamId: line.teamId.value,
+      title: task.title.value,
+      pullRequest: task.pullRequest?.value ?? null,
       line: line.key.value,
       station: station?.name.value ?? '',
       stationKey: station?.key.value ?? '',
@@ -41,6 +43,14 @@ export class IntegrationTaskViews {
             }).value,
             body: task.notes[open.from]?.body.value?.trim() ?? '',
             awaitsApproval: task.notes[open.from]?.approval?.open ?? false,
+            attachments: (task.notes[open.from]?.attachments ?? []).map(
+              (file) => ({
+                id: file.id.value,
+                name: file.name,
+                contentType: file.contentType,
+                size: file.size,
+              }),
+            ),
           }
         : null,
     };

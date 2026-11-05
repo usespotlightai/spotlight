@@ -98,6 +98,12 @@ const archiveStore: WorkspaceArchiveStorePort = {
 
 const generator: ChangeStackGeneratorPort = {
   available: true,
+  outline: async () => {
+    throw new Error('A diff this small is not split');
+  },
+  layers: async () => {
+    throw new Error('A diff this small is not split');
+  },
   generate: async ({ diff }) => ({
     usage: {
       inputTokens: 1_000,
@@ -120,6 +126,7 @@ const generator: ChangeStackGeneratorPort = {
                 diff.hunks.flatMap((each) => diff.fileOf(each.id)?.path ?? []),
               ),
             ].map((path) => ({ path, note: 'Drains the queue' })),
+            questions: [],
           },
         ],
       },
@@ -279,6 +286,7 @@ const anOriginal = async (title: string): Promise<Original> => {
 
   await db.insert(schema.task).values({
     id: taskId,
+    branch: `feat/test-${taskId}`,
     openedFrom: 'person',
     workspaceId: team.workspaceId.value,
     stationId: BUILD,
@@ -315,7 +323,7 @@ const anOriginal = async (title: string): Promise<Original> => {
         {
           remote: 'spotlight:repository',
           path: 'api',
-          branch: `spotlight/${taskId}`,
+          branch: `feat/test-${taskId}`,
         },
       ],
       command: { executable: 'claude-agent-acp', args: [] },

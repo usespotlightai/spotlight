@@ -12,7 +12,7 @@ const PRESERVES_METHOD = [307, 308];
 export interface Hop {
   readonly method: string;
   readonly url: string;
-  readonly body?: string;
+  readonly body?: string | Uint8Array<ArrayBuffer>;
 }
 
 export interface Dressed {

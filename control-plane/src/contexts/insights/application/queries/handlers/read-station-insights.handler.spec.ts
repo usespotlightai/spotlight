@@ -7,7 +7,9 @@ import type {
 import { ReadStationInsightsHandler } from '@insights/application/queries/handlers/read-station-insights.handler';
 import { ReadStationInsightsQuery } from '@insights/application/queries/read-station-insights.query';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
+import { TaskFailures } from '@insights/domain/aggregates/task-failures.aggregate';
 import { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
+import { TaskFailuresInMemory } from '@insights/domain/insights.fake-spec';
 import {
   costedRecord,
   endedRecord,
@@ -19,6 +21,7 @@ import {
   TEAM,
   WORKSPACE,
 } from '@insights/domain/runs.fake-spec';
+import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -56,6 +59,7 @@ const reading = async (member = true) => {
   const records = new RunRecordsInMemory();
   const taskPullRequests = new TaskPullRequestsInMemory();
   const pullRequests = stationConfigPullRequestsInMemory();
+  const failures = new TaskFailuresInMemory();
   const requested: string[][] = [];
   const work: WorkPort = {
     unfinishedRuns: async () => [],
@@ -98,6 +102,7 @@ const reading = async (member = true) => {
     records,
     taskPullRequests,
     pullRequests,
+    failures,
     requested,
     read: (last: number | null = null, stationId = 'station_1') =>
       new ReadStationInsightsHandler(
@@ -106,6 +111,7 @@ const reading = async (member = true) => {
         taskPullRequests,
         pullRequests,
         work,
+        failures,
       ).execute(
         new ReadStationInsightsQuery(
           'team_1',
@@ -406,6 +412,8 @@ describe('reading how a station’s runs turned out', () => {
       [FIRST_CONFIG, true],
     ]);
     expect(insights.inForce).toEqual({
+      taskFailures: [],
+      runFailures: [],
       tally: expect.objectContaining({
         runs: 3,
         cancelled: 0,
@@ -415,6 +423,69 @@ describe('reading how a station’s runs turned out', () => {
         medianMs: 20_000,
       }),
     });
+  });
+
+  it('says why the live config’s runs failed, leaving out failures under an earlier config', async () => {
+    const reader = await reading();
+    for (const [runId, fingerprint, hour, failure] of [
+      ['run_1', FIRST_CONFIG, 1, 'exited'],
+      ['run_2', SECOND_CONFIG, 2, 'exited'],
+      ['run_3', SECOND_CONFIG, 3, 'out of turns'],
+      ['run_4', SECOND_CONFIG, 4, null],
+      ['run_5', SECOND_CONFIG, 5, 'out of turns'],
+    ] as const) {
+      await reader.records.add(
+        endedRecord(runId, {
+          fingerprint,
+          taskId: 'task_a',
+          startedAt: at(hour),
+          endedAt: at(hour),
+          ...(failure ? { ending: 'failed', failure } : {}),
+        }),
+      );
+    }
+    await reader.failures.add(
+      TaskFailures.rehydrate({
+        taskId: TaskId.of('task_a'),
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        occurrences: [
+          FailureOccurrence.of({
+            stationId: 'station_1',
+            runId: 'run_1',
+            source: 'run',
+            code: 'loop',
+            occurrences: 2,
+            at: at(1),
+          }),
+          FailureOccurrence.of({
+            stationId: 'station_1',
+            runId: 'run_3',
+            source: 'hook:notify',
+            code: 'timeout',
+            occurrences: 1,
+            at: at(3),
+          }),
+        ],
+        version: 0,
+      }),
+    );
+
+    const insights = await reader.read();
+
+    expect(insights.inForce?.runFailures).toEqual([
+      { failure: 'out of turns', runs: 2, runIds: ['run_5', 'run_3'] },
+      { failure: 'exited', runs: 1, runIds: ['run_2'] },
+    ]);
+    expect(insights.inForce?.taskFailures).toEqual([
+      {
+        source: 'hook:notify',
+        code: 'timeout',
+        occurrences: 1,
+        maxInARow: 1,
+        taskIds: ['task_a'],
+      },
+    ]);
   });
 
   it('sets each group only against the config before it, showing no changes where either is not on record, A, B not on record, C', async () => {

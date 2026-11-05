@@ -34,14 +34,14 @@ export function PipelineFlowLegend({
             background: `linear-gradient(to right, ${bottleneckColor(0)}, ${bottleneckColor(0.5)}, ${bottleneckColor(1)})`,
           }}
         />
-        <span className="text-destructive">bottleneck</span>
+        <span className="text-outcome-failed">bottleneck</span>
         <Tooltip>
           <TooltipTrigger
             render={
               <button
                 type="button"
                 aria-label="How the bottleneck is measured"
-                className="flex outline-none"
+                className="flex rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               />
             }
           >

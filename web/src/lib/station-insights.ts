@@ -7,9 +7,9 @@ import type {
   TallyCountedResponseDto,
 } from '@/lib/api';
 import { formatShortDuration, spentIn } from '@/lib/inbox';
-import { formatDay, formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
-import { changePhrase } from '@/lib/station-config';
+import { rangeOf } from '@/lib/range';
+import { type ActivityPeriod, LIVE_CONFIG } from '@/lib/station';
 
 export type StationRunOutcome = StationRunOutcomeResponseDto;
 
@@ -32,8 +32,21 @@ const ENDINGS: Record<Ending, string> = {
 
 export const formatEnding = (ending: Ending): string => ENDINGS[ending];
 
-export const endedBadly = (ending: Ending): boolean =>
+const endedBadly = (ending: Ending): boolean =>
   ending === 'failed' || ending === 'exhausted';
+
+export type OutcomeTone = 'done' | 'sentBack' | 'failed' | 'quiet';
+
+export const outcomeTone = (run: StationRunOutcome): OutcomeTone => {
+  if (endedBadly(run.ending)) {
+    return 'failed';
+  }
+  if (run.firstHumanAction?.kind === 'sent-back') {
+    return 'sentBack';
+  }
+
+  return run.ending === 'completed' ? 'done' : 'quiet';
+};
 
 const CHECKS: Record<NonNullable<StationRunOutcome['checks']>, string> = {
   passed: 'Checks passed',
@@ -133,7 +146,16 @@ const columnNamed = (label: string): TallyColumn => {
 export const countedColumnsOf = (counted: TallyCounted): TallyColumn[] =>
   TALLY_COLUMNS.filter((column) => !column.counted || counted[column.counted]);
 
-export type SummaryVisual = 'share' | 'strip' | 'cost' | 'duration';
+export const SUMMARY_TITLE = 'Latest runs on this config';
+
+export const summaryTitleOf = (period: ActivityPeriod): string =>
+  period === LIVE_CONFIG
+    ? SUMMARY_TITLE
+    : `Runs in the ${rangeOf(period).label.toLowerCase()}`;
+
+export const RECENT_RUNS_TITLE = 'Recent runs';
+
+type SummaryVisual = 'strip' | 'cost' | 'duration' | 'none';
 
 export type SummaryColumn = TallyColumn & { readonly visual: SummaryVisual };
 
@@ -142,16 +164,68 @@ const summarized = (label: string, visual: SummaryVisual): SummaryColumn => ({
   visual,
 });
 
-export const SUMMARY_TITLE = 'Latest runs on this config';
-
 export const SUMMARY_COLUMNS: readonly SummaryColumn[] = [
   summarized('Runs', 'strip'),
-  summarized('Accepted', 'share'),
-  summarized('Sent back', 'share'),
-  summarized('Failed', 'share'),
   summarized('Cost', 'cost'),
-  summarized('Median', 'duration'),
+  { ...summarized('Median', 'duration'), label: 'Median run' },
 ];
+
+export const OUTCOMES_TITLE = 'Outcomes';
+
+export type OutcomePart = {
+  readonly key: 'accepted' | 'sentBack' | 'failed' | 'other';
+  readonly label: string;
+  readonly tone: OutcomeTone;
+  readonly count: number;
+  readonly share: number | null;
+};
+
+type OutcomeTally = Pick<
+  StationTally,
+  'runs' | 'accepted' | 'sentBack' | 'failed' | 'merged'
+>;
+
+export const OTHER_OUTCOME_NOTE =
+  'Other: no answer yet, or the run stopped or was cancelled.';
+
+export const outcomePartsOf = (tally: OutcomeTally): OutcomePart[] => {
+  const share = (count: number) => (tally.runs > 0 ? count / tally.runs : null);
+  const other = Math.max(
+    0,
+    tally.runs - tally.accepted - tally.sentBack - tally.failed,
+  );
+
+  return [
+    {
+      key: 'accepted',
+      label: 'Accepted',
+      tone: 'done',
+      count: tally.accepted,
+      share: share(tally.accepted),
+    },
+    {
+      key: 'sentBack',
+      label: 'Sent back',
+      tone: 'sentBack',
+      count: tally.sentBack,
+      share: share(tally.sentBack),
+    },
+    {
+      key: 'failed',
+      label: 'Failed',
+      tone: 'failed',
+      count: tally.failed,
+      share: share(tally.failed),
+    },
+    {
+      key: 'other',
+      label: 'Other',
+      tone: 'quiet',
+      count: other,
+      share: share(other),
+    },
+  ];
+};
 
 const newestLive = (
   groups: readonly FingerprintGroup[],
@@ -170,7 +244,7 @@ export const recentRuns = (
 export const hasRuns = (groups: readonly FingerprintGroup[]): boolean =>
   groups.some((group) => group.runs.length > 0);
 
-export const OUTCOME_HEADINGS: readonly NestedHeading[] = [
+const OUTCOME_HEADINGS: readonly NestedHeading[] = [
   { label: 'Run', indent: 'outer', size: 'minmax(12rem,3fr)' },
   { label: 'Visit', size: SPREAD },
   { label: 'Checks', size: SPREAD },
@@ -182,59 +256,9 @@ export const OUTCOME_HEADINGS: readonly NestedHeading[] = [
 ];
 
 export const RECENT_RUN_HEADINGS: readonly NestedHeading[] = [
-  { label: 'Run', indent: 'edge', size: 'minmax(12rem,3fr)' },
+  { label: 'Run', indent: 'edge', size: 'minmax(10rem,2fr)' },
   ...OUTCOME_HEADINGS.slice(1),
 ];
-
-export type GroupSummary = {
-  readonly name: string;
-  readonly more: readonly string[];
-  readonly tooltip: string | null;
-  readonly days: string | null;
-  readonly checks: string;
-  readonly humanAction: string;
-  readonly pullRequestState: string;
-  readonly duration: string;
-  readonly cost: string;
-};
-
-const rateOf = (rate: number | null, label: string): string =>
-  rate === null ? '–' : `${formatPercent(rate)} ${label}`;
-
-const daysOf = (group: FingerprintGroup): string | null => {
-  const { firstDay, lastDay } = group;
-
-  if (!firstDay || !lastDay) {
-    return null;
-  }
-
-  return firstDay === lastDay
-    ? formatDay(firstDay)
-    : `${formatDay(firstDay)}–${formatDay(lastDay)}`;
-};
-
-export const groupSummary = (group: FingerprintGroup): GroupSummary => {
-  const phrases = group.changes.map(changePhrase);
-  const [first, ...more] = phrases;
-  const hash = group.fingerprint
-    ? `Config ${group.fingerprint.slice(0, 8)}`
-    : null;
-  const { tally, rates } = group;
-
-  return {
-    name: !group.fingerprint
-      ? 'Before the first run with a config'
-      : (first ?? hash ?? ''),
-    more,
-    tooltip: hash && phrases.length > 0 ? [...phrases, hash].join(' · ') : null,
-    days: daysOf(group),
-    checks: rateOf(rates.checksPassed, 'passed'),
-    humanAction: rateOf(rates.accepted, 'accepted'),
-    pullRequestState: rateOf(rates.merged, 'merged'),
-    duration: formatTallyDuration(tally.medianMs),
-    cost: formatCost(tally.cost),
-  };
-};
 
 export type ConfigFingerprint = {
   readonly fingerprint: string;
@@ -272,12 +296,25 @@ export const TYPICAL_COUNTED: TallyCounted = {
   cancelled: false,
 };
 
+const IN_THE_STATION_VIEW = new Set([
+  'Stopped',
+  'Checks passed',
+  'Checks failed',
+  'Passed on',
+  'p90',
+]);
+
+export const stationTableColumns = (counted: TallyCounted): TallyColumn[] =>
+  countedColumnsOf(counted).filter(
+    (column) => !IN_THE_STATION_VIEW.has(column.label),
+  );
+
 export const stationTableHeadings = (
   counted: TallyCounted,
 ): NestedHeading[] => [
   { label: 'Station', indent: 'edge', size: 'minmax(10rem,2fr)' },
   { label: 'Runs per day', size: 'max-content' },
-  ...countedColumnsOf(counted).map((column) => ({
+  ...stationTableColumns(counted).map((column) => ({
     label: column.label,
     numeric: true,
     size: SPREAD,

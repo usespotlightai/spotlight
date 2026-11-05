@@ -12,7 +12,13 @@ import {
 } from '@insights/application/services/config-changes';
 import type { InsightsAccess } from '@insights/application/services/insights-access.service';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
+import type { TaskFailuresRepository } from '@insights/domain/repositories/task-failures.repository';
 import type { TaskPullRequestRepository } from '@insights/domain/repositories/task-pull-request.repository';
+import {
+  failuresInRuns,
+  runFailureSummaries,
+  taskFailureSummaries,
+} from '@insights/domain/services/failure-summaries';
 import {
   configInForce,
   daySpanOf,
@@ -21,6 +27,7 @@ import {
 import { runTally, tallyRatesOf } from '@insights/domain/services/run-tally';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const DEFAULT_LAST = 50;
 const MAX_LAST = 200;
@@ -39,6 +46,7 @@ export class ReadStationInsightsHandler
     private readonly taskPullRequests: TaskPullRequestRepository,
     private readonly pullRequests: StationConfigPullRequestsPort,
     private readonly work: WorkPort,
+    private readonly failures: TaskFailuresRepository,
   ) {}
 
   async execute(query: ReadStationInsightsQuery): Promise<StationInsightsDto> {
@@ -114,12 +122,32 @@ export class ReadStationInsightsHandler
       });
 
       const inForce = configInForce(newestFirst);
+      const taskFailures = inForce
+        ? await this.failures.ofTasks(
+            [
+              ...new Set(
+                inForce.records.flatMap((each) =>
+                  each.taskId ? [each.taskId.value] : [],
+                ),
+              ),
+            ].map(TaskId.of),
+          )
+        : [];
 
       return {
         stationId: query.stationId,
         groups,
         inForce: inForce
-          ? { tally: runTally(inForce.records, taskPullRequests) }
+          ? {
+              tally: runTally(inForce.records, taskPullRequests),
+              taskFailures: taskFailureSummaries(
+                failuresInRuns(
+                  taskFailures,
+                  new Set(inForce.records.map((each) => each.runId.value)),
+                ),
+              ),
+              runFailures: runFailureSummaries(inForce.records),
+            }
           : null,
       };
     } catch (error) {

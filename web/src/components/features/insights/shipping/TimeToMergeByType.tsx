@@ -32,6 +32,7 @@ export function TimeToMergeByType({
 
   return (
     <InsightsCard
+      flat
       title="Time to merge by PR type"
       description={MERGE_BY_TYPE_NOTE}
       actions={<PercentilePicker value={percentile} onChange={setPercentile} />}
@@ -42,15 +43,16 @@ export function TimeToMergeByType({
             <div className="flex items-baseline justify-between gap-2 text-xs">
               <span className="text-foreground">
                 {formatType(row.type)}{' '}
-                <span className="text-[0.7rem] text-muted-foreground">
+                <span className="text-xs text-muted-foreground">
                   {row.merged} merged
                 </span>
               </span>
-              <span className="text-foreground tabular-nums">
-                {formatDurationOrNone(row.toMerge.spotlight[percentile])}
-                <span className="text-[0.7rem] text-muted-foreground">
-                  {' '}
-                  · {formatDurationOrNone(row.toMerge.people[percentile])}
+              <span className="flex items-baseline gap-3 tabular-nums">
+                <span className="text-foreground">
+                  {formatDurationOrNone(row.toMerge.spotlight[percentile])}
+                </span>
+                <span className="w-14 text-right text-muted-foreground">
+                  {formatDurationOrNone(row.toMerge.people[percentile])}
                 </span>
               </span>
             </div>

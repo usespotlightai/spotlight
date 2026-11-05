@@ -3,6 +3,10 @@ import type {
   ConfigPart,
   StationConfigView,
 } from '@insights/application/ports/work.port';
+import type {
+  RunFailureSummary,
+  TaskFailureSummary,
+} from '@insights/domain/services/failure-summaries';
 import type { DaySpan } from '@insights/domain/services/fingerprint-groups';
 import type { RunTally, TallyRates } from '@insights/domain/services/run-tally';
 
@@ -24,6 +28,8 @@ export interface FingerprintGroupDto extends DaySpan {
 
 export interface ConfigInForceDto {
   readonly tally: RunTally;
+  readonly taskFailures: readonly TaskFailureSummary[];
+  readonly runFailures: readonly RunFailureSummary[];
 }
 
 export interface StationInsightsDto {

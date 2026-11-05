@@ -8,6 +8,7 @@ import { RunFooter } from '@/components/features/runs/RunFooter';
 import { RunHeader } from '@/components/features/runs/RunHeader';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvider';
+import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunThread } from '@/hooks/useRunThread';
 import { useRunTrail } from '@/hooks/useRunTrail';
@@ -97,7 +98,7 @@ export function RunPage({
 
   return (
     <TrailContext value={forward}>
-      <div className="flex min-h-0 flex-1 flex-col">
+      <FileDropZone className="flex min-h-0 flex-1 flex-col rounded-lg">
         <RunHeader slug={slug} run={run} trail={trail} />
 
         <RunSidePanel>
@@ -134,7 +135,7 @@ export function RunPage({
             )}
           </StepAnchorsProvider>
         </RunSidePanel>
-      </div>
+      </FileDropZone>
     </TrailContext>
   );
 }

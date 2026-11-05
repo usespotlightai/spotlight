@@ -1026,6 +1026,9 @@ const rendered = (
           : [attribute('claims', { ...resource.claims })]),
         attribute('scopes', [...resource.scopes]),
         attribute('lifetime_minutes', resource.lifetimeMinutes),
+        ...(resource.description === ''
+          ? []
+          : [attribute('description', resource.description)]),
       ]);
     case 'runner-trust':
       return withImportBlock(resource, nameOf(resource.key), importedAs, [

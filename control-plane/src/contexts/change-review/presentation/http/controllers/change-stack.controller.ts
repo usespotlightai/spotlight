@@ -1,18 +1,34 @@
+import { AnswerQuestionCommand } from '@change-review/application/commands/answer-question.command';
 import type {
   LatestChangeStackDto,
+  QuestionAnswerDto,
   RunChangeStacksDto,
 } from '@change-review/application/dto/change-stack.dto';
 import { ListRunChangeStacksQuery } from '@change-review/application/queries/list-run-change-stacks.query';
 import { ReadTaskChangeStackQuery } from '@change-review/application/queries/read-task-change-stack.query';
 import {
+  AnswerQuestionRequestDto,
   LatestChangeStackResponseDto,
   NewestChangeStackResponseDto,
+  QuestionAnswerResponseDto,
   RunChangeStacksResponseDto,
 } from '@change-review/presentation/http/dto/change-stack.response.dto';
 import { ChangeStackHttpMapper } from '@change-review/presentation/http/mappers/change-stack.http.mapper';
-import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
-import { QueryBus } from '@nestjs/cqrs';
 import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+} from '@nestjs/common';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import {
+  ApiBadRequestResponse,
+  ApiBody,
+  ApiConflictResponse,
+  ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -23,12 +39,30 @@ import {
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 
+const replyIn = (body: AnswerQuestionRequestDto | undefined): string | null => {
+  const reply: unknown = body?.reply;
+
+  if (reply === null) {
+    return null;
+  }
+  if (typeof reply !== 'string' || !reply.trim()) {
+    throw new BadRequestException(
+      'reply must be the answer in words, or null to say you do not know.',
+    );
+  }
+
+  return reply;
+};
+
 @ApiTags('change-stacks')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
 @ApiParam({ name: 'teamId', type: String })
 @Controller('teams/:teamId')
 export class ChangeStackController {
-  constructor(private readonly queryBus: QueryBus) {}
+  constructor(
+    private readonly queryBus: QueryBus,
+    private readonly commandBus: CommandBus,
+  ) {}
 
   @Get('runs/:runId/change-stacks')
   @ApiOperation({
@@ -54,6 +88,49 @@ export class ChangeStackController {
     }
 
     return ChangeStackHttpMapper.toResponse(found);
+  }
+
+  @Post('runs/:runId/change-stacks/:stackId/questions/:questionId/answers')
+  @ApiOperation({
+    operationId: 'answerStackQuestion',
+    summary:
+      'Answer a question about a layer of a change stack, and get it graded against the expected answer',
+  })
+  @ApiParam({ name: 'runId', type: String })
+  @ApiParam({ name: 'stackId', type: String })
+  @ApiParam({ name: 'questionId', type: String })
+  @ApiBody({ type: AnswerQuestionRequestDto })
+  @ApiCreatedResponse({ type: QuestionAnswerResponseDto })
+  @ApiBadRequestResponse({
+    description: 'The reply is not words or null, or it is too long',
+  })
+  @ApiNotFoundResponse({
+    description: 'No such change stack or question for this caller',
+  })
+  @ApiConflictResponse({ description: 'The caller already answered it' })
+  async answer(
+    @Param('teamId') teamId: string,
+    @Param('runId') runId: string,
+    @Param('stackId') stackId: string,
+    @Param('questionId') questionId: string,
+    @Body() body: AnswerQuestionRequestDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<QuestionAnswerResponseDto> {
+    const answered = await this.commandBus.execute<
+      AnswerQuestionCommand,
+      QuestionAnswerDto
+    >(
+      new AnswerQuestionCommand(
+        teamId,
+        runId,
+        stackId,
+        questionId,
+        user.id,
+        replyIn(body),
+      ),
+    );
+
+    return ChangeStackHttpMapper.toAnswer(answered);
   }
 
   @Get('tasks/:taskId/change-stack')

@@ -196,6 +196,15 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
           defaulted: false,
           stdin: true,
         },
+        {
+          name: 'attach',
+          schema: InputSchema.of({ type: 'array', items: { type: 'string' } }),
+          description:
+            'A file attached to this chat that the task needs, by its path. Repeat for each file.',
+          required: false,
+          defaulted: false,
+          stdin: false,
+        },
       ],
     }),
   },
