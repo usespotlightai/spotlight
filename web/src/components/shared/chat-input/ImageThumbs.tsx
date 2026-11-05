@@ -29,7 +29,7 @@ export function ImageThumbs({ images, onRemove }: ImageThumbsProps) {
           {image.image && (
             <ImagePreview
               image={image.image}
-              alt={image.name}
+              name={image.name}
               className={cn(
                 'size-full object-cover',
                 image.state === 'uploading' && 'animate-pulse opacity-60',

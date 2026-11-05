@@ -17,19 +17,17 @@ const showing = (attachments: Attachment[]) =>
   );
 
 describe('AttachmentTiles', () => {
-  it('fills its square with a picture, opening the whole of it', () => {
+  it('fills its square with a picture that opens large', () => {
     showing([
       { id: 'att_1', name: 'shot.png', contentType: 'image/png', size: 2048 },
     ]);
 
-    expect(screen.getByRole('img', { name: 'shot.png' })).toHaveAttribute(
-      'src',
-      '/api/workspaces/acme/attachments/att_1',
-    );
-    expect(screen.getByRole('link', { name: 'shot.png' })).toHaveAttribute(
-      'href',
-      '/api/workspaces/acme/attachments/att_1',
-    );
+    expect(
+      screen
+        .getByRole('button', { name: 'View shot.png' })
+        .querySelector('img'),
+    ).toHaveAttribute('src', '/api/workspaces/acme/attachments/att_1');
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
   it('says what any other file is, and offers it to download', () => {

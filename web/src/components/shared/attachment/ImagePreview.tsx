@@ -1,13 +1,16 @@
+import { ZoomableImage } from '@/components/shared/attachment/ZoomableImage';
 import { useObjectUrl } from '@/hooks/useObjectUrl';
 
 type ImagePreviewProps = {
   image: Blob;
-  alt: string;
+  name: string;
   className?: string;
 };
 
-export function ImagePreview({ image, alt, className }: ImagePreviewProps) {
+export function ImagePreview({ image, name, className }: ImagePreviewProps) {
   const url = useObjectUrl(image);
 
-  return url ? <img src={url} alt={alt} className={className} /> : null;
+  return url ? (
+    <ZoomableImage src={url} name={name} className={className} />
+  ) : null;
 }

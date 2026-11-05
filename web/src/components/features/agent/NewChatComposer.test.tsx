@@ -273,8 +273,8 @@ describe('NewChatComposer', () => {
     expect(within(box()).getByText('agent.json')).toBeInTheDocument();
     expect(within(box()).queryByText('shot.png')).not.toBeInTheDocument();
     expect(
-      within(screen.getByRole('list', { name: 'Images' })).getByRole('img', {
-        name: 'shot.png',
+      within(screen.getByRole('list', { name: 'Images' })).getByRole('button', {
+        name: 'View shot.png',
       }),
     ).toBeInTheDocument();
   });
@@ -420,9 +420,12 @@ describe('NewChatComposer', () => {
 
       expect(within(box()).getByText('agent.json')).toBeInTheDocument();
       expect(
-        within(screen.getByRole('list', { name: 'Images' })).getByRole('img', {
-          name: 'shot.png',
-        }),
+        within(screen.getByRole('list', { name: 'Images' })).getByRole(
+          'button',
+          {
+            name: 'View shot.png',
+          },
+        ),
       ).toBeInTheDocument();
 
       await userEvent.click(screen.getByRole('button', { name: 'Send' }));
