@@ -1,6 +1,6 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { XIcon } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { type MouseEvent, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -41,10 +41,19 @@ const SHRINK = {
 type Size = { width: number; height: number };
 
 const fitted = (image: HTMLImageElement): Size => {
+  const room = {
+    width: window.innerWidth - MARGIN_X * 2,
+    height: window.innerHeight - MARGIN_Y * 2,
+  };
+
+  if (!image.naturalWidth || !image.naturalHeight) {
+    return room;
+  }
+
   const scale = Math.min(
     1,
-    (window.innerWidth - MARGIN_X * 2) / image.naturalWidth,
-    (window.innerHeight - MARGIN_Y * 2) / image.naturalHeight,
+    room.width / image.naturalWidth,
+    room.height / image.naturalHeight,
   );
 
   return {
@@ -85,7 +94,9 @@ const play = (
   timing: KeyframeAnimationOptions,
 ): Promise<unknown> =>
   element && 'animate' in element && !still()
-    ? element.animate(keyframes, { ...timing, fill: 'forwards' }).finished
+    ? element
+        .animate(keyframes, { ...timing, fill: 'forwards' })
+        .finished.catch(() => undefined)
     : Promise.resolve();
 
 type ZoomableImageProps = {
@@ -109,8 +120,10 @@ export function ZoomableImage({
   const [shown, setShown] = useState<Size | null>(null);
   const closing = useRef(false);
 
-  const open = () => {
-    if (thumb.current?.naturalWidth) {
+  const open = (event: MouseEvent) => {
+    event.stopPropagation();
+
+    if (thumb.current) {
       closing.current = false;
       setShown(fitted(thumb.current));
     }
@@ -184,7 +197,10 @@ export function ZoomableImage({
           <DialogPrimitive.Popup
             aria-label={name}
             finalFocus={button}
-            onClick={() => void close()}
+            onClick={(event) => {
+              event.stopPropagation();
+              void close();
+            }}
             className="fixed inset-0 z-50 flex items-center justify-center outline-none"
           >
             {shown && (
@@ -195,7 +211,7 @@ export function ZoomableImage({
                   alt={name}
                   width={shown.width}
                   height={shown.height}
-                  className="block rounded-xl shadow-overlay ring-1 ring-foreground/10 will-change-transform"
+                  className="block rounded-xl object-contain shadow-overlay ring-1 ring-foreground/10"
                 />
                 <Button
                   ref={closer}

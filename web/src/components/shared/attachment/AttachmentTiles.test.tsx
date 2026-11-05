@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { AttachmentTiles } from '@/components/shared/attachment/AttachmentTiles';
@@ -28,6 +29,20 @@ describe('AttachmentTiles', () => {
         .querySelector('img'),
     ).toHaveAttribute('src', '/api/workspaces/acme/attachments/att_1');
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('opens a sent picture large', async () => {
+    showing([
+      { id: 'att_1', name: 'shot.png', contentType: 'image/png', size: 2048 },
+    ]);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'View shot.png' }),
+    );
+
+    expect(
+      await screen.findByRole('img', { name: 'shot.png' }),
+    ).toHaveAttribute('src', '/api/workspaces/acme/attachments/att_1');
   });
 
   it('says what any other file is, and offers it to download', () => {
