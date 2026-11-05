@@ -2,6 +2,7 @@ import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsSection } from '@/components/features/insights/InsightsSection';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
 import { McpServersTable } from '@/components/features/insights/tools/McpServersTable';
+import { NoMcpServers } from '@/components/features/insights/tools/NoMcpServers';
 import { NoToolsUsed } from '@/components/features/insights/tools/NoToolsUsed';
 import { SkillUse } from '@/components/features/insights/tools/SkillUse';
 import { ToolsSkeleton } from '@/components/features/insights/tools/ToolsSkeleton';
@@ -77,9 +78,7 @@ export function ToolsTab({ slug, teamId, period, names }: ToolsTabProps) {
             dismissals={insights.dismissals}
           />
         ) : (
-          <p className="text-muted-foreground text-sm">
-            No run called an MCP server in this period.
-          </p>
+          <NoMcpServers />
         )}
       </InsightsSection>
     </>

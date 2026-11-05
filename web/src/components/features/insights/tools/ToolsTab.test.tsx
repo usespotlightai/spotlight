@@ -212,6 +212,29 @@ describe('the skills and tools of the Tools and skills tab', () => {
     ).toHaveAttribute('href', '/w/acme/settings/team/team_1/skills');
   });
 
+  it('shows the MCP servers empty state with an aria-hidden logo and no action', () => {
+    answer.tools = queried({ ...TOOLS, servers: [], dismissals: [] });
+
+    showing();
+
+    const title = screen.getByText('No MCP servers called');
+    const card = title.closest('.max-w-xs') as HTMLElement;
+    expect(card.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(within(card).queryByRole('link')).toBeNull();
+    expect(within(card).queryByRole('button')).toBeNull();
+    expect(
+      screen.queryByText('No run called an MCP server in this period.'),
+    ).toBeNull();
+  });
+
+  it('hides the MCP servers empty state when a server was called', () => {
+    answer.tools = queried({ ...TOOLS, dismissals: [] });
+
+    showing();
+
+    expect(screen.queryByText('No MCP servers called')).toBeNull();
+  });
+
   const skillRow = (key: string) =>
     screen
       .getByText(key, { selector: 'a, span' })
