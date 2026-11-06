@@ -35,6 +35,14 @@ export type NetworkCallProgress =
 
 export type NetworkCallState = NetworkCallProgress['kind'];
 
+export const NETWORK_CALL_STATES = [
+  'waiting',
+  'claimed',
+  'answered',
+  'expired',
+  'cancelled',
+] as const satisfies readonly NetworkCallState[];
+
 interface State {
   readonly id: NetworkCallId;
   readonly workspaceId: WorkspaceId;

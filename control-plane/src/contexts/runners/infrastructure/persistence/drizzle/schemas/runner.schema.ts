@@ -1,3 +1,6 @@
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { SANDBOX_STATES } from '@runners/domain/aggregates/sandbox.aggregate';
+import { RUNNER_WORK_KINDS } from '@runners/domain/value-objects/runner-work.vo';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -5,9 +8,9 @@ import {
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
   text,
-  timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -24,6 +27,9 @@ export interface HostImageRecord {
   readonly unavailableReason?: string;
 }
 
+export const runnerWorkKind = pgEnum('runner_work_kind', RUNNER_WORK_KINDS);
+export const sandboxState = pgEnum('sandbox_state', SANDBOX_STATES);
+
 export const runnerTrust = pgTable(
   'runner_trust',
   {
@@ -35,7 +41,7 @@ export const runnerTrust = pgTable(
     audience: text('audience').notNull(),
     labels: jsonb('labels').$type<string[]>().notNull().default([]),
     version: integer('version').notNull().default(0),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex('runner_trust_workspace_key_idx').on(
@@ -75,7 +81,7 @@ export const runnerPool = pgTable(
     provisionEgress: text('provision_egress'),
     provisionEgressTraffic: text('provision_egress_traffic'),
     version: integer('version').notNull().default(0),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex('runner_pool_workspace_key_idx').on(
@@ -97,7 +103,7 @@ export const runnerPool = pgTable(
 export const poolToken = pgTable('pool_token', {
   tokenHash: text('token_hash').primaryKey(),
   poolId: text('pool_id').notNull(),
-  usedAt: timestamp('used_at').defaultNow().notNull(),
+  usedAt: timestamptz('used_at').defaultNow().notNull(),
 });
 
 export const egress = pgTable(
@@ -110,7 +116,7 @@ export const egress = pgTable(
     tokenHash: text('token_hash').notNull(),
     tokenVersion: integer('token_version'),
     version: integer('version').notNull().default(0),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex('egress_workspace_key_idx').on(table.workspaceId, table.key),
@@ -121,7 +127,7 @@ export const egress = pgTable(
 export const egressToken = pgTable('egress_token', {
   tokenHash: text('token_hash').primaryKey(),
   egressId: text('egress_id').notNull(),
-  usedAt: timestamp('used_at').defaultNow().notNull(),
+  usedAt: timestamptz('used_at').defaultNow().notNull(),
 });
 
 export const runner = pgTable(
@@ -147,12 +153,12 @@ export const runner = pgTable(
       .default({}),
     image: text('image'),
     isDefault: boolean('is_default').notNull().default(false),
-    workKind: text('work_kind'),
+    workKind: runnerWorkKind('work_kind'),
     workId: text('work_id'),
-    claimBy: timestamp('claim_by').notNull(),
-    startedAt: timestamp('started_at').notNull(),
-    lastHeartbeatAt: timestamp('last_heartbeat_at'),
-    endedAt: timestamp('ended_at'),
+    claimBy: timestamptz('claim_by').notNull(),
+    startedAt: timestamptz('started_at').notNull(),
+    lastHeartbeatAt: timestamptz('last_heartbeat_at'),
+    endedAt: timestamptz('ended_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -195,12 +201,13 @@ export const runnerHost = pgTable(
     running: jsonb('running').$type<string[]>().notNull().default([]),
     images: jsonb('images').$type<HostImageRecord[]>().notNull().default([]),
     bootId: text('boot_id').notNull(),
-    firstHeartbeatAt: timestamp('first_heartbeat_at').notNull(),
-    onlineSince: timestamp('online_since').notNull(),
-    lastHeartbeatAt: timestamp('last_heartbeat_at').notNull(),
+    firstHeartbeatAt: timestamptz('first_heartbeat_at').notNull(),
+    onlineSince: timestamptz('online_since').notNull(),
+    lastHeartbeatAt: timestamptz('last_heartbeat_at').notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check('runner_host_capacity_positive', sql`${table.capacity} > 0`),
     index('runner_host_workspace_idx').on(table.workspaceId),
     index('runner_host_pool_idx').on(table.poolId),
     index('runner_host_trust_idx').on(table.trustId),
@@ -226,11 +233,11 @@ export const sandbox = pgTable(
     key: text('key'),
     hostId: text('host_id'),
     tokenHash: text('token_hash'),
-    state: text('state').notNull(),
+    state: sandboxState('state').notNull(),
     leases: jsonb('leases').$type<SandboxLeaseRecord[]>().notNull().default([]),
-    idleSince: timestamp('idle_since'),
-    startedAt: timestamp('started_at').notNull(),
-    goneAt: timestamp('gone_at'),
+    idleSince: timestamptz('idle_since'),
+    startedAt: timestamptz('started_at').notNull(),
+    goneAt: timestamptz('gone_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [

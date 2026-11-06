@@ -169,6 +169,7 @@ describe('a skill, created through the resource API (e2e)', () => {
     });
     await db.insert(schema.station).values({
       id: stationId,
+      workspaceId: teamId,
       lineId,
       key: 'implementation',
       name: 'Implementation',

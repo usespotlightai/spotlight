@@ -32,7 +32,7 @@ const openingOf = (row: HumanActionsRow): TaskOpening | null => {
     teamId: TeamId.of(row.teamId),
     lineId: row.lineId,
     stationId: row.stationId,
-    by: row.openedBy ? UserId.of(row.openedBy) : null,
+    by: row.openedById ? UserId.of(row.openedById) : null,
     at: row.openedAt,
   });
 };
@@ -56,24 +56,25 @@ const toHumanActions = (row: HumanActionsRow): TaskHumanActions =>
     version: row.version,
   });
 
-const columnsOf = (humanActions: TaskHumanActions) => ({
-  teamId: humanActions.opening?.teamId.value ?? null,
-  lineId: humanActions.opening?.lineId ?? null,
-  stationId: humanActions.opening?.stationId ?? null,
-  openedBy: humanActions.opening?.by?.value ?? null,
-  openedAt: humanActions.opening?.at ?? null,
-  asks: humanActions.asks.map((each) => ({
-    stationId: each.stationId,
-    at: each.at.toISOString(),
-  })),
-  actions: humanActions.actions.map((each) => ({
-    kind: each.kind,
-    by: each.by.value,
-    stationId: each.stationId,
-    at: each.at.toISOString(),
-  })),
-  lastActionAt: humanActions.lastActionAt,
-});
+const columnsOf = (humanActions: TaskHumanActions) =>
+  ({
+    teamId: humanActions.opening?.teamId.value ?? null,
+    lineId: humanActions.opening?.lineId ?? null,
+    stationId: humanActions.opening?.stationId ?? null,
+    openedById: humanActions.opening?.by?.value ?? null,
+    openedAt: humanActions.opening?.at ?? null,
+    asks: humanActions.asks.map((each) => ({
+      stationId: each.stationId,
+      at: each.at.toISOString(),
+    })),
+    actions: humanActions.actions.map((each) => ({
+      kind: each.kind,
+      by: each.by.value,
+      stationId: each.stationId,
+      at: each.at.toISOString(),
+    })),
+    lastActionAt: humanActions.lastActionAt,
+  }) satisfies Partial<typeof taskHumanAction.$inferInsert>;
 
 @Injectable()
 export class DrizzleTaskHumanActionsRepository

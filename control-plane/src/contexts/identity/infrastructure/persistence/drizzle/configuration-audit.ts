@@ -23,7 +23,7 @@ type Row = typeof configurationChange.$inferSelect;
 const actorColumns = (actor: Actor | null) => {
   if (!actor) {
     return {
-      actor: 'spotlight',
+      actor: 'spotlight' as const,
       userId: null,
       tokenId: null,
       trustId: null,

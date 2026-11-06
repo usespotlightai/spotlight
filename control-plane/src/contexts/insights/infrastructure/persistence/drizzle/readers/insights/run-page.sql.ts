@@ -158,7 +158,7 @@ const filtered = (window: TeamWindow, filter: RunFilter): SQL | undefined =>
       : sql`${runFact.firstHumanAction}::text = ${filter.humanAction}`,
     filter.personId === null
       ? undefined
-      : eq(runFact.openedBy, filter.personId),
+      : eq(runFact.openedById, filter.personId),
     filter.pullRequestState === null
       ? undefined
       : sql`${runFact.pullRequestState}::text = ${filter.pullRequestState}`,
@@ -181,7 +181,7 @@ const listedOf = (row: FactRow): ListedRun => ({
   effort: row.effort,
   profileKey: row.profileKey,
   repositories: row.repositories,
-  openedBy: row.openedBy,
+  openedBy: row.openedById,
   queuedAt: row.queuedAt,
   startedAt: row.startedAt,
   endedAt: row.endedAt,

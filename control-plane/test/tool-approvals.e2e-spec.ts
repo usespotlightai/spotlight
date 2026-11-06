@@ -20,6 +20,7 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { aRunOf } from './support/run-ended';
 import { createTeam } from './support/team';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
@@ -71,6 +72,11 @@ describe('an approval a run asked for', () => {
     );
     const runId = RunId.of(randomUUID());
 
+    await aRunOf(db, {
+      id: runId.value,
+      workspaceId: list.workspaceId.value,
+      taskId: list.id.value,
+    });
     await tasks.save(
       list.closeConversation({
         station: StationName.of('Backlog'),
@@ -342,6 +348,11 @@ describe('an approval a run asked for', () => {
   it('is read back with what the agent said it wants to do', async () => {
     const { list } = await createTeam(db, tasks, `approvals-${randomUUID()}`);
     const runId = RunId.of(randomUUID());
+    await aRunOf(db, {
+      id: runId.value,
+      workspaceId: list.workspaceId.value,
+      taskId: list.id.value,
+    });
 
     await tasks.save(
       list.closeConversation({

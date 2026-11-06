@@ -1,17 +1,12 @@
-import {
-  index,
-  pgTable,
-  primaryKey,
-  text,
-  timestamp,
-} from 'drizzle-orm/pg-core';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { index, pgTable, primaryKey, text } from 'drizzle-orm/pg-core';
 
 export const processedEvent = pgTable(
   'processed_event',
   {
     workspaceId: text('workspace_id').notNull(),
     key: text('key').notNull(),
-    processedAt: timestamp('processed_at').notNull(),
+    processedAt: timestamptz('processed_at').notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.workspaceId, table.key] }),

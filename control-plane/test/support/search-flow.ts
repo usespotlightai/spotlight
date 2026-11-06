@@ -290,17 +290,6 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
     assigneeId: team.owner.value,
     finishedAt: at,
   });
-  await db.insert(schema.workspaceArchive).values({
-    id: archiveId,
-    workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
-    grantedToRunId: randomUUID(),
-    size: 1_024,
-    sha256: 'a'.repeat(64),
-    grantedAt: at,
-    completedAt: at,
-  });
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
@@ -339,6 +328,17 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
     startedFromAt: at,
+  });
+  await db.insert(schema.workspaceArchive).values({
+    id: archiveId,
+    workspaceId: team.workspaceId.value,
+    resumeKey: `task-${taskId}`,
+    taskId,
+    grantedToRunId: runId,
+    size: 1_024,
+    sha256: 'a'.repeat(64),
+    grantedAt: at,
+    completedAt: at,
   });
 
   return { taskId, runId };
@@ -831,6 +831,7 @@ export const openSearchFlow = (): void => {
     await db.insert(schema.station).values([
       {
         id: randomUUID(),
+        workspaceId: team.workspaceId.value,
         lineId: DELIVERY,
         key: 'backlog',
         name: 'Backlog',
@@ -839,6 +840,7 @@ export const openSearchFlow = (): void => {
       },
       {
         id: BUILD,
+        workspaceId: team.workspaceId.value,
         lineId: DELIVERY,
         key: 'build',
         name: 'Build',
@@ -850,6 +852,7 @@ export const openSearchFlow = (): void => {
       },
       {
         id: POLISH,
+        workspaceId: team.workspaceId.value,
         lineId: DELIVERY,
         key: 'polish',
         name: 'Polish',
@@ -861,6 +864,7 @@ export const openSearchFlow = (): void => {
       },
       {
         id: SHIP,
+        workspaceId: team.workspaceId.value,
         lineId: DELIVERY,
         key: 'ship',
         name: 'Ship',
@@ -870,6 +874,7 @@ export const openSearchFlow = (): void => {
       },
       {
         id: randomUUID(),
+        workspaceId: team.workspaceId.value,
         lineId: DELIVERY,
         key: 'completed',
         name: 'Completed',

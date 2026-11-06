@@ -7,15 +7,18 @@ import type {
   StoredFacts,
   StoredFile,
 } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
   pgEnum,
   pgTable,
   text,
-  timestamp,
+  unique,
 } from 'drizzle-orm/pg-core';
 
 export interface StoredModelUsage {
@@ -48,8 +51,8 @@ export const changeStack = pgTable(
     files: jsonb('files').$type<StoredFile[]>().notNull(),
     cohorts: jsonb('cohorts').$type<StoredCohort[]>().notNull().default([]),
     failure: text('failure'),
-    startedAt: timestamp('started_at').notNull(),
-    completedAt: timestamp('completed_at'),
+    startedAt: timestamptz('started_at').notNull(),
+    completedAt: timestamptz('completed_at'),
     facts: jsonb('facts').$type<StoredFacts>().notNull(),
     checkCommand: text('check_command'),
     checkSetup: text('check_setup'),
@@ -61,10 +64,15 @@ export const changeStack = pgTable(
     redrafting: boolean('redrafting').notNull().default(false),
     usage: jsonb('usage').$type<StoredModelUsage>().notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
-    jobDueAt: timestamp('job_due_at'),
+    jobDueAt: timestamptz('job_due_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check(
+      'change_stack_job_attempts_not_negative',
+      sql`${table.jobAttempts} >= 0`,
+    ),
+    unique('change_stack_workspace_id_id_key').on(table.workspaceId, table.id),
     index('change_stack_run_idx').on(table.runId, table.startedAt),
     index('change_stack_task_idx').on(table.taskId, table.startedAt),
   ],

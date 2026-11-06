@@ -44,7 +44,7 @@ const remembered = async (
     teamId: team.teamId.value,
     paths: [],
     source: 'person',
-    approvedBy: team.owner.value,
+    approvedById: team.owner.value,
     approvedAt: ago(48),
     ...change,
   });
@@ -113,7 +113,7 @@ beforeAll(async () => {
   const wrong = await remembered({
     status: 'retired',
     retiredAt: ago(5),
-    retiredBy: team.owner.value,
+    retiredById: team.owner.value,
     retireReason: 'We stopped doing this',
   });
   await remembered({

@@ -310,7 +310,7 @@ const boundsOf = (earliest: readonly ConfigIntervalBound[]): SQL => {
     sql`, `,
   );
 
-  return sql`unnest(array[${stationIds}]::text[], array[${froms}]::timestamp[], array[${fromRuns}]::text[]) as bound(station_id, from_at, from_run)`;
+  return sql`unnest(array[${stationIds}]::text[], array[${froms}]::timestamptz[], array[${fromRuns}]::text[]) as bound(station_id, from_at, from_run)`;
 };
 
 const beforeBound = (began: SQL, inRunOrder: SQL): SQL =>

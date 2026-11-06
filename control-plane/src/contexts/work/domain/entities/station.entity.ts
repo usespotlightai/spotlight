@@ -22,7 +22,9 @@ import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import type { Tool } from '@work/domain/value-objects/tool.vo';
 
-export type StationKind = 'backlog' | 'work' | 'completed';
+export const STATION_KINDS = ['backlog', 'work', 'completed'] as const;
+
+export type StationKind = (typeof STATION_KINDS)[number];
 
 type Part = {
   name?: StationName;

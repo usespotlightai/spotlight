@@ -46,6 +46,14 @@ export type HookFiringProgress =
 
 export type HookFiringState = HookFiringProgress['kind'];
 
+export const HOOK_FIRING_STATES = [
+  'pending',
+  'working',
+  'done',
+  'failed',
+  'superseded',
+] as const satisfies readonly HookFiringState[];
+
 interface Fired {
   readonly id: string;
   readonly hookId: string;

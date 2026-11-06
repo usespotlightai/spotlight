@@ -37,7 +37,7 @@ export const onTeam = ({ workspaceId, teamId }: TeamInPeriod): SQL =>
   sql`${runFact.workspaceId} = ${workspaceId.value} and ${runFact.teamId} = ${teamId.value}`;
 
 export const endedIn = (from: Date, to: Date): SQL =>
-  sql`${runFact.endedAt} >= ${iso(from)}::timestamp and ${runFact.endedAt} < ${iso(to)}::timestamp`;
+  sql`${runFact.endedAt} >= ${iso(from)}::timestamptz and ${runFact.endedAt} < ${iso(to)}::timestamptz`;
 
 export const msOf = (column: SQL): SQL =>
   sql`(extract(epoch from ${column}) * 1000)::float8`;
@@ -61,8 +61,8 @@ export const periodFacts = (team: TeamInPeriod): SQL => {
   return sql`
     select
       ${runFact}.*,
-      ${runFact.endedAt} >= ${iso(current.from)}::timestamp as is_current,
-      to_char(${runFact.endedAt}, 'YYYY-MM-DD') as day
+      ${runFact.endedAt} >= ${iso(current.from)}::timestamptz as is_current,
+      to_char(${runFact.endedAt} at time zone 'UTC', 'YYYY-MM-DD') as day
     from ${runFact}
     where ${onTeam(team)} and ${endedIn(previous.from, current.to)}`;
 };
@@ -94,7 +94,7 @@ export const stationsInEndOrder = (facts: SQL, part?: SQL): SQL => {
 };
 
 export const spendColumns = sql`
-  sum(${runFact.cost} order by ${inEndOrder}) filter (where ${priced}) as amount,
+  sum(${runFact.cost}::float8 order by ${inEndOrder}) filter (where ${priced}) as amount,
   min(${runFact.currency}) filter (where ${priced}) as currency,
   count(distinct ${runFact.currency}) filter (where ${priced})::int as currencies,
   ${counted(sql`${ran} and not (${priced})`)} as unpriced`;

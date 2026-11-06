@@ -61,15 +61,13 @@ describe('AcceptDeliveryHandler', () => {
     const { handler, taken } = accepting();
 
     await handler.execute(
-      new AcceptDeliveryCommand('github', '', '', '', delivered()),
+      new AcceptDeliveryCommand('github', null, delivered()),
     );
 
     expect(taken).toEqual([
       {
         integration: 'github',
-        workspaceId: '',
-        teamId: '',
-        teamKey: '',
+        to: null,
         id: 'd_1',
         headers: { 'x-delivery': 'd_1' },
         body: { action: 'closed' },
@@ -82,10 +80,10 @@ describe('AcceptDeliveryHandler', () => {
     const { handler, queue } = accepting();
 
     await handler.execute(
-      new AcceptDeliveryCommand('github', '', '', '', delivered()),
+      new AcceptDeliveryCommand('github', null, delivered()),
     );
     await handler.execute(
-      new AcceptDeliveryCommand('github', '', '', '', delivered()),
+      new AcceptDeliveryCommand('github', null, delivered()),
     );
 
     expect(queue.accept).toHaveBeenCalledTimes(2);
@@ -104,13 +102,7 @@ describe('AcceptDeliveryHandler', () => {
     const unreadable = { not: 'anything a provider would recognise' };
 
     await handler.execute(
-      new AcceptDeliveryCommand(
-        'github',
-        '',
-        '',
-        '',
-        delivered('d_2', unreadable),
-      ),
+      new AcceptDeliveryCommand('github', null, delivered('d_2', unreadable)),
     );
 
     expect(taken[0]?.body).toEqual(unreadable);
@@ -120,7 +112,7 @@ describe('AcceptDeliveryHandler', () => {
     const { handler, taken } = accepting();
 
     await handler.execute(
-      new AcceptDeliveryCommand('sentry', '', '', '', delivered()),
+      new AcceptDeliveryCommand('sentry', null, delivered()),
     );
 
     expect(taken).toHaveLength(0);

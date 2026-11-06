@@ -108,6 +108,7 @@ const answering = (
       save: async (answer: QuestionAnswer) => {
         saved.push(answer);
       },
+      removeForTask: async () => {},
     } satisfies QuestionAnswerRepository,
     {
       available: over.graderAvailable !== false,

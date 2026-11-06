@@ -78,7 +78,7 @@ const toScore = (row: ScoreRow): Score =>
       }),
     ),
     seen: SeenEvidence.of(row.seen),
-    by: row.by ? UserId.of(row.by) : null,
+    by: row.scoredById ? UserId.of(row.scoredById) : null,
     at: row.at,
     version: row.version,
   });
@@ -141,7 +141,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
           model: added.model,
           reasons: storedReasons(added),
           seen: { steps: added.seen.steps, hunks: added.seen.hunks },
-          by: added.by?.value ?? null,
+          scoredById: added.by?.value ?? null,
           version: added.version,
           ...columnsOf(added),
         })
@@ -198,7 +198,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
         and(
           eq(score.runId, runId.value),
           eq(score.source, 'person'),
-          eq(score.by, by.value),
+          eq(score.scoredById, by.value),
         ),
       )
       .limit(1);

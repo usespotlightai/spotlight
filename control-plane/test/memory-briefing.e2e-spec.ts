@@ -54,6 +54,7 @@ const lineWith = async (id: string, key: string, work: string) => {
   await db.insert(schema.station).values([
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: id,
       key: 'backlog',
       name: 'Backlog',
@@ -62,6 +63,7 @@ const lineWith = async (id: string, key: string, work: string) => {
     },
     {
       id: work,
+      workspaceId: team.workspaceId.value,
       lineId: id,
       key: 'work',
       name: 'Work',
@@ -70,6 +72,7 @@ const lineWith = async (id: string, key: string, work: string) => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: id,
       key: 'completed',
       name: 'Completed',

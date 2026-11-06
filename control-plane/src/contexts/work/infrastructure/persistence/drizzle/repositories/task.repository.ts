@@ -281,7 +281,10 @@ export class DrizzleTaskRepository implements TaskRepository {
     try {
       return await work();
     } catch (error) {
-      if (violates(error, FOREIGN_KEY_VIOLATION, 'station_id_station_id_fk')) {
+      if (
+        violates(error, FOREIGN_KEY_VIOLATION, 'task_station_fk') ||
+        violates(error, FOREIGN_KEY_VIOLATION, 'task_origin_station_fk')
+      ) {
         throw new UnknownStationError(written.stationId.value);
       }
 

@@ -153,17 +153,6 @@ const anOriginal = async (
     assigneeId: team.owner.value,
     finishedAt: at,
   });
-  await db.insert(schema.workspaceArchive).values({
-    id: archiveId,
-    workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
-    grantedToRunId: randomUUID(),
-    size: 1_024,
-    sha256: 'a'.repeat(64),
-    grantedAt: at,
-    completedAt: at,
-  });
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
@@ -206,6 +195,17 @@ const anOriginal = async (
           startedFromAttempt: 1,
           startedFromAt: at,
         }),
+  });
+  await db.insert(schema.workspaceArchive).values({
+    id: archiveId,
+    workspaceId: team.workspaceId.value,
+    resumeKey: `task-${taskId}`,
+    taskId,
+    grantedToRunId: runId,
+    size: 1_024,
+    sha256: 'a'.repeat(64),
+    grantedAt: at,
+    completedAt: at,
   });
 
   return { taskId, runId, archiveId };
@@ -362,6 +362,7 @@ beforeAll(async () => {
   await db.insert(schema.station).values([
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'backlog',
       name: 'Backlog',
@@ -370,6 +371,7 @@ beforeAll(async () => {
     },
     {
       id: BUILD,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'build',
       name: 'Build',
@@ -380,6 +382,7 @@ beforeAll(async () => {
     },
     {
       id: SHIP,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'ship',
       name: 'Ship',
@@ -389,6 +392,7 @@ beforeAll(async () => {
     },
     {
       id: POLISH,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'polish',
       name: 'Polish',
@@ -398,6 +402,7 @@ beforeAll(async () => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'completed',
       name: 'Completed',
@@ -531,12 +536,12 @@ describe('a replay set', () => {
       );
 
     await eventually(async () => {
-      const [startingPointHold] = await db
+      const held = await db
         .select()
-        .from(schema.startingPointHold)
-        .where(eq(schema.startingPointHold.holder, `replay-set:${setId}`));
+        .from(schema.startingPointHoldRun)
+        .where(eq(schema.startingPointHoldRun.holder, `replay-set:${setId}`));
 
-      return startingPointHold?.runIds.includes(original.runId) ?? false;
+      return held.some((each) => each.runId === original.runId);
     });
 
     expect(await due()).toBeUndefined();
@@ -956,9 +961,11 @@ describe('a replay set whose station leaves its line', () => {
       key: `other-${otherTeam.slice(0, 8)}`,
       name: 'Other',
     });
-    await db
-      .insert(schema.teamMember)
-      .values({ teamId: otherTeam, userId: otherReader });
+    await db.insert(schema.teamMember).values({
+      workspaceId: team.workspaceId.value,
+      teamId: otherTeam,
+      userId: otherReader,
+    });
 
     for (const path of [
       `/api/teams/${otherTeam}/runs/${replayRun}/config`,
@@ -978,14 +985,14 @@ describe('a team that is deleted', () => {
   it('loses its kept replay sets, and their archives are released', async () => {
     const original = await anOriginal();
     const setId = await createSet(original);
-    const holdsOf = () =>
+    const heldOf = () =>
       db
         .select()
-        .from(schema.startingPointHold)
-        .where(eq(schema.startingPointHold.holder, `replay-set:${setId}`));
+        .from(schema.startingPointHoldRun)
+        .where(eq(schema.startingPointHoldRun.holder, `replay-set:${setId}`));
 
     await eventually(async () =>
-      (await holdsOf()).some((each) => each.runIds.includes(original.runId)),
+      (await heldOf()).some((each) => each.runId === original.runId),
     );
 
     const deleted: TeamDeletedIntegrationEvent = {
@@ -1003,11 +1010,9 @@ describe('a team that is deleted', () => {
         .select()
         .from(schema.replaySet)
         .where(eq(schema.replaySet.teamId, team.teamId.value));
-      const holds = await holdsOf();
+      const held = await heldOf();
 
-      return (
-        sets.length === 0 && holds.every((each) => each.runIds.length === 0)
-      );
+      return sets.length === 0 && held.length === 0;
     }, 60_000);
   });
 });

@@ -3,8 +3,13 @@ import type {
   StoredCheckEntry,
   StoredCheckOutcome,
 } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
+import { changeStack } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -12,7 +17,6 @@ import {
   pgTable,
   primaryKey,
   text,
-  timestamp,
 } from 'drizzle-orm/pg-core';
 
 export const stackCheckStatus = pgEnum(
@@ -42,18 +46,32 @@ export const stackCheck = pgTable(
     outcome: jsonb('outcome').$type<StoredCheckOutcome>(),
     claimedBy: text('claimed_by'),
     attempts: integer('attempts').notNull().default(0),
-    leaseExpiresAt: timestamp('lease_expires_at'),
-    claimedAt: timestamp('claimed_at'),
-    waitingSince: timestamp('waiting_since').notNull(),
+    leaseExpiresAt: timestamptz('lease_expires_at'),
+    claimedAt: timestamptz('claimed_at'),
+    waitingSince: timestamptz('waiting_since').notNull(),
     reservedFor: text('reserved_for'),
     reservedPool: text('reserved_pool'),
-    reservedUntil: timestamp('reserved_until'),
+    reservedUntil: timestamptz('reserved_until'),
     provisionAttempts: integer('provision_attempts').notNull().default(0),
-    nextProvisionAttemptAt: timestamp('next_provision_attempt_at'),
+    nextProvisionAttemptAt: timestamptz('next_provision_attempt_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check(
+      'stack_check_redraft_count_not_negative',
+      sql`${table.redraftCount} >= 0`,
+    ),
+    check('stack_check_attempts_not_negative', sql`${table.attempts} >= 0`),
+    check(
+      'stack_check_provision_attempts_not_negative',
+      sql`${table.provisionAttempts} >= 0`,
+    ),
     primaryKey({ columns: [table.stackId, table.recheck] }),
+    foreignKey({
+      name: 'stack_check_stack_fk',
+      columns: [table.workspaceId, table.stackId],
+      foreignColumns: [changeStack.workspaceId, changeStack.id],
+    }),
     index('stack_check_run_idx').on(table.runId),
     index('stack_check_task_idx').on(table.taskId),
     index('stack_check_waiting_idx').on(table.workspaceId, table.status),

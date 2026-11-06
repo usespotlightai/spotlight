@@ -46,6 +46,7 @@ describe('which run each busy runner is working on', () => {
     await db.insert(schema.station).values({
       id: stationId,
       key: 'triage',
+      workspaceId: 'ws_1',
       lineId,
       name: 'Triage',
       position: 0,
@@ -80,6 +81,7 @@ describe('which run each busy runner is working on', () => {
         taskId,
         stationId,
         state: 'completed',
+        endedAt: new Date(),
         claimedBy: 'runner_done',
       }),
     ]);

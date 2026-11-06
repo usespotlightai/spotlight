@@ -134,7 +134,7 @@ const toCall = (row: Row): NetworkCall =>
 
 const progressColumns = (progress: NetworkCallProgress) => {
   if (progress.kind === 'waiting') {
-    return { state: 'waiting', claimedBy: null, claimedAt: null };
+    return { state: 'waiting' as const, claimedBy: null, claimedAt: null };
   }
 
   if (progress.kind === 'expired' || progress.kind === 'cancelled') {
@@ -143,14 +143,14 @@ const progressColumns = (progress: NetworkCallProgress) => {
 
   if (progress.kind === 'claimed') {
     return {
-      state: 'claimed',
+      state: 'claimed' as const,
       claimedBy: progress.by.value,
       claimedAt: progress.at,
     };
   }
 
   return {
-    state: 'answered',
+    state: 'answered' as const,
     claimedBy: progress.by.value,
     claimedAt: progress.claimedAt,
     respondedAt: progress.at,

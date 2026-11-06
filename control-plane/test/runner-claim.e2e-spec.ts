@@ -95,10 +95,27 @@ const reserve = async (runId: string, runner: RunnerId, until: Date) => {
 
 const awaitingCheck = async (workspaceId: string, placement: string[][]) => {
   const stackId = randomUUID();
+  const runId = randomUUID();
 
+  await db.insert(schema.changeStack).values({
+    id: stackId,
+    runId,
+    workspaceId,
+    state: 'ready',
+    files: [],
+    facts: { hunks: [], links: [], imports: [] },
+    usage: {
+      calls: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      costs: [],
+      unpriced: 0,
+    },
+    startedAt: NOW,
+  });
   await db.insert(schema.stackCheck).values({
     stackId,
-    runId: randomUUID(),
+    runId,
     workspaceId,
     command: 'npm test',
     placement,
@@ -306,6 +323,27 @@ describe('claiming a check reserved for a provisioned runner', () => {
     ).toBe(stackId);
   });
 });
+const withStack = async (check: StackCheck): Promise<StackCheck> => {
+  await db.insert(schema.changeStack).values({
+    id: check.stackId.value,
+    runId: randomUUID(),
+    workspaceId: check.workspaceId.value,
+    state: 'ready',
+    files: [],
+    facts: { hunks: [], links: [], imports: [] },
+    usage: {
+      calls: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      costs: [],
+      unpriced: 0,
+    },
+    startedAt: NOW,
+  });
+
+  return check;
+};
+
 describe('deleting the checks of a deleted task', () => {
   const dispatched: DomainEvent[] = [];
   const deleting = () =>
@@ -333,8 +371,8 @@ describe('deleting the checks of a deleted task', () => {
     const runner = RunnerId.of(randomUUID());
     const reserved = begun(task).reservedFor(runner, PoolId.of('pool_1'), NOW);
     const other = begun(TaskId.of(randomUUID()));
-    await repository.add(reserved);
-    await repository.add(other);
+    await repository.add(await withStack(reserved));
+    await repository.add(await withStack(other));
 
     const found = await repository.ofTask(task);
     const [check] = found;
@@ -358,7 +396,7 @@ describe('deleting the checks of a deleted task', () => {
   it('does not remove a check that changed since it was read', async () => {
     const repository = deleting();
     const task = TaskId.of(randomUUID());
-    await repository.add(begun(task));
+    await repository.add(await withStack(begun(task)));
     const [stale] = await repository.ofTask(task);
     if (!stale) {
       throw new Error('the task’s check was not found');
@@ -390,8 +428,8 @@ describe('a runner reaching git for a run whose check it leases', () => {
     const runId = RunId.of(randomUUID());
     const runner = RunnerId.of(randomUUID());
     const waiting = checkOf(runId);
-    await checks.add(waiting);
-    await checks.add(checkOf(RunId.of(randomUUID())));
+    await checks.add(await withStack(waiting));
+    await checks.add(await withStack(checkOf(RunId.of(randomUUID()))));
     const claimed = waiting.claimedFor(runner, RunnerOffer.none(), NOW);
     await checks.save(claimed);
     const access = new CheckAccess(checks);
