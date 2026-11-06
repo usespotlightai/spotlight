@@ -1,5 +1,11 @@
-import { OpenRouterAnswerGrader } from '@change-review/infrastructure/answers/openrouter-answer.grader';
+import { ChatCompletionsAnswerGrader } from '@change-review/infrastructure/answers/chat-completions-answer.grader';
 import { describe, expect, it } from 'vitest';
+
+const ENDPOINT = {
+  baseUrl: 'https://models.example.com/v1',
+  apiKey: 'test-key',
+  model: 'some/model',
+};
 
 const REQUEST = {
   question: 'Who signs when the member has left?',
@@ -20,14 +26,12 @@ const answering = (body: unknown) => {
   return { requests, fetch };
 };
 
-describe('OpenRouterAnswerGrader', () => {
+describe('ChatCompletionsAnswerGrader', () => {
   it('is unavailable without a key', async () => {
-    const grader = new OpenRouterAnswerGrader('', 'model');
+    const grader = new ChatCompletionsAnswerGrader(null);
 
     expect(grader.available).toBe(false);
-    await expect(grader.grade(REQUEST)).rejects.toThrow(
-      'No OpenRouter API key',
-    );
+    await expect(grader.grade(REQUEST)).rejects.toThrow('No model endpoint');
   });
 
   it('grades the reply against the expected answer and the cited hunks', async () => {
@@ -45,11 +49,9 @@ describe('OpenRouterAnswerGrader', () => {
       ],
     });
 
-    const graded = await new OpenRouterAnswerGrader(
-      'or-key',
-      'google/gemini-3.8-flash',
-      fetch,
-    ).grade(REQUEST);
+    const graded = await new ChatCompletionsAnswerGrader(ENDPOINT, fetch).grade(
+      REQUEST,
+    );
 
     expect(graded).toEqual({
       grade: {
@@ -60,7 +62,7 @@ describe('OpenRouterAnswerGrader', () => {
     });
 
     const body = JSON.parse(String(requests[0]?.body));
-    expect(body.model).toBe('google/gemini-3.8-flash');
+    expect(body.model).toBe('some/model');
     expect(
       body.response_format.json_schema.schema.properties.verdict.enum,
     ).toEqual(['right', 'partly-right', 'missed']);
@@ -76,14 +78,14 @@ describe('OpenRouterAnswerGrader', () => {
     );
   });
 
-  it('says grading is unavailable when OpenRouter fails', async () => {
+  it('says grading is unavailable when the model request fails', async () => {
     const fetch = (async () =>
       new Response('overloaded', {
         status: 503,
       })) as unknown as typeof globalThis.fetch;
 
     await expect(
-      new OpenRouterAnswerGrader('or-key', 'model', fetch).grade(REQUEST),
+      new ChatCompletionsAnswerGrader(ENDPOINT, fetch).grade(REQUEST),
     ).rejects.toMatchObject({ kind: 'upstream-error' });
   });
 
@@ -99,7 +101,7 @@ describe('OpenRouterAnswerGrader', () => {
       ],
     });
 
-    await new OpenRouterAnswerGrader('or-key', 'model', fetch).grade({
+    await new ChatCompletionsAnswerGrader(ENDPOINT, fetch).grade({
       ...REQUEST,
       cited: Array.from({ length: 5 }, (_, place) => ({
         path: `big${place}.ts`,

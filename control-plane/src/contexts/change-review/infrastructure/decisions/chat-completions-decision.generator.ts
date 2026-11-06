@@ -7,12 +7,13 @@ import {
   DECISION_KINDS,
   type ProposedDecision,
 } from '@change-review/domain/entities/decision.entity';
-import { latestWithin } from '@platform/openrouter/latest-within';
 import {
   type Fetch,
   JsonSchema,
+  type ModelEndpoint,
   requestJson,
-} from '@platform/openrouter/openrouter-json';
+} from '@platform/llm/chat-completions';
+import { latestWithin } from '@platform/llm/latest-within';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 8_000;
@@ -63,22 +64,21 @@ const clipped = (text: string): string =>
 const line = (step: ReasonedStep): string =>
   `[${step.index}] ${step.kind}: ${clipped(step.text.trim())}`;
 
-export class OpenRouterDecisionGenerator implements DecisionGeneratorPort {
+export class ChatCompletionsDecisionGenerator implements DecisionGeneratorPort {
   constructor(
-    private readonly apiKey: string | undefined,
-    private readonly model: string,
+    private readonly endpoint: ModelEndpoint | null,
     private readonly fetch: Fetch = globalThis.fetch,
   ) {}
 
   get available(): boolean {
-    return Boolean(this.apiKey);
+    return this.endpoint !== null;
   }
 
   async generate(
     reasoning: RunReasoning,
   ): Promise<readonly ProposedDecision[]> {
-    if (!this.apiKey) {
-      throw new Error('No OpenRouter API key is set for decisions');
+    if (!this.endpoint) {
+      throw new Error('No model endpoint is set for decisions');
     }
 
     const stepLines = latestWithin(reasoning.steps.map(line), MAX_PROMPT_CHARS);
@@ -93,8 +93,7 @@ export class OpenRouterDecisionGenerator implements DecisionGeneratorPort {
     const {
       answer: { decisions },
     } = await requestJson({
-      apiKey: this.apiKey,
-      model: this.model,
+      endpoint: this.endpoint,
       fetch: this.fetch,
       responseSchema: DECISIONS,
       system: SYSTEM,

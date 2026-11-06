@@ -28,6 +28,9 @@ const duration = (fallback: string) =>
     })
     .pipe(z.number().int().positive());
 
+const unsetWhenEmpty = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((raw) => (raw === '' ? undefined : raw), schema.optional());
+
 export const databaseSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
 });
@@ -97,11 +100,13 @@ export const envSchema = databaseSchema
     SENTRY_DSN: z.string().optional(),
     SENTRY_WEB_DSN: z.string().optional(),
     SENTRY_ENVIRONMENT: z.string().optional(),
-    OPENROUTER_API_KEY: z.string().optional(),
-    CHANGE_STACK_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
-    DECISIONS_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
-    MEMORIES_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
-    JUDGE_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
+    LLM_BASE_URL: unsetWhenEmpty(z.url({ protocol: /^https?$/ })),
+    LLM_API_KEY: unsetWhenEmpty(z.string().min(1)),
+    LLM_MODEL: unsetWhenEmpty(z.string().min(1)),
+    CHANGE_STACK_MODEL: unsetWhenEmpty(z.string().min(1)),
+    DECISIONS_MODEL: unsetWhenEmpty(z.string().min(1)),
+    MEMORIES_MODEL: unsetWhenEmpty(z.string().min(1)),
+    JUDGE_MODEL: unsetWhenEmpty(z.string().min(1)),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .refine(
