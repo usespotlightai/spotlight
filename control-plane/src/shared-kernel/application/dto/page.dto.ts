@@ -13,6 +13,9 @@ export interface Page<T> {
   readonly next: string | null;
 }
 
+export const isTimeKey = (key: string): boolean =>
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}$/.test(key);
+
 export const PAGE_LIMIT = 50;
 
 export const LONGEST_PAGE = 200;

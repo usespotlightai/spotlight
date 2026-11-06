@@ -5,11 +5,7 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import {
-  isSortableTime,
-  olderThan,
-  sortableTime,
-} from '@platform/persistence/drizzle/keyset';
+import { olderThan, sortableTime } from '@platform/persistence/drizzle/keyset';
 import {
   mapPage,
   type Page,
@@ -105,10 +101,6 @@ export class DrizzleChatReader implements ChatReaderPort {
     userId: UserId,
     page: PageRequest,
   ): Promise<Page<ChatSummary>> {
-    if (page.before && !isSortableTime(page.before.key)) {
-      return { items: [], next: null };
-    }
-
     const rows = await this.db
       .select({ chat, cursorAt: sortableTime(chat.updatedAt) })
       .from(chat)

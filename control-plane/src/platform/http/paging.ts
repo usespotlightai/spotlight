@@ -31,10 +31,11 @@ export const ApiPageQuery = () =>
 export const pageRequestOf = (
   before: string | undefined,
   limit: string | undefined,
+  keyed: (key: string) => boolean = () => true,
 ): PageRequest => {
   const cursor = before ? decodeCursor(before) : null;
 
-  if (before && !cursor) {
+  if (before && !(cursor && keyed(cursor.key))) {
     throw new BadRequestException('Sorry, the page cursor is not valid.');
   }
 

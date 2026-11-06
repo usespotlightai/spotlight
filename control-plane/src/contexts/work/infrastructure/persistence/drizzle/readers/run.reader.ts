@@ -9,11 +9,7 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import {
-  isSortableTime,
-  olderThan,
-  sortableTime,
-} from '@platform/persistence/drizzle/keyset';
+import { olderThan, sortableTime } from '@platform/persistence/drizzle/keyset';
 import {
   type Page,
   type PageRequest,
@@ -172,10 +168,6 @@ export class DrizzleRunReader implements RunReaderPort {
     viewerId: UserId,
     page: PageRequest,
   ): Promise<Page<TeamRunSummary>> {
-    if (page.before && !isSortableTime(page.before.key)) {
-      return { items: [], next: null };
-    }
-
     const rows = await this.teamRuns(
       teamId,
       viewerId,

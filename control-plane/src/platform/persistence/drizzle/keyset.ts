@@ -5,9 +5,6 @@ const SORTABLE_TIME = 'YYYY-MM-DD"T"HH24:MI:SS.US';
 export const sortableTime = (column: SQLWrapper): SQL<string> =>
   sql<string>`to_char(${column}, ${SORTABLE_TIME})`;
 
-export const isSortableTime = (key: string): boolean =>
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}$/.test(key);
-
 export const olderThan = (
   time: SQLWrapper,
   id: SQLWrapper,

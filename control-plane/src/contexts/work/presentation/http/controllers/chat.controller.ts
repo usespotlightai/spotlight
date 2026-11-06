@@ -26,7 +26,11 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { ApiPageQuery, pageRequestOf } from '@platform/http/paging';
-import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
+import {
+  isTimeKey,
+  mapPage,
+  type Page,
+} from '@shared-kernel/application/dto/page.dto';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import {
   AcceptProposalCommand,
@@ -97,7 +101,13 @@ export class ChatController {
     const chats = await this.queryBus.execute<
       ListChatsQuery,
       Page<ChatSummaryDto> | null
-    >(new ListChatsQuery(teamId, user.id, pageRequestOf(before, limit)));
+    >(
+      new ListChatsQuery(
+        teamId,
+        user.id,
+        pageRequestOf(before, limit, isTimeKey),
+      ),
+    );
 
     if (!chats) {
       throw new NotFoundException();

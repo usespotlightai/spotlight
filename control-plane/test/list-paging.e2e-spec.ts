@@ -92,7 +92,10 @@ const aLine = async () => {
 
   const addNotes = (
     taskId: string,
-    kinds: readonly { kind: 'asked' | 'answered' | 'passed'; at: Date }[],
+    kinds: readonly {
+      kind: 'asked' | 'answered' | 'passed' | 'reopened';
+      at: Date;
+    }[],
   ) =>
     db.insert(schema.taskNote).values(
       kinds.map((each, position) => ({
@@ -186,6 +189,38 @@ describe('the inbox, open and resolved', () => {
       (two?.items[0] as InboxItemSummary | undefined)?.lastNote?.body,
     ).toBe('passed 1');
     expect(three).toEqual({ items: [], next: null });
+  });
+
+  it('reads past station passes that close no conversation, and counts only the last close of a reopened one', async () => {
+    const line = await aLine();
+    const asked = await line.addTask({ stationId: line.work });
+    const passedOn = await line.addTask({ stationId: line.work });
+
+    await line.addNotes(asked, [
+      { kind: 'asked', at: at(0) },
+      { kind: 'passed', at: at(1) },
+      { kind: 'reopened', at: at(2) },
+      { kind: 'passed', at: at(3) },
+    ]);
+    await line.addNotes(
+      passedOn,
+      Array.from({ length: 15 }, (_, minute) => ({
+        kind: 'passed' as const,
+        at: at(10 + minute),
+      })),
+    );
+
+    const resolved = await inboxOf(line.workspaceId).resolvedForWorkspaceMember(
+      'acme',
+      UserId.of(line.viewer),
+      pageAfter(null, 1),
+    );
+
+    expect(resolved?.items.map((each) => each.id)).toEqual([`${asked}:0`]);
+    expect(
+      (resolved?.items[0] as InboxItemSummary | undefined)?.lastNote?.body,
+    ).toBe('passed 3');
+    expect(resolved?.next).toBeNull();
   });
 
   it('opens a resolved conversation by its id, with every note', async () => {

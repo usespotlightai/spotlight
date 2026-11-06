@@ -25,7 +25,11 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { ApiPageQuery, pageRequestOf } from '@platform/http/paging';
-import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
+import {
+  isTimeKey,
+  mapPage,
+  type Page,
+} from '@shared-kernel/application/dto/page.dto';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
 import { MarkInboxItemReadCommand } from '@work/application/commands/mark-inbox-item-read.command';
@@ -205,7 +209,7 @@ export class InboxController {
         slug,
         user.id,
         state ?? 'open',
-        pageRequestOf(before, limit),
+        pageRequestOf(before, limit, isTimeKey),
       ),
     );
 

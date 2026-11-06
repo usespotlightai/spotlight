@@ -14,7 +14,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
-  isSortableTime,
   notNewerThan,
   sortableTime,
 } from '@platform/persistence/drizzle/keyset';
@@ -88,6 +87,7 @@ import {
   isNull,
   or,
   type SQL,
+  sql,
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
@@ -117,6 +117,17 @@ const keyedAt = (entry: InboxEntrySummary, at: string): Keyed => ({
 
 const newer = (one: PageCursor, other: PageCursor): boolean =>
   one.key > other.key || (one.key === other.key && one.id > other.id);
+
+const closesAConversation = sql`(select earlier.kind from ${taskNote} earlier
+  where earlier.task_id = ${taskNote.taskId}
+    and earlier.position < ${taskNote.position}
+    and earlier.kind in ('asked', 'passed', 'reopened')
+  order by earlier.position desc limit 1) in ('asked', 'reopened')
+  and coalesce((select later.kind from ${taskNote} later
+    where later.task_id = ${taskNote.taskId}
+      and later.position > ${taskNote.position}
+      and later.kind in ('asked', 'reopened')
+    order by later.position limit 1), 'asked') <> 'reopened'`;
 
 const floorOf = <T>(
   rows: readonly T[],
@@ -403,10 +414,6 @@ export class DrizzleInboxReader implements InboxReaderPort {
       return null;
     }
 
-    if (page.before && !isSortableTime(page.before.key)) {
-      return { items: [], next: null };
-    }
-
     let before = page.before;
 
     for (let skipped = 0; skipped < PAGES_TO_SKIP_OVER; skipped++) {
@@ -530,6 +537,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           eq(task.workspaceId, workspaceId),
           eq(task.assigneeId, userId.value),
           eq(taskNote.kind, 'passed'),
+          closesAConversation,
           before ? notNewerThan(taskNote.at, before) : undefined,
         ),
       )

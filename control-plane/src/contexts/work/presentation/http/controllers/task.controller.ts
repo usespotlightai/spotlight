@@ -28,7 +28,11 @@ import {
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { ApiPageQuery, pageRequestOf } from '@platform/http/paging';
-import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
+import {
+  isTimeKey,
+  mapPage,
+  type Page,
+} from '@shared-kernel/application/dto/page.dto';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
@@ -201,7 +205,13 @@ export class TaskController {
     const runs = await this.queryBus.execute<
       ListTeamRunsQuery,
       Page<TeamRunDto>
-    >(new ListTeamRunsQuery(teamId, user.id, pageRequestOf(before, limit)));
+    >(
+      new ListTeamRunsQuery(
+        teamId,
+        user.id,
+        pageRequestOf(before, limit, isTimeKey),
+      ),
+    );
 
     return mapPage(runs, TaskRunHttpMapper.teamToResponse);
   }
