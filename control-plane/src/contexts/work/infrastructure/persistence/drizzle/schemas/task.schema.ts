@@ -119,6 +119,10 @@ export const task = pgTable(
   (table) => [
     index('task_station_idx').on(table.stationId, table.rank),
     index('task_workspace_idx').on(table.workspaceId),
+    index('task_workspace_assignee_idx').on(
+      table.workspaceId,
+      table.assigneeId,
+    ),
     uniqueIndex('task_workspace_branch_uidx').on(
       table.workspaceId,
       table.branch,
@@ -158,6 +162,9 @@ export const taskNote = pgTable(
   (table) => [
     primaryKey({ columns: [table.taskId, table.position] }),
     index('task_note_task_idx').on(table.taskId, table.position),
+    index('task_note_passed_idx')
+      .on(table.taskId, table.at)
+      .where(sql`${table.kind} = 'passed'`),
     index('task_note_connection_ask_idx')
       .on(
         sql`(${table.connectionAsk}->>'personId')`,

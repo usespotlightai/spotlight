@@ -401,8 +401,8 @@ export const teamNotices = async (): Promise<
   Extract<InboxEntry, { kind: 'notice' }>[]
 > =>
   (
-    (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200))
-      .body as InboxEntry[]
+    (await owner().get(`/api/workspaces/${team.slug}/inbox`).expect(200)).body
+      .items as InboxEntry[]
   ).filter(
     (each): each is Extract<InboxEntry, { kind: 'notice' }> =>
       each.kind === 'notice',

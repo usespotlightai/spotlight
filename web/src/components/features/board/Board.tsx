@@ -1,5 +1,5 @@
 import { DndContext } from '@dnd-kit/core';
-import type { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { BoardStation } from '@/components/features/board/BoardStation';
 import { SelectionBar } from '@/components/features/board/SelectionBar';
 import { TaskDragOverlay } from '@/components/features/board/TaskDragOverlay';
@@ -22,6 +22,7 @@ type BoardProps = {
   selected: readonly string[];
   onSelectedChange: Dispatch<SetStateAction<readonly string[]>>;
   onAddTask: (stationId: string) => void;
+  after?: ReactNode;
 };
 
 export function Board({
@@ -33,6 +34,7 @@ export function Board({
   selected,
   onSelectedChange,
   onAddTask,
+  after,
 }: BoardProps) {
   const stations = useCollapsed(STATIONS_STORAGE_KEY);
   const moveTask = useMoveTask();
@@ -100,6 +102,7 @@ export function Board({
               onSelect={select}
             />
           ))}
+          {after}
         </ScrollArea>
 
         <TaskDragOverlay stations={line.stations} task={dragged} />

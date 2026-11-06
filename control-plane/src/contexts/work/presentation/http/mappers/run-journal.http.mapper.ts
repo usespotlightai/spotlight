@@ -1,9 +1,11 @@
 import type {
+  JournalledRunDto,
   JournalStepDto,
   RunJournalDto,
   RunSpanDto,
 } from '@work/application/dto/run-journal.dto';
 import {
+  JournalledRunResponseDto,
   JournalStepResponseDto,
   RunJournalResponseDto,
   RunMarksResponseDto,
@@ -76,5 +78,9 @@ export const RunJournalHttpMapper = {
           )
         : null,
     );
+  },
+
+  runToResponse(run: JournalledRunDto): JournalledRunResponseDto {
+    return new JournalledRunResponseDto(run.runId, run.createdAt);
   },
 };

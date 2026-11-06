@@ -326,7 +326,7 @@ describe('files a run attaches to its handover', () => {
         .get(`/api/workspaces/${team.slug}/inbox`)
         .set(TEST_USER_HEADER, team.owner.value)
         .expect(200)
-    ).body as { taskId: string }[];
+    ).body.items as { taskId: string }[];
     expect(inbox.some((each) => each.taskId === taskId)).toBe(true);
   });
 

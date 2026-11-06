@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { pageResponseOf } from '@platform/http/paging';
 import {
   CHAT_MESSAGE_KIND_NAMES,
   PROPOSAL_STATE_NAMES,
@@ -326,3 +327,7 @@ export class ChatResponseDto extends ChatSummaryResponseDto {
     this.messages = messages;
   }
 }
+
+export const ChatSummaryPageResponseDto = pageResponseOf(
+  ChatSummaryResponseDto,
+);

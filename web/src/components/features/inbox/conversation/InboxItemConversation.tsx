@@ -13,7 +13,7 @@ import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useAnswerInboxItem } from '@/hooks/api/useAnswerInboxItem';
 import { useRunProgress } from '@/hooks/useRunProgress';
 import {
-  type InboxItem,
+  type InboxItemView,
   type RunJournal,
   shownAt,
   workedOn,
@@ -23,7 +23,7 @@ import { shownProgress } from '@/lib/run';
 
 type InboxItemConversationProps = {
   slug: string;
-  item: InboxItem;
+  item: InboxItemView;
   worked: readonly RunJournal[];
   trail: readonly BreadcrumbSegment[];
 };

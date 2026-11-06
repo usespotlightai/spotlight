@@ -110,6 +110,10 @@ export interface InboxItemDto {
   readonly briefing: string | null;
   readonly failure: InboxFailureDto | null;
   readonly inboxRequest: InboxRequestDto | null;
+  readonly lastNote: NoteDto | null;
+}
+
+export interface InboxItemViewDto extends InboxItemDto {
   readonly notes: readonly NoteDto[];
 }
 

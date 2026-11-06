@@ -31,15 +31,13 @@ vi.mock('@/hooks/api/useRunReview', () => ({
 
 vi.mock('@/hooks/api/useTeamRuns', () => ({
   teamRunKeys: { forTeam: () => ['runs'] },
-  useTeamRuns: () => ({
-    data: [
-      {
-        id: 'run_1',
-        taskId: 'task_1',
-        taskTitle: 'Invite people to a team',
-        station: { name: 'Implementation' },
-      },
-    ],
+  useTeamRun: () => ({
+    data: {
+      id: 'run_1',
+      taskId: 'task_1',
+      taskTitle: 'Invite people to a team',
+      station: { name: 'Implementation' },
+    },
     isPending: false,
     errorUpdateCount: 0,
   }),

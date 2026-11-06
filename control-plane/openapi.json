@@ -2662,6 +2662,37 @@
               "example": "acme",
               "type": "string"
             }
+          },
+          {
+            "name": "before",
+            "required": false,
+            "in": "query",
+            "description": "The `next` cursor of the page before",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "At most this many, 50 by default, up to 200",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "description": "`open` (the default) or `resolved`",
+            "schema": {
+              "enum": [
+                "open",
+                "resolved"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -2670,26 +2701,40 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "oneOf": [
-                      {
-                        "$ref": "#/components/schemas/InboxItemResponseDto"
-                      },
-                      {
-                        "$ref": "#/components/schemas/InboxNoticeResponseDto"
-                      },
-                      {
-                        "$ref": "#/components/schemas/InboxRunResponseDto"
+                  "type": "object",
+                  "required": [
+                    "items",
+                    "next"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/InboxItemResponseDto"
+                          },
+                          {
+                            "$ref": "#/components/schemas/InboxNoticeResponseDto"
+                          },
+                          {
+                            "$ref": "#/components/schemas/InboxRunResponseDto"
+                          }
+                        ],
+                        "discriminator": {
+                          "propertyName": "kind",
+                          "mapping": {
+                            "task": "#/components/schemas/InboxItemResponseDto",
+                            "notice": "#/components/schemas/InboxNoticeResponseDto",
+                            "run": "#/components/schemas/InboxRunResponseDto"
+                          }
+                        }
                       }
-                    ],
-                    "discriminator": {
-                      "propertyName": "kind",
-                      "mapping": {
-                        "task": "#/components/schemas/InboxItemResponseDto",
-                        "notice": "#/components/schemas/InboxNoticeResponseDto",
-                        "run": "#/components/schemas/InboxRunResponseDto"
-                      }
+                    },
+                    "next": {
+                      "type": "string",
+                      "nullable": true,
+                      "description": "Pass as `before` to read the next page; null on the last"
                     }
                   }
                 }
@@ -2703,7 +2748,99 @@
             "description": "No such workspace for this caller"
           }
         },
-        "summary": "What waits on a person, newest first: the tasks put to them, the runs working on their tasks, and notices about their team’s work",
+        "summary": "What waits on a person, newest first: the tasks put to them, the runs working on their tasks, and notices about their team’s work. Open entries come in one page; resolved entries come a page at a time",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/{itemId}": {
+      "get": {
+        "operationId": "readInboxItem",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          },
+          {
+            "name": "itemId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxItemViewResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such inbox item for this caller"
+          }
+        },
+        "summary": "One conversation or inbox request with all its notes, open or resolved",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/notices/{noticeId}": {
+      "get": {
+        "operationId": "readInboxNotice",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          },
+          {
+            "name": "noticeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboxNoticeResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such notice for this caller"
+          }
+        },
+        "summary": "One notice, open or resolved",
         "tags": [
           "inbox"
         ]
@@ -3088,10 +3225,67 @@
     },
     "/workspaces/{slug}/inbox/tasks/{taskId}/journal": {
       "get": {
+        "operationId": "listTaskJournalRuns",
+        "parameters": [
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/JournalledRunResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "The runs of a task that have a journal, oldest first",
+        "tags": [
+          "inbox"
+        ]
+      }
+    },
+    "/workspaces/{slug}/inbox/tasks/{taskId}/journal/{runId}": {
+      "get": {
         "operationId": "readTaskJournal",
         "parameters": [
           {
             "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
             "required": true,
             "in": "path",
             "schema": {
@@ -3129,7 +3323,7 @@
             "description": "No such task for this caller"
           }
         },
-        "summary": "What each run did to arrive at its result",
+        "summary": "What one run of a task did to arrive at its result, per attempt",
         "tags": [
           "inbox"
         ]
@@ -3245,6 +3439,46 @@
               "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
               "type": "string"
             }
+          },
+          {
+            "name": "before",
+            "required": false,
+            "in": "query",
+            "description": "The `next` cursor of the page before",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "At most this many, 50 by default, up to 200",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": false,
+            "in": "query",
+            "description": "Only the tasks on this line",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "required": false,
+            "in": "query",
+            "description": "`open` (the default) gives every task not at a completed station, in one page",
+            "schema": {
+              "enum": [
+                "open",
+                "completed"
+              ],
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -3253,10 +3487,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TaskResponseDto"
-                  }
+                  "$ref": "#/components/schemas/TaskPageResponseDto"
                 }
               }
             }
@@ -3268,7 +3499,91 @@
             "description": "No such team for this caller"
           }
         },
-        "summary": "List the tasks at a team’s stations, oldest first",
+        "summary": "The tasks at a team’s stations in board order: every open task, or a page of completed tasks",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/tasks/{taskId}": {
+      "get": {
+        "operationId": "readTask",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "One task of the team, open or completed",
+        "tags": [
+          "tasks"
+        ]
+      },
+      "delete": {
+        "operationId": "deleteTask",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The task is gone"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such task for this caller"
+          }
+        },
+        "summary": "Delete a task",
         "tags": [
           "tasks"
         ]
@@ -3286,6 +3601,24 @@
               "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
               "type": "string"
             }
+          },
+          {
+            "name": "before",
+            "required": false,
+            "in": "query",
+            "description": "The `next` cursor of the page before",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "At most this many, 50 by default, up to 200",
+            "schema": {
+              "type": "number"
+            }
           }
         ],
         "responses": {
@@ -3294,10 +3627,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TeamRunResponseDto"
-                  }
+                  "$ref": "#/components/schemas/TeamRunPageResponseDto"
                 }
               }
             }
@@ -3306,7 +3636,53 @@
             "description": "No valid session"
           }
         },
-        "summary": "Every run of the team, across its stations",
+        "summary": "The runs of the team, across its stations, newest first",
+        "tags": [
+          "tasks"
+        ]
+      }
+    },
+    "/teams/{teamId}/runs/{runId}": {
+      "get": {
+        "operationId": "readTeamRun",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamRunResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run for this caller"
+          }
+        },
+        "summary": "One run of the team",
         "tags": [
           "tasks"
         ]
@@ -3636,46 +4012,6 @@
         ]
       }
     },
-    "/teams/{teamId}/tasks/{taskId}": {
-      "delete": {
-        "operationId": "deleteTask",
-        "parameters": [
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
-              "type": "string"
-            }
-          },
-          {
-            "name": "taskId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "The task is gone"
-          },
-          "401": {
-            "description": "No valid session"
-          },
-          "404": {
-            "description": "No such task for this caller"
-          }
-        },
-        "summary": "Delete a task",
-        "tags": [
-          "tasks"
-        ]
-      }
-    },
     "/teams/{teamId}/lines/{lineId}/stations/{stationId}/tasks": {
       "post": {
         "operationId": "addTask",
@@ -3883,6 +4219,24 @@
               "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
               "type": "string"
             }
+          },
+          {
+            "name": "before",
+            "required": false,
+            "in": "query",
+            "description": "The `next` cursor of the page before",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "At most this many, 50 by default, up to 200",
+            "schema": {
+              "type": "number"
+            }
           }
         ],
         "responses": {
@@ -3891,10 +4245,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ChatSummaryResponseDto"
-                  }
+                  "$ref": "#/components/schemas/ChatSummaryPageResponseDto"
                 }
               }
             }
@@ -4012,6 +4363,55 @@
     },
     "/teams/{teamId}/chats/{chatId}/journal": {
       "get": {
+        "operationId": "listChatJournalRuns",
+        "parameters": [
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84",
+              "type": "string"
+            }
+          },
+          {
+            "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/JournalledRunResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such chat for this caller"
+          }
+        },
+        "summary": "The runs of a chat that have a journal, oldest first",
+        "tags": [
+          "chats"
+        ]
+      }
+    },
+    "/teams/{teamId}/chats/{chatId}/journal/{runId}": {
+      "get": {
         "operationId": "readChatJournal",
         "parameters": [
           {
@@ -4025,6 +4425,14 @@
           },
           {
             "name": "chatId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "runId",
             "required": true,
             "in": "path",
             "schema": {
@@ -4053,7 +4461,7 @@
             "description": "No such chat for this caller"
           }
         },
-        "summary": "What the agent did and wrote in each run of a chat",
+        "summary": "What the agent did and wrote in one run of a chat, per attempt",
         "tags": [
           "chats"
         ]
@@ -24791,11 +25199,15 @@
               }
             ]
           },
-          "notes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/NoteResponseDto"
-            }
+          "lastNote": {
+            "nullable": true,
+            "description": "The newest note of the conversation",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NoteResponseDto"
+              }
+            ]
           }
         },
         "required": [
@@ -24821,7 +25233,7 @@
           "briefing",
           "failure",
           "inboxRequest",
-          "notes"
+          "lastNote"
         ]
       },
       "NoticeExternalLinkResponseDto": {
@@ -25023,6 +25435,183 @@
           "resolved"
         ]
       },
+      "InboxItemViewResponseDto": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "task"
+            ],
+            "description": "A task’s conversation or an inbox request on the task"
+          },
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13:2",
+            "description": "One conversation a person was asked to own"
+          },
+          "taskId": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "teamId": {
+            "type": "string",
+            "example": "9c2e6d5a-1f47-4c8b-9a3d-2b7e5f0c1d84"
+          },
+          "title": {
+            "type": "string",
+            "example": "Fix the queue"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "attachments": {
+            "description": "The files the task was created with",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AttachmentResponseDto"
+            }
+          },
+          "station": {
+            "type": "string",
+            "example": "Implementation"
+          },
+          "stationColor": {
+            "type": "string",
+            "example": "#edc12b"
+          },
+          "stationPosition": {
+            "type": "number",
+            "example": 2,
+            "description": "Its place in the line, from zero"
+          },
+          "stationCount": {
+            "type": "number",
+            "example": 4,
+            "description": "How many stations the line has"
+          },
+          "originStation": {
+            "description": "The station where it was created. It keeps this station when it moves",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxStationResponseDto"
+              }
+            ]
+          },
+          "currentStation": {
+            "description": "Where the task is now, which is where it ended up",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxStationResponseDto"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-08-28T09:02:00.000Z"
+          },
+          "askedAt": {
+            "type": "string",
+            "example": "2026-08-28T21:15:00.000Z"
+          },
+          "resolved": {
+            "type": "boolean",
+            "example": false,
+            "description": "True once it is resolved, and is no longer yours to answer"
+          },
+          "progress": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "in-progress",
+              "stopping",
+              null
+            ],
+            "nullable": true,
+            "example": "in-progress",
+            "description": "What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop"
+          },
+          "runId": {
+            "type": "string",
+            "nullable": true,
+            "description": "The run working it now, whose steps can be watched as they land"
+          },
+          "unread": {
+            "type": "boolean",
+            "example": true,
+            "description": "Something was asked here that they have not seen yet"
+          },
+          "briefing": {
+            "type": "string",
+            "nullable": true,
+            "description": "The briefing of the station that opened this conversation"
+          },
+          "failure": {
+            "nullable": true,
+            "description": "The failure this conversation is about, where it is about one",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxFailureResponseDto"
+              }
+            ]
+          },
+          "inboxRequest": {
+            "nullable": true,
+            "description": "The inbox request of this item, where it is not a conversation. It never blocks the task",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboxRequestResponseDto"
+              }
+            ]
+          },
+          "lastNote": {
+            "nullable": true,
+            "description": "The newest note of the conversation",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NoteResponseDto"
+              }
+            ]
+          },
+          "notes": {
+            "description": "Every note of the conversation, oldest first",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteResponseDto"
+            }
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "taskId",
+          "teamId",
+          "title",
+          "description",
+          "attachments",
+          "station",
+          "stationColor",
+          "stationPosition",
+          "stationCount",
+          "originStation",
+          "currentStation",
+          "createdAt",
+          "askedAt",
+          "resolved",
+          "progress",
+          "runId",
+          "unread",
+          "briefing",
+          "failure",
+          "inboxRequest",
+          "lastNote",
+          "notes"
+        ]
+      },
       "AnswerInboxItemInputRequestDto": {
         "type": "object",
         "properties": {
@@ -25082,6 +25671,23 @@
         },
         "required": [
           "body"
+        ]
+      },
+      "JournalledRunResponseDto": {
+        "type": "object",
+        "properties": {
+          "runId": {
+            "type": "string",
+            "example": "d71ef228-a533-49ab-9e92-7c0d0af80e25"
+          },
+          "createdAt": {
+            "type": "string",
+            "example": "2026-11-06T09:30:00.000Z"
+          }
+        },
+        "required": [
+          "runId",
+          "createdAt"
         ]
       },
       "RunMarksResponseDto": {
@@ -25377,6 +25983,26 @@
           "note"
         ]
       },
+      "TaskPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskResponseDto"
+            }
+          },
+          "next": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pass as `before` to read the next page; null on the last"
+          }
+        },
+        "required": [
+          "items",
+          "next"
+        ]
+      },
       "RunStationResponseDto": {
         "type": "object",
         "properties": {
@@ -25540,6 +26166,26 @@
           "taskId",
           "taskTitle",
           "taskDescription"
+        ]
+      },
+      "TeamRunPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamRunResponseDto"
+            }
+          },
+          "next": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pass as `before` to read the next page; null on the last"
+          }
+        },
+        "required": [
+          "items",
+          "next"
         ]
       },
       "ConfigChangeResponseDto": {
@@ -26296,6 +26942,26 @@
           "createdAt",
           "updatedAt",
           "progress"
+        ]
+      },
+      "ChatSummaryPageResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ChatSummaryResponseDto"
+            }
+          },
+          "next": {
+            "type": "string",
+            "nullable": true,
+            "description": "Pass as `before` to read the next page; null on the last"
+          }
+        },
+        "required": [
+          "items",
+          "next"
         ]
       },
       "ChatSetupRequestDto": {

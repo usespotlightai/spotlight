@@ -1,5 +1,6 @@
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { RunJournalDto } from '@work/application/dto/run-journal.dto';
@@ -14,8 +15,9 @@ export class ReadTaskJournalHandler
 
   async execute(query: ReadTaskJournalQuery): Promise<RunJournalDto[] | null> {
     try {
-      const entries = await this.journals.listForTask(
+      const entries = await this.journals.ofTaskRun(
         TaskId.of(query.taskId),
+        RunId.of(query.runId),
         UserId.of(query.viewerId),
       );
 

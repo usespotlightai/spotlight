@@ -6,6 +6,7 @@ import {
   promptHandedOver,
   targetStationHandedOver,
   tracesHandedOver,
+  turnSummaryOf,
   turnsOf,
 } from '@/lib/chat';
 import type { JournalStep, RunJournal } from '@/lib/inbox';
@@ -178,6 +179,32 @@ describe('turnsOf', () => {
       ['Plan how retries back off.', 1],
       ['Split it up.', 0],
     ]);
+  });
+});
+
+describe('turnSummaryOf', () => {
+  it('reads as the last answer on one line, with the steps counted', () => {
+    const [turn] = turnsOf(
+      momentsOf(
+        [message({})],
+        [
+          journal([
+            step({ startedAt: '2026-09-14T09:00:01.000Z' }),
+            step({ startedAt: '2026-09-14T09:00:02.000Z' }),
+            step({
+              kind: 'message',
+              text: '**Retries** double.\n\nThey stop at five.',
+              startedAt: '2026-09-14T09:00:03.000Z',
+            }),
+          ]),
+        ],
+      ),
+    );
+
+    expect(turn && turnSummaryOf(turn)).toEqual({
+      text: 'Retries double. They stop at five.',
+      count: '2 steps',
+    });
   });
 });
 

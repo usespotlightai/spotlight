@@ -10,8 +10,9 @@ import {
   type ApprovalStatus,
   WAITING_FOR_APPROVAL,
 } from '@/lib/approval-status';
-import type { JournalStep, RunJournal } from '@/lib/inbox';
+import type { JournalledRun, JournalStep, RunJournal } from '@/lib/inbox';
 import { teamSectionPath } from '@/lib/team';
+import { oneLineOf, stepsCounted } from '@/lib/turns';
 
 export type Chat = ChatResponseDto;
 
@@ -188,6 +189,52 @@ export const turnsOf = (moments: readonly ChatMoment[]): ChatTurn[] => {
   }
 
   return cut.filter((turn) => turn.message || turn.moments.length > 0);
+};
+
+export const waitsOnDecision = (turn: ChatTurn): boolean =>
+  turn.moments.some(
+    (moment) => moment.kind === 'proposed' && moment.proposal.state === 'open',
+  );
+
+export const turnSummaryOf = (
+  turn: ChatTurn,
+): { readonly text: string; readonly count?: string } => {
+  const steps = turn.moments.reduce(
+    (all, moment) => all + (moment.kind === 'worked' ? moment.steps.length : 0),
+    0,
+  );
+  const said = turn.moments.findLast(
+    (moment) => moment.kind === 'answered' || moment.kind === 'proposed',
+  );
+  const text =
+    said?.kind === 'answered'
+      ? said.text
+      : said?.kind === 'proposed'
+        ? `Proposed ${said.proposal.title}`
+        : 'Worked';
+
+  return {
+    text: oneLineOf(text),
+    count: steps > 0 ? stepsCounted(steps) : undefined,
+  };
+};
+
+export const runsOfTurn = (
+  runs: readonly JournalledRun[],
+  turns: readonly ChatTurn[],
+  at: number,
+): string[] => {
+  const asked = turns[at]?.message;
+  const next = turns.slice(at + 1).find((turn) => turn.message)?.message;
+  const from = asked ? Date.parse(asked.at) : Number.NEGATIVE_INFINITY;
+  const until = next ? Date.parse(next.at) : Number.POSITIVE_INFINITY;
+
+  return runs
+    .filter((run) => {
+      const created = Date.parse(run.createdAt);
+      return created >= from && created < until;
+    })
+    .map((run) => run.runId);
 };
 
 const PROPOSAL_STATUSES: Record<Proposal['state'], ApprovalStatus> = {

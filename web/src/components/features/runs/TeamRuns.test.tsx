@@ -8,6 +8,8 @@ import type { TeamRun } from '@/lib/run';
 const runs = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
+const older = vi.fn();
+const load = vi.fn();
 
 vi.mock('@/hooks/api/useTeamRuns', () => ({
   useTeamRuns: () => ({
@@ -16,6 +18,7 @@ vi.mock('@/hooks/api/useTeamRuns', () => ({
     errorUpdateCount: failing() ? 1 : 0,
     isFetching: false,
     refetch,
+    more: { available: older(), loading: false, load },
   }),
 }));
 
@@ -69,6 +72,8 @@ beforeEach(() => {
   localStorage.clear();
   runs.mockReturnValue([pending, answered, unreviewed]);
   failing.mockReturnValue(false);
+  older.mockReturnValue(false);
+  load.mockClear();
   refetch.mockClear();
 });
 
@@ -108,6 +113,23 @@ describe('TeamRuns', () => {
       ),
     ).toBeInTheDocument();
     expect(filter('All')).toBeInTheDocument();
+  });
+
+  it('reads older runs on request', async () => {
+    older.mockReturnValue(true);
+    showing();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show more' }));
+
+    expect(load).toHaveBeenCalled();
+  });
+
+  it('offers no older runs once every run is read', () => {
+    showing();
+
+    expect(
+      screen.queryByRole('button', { name: 'Show more' }),
+    ).not.toBeInTheDocument();
   });
 
   it('comes back on the filter it was left on', async () => {

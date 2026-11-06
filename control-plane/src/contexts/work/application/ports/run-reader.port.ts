@@ -1,3 +1,7 @@
+import type {
+  Page,
+  PageRequest,
+} from '@shared-kernel/application/dto/page.dto';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -82,7 +86,17 @@ export const RUN_READER = Symbol('RUN_READER');
 export interface RunReaderPort {
   listForTask(taskId: TaskId, viewerId: UserId): Promise<TaskRunSummary[]>;
 
-  listForTeam(teamId: TeamId, viewerId: UserId): Promise<TeamRunSummary[]>;
+  listForTeam(
+    teamId: TeamId,
+    viewerId: UserId,
+    page: PageRequest,
+  ): Promise<Page<TeamRunSummary>>;
+
+  findForTeam(
+    teamId: TeamId,
+    runId: RunId,
+    viewerId: UserId,
+  ): Promise<TeamRunSummary | null>;
 
   notesFor(runId: RunId, viewerId: UserId): Promise<RunNotesSummary | null>;
 

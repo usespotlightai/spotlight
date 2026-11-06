@@ -10,18 +10,17 @@ import type {
 import {
   counted,
   decisionPending,
+  entryKey,
   formatShortDuration,
   inboxItemPath,
   lastNoteAt,
   noticeLinkPath,
-  noticeOf,
   noticePath,
   noticePreviewOf,
   previewOf,
   shownAt,
   spentIn,
   spentOn,
-  taskItemOf,
   threadText,
   workedOn,
 } from '@/lib/inbox';
@@ -88,33 +87,33 @@ describe('spentIn', () => {
 });
 
 describe('previewOf', () => {
-  const item = (notes: Partial<Note>[]) =>
+  const item = (lastNote: Partial<Note> | null) =>
     ({
       station: 'Planning',
       description: 'A few quick steps will get everything ready.',
-      notes,
+      lastNote,
     }) as InboxItem;
 
   it('shows the last note', () => {
-    expect(previewOf(item([{ form: 'words', body: 'Which queue?' }]))).toBe(
+    expect(previewOf(item({ form: 'words', body: 'Which queue?' }))).toBe(
       'Which queue?',
     );
   });
 
   it('shows the task’s description, not the listed steps, for setting up a team', () => {
     expect(
-      previewOf(item([{ form: 'setup', body: '1. [Connect GitHub](/x). …' }])),
+      previewOf(item({ form: 'setup', body: '1. [Connect GitHub](/x). …' })),
     ).toBe('A few quick steps will get everything ready.');
   });
 
   it('says where it waits when there is no note', () => {
-    expect(previewOf(item([]))).toBe('Waiting at Planning');
+    expect(previewOf(item(null))).toBe('Waiting at Planning');
   });
 
   it('says a station alert fired, and that it resolved', () => {
     const alert = (resolved: boolean) =>
       ({
-        ...item([]),
+        ...item(null),
         resolved,
         inboxRequest: { form: 'alert', about: 'alert_1' },
       }) as InboxItem;
@@ -412,9 +411,7 @@ describe('notices', () => {
       { kind: 'task', id: 'same' } as InboxItem,
     ];
 
-    expect(noticeOf(entries, 'same')?.kind).toBe('notice');
-    expect(taskItemOf(entries, 'same')?.kind).toBe('task');
-    expect(noticeOf(entries, 'other')).toBeUndefined();
+    expect(new Set(entries.map(entryKey)).size).toBe(2);
   });
 });
 

@@ -1,4 +1,8 @@
 import type { PersonSummary } from '@identity/application/ports/person-reader.port';
+import type {
+  Page,
+  PageRequest,
+} from '@shared-kernel/application/dto/page.dto';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -31,13 +35,26 @@ export interface TaskSummary {
   readonly assignee: PersonSummary | null;
 }
 
+export const TASK_LIST_STATES = ['open', 'completed'] as const;
+
+export type TaskListState = (typeof TASK_LIST_STATES)[number];
+
+export type TaskListing =
+  | { readonly state: 'open' }
+  | {
+      readonly state: 'completed';
+      readonly lineId: string | null;
+      readonly page: PageRequest;
+    };
+
 export const TASK_READER = Symbol('TASK_READER');
 
 export interface TaskReaderPort {
   listForTeamMember(
     teamId: TeamId,
     userId: UserId,
-  ): Promise<TaskSummary[] | null>;
+    listing: TaskListing,
+  ): Promise<Page<TaskSummary> | null>;
 
   findForTeamMember(
     teamId: TeamId,

@@ -109,12 +109,20 @@ const proposing = async (
 const reviewPath = (runId: RunId) =>
   `/api/teams/${team.teamId.value}/tasks/${team.list.id.value}/runs/${runId.value}/memories`;
 
-const inbox = async (as: string): Promise<readonly InboxBody[]> =>
+const inboxIn = async (
+  as: string,
+  state: 'open' | 'resolved',
+): Promise<readonly InboxBody[]> =>
   (
     await served(app)
-      .get(`/api/workspaces/${team.slug}/inbox`)
+      .get(`/api/workspaces/${team.slug}/inbox?state=${state}`)
       .set(TEST_USER_HEADER, as)
-  ).body;
+  ).body.items ?? [];
+
+const inbox = async (as: string): Promise<readonly InboxBody[]> => [
+  ...(await inboxIn(as, 'open')),
+  ...(await inboxIn(as, 'resolved')),
+];
 
 const inboxRequestFor = (items: readonly InboxBody[], runId: RunId) =>
   items.find(

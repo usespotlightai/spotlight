@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { pageResponseOf } from '@platform/http/paging';
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 
@@ -165,3 +166,5 @@ export class TaskResponseDto {
     this.note = note;
   }
 }
+
+export const TaskPageResponseDto = pageResponseOf(TaskResponseDto);

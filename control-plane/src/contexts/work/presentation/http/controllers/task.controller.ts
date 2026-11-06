@@ -7,8 +7,10 @@ import {
   HttpStatus,
   NotFoundException,
   Param,
+  ParseEnumPipe,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -19,11 +21,14 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { ApiPageQuery, pageRequestOf } from '@platform/http/paging';
+import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
@@ -40,9 +45,19 @@ import type {
   TeamRunDto,
 } from '@work/application/dto/task-run.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
+import {
+  TASK_LIST_STATES,
+  type TaskListState,
+} from '@work/application/ports/task-reader.port';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
-import { ListTasksQuery } from '@work/application/queries/list-tasks.query';
-import { ListTeamRunsQuery } from '@work/application/queries/list-team-runs.query';
+import {
+  ListTasksQuery,
+  ReadTaskQuery,
+} from '@work/application/queries/list-tasks.query';
+import {
+  ListTeamRunsQuery,
+  ReadTeamRunQuery,
+} from '@work/application/queries/list-team-runs.query';
 import { ReadRunConfigQuery } from '@work/application/queries/read-run-config.query';
 import { ReadRunNetworkQuery } from '@work/application/queries/read-run-network.query';
 import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
@@ -59,7 +74,10 @@ import {
 import { MoveTaskRequestDto } from '@work/presentation/http/dto/move-task.request.dto';
 import { RunConfigResponseDto } from '@work/presentation/http/dto/run-config.response.dto';
 import { RunNetworkResponseDto } from '@work/presentation/http/dto/run-network.response.dto';
-import { TaskResponseDto } from '@work/presentation/http/dto/task.response.dto';
+import {
+  TaskPageResponseDto,
+  TaskResponseDto,
+} from '@work/presentation/http/dto/task.response.dto';
 import {
   LatestRunResponseDto,
   RunNotesResponseDto,
@@ -67,6 +85,7 @@ import {
   RunStationResponseDto,
   SendMessageRequestDto,
   TaskRunResponseDto,
+  TeamRunPageResponseDto,
   TeamRunResponseDto,
 } from '@work/presentation/http/dto/task-run.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
@@ -94,40 +113,122 @@ export class TaskController {
   @Get('tasks')
   @ApiOperation({
     operationId: 'listTasks',
-    summary: 'List the tasks at a team’s stations, oldest first',
+    summary:
+      'The tasks at a team’s stations in board order: every open task, or a page of completed tasks',
   })
-  @ApiOkResponse({ type: TaskResponseDto, isArray: true })
+  @ApiQuery({
+    name: 'state',
+    required: false,
+    enum: TASK_LIST_STATES,
+    description:
+      '`open` (the default) gives every task not at a completed station, in one page',
+  })
+  @ApiQuery({
+    name: 'lineId',
+    required: false,
+    type: String,
+    description: 'Only the tasks on this line',
+  })
+  @ApiPageQuery()
+  @ApiOkResponse({ type: TaskPageResponseDto })
   @ApiNotFoundResponse({ description: 'No such team for this caller' })
   async list(
     @Param('teamId') teamId: string,
+    @Query('state', new ParseEnumPipe(TASK_LIST_STATES, { optional: true }))
+    state: TaskListState | undefined,
+    @Query('lineId') lineId: string | undefined,
+    @Query('before') before: string | undefined,
+    @Query('limit') limit: string | undefined,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TaskResponseDto[]> {
-    const tasks = await this.queryBus.execute<ListTasksQuery, TaskDto[] | null>(
-      new ListTasksQuery(teamId, user.id),
+  ): Promise<Page<TaskResponseDto>> {
+    const tasks = await this.queryBus.execute<
+      ListTasksQuery,
+      Page<TaskDto> | null
+    >(
+      new ListTasksQuery(
+        teamId,
+        user.id,
+        state ?? 'open',
+        lineId ?? null,
+        pageRequestOf(before, limit),
+      ),
     );
 
     if (!tasks) {
       throw new NotFoundException();
     }
 
-    return tasks.map(TaskHttpMapper.toResponse);
+    return mapPage(tasks, TaskHttpMapper.toResponse);
+  }
+
+  @Get('tasks/:taskId')
+  @ApiOperation({
+    operationId: 'readTask',
+    summary: 'One task of the team, open or completed',
+  })
+  @ApiParam({ name: 'taskId', type: String })
+  @ApiOkResponse({ type: TaskResponseDto })
+  @ApiNotFoundResponse({ description: 'No such task for this caller' })
+  async read(
+    @Param('teamId') teamId: string,
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskResponseDto> {
+    const found = await this.queryBus.execute<ReadTaskQuery, TaskDto | null>(
+      new ReadTaskQuery(teamId, taskId, user.id),
+    );
+
+    if (!found) {
+      throw new NotFoundException();
+    }
+
+    return TaskHttpMapper.toResponse(found);
   }
 
   @Get('runs')
   @ApiOperation({
     operationId: 'listTeamRuns',
-    summary: 'Every run of the team, across its stations',
+    summary: 'The runs of the team, across its stations, newest first',
   })
-  @ApiOkResponse({ type: TeamRunResponseDto, isArray: true })
+  @ApiPageQuery()
+  @ApiOkResponse({ type: TeamRunPageResponseDto })
   async teamRuns(
     @Param('teamId') teamId: string,
+    @Query('before') before: string | undefined,
+    @Query('limit') limit: string | undefined,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<TeamRunResponseDto[]> {
-    const runs = await this.queryBus.execute<ListTeamRunsQuery, TeamRunDto[]>(
-      new ListTeamRunsQuery(teamId, user.id),
-    );
+  ): Promise<Page<TeamRunResponseDto>> {
+    const runs = await this.queryBus.execute<
+      ListTeamRunsQuery,
+      Page<TeamRunDto>
+    >(new ListTeamRunsQuery(teamId, user.id, pageRequestOf(before, limit)));
 
-    return runs.map(TaskRunHttpMapper.teamToResponse);
+    return mapPage(runs, TaskRunHttpMapper.teamToResponse);
+  }
+
+  @Get('runs/:runId')
+  @ApiOperation({
+    operationId: 'readTeamRun',
+    summary: 'One run of the team',
+  })
+  @ApiParam({ name: 'runId', type: String })
+  @ApiOkResponse({ type: TeamRunResponseDto })
+  @ApiNotFoundResponse({ description: 'No such run for this caller' })
+  async teamRun(
+    @Param('teamId') teamId: string,
+    @Param('runId') runId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TeamRunResponseDto> {
+    const found = await this.queryBus.execute<
+      ReadTeamRunQuery,
+      TeamRunDto | null
+    >(new ReadTeamRunQuery(teamId, runId, user.id));
+
+    if (!found) {
+      throw new NotFoundException();
+    }
+
+    return TaskRunHttpMapper.teamToResponse(found);
   }
 
   @Get('runs/:runId/config')

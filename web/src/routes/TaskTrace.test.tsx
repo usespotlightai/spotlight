@@ -16,8 +16,10 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 }));
 
 vi.mock('@/hooks/api/useTasks', () => ({
-  useTasks: () => ({
-    data: listed(),
+  useTask: (_teamId: string, taskId: string) => ({
+    data: (listed() as { id: string }[] | undefined)?.find(
+      (each) => each.id === taskId,
+    ),
     isPending: listed() === undefined,
     errorUpdateCount: 0,
   }),

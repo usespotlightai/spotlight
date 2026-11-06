@@ -13,10 +13,13 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { after } from '@platform/persistence/drizzle/keyset';
+import { type Page, pageOf } from '@shared-kernel/application/dto/page.dto';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
+  TaskListing,
   TaskNoteSummary,
   TaskReaderPort,
   TaskSummary,
@@ -35,7 +38,7 @@ import {
   task,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 const setupNote = alias(taskNote, 'setup_note');
@@ -52,14 +55,38 @@ export class DrizzleTaskReader implements TaskReaderPort {
   async listForTeamMember(
     teamId: TeamId,
     userId: UserId,
-  ): Promise<TaskSummary[] | null> {
+    listing: TaskListing,
+  ): Promise<Page<TaskSummary> | null> {
     const visible = await this.teams.find(teamId);
 
     if (!visible || !(await this.access.mayView(userId, visible.workspaceId))) {
       return null;
     }
 
-    return this.summariesIn(teamId, null);
+    if (listing.state === 'open') {
+      return {
+        items: await this.summariesIn(
+          teamId,
+          and(ne(station.kind, 'completed'), isNull(setupNote.taskId)),
+          null,
+        ),
+        next: null,
+      };
+    }
+
+    const { page } = listing;
+    const rows = await this.summariesIn(
+      teamId,
+      and(
+        eq(station.kind, 'completed'),
+        isNull(setupNote.taskId),
+        listing.lineId ? eq(line.id, listing.lineId) : undefined,
+        page.before ? after(task.rank, task.id, page.before) : undefined,
+      ),
+      page.limit + 1,
+    );
+
+    return pageOf(rows, page.limit, (row) => ({ key: row.rank, id: row.id }));
   }
 
   async findForTeamMember(
@@ -73,18 +100,24 @@ export class DrizzleTaskReader implements TaskReaderPort {
       return null;
     }
 
-    const [found] = await this.summariesIn(teamId, taskId);
+    const [found] = await this.summariesIn(
+      teamId,
+      eq(task.id, taskId.value),
+      1,
+    );
 
     return found ?? null;
   }
 
   private async summariesIn(
     teamId: TeamId,
-    only: TaskId | null,
-  ): Promise<TaskSummary[]> {
-    const rows = await this.db
+    narrowedTo: SQL | undefined,
+    limit: number | null,
+  ): Promise<(TaskSummary & { readonly rank: string })[]> {
+    const listed = this.db
       .select({
         id: task.id,
+        rank: task.rank,
         stationId: task.stationId,
         revision: task.revision,
         title: task.title,
@@ -102,13 +135,10 @@ export class DrizzleTaskReader implements TaskReaderPort {
         setupNote,
         and(eq(setupNote.taskId, task.id), eq(setupNote.form, 'setup')),
       )
-      .where(
-        and(
-          eq(line.teamId, teamId.value),
-          only ? eq(task.id, only.value) : isNull(setupNote.taskId),
-        ),
-      )
-      .orderBy(task.rank);
+      .where(and(eq(line.teamId, teamId.value), narrowedTo))
+      .orderBy(asc(task.rank), asc(task.id))
+      .$dynamic();
+    const rows = await (limit === null ? listed : listed.limit(limit));
 
     const [notes, awaited, attached, people, progressOf] = await Promise.all([
       this.latestNotes(rows.map((row) => row.id)),
@@ -155,14 +185,12 @@ export class DrizzleTaskReader implements TaskReaderPort {
   private async latestNotes(
     taskIds: string[],
   ): Promise<Map<string, TaskNoteSummary>> {
-    const latest = new Map<string, TaskNoteSummary>();
-
     if (taskIds.length === 0) {
-      return latest;
+      return new Map();
     }
 
     const rows = await this.db
-      .select({
+      .selectDistinctOn([taskNote.taskId], {
         taskId: taskNote.taskId,
         position: taskNote.position,
         station: taskNote.station,
@@ -170,18 +198,8 @@ export class DrizzleTaskReader implements TaskReaderPort {
       })
       .from(taskNote)
       .where(inArray(taskNote.taskId, taskIds))
-      .orderBy(desc(taskNote.position));
+      .orderBy(taskNote.taskId, desc(taskNote.position));
 
-    for (const row of rows) {
-      if (!latest.has(row.taskId)) {
-        latest.set(row.taskId, {
-          position: row.position,
-          station: row.station,
-          body: row.body,
-        });
-      }
-    }
-
-    return latest;
+    return new Map(rows.map(({ taskId, ...note }) => [taskId, note] as const));
   }
 }

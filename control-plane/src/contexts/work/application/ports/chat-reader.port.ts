@@ -1,3 +1,7 @@
+import type {
+  Page,
+  PageRequest,
+} from '@shared-kernel/application/dto/page.dto';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -99,7 +103,11 @@ export interface SetupChatView {
 }
 
 export interface ChatReaderPort {
-  startedBy(teamId: TeamId, userId: UserId): Promise<ChatSummary[]>;
+  startedBy(
+    teamId: TeamId,
+    userId: UserId,
+    page: PageRequest,
+  ): Promise<Page<ChatSummary>>;
 
   read(
     teamId: TeamId,

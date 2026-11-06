@@ -34,6 +34,7 @@ vi.mock('@/hooks/api/useChatJournal', () => ({
     data: journal(),
     isPending: journal() === undefined,
     errorUpdateCount: 0,
+    demand: { runs: [], want: () => {} },
   }),
 }));
 

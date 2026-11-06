@@ -1657,7 +1657,10 @@ export type InboxItemResponseDto = {
    * The inbox request of this item, where it is not a conversation. It never blocks the task
    */
   inboxRequest: InboxRequestResponseDto | null;
-  notes: Array<NoteResponseDto>;
+  /**
+   * The newest note of the conversation
+   */
+  lastNote: NoteResponseDto | null;
 };
 
 export type NoticeExternalLinkResponseDto = {
@@ -1747,6 +1750,81 @@ export type InboxRunResponseDto = {
   resolved: false;
 };
 
+export type InboxItemViewResponseDto = {
+  /**
+   * A task’s conversation or an inbox request on the task
+   */
+  kind: 'task';
+  /**
+   * One conversation a person was asked to own
+   */
+  id: string;
+  taskId: string;
+  teamId: string;
+  title: string;
+  description: string | null;
+  /**
+   * The files the task was created with
+   */
+  attachments: Array<AttachmentResponseDto>;
+  station: string;
+  stationColor: string;
+  /**
+   * Its place in the line, from zero
+   */
+  stationPosition: number;
+  /**
+   * How many stations the line has
+   */
+  stationCount: number;
+  /**
+   * The station where it was created. It keeps this station when it moves
+   */
+  originStation: InboxStationResponseDto;
+  /**
+   * Where the task is now, which is where it ended up
+   */
+  currentStation: InboxStationResponseDto;
+  createdAt: string;
+  askedAt: string;
+  /**
+   * True once it is resolved, and is no longer yours to answer
+   */
+  resolved: boolean;
+  /**
+   * What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
+   */
+  progress: 'queued' | 'in-progress' | 'stopping' | null;
+  /**
+   * The run working it now, whose steps can be watched as they land
+   */
+  runId: string | null;
+  /**
+   * Something was asked here that they have not seen yet
+   */
+  unread: boolean;
+  /**
+   * The briefing of the station that opened this conversation
+   */
+  briefing: string | null;
+  /**
+   * The failure this conversation is about, where it is about one
+   */
+  failure: InboxFailureResponseDto | null;
+  /**
+   * The inbox request of this item, where it is not a conversation. It never blocks the task
+   */
+  inboxRequest: InboxRequestResponseDto | null;
+  /**
+   * The newest note of the conversation
+   */
+  lastNote: NoteResponseDto | null;
+  /**
+   * Every note of the conversation, oldest first
+   */
+  notes: Array<NoteResponseDto>;
+};
+
 export type AnswerInboxItemInputRequestDto = {
   name: string;
   value: string;
@@ -1777,6 +1855,11 @@ export type AnswerInboxItemRequestDto = {
    * The generation of the shared draft this sends. A second send of the same generation is refused, so the draft goes only once
    */
   draftGeneration?: number | null;
+};
+
+export type JournalledRunResponseDto = {
+  runId: string;
+  createdAt: string;
 };
 
 export type RunMarksResponseDto = {
@@ -1885,6 +1968,14 @@ export type TaskResponseDto = {
   note: TaskNoteResponseDto | null;
 };
 
+export type TaskPageResponseDto = {
+  items: Array<TaskResponseDto>;
+  /**
+   * Pass as `before` to read the next page; null on the last
+   */
+  next: string | null;
+};
+
 export type RunStationResponseDto = {
   id: string;
   name: string;
@@ -1934,6 +2025,14 @@ export type TeamRunResponseDto = {
    * What was requested, shown before a run has written a note
    */
   taskDescription: string | null;
+};
+
+export type TeamRunPageResponseDto = {
+  items: Array<TeamRunResponseDto>;
+  /**
+   * Pass as `before` to read the next page; null on the last
+   */
+  next: string | null;
 };
 
 export type ConfigChangeResponseDto = {
@@ -2191,6 +2290,14 @@ export type ChatSummaryResponseDto = {
    * What the run answering it is doing: queued until a runner takes it, then in progress, and stopping once someone asked it to stop. Null while nothing answers.
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
+};
+
+export type ChatSummaryPageResponseDto = {
+  items: Array<ChatSummaryResponseDto>;
+  /**
+   * Pass as `before` to read the next page; null on the last
+   */
+  next: string | null;
 };
 
 export type ChatSetupRequestDto = {
@@ -9706,7 +9813,20 @@ export type ListInboxData = {
   path: {
     slug: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * The `next` cursor of the page before
+     */
+    before?: string;
+    /**
+     * At most this many, 50 by default, up to 200
+     */
+    limit?: number;
+    /**
+     * `open` (the default) or `resolved`
+     */
+    state?: 'open' | 'resolved';
+  };
   url: '/workspaces/{slug}/inbox';
 };
 
@@ -9722,10 +9842,70 @@ export type ListInboxErrors = {
 };
 
 export type ListInboxResponses = {
-  200: Array<InboxItemResponseDto | InboxNoticeResponseDto | InboxRunResponseDto>;
+  200: {
+    items: Array<InboxItemResponseDto | InboxNoticeResponseDto | InboxRunResponseDto>;
+    /**
+     * Pass as `before` to read the next page; null on the last
+     */
+    next: string | null;
+  };
 };
 
 export type ListInboxResponse = ListInboxResponses[keyof ListInboxResponses];
+
+export type ReadInboxItemData = {
+  body?: never;
+  path: {
+    slug: string;
+    itemId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/{itemId}';
+};
+
+export type ReadInboxItemErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such inbox item for this caller
+   */
+  404: unknown;
+};
+
+export type ReadInboxItemResponses = {
+  200: InboxItemViewResponseDto;
+};
+
+export type ReadInboxItemResponse = ReadInboxItemResponses[keyof ReadInboxItemResponses];
+
+export type ReadInboxNoticeData = {
+  body?: never;
+  path: {
+    slug: string;
+    noticeId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/notices/{noticeId}';
+};
+
+export type ReadInboxNoticeErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such notice for this caller
+   */
+  404: unknown;
+};
+
+export type ReadInboxNoticeResponses = {
+  200: InboxNoticeResponseDto;
+};
+
+export type ReadInboxNoticeResponse = ReadInboxNoticeResponses[keyof ReadInboxNoticeResponses];
 
 export type AnswerInboxItemData = {
   body: AnswerInboxItemRequestDto;
@@ -10009,7 +10189,7 @@ export type ReopenInboxNoticeResponses = {
 
 export type ReopenInboxNoticeResponse = ReopenInboxNoticeResponses[keyof ReopenInboxNoticeResponses];
 
-export type ReadTaskJournalData = {
+export type ListTaskJournalRunsData = {
   body?: never;
   path: {
     taskId: string;
@@ -10017,6 +10197,34 @@ export type ReadTaskJournalData = {
   };
   query?: never;
   url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal';
+};
+
+export type ListTaskJournalRunsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ListTaskJournalRunsResponses = {
+  200: Array<JournalledRunResponseDto>;
+};
+
+export type ListTaskJournalRunsResponse = ListTaskJournalRunsResponses[keyof ListTaskJournalRunsResponses];
+
+export type ReadTaskJournalData = {
+  body?: never;
+  path: {
+    taskId: string;
+    runId: string;
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/inbox/tasks/{taskId}/journal/{runId}';
 };
 
 export type ReadTaskJournalErrors = {
@@ -10097,7 +10305,24 @@ export type ListTasksData = {
   path: {
     teamId: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * The `next` cursor of the page before
+     */
+    before?: string;
+    /**
+     * At most this many, 50 by default, up to 200
+     */
+    limit?: number;
+    /**
+     * Only the tasks on this line
+     */
+    lineId?: string;
+    /**
+     * `open` (the default) gives every task not at a completed station, in one page
+     */
+    state?: 'open' | 'completed';
+  };
   url: '/teams/{teamId}/tasks';
 };
 
@@ -10113,17 +10338,83 @@ export type ListTasksErrors = {
 };
 
 export type ListTasksResponses = {
-  200: Array<TaskResponseDto>;
+  200: TaskPageResponseDto;
 };
 
 export type ListTasksResponse = ListTasksResponses[keyof ListTasksResponses];
+
+export type DeleteTaskData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}';
+};
+
+export type DeleteTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type DeleteTaskResponses = {
+  /**
+   * The task is gone
+   */
+  204: void;
+};
+
+export type DeleteTaskResponse = DeleteTaskResponses[keyof DeleteTaskResponses];
+
+export type ReadTaskData = {
+  body?: never;
+  path: {
+    teamId: string;
+    taskId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/tasks/{taskId}';
+};
+
+export type ReadTaskErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such task for this caller
+   */
+  404: unknown;
+};
+
+export type ReadTaskResponses = {
+  200: TaskResponseDto;
+};
+
+export type ReadTaskResponse = ReadTaskResponses[keyof ReadTaskResponses];
 
 export type ListTeamRunsData = {
   body?: never;
   path: {
     teamId: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * The `next` cursor of the page before
+     */
+    before?: string;
+    /**
+     * At most this many, 50 by default, up to 200
+     */
+    limit?: number;
+  };
   url: '/teams/{teamId}/runs';
 };
 
@@ -10135,10 +10426,37 @@ export type ListTeamRunsErrors = {
 };
 
 export type ListTeamRunsResponses = {
-  200: Array<TeamRunResponseDto>;
+  200: TeamRunPageResponseDto;
 };
 
 export type ListTeamRunsResponse = ListTeamRunsResponses[keyof ListTeamRunsResponses];
+
+export type ReadTeamRunData = {
+  body?: never;
+  path: {
+    teamId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/runs/{runId}';
+};
+
+export type ReadTeamRunErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run for this caller
+   */
+  404: unknown;
+};
+
+export type ReadTeamRunResponses = {
+  200: TeamRunResponseDto;
+};
+
+export type ReadTeamRunResponse = ReadTeamRunResponses[keyof ReadTeamRunResponses];
 
 export type ReadRunConfigData = {
   body?: never;
@@ -10339,36 +10657,6 @@ export type ReadTaskTraceResponses = {
 
 export type ReadTaskTraceResponse = ReadTaskTraceResponses[keyof ReadTaskTraceResponses];
 
-export type DeleteTaskData = {
-  body?: never;
-  path: {
-    teamId: string;
-    taskId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/tasks/{taskId}';
-};
-
-export type DeleteTaskErrors = {
-  /**
-   * No valid session
-   */
-  401: unknown;
-  /**
-   * No such task for this caller
-   */
-  404: unknown;
-};
-
-export type DeleteTaskResponses = {
-  /**
-   * The task is gone
-   */
-  204: void;
-};
-
-export type DeleteTaskResponse = DeleteTaskResponses[keyof DeleteTaskResponses];
-
 export type AddTaskData = {
   body: AddTaskRequestDto;
   path: {
@@ -10465,7 +10753,16 @@ export type ListChatsData = {
   path: {
     teamId: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * The `next` cursor of the page before
+     */
+    before?: string;
+    /**
+     * At most this many, 50 by default, up to 200
+     */
+    limit?: number;
+  };
   url: '/teams/{teamId}/chats';
 };
 
@@ -10481,7 +10778,7 @@ export type ListChatsErrors = {
 };
 
 export type ListChatsResponses = {
-  200: Array<ChatSummaryResponseDto>;
+  200: ChatSummaryPageResponseDto;
 };
 
 export type ListChatsResponse = ListChatsResponses[keyof ListChatsResponses];
@@ -10547,7 +10844,7 @@ export type ReadChatResponses = {
 
 export type ReadChatResponse = ReadChatResponses[keyof ReadChatResponses];
 
-export type ReadChatJournalData = {
+export type ListChatJournalRunsData = {
   body?: never;
   path: {
     teamId: string;
@@ -10555,6 +10852,34 @@ export type ReadChatJournalData = {
   };
   query?: never;
   url: '/teams/{teamId}/chats/{chatId}/journal';
+};
+
+export type ListChatJournalRunsErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such chat for this caller
+   */
+  404: unknown;
+};
+
+export type ListChatJournalRunsResponses = {
+  200: Array<JournalledRunResponseDto>;
+};
+
+export type ListChatJournalRunsResponse = ListChatJournalRunsResponses[keyof ListChatJournalRunsResponses];
+
+export type ReadChatJournalData = {
+  body?: never;
+  path: {
+    teamId: string;
+    chatId: string;
+    runId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/chats/{chatId}/journal/{runId}';
 };
 
 export type ReadChatJournalErrors = {

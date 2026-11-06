@@ -6,7 +6,9 @@ import {
   HttpStatus,
   NotFoundException,
   Param,
+  ParseEnumPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -17,10 +19,13 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { ApiPageQuery, pageRequestOf } from '@platform/http/paging';
+import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
 import { MarkInboxItemReadCommand } from '@work/application/commands/mark-inbox-item-read.command';
@@ -34,95 +39,125 @@ import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.
 import type {
   InboxEntryDto,
   InboxItemDto,
+  InboxItemViewDto,
+  InboxNoticeDto,
+  NoteDto,
 } from '@work/application/dto/inbox.dto';
-import type { RunJournalDto } from '@work/application/dto/run-journal.dto';
-import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
-import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journal.query';
+import type {
+  JournalledRunDto,
+  RunJournalDto,
+} from '@work/application/dto/run-journal.dto';
+import {
+  INBOX_LIST_STATES,
+  type InboxListState,
+  ListInboxQuery,
+  ReadInboxItemQuery,
+  ReadInboxNoticeQuery,
+} from '@work/application/queries/list-inbox.query';
+import {
+  ListTaskJournalRunsQuery,
+  ReadTaskJournalQuery,
+} from '@work/application/queries/read-task-journal.query';
 import {
   AnswerInboxItemRequestDto,
-  INBOX_ENTRY_SCHEMA,
+  INBOX_PAGE_SCHEMA,
   InboxApprovalResponseDto,
   InboxAuthorResponseDto,
   InboxConnectionResponseDto,
+  type InboxEntryResponseDto,
   InboxFailureResponseDto,
   InboxItemResponseDto,
+  InboxItemViewResponseDto,
   InboxNoticeResponseDto,
   InboxRequestResponseDto,
   InboxRunResponseDto,
   InboxStationResponseDto,
   NoteResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
-import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
+import {
+  JournalledRunResponseDto,
+  RunJournalResponseDto,
+} from '@work/presentation/http/dto/run-journal.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
 import { draftGenerationInput } from '@work/presentation/http/mappers/draft-generation-input';
 import { editsInput } from '@work/presentation/http/mappers/edits-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
 
-const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
-  new InboxItemResponseDto(
-    item.id,
-    item.taskId,
-    item.teamId,
-    item.title,
-    item.description,
-    item.attachments.map(AttachmentHttpMapper.toResponse),
-    item.station,
-    item.stationColor,
-    item.stationPosition,
-    item.stationCount,
-    new InboxStationResponseDto(
-      item.originStation.name,
-      item.originStation.color,
-      item.originStation.position,
+const noteResponse = (note: NoteDto): NoteResponseDto =>
+  new NoteResponseDto(
+    note.position,
+    note.kind,
+    note.form,
+    note.voice,
+    note.station,
+    note.stationColor,
+    note.stationPosition,
+    note.runId,
+    note.body,
+    note.attachments.map(AttachmentHttpMapper.toResponse),
+    note.at,
+    note.author
+      ? new InboxAuthorResponseDto(
+          note.author.id,
+          note.author.name,
+          note.author.image,
+        )
+      : null,
+    note.coAuthors.map(
+      (each) => new InboxAuthorResponseDto(each.id, each.name, each.image),
     ),
-    new InboxStationResponseDto(
-      item.currentStation.name,
-      item.currentStation.color,
-      item.currentStation.position,
-    ),
-    item.createdAt,
-    item.askedAt,
-    item.resolved,
-    item.progress,
-    item.runId,
-    item.unread,
-    item.briefing,
-    item.failure ? new InboxFailureResponseDto(item.failure) : null,
-    item.inboxRequest ? new InboxRequestResponseDto(item.inboxRequest) : null,
-    item.notes.map(
-      (note) =>
-        new NoteResponseDto(
-          note.position,
-          note.kind,
-          note.form,
-          note.voice,
-          note.station,
-          note.stationColor,
-          note.stationPosition,
-          note.runId,
-          note.body,
-          note.attachments.map(AttachmentHttpMapper.toResponse),
-          note.at,
-          note.author
-            ? new InboxAuthorResponseDto(
-                note.author.id,
-                note.author.name,
-                note.author.image,
-              )
-            : null,
-          note.coAuthors.map(
-            (each) =>
-              new InboxAuthorResponseDto(each.id, each.name, each.image),
-          ),
-          note.approval ? new InboxApprovalResponseDto(note.approval) : null,
-          note.failure ? new InboxFailureResponseDto(note.failure) : null,
-          note.connection
-            ? new InboxConnectionResponseDto(note.connection)
-            : null,
-        ),
-    ),
+    note.approval ? new InboxApprovalResponseDto(note.approval) : null,
+    note.failure ? new InboxFailureResponseDto(note.failure) : null,
+    note.connection ? new InboxConnectionResponseDto(note.connection) : null,
   );
+
+const taskItemFields = (
+  item: InboxItemDto,
+): Omit<InboxItemResponseDto, 'kind'> => ({
+  id: item.id,
+  taskId: item.taskId,
+  teamId: item.teamId,
+  title: item.title,
+  description: item.description,
+  attachments: item.attachments.map(AttachmentHttpMapper.toResponse),
+  station: item.station,
+  stationColor: item.stationColor,
+  stationPosition: item.stationPosition,
+  stationCount: item.stationCount,
+  originStation: new InboxStationResponseDto(
+    item.originStation.name,
+    item.originStation.color,
+    item.originStation.position,
+  ),
+  currentStation: new InboxStationResponseDto(
+    item.currentStation.name,
+    item.currentStation.color,
+    item.currentStation.position,
+  ),
+  createdAt: item.createdAt,
+  askedAt: item.askedAt,
+  resolved: item.resolved,
+  progress: item.progress,
+  runId: item.runId,
+  unread: item.unread,
+  briefing: item.briefing,
+  failure: item.failure ? new InboxFailureResponseDto(item.failure) : null,
+  inboxRequest: item.inboxRequest
+    ? new InboxRequestResponseDto(item.inboxRequest)
+    : null,
+  lastNote: item.lastNote && noteResponse(item.lastNote),
+});
+
+const entryResponse = (entry: InboxEntryDto): InboxEntryResponseDto => {
+  if (entry.kind === 'notice') {
+    return new InboxNoticeResponseDto(entry);
+  }
+
+  return entry.kind === 'run'
+    ? new InboxRunResponseDto(entry)
+    : new InboxItemResponseDto(taskItemFields(entry));
+};
 
 @ApiTags('inbox')
 @ApiExtraModels(
@@ -142,35 +177,99 @@ export class InboxController {
   @ApiOperation({
     operationId: 'listInbox',
     summary:
-      'What waits on a person, newest first: the tasks put to them, the runs working on their tasks, and notices about their team’s work',
+      'What waits on a person, newest first: the tasks put to them, the runs working on their tasks, and notices about their team’s work. Open entries come in one page; resolved entries come a page at a time',
   })
   @ApiParam({ name: 'slug', example: 'acme' })
-  @ApiOkResponse({ schema: INBOX_ENTRY_SCHEMA })
+  @ApiQuery({
+    name: 'state',
+    required: false,
+    enum: INBOX_LIST_STATES,
+    description: '`open` (the default) or `resolved`',
+  })
+  @ApiPageQuery()
+  @ApiOkResponse({ schema: INBOX_PAGE_SCHEMA })
   @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
   async list(
     @Param('slug') slug: string,
+    @Query('state', new ParseEnumPipe(INBOX_LIST_STATES, { optional: true }))
+    state: InboxListState | undefined,
+    @Query('before') before: string | undefined,
+    @Query('limit') limit: string | undefined,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<
-    (InboxItemResponseDto | InboxNoticeResponseDto | InboxRunResponseDto)[]
-  > {
+  ): Promise<Page<InboxEntryResponseDto>> {
     const waiting = await this.queryBus.execute<
       ListInboxQuery,
-      InboxEntryDto[] | null
-    >(new ListInboxQuery(slug, user.id));
+      Page<InboxEntryDto> | null
+    >(
+      new ListInboxQuery(
+        slug,
+        user.id,
+        state ?? 'open',
+        pageRequestOf(before, limit),
+      ),
+    );
 
     if (!waiting) {
       throw new NotFoundException();
     }
 
-    return waiting.map((entry) => {
-      if (entry.kind === 'notice') {
-        return new InboxNoticeResponseDto(entry);
-      }
+    return mapPage(waiting, entryResponse);
+  }
 
-      return entry.kind === 'run'
-        ? new InboxRunResponseDto(entry)
-        : taskItemResponse(entry);
-    });
+  @Get(':itemId')
+  @ApiOperation({
+    operationId: 'readInboxItem',
+    summary:
+      'One conversation or inbox request with all its notes, open or resolved',
+  })
+  @ApiParam({ name: 'slug', example: 'acme' })
+  @ApiParam({ name: 'itemId' })
+  @ApiOkResponse({ type: InboxItemViewResponseDto })
+  @ApiNotFoundResponse({ description: 'No such inbox item for this caller' })
+  async read(
+    @Param('slug') slug: string,
+    @Param('itemId') itemId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<InboxItemViewResponseDto> {
+    const found = await this.queryBus.execute<
+      ReadInboxItemQuery,
+      InboxItemViewDto | null
+    >(new ReadInboxItemQuery(slug, itemId, user.id));
+
+    if (!found) {
+      throw new NotFoundException();
+    }
+
+    return new InboxItemViewResponseDto(
+      taskItemFields(found),
+      found.notes.map(noteResponse),
+    );
+  }
+
+  @Get('notices/:noticeId')
+  @ApiOperation({
+    operationId: 'readInboxNotice',
+    summary: 'One notice, open or resolved',
+  })
+  @ApiParam({ name: 'slug', example: 'acme' })
+  @ApiParam({ name: 'noticeId' })
+  @ApiOkResponse({ type: InboxNoticeResponseDto })
+  @ApiNotFoundResponse({ description: 'No such notice for this caller' })
+  async notice(
+    @Param('slug') slug: string,
+    @Param('noticeId') noticeId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<InboxNoticeResponseDto> {
+    const found = await this.queryBus.execute<
+      ReadInboxNoticeQuery,
+      InboxNoticeDto | null
+    >(new ReadInboxNoticeQuery(slug, noticeId, user.id));
+
+    if (!found) {
+      throw new NotFoundException();
+    }
+
+    return new InboxNoticeResponseDto(found);
   }
 
   @Post(':itemId/answer')
@@ -368,21 +467,48 @@ export class InboxController {
 
   @Get('tasks/:taskId/journal')
   @ApiOperation({
-    operationId: 'readTaskJournal',
-    summary: 'What each run did to arrive at its result',
+    operationId: 'listTaskJournalRuns',
+    summary: 'The runs of a task that have a journal, oldest first',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
   @ApiParam({ name: 'taskId' })
+  @ApiOkResponse({ type: JournalledRunResponseDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'No such task for this caller' })
+  async journalRuns(
+    @Param('taskId') taskId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<JournalledRunResponseDto[]> {
+    const runs = await this.queryBus.execute<
+      ListTaskJournalRunsQuery,
+      JournalledRunDto[] | null
+    >(new ListTaskJournalRunsQuery(taskId, user.id));
+
+    if (!runs) {
+      throw new NotFoundException();
+    }
+
+    return runs.map(RunJournalHttpMapper.runToResponse);
+  }
+
+  @Get('tasks/:taskId/journal/:runId')
+  @ApiOperation({
+    operationId: 'readTaskJournal',
+    summary: 'What one run of a task did to arrive at its result, per attempt',
+  })
+  @ApiParam({ name: 'slug', type: String, example: 'acme' })
+  @ApiParam({ name: 'taskId' })
+  @ApiParam({ name: 'runId' })
   @ApiOkResponse({ type: RunJournalResponseDto, isArray: true })
   @ApiNotFoundResponse({ description: 'No such task for this caller' })
   async journal(
     @Param('taskId') taskId: string,
+    @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RunJournalResponseDto[]> {
     const entries = await this.queryBus.execute<
       ReadTaskJournalQuery,
       RunJournalDto[] | null
-    >(new ReadTaskJournalQuery(taskId, user.id));
+    >(new ReadTaskJournalQuery(taskId, runId, user.id));
 
     if (!entries) {
       throw new NotFoundException();

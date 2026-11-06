@@ -1,3 +1,7 @@
+import type {
+  Page,
+  PageRequest,
+} from '@shared-kernel/application/dto/page.dto';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {
@@ -107,6 +111,10 @@ export interface InboxItemSummary {
   readonly briefing: string | null;
   readonly failure: InboxFailure | null;
   readonly inboxRequest: InboxRequestView | null;
+  readonly lastNote: InboxNote | null;
+}
+
+export interface InboxItemView extends InboxItemSummary {
   readonly notes: readonly InboxNote[];
 }
 
@@ -152,9 +160,26 @@ export type InboxEntrySummary =
 export const INBOX_READER = Symbol('INBOX_READER');
 
 export interface InboxReaderPort {
-  listForWorkspaceMember(
+  openForWorkspaceMember(
     slug: string,
     userId: UserId,
-    noticesResolvedSince: Date,
   ): Promise<InboxEntrySummary[] | null>;
+
+  resolvedForWorkspaceMember(
+    slug: string,
+    userId: UserId,
+    page: PageRequest,
+  ): Promise<Page<InboxEntrySummary> | null>;
+
+  itemForWorkspaceMember(
+    slug: string,
+    userId: UserId,
+    itemId: string,
+  ): Promise<InboxItemView | null>;
+
+  noticeForWorkspaceMember(
+    slug: string,
+    userId: UserId,
+    noticeId: string,
+  ): Promise<InboxNoticeSummary | null>;
 }

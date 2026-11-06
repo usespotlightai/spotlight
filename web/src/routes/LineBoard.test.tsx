@@ -93,6 +93,14 @@ vi.mock('@/hooks/api/useTasks', () => ({
     isFetching: false,
     refetch: refetchTasks,
   }),
+  useCompletedTasks: () => ({
+    data: [],
+    isPending: false,
+    errorUpdateCount: 0,
+    isFetching: false,
+    refetch: vi.fn(),
+    more: { available: false, loading: false, load: vi.fn() },
+  }),
 }));
 vi.mock('@/hooks/api/useAddTask', () => ({
   useAddTask: () => ({ mutate: added }),

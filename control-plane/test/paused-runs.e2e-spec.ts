@@ -190,7 +190,7 @@ const inboxItemOf = (taskId: string): Promise<InboxItem> =>
           .get(`/api/workspaces/${team.slug}/inbox`)
           .set(TEST_USER_HEADER, team.owner.value)
           .expect(200)
-      ).body as InboxItem[]
+      ).body.items as InboxItem[]
     ).find((each) => each.taskId === taskId),
   );
 
@@ -386,7 +386,9 @@ describe('a run that asks a person', () => {
     await journalled(second, runId, 'after the answer');
     const journal = (
       await http()
-        .get(`/api/workspaces/${team.slug}/inbox/tasks/${taskId}/journal`)
+        .get(
+          `/api/workspaces/${team.slug}/inbox/tasks/${taskId}/journal/${runId}`,
+        )
         .set(TEST_USER_HEADER, team.owner.value)
         .expect(200)
     ).body as { runId: string; attempt: number }[];

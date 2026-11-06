@@ -40,6 +40,11 @@ export const inboxRequest = pgTable(
       table.workspaceId,
       table.resolvedAt,
     ),
+    index('inbox_request_workspace_created_idx').on(
+      table.workspaceId,
+      table.createdAt,
+      table.id,
+    ),
   ],
 );
 

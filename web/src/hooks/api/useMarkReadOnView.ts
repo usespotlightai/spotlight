@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { useMarkInboxItemRead } from '@/hooks/api/useMarkInboxItemRead';
 import { useMarkInboxRequestRead } from '@/hooks/api/useMarkInboxRequestRead';
-import type { InboxItem } from '@/lib/inbox';
+import type { InboxItemView } from '@/lib/inbox';
 
 export function useMarkReadOnView(
   slug: string | undefined,
-  item: InboxItem | undefined,
+  item: InboxItemView | undefined,
 ) {
   const markItemRead = useMarkInboxItemRead();
   const markRequestRead = useMarkInboxRequestRead();

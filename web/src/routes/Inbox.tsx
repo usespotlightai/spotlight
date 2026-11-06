@@ -3,20 +3,22 @@ import { useParams } from 'react-router';
 import { InboxDragOverlay } from '@/components/features/inbox/InboxDragOverlay';
 import { InboxDropZone } from '@/components/features/inbox/InboxDropZone';
 import { InboxListSkeleton } from '@/components/features/inbox/InboxListSkeleton';
+import { InboxRowSkeleton } from '@/components/features/inbox/InboxRowSkeleton';
 import { InboxSection } from '@/components/features/inbox/InboxSection';
 import { FileDropZone } from '@/components/shared/attachment/FileDropZone';
+import { ShowMore } from '@/components/shared/ShowMore';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { DISCLOSURE_MS } from '@/components/shell/layout/Disclosure';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { PageOutlet } from '@/components/shell/layout/PageOutlet';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useInbox } from '@/hooks/api/useInbox';
+import { useInbox, useResolvedInbox } from '@/hooks/api/useInbox';
 import { useCollapsed } from '@/hooks/useCollapsed';
 import { OPEN_DROP, RESOLVED_DROP, useInboxDrag } from '@/hooks/useInboxDrag';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { useTimedFlag } from '@/hooks/useTimedFlag';
-import { inboxPath, running } from '@/lib/inbox';
+import { entryKey, inboxPath, running } from '@/lib/inbox';
 import { loading } from '@/lib/query';
 import { TrailContext } from '@/lib/trail';
 import { cn } from '@/lib/utils';
@@ -53,7 +55,13 @@ export function Inbox() {
     open: sections.isExpanded(id),
     onToggle: () => toggle(id),
   });
-  const entries = inbox.data ?? [];
+  const resolvedInbox = useResolvedInbox(slug, sections.isExpanded(RESOLVED));
+  const open = inbox.data ?? [];
+  const opened = new Set(open.map(entryKey));
+  const entries = [
+    ...open,
+    ...(resolvedInbox.data ?? []).filter((each) => !opened.has(entryKey(each))),
+  ];
   const drag = useInboxDrag(slug, entries);
 
   if (!slug) {
@@ -121,7 +129,18 @@ export function Inbox() {
                         slug={slug}
                         label="Resolved"
                         entries={done}
+                        count={
+                          resolvedInbox.data &&
+                          `${done.length}${resolvedInbox.more.available ? '+' : ''}`
+                        }
                         {...section(RESOLVED)}
+                        after={
+                          <ShowMore
+                            list={resolvedInbox}
+                            what="Resolved items"
+                            skeleton={<InboxRowSkeleton />}
+                          />
+                        }
                       />
                     </InboxDropZone>
                   </div>

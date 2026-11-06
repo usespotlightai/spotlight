@@ -1,4 +1,4 @@
-type Loadable = {
+export type Loadable = {
   data: unknown;
   isPending: boolean;
   errorUpdateCount: number;

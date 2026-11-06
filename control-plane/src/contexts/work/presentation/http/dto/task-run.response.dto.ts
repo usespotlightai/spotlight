@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { pageResponseOf } from '@platform/http/paging';
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import {
   REVIEW_STATE_NAMES,
@@ -376,3 +377,5 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
     this.taskDescription = taskDescription;
   }
 }
+
+export const TeamRunPageResponseDto = pageResponseOf(TeamRunResponseDto);

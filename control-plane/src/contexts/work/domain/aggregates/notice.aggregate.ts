@@ -11,10 +11,6 @@ import type { NoticeWording } from '@work/domain/value-objects/notice-wording.vo
 
 const MAX_SUBJECT = 200;
 
-const RESOLVED_SHOWN_FOR_DAYS = 30;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 interface NoticeState {
   readonly id: NoticeId;
   readonly workspaceId: WorkspaceId;
@@ -60,10 +56,6 @@ export class Notice {
       resolvedAt: null,
       version: 0,
     });
-  }
-
-  static resolvedShownSince(now: Date): Date {
-    return new Date(now.getTime() - RESOLVED_SHOWN_FOR_DAYS * DAY_MS);
   }
 
   static rehydrate(state: NoticeState): Notice {

@@ -11,10 +11,11 @@ import {
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useRunNotes } from '@/hooks/api/useRunNotes';
 import { useTaskJournal } from '@/hooks/api/useTaskJournal';
-import { useTeamRuns } from '@/hooks/api/useTeamRuns';
+import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { useLatestRun } from '@/hooks/useLatestRun';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { decisionPending } from '@/lib/inbox';
+import { JournalDemandContext } from '@/lib/journal-demand';
 import { failed, loading } from '@/lib/query';
 import { shownProgress } from '@/lib/run';
 import { lastNoteOf, threadProgress } from '@/lib/run-notes';
@@ -37,10 +38,12 @@ export function RunThread({
   after,
 }: RunThreadProps) {
   const conversationQuery = useRunNotes(teamId, runId);
-  const journal = useTaskJournal(slug, taskId);
-  const runs = useTeamRuns(teamId);
+  const journal = useTaskJournal(slug, taskId, [
+    runId,
+    conversationQuery.data?.latestRun?.id,
+  ]);
+  const { data: run } = useTeamRun(teamId, runId);
   const conversation = conversationQuery.data;
-  const run = runs.data?.find((each) => each.id === runId);
   const decide = useRunDeciding(slug, run);
   const latest = useLatestRun(run, conversation);
 
@@ -63,31 +66,33 @@ export function RunThread({
         </div>
       ) : (
         <RunSidePanel>
-          <RunConversation
-            teamId={teamId}
-            conversation={conversation}
-            worked={journal.data ?? []}
-            progress={shownProgress(
-              threadProgress(latest, conversation),
-              latest?.id ?? null,
-              journal.data ?? [],
-            )}
-            openAt={lastNoteOf(conversation.notes, runId)}
-            footer={
-              run && latest ? (
-                <RunFooter
-                  slug={slug}
-                  teamId={teamId}
-                  run={run}
-                  latest={latest}
-                  conversation={conversation}
-                  deciding={decisionPending(conversation.notes)}
-                />
-              ) : null
-            }
-            deciding={decide}
-            afterRun={(ran) => (ran === runId ? after : null)}
-          />
+          <JournalDemandContext value={journal.demand}>
+            <RunConversation
+              teamId={teamId}
+              conversation={conversation}
+              worked={journal.data ?? []}
+              progress={shownProgress(
+                threadProgress(latest, conversation),
+                latest?.id ?? null,
+                journal.data ?? [],
+              )}
+              openAt={lastNoteOf(conversation.notes, runId)}
+              footer={
+                run && latest ? (
+                  <RunFooter
+                    slug={slug}
+                    teamId={teamId}
+                    run={run}
+                    latest={latest}
+                    conversation={conversation}
+                    deciding={decisionPending(conversation.notes)}
+                  />
+                ) : null
+              }
+              deciding={decide}
+              afterRun={(ran) => (ran === runId ? after : null)}
+            />
+          </JournalDemandContext>
         </RunSidePanel>
       )}
     </div>

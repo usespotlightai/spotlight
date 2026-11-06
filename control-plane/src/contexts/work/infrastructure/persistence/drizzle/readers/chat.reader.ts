@@ -5,6 +5,17 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import {
+  isSortableTime,
+  olderThan,
+  sortableTime,
+} from '@platform/persistence/drizzle/keyset';
+import {
+  mapPage,
+  type Page,
+  type PageRequest,
+  pageOf,
+} from '@shared-kernel/application/dto/page.dto';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type {
@@ -89,22 +100,43 @@ export class DrizzleChatReader implements ChatReaderPort {
     };
   }
 
-  async startedBy(teamId: TeamId, userId: UserId): Promise<ChatSummary[]> {
+  async startedBy(
+    teamId: TeamId,
+    userId: UserId,
+    page: PageRequest,
+  ): Promise<Page<ChatSummary>> {
+    if (page.before && !isSortableTime(page.before.key)) {
+      return { items: [], next: null };
+    }
+
     const rows = await this.db
-      .select()
+      .select({ chat, cursorAt: sortableTime(chat.updatedAt) })
       .from(chat)
       .where(
-        and(eq(chat.teamId, teamId.value), eq(chat.startedById, userId.value)),
+        and(
+          eq(chat.teamId, teamId.value),
+          eq(chat.startedById, userId.value),
+          page.before
+            ? olderThan(chat.updatedAt, chat.id, page.before)
+            : undefined,
+        ),
       )
-      .orderBy(desc(chat.updatedAt));
+      .orderBy(desc(chat.updatedAt), desc(chat.id))
+      .limit(page.limit + 1);
 
     const progressOf = await progressOfCurrentRuns(
       this.db,
-      rows.map((row) => row.currentRunId),
+      rows.map((row) => row.chat.currentRunId),
       false,
     );
 
-    return rows.map((row) => summaryOf(row, progressOf));
+    return mapPage(
+      pageOf(rows, page.limit, (row) => ({
+        key: row.cursorAt,
+        id: row.chat.id,
+      })),
+      (row) => summaryOf(row.chat, progressOf),
+    );
   }
 
   async read(

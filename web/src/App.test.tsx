@@ -30,6 +30,10 @@ vi.mock('@/hooks/useCommandSections', () => ({
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
   useInbox: () => ({ data: [] }),
+  useResolvedInbox: () => ({
+    data: undefined,
+    more: { available: false, loading: false, load: () => {} },
+  }),
 }));
 vi.mock('@/hooks/api/useRunners', () => ({
   runnerKeys: {

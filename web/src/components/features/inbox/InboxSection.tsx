@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { DraggableInboxEntry } from '@/components/features/inbox/DraggableInboxEntry';
 import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
@@ -7,22 +8,26 @@ type InboxSectionProps = {
   slug: string;
   label: string;
   entries: readonly InboxEntry[];
+  count?: ReactNode;
   open: boolean;
   onToggle: () => void;
+  after?: ReactNode;
 };
 
 export function InboxSection({
   slug,
   label,
   entries,
+  count = entries.length,
   open,
   onToggle,
+  after,
 }: InboxSectionProps) {
   return (
     <>
       <DisclosureRow
         label={label}
-        count={entries.length}
+        count={count}
         open={open}
         onToggle={onToggle}
         className="pl-2 font-medium text-xs"
@@ -36,6 +41,7 @@ export function InboxSection({
             entry={entry}
           />
         ))}
+        {after}
       </Disclosure>
     </>
   );

@@ -2,6 +2,7 @@ import type {
   ChatMessageResponseDto,
   ChatProposalResponseDto,
   ChatResponseDto,
+  JournalledRunResponseDto,
   JournalStepResponseDto,
   RunJournalResponseDto,
 } from '@/lib/api';
@@ -21,6 +22,22 @@ export type ChatRecord = {
 };
 
 const STEP_SECONDS = 25;
+
+export const journalRunsOf = (
+  journals: readonly RunJournalResponseDto[],
+): JournalledRunResponseDto[] =>
+  journals
+    .filter(
+      (journal, at) =>
+        journals.findIndex((other) => other.runId === journal.runId) === at,
+    )
+    .map((journal) => ({
+      runId: journal.runId,
+      createdAt:
+        journal.marks.startedAt ??
+        journal.steps[0]?.startedAt ??
+        new Date(0).toISOString(),
+    }));
 
 const secondsAfter = (at: string, seconds: number): string =>
   new Date(Date.parse(at) + seconds * 1_000).toISOString();
@@ -500,6 +517,74 @@ const pastedLogChat = (): ChatRecord => {
   };
 };
 
+const LONG_TURNS = 64;
+
+const LONG_FILES = [
+  'src/retries/deliver.ts',
+  'src/retries/worker.ts',
+  'src/billing/reconcile.ts',
+  'src/queue/backoff.ts',
+];
+
+const longTurnSteps = (turn: number): StepDraft[] => [
+  {
+    kind: 'thought',
+    text: `Pass ${turn + 1}: check the backoff against the queue before changing anything.`,
+  },
+  { kind: 'tool', tool: 'read', text: LONG_FILES[turn % LONG_FILES.length] },
+  {
+    kind: 'tool',
+    tool: 'execute',
+    text: `npm test -- backoff --shard ${turn + 1}`,
+    detail: Array.from(
+      { length: 40 },
+      (_, line) => `✓ backoff waits ${2 ** (line % 8)}s on retry ${line + 1}`,
+    ).join('\n'),
+  },
+  {
+    kind: 'tool',
+    tool: 'edit',
+    text: LONG_FILES[(turn + 1) % LONG_FILES.length],
+  },
+  {
+    kind: 'message',
+    text: `Pass ${turn + 1} is done. The backoff now waits up to ${2 ** (turn % 6)} seconds with jitter, and the tests pass.`,
+  },
+];
+
+const longChat = (): ChatRecord => {
+  const startedAt = hoursAgo(LONG_TURNS + 2);
+  const journals = Array.from({ length: LONG_TURNS }, (_, turn) =>
+    chatTurn(
+      `run_chat_long_${turn + 1}`,
+      secondsAfter(startedAt, turn * 3_600),
+      longTurnSteps(turn),
+    ),
+  );
+  const last = journals[journals.length - 1];
+
+  return {
+    chat: chatOf({
+      id: 'chat_long',
+      title: 'Tune the retry backoff, one pass at a time',
+      repositories: ['acme/worker'],
+      createdAt: startedAt,
+      updatedAt: last ? turnEndsAt(last) : startedAt,
+      messages: Array.from({ length: LONG_TURNS }, (_, turn) =>
+        messageBy(
+          SAM,
+          turn,
+          turn === 0
+            ? 'Tune the retry backoff, one pass at a time.'
+            : `Do pass ${turn + 1}.`,
+          secondsAfter(startedAt, turn * 3_600),
+        ),
+      ),
+    }),
+    journals,
+  };
+};
+
 const seededChats = (): Record<string, ChatRecord[]> => ({
   [PLATFORM_ID]: [
     setupChat(),
@@ -508,6 +593,7 @@ const seededChats = (): Record<string, ChatRecord[]> => ({
     rateLimitsChat(),
     quarterChat(),
     pastedLogChat(),
+    longChat(),
   ],
   [GROWTH_ID]: [onboardingChat()],
 });

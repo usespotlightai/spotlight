@@ -1,7 +1,9 @@
 import type {
   InboxItemResponseDto,
+  InboxItemViewResponseDto,
   InboxNoticeResponseDto,
   InboxRunResponseDto,
+  JournalledRunResponseDto,
   NoteResponseDto,
   RunJournalResponseDto,
 } from '@/lib/api';
@@ -10,6 +12,8 @@ import type { ShownProgress } from '@/lib/run';
 import { teamPath } from '@/lib/team';
 
 export type InboxItem = InboxItemResponseDto;
+
+export type InboxItemView = InboxItemViewResponseDto;
 
 export type InboxNotice = InboxNoticeResponseDto;
 
@@ -42,6 +46,8 @@ export type ConversationItem = {
 };
 
 export type RunJournal = RunJournalResponseDto;
+
+export type JournalledRun = JournalledRunResponseDto;
 
 export const decisionPending = (notes: readonly Note[]): boolean =>
   notes.findLast((note) => note.kind === 'asked')?.form === 'approval';
@@ -298,22 +304,6 @@ export const noticePath = (slug: string, id: string) =>
 export const noticeLinkPath = (slug: string, notice: InboxNotice) =>
   `${teamPath(slug, notice.teamId)}/${notice.link.replace(/^\/+/, '')}`;
 
-export const taskItemOf = (
-  entries: readonly InboxEntry[] | undefined,
-  id: string | undefined,
-): InboxItem | undefined =>
-  entries?.find(
-    (each): each is InboxItem => each.kind === 'task' && each.id === id,
-  );
-
-export const noticeOf = (
-  entries: readonly InboxEntry[] | undefined,
-  id: string | undefined,
-): InboxNotice | undefined =>
-  entries?.find(
-    (each): each is InboxNotice => each.kind === 'notice' && each.id === id,
-  );
-
 export const resolvable = (
   entry: InboxEntry,
 ): entry is InboxItem | InboxNotice => entry.kind !== 'run' && !entry.resolved;
@@ -332,7 +322,7 @@ export const reopenable = (
     return true;
   }
 
-  const closing = entry.notes[entry.notes.length - 1];
+  const closing = entry.lastNote;
 
   return closing?.form === 'resolved' && closing.voice === 'person';
 };
@@ -370,7 +360,7 @@ export const previewOf = (item: InboxItem): string => {
       : 'A judged run needs your grade. Grades check the judge.';
   }
 
-  const asked = item.notes[item.notes.length - 1];
+  const asked = item.lastNote;
 
   if (!asked) {
     return `Waiting at ${item.station}`;

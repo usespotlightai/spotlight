@@ -11,6 +11,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
+  JournalledRun,
   RunChanges,
   RunJournal,
 } from '@work/application/contracts/run-journal.contract';
@@ -19,9 +20,12 @@ import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import {
   changesOfTask,
   journalOfRun,
-  journalsOfChat,
+  journalsOfChatRun,
   journalsOfRuns,
   journalsOfTask,
+  journalsOfTaskRun,
+  runsOfChat,
+  runsOfTask,
 } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
@@ -38,23 +42,28 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
     taskId: TaskId,
     viewerId: UserId,
   ): Promise<RunJournal[] | null> {
-    const [visible] = await this.db
-      .select({ workspaceId: task.workspaceId })
-      .from(task)
-      .where(eq(task.id, taskId.value))
-      .limit(1);
+    return (await this.mayViewTask(taskId, viewerId))
+      ? journalsOfTask(this.db, taskId)
+      : null;
+  }
 
-    if (
-      !visible ||
-      !(await this.access.mayView(
-        viewerId,
-        WorkspaceId.of(visible.workspaceId),
-      ))
-    ) {
-      return null;
-    }
+  async runsOfTask(
+    taskId: TaskId,
+    viewerId: UserId,
+  ): Promise<JournalledRun[] | null> {
+    return (await this.mayViewTask(taskId, viewerId))
+      ? runsOfTask(this.db, taskId)
+      : null;
+  }
 
-    return journalsOfTask(this.db, taskId);
+  async ofTaskRun(
+    taskId: TaskId,
+    runId: RunId,
+    viewerId: UserId,
+  ): Promise<RunJournal[] | null> {
+    return (await this.mayViewTask(taskId, viewerId))
+      ? journalsOfTaskRun(this.db, taskId, runId)
+      : null;
   }
 
   ofRun(runId: RunId): Promise<RunJournal | null> {
@@ -69,11 +78,47 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
     return changesOfTask(this.db, taskId);
   }
 
-  async listForChat(
+  async runsOfChat(
     teamId: TeamId,
     chatId: ChatId,
     viewerId: UserId,
+  ): Promise<JournalledRun[] | null> {
+    return (await this.mayViewChat(teamId, chatId, viewerId))
+      ? runsOfChat(this.db, chatId)
+      : null;
+  }
+
+  async ofChatRun(
+    teamId: TeamId,
+    chatId: ChatId,
+    runId: RunId,
+    viewerId: UserId,
   ): Promise<RunJournal[] | null> {
+    return (await this.mayViewChat(teamId, chatId, viewerId))
+      ? journalsOfChatRun(this.db, chatId, runId)
+      : null;
+  }
+
+  private async mayViewTask(
+    taskId: TaskId,
+    viewerId: UserId,
+  ): Promise<boolean> {
+    const [visible] = await this.db
+      .select({ workspaceId: task.workspaceId })
+      .from(task)
+      .where(eq(task.id, taskId.value))
+      .limit(1);
+
+    return visible
+      ? this.access.mayView(viewerId, WorkspaceId.of(visible.workspaceId))
+      : false;
+  }
+
+  private async mayViewChat(
+    teamId: TeamId,
+    chatId: ChatId,
+    viewerId: UserId,
+  ): Promise<boolean> {
     const [visible] = await this.db
       .select({ id: chat.id })
       .from(chat)
@@ -86,6 +131,6 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
       )
       .limit(1);
 
-    return visible ? journalsOfChat(this.db, chatId) : null;
+    return visible !== undefined;
   }
 }

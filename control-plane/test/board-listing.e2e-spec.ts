@@ -78,8 +78,10 @@ describe('the tasks the board reads for a team', () => {
 
     await tasks.add(work);
 
-    const listed = await board.listForTeamMember(teamId, owner);
+    const listed = await board.listForTeamMember(teamId, owner, {
+      state: 'open',
+    });
 
-    expect(listed?.map((each) => each.title)).toEqual(['Ship the thing']);
+    expect(listed?.items.map((each) => each.title)).toEqual(['Ship the thing']);
   });
 });

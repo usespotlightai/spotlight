@@ -478,7 +478,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     const item = await eventually(async () =>
       (
         (await asOwner.get(`/api/workspaces/${team.slug}/inbox`).expect(200))
-          .body as InboxItem[]
+          .body.items as InboxItem[]
       ).find((each) => each.taskId === taskId),
     );
 

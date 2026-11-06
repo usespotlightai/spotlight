@@ -9,7 +9,7 @@ import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleRunUsages } from '@work/infrastructure/persistence/drizzle/ledgers/run-usages.ledger';
 import { DrizzleRunEventReader } from '@work/infrastructure/persistence/drizzle/readers/run-event.reader';
-import { journalsOfChat } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
+import { journalsOfChatRun } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
@@ -130,7 +130,7 @@ describe('journalling a run that was tried again', () => {
     await requeued(runId, 2);
     await journal.append(RunAttempt.of(runId, 2), hooks('two-a'));
 
-    const [read, ...more] = await journalsOfChat(db, chatId);
+    const [read, ...more] = await journalsOfChatRun(db, chatId, runId);
 
     expect(more).toEqual([]);
     expect(read?.attempt).toBe(2);

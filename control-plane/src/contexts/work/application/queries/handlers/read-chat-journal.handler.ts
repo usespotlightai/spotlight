@@ -1,5 +1,6 @@
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { RunJournalDto } from '@work/application/dto/run-journal.dto';
@@ -15,9 +16,10 @@ export class ReadChatJournalHandler
 
   async execute(query: ReadChatJournalQuery): Promise<RunJournalDto[] | null> {
     try {
-      const entries = await this.journals.listForChat(
+      const entries = await this.journals.ofChatRun(
         TeamId.of(query.teamId),
         ChatId.of(query.chatId),
+        RunId.of(query.runId),
         UserId.of(query.viewerId),
       );
 

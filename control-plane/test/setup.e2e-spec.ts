@@ -8,8 +8,8 @@ import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/driz
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { SystemClock } from '@platform/time/system-clock';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
+import { FIRST_PAGE } from '@shared-kernel/application/dto/page.dto';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { InboxItemDto } from '@work/application/dto/inbox.dto';
@@ -154,7 +154,7 @@ describe('the open setup lists of a team', () => {
 });
 
 describe('the inbox item of a setup list', () => {
-  const inbox = () =>
+  const inbox = (state: 'open' | 'resolved' = 'open') =>
     new ListInboxHandler(
       new DrizzleInboxReader(
         db,
@@ -162,11 +162,17 @@ describe('the inbox item of a setup list', () => {
         new DrizzleWorkspaceReader(db),
         new DrizzlePersonReader(db),
       ),
-      new SystemClock(),
     )
-      .execute(new ListInboxQuery(waiting.slug, waiting.owner.value))
+      .execute(
+        new ListInboxQuery(
+          waiting.slug,
+          waiting.owner.value,
+          state,
+          FIRST_PAGE,
+        ),
+      )
       .then((entries) =>
-        (entries ?? []).filter(
+        (entries?.items ?? []).filter(
           (each): each is InboxItemDto => each.kind === 'task',
         ),
       );
@@ -191,12 +197,10 @@ describe('the inbox item of a setup list', () => {
       waiting.list.closeConversation(newNote as NonNullable<typeof newNote>),
     );
 
-    const [item] = await inbox();
+    const [item] = await inbox('resolved');
 
     expect(item?.resolved).toBe(true);
-    expect(item?.notes[item.notes.length - 1]?.body).toBe(
-      'Everything on this list is done.',
-    );
+    expect(item?.lastNote?.body).toBe('Everything on this list is done.');
   });
 });
 

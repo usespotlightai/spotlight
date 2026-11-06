@@ -19,6 +19,14 @@ vi.mock('@/hooks/api/useInbox', () => ({
     isFetching: false,
     refetch,
   }),
+  useResolvedInbox: () => ({
+    data: [],
+    isPending: false,
+    errorUpdateCount: 0,
+    isFetching: false,
+    refetch,
+    more: { available: false, loading: false, load: vi.fn() },
+  }),
 }));
 
 vi.mock('@/hooks/api/useResolveInboxEntry', () => ({
@@ -52,19 +60,17 @@ const item = (over: Record<string, unknown> = {}) => ({
   runId: null,
   inboxRequest: null,
   unread: false,
-  notes: [
-    {
-      position: 0,
-      kind: 'asked',
-      station: 'Implementation',
-      stationColor: '#5c66d9',
-      stationPosition: 2,
-      runId: null,
-      body: 'Which queue should I drain?',
-      at: '2026-08-29T12:00:00.000Z',
-      author: null,
-    },
-  ],
+  lastNote: {
+    position: 0,
+    kind: 'asked',
+    station: 'Implementation',
+    stationColor: '#5c66d9',
+    stationPosition: 2,
+    runId: null,
+    body: 'Which queue should I drain?',
+    at: '2026-08-29T12:00:00.000Z',
+    author: null,
+  },
   ...over,
 });
 

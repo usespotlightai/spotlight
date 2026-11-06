@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   acceptProposal,
   editMemory,
+  listChatJournalRuns,
   listChats,
   listTasks,
   listTeamMemories,
@@ -155,12 +156,20 @@ describe('the mock agent chats', () => {
       path: { ...team, chatId: 'chat_retries' },
       throwOnError: true,
     });
-    const { data: journal } = await readChatJournal({
+    const { data: runs } = await listChatJournalRuns({
       path: { ...team, chatId: 'chat_retries' },
       throwOnError: true,
     });
+    const { data: journal } = await readChatJournal({
+      path: {
+        ...team,
+        chatId: 'chat_retries',
+        runId: runs.at(-1)?.runId ?? '',
+      },
+      throwOnError: true,
+    });
 
-    expect(chats.map((each) => each.id)).toContain('chat_retries');
+    expect(chats.items.map((each) => each.id)).toContain('chat_retries');
     expect(chat.title).toBe('Why do retries pile up?');
     expect(chat.messages.some((each) => each.proposal?.state === 'open')).toBe(
       true,
@@ -181,9 +190,9 @@ describe('the mock agent chats', () => {
     const proposal = chat.messages[2]?.proposal;
 
     expect(proposal?.state).toBe('created');
-    expect(tasks.find((each) => each.id === proposal?.taskId)?.stationId).toBe(
-      'station_spec',
-    );
+    expect(
+      tasks.items.find((each) => each.id === proposal?.taskId)?.stationId,
+    ).toBe('station_spec');
   });
 
   it('starts a chat about a target station and answers the message', async () => {
@@ -201,13 +210,18 @@ describe('the mock agent chats', () => {
       body: { body: 'Draft the prompt change.' },
       throwOnError: true,
     });
-    const { data: journal } = await readChatJournal({
+    const { data: runs } = await listChatJournalRuns({
       path: { ...team, chatId: started.id },
+      throwOnError: true,
+    });
+    const { data: journal } = await readChatJournal({
+      path: { ...team, chatId: started.id, runId: runs[1]?.runId ?? '' },
       throwOnError: true,
     });
 
     expect(started.targetStation?.stationName).toBe('Implementation');
-    expect(journal).toHaveLength(2);
+    expect(runs).toHaveLength(2);
+    expect(journal.map((each) => each.runId)).toEqual([runs[1]?.runId]);
   });
 });
 
@@ -228,7 +242,7 @@ describe('the mock team area in an empty workspace', () => {
     });
 
     expect(memories).toEqual([]);
-    expect(chats).toEqual([]);
+    expect(chats).toEqual({ items: [], next: null });
     expect(response?.status).toBe(404);
     expect(memory?.status).toBe(404);
   });

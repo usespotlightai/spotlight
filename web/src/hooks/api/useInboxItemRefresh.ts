@@ -1,8 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { inboxKeys } from '@/hooks/api/useInbox';
+import { journalKeys } from '@/hooks/api/useRunJournals';
 import { useRunStream } from '@/hooks/api/useRunStream';
-import { journalKeys } from '@/hooks/api/useTaskJournal';
 import type { InboxItem } from '@/lib/inbox';
 
 export function useInboxItemRefresh(
@@ -10,20 +10,33 @@ export function useInboxItemRefresh(
   item: InboxItem | undefined,
 ) {
   const queryClient = useQueryClient();
+  const itemId = item?.id;
+  const runId = item?.runId ?? undefined;
+  const taskId = item?.taskId;
+  const progress = item?.progress ?? null;
 
   const bump = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: journalKeys.ofRun(runId) });
     void queryClient.invalidateQueries({
-      queryKey: journalKeys.forTask(item?.taskId),
+      queryKey: inboxKeys.item(slug, itemId),
     });
-    void queryClient.invalidateQueries({
-      queryKey: inboxKeys.forWorkspace(slug),
-    });
-  }, [queryClient, item?.taskId, slug]);
+  }, [queryClient, runId, slug, itemId]);
 
-  useRunStream(
-    item?.runId ?? undefined,
-    Boolean(item?.runId),
-    item?.progress ?? null,
-    bump,
-  );
+  useRunStream(runId, Boolean(runId), progress, bump);
+
+  const previous = useRef({ runId, progress });
+
+  useEffect(() => {
+    const was = previous.current;
+
+    if (was.runId !== runId || was.progress !== progress) {
+      void queryClient.invalidateQueries({
+        queryKey: journalKeys.ofRun(was.runId),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: journalKeys.runsOfTask(taskId),
+      });
+    }
+    previous.current = { runId, progress };
+  }, [queryClient, runId, progress, taskId]);
 }
