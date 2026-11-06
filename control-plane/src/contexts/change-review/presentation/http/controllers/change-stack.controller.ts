@@ -37,6 +37,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { RUN_CHANGE_STACKS } from '@platform/http/routes';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 
 const replyIn = (body: AnswerQuestionRequestDto | undefined): string | null => {
@@ -64,7 +65,7 @@ export class ChangeStackController {
     private readonly commandBus: CommandBus,
   ) {}
 
-  @Get('runs/:runId/change-stacks')
+  @Get(RUN_CHANGE_STACKS)
   @ApiOperation({
     operationId: 'listRunChangeStacks',
     summary:

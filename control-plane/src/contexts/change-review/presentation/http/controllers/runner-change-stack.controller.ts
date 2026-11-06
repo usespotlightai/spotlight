@@ -24,6 +24,10 @@ import {
 } from '@nestjs/swagger';
 import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import {
+  RUN_CHANGE_STACK_CHECK,
+  RUN_CHANGE_STACKS,
+} from '@platform/http/routes';
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
@@ -34,7 +38,7 @@ import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
 export class RunnerChangeStackController {
   constructor(private readonly commandBus: CommandBus) {}
 
-  @Post('runs/:runId/change-stacks')
+  @Post(RUN_CHANGE_STACKS)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'generateChangeStack',
@@ -65,7 +69,7 @@ export class RunnerChangeStackController {
     );
   }
 
-  @Post('runs/:runId/change-stack-checks/:stackId')
+  @Post(RUN_CHANGE_STACK_CHECK)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'recordChangeStackCheck',

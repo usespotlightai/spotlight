@@ -7,8 +7,7 @@ import {
   setUser,
 } from '@sentry/react';
 import { type ErrorReportingResponseDto, getErrorReporting } from '@/lib/api';
-
-const GATEWAY_ERRORS = new Set([502, 503, 504]);
+import { isGatewayStatus } from '@/lib/request-failure';
 
 export class GatewayError extends Error {
   override readonly name = 'GatewayError';
@@ -50,7 +49,7 @@ export function withGatewayErrorReported(
   response: Response | undefined,
   request: Request | undefined,
 ): unknown {
-  if (request && response && GATEWAY_ERRORS.has(response.status)) {
+  if (request && response && isGatewayStatus(response.status)) {
     const path = routeOf(request.url);
 
     captureException(

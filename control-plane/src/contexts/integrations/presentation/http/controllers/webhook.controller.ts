@@ -14,7 +14,11 @@ import {
 import { CommandBus } from '@nestjs/cqrs';
 import { ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
-import { TEAM_DELIVERIES, WEBHOOKS } from '@platform/http/routes';
+import {
+  INTEGRATION_DELIVERIES,
+  TEAM_DELIVERIES,
+  WEBHOOKS,
+} from '@platform/http/routes';
 
 interface Delivering {
   readonly rawBody?: Uint8Array;
@@ -55,7 +59,7 @@ export class WebhookController {
     );
   }
 
-  @Post(':integration')
+  @Post(INTEGRATION_DELIVERIES)
   @AllowAnonymous()
   @UseGuards(WebhookGuard)
   @ApiExcludeEndpoint()
