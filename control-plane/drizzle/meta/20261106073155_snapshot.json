@@ -1,5 +1,5 @@
 {
-  "id": "6883dfe1-d758-4bc0-9e2f-ffe3b733a27a",
+  "id": "dbecedee-70f0-4989-97ae-8fbf06338018",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -1408,21 +1408,6 @@
             "id"
           ],
           "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "review_comment_reply_to_fk": {
-          "name": "review_comment_reply_to_fk",
-          "tableFrom": "review_comment",
-          "tableTo": "review_comment",
-          "columnsFrom": [
-            "workspace_id",
-            "reply_to_id"
-          ],
-          "columnsTo": [
-            "workspace_id",
-            "id"
-          ],
-          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },

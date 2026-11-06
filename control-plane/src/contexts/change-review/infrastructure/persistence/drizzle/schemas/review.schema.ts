@@ -77,11 +77,6 @@ export const reviewComment = pgTable(
       table.workspaceId,
       table.id,
     ),
-    foreignKey({
-      name: 'review_comment_reply_to_fk',
-      columns: [table.workspaceId, table.replyToId],
-      foreignColumns: [table.workspaceId, table.id],
-    }),
     index('review_comment_reply_to_idx').on(table.replyToId),
     index('review_comment_review_idx').on(table.reviewId),
     index('review_comment_task_idx').on(table.taskId, table.createdAt),
