@@ -6,7 +6,7 @@ import { PageNotice } from '@/components/shared/PageNotice';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { useRunChangeStacks } from '@/hooks/api/useRunChangeStacks';
 import { useRunReview } from '@/hooks/api/useRunReview';
-import { useTeamRuns } from '@/hooks/api/useTeamRuns';
+import { useTeamRun } from '@/hooks/api/useTeamRuns';
 import { useChangeStackTrail } from '@/hooks/useChangeStackTrail';
 import { failed, loading } from '@/lib/query';
 import { TrailContext, useTrail } from '@/lib/trail';
@@ -14,17 +14,17 @@ import { TrailContext, useTrail } from '@/lib/trail';
 export function RunChangeStack() {
   const { slug, teamId, runId } = useParams();
   const stacks = useRunChangeStacks(teamId, runId);
-  const runs = useTeamRuns(teamId);
+  const found = useTeamRun(teamId, runId);
   const review = useRunReview(teamId, runId);
 
-  const run = runs.data?.find((each) => each.id === runId);
+  const run = found.data;
   const { trail, forward } = useTrail(useChangeStackTrail(slug, teamId, run));
 
   if (!slug || !teamId || !runId) {
     return null;
   }
 
-  if (loading(stacks) || loading(runs)) {
+  if (loading(stacks) || loading(found)) {
     return <ChangeStackSkeleton known={trail.slice(0, -1)} />;
   }
 

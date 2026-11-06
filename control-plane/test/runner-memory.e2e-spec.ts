@@ -433,7 +433,9 @@ describe('remembering from inside a run', () => {
         await http()
           .get(`/api/workspaces/${team.slug}/inbox`)
           .set(TEST_USER_HEADER, team.owner.value)
-      ).body as { inboxRequest: { form: string; about: string } | null }[];
+      ).body.items as {
+        inboxRequest: { form: string; about: string } | null;
+      }[];
 
       return items.some(
         (each) =>

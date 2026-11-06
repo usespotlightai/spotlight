@@ -12,8 +12,10 @@ const resolving = vi.fn();
 
 vi.mock('@/hooks/api/useInbox', () => ({
   inboxKeys: { forWorkspace: () => ['inbox'] },
-  useInbox: () => ({
-    data: waiting(),
+  useInboxNotice: (_slug: string, noticeId: string) => ({
+    data: (waiting() as { id: string }[] | undefined)?.find(
+      (each) => each.id === noticeId,
+    ),
     isPending: waiting() === undefined,
     errorUpdateCount: failing() ? 1 : 0,
     isFetching: false,
@@ -86,12 +88,12 @@ describe('InboxNotice', () => {
     );
   });
 
-  it('says the inbox could not be loaded', () => {
+  it('says the notice could not be loaded', () => {
     waiting.mockReturnValue(undefined);
     failing.mockReturnValue(true);
     renderNotice();
 
-    expect(screen.getByText(/The inbox/)).toBeInTheDocument();
+    expect(screen.getByText(/The notice/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Try again/ })).toBeVisible();
   });
 

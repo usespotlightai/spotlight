@@ -4,6 +4,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import type {
   InboxItemSummary,
   InboxRunSummary,
@@ -132,10 +133,9 @@ const inboxWith = async (
     { findMany: async () => new Map() } as never,
   );
 
-  const entries = await reader.listForWorkspaceMember(
+  const entries = await reader.openForWorkspaceMember(
     'acme',
     UserId.of(viewer),
-    new Date(0),
   );
 
   const onBoard = await tasks.findForTeamMember(
@@ -274,9 +274,11 @@ describe('the progress of a chat whose run waits to start', () => {
       });
     }
 
-    const [found] = await new DrizzleChatReader(db, {
+    const {
+      items: [found],
+    } = await new DrizzleChatReader(db, {
       find: async () => null,
-    } as never).startedBy(TeamId.of('team_1'), UserId.of(viewer));
+    } as never).startedBy(TeamId.of('team_1'), UserId.of(viewer), FIRST_PAGE);
 
     return found?.progress;
   };

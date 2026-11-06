@@ -287,3 +287,16 @@ export class RunJournalResponseDto {
     this.spent = spent;
   }
 }
+
+export class JournalledRunResponseDto {
+  @ApiProperty({ example: 'd71ef228-a533-49ab-9e92-7c0d0af80e25' })
+  readonly runId: string;
+
+  @ApiProperty({ example: '2026-11-06T09:30:00.000Z' })
+  readonly createdAt: string;
+
+  constructor(runId: string, createdAt: string) {
+    this.runId = runId;
+    this.createdAt = createdAt;
+  }
+}

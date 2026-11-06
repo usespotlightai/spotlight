@@ -36,7 +36,7 @@ const inboxRequestsIn = async (userId: string): Promise<string[]> => {
 
   expect(answer.status).toBe(200);
 
-  return (answer.body as { id: string; inboxRequest: unknown }[]).flatMap(
+  return (answer.body.items as { id: string; inboxRequest: unknown }[]).flatMap(
     (each) => (each.inboxRequest ? [each.id] : []),
   );
 };

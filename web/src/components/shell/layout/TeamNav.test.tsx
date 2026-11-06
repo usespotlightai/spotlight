@@ -16,7 +16,12 @@ vi.mock('@/hooks/api/useLines', () => ({
 const tasks = vi.fn();
 
 vi.mock('@/hooks/api/useTasks', () => ({
-  useTasks: () => ({ data: tasks(), isPending: false }),
+  useTask: (_teamId: string, taskId: string) => ({
+    data: (tasks() as { id: string }[] | undefined)?.find(
+      (each) => each.id === taskId,
+    ),
+    isPending: false,
+  }),
 }));
 
 const teams = [

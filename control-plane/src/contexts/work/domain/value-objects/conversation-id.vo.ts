@@ -38,6 +38,14 @@ export class ConversationId {
     }
   }
 
+  static tryParse(raw: string): ConversationId | null {
+    try {
+      return ConversationId.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
   get value(): string {
     return `${this.taskId.value}${AT}${this.from.value}`;
   }

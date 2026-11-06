@@ -2314,12 +2314,13 @@ CREATE INDEX "run_grants_workspace_idx" ON "run_grants" USING btree ("workspace_
 CREATE INDEX "run_grants_ended_idx" ON "run_grants" USING btree ("ended_at");--> statement-breakpoint
 CREATE INDEX "attachment_claim_task_idx" ON "attachment_claim" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "attachment_claim_chat_idx" ON "attachment_claim" USING btree ("chat_id");--> statement-breakpoint
-CREATE INDEX "chat_team_starter_idx" ON "chat" USING btree ("team_id","started_by_id","updated_at");--> statement-breakpoint
+CREATE INDEX "chat_team_starter_idx" ON "chat" USING btree ("team_id","started_by_id","updated_at","id");--> statement-breakpoint
 CREATE INDEX "chat_attachment_chat_idx" ON "chat_attachment" USING btree ("chat_id","message_position");--> statement-breakpoint
 CREATE UNIQUE INDEX "chat_mark_finding_uidx" ON "chat_mark" USING btree ("workspace_id","kind","value") WHERE "chat_mark"."finds";--> statement-breakpoint
 CREATE INDEX "chat_message_run_idx" ON "chat_message" USING btree ("run_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "inbox_request_about_idx" ON "inbox_request" USING btree ("task_id","form","about");--> statement-breakpoint
 CREATE INDEX "inbox_request_workspace_idx" ON "inbox_request" USING btree ("workspace_id","resolved_at");--> statement-breakpoint
+CREATE INDEX "inbox_request_workspace_created_idx" ON "inbox_request" USING btree ("workspace_id","created_at","id");--> statement-breakpoint
 CREATE INDEX "line_workspace_idx" ON "line" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "line_team_key_idx" ON "line" USING btree ("team_id","key");--> statement-breakpoint
 CREATE UNIQUE INDEX "line_team_role_idx" ON "line" USING btree ("team_id","role") WHERE "line"."role" is not null;--> statement-breakpoint
@@ -2333,6 +2334,7 @@ CREATE INDEX "network_call_responded_idx" ON "network_call" USING btree ("state"
 CREATE INDEX "network_call_expired_idx" ON "network_call" USING btree ("state","expired_at");--> statement-breakpoint
 CREATE INDEX "notice_addressee_idx" ON "notice" USING btree ("workspace_id","addressee_id");--> statement-breakpoint
 CREATE INDEX "notice_team_idx" ON "notice" USING btree ("team_id");--> statement-breakpoint
+CREATE INDEX "notice_workspace_created_idx" ON "notice" USING btree ("workspace_id","created_at","id");--> statement-breakpoint
 CREATE INDEX "processed_event_processed_at_idx" ON "processed_event" USING btree ("processed_at");--> statement-breakpoint
 CREATE INDEX "run_connection_run_idx" ON "run_connection" USING btree ("run_id","at");--> statement-breakpoint
 CREATE INDEX "run_connection_at_idx" ON "run_connection" USING btree ("at");--> statement-breakpoint
@@ -2340,6 +2342,7 @@ CREATE INDEX "run_queue_idx" ON "run" USING btree ("harness","state","priority",
 CREATE INDEX "run_lease_idx" ON "run" USING btree ("lease_expires_at");--> statement-breakpoint
 CREATE INDEX "run_workspace_idx" ON "run" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "run_task_idx" ON "run" USING btree ("task_id");--> statement-breakpoint
+CREATE INDEX "run_created_idx" ON "run" USING btree ("created_at","id");--> statement-breakpoint
 CREATE INDEX "run_station_idx" ON "run" USING btree ("station_id","created_at");--> statement-breakpoint
 CREATE INDEX "run_station_fingerprint_idx" ON "run" USING btree ("station_fingerprint");--> statement-breakpoint
 CREATE INDEX "run_chat_idx" ON "run" USING btree ("chat_id");--> statement-breakpoint
@@ -2352,10 +2355,12 @@ CREATE INDEX "task_proposed_in_chat_idx" ON "task" USING btree ("proposed_in_cha
 CREATE INDEX "task_station_idx" ON "task" USING btree ("station_id","rank");--> statement-breakpoint
 CREATE INDEX "task_origin_station_idx" ON "task" USING btree ("origin_station_id");--> statement-breakpoint
 CREATE INDEX "task_workspace_idx" ON "task" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "task_workspace_assignee_idx" ON "task" USING btree ("workspace_id","assignee_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "task_workspace_branch_uidx" ON "task" USING btree ("workspace_id","branch");--> statement-breakpoint
 CREATE INDEX "task_attachment_task_idx" ON "task_attachment" USING btree ("task_id","note_position");--> statement-breakpoint
 CREATE INDEX "task_mark_task_idx" ON "task_mark" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "task_note_run_idx" ON "task_note" USING btree ("run_id");--> statement-breakpoint
+CREATE INDEX "task_note_passed_idx" ON "task_note" USING btree ("task_id","at") WHERE "task_note"."kind" = 'passed';--> statement-breakpoint
 CREATE INDEX "task_note_connection_ask_idx" ON "task_note" USING btree (("connection_ask"->>'personId'),("connection_ask"->>'integration')) WHERE "task_note"."connection_ask" is not null and ("task_note"."connection_ask"->>'met')::boolean = false;--> statement-breakpoint
 CREATE INDEX "workspace_archive_resume_idx" ON "workspace_archive" USING btree ("workspace_id","resume_key","completed_at");--> statement-breakpoint
 CREATE INDEX "workspace_archive_task_idx" ON "workspace_archive" USING btree ("task_id");--> statement-breakpoint

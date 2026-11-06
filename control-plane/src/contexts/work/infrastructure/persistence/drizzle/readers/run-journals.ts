@@ -2,6 +2,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type {
+  JournalledRun,
   RunChanges,
   RunJournal,
 } from '@work/application/contracts/run-journal.contract';
@@ -38,11 +39,51 @@ export function journalsOfTask(
   return journalsOf(db, eq(run.taskId, taskId.value));
 }
 
-export function journalsOfChat(
+export function journalsOfTaskRun(
+  db: DrizzleDatabase,
+  taskId: TaskId,
+  runId: RunId,
+): Promise<RunJournal[]> {
+  return journalsOf(
+    db,
+    sql`${eq(run.id, runId.value)} and ${eq(run.taskId, taskId.value)}`,
+  );
+}
+
+export function journalsOfChatRun(
   db: DrizzleDatabase,
   chatId: ChatId,
+  runId: RunId,
 ): Promise<RunJournal[]> {
-  return journalsOf(db, eq(run.chatId, chatId.value));
+  return journalsOf(
+    db,
+    sql`${eq(run.id, runId.value)} and ${eq(run.chatId, chatId.value)}`,
+  );
+}
+
+export function runsOfTask(
+  db: DrizzleDatabase,
+  taskId: TaskId,
+): Promise<JournalledRun[]> {
+  return journalledRuns(db, eq(run.taskId, taskId.value));
+}
+
+export function runsOfChat(
+  db: DrizzleDatabase,
+  chatId: ChatId,
+): Promise<JournalledRun[]> {
+  return journalledRuns(db, eq(run.chatId, chatId.value));
+}
+
+function journalledRuns(
+  db: DrizzleDatabase,
+  which: SQL,
+): Promise<JournalledRun[]> {
+  return db
+    .select({ runId: run.id, createdAt: run.createdAt })
+    .from(run)
+    .where(which)
+    .orderBy(asc(run.createdAt), asc(run.id));
 }
 
 export async function changesOfTask(

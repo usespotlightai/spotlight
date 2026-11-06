@@ -8,14 +8,19 @@ import type {
   EditReviewCommentRequestDto,
   GradeResponseDto,
   GradeRunRequestDto,
-  InboxItemResponseDto,
   MemoryReviewResponseDto,
   ProposedMemoryResponseDto,
   RunScoresResponseDto,
   SubmitReviewRequestDto,
 } from '@/lib/api';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
+import { pageOf } from '@/mocks/paging';
 import { taskOfRun, teamOfTask, world } from '@/mocks/world';
+import {
+  type InboxConversation,
+  type InboxEntry,
+  shown,
+} from '@/mocks/world/inbox';
 import { noDecisions } from '@/mocks/world/inbox-reviews';
 import { pastScoresOf } from '@/mocks/world/inbox-scores';
 import { inboxStore, nextId } from '@/mocks/world/inbox-store';
@@ -26,7 +31,7 @@ import {
   teamOfPastTask,
 } from '@/mocks/world/past-work';
 import { SAM } from '@/mocks/world/people';
-import { journalsOfTask } from '@/mocks/world/run-stories';
+import { journalOfTaskRun, journalRunsOfTask } from '@/mocks/world/run-stories';
 
 type Params = Record<string, string | readonly string[] | undefined>;
 
@@ -38,9 +43,9 @@ const now = () => new Date().toISOString();
 const isOurs = (params: Params) =>
   param(params, 'slug') === world().workspace.slug;
 
-const itemOf = (id: string): InboxItemResponseDto | undefined =>
+const itemOf = (id: string): InboxConversation | undefined =>
   inboxStore().entries.find(
-    (entry): entry is InboxItemResponseDto =>
+    (entry): entry is InboxConversation =>
       entry.kind === 'task' && entry.id === id,
   );
 
@@ -56,6 +61,15 @@ const anyTaskOf = (taskId: string) => taskOf(taskId) ?? pastTaskOf(taskId);
 
 const teamOfAnyTask = (taskId: string) =>
   teamOfTask(taskId) ?? teamOfPastTask(taskId);
+
+const journalVisible = (params: Params, taskId: string) =>
+  isOurs(params) &&
+  Boolean(
+    teamOfAnyTask(taskId) ||
+      inboxStore().entries.some(
+        (entry) => entry.kind === 'task' && entry.taskId === taskId,
+      ),
+  );
 
 const taskOfAnyRun = (runId: string) =>
   taskOfRun(runId) ??
@@ -76,7 +90,7 @@ const resolveInboxRequests = (form: 'grade' | 'memories', runId: string) => {
   }
 };
 
-const answerReviewOf = (item: InboxItemResponseDto) => {
+const answerReviewOf = (item: InboxConversation) => {
   const task = taskOf(item.taskId);
 
   if (task?.awaitingReview?.conversationId === item.id) {
@@ -89,10 +103,7 @@ const answerReviewOf = (item: InboxItemResponseDto) => {
   }
 };
 
-const answer = (
-  item: InboxItemResponseDto,
-  reply: AnswerInboxItemRequestDto,
-) => {
+const answer = (item: InboxConversation, reply: AnswerInboxItemRequestDto) => {
   const pending = item.notes.findLast((note) => note.kind === 'asked');
   const deciding = reply.approve !== undefined;
 
@@ -129,7 +140,7 @@ const answer = (
 };
 
 const notedBySam = (
-  item: InboxItemResponseDto,
+  item: InboxConversation,
   kind: 'passed' | 'reopened',
   body: string,
 ) =>
@@ -152,16 +163,61 @@ const notedBySam = (
     connection: null,
   });
 
+const rowOf = (entry: InboxEntry) => {
+  if (entry.kind !== 'task') {
+    return shown(entry);
+  }
+
+  const { notes, ...row } = shown(entry);
+
+  return { ...row, lastNote: notes[notes.length - 1] ?? null };
+};
+
+const newestFirst = (entries: readonly InboxEntry[]) =>
+  [...entries].sort(
+    (one, other) => Date.parse(other.askedAt) - Date.parse(one.askedAt),
+  );
+
 const conversationHandlers = [
-  api.get('/workspaces/:slug/inbox', ({ params }) =>
-    isOurs(params)
-      ? json(
-          [...inboxStore().entries].sort(
-            (one, other) => Date.parse(other.askedAt) - Date.parse(one.askedAt),
-          ),
-        )
-      : notFound(),
-  ),
+  api.get('/workspaces/:slug/inbox', ({ params, request }) => {
+    if (!isOurs(params)) {
+      return notFound();
+    }
+
+    const resolved =
+      new URL(request.url).searchParams.get('state') === 'resolved';
+    const shown = newestFirst(
+      inboxStore().entries.filter((entry) =>
+        resolved ? entry.resolved : !entry.resolved || entry.unread,
+      ),
+    ).map(rowOf);
+
+    return json(
+      resolved
+        ? pageOf(shown, request, (entry) => `${entry.kind}:${entry.id}`)
+        : { items: shown, next: null },
+    );
+  }),
+
+  api.get('/workspaces/:slug/inbox/:itemId', ({ params }) => {
+    const item = itemOf(param(params, 'itemId'));
+
+    return isOurs(params) && item
+      ? json({
+          ...shown(item),
+          lastNote: item.notes[item.notes.length - 1] ?? null,
+        })
+      : notFound();
+  }),
+
+  api.get('/workspaces/:slug/inbox/notices/:noticeId', ({ params }) => {
+    const notice = inboxStore().entries.find(
+      (entry) =>
+        entry.kind === 'notice' && entry.id === param(params, 'noticeId'),
+    );
+
+    return isOurs(params) && notice ? json(shown(notice)) : notFound();
+  }),
 
   api.post(
     '/workspaces/:slug/inbox/:itemId/answer',
@@ -309,14 +365,21 @@ const conversationHandlers = [
   api.get('/workspaces/:slug/inbox/tasks/:taskId/journal', ({ params }) => {
     const taskId = param(params, 'taskId');
 
-    const inInbox = inboxStore().entries.some(
-      (entry) => entry.kind === 'task' && entry.taskId === taskId,
-    );
-
-    return isOurs(params) && (teamOfAnyTask(taskId) || inInbox)
-      ? json(journalsOfTask(taskId))
+    return journalVisible(params, taskId)
+      ? json(journalRunsOfTask(taskId))
       : notFound();
   }),
+
+  api.get(
+    '/workspaces/:slug/inbox/tasks/:taskId/journal/:runId',
+    ({ params }) => {
+      const taskId = param(params, 'taskId');
+
+      return journalVisible(params, taskId)
+        ? json(journalOfTaskRun(taskId, param(params, 'runId')))
+        : notFound();
+    },
+  ),
 ];
 
 const alertHandlers = [

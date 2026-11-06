@@ -48,6 +48,7 @@ const reading = (
     {
       listForTask: vi.fn(),
       listForTeam: vi.fn(),
+      findForTeam: vi.fn(),
       notesFor: vi.fn().mockResolvedValue(found),
       configFor: vi.fn(),
     } satisfies RunReaderPort,

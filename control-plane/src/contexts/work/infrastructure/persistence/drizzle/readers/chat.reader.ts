@@ -5,8 +5,18 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import {
+  olderThan,
+  pageOf,
+  sortableTime,
+} from '@platform/persistence/drizzle/keyset';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import {
+  mapPage,
+  type Page,
+  type PageRequest,
+} from '@work/application/dto/page.dto';
 import type {
   ChatReaderPort,
   ChatSummary,
@@ -16,6 +26,7 @@ import type {
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { Progress } from '@work/domain/value-objects/run-state';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
+import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
   chat,
@@ -89,22 +100,38 @@ export class DrizzleChatReader implements ChatReaderPort {
     };
   }
 
-  async startedBy(teamId: TeamId, userId: UserId): Promise<ChatSummary[]> {
+  async startedBy(
+    teamId: TeamId,
+    userId: UserId,
+    page: PageRequest,
+  ): Promise<Page<ChatSummary>> {
+    const before = timeCursorOf(page.before);
     const rows = await this.db
-      .select()
+      .select({ chat, cursorAt: sortableTime(chat.updatedAt) })
       .from(chat)
       .where(
-        and(eq(chat.teamId, teamId.value), eq(chat.startedById, userId.value)),
+        and(
+          eq(chat.teamId, teamId.value),
+          eq(chat.startedById, userId.value),
+          before ? olderThan(chat.updatedAt, chat.id, before) : undefined,
+        ),
       )
-      .orderBy(desc(chat.updatedAt));
+      .orderBy(desc(chat.updatedAt), desc(chat.id))
+      .limit(page.limit + 1);
 
     const progressOf = await progressOfCurrentRuns(
       this.db,
-      rows.map((row) => row.currentRunId),
+      rows.map((row) => row.chat.currentRunId),
       false,
     );
 
-    return rows.map((row) => summaryOf(row, progressOf));
+    return mapPage(
+      pageOf(rows, page.limit, (row) => ({
+        key: row.cursorAt,
+        id: row.chat.id,
+      })),
+      (row) => summaryOf(row.chat, progressOf),
+    );
   }
 
   async read(
@@ -185,6 +212,7 @@ export class DrizzleChatReader implements ChatReaderPort {
               ? starter
               : null,
           runId: message.runId,
+          takenUpBy: message.acknowledgedByRunId,
           attachments: attachments
             .filter((each) => each.messagePosition === message.position)
             .map((each) => ({

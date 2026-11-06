@@ -5,7 +5,7 @@ import { Disclosure } from '@/components/shell/layout/Disclosure';
 import { TeamLines } from '@/components/shell/layout/TeamLines';
 import { TeamSectionLink } from '@/components/shell/layout/TeamSectionLink';
 import { useLines } from '@/hooks/api/useLines';
-import { useTasks } from '@/hooks/api/useTasks';
+import { useTask } from '@/hooks/api/useTasks';
 import type { Team } from '@/lib/team';
 import { cn } from '@/lib/utils';
 
@@ -26,9 +26,11 @@ export function TeamNavItem({
   const { data: lines } = useLines(team.id, expanded);
 
   const atTask = useMatch(`/w/${slug}/team/${team.id}/tasks/:taskId/*`);
-  const { data: tasks } = useTasks(atTask ? team.id : undefined);
+  const { data: viewedTask } = useTask(
+    atTask ? team.id : undefined,
+    atTask?.params.taskId,
+  );
 
-  const viewedTask = tasks?.find((each) => each.id === atTask?.params.taskId);
   const shownLine = lines?.find((line) =>
     line.stations.some((station) => station.id === viewedTask?.stationId),
   );

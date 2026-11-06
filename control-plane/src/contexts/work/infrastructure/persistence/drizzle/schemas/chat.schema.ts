@@ -90,6 +90,7 @@ export const chat = pgTable(
       table.teamId,
       table.startedById,
       table.updatedAt,
+      table.id,
     ),
   ],
 );

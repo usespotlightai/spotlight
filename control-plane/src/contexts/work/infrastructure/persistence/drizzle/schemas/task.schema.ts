@@ -143,6 +143,10 @@ export const task = pgTable(
     }).onDelete('set null'),
     index('task_origin_station_idx').on(table.originStationId),
     index('task_workspace_idx').on(table.workspaceId),
+    index('task_workspace_assignee_idx').on(
+      table.workspaceId,
+      table.assigneeId,
+    ),
     uniqueIndex('task_workspace_branch_uidx').on(
       table.workspaceId,
       table.branch,
@@ -183,6 +187,9 @@ export const taskNote = pgTable(
     check('task_note_position_not_negative', sql`${table.position} >= 0`),
     primaryKey({ columns: [table.taskId, table.position] }),
     index('task_note_run_idx').on(table.runId),
+    index('task_note_passed_idx')
+      .on(table.taskId, table.at)
+      .where(sql`${table.kind} = 'passed'`),
     index('task_note_connection_ask_idx')
       .on(
         sql`(${table.connectionAsk}->>'personId')`,

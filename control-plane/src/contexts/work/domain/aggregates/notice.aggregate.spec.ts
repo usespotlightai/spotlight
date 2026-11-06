@@ -120,12 +120,6 @@ describe('Notice', () => {
     }
   });
 
-  it('keeps showing a resolved notice for 30 days', () => {
-    expect(Notice.resolvedShownSince(NOW)).toEqual(
-      new Date('2026-09-01T09:00:00.000Z'),
-    );
-  });
-
   it('rejects a stored notice resolved before it was created', () => {
     const notice = created();
     const state = {

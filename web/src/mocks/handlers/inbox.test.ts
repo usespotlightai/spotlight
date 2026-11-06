@@ -7,11 +7,12 @@ import {
   draftReviewComment,
   editReviewComment,
   gradeRun,
-  type InboxItemResponseDto,
   listInbox,
+  listTaskJournalRuns,
   listTasks,
   markInboxItemRead,
   markInboxRequestRead,
+  readInboxItem,
   readMemoryReview,
   readRunReview,
   readRunScores,
@@ -38,14 +39,19 @@ import {
   STALLED_NOTICE_ID,
 } from '@/mocks/world/inbox';
 
-const inbox = async () =>
-  (await listInbox({ path: { slug: SLUG }, throwOnError: true })).data;
+const inbox = async () => [
+  ...(await listInbox({ path: { slug: SLUG }, throwOnError: true })).data.items,
+  ...(
+    await listInbox({
+      path: { slug: SLUG },
+      query: { state: 'resolved', limit: 200 },
+      throwOnError: true,
+    })
+  ).data.items,
+];
 
 const itemIn = async (id: string) =>
-  (await inbox()).find(
-    (entry): entry is InboxItemResponseDto =>
-      entry.kind === 'task' && entry.id === id,
-  );
+  (await readInboxItem({ path: { slug: SLUG, itemId: id } })).data;
 
 const RETRIES = {
   teamId: PLATFORM_ID,
@@ -115,7 +121,8 @@ describe('the mock inbox', () => {
       author: { name: 'Sam Rivera' },
     });
     expect(
-      tasks.find((task) => task.id === 'task_rate_limits')?.awaitingReview,
+      tasks.items.find((task) => task.id === 'task_rate_limits')
+        ?.awaitingReview,
     ).toBeNull();
   });
 
@@ -196,18 +203,23 @@ describe('the mock inbox', () => {
     ).toBe(true);
   });
 
-  it('reads a task’s journal, its runs oldest first', async () => {
-    const { data } = await readTaskJournal({
+  it('lists a task’s journalled runs oldest first and reads one run’s journal', async () => {
+    const { data: runs } = await listTaskJournalRuns({
       path: { slug: SLUG, taskId: 'task_postgres' },
       throwOnError: true,
     });
+    const { data } = await readTaskJournal({
+      path: { slug: SLUG, taskId: 'task_postgres', runId: 'run_postgres_2' },
+      throwOnError: true,
+    });
 
-    expect(data.map((journal) => journal.runId)).toEqual([
+    expect(runs.map((run) => run.runId)).toEqual([
       'run_postgres_1',
       'run_postgres_2',
       'run_postgres_3',
     ]);
-    expect(data[1]?.steps.some((step) => step.change)).toBe(true);
+    expect(data.map((journal) => journal.runId)).toEqual(['run_postgres_2']);
+    expect(data[0]?.steps.some((step) => step.change)).toBe(true);
   });
 
   it('reads the alert that fired at the Implementation station', async () => {
@@ -394,7 +406,7 @@ describe('the mock inbox in an empty workspace', () => {
   serveMockApi('empty');
 
   it('contains only the open setup of the new team', async () => {
-    const { data: journal } = await readTaskJournal({
+    const { data: journal } = await listTaskJournalRuns({
       path: { slug: SLUG, taskId: 'task_setup_platform' },
       throwOnError: true,
     });
@@ -409,7 +421,9 @@ describe('the mock inbox in an empty workspace', () => {
     expect(
       await Promise.all([
         statusOf(
-          readTaskJournal({ path: { slug: SLUG, taskId: 'task_postgres' } }),
+          listTaskJournalRuns({
+            path: { slug: SLUG, taskId: 'task_postgres' },
+          }),
         ),
         statusOf(
           readStationAlert({

@@ -18,6 +18,7 @@ const meta = {
         chat_retries: 'Planning tasks',
         chat_small_prs: 'Improving a station',
         chat_pasted_log: 'Long message',
+        chat_long: 'Long conversation',
       }),
     },
   }),
@@ -37,4 +38,8 @@ export const Repositories: StoryObj<typeof meta> = {
 
 export const LongMessage: StoryObj<typeof meta> = {
   args: { chat: 'chat_pasted_log' },
+};
+
+export const LongConversation: StoryObj<typeof meta> = {
+  args: { chat: 'chat_long' },
 };

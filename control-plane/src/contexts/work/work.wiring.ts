@@ -484,6 +484,7 @@ import {
   type WorkspaceArchiveStorePort,
 } from '@work/application/ports/workspace-archive-store.port';
 import {
+  ListChatJournalRunsQuery,
   ListChatsQuery,
   ReadChatJournalQuery,
   ReadChatQuery,
@@ -491,18 +492,30 @@ import {
 import { HostRequirementsHandler } from '@work/application/queries/handlers/host-requirements.handler';
 import { ImportLineHandler } from '@work/application/queries/handlers/import-line.handler';
 import { JoinTaskDraftHandler } from '@work/application/queries/handlers/join-task-draft.handler';
+import { ListChatJournalRunsHandler } from '@work/application/queries/handlers/list-chat-journal-runs.handler';
 import { ListChatsHandler } from '@work/application/queries/handlers/list-chats.handler';
 import {
   HarnessCatalogueHandler,
   ListHarnessesHandler,
 } from '@work/application/queries/handlers/list-harnesses.handler';
-import { ListInboxHandler } from '@work/application/queries/handlers/list-inbox.handler';
+import {
+  ListInboxHandler,
+  ReadInboxItemHandler,
+  ReadInboxNoticeHandler,
+} from '@work/application/queries/handlers/list-inbox.handler';
 import { ListLineResourcesHandler } from '@work/application/queries/handlers/list-line-resources.handler';
 import { ListLinesHandler } from '@work/application/queries/handlers/list-lines.handler';
 import { ListRunnerActivityHandler } from '@work/application/queries/handlers/list-runner-activity.handler';
+import { ListTaskJournalRunsHandler } from '@work/application/queries/handlers/list-task-journal-runs.handler';
 import { ListTaskRunsHandler } from '@work/application/queries/handlers/list-task-runs.handler';
-import { ListTasksHandler } from '@work/application/queries/handlers/list-tasks.handler';
-import { ListTeamRunsHandler } from '@work/application/queries/handlers/list-team-runs.handler';
+import {
+  ListTasksHandler,
+  ReadTaskHandler,
+} from '@work/application/queries/handlers/list-tasks.handler';
+import {
+  ListTeamRunsHandler,
+  ReadTeamRunHandler,
+} from '@work/application/queries/handlers/list-team-runs.handler';
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
 import { PendingMessagesHandler } from '@work/application/queries/handlers/pending-messages.handler';
 import { PoolQueueHandler } from '@work/application/queries/handlers/pool-queue.handler';
@@ -530,13 +543,23 @@ import {
   HarnessCatalogueQuery,
   ListHarnessesQuery,
 } from '@work/application/queries/list-harnesses.query';
-import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
+import {
+  ListInboxQuery,
+  ReadInboxItemQuery,
+  ReadInboxNoticeQuery,
+} from '@work/application/queries/list-inbox.query';
 import { ListLineResourcesQuery } from '@work/application/queries/list-line-resources.query';
 import { ListLinesQuery } from '@work/application/queries/list-lines.query';
 import { ListRunnerActivityQuery } from '@work/application/queries/list-runner-activity.query';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
-import { ListTasksQuery } from '@work/application/queries/list-tasks.query';
-import { ListTeamRunsQuery } from '@work/application/queries/list-team-runs.query';
+import {
+  ListTasksQuery,
+  ReadTaskQuery,
+} from '@work/application/queries/list-tasks.query';
+import {
+  ListTeamRunsQuery,
+  ReadTeamRunQuery,
+} from '@work/application/queries/list-team-runs.query';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import { PendingMessagesQuery } from '@work/application/queries/pending-messages.query';
 import { PoolQueueQuery } from '@work/application/queries/pool.queries';
@@ -549,7 +572,10 @@ import { ReadRunNetworkQuery } from '@work/application/queries/read-run-network.
 import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
 import { ReadRunnerHistoryQuery } from '@work/application/queries/read-runner-history.query';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
-import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journal.query';
+import {
+  ListTaskJournalRunsQuery,
+  ReadTaskJournalQuery,
+} from '@work/application/queries/read-task-journal.query';
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
 import {
@@ -1932,9 +1958,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ListTasksQuery, ListTasksHandler, [TASK_READER]),
 
+  ...bindQueryHandler(ReadTaskQuery, ReadTaskHandler, [TASK_READER]),
+
   ...bindQueryHandler(ListTaskRunsQuery, ListTaskRunsHandler, [RUN_READER]),
 
   ...bindQueryHandler(ListTeamRunsQuery, ListTeamRunsHandler, [RUN_READER]),
+
+  ...bindQueryHandler(ReadTeamRunQuery, ReadTeamRunHandler, [RUN_READER]),
 
   ...bindQueryHandler(ReadRunConfigQuery, ReadRunConfigHandler, [RUN_READER]),
 
@@ -2084,6 +2114,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RUN_JOURNAL_READER,
   ]),
 
+  ...bindQueryHandler(ListChatJournalRunsQuery, ListChatJournalRunsHandler, [
+    RUN_JOURNAL_READER,
+  ]),
+
   ...bindQueryHandler(RunStopRequestedQuery, RunStopRequestedHandler, [
     LEASED_RUN_READER,
   ]),
@@ -2187,7 +2221,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       new ProvisionWorkWorker(work, logger),
   },
 
-  ...bindQueryHandler(ListInboxQuery, ListInboxHandler, [INBOX_READER, CLOCK]),
+  ...bindQueryHandler(ListInboxQuery, ListInboxHandler, [INBOX_READER]),
+
+  ...bindQueryHandler(ReadInboxItemQuery, ReadInboxItemHandler, [INBOX_READER]),
+
+  ...bindQueryHandler(ReadInboxNoticeQuery, ReadInboxNoticeHandler, [
+    INBOX_READER,
+  ]),
 
   ...bindQueryHandler(ListRunnerActivityQuery, ListRunnerActivityHandler, [
     WORKSPACE_ACCESS,
@@ -2216,6 +2256,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ]),
 
   ...bindQueryHandler(ReadTaskJournalQuery, ReadTaskJournalHandler, [
+    RUN_JOURNAL_READER,
+  ]),
+
+  ...bindQueryHandler(ListTaskJournalRunsQuery, ListTaskJournalRunsHandler, [
     RUN_JOURNAL_READER,
   ]),
 

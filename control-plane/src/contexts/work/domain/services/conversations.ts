@@ -1,12 +1,50 @@
-import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
+import type {
+  TaskNoteForm,
+  TaskNoteKind,
+} from '@work/domain/entities/task-note.entity';
+import { anyUnread, type ReadableNote } from '@work/domain/services/unread';
+
+export const OPENS_A_CONVERSATION = 'asked' satisfies TaskNoteKind;
+
+export const CLOSES_A_CONVERSATION = 'passed' satisfies TaskNoteKind;
+
+export const REOPENS_A_CONVERSATION = 'reopened' satisfies TaskNoteKind;
 
 export interface Conversation {
   readonly from: number;
   readonly to: number | null;
 }
 
-export const stillOpen = (conversation: Conversation): boolean =>
-  conversation.to === null;
+export interface ClosingNote {
+  readonly form: TaskNoteForm;
+  readonly byAPerson: boolean;
+}
+
+export const stillOpen = <T>(conversation: {
+  readonly from: T;
+  readonly to: T | null;
+}): boolean => conversation.to === null;
+
+export const listedAsOpen = <T>(
+  conversation: {
+    readonly from: T;
+    readonly to: T | null;
+    readonly notes: readonly ReadableNote[];
+  },
+  taskFinished: boolean,
+): boolean =>
+  stillOpen(conversation) ? !taskFinished : anyUnread(conversation.notes);
+
+export const reopenable = (
+  from: number,
+  last: Conversation | null,
+  closing: ClosingNote | null,
+): boolean =>
+  last !== null &&
+  !stillOpen(last) &&
+  last.from === from &&
+  closing?.form === 'resolved' &&
+  closing.byAPerson;
 
 export const notesIn = <T>(
   conversation: Conversation,
@@ -24,18 +62,18 @@ export const conversationsOf = (
   let open: number | null = null;
 
   kinds.forEach((kind, at) => {
-    if (kind === 'asked' && open === null) {
+    if (kind === OPENS_A_CONVERSATION && open === null) {
       open = at;
       return;
     }
 
-    if (kind === 'passed' && open !== null) {
+    if (kind === CLOSES_A_CONVERSATION && open !== null) {
       cut.push({ from: open, to: at });
       open = null;
       return;
     }
 
-    if (kind === 'reopened' && open === null) {
+    if (kind === REOPENS_A_CONVERSATION && open === null) {
       open = cut.pop()?.from ?? null;
     }
   });

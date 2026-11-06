@@ -14,6 +14,7 @@ import { useChatJournal } from '@/hooks/api/useChatJournal';
 import { useChatRefresh } from '@/hooks/api/useChatRefresh';
 import { useAgentChatTrail } from '@/hooks/useAgentChatTrail';
 import { notFound } from '@/lib/error';
+import { JournalDemandContext } from '@/lib/journal-demand';
 import { failed, loading } from '@/lib/query';
 import { TrailContext, useTrail } from '@/lib/trail';
 
@@ -21,7 +22,7 @@ export function AgentChat() {
   const { slug, teamId, chatId } = useParams();
   const thread = useChat(teamId, chatId);
   const chat = thread.data;
-  const journal = useChatJournal(teamId, chatId);
+  const journal = useChatJournal(teamId, chatId, [chat?.runId]);
 
   useChatRefresh(chatId, chat);
 
@@ -69,22 +70,24 @@ export function AgentChat() {
           actions={<OpenInEditor slug={slug} target={editing} />}
         />
 
-        <ChatThread
-          slug={slug}
-          teamId={teamId}
-          chat={chat}
-          journals={journal.data ?? []}
-          footer={
-            <ComposerFooter>
-              <ChatComposer
-                key={chat.id}
-                slug={slug}
-                teamId={teamId}
-                chat={chat}
-              />
-            </ComposerFooter>
-          }
-        />
+        <JournalDemandContext value={journal.demand}>
+          <ChatThread
+            slug={slug}
+            teamId={teamId}
+            chat={chat}
+            journals={journal.data ?? []}
+            footer={
+              <ComposerFooter>
+                <ChatComposer
+                  key={chat.id}
+                  slug={slug}
+                  teamId={teamId}
+                  chat={chat}
+                />
+              </ComposerFooter>
+            }
+          />
+        </JournalDemandContext>
       </FileDropZone>
     </TrailContext>
   );

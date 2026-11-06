@@ -1,8 +1,7 @@
 import type {
-  InboxItemResponseDto,
+  InboxItemViewResponseDto,
   InboxNoticeResponseDto,
   InboxRunResponseDto,
-  ListInboxResponse,
   NoteResponseDto,
 } from '@/lib/api';
 import { daysAgo, hoursAgo } from '@/mocks/clock';
@@ -25,7 +24,53 @@ import { PLATFORM_ID } from '@/mocks/world/platform';
 import { notesOfRun, type StoryNote } from '@/mocks/world/run-stories';
 import { onEarlierRubric } from '@/mocks/world/station-judge';
 
-export type InboxEntry = ListInboxResponse[number];
+type Shown = 'section' | 'reopenable';
+
+export type InboxConversation = Omit<
+  InboxItemViewResponseDto,
+  'lastNote' | Shown
+>;
+
+type StoredNotice = Omit<InboxNoticeResponseDto, Shown>;
+
+type StoredRun = Omit<InboxRunResponseDto, Shown>;
+
+export type InboxEntry = InboxConversation | StoredNotice | StoredRun;
+
+const sectionOf = (entry: InboxEntry): InboxNoticeResponseDto['section'] => {
+  if (entry.unread) {
+    return 'open';
+  }
+  if (entry.resolved) {
+    return 'resolved';
+  }
+
+  return entry.kind === 'run' ||
+    (entry.kind === 'task' && entry.progress !== null)
+    ? 'running'
+    : 'open';
+};
+
+const reopenableOf = (entry: InboxEntry): boolean => {
+  if (entry.kind === 'run' || !entry.resolved) {
+    return false;
+  }
+  if (entry.kind === 'notice' || entry.inboxRequest) {
+    return true;
+  }
+
+  const closing = entry.notes[entry.notes.length - 1];
+
+  return closing?.form === 'resolved' && closing.voice === 'person';
+};
+
+export const shown = <T extends InboxEntry>(
+  entry: T,
+): T & Pick<InboxNoticeResponseDto, Shown> => ({
+  ...entry,
+  section: sectionOf(entry),
+  reopenable: reopenableOf(entry),
+});
 
 export const MEMORIES_REQUEST_ID = 'request_retries_memories';
 export const ALERT_REQUEST_ID = 'request_sent_back_alert';
@@ -49,7 +94,7 @@ const notesOfTask = (taskId: string): StoryNote[] =>
     .sort((one, other) => one.startedAt.localeCompare(other.startedAt))
     .flatMap(notesOfRun);
 
-type Conversation = Omit<Partial<InboxItemResponseDto>, 'notes'> & {
+type Conversation = Omit<Partial<InboxConversation>, 'notes'> & {
   readonly taskId: string;
   readonly teamId: string;
   readonly askedIn: string;
@@ -62,7 +107,7 @@ const conversation = ({
   askedIn,
   originIn,
   ...over
-}: Conversation): InboxItemResponseDto => {
+}: Conversation): InboxConversation => {
   const task = seededTask(taskId);
   const at = placeOf(askedIn);
   const currentStation = placeOf(task.stationId);
@@ -101,11 +146,11 @@ const conversation = ({
 };
 
 type InboxRequestItem = Pick<
-  InboxItemResponseDto,
+  InboxConversation,
   'id' | 'taskId' | 'teamId' | 'askedAt'
 > &
-  Partial<InboxItemResponseDto> & {
-    readonly inboxRequest: NonNullable<InboxItemResponseDto['inboxRequest']>;
+  Partial<InboxConversation> & {
+    readonly inboxRequest: NonNullable<InboxConversation['inboxRequest']>;
   };
 
 const inboxRequestOf = ({
@@ -115,7 +160,7 @@ const inboxRequestOf = ({
   askedAt,
   inboxRequest,
   ...over
-}: InboxRequestItem): InboxItemResponseDto => {
+}: InboxRequestItem): InboxConversation => {
   const task = pastTaskOf(taskId) ?? seededTask(taskId);
   const currentStation = placeOf(task.stationId);
   const place = {
@@ -154,7 +199,7 @@ const inboxRequestOf = ({
 
 const STATION_LINK = 'lines/line_delivery/stations/station_implementation';
 
-const NOTICES: InboxNoticeResponseDto[] = [
+const NOTICES: StoredNotice[] = [
   {
     kind: 'notice',
     id: STALLED_NOTICE_ID,
@@ -197,7 +242,7 @@ const NOTICES: InboxNoticeResponseDto[] = [
   },
 ];
 
-const OPEN_CONVERSATIONS = (): InboxItemResponseDto[] => [
+const OPEN_CONVERSATIONS = (): InboxConversation[] => [
   conversation({
     taskId: 'task_latency',
     teamId: PLATFORM_ID,
@@ -258,7 +303,7 @@ const OPEN_CONVERSATIONS = (): InboxItemResponseDto[] => [
   }),
 ];
 
-const RESOLVED_CONVERSATIONS = (): InboxItemResponseDto[] => [
+const RESOLVED_CONVERSATIONS = (): InboxConversation[] => [
   conversation({
     taskId: 'task_retries',
     teamId: PLATFORM_ID,
@@ -296,7 +341,7 @@ const alertInboxRequest = (
   id: string,
   alertId: string,
   firing: AlertFiring | null,
-): InboxItemResponseDto[] =>
+): InboxConversation[] =>
   firing
     ? [
         inboxRequestOf({
@@ -321,7 +366,7 @@ const earlierRubricRun = () =>
       onEarlierRubric(run.at),
   );
 
-const earlierRubricGrade = (): InboxItemResponseDto[] => {
+const earlierRubricGrade = (): InboxConversation[] => {
   const run = earlierRubricRun();
 
   return run
@@ -340,7 +385,7 @@ const earlierRubricGrade = (): InboxItemResponseDto[] => {
     : [];
 };
 
-const INBOX_REQUESTS = (): InboxItemResponseDto[] => [
+const INBOX_REQUESTS = (): InboxConversation[] => [
   inboxRequestOf({
     id: MEMORIES_REQUEST_ID,
     taskId: 'task_retries',
@@ -390,10 +435,7 @@ const SETUP_ABOUT = {
     'A few quick steps will get everything ready for your team to start working with Spotlight.',
 };
 
-const setupItem = (
-  createdAt: string,
-  resolved: boolean,
-): InboxItemResponseDto => {
+const setupItem = (createdAt: string, resolved: boolean): InboxConversation => {
   const place = placeOf('station_backlog');
   const at = {
     name: place.name,
@@ -450,7 +492,7 @@ const runningOn = (
   taskId: string,
   teamId: string,
   runId: string,
-): InboxRunResponseDto => {
+): StoredRun => {
   const task = seededTask(taskId);
   const at = placeOf(task.stationId);
   const run = runsOfTask(taskId).find((each) => each.id === runId);
@@ -472,7 +514,7 @@ const runningOn = (
   };
 };
 
-const RUNNING = (): InboxRunResponseDto[] => [
+const RUNNING = (): StoredRun[] => [
   runningOn('task_retries', PLATFORM_ID, 'run_retries_3'),
 ];
 

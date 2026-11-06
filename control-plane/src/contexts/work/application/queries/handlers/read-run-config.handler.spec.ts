@@ -37,6 +37,7 @@ const reading = (found: RunConfigSummary | null) =>
   new ReadRunConfigHandler({
     listForTask: vi.fn(),
     listForTeam: vi.fn(),
+    findForTeam: vi.fn(),
     notesFor: vi.fn(),
     configFor: vi.fn().mockResolvedValue(found),
   } satisfies RunReaderPort).execute(

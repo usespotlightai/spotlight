@@ -221,7 +221,9 @@ describe('a station alert (e2e)', () => {
     expect(inbox.status).toBe(200);
     expect(
       (
-        inbox.body as { inboxRequest: { form: string; about: string } | null }[]
+        inbox.body.items as {
+          inboxRequest: { form: string; about: string } | null;
+        }[]
       ).some(
         (each) =>
           each.inboxRequest?.form === 'alert' &&

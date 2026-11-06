@@ -36,7 +36,7 @@ export function StepsDisclosure({
 
       {children}
 
-      <Collapsible open={open} appear={false}>
+      <Collapsible open={open} appear={false} lazy>
         <FadingScroll className="max-h-[min(18rem,50dvh)]">
           <ol className="flex flex-col gap-px pt-1">
             {steps.map((step, at) => (

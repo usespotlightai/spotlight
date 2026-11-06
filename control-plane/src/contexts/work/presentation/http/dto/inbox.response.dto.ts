@@ -6,10 +6,12 @@ import {
 import {
   APPROVAL_SUBJECTS,
   INBOX_APPROVAL_STATUSES,
+  INBOX_DTO_SECTIONS,
   INBOX_NOTICE_FORMS,
   INBOX_REQUEST_DTO_FORMS,
   type InboxApprovalDto,
   type InboxConnectionDto,
+  type InboxDtoSection,
   type InboxFailureDto,
   type InboxNoticeDto,
   type InboxRequestDto,
@@ -439,6 +441,21 @@ export class InboxItemResponseDto {
   readonly resolved: boolean;
 
   @ApiProperty({
+    enum: INBOX_DTO_SECTIONS,
+    example: 'open',
+    description:
+      'The inbox section that shows it: open, running or resolved. An unread item is always open',
+  })
+  readonly section: InboxDtoSection;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task',
+  })
+  readonly reopenable: boolean;
+
+  @ApiProperty({
     enum: [...PROGRESS_NAMES, null],
     nullable: true,
     type: String,
@@ -485,54 +502,54 @@ export class InboxItemResponseDto {
   })
   readonly inboxRequest: InboxRequestResponseDto | null;
 
-  @ApiProperty({ type: NoteResponseDto, isArray: true })
+  @ApiProperty({
+    type: NoteResponseDto,
+    nullable: true,
+    description: 'The newest note of the conversation',
+  })
+  readonly lastNote: NoteResponseDto | null;
+
+  constructor(item: Omit<InboxItemResponseDto, 'kind'>) {
+    this.id = item.id;
+    this.taskId = item.taskId;
+    this.teamId = item.teamId;
+    this.title = item.title;
+    this.description = item.description;
+    this.attachments = item.attachments;
+    this.station = item.station;
+    this.stationColor = item.stationColor;
+    this.stationPosition = item.stationPosition;
+    this.stationCount = item.stationCount;
+    this.originStation = item.originStation;
+    this.currentStation = item.currentStation;
+    this.createdAt = item.createdAt;
+    this.askedAt = item.askedAt;
+    this.resolved = item.resolved;
+    this.section = item.section;
+    this.reopenable = item.reopenable;
+    this.progress = item.progress;
+    this.runId = item.runId;
+    this.unread = item.unread;
+    this.briefing = item.briefing;
+    this.failure = item.failure;
+    this.inboxRequest = item.inboxRequest;
+    this.lastNote = item.lastNote;
+  }
+}
+
+export class InboxItemViewResponseDto extends InboxItemResponseDto {
+  @ApiProperty({
+    type: NoteResponseDto,
+    isArray: true,
+    description: 'Every note of the conversation, oldest first',
+  })
   readonly notes: readonly NoteResponseDto[];
 
   constructor(
-    id: string,
-    taskId: string,
-    teamId: string,
-    title: string,
-    description: string | null,
-    attachments: readonly AttachmentResponseDto[],
-    station: string,
-    stationColor: string,
-    stationPosition: number,
-    stationCount: number,
-    originStation: InboxStationResponseDto,
-    currentStation: InboxStationResponseDto,
-    createdAt: string,
-    askedAt: string,
-    resolved: boolean,
-    progress: string | null,
-    runId: string | null,
-    unread: boolean,
-    briefing: string | null,
-    failure: InboxFailureResponseDto | null,
-    inboxRequest: InboxRequestResponseDto | null,
+    item: Omit<InboxItemResponseDto, 'kind'>,
     notes: readonly NoteResponseDto[],
   ) {
-    this.id = id;
-    this.taskId = taskId;
-    this.teamId = teamId;
-    this.title = title;
-    this.description = description;
-    this.attachments = attachments;
-    this.station = station;
-    this.stationColor = stationColor;
-    this.stationPosition = stationPosition;
-    this.stationCount = stationCount;
-    this.originStation = originStation;
-    this.currentStation = currentStation;
-    this.createdAt = createdAt;
-    this.askedAt = askedAt;
-    this.resolved = resolved;
-    this.progress = progress;
-    this.runId = runId;
-    this.unread = unread;
-    this.briefing = briefing;
-    this.failure = failure;
-    this.inboxRequest = inboxRequest;
+    super(item);
     this.notes = notes;
   }
 }
@@ -618,6 +635,20 @@ export class InboxNoticeResponseDto {
   })
   readonly resolved: boolean;
 
+  @ApiProperty({
+    enum: INBOX_DTO_SECTIONS,
+    example: 'open',
+    description:
+      'The inbox section that shows it: open until a person resolves it',
+  })
+  readonly section: InboxDtoSection;
+
+  @ApiProperty({
+    example: false,
+    description: 'True when the person can open it again: once it is resolved',
+  })
+  readonly reopenable: boolean;
+
   constructor(notice: InboxNoticeDto) {
     this.id = notice.id;
     this.teamId = notice.teamId;
@@ -632,6 +663,8 @@ export class InboxNoticeResponseDto {
     this.askedAt = notice.askedAt;
     this.unread = notice.unread;
     this.resolved = notice.resolved;
+    this.section = notice.section;
+    this.reopenable = notice.reopenable;
   }
 }
 
@@ -693,6 +726,16 @@ export class InboxRunResponseDto {
   @ApiProperty({ enum: [false], description: 'Never resolved' })
   readonly resolved = false as const;
 
+  @ApiProperty({
+    enum: INBOX_DTO_SECTIONS,
+    example: 'running',
+    description: 'The inbox section that shows it: running',
+  })
+  readonly section: InboxDtoSection;
+
+  @ApiProperty({ enum: [false], description: 'Never reopenable' })
+  readonly reopenable = false as const;
+
   constructor(entry: InboxRunDto) {
     this.id = entry.id;
     this.taskId = entry.taskId;
@@ -704,27 +747,43 @@ export class InboxRunResponseDto {
     this.stationCount = entry.stationCount;
     this.progress = entry.progress;
     this.askedAt = entry.askedAt;
+    this.section = entry.section;
   }
 }
 
-export const INBOX_ENTRY_SCHEMA = {
-  type: 'array' as const,
-  items: {
-    oneOf: [
-      { $ref: getSchemaPath(InboxItemResponseDto) },
-      { $ref: getSchemaPath(InboxNoticeResponseDto) },
-      { $ref: getSchemaPath(InboxRunResponseDto) },
-    ],
-    discriminator: {
-      propertyName: 'kind',
-      mapping: {
-        task: getSchemaPath(InboxItemResponseDto),
-        notice: getSchemaPath(InboxNoticeResponseDto),
-        run: getSchemaPath(InboxRunResponseDto),
-      },
+const INBOX_ENTRY = {
+  oneOf: [
+    { $ref: getSchemaPath(InboxItemResponseDto) },
+    { $ref: getSchemaPath(InboxNoticeResponseDto) },
+    { $ref: getSchemaPath(InboxRunResponseDto) },
+  ],
+  discriminator: {
+    propertyName: 'kind',
+    mapping: {
+      task: getSchemaPath(InboxItemResponseDto),
+      notice: getSchemaPath(InboxNoticeResponseDto),
+      run: getSchemaPath(InboxRunResponseDto),
     },
   },
 };
+
+export const INBOX_PAGE_SCHEMA = {
+  type: 'object' as const,
+  required: ['items', 'next'],
+  properties: {
+    items: { type: 'array' as const, items: INBOX_ENTRY },
+    next: {
+      type: 'string' as const,
+      nullable: true,
+      description: 'Pass as `before` to read the next page; null on the last',
+    },
+  },
+};
+
+export type InboxEntryResponseDto =
+  | InboxItemResponseDto
+  | InboxNoticeResponseDto
+  | InboxRunResponseDto;
 
 export class AnswerInboxItemInputRequestDto {
   @ApiProperty({ example: 'body' })

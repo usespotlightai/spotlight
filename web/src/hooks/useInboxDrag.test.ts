@@ -51,7 +51,7 @@ describe('useInboxDrag', () => {
   });
 
   it('reopens a resolved entry dropped on Open', () => {
-    const entry = notice({ resolved: true });
+    const entry = notice({ resolved: true, reopenable: true });
 
     dropping([entry], dropped('notice:notice_1', OPEN_DROP));
 
@@ -67,7 +67,7 @@ describe('useInboxDrag', () => {
 
   it('leaves an entry that is already resolved alone', () => {
     dropping(
-      [notice({ resolved: true })],
+      [notice({ resolved: true, reopenable: true })],
       dropped('notice:notice_1', RESOLVED_DROP),
     );
 

@@ -37,5 +37,10 @@ export const notice = pgTable(
       .nullsNotDistinct(),
     index('notice_addressee_idx').on(table.workspaceId, table.addresseeId),
     index('notice_team_idx').on(table.teamId),
+    index('notice_workspace_created_idx').on(
+      table.workspaceId,
+      table.createdAt,
+      table.id,
+    ),
   ],
 );

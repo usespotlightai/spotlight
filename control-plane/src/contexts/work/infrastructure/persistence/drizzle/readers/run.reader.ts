@@ -9,12 +9,18 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import {
+  olderThan,
+  pageOf,
+  sortableTime,
+} from '@platform/persistence/drizzle/keyset';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
+import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type {
   RunConfigSummary,
   RunConfigView,
@@ -31,6 +37,7 @@ import {
   takenUpOnAnswer,
 } from '@work/domain/value-objects/run-state';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
+import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -46,7 +53,16 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, desc, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
+import {
+  and,
+  desc,
+  eq,
+  isNotNull,
+  isNull,
+  lt,
+  type SQL,
+  sql,
+} from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 export const ranAt = alias(station, 'ran_at');
@@ -151,7 +167,43 @@ export class DrizzleRunReader implements RunReaderPort {
   async listForTeam(
     teamId: TeamId,
     viewerId: UserId,
-  ): Promise<TeamRunSummary[]> {
+    page: PageRequest,
+  ): Promise<Page<TeamRunSummary>> {
+    const before = timeCursorOf(page.before);
+    const rows = await this.teamRuns(
+      teamId,
+      viewerId,
+      before ? olderThan(run.createdAt, run.id, before) : undefined,
+      page.limit + 1,
+    );
+
+    return pageOf(rows, page.limit, (row) => ({
+      key: row.cursorAt,
+      id: row.id,
+    }));
+  }
+
+  async findForTeam(
+    teamId: TeamId,
+    runId: RunId,
+    viewerId: UserId,
+  ): Promise<TeamRunSummary | null> {
+    const [found] = await this.teamRuns(
+      teamId,
+      viewerId,
+      eq(run.id, runId.value),
+      1,
+    );
+
+    return found ?? null;
+  }
+
+  private async teamRuns(
+    teamId: TeamId,
+    viewerId: UserId,
+    narrowedTo: SQL | undefined,
+    limit: number,
+  ): Promise<(TeamRunSummary & { readonly cursorAt: string })[]> {
     const found = await this.db
       .select({
         id: run.id,
@@ -173,29 +225,26 @@ export class DrizzleRunReader implements RunReaderPort {
         stationLineId: ranAt.lineId,
         workspaceId: run.workspaceId,
         currentRunId: task.currentRunId,
+        cursorAt: sortableTime(run.createdAt),
       })
       .from(run)
       .innerJoin(task, eq(task.id, run.taskId))
       .innerJoin(station, eq(station.id, task.stationId))
       .innerJoin(line, eq(line.id, station.lineId))
       .leftJoin(ranAt, eq(ranAt.id, run.stationId))
-      .where(eq(line.teamId, teamId.value))
-      .orderBy(desc(run.createdAt));
+      .where(and(eq(line.teamId, teamId.value), narrowedTo))
+      .orderBy(desc(run.createdAt), desc(run.id))
+      .limit(limit);
     const rows = await this.visibleTo(viewerId, found);
+    const taskIds = rows.flatMap((row) => (row.taskId ? [row.taskId] : []));
 
     const [stationCounts, review, awaited] = await Promise.all([
       stationsPerLine(
         this.db,
         rows.flatMap((row) => (row.stationLineId ? [row.stationLineId] : [])),
       ),
-      reviewsBy(
-        this.db,
-        rows.flatMap((row) => (row.taskId ? [row.taskId] : [])),
-      ),
-      awaitedReviewsFor(
-        this.db,
-        rows.flatMap((row) => (row.taskId ? [row.taskId] : [])),
-      ),
+      reviewsBy(this.db, taskIds),
+      awaitedReviewsFor(this.db, taskIds),
     ]);
 
     return rows.map(

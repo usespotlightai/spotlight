@@ -1,12 +1,15 @@
 import { Fragment, type ReactNode, useLayoutEffect, useRef } from 'react';
+import { StationIcon } from '@/components/features/board/column/StationIcon';
 import { InboxNote } from '@/components/features/inbox/conversation/InboxNote';
 import { InboxWorking } from '@/components/features/inbox/conversation/InboxWorking';
 import { PersonMessage } from '@/components/features/inbox/conversation/PersonMessage';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { PaneScroller } from '@/components/shared/PaneScroller';
+import { Turn, type TurnSummary } from '@/components/shared/Turn';
 import { useArrivals } from '@/hooks/useArrivals';
-import type { ApprovalAnswer } from '@/lib/approval';
+import { useOpenTurns } from '@/hooks/useOpenTurns';
+import { type ApprovalAnswer, titleOf } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
 import {
   ARRIVING,
@@ -21,17 +24,22 @@ import {
 } from '@/lib/inbox';
 import { lastNoteOf } from '@/lib/run-notes';
 import { useRunSidePanel } from '@/lib/run-side-panel';
+import { stationShare } from '@/lib/station';
+import { useStepAnchors } from '@/lib/step-anchors';
+import { keptOpen, oneLineOf, stepsCounted } from '@/lib/turns';
 import { cn } from '@/lib/utils';
 
-interface Turn {
+interface NoteTurn {
   readonly prompt: Note | null;
   readonly notes: Note[];
 }
 
+type WorkedBy = ReadonlyMap<number, readonly RunJournal[]>;
+
 const shown = (note: Note): boolean => !closesOrReopens(note);
 
-const turnsOf = (item: ConversationItem): Turn[] => {
-  const cut: Turn[] = [{ prompt: null, notes: [] }];
+const turnsOf = (item: ConversationItem): NoteTurn[] => {
+  const cut: NoteTurn[] = [{ prompt: null, notes: [] }];
 
   for (const note of item.notes.filter(shown)) {
     if (note.voice === 'person' || note.voice === 'world') {
@@ -58,6 +66,46 @@ const marksIn = (item: ConversationItem): Set<number> => {
   }
 
   return marked;
+};
+
+const waitsOrFailed = (note: Note): boolean =>
+  note.approval?.status === 'pending' ||
+  note.connection?.met === false ||
+  note.form === 'failure';
+
+const stepsOf = (notes: readonly Note[], workedBy: WorkedBy) =>
+  notes.flatMap((note) =>
+    (workedBy.get(note.position) ?? []).flatMap((journal) => journal.steps),
+  );
+
+const summaryOf = (
+  notes: readonly Note[],
+  stationCount: number,
+  workedBy: WorkedBy,
+): TurnSummary | null => {
+  const last = notes[notes.length - 1];
+
+  if (!last) {
+    return null;
+  }
+
+  const steps = stepsOf(notes, workedBy).length;
+
+  return {
+    icon: (
+      <StationIcon
+        share={stationShare(last.stationPosition, stationCount)}
+        color={last.stationColor}
+      />
+    ),
+    lead: last.station,
+    text: oneLineOf(
+      last.approval
+        ? `${titleOf(last.approval)}: ${last.approval.name}`
+        : last.body,
+    ),
+    count: steps > 0 ? stepsCounted(steps) : undefined,
+  };
 };
 
 const CLOSE = 80;
@@ -108,6 +156,28 @@ export function Conversation({
   afterRun,
 }: ConversationProps) {
   const marked = marksIn(item);
+  const anchors = useStepAnchors();
+  const turns = turnsOf(item);
+  const workedBy: WorkedBy = new Map(
+    item.notes.map((note) => [
+      note.position,
+      workedOn(worked, item.notes, note.runId, note.at),
+    ]),
+  );
+  const kept = keptOpen(
+    turns.map((turn) => ({
+      filled: turn.notes.length > 0,
+      holds:
+        turn.notes.some(
+          (note) => note.position === openAt || waitsOrFailed(note),
+        ) ||
+        (anchors.focused !== null &&
+          stepsOf(turn.notes, workedBy).some(
+            (step) => anchors.anchorOf(step) === anchors.focused,
+          )),
+    })),
+  );
+  const opened = useOpenTurns(item.id, kept);
   const arrived = useArrivals(
     item.id,
     item.notes.map((note) => note.position),
@@ -192,7 +262,7 @@ export function Conversation({
       >
         <TimeMarker at={item.createdAt} />
 
-        {turnsOf(item).map((turn, at, all) => {
+        {turns.map((turn, at, all) => {
           const head = turn.prompt ? (
             <PersonMessage
               body={turn.prompt.body}
@@ -207,31 +277,45 @@ export function Conversation({
             return null;
           }
 
+          const summary =
+            kept[at] || turn.notes.length === 0
+              ? null
+              : summaryOf(turn.notes, item.station.count, workedBy);
+
           return (
-            <section
+            <Turn
               // biome-ignore lint/suspicious/noArrayIndexKey: the turns come in order and their order does not change
               key={at}
-              className="flex flex-col"
-            >
-              {turn.prompt && marked.has(turn.prompt.position) && (
-                <div className="mt-6 mb-3">
-                  <TimeMarker at={turn.prompt.at} />
-                </div>
-              )}
-
-              {head && (
-                <div
-                  data-note={turn.prompt?.position}
-                  className={cn(
-                    STICKY_AT_TOP,
-                    turn.prompt && arrived(turn.prompt.position) && ARRIVING,
+              summary={summary}
+              open={opened.isOpen(at)}
+              onToggle={() => opened.toggle(at)}
+              head={
+                <>
+                  {turn.prompt && marked.has(turn.prompt.position) && (
+                    <div className="mt-6 mb-3">
+                      <TimeMarker at={turn.prompt.at} />
+                    </div>
                   )}
-                >
-                  {head}
-                </div>
-              )}
 
-              <ol className="mt-6 flex flex-col gap-6">
+                  {head && (
+                    <div
+                      data-note={turn.prompt?.position}
+                      className={cn(
+                        STICKY_AT_TOP,
+                        turn.prompt &&
+                          arrived(turn.prompt.position) &&
+                          ARRIVING,
+                      )}
+                    >
+                      {head}
+                    </div>
+                  )}
+                </>
+              }
+            >
+              <ol
+                className={cn('flex flex-col gap-6', summary ? 'mt-4' : 'mt-6')}
+              >
                 {turn.notes.map((note, place) => {
                   const before = turn.notes[place - 1];
                   const closesRun =
@@ -257,12 +341,7 @@ export function Conversation({
                         resolved={item.resolved}
                         deciding={deciding}
                         arrived={arrived(note.position)}
-                        worked={workedOn(
-                          worked,
-                          item.notes,
-                          note.runId,
-                          note.at,
-                        )}
+                        worked={workedBy.get(note.position) ?? []}
                       />
 
                       {closesRun && <li>{closesRun}</li>}
@@ -285,7 +364,7 @@ export function Conversation({
                     )
                   ))}
               </ol>
-            </section>
+            </Turn>
           );
         })}
 

@@ -6,6 +6,7 @@ import {
 } from '@work/application/dto/task-run.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
+import { pageResponseOf } from '@work/presentation/http/paging';
 
 export class RunStationResponseDto {
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
@@ -376,3 +377,5 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
     this.taskDescription = taskDescription;
   }
 }
+
+export const TeamRunPageResponseDto = pageResponseOf(TeamRunResponseDto);

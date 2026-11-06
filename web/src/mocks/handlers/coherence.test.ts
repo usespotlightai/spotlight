@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  listInbox,
   listInsightsPullRequests,
   listInsightsTraces,
   listRunChangeStacks,
+  listTaskJournalRuns,
   listTaskRuns,
   listTeamRuns,
+  readInboxItem,
   readInsightsStations,
   readRunMemories,
   readRunNotes,
@@ -21,6 +22,7 @@ import { serveMockApi } from '@/mocks/testing';
 import { DELIVERY_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
 import { ALERT_ID } from '@/mocks/world/inbox';
 import { FINGERPRINTS } from '@/mocks/world/station-history';
+import { everyPage } from '@/test/every-page';
 
 const teamId = PLATFORM_ID;
 const IMPLEMENTATION = 'station_implementation';
@@ -28,12 +30,37 @@ const IMPLEMENTATION = 'station_implementation';
 const within = (at: string, from: string, to: string) =>
   Date.parse(at) >= Date.parse(from) && Date.parse(at) < Date.parse(to);
 
-const teamRuns = async () =>
-  (await listTeamRuns({ path: { teamId }, throwOnError: true })).data;
+const teamRuns = () =>
+  everyPage(
+    async (before) =>
+      (
+        await listTeamRuns({
+          path: { teamId },
+          query: { before, limit: 200 },
+          throwOnError: true,
+        })
+      ).data,
+  );
 
-const journalOf = async (taskId: string) =>
-  (await readTaskJournal({ path: { slug: SLUG, taskId }, throwOnError: true }))
-    .data;
+const journalOf = async (taskId: string) => {
+  const { data: runs } = await listTaskJournalRuns({
+    path: { slug: SLUG, taskId },
+    throwOnError: true,
+  });
+  const journals = await Promise.all(
+    runs.map(
+      async ({ runId }) =>
+        (
+          await readTaskJournal({
+            path: { slug: SLUG, taskId, runId },
+            throwOnError: true,
+          })
+        ).data,
+    ),
+  );
+
+  return journals.flat();
+};
 
 const newSideContains = (patch: string, line: number): boolean => {
   const [header = ''] = patch.split('\n');
@@ -127,7 +154,7 @@ describe('one run history across the mock', () => {
           readRunScores({ path }),
           readRunReview({ path }),
           readTaskTrace({ path: { teamId, taskId } }),
-          readTaskJournal({ path: { slug: SLUG, taskId } }),
+          readTaskJournal({ path: { slug: SLUG, taskId, runId: run.id } }),
           listTaskRuns({ path: { teamId, taskId } }),
         ]);
 
@@ -259,13 +286,10 @@ describe('the task journal and the run conversations tell one story', () => {
   serveMockApi();
 
   it('shows the retry drain the same in the inbox, the journal and the run', async () => {
-    const { data: inbox } = await listInbox({
-      path: { slug: SLUG },
+    const { data: item } = await readInboxItem({
+      path: { slug: SLUG, itemId: 'task_retries:0' },
       throwOnError: true,
     });
-    const item = inbox.find(
-      (each) => each.kind === 'task' && each.id === 'task_retries:0',
-    );
     const { data: run } = await readRunNotes({
       path: { teamId, runId: 'run_retries_2' },
       throwOnError: true,
@@ -273,7 +297,7 @@ describe('the task journal and the run conversations tell one story', () => {
     const journal = (await journalOf('task_retries')).find(
       (each) => each.runId === 'run_retries_2',
     );
-    const inboxNotes = item?.kind === 'task' ? item.notes : [];
+    const inboxNotes = item.notes;
     const answer = run.notes.find((note) => note.kind === 'answered');
 
     expect(

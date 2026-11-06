@@ -18,6 +18,7 @@ vi.mock('@/hooks/api/useLines', () => ({
 }));
 vi.mock('@/hooks/api/useTasks', () => ({
   useTasks: () => ({ data: [], isPending: false }),
+  useTask: () => ({ data: undefined, isPending: false }),
 }));
 vi.mock('@/hooks/useCommandSections', () => ({
   useCommandSections: () => [],

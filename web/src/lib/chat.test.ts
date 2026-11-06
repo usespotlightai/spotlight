@@ -4,8 +4,10 @@ import {
   chatPath,
   momentsOf,
   promptHandedOver,
+  runsOfTurn,
   targetStationHandedOver,
   tracesHandedOver,
+  turnSummaryOf,
   turnsOf,
 } from '@/lib/chat';
 import type { JournalStep, RunJournal } from '@/lib/inbox';
@@ -17,6 +19,7 @@ const message = (over: Partial<ChatMessage>): ChatMessage => ({
   at: '2026-09-14T09:00:00.000Z',
   author: null,
   runId: null,
+  takenUpBy: null,
   attachments: [],
   traces: [],
   proposal: null,
@@ -181,6 +184,32 @@ describe('turnsOf', () => {
   });
 });
 
+describe('turnSummaryOf', () => {
+  it('reads as the last answer on one line, with the steps counted', () => {
+    const [turn] = turnsOf(
+      momentsOf(
+        [message({})],
+        [
+          journal([
+            step({ startedAt: '2026-09-14T09:00:01.000Z' }),
+            step({ startedAt: '2026-09-14T09:00:02.000Z' }),
+            step({
+              kind: 'message',
+              text: '**Retries** double.\n\nThey stop at five.',
+              startedAt: '2026-09-14T09:00:03.000Z',
+            }),
+          ]),
+        ],
+      ),
+    );
+
+    expect(turn && turnSummaryOf(turn)).toEqual({
+      text: 'Retries double. They stop at five.',
+      count: '2 steps',
+    });
+  });
+});
+
 describe('chatPath', () => {
   it('sits under the team’s agent', () => {
     expect(chatPath('acme', 'team_1', 'chat_1')).toBe(
@@ -248,5 +277,22 @@ describe('targetStationHandedOver', () => {
     expect(
       targetStationHandedOver({ targetStation: { stationId: 'station_1' } }),
     ).toBeNull();
+  });
+});
+
+describe('runsOfTurn', () => {
+  it('takes the run that took up the turn message', () => {
+    expect(
+      runsOfTurn({
+        message: message({ takenUpBy: 'run_7' }),
+        moments: [],
+      }),
+    ).toEqual(['run_7']);
+  });
+
+  it('takes no run before a run took up the message, or for the opening turn', () => {
+    expect(runsOfTurn({ message: message({}), moments: [] })).toEqual([]);
+    expect(runsOfTurn({ message: null, moments: [] })).toEqual([]);
+    expect(runsOfTurn(undefined)).toEqual([]);
   });
 });

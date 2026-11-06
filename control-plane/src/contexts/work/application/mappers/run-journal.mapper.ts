@@ -1,9 +1,11 @@
 import type {
+  JournalledRun,
   JournalStep,
   RunJournal,
   RunSpan,
 } from '@work/application/contracts/run-journal.contract';
 import type {
+  JournalledRunDto,
   JournalStepDto,
   RunJournalDto,
   RunSpanDto,
@@ -68,5 +70,9 @@ export const RunJournalMapper = {
         currency: journal.spent.cost?.currency ?? null,
       },
     };
+  },
+
+  runToDto(run: JournalledRun): JournalledRunDto {
+    return { runId: run.runId, createdAt: run.createdAt.toISOString() };
   },
 };

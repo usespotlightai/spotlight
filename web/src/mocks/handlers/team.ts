@@ -13,12 +13,14 @@ import type {
   WriteMemoryRequestDto,
 } from '@/lib/api';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
+import { pageOf } from '@/mocks/paging';
 import { taskOfRun, world } from '@/mocks/world';
 import { SAM } from '@/mocks/world/people';
 import { SETUP_CI, settingsWorld } from '@/mocks/world/settings';
 import {
   type ChatRecord,
   chatTurn,
+  journalRunsOf,
   messageBy,
   teamChats,
   turnEndsAt,
@@ -436,17 +438,26 @@ const answered = (record: ChatRecord, sentAt: string, body: string): void => {
     { kind: 'message', text: answerTo(body, record.chat.targetStation) },
   ]);
   record.journals.push(journal);
+  record.chat.messages = record.chat.messages.map((message) =>
+    message.kind === 'message' && message.takenUpBy === null
+      ? { ...message, takenUpBy: runId }
+      : message,
+  );
   record.chat.updatedAt = turnEndsAt(journal);
   record.chat.progress = null;
   record.chat.runId = null;
 };
 
 const chatHandlers = [
-  api.get('/teams/:teamId/chats', ({ params }) =>
+  api.get('/teams/:teamId/chats', ({ params, request }) =>
     json(
-      (teamChats()[String(params.teamId)] ?? [])
-        .map((each) => summaryOfChat(each.chat))
-        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
+      pageOf(
+        (teamChats()[String(params.teamId)] ?? [])
+          .map((each) => summaryOfChat(each.chat))
+          .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
+        request,
+        (chat) => chat.id,
+      ),
     ),
   ),
 
@@ -514,7 +525,16 @@ const chatHandlers = [
 
   api.get('/teams/:teamId/chats/:chatId/journal', ({ params }) => {
     const record = chatIn(String(params.teamId), params.chatId);
-    return record ? json(record.journals) : notFound();
+    return record ? json(journalRunsOf(record.journals)) : notFound();
+  }),
+
+  api.get('/teams/:teamId/chats/:chatId/journal/:runId', ({ params }) => {
+    const record = chatIn(String(params.teamId), params.chatId);
+    return record
+      ? json(
+          record.journals.filter((journal) => journal.runId === params.runId),
+        )
+      : notFound();
   }),
 
   api.post(

@@ -1,9 +1,11 @@
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
+import type { InboxSection } from '@work/domain/services/inbox-section';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
@@ -101,12 +103,18 @@ export interface InboxItemSummary {
   readonly createdAt: Date;
   readonly askedAt: Date;
   readonly resolved: boolean;
+  readonly section: InboxSection;
+  readonly reopenable: boolean;
   readonly progress: Progress | null;
   readonly runId: string | null;
   readonly unread: boolean;
   readonly briefing: string | null;
   readonly failure: InboxFailure | null;
   readonly inboxRequest: InboxRequestView | null;
+  readonly lastNote: InboxNote | null;
+}
+
+export interface InboxItemView extends InboxItemSummary {
   readonly notes: readonly InboxNote[];
 }
 
@@ -126,6 +134,8 @@ export interface InboxNoticeSummary {
   readonly askedAt: Date;
   readonly unread: boolean;
   readonly resolved: boolean;
+  readonly section: InboxSection;
+  readonly reopenable: boolean;
 }
 
 export interface InboxRunSummary {
@@ -142,6 +152,8 @@ export interface InboxRunSummary {
   readonly askedAt: Date;
   readonly unread: false;
   readonly resolved: false;
+  readonly section: InboxSection;
+  readonly reopenable: false;
 }
 
 export type InboxEntrySummary =
@@ -152,9 +164,26 @@ export type InboxEntrySummary =
 export const INBOX_READER = Symbol('INBOX_READER');
 
 export interface InboxReaderPort {
-  listForWorkspaceMember(
+  openForWorkspaceMember(
     slug: string,
     userId: UserId,
-    noticesResolvedSince: Date,
   ): Promise<InboxEntrySummary[] | null>;
+
+  resolvedForWorkspaceMember(
+    slug: string,
+    userId: UserId,
+    page: PageRequest,
+  ): Promise<Page<InboxEntrySummary> | null>;
+
+  itemForWorkspaceMember(
+    slug: string,
+    userId: UserId,
+    itemId: string,
+  ): Promise<InboxItemView | null>;
+
+  noticeForWorkspaceMember(
+    slug: string,
+    userId: UserId,
+    noticeId: string,
+  ): Promise<InboxNoticeSummary | null>;
 }

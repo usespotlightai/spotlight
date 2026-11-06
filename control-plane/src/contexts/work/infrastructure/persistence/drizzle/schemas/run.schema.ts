@@ -120,6 +120,7 @@ export const run = pgTable(
     index('run_lease_idx').on(table.leaseExpiresAt),
     index('run_workspace_idx').on(table.workspaceId),
     index('run_task_idx').on(table.taskId),
+    index('run_created_idx').on(table.createdAt, table.id),
     index('run_station_idx').on(table.stationId, table.createdAt),
     index('run_station_fingerprint_idx').on(table.stationFingerprint),
     check(

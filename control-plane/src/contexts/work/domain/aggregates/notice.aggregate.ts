@@ -11,10 +11,6 @@ import type { NoticeWording } from '@work/domain/value-objects/notice-wording.vo
 
 const MAX_SUBJECT = 200;
 
-const RESOLVED_SHOWN_FOR_DAYS = 30;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 interface NoticeState {
   readonly id: NoticeId;
   readonly workspaceId: WorkspaceId;
@@ -62,8 +58,8 @@ export class Notice {
     });
   }
 
-  static resolvedShownSince(now: Date): Date {
-    return new Date(now.getTime() - RESOLVED_SHOWN_FOR_DAYS * DAY_MS);
+  static reopenable(resolvedAt: Date | null): boolean {
+    return resolvedAt !== null;
   }
 
   static rehydrate(state: NoticeState): Notice {
@@ -136,7 +132,7 @@ export class Notice {
   }
 
   reopen(): Notice {
-    return this.state.resolvedAt
+    return Notice.reopenable(this.state.resolvedAt)
       ? new Notice({ ...this.state, resolvedAt: null })
       : this;
   }

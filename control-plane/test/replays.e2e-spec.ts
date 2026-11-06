@@ -322,7 +322,7 @@ const inboxHas = async (taskId: string): Promise<boolean> =>
         .get(`/api/workspaces/${team.slug}/inbox`)
         .set(TEST_USER_HEADER, team.owner.value)
         .expect(200)
-    ).body as { taskId: string }[]
+    ).body.items as { taskId: string }[]
   ).some((each) => each.taskId === taskId);
 
 const finishing = (next: string) => ({

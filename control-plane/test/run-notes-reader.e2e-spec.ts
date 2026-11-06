@@ -4,6 +4,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
 import { eq } from 'drizzle-orm';
@@ -332,7 +333,9 @@ describe('the progress of a run once a person answered it', () => {
   const listed = async (taskId: string, runId: string) => {
     const [forTask, forTeam, traced] = await Promise.all([
       reader.listForTask(TaskId.of(taskId), VIEWER),
-      reader.listForTeam(TeamId.of('team_1'), VIEWER),
+      reader
+        .listForTeam(TeamId.of('team_1'), VIEWER, FIRST_PAGE)
+        .then((page) => page.items),
       new DrizzleRunnerTraceReader(db).runsForTask(TaskId.of(taskId)),
     ]);
 

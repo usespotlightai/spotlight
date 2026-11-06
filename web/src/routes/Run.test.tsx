@@ -19,8 +19,10 @@ const journalFailing = vi.fn();
 
 vi.mock('@/hooks/api/useTeamRuns', () => ({
   teamRunKeys: { forTeam: () => ['runs'] },
-  useTeamRuns: () => ({
-    data: runs(),
+  useTeamRun: (_teamId: string, runId: string) => ({
+    data: (runs() as { id: string }[] | undefined)?.find(
+      (each) => each.id === runId,
+    ),
     isPending: runs() === undefined,
     errorUpdateCount: runsFailing() ? 1 : 0,
     isFetching: false,
@@ -40,11 +42,11 @@ vi.mock('@/hooks/api/useRunNotes', () => ({
 }));
 
 vi.mock('@/hooks/api/useTaskJournal', () => ({
-  journalKeys: { forTask: () => ['journal'] },
   useTaskJournal: () => ({
     data: journal(),
     isPending: journal() === undefined,
     errorUpdateCount: journalFailing() ? 1 : 0,
+    demand: { runs: [], want: () => {} },
   }),
 }));
 
@@ -825,7 +827,9 @@ describe('Run', () => {
         </QueryClientProvider>,
       );
 
-      expect(invalidated).toHaveBeenCalledWith({ queryKey: ['journal'] });
+      expect(invalidated).toHaveBeenCalledWith({
+        queryKey: ['journal', 'run_1'],
+      });
     });
   });
 
@@ -849,7 +853,7 @@ describe('Run', () => {
       startedAt: '2026-08-29T12:15:00.000Z',
     };
 
-    it('shows one run: its work before the question, the answer, then it carrying on', () => {
+    it('shows one run: its work before the question, the answer, then it carrying on', async () => {
       runs.mockReturnValue([run({ state: 'claimed', attempt: 2 })]);
       conversation.mockReturnValue(
         conversationOf({ progress: 'in-progress', notes: [asked, answered] }),
@@ -872,6 +876,10 @@ describe('Run', () => {
       ]);
 
       renderRun();
+
+      for (const worked of screen.getAllByRole('button', { name: /^Worked/ })) {
+        await userEvent.click(worked);
+      }
 
       const question = screen.getByText('Which queue should I drain?');
       const answer = screen.getByText('Drain webhook-retries first.');

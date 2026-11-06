@@ -104,7 +104,7 @@ describe('a search for a better station config', () => {
     }
     expect(
       (
-        (await owner().get(`${teamPath()}/runs`).expect(200)).body as {
+        (await owner().get(`${teamPath()}/runs`).expect(200)).body.items as {
           id: string;
         }[]
       ).some((each) => each.id === replayRun),

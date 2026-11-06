@@ -67,3 +67,8 @@ export interface RunJournalDto {
   readonly marks: RunMarksDto;
   readonly spent: RunSpentDto | null;
 }
+
+export interface JournalledRunDto {
+  readonly runId: string;
+  readonly createdAt: string;
+}

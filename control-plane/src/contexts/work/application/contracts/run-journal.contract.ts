@@ -115,3 +115,8 @@ export interface RunChanges {
   readonly checkouts: readonly string[];
   readonly paths: readonly string[];
 }
+
+export interface JournalledRun {
+  readonly runId: string;
+  readonly createdAt: Date;
+}

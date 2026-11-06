@@ -1,4 +1,5 @@
 import { api, json, notFound } from '@/mocks/http';
+import { pageOf } from '@/mocks/paging';
 import { scenario } from '@/mocks/scenario';
 import { world } from '@/mocks/world';
 import { settingsWorld } from '@/mocks/world/settings';
@@ -15,6 +16,15 @@ const workspaceAs = () => ({
 });
 
 import { runsOfAnyTask } from '@/mocks/world/run-stories';
+
+const completedStationsOf = (teamId: string, lineId: string | null) =>
+  new Set(
+    (world().lines[teamId] ?? [])
+      .filter((line) => !lineId || line.id === lineId)
+      .flatMap((line) => line.stations)
+      .filter((station) => station.kind === 'completed')
+      .map((station) => station.id),
+  );
 
 export const shellHandlers = [
   api.get('/workspaces', () =>
@@ -37,9 +47,35 @@ export const shellHandlers = [
     json(world().members[String(params.teamId)] ?? []),
   ),
 
-  api.get('/teams/:teamId/tasks', ({ params }) =>
-    json(world().tasks[String(params.teamId)] ?? []),
-  ),
+  api.get('/teams/:teamId/tasks', ({ params, request }) => {
+    const teamId = String(params.teamId);
+    const query = new URL(request.url).searchParams;
+    const lineId = query.get('lineId');
+    const completed = completedStationsOf(teamId, lineId);
+    const tasks = world().tasks[teamId] ?? [];
+
+    return json(
+      query.get('state') === 'completed'
+        ? pageOf(
+            tasks.filter((task) => completed.has(task.stationId)),
+            request,
+            (task) => task.id,
+          )
+        : {
+            items: tasks.filter(
+              (task) => !completedStationsOf(teamId, null).has(task.stationId),
+            ),
+            next: null,
+          },
+    );
+  }),
+
+  api.get('/teams/:teamId/tasks/:taskId', ({ params }) => {
+    const task = world().tasks[String(params.teamId)]?.find(
+      (each) => each.id === String(params.taskId),
+    );
+    return task ? json(task) : notFound();
+  }),
 
   api.get('/teams/:teamId/tasks/:taskId/runs', ({ params }) =>
     json(runsOfAnyTask(String(params.taskId))),

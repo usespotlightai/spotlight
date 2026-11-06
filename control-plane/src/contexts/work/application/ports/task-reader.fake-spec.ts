@@ -29,7 +29,7 @@ export const taskReaderOver = (
 ): TaskReaderPort => ({
   listForTeamMember: async () => {
     const found = latest();
-    return found ? [summaryOf(found, progress)] : [];
+    return { items: found ? [summaryOf(found, progress)] : [], next: null };
   },
   findForTeamMember: async (_teamId, _userId, taskId) => {
     const found = latest();
