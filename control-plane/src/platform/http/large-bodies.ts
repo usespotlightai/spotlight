@@ -15,7 +15,7 @@ import { json } from 'express';
 
 const LARGE_BODY_LIMIT = '64mb';
 
-export const LARGE_BODY_ROUTES = [
+const LARGE_BODY_ROUTES = [
   RUN_EVENTS,
   RUN_COMPLETION,
   RUN_TOOL_CALL,
