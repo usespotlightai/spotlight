@@ -95,20 +95,55 @@ const placedIn = (
     };
   });
 
-  const kept = layers.flatMap((layer, l) =>
+  const emptied = layers.flatMap((layer, l) =>
+    layer.hunks.length === 0 ? [l] : [],
+  );
+  const gathered = layers.map((layer, l) =>
+    l === target
+      ? {
+          ...layer,
+          questions: [
+            ...layer.questions,
+            ...emptied.flatMap((at) => cohort.layers[at]?.questions ?? []),
+          ],
+        }
+      : layer,
+  );
+
+  const kept = gathered.flatMap((layer, l) =>
     layer.hunks.length > 0 ? [{ layer, from: l + 1 }] : [],
   );
   const renumbered = new Map(kept.map(({ from }, place) => [from, place + 1]));
+  const holding = new Set(emptied.map((at) => at + 1));
+  const now = (layer: number) =>
+    renumbered.get(holding.has(layer) ? target + 1 : layer);
 
   return {
     ...cohort,
-    layers: kept.map(({ layer }) => ({
-      ...layer,
-      dependsOn: layer.dependsOn.flatMap((dependency) => {
-        const now = renumbered.get(dependency.layer);
-        return now ? [{ ...dependency, layer: now }] : [];
-      }),
-    })),
+    layers: kept.map(({ layer }, place) => {
+      const merged = new Map<number, Set<string>>();
+
+      for (const dependency of layer.dependsOn) {
+        const at = now(dependency.layer);
+        const pointsBack =
+          !holding.has(dependency.layer) || (at !== undefined && at <= place);
+
+        if (at !== undefined && pointsBack) {
+          merged.set(
+            at,
+            new Set([...(merged.get(at) ?? []), ...dependency.because]),
+          );
+        }
+      }
+
+      return {
+        ...layer,
+        dependsOn: [...merged].map(([at, because]) => ({
+          layer: at,
+          because: [...because],
+        })),
+      };
+    }),
   };
 };
 

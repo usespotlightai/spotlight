@@ -130,7 +130,7 @@ describe('withMovedCodeTogether', () => {
     expect(hunksOf(arranged)).toEqual([[['h3', 'h4', 'h1', 'h2']]]);
   });
 
-  it('renumbers what later layers depend on when a layer empties', () => {
+  it('points a dependency on an emptied layer at the layer that holds its hunks', () => {
     const [arranged] = withMovedCodeTogether(
       DIFF,
       facts([link('moves', 'h2', 'h1')]),
@@ -151,8 +151,24 @@ describe('withMovedCodeTogether', () => {
 
     expect(arranged?.layers.map((each) => each.dependsOn)).toEqual([
       [],
-      [{ layer: 1, because: ['B'] }],
+      [{ layer: 1, because: ['A', 'B'] }],
     ]);
+  });
+
+  it('keeps the questions of an emptied layer on the layer that holds its hunks', () => {
+    const question = {
+      question: 'What happens to an expired invite?',
+      answer: 'It is refused.',
+      hunks: [HunkId.of('h1')],
+    };
+    const [arranged] = withMovedCodeTogether(
+      DIFF,
+      facts([link('moves', 'h2', 'h1')]),
+      [cohort([{ ...layer(['h1']), questions: [question] }, layer(['h2'])])],
+    );
+
+    expect(arranged?.layers).toHaveLength(1);
+    expect(arranged?.layers[0]?.questions).toEqual([question]);
   });
 
   it('leaves moved code across cohorts to the model', () => {
