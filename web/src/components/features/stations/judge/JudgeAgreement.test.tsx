@@ -122,7 +122,9 @@ describe('JudgeAgreement', () => {
       ].length,
     ).toBe(2);
     expect(
-      screen.getByText('No trend yet. It shows at 30 runs with both scores.'),
+      screen.getByText(
+        'No trend yet. It shows at 30 runs with both scores, on more than one day.',
+      ),
     ).toBeInTheDocument();
   });
 

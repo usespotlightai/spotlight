@@ -48,7 +48,7 @@ const coverageOf = (
   };
 };
 
-export const JUDGE_SHAPES = [
+const JUDGE_SHAPES = [
   'seeded',
   'few',
   'healthy',

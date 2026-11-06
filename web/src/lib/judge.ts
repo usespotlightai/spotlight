@@ -104,7 +104,7 @@ const sentenceOf = (words: string): string =>
   `${words.charAt(0).toUpperCase()}${words.slice(1)}.`;
 
 export const trendWaitNote = (version: RubricVersion): string =>
-  `No trend yet. It shows at ${version.trendMinPairs} runs with both scores.`;
+  `No trend yet. It shows at ${version.trendMinPairs} runs with both scores, on more than one day.`;
 
 export const coverageTitle = (coverage: JudgeCoverage): string =>
   `Last ${coverage.runs} runs by scorer`;
