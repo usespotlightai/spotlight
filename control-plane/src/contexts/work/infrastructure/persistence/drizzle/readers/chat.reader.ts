@@ -212,6 +212,7 @@ export class DrizzleChatReader implements ChatReaderPort {
               ? starter
               : null,
           runId: message.runId,
+          takenUpBy: message.acknowledgedByRunId,
           attachments: attachments
             .filter((each) => each.messagePosition === message.position)
             .map((each) => ({

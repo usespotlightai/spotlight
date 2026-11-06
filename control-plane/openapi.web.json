@@ -9117,6 +9117,11 @@
             "nullable": true,
             "description": "The run that proposed it"
           },
+          "takenUpBy": {
+            "type": "string",
+            "nullable": true,
+            "description": "The run that took up this message"
+          },
           "attachments": {
             "type": "array",
             "items": {
@@ -9147,6 +9152,7 @@
           "at",
           "author",
           "runId",
+          "takenUpBy",
           "attachments",
           "traces",
           "proposal"

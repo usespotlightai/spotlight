@@ -10,7 +10,7 @@ import {
   type ApprovalStatus,
   WAITING_FOR_APPROVAL,
 } from '@/lib/approval-status';
-import type { JournalledRun, JournalStep, RunJournal } from '@/lib/inbox';
+import type { JournalStep, RunJournal } from '@/lib/inbox';
 import { teamSectionPath } from '@/lib/team';
 import { oneLineOf, stepsCounted } from '@/lib/turns';
 
@@ -219,23 +219,8 @@ export const turnSummaryOf = (
   };
 };
 
-export const runsOfTurn = (
-  runs: readonly JournalledRun[],
-  turns: readonly ChatTurn[],
-  at: number,
-): string[] => {
-  const asked = turns[at]?.message;
-  const next = turns.slice(at + 1).find((turn) => turn.message)?.message;
-  const from = asked ? Date.parse(asked.at) : Number.NEGATIVE_INFINITY;
-  const until = next ? Date.parse(next.at) : Number.POSITIVE_INFINITY;
-
-  return runs
-    .filter((run) => {
-      const created = Date.parse(run.createdAt);
-      return created >= from && created < until;
-    })
-    .map((run) => run.runId);
-};
+export const runsOfTurn = (turn: ChatTurn | undefined): string[] =>
+  turn?.message?.takenUpBy ? [turn.message.takenUpBy] : [];
 
 const PROPOSAL_STATUSES: Record<Proposal['state'], ApprovalStatus> = {
   open: 'pending',

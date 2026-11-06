@@ -1,4 +1,4 @@
-import { type ReactNode, use } from 'react';
+import type { ReactNode } from 'react';
 import { AgentWorking } from '@/components/features/agent/AgentWorking';
 import { ChatEmpty } from '@/components/features/agent/ChatEmpty';
 import { ChatPersonMessage } from '@/components/features/agent/ChatPersonMessage';
@@ -21,7 +21,6 @@ import {
   waitsOnDecision,
 } from '@/lib/chat';
 import { type RunJournal, STICKY_AT_TOP } from '@/lib/inbox';
-import { JournalDemandContext } from '@/lib/journal-demand';
 import { keptOpen } from '@/lib/turns';
 import { cn } from '@/lib/utils';
 
@@ -42,7 +41,6 @@ export function ChatThread({
 }: ChatThreadProps) {
   const moments = momentsOf(chat.messages, journals);
   const turns = turnsOf(moments);
-  const { runs } = use(JournalDemandContext);
   const sight = useJournalSight();
   const scroller = useStickToBottom<HTMLDivElement>(
     turns.filter((turn) => turn.message).length,
@@ -83,7 +81,7 @@ export function ChatThread({
               <Turn
                 // biome-ignore lint/suspicious/noArrayIndexKey: the turns come in order and their order does not change
                 key={at}
-                ref={sight(runsOfTurn(runs, turns, at))}
+                ref={sight(runsOfTurn(turn))}
                 className={cn(at > 0 && 'mt-6')}
                 summary={summary}
                 open={opened.isOpen(at)}

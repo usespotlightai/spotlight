@@ -2420,6 +2420,10 @@ export type ChatMessageResponseDto = {
    * The run that proposed it
    */
   runId: string | null;
+  /**
+   * The run that took up this message
+   */
+  takenUpBy: string | null;
   attachments: Array<AttachmentResponseDto>;
   /**
    * Traces shared with the agent

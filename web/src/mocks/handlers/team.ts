@@ -438,6 +438,11 @@ const answered = (record: ChatRecord, sentAt: string, body: string): void => {
     { kind: 'message', text: answerTo(body, record.chat.targetStation) },
   ]);
   record.journals.push(journal);
+  record.chat.messages = record.chat.messages.map((message) =>
+    message.kind === 'message' && message.takenUpBy === null
+      ? { ...message, takenUpBy: runId }
+      : message,
+  );
   record.chat.updatedAt = turnEndsAt(journal);
   record.chat.progress = null;
   record.chat.runId = null;

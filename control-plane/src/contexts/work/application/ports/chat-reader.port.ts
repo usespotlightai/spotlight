@@ -74,6 +74,7 @@ interface ChatMessageView {
   readonly at: string;
   readonly author: ChatAuthorView | null;
   readonly runId: string | null;
+  readonly takenUpBy: string | null;
   readonly attachments: readonly ChatAttachmentView[];
   readonly traces: readonly ChatTraceView[];
   readonly proposal: ChatProposalView | null;

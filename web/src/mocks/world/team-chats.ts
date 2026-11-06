@@ -39,6 +39,33 @@ export const journalRunsOf = (
         new Date(0).toISOString(),
     }));
 
+const takenUp = (record: ChatRecord): ChatRecord => {
+  const runs = journalRunsOf(record.journals);
+  const sent = record.chat.messages.filter(
+    (message) => message.kind === 'message',
+  );
+
+  return {
+    ...record,
+    chat: {
+      ...record.chat,
+      messages: record.chat.messages.map((message) => {
+        if (message.kind !== 'message') {
+          return message;
+        }
+
+        const next = sent[sent.indexOf(message) + 1];
+        const run = runs.find(
+          (each) =>
+            each.createdAt >= message.at && (!next || each.createdAt < next.at),
+        );
+
+        return { ...message, takenUpBy: run?.runId ?? null };
+      }),
+    },
+  };
+};
+
 const secondsAfter = (at: string, seconds: number): string =>
   new Date(Date.parse(at) + seconds * 1_000).toISOString();
 
@@ -110,6 +137,7 @@ export const messageBy = (
   at,
   author,
   runId: null,
+  takenUpBy: null,
   attachments: [],
   traces,
   proposal: null,
@@ -152,6 +180,7 @@ const proposed = (
   at,
   author: null,
   runId,
+  takenUpBy: null,
   attachments: [],
   traces: [],
   proposal,
@@ -594,8 +623,8 @@ const seededChats = (): Record<string, ChatRecord[]> => ({
     quarterChat(),
     pastedLogChat(),
     longChat(),
-  ],
-  [GROWTH_ID]: [onboardingChat()],
+  ].map(takenUp),
+  [GROWTH_ID]: [onboardingChat()].map(takenUp),
 });
 
 export const teamChats = perWorld(
