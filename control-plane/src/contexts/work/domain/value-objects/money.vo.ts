@@ -28,12 +28,13 @@ export class Money {
     amount: number | null | undefined,
     currency: string | null | undefined,
   ): Money | null {
-    return amount === null ||
-      amount === undefined ||
-      !currency ||
-      !CURRENCY.test(codeOf(currency))
+    return amount === null || amount === undefined || !currency
       ? null
       : Money.of(amount, currency);
+  }
+
+  static isCurrency(currency: string): boolean {
+    return CURRENCY.test(codeOf(currency));
   }
 
   plus(other: Money): Money {

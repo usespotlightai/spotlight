@@ -17,7 +17,7 @@ import { and, asc, eq, lte, sql } from 'drizzle-orm';
 
 const FAILURE_LIMIT = 1_000;
 
-const SUBJECT_GONE = 'review_outbox_';
+const SUBJECT_GONE = ['review_outbox_review_fk', 'review_outbox_comment_fk'];
 
 const subjectColumns = (kind: ReviewOutboxKind, subjectId: string) =>
   kind === 'review'
@@ -57,7 +57,11 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
         });
       });
     } catch (error) {
-      if (violates(error, FOREIGN_KEY_VIOLATION, SUBJECT_GONE)) {
+      if (
+        SUBJECT_GONE.some((constraint) =>
+          violates(error, FOREIGN_KEY_VIOLATION, constraint),
+        )
+      ) {
         return;
       }
 
