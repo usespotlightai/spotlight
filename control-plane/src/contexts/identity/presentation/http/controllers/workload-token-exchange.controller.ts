@@ -34,7 +34,7 @@ export class WorkloadTokenExchangeController {
   constructor(private readonly commandBus: CommandBus) {}
 
   @Post('exchange')
-  @RateLimited({ name: 'workload-token-exchange', max: 60, windowSeconds: 60 })
+  @RateLimited({ name: 'workload-token-exchange', max: 300, windowSeconds: 60 })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'exchangeWorkloadToken',

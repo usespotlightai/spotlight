@@ -76,6 +76,20 @@ describe('RateLimitGuard', () => {
     ).resolves.toBe(true);
   });
 
+  it('keys on the address the nearest proxy added, not on one the client chose', async () => {
+    const guard = guardWith(redis, limit);
+    const forwarded = (chosen: string) => ({
+      'x-forwarded-for': `${chosen}, 198.51.100.9`,
+    });
+
+    await guard.canActivate(contextFor(forwarded('192.0.2.1')));
+    await guard.canActivate(contextFor(forwarded('192.0.2.2')));
+
+    await expect(
+      guard.canActivate(contextFor(forwarded('192.0.2.3'))),
+    ).rejects.toMatchObject({ status: HttpStatus.TOO_MANY_REQUESTS });
+  });
+
   it('lets a route without a limit through', async () => {
     const guard = guardWith(redis, undefined);
 

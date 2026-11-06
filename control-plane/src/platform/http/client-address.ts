@@ -5,11 +5,19 @@ type AddressedRequest = {
   readonly ip?: string;
 };
 
-const first = (value: string | string[] | undefined): string | undefined =>
-  (Array.isArray(value) ? value[0] : value)?.split(',')[0]?.trim() || undefined;
+const entries = (value: string | string[] | undefined): string[] =>
+  (Array.isArray(value) ? value.join(',') : (value ?? ''))
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 
-export const clientAddress = (request: AddressedRequest): string =>
-  first(request.headers['cf-connecting-ip']) ??
-  first(request.headers['x-forwarded-for']) ??
-  request.ip ??
-  'unknown';
+export const clientAddress = (request: AddressedRequest): string => {
+  const forwarded = entries(request.headers['x-forwarded-for']);
+
+  return (
+    entries(request.headers['cf-connecting-ip'])[0] ??
+    forwarded[forwarded.length - 1] ??
+    request.ip ??
+    'unknown'
+  );
+};
