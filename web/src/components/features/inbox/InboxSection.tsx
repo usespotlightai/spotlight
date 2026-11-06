@@ -18,7 +18,7 @@ export function InboxSection({
   slug,
   label,
   entries,
-  count = entries.length,
+  count,
   open,
   onToggle,
   after,
@@ -27,7 +27,7 @@ export function InboxSection({
     <>
       <DisclosureRow
         label={label}
-        count={count}
+        count={count ?? entries.length}
         open={open}
         onToggle={onToggle}
         className="pl-2 font-medium text-xs"

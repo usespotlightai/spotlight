@@ -2,19 +2,18 @@ import { useState } from 'react';
 import { useParams } from 'react-router';
 import { Board } from '@/components/features/board/Board';
 import { BoardSkeleton } from '@/components/features/board/BoardSkeleton';
+import { CompletedTasksMore } from '@/components/features/board/CompletedTasksMore';
 import { NotFound } from '@/components/features/board/NotFound';
 import { AddTaskDialog } from '@/components/features/board/task/AddTaskDialog';
-import { TaskRowSkeleton } from '@/components/features/board/task/TaskRowSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
-import { ShowMore } from '@/components/shared/ShowMore';
 import { TrailSkeleton } from '@/components/shared/skeleton/TrailSkeleton';
 import { ViewPills } from '@/components/shared/ViewPills';
 import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useLines } from '@/hooks/api/useLines';
-import { useCompletedTasks, useTasks } from '@/hooks/api/useTasks';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
+import { useBoardTasks } from '@/hooks/useBoardTasks';
 import { useBoardView } from '@/hooks/useBoardView';
 import { BOARD_VIEWS } from '@/lib/board';
 import { failed, loading } from '@/lib/query';
@@ -26,18 +25,10 @@ export function LineBoard() {
   const { slug, teamId, lineId } = useParams();
   const { data: workspace } = useWorkspace(slug);
   const lines = useLines(teamId);
-  const tasks = useTasks(teamId);
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [view, showView] = useBoardView();
   const [adding, setAdding] = useState<string | null>(null);
-  const completed = useCompletedTasks(teamId, lineId, view === 'completed');
-  const open = tasks.data ?? [];
-  const shownTasks = [
-    ...open,
-    ...(completed.data ?? []).filter(
-      (task) => !open.some((each) => each.id === task.id),
-    ),
-  ];
+  const { tasks, completed, shown } = useBoardTasks(teamId, lineId, view);
 
   const line = lines.data?.find((candidate) => candidate.id === lineId);
   const team = workspace?.teams.find((candidate) => candidate.id === teamId);
@@ -111,23 +102,13 @@ export function LineBoard() {
           slug={slug}
           teamId={teamId}
           line={line}
-          tasks={shownTasks}
+          tasks={shown}
           view={view}
           selected={selected}
           onSelectedChange={setSelected}
           onAddTask={setAdding}
           after={
-            view === 'completed' && (
-              <ShowMore
-                list={completed}
-                what="The completed tasks"
-                skeleton={
-                  <ol role="status" aria-label="Loading the completed tasks">
-                    <TaskRowSkeleton />
-                  </ol>
-                }
-              />
-            )
+            view === 'completed' && <CompletedTasksMore list={completed} />
           }
         />
       )}

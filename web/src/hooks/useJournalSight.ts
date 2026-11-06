@@ -10,7 +10,9 @@ export function useJournalSight(): (
   const watched = useRef(new WeakMap<Element, readonly string[]>());
   const sights = useRef(new Map<string, RefCallback<HTMLElement>>());
 
-  wantNow.current = want;
+  useEffect(() => {
+    wantNow.current = want;
+  });
 
   useEffect(
     () => () => {
@@ -42,18 +44,21 @@ export function useJournalSight(): (
         return;
       }
 
-      observer.current ??= new IntersectionObserver((entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            wantNow.current(watched.current.get(entry.target) ?? []);
-            observer.current?.unobserve(entry.target);
+      const observing =
+        observer.current ??
+        new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              wantNow.current(watched.current.get(entry.target) ?? []);
+              observing.unobserve(entry.target);
+            }
           }
-        }
-      });
+        });
+      observer.current = observing;
       watched.current.set(element, runIds);
-      observer.current.observe(element);
+      observing.observe(element);
 
-      return () => observer.current?.unobserve(element);
+      return () => observing.unobserve(element);
     };
 
     sights.current.set(key, sight);
