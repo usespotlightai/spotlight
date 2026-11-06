@@ -308,9 +308,22 @@ export const resolvable = (
   entry: InboxEntry,
 ): entry is InboxItem | InboxNotice => entry.kind !== 'run' && !entry.resolved;
 
-export const running = (entry: InboxEntry): boolean =>
+const running = (entry: InboxEntry): boolean =>
   entry.kind === 'run' ||
   (entry.kind === 'task' && !entry.resolved && entry.progress !== null);
+
+export type InboxSectionId = 'open' | 'running' | 'resolved';
+
+export const sectionOf = (entry: InboxEntry): InboxSectionId => {
+  if (entry.unread) {
+    return 'open';
+  }
+  if (entry.resolved) {
+    return 'resolved';
+  }
+
+  return running(entry) ? 'running' : 'open';
+};
 
 export const reopenable = (
   entry: InboxEntry,

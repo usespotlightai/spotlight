@@ -183,7 +183,9 @@ const conversationHandlers = [
     const resolved =
       new URL(request.url).searchParams.get('state') === 'resolved';
     const shown = newestFirst(
-      inboxStore().entries.filter((entry) => entry.resolved === resolved),
+      inboxStore().entries.filter((entry) =>
+        resolved ? entry.resolved : !entry.resolved || entry.unread,
+      ),
     ).map(rowOf);
 
     return json(

@@ -18,6 +18,7 @@ import {
   noticePath,
   noticePreviewOf,
   previewOf,
+  sectionOf,
   shownAt,
   spentIn,
   spentOn,
@@ -425,5 +426,29 @@ describe('formatShortDuration', () => {
     expect(formatShortDuration(4_320_000)).toBe('1h 12m');
     expect(formatShortDuration(7_200_000)).toBe('2h');
     expect(formatShortDuration(167_040_000)).toBe('46h 24m');
+  });
+});
+
+describe('sectionOf', () => {
+  const task = (input: Partial<InboxItem>) =>
+    ({
+      kind: 'task',
+      resolved: false,
+      progress: null,
+      unread: false,
+      ...input,
+    }) as InboxEntry;
+
+  it('puts an unseen entry in Open, even while a run works on it or after it is resolved', () => {
+    expect(sectionOf(task({ unread: true, progress: 'in-progress' }))).toBe(
+      'open',
+    );
+    expect(sectionOf(task({ unread: true, resolved: true }))).toBe('open');
+  });
+
+  it('puts a seen entry where its state says', () => {
+    expect(sectionOf(task({}))).toBe('open');
+    expect(sectionOf(task({ progress: 'queued' }))).toBe('running');
+    expect(sectionOf(task({ resolved: true }))).toBe('resolved');
   });
 });

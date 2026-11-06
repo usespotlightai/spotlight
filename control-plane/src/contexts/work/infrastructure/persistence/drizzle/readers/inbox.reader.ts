@@ -129,6 +129,11 @@ const closesAConversation = sql`(select earlier.kind from ${taskNote} earlier
       and later.kind in ('asked', 'reopened')
     order by later.position limit 1), 'asked') <> 'reopened'`;
 
+const hasAnUnseenAsk = sql`exists (select 1 from ${taskNote} unseen
+  where unseen.task_id = ${task.id}
+    and unseen.kind = 'asked'
+    and unseen.read_at is null)`;
+
 const floorOf = <T>(
   rows: readonly T[],
   fetched: number,
@@ -161,6 +166,7 @@ const tasksWhere = (
       currentStationColor: station.color,
       currentStationPosition: station.position,
       createdAt: task.createdAt,
+      finishedAt: task.finishedAt,
       working: task.currentRunId,
       workingState: run.state,
       workingStopRequestedAt: run.stopRequestedAt,
@@ -668,43 +674,64 @@ export class DrizzleInboxReader implements InboxReaderPort {
       this.db,
       workspaceId,
       userId,
-      isNull(task.finishedAt),
+      sql`(${isNull(task.finishedAt)} or ${hasAnUnseenAsk})`,
     );
     const taskIds = rows.map((row) => row.taskId);
     const [marks, newest] = await Promise.all([
       marksFor(this.db, taskIds),
       newestNotesFor(this.db, this.people, taskIds),
     ]);
-    const conversations = new Map(
+    const shown = new Map(
       rows.map(
         (row) =>
           [
             row.taskId,
-            conversationsAmong(marks.get(row.taskId) ?? []),
+            conversationsAmong(marks.get(row.taskId) ?? []).filter(
+              (conversation) =>
+                conversation.to === null
+                  ? row.finishedAt === null
+                  : anyUnread(conversation.notes),
+            ),
           ] as const,
       ),
     );
-    const open = [...conversations.values()].flatMap((each) =>
-      each.filter((conversation) => conversation.to === null),
-    );
-    const context = await this.contextFor(rows, open);
+    const conversations = [...shown.values()].flat();
+    const [context, closingNotes] = await Promise.all([
+      this.contextFor(rows, conversations),
+      notesAt(
+        this.db,
+        this.people,
+        rows.flatMap((row) =>
+          (shown.get(row.taskId) ?? []).flatMap((conversation) =>
+            conversation.to
+              ? [{ taskId: row.taskId, position: conversation.to.position }]
+              : [],
+          ),
+        ),
+      ),
+    ]);
 
     return rows.flatMap((row) => {
-      const stillOpen = (conversations.get(row.taskId) ?? []).filter(
-        (conversation) => conversation.to === null,
-      );
+      const listed = shown.get(row.taskId) ?? [];
       const working =
-        row.working && stillOpen.length === 0
+        row.working && !listed.some((conversation) => conversation.to === null)
           ? runItem(row, row.working, context)
           : null;
 
       return [
         ...(working ? [working] : []),
-        ...stillOpen.map((conversation) =>
+        ...listed.map((conversation) =>
           conversationItem(
             row,
             conversation,
-            newest.get(row.taskId) ?? null,
+            conversation.to
+              ? (closingNotes.get(
+                  noteKey({
+                    taskId: row.taskId,
+                    position: conversation.to.position,
+                  }),
+                ) ?? null)
+              : (newest.get(row.taskId) ?? null),
             context,
           ),
         ),
