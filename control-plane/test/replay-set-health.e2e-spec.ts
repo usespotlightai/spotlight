@@ -129,7 +129,6 @@ let judgeFlipsLeft = 4;
 
 const judge: JudgePort = {
   available: true,
-  model: 'stub/judge',
   judge: async (request: JudgeRequest) => {
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const run = MARKED.exec(scoredStep?.text ?? '')?.[1] ?? '';
@@ -143,6 +142,7 @@ const judge: JudgePort = {
     judgedRuns.set(run, times);
 
     return {
+      model: 'stub/judge',
       guidance: null,
       usage: {
         inputTokens: 2_000,

@@ -86,7 +86,7 @@ export class WorkJudgings implements PendingJobsPort {
     }
 
     try {
-      const { verdict } = await this.judge.judge({
+      const { verdict, model } = await this.judge.judge({
         rubric: judging.rubric.text,
         claims: judging.rubric.criteria.claims,
         scale: judging.rubric.scale.kind,
@@ -103,7 +103,7 @@ export class WorkJudgings implements PendingJobsPort {
       return judging.recordVerdict({
         verdict,
         evidence,
-        model: this.judge.model,
+        model,
         now: this.clock.now(),
       });
     } catch (error) {

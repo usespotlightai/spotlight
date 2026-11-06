@@ -164,10 +164,6 @@ export class ChatCompletionsJudge implements JudgePort {
     private readonly fetch: Fetch = globalThis.fetch,
   ) {}
 
-  get model(): string {
-    return this.endpoint?.model ?? '';
-  }
-
   get available(): boolean {
     return this.endpoint !== null;
   }
@@ -201,6 +197,7 @@ export class ChatCompletionsJudge implements JudgePort {
           verdict: { claims: answer.claims },
           guidance: guidanceOf(answer),
           usage,
+          model: this.endpoint.model,
         };
       }
 
@@ -215,6 +212,7 @@ export class ChatCompletionsJudge implements JudgePort {
           verdict: { value: answer.passes, reasons: answer.reasons },
           guidance: guidanceOf(answer),
           usage,
+          model: this.endpoint.model,
         };
       }
 
@@ -228,6 +226,7 @@ export class ChatCompletionsJudge implements JudgePort {
         verdict: { value: answer.score, reasons: answer.reasons },
         guidance: guidanceOf(answer),
         usage,
+        model: this.endpoint.model,
       };
     } catch (error) {
       if (error instanceof ModelRequestError) {

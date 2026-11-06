@@ -98,10 +98,6 @@ export class ChatCompletionsSideBySideJudge implements SideBySideJudgePort {
     private readonly fetch: Fetch = globalThis.fetch,
   ) {}
 
-  get model(): string {
-    return this.endpoint?.model ?? '';
-  }
-
   get available(): boolean {
     return this.endpoint !== null;
   }
@@ -130,6 +126,7 @@ export class ChatCompletionsSideBySideJudge implements SideBySideJudgePort {
       return {
         verdict: { preferred: answer.preferred, reasons: answer.reasons },
         usage,
+        model: this.endpoint.model,
       };
     } catch (error) {
       if (error instanceof ModelRequestError) {

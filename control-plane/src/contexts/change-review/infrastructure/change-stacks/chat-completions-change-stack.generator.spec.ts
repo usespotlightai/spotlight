@@ -14,6 +14,7 @@ const ENDPOINT = {
   baseUrl: 'https://models.example.com/v1',
   apiKey: 'test-key',
   model: 'some/model',
+  supportsReasoningEffort: true,
 };
 
 const { diff: DIFF } = new GitDiffReader().read(

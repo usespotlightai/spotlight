@@ -7,6 +7,7 @@ const ENDPOINT = {
   baseUrl: 'https://models.example.com/v1',
   apiKey: 'test-key',
   model: 'some/model',
+  supportsReasoningEffort: false,
 };
 
 const REQUEST: JudgeRequest = {
@@ -93,6 +94,7 @@ describe('judging a run through a chat completions endpoint', () => {
       verdict: { value: true, reasons: REASONS },
       guidance: null,
       usage: null,
+      model: 'some/model',
     });
     expect(body.model).toBe('some/model');
     expect(body.response_format.json_schema.name).toBe('yes_no_verdict');

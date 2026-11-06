@@ -7,13 +7,13 @@ import {
   DECISION_KINDS,
   type ProposedDecision,
 } from '@change-review/domain/entities/decision.entity';
+import { latestWithin } from '@change-review/infrastructure/decisions/latest-within';
 import {
   type Fetch,
   JsonSchema,
   type ModelEndpoint,
   requestJson,
 } from '@platform/llm/chat-completions';
-import { latestWithin } from '@platform/llm/latest-within';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 8_000;

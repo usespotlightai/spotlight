@@ -8,6 +8,7 @@ const ENDPOINT = {
   baseUrl: 'https://models.example.com/v1',
   apiKey: 'test-key',
   model: 'some/model',
+  supportsReasoningEffort: false,
 };
 
 const MEMORIES = [

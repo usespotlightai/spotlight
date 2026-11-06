@@ -14,6 +14,7 @@ export interface ModelEndpoint {
   readonly baseUrl: string;
   readonly apiKey: string | undefined;
   readonly model: string;
+  readonly supportsReasoningEffort: boolean;
 }
 
 export class ModelRequestError extends Error {
@@ -121,7 +122,9 @@ export const requestJson = async <T>(request: {
       body: JSON.stringify({
         model: endpoint.model,
         max_completion_tokens: request.maxTokens,
-        ...(request.reasoning ? { reasoning_effort: request.reasoning } : {}),
+        ...(request.reasoning && endpoint.supportsReasoningEffort
+          ? { reasoning_effort: request.reasoning }
+          : {}),
         messages: [
           { role: 'system', content: request.system },
           { role: 'user', content: request.prompt },

@@ -138,7 +138,6 @@ const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
   available: true,
-  model: 'stub/judge',
   judge: async (request) => {
     requests.push(request);
     const fast = request.hunks.some((each) =>
@@ -147,6 +146,7 @@ const judge: JudgePort = {
     const cited = request.hunks.slice(0, 1).map((each) => each.id);
 
     return {
+      model: 'stub/judge',
       guidance: null,
       usage: {
         inputTokens: 2_000,
@@ -168,7 +168,6 @@ const pairRequests: SideBySideJudgeRequest[] = [];
 
 const pairJudge: SideBySideJudgePort = {
   available: true,
-  model: 'stub/pair-judge',
   judgePair: async (request) => {
     pairRequests.push(request);
     const fastIsA = request.a.hunks.some((each) =>
@@ -183,6 +182,7 @@ const pairJudge: SideBySideJudgePort = {
           : ('B' as const);
 
     return {
+      model: 'stub/pair-judge',
       usage: {
         inputTokens: 3_000,
         outputTokens: 60,

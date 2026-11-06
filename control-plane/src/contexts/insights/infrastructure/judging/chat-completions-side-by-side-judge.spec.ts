@@ -7,6 +7,7 @@ const ENDPOINT = {
   baseUrl: 'https://models.example.com/v1',
   apiKey: 'test-key',
   model: 'some/model',
+  supportsReasoningEffort: false,
 };
 
 const hunk = (id: string, line: string) => ({
@@ -65,6 +66,7 @@ describe('judging two changes side by side through a chat completions endpoint',
     expect(answer).toEqual({
       verdict: { preferred: 'A', reasons },
       usage: null,
+      model: 'some/model',
     });
     expect(body.response_format.json_schema.name).toBe('pair_verdict');
     expect(system).toContain(

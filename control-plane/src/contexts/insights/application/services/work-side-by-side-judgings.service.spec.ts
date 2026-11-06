@@ -77,10 +77,10 @@ const working = async (
     },
     {
       available: true,
-      model: 'some/model',
       judgePair: async (request) => {
         requests.push(request);
         return {
+          model: 'some/model',
           verdict: answer(request),
           usage: {
             inputTokens: 900,
