@@ -51,7 +51,8 @@ export const olderThan = (
   time: SQLWrapper,
   id: SQLWrapper,
   cursor: Cursor,
-): SQL => sql`(${time}, ${id}) < (${cursor.key}::timestamp at time zone 'UTC', ${cursor.id})`;
+): SQL =>
+  sql`(${time}, ${id}) < (${cursor.key}::timestamp at time zone 'UTC', ${cursor.id})`;
 
 export const notNewerThan = (
   time: SQLWrapper,

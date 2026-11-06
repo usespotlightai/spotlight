@@ -52,6 +52,7 @@ const aLine = async () => {
     {
       id: work,
       key: 'implementation',
+      workspaceId,
       lineId,
       name: 'Implementation',
       position: 0,
@@ -59,6 +60,7 @@ const aLine = async () => {
     {
       id: completed,
       key: 'completed',
+      workspaceId,
       lineId,
       name: 'Completed',
       position: 1,
@@ -391,6 +393,7 @@ describe('the runs of a team', () => {
         state: 'completed' as const,
         spec: {},
         createdAt: at(minute),
+        endedAt: at(minute),
       })),
     );
 

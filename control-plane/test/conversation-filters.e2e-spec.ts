@@ -65,6 +65,7 @@ beforeAll(async () => {
   await db.insert(schema.station).values({
     id: stationId,
     key: 'implementation',
+    workspaceId,
     lineId,
     name: 'Implementation',
     position: 0,
@@ -99,9 +100,10 @@ beforeAll(async () => {
   await db.execute(sql`insert into task_note
       (task_id, position, station, station_id, body, at, kind, read_at)
     select each.task_id, each.position, 'Implementation', ${stationId},
-      each.kind, ${AT.toISOString()}::timestamp, each.kind, each.read_at
+      each.kind, ${AT.toISOString()}::timestamptz, each.kind::task_note_kind,
+      each.read_at
     from jsonb_to_recordset(${JSON.stringify(notes)}::jsonb)
-      as each(task_id text, position integer, kind text, read_at timestamp)`);
+      as each(task_id text, position integer, kind text, read_at timestamptz)`);
 }, 120_000);
 
 afterAll(async () => {
