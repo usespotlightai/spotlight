@@ -22,7 +22,7 @@ import {
 } from '@shared-kernel/application/ports/logger.port';
 import { SESSION_READER } from '@shared-kernel/application/ports/session.port';
 
-const JOURNAL_LIMIT = '64mb';
+const REQUEST_LIMIT = '4mb';
 
 // The library keeps the raw body only for JSON; webhooks verify signed forms too.
 const formKeepingRawBody = {
@@ -72,7 +72,7 @@ class AuthCoreModule {}
         auth,
         bodyParser: {
           rawBody: true,
-          json: { limit: JOURNAL_LIMIT },
+          json: { limit: REQUEST_LIMIT },
           urlencoded: formKeepingRawBody,
         },
         middleware: (req, res, next) => logging.httpLogger(req, res, next),

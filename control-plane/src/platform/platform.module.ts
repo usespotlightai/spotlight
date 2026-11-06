@@ -1,5 +1,5 @@
 import { Global, Module } from '@nestjs/common';
-import { APP_FILTER, HttpAdapterHost } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, HttpAdapterHost } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
 import { Instance } from '@platform/cluster/instance';
 import { CollabServer } from '@platform/collab/collab-server';
@@ -26,6 +26,7 @@ import { ErrorReportingController } from '@platform/http/controllers/error-repor
 import { HealthController } from '@platform/http/controllers/health.controller';
 import { ApplicationErrorFilter } from '@platform/http/filters/application-error.filter';
 import { InternalErrorFilter } from '@platform/http/filters/internal-error.filter';
+import { RateLimitGuard } from '@platform/http/guards/rate-limit.guard';
 import { DrizzleIdempotentCreates } from '@platform/idempotency/drizzle-idempotent-creates';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
@@ -100,6 +101,7 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
         logger: LoggerPort,
       ) => new Leadership(redis.client, instance, logger),
     },
+    { provide: APP_GUARD, useClass: RateLimitGuard },
     { provide: APP_FILTER, useClass: SentryGlobalFilter },
     { provide: APP_FILTER, useClass: InternalErrorFilter },
     { provide: APP_FILTER, useClass: ApplicationErrorFilter },
