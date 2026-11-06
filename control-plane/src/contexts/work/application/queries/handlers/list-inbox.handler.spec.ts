@@ -1,5 +1,5 @@
-import { FIRST_PAGE } from '@shared-kernel/application/dto/page.dto';
 import type { InboxItemDto } from '@work/application/dto/inbox.dto';
+import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import type {
   InboxEntrySummary,
   InboxItemSummary,
@@ -58,6 +58,8 @@ const item = (failure: InboxItemSummary['failure']): InboxItemSummary => ({
   createdAt: asked,
   askedAt: asked,
   resolved: false,
+  section: 'open',
+  reopenable: false,
   progress: null,
   runId: null,
   unread: true,
@@ -140,6 +142,8 @@ describe('ListInboxHandler', () => {
               askedAt: asked,
               unread: true,
               resolved: false,
+              section: 'open',
+              reopenable: false,
             },
           ]),
         )
@@ -161,12 +165,14 @@ describe('ListInboxHandler', () => {
       askedAt: '2026-09-26T09:15:00.000Z',
       unread: true,
       resolved: false,
+      section: 'open',
+      reopenable: false,
     });
   });
 
   it('reads the resolved entries a page at a time', async () => {
     const inbox = reader([], [{ ...item(null), resolved: true }]);
-    const page = { before: { key: 'k', id: 'i' }, limit: 20 };
+    const page = { before: 'cursor', limit: 20 };
 
     const found = await new ListInboxHandler(inbox).execute(
       new ListInboxQuery('acme', 'user_1', 'resolved', page),

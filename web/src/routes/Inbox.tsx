@@ -18,7 +18,7 @@ import { useCollapsed } from '@/hooks/useCollapsed';
 import { OPEN_DROP, RESOLVED_DROP, useInboxDrag } from '@/hooks/useInboxDrag';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
 import { useTimedFlag } from '@/hooks/useTimedFlag';
-import { entryKey, inboxPath, sectionOf } from '@/lib/inbox';
+import { entryKey, inboxPath } from '@/lib/inbox';
 import { loading } from '@/lib/query';
 import { TrailContext } from '@/lib/trail';
 import { cn } from '@/lib/utils';
@@ -68,9 +68,9 @@ export function Inbox() {
     return null;
   }
 
-  const waiting = entries.filter((each) => sectionOf(each) === OPEN);
-  const working = entries.filter((each) => sectionOf(each) === RUNNING);
-  const done = entries.filter((each) => sectionOf(each) === RESOLVED);
+  const waiting = entries.filter((each) => each.section === OPEN);
+  const working = entries.filter((each) => each.section === RUNNING);
+  const done = entries.filter((each) => each.section === RESOLVED);
 
   return (
     <TrailContext value={[{ label: 'Inbox', to: inboxPath(slug) }]}>

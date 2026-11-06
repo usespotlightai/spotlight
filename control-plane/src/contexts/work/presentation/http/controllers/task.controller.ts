@@ -27,12 +27,6 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import { ApiPageQuery, pageRequestOf } from '@platform/http/paging';
-import {
-  isTimeKey,
-  mapPage,
-  type Page,
-} from '@shared-kernel/application/dto/page.dto';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
@@ -40,6 +34,7 @@ import { DeleteTaskCommand } from '@work/application/commands/delete-task.comman
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
+import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type { RunConfigDto } from '@work/application/dto/run-config.dto';
 import type { RunNetworkDto } from '@work/application/dto/run-network.dto';
 import type { RunNotesDto } from '@work/application/dto/run-notes.dto';
@@ -49,14 +44,12 @@ import type {
   TeamRunDto,
 } from '@work/application/dto/task-run.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
-import {
-  TASK_LIST_STATES,
-  type TaskListState,
-} from '@work/application/ports/task-reader.port';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
 import {
   ListTasksQuery,
   ReadTaskQuery,
+  TASK_LIST_STATES,
+  type TaskListState,
 } from '@work/application/queries/list-tasks.query';
 import {
   ListTeamRunsQuery,
@@ -99,6 +92,7 @@ import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { TaskHttpMapper } from '@work/presentation/http/mappers/task.http.mapper';
 import { TaskRunHttpMapper } from '@work/presentation/http/mappers/task-run.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
+import { ApiPageQuery, pageRequestOf } from '@work/presentation/http/paging';
 
 @ApiTags('tasks')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -205,13 +199,7 @@ export class TaskController {
     const runs = await this.queryBus.execute<
       ListTeamRunsQuery,
       Page<TeamRunDto>
-    >(
-      new ListTeamRunsQuery(
-        teamId,
-        user.id,
-        pageRequestOf(before, limit, isTimeKey),
-      ),
-    );
+    >(new ListTeamRunsQuery(teamId, user.id, pageRequestOf(before, limit)));
 
     return mapPage(runs, TaskRunHttpMapper.teamToResponse);
   }

@@ -113,6 +113,10 @@ export class InboxRequest extends EventRecorder {
     );
   }
 
+  static reopenable(resolvedAt: Date | null): boolean {
+    return resolvedAt !== null;
+  }
+
   static requiredAccess(form: InboxRequestForm): InboxRequestAccess {
     switch (form) {
       case 'memories':
@@ -160,7 +164,7 @@ export class InboxRequest extends EventRecorder {
   }
 
   reopen(now: Date): InboxRequest {
-    if (this.open) {
+    if (!InboxRequest.reopenable(this.resolvedAt)) {
       return this;
     }
 

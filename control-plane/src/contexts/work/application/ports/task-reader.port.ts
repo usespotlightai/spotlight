@@ -1,11 +1,8 @@
 import type { PersonSummary } from '@identity/application/ports/person-reader.port';
-import type {
-  Page,
-  PageRequest,
-} from '@shared-kernel/application/dto/page.dto';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { Progress } from '@work/domain/value-objects/run-state';
 
@@ -34,10 +31,6 @@ export interface TaskSummary {
   readonly createdBy: PersonSummary | null;
   readonly assignee: PersonSummary | null;
 }
-
-export const TASK_LIST_STATES = ['open', 'completed'] as const;
-
-export type TaskListState = (typeof TASK_LIST_STATES)[number];
 
 export type TaskListing =
   | { readonly state: 'open' }

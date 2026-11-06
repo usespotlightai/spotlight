@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { FIRST_PAGE } from '@shared-kernel/application/dto/page.dto';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
 import { eq } from 'drizzle-orm';

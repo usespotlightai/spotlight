@@ -24,12 +24,53 @@ import { PLATFORM_ID } from '@/mocks/world/platform';
 import { notesOfRun, type StoryNote } from '@/mocks/world/run-stories';
 import { onEarlierRubric } from '@/mocks/world/station-judge';
 
-export type InboxConversation = Omit<InboxItemViewResponseDto, 'lastNote'>;
+type Shown = 'section' | 'reopenable';
 
-export type InboxEntry =
-  | InboxConversation
-  | InboxNoticeResponseDto
-  | InboxRunResponseDto;
+export type InboxConversation = Omit<
+  InboxItemViewResponseDto,
+  'lastNote' | Shown
+>;
+
+type StoredNotice = Omit<InboxNoticeResponseDto, Shown>;
+
+type StoredRun = Omit<InboxRunResponseDto, Shown>;
+
+export type InboxEntry = InboxConversation | StoredNotice | StoredRun;
+
+const sectionOf = (entry: InboxEntry): InboxNoticeResponseDto['section'] => {
+  if (entry.unread) {
+    return 'open';
+  }
+  if (entry.resolved) {
+    return 'resolved';
+  }
+
+  return entry.kind === 'run' ||
+    (entry.kind === 'task' && entry.progress !== null)
+    ? 'running'
+    : 'open';
+};
+
+const reopenableOf = (entry: InboxEntry): boolean => {
+  if (entry.kind === 'run' || !entry.resolved) {
+    return false;
+  }
+  if (entry.kind === 'notice' || entry.inboxRequest) {
+    return true;
+  }
+
+  const closing = entry.notes[entry.notes.length - 1];
+
+  return closing?.form === 'resolved' && closing.voice === 'person';
+};
+
+export const shown = <T extends InboxEntry>(
+  entry: T,
+): T & Pick<InboxNoticeResponseDto, Shown> => ({
+  ...entry,
+  section: sectionOf(entry),
+  reopenable: reopenableOf(entry),
+});
 
 export const MEMORIES_REQUEST_ID = 'request_retries_memories';
 export const ALERT_REQUEST_ID = 'request_sent_back_alert';
@@ -158,7 +199,7 @@ const inboxRequestOf = ({
 
 const STATION_LINK = 'lines/line_delivery/stations/station_implementation';
 
-const NOTICES: InboxNoticeResponseDto[] = [
+const NOTICES: StoredNotice[] = [
   {
     kind: 'notice',
     id: STALLED_NOTICE_ID,
@@ -451,7 +492,7 @@ const runningOn = (
   taskId: string,
   teamId: string,
   runId: string,
-): InboxRunResponseDto => {
+): StoredRun => {
   const task = seededTask(taskId);
   const at = placeOf(task.stationId);
   const run = runsOfTask(taskId).find((each) => each.id === runId);
@@ -473,7 +514,7 @@ const runningOn = (
   };
 };
 
-const RUNNING = (): InboxRunResponseDto[] => [
+const RUNNING = (): StoredRun[] => [
   runningOn('task_retries', PLATFORM_ID, 'run_retries_3'),
 ];
 

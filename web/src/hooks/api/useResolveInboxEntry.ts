@@ -44,6 +44,8 @@ export function useResolveInboxEntry() {
       rollback: patchInboxEntry(queryClient, slug, entry, {
         resolved: true,
         unread: false,
+        section: 'resolved',
+        reopenable: true,
       }),
     }),
 

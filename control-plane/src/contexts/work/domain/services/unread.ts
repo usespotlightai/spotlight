@@ -5,8 +5,10 @@ export interface ReadableNote {
   readonly readAt: Date | null;
 }
 
+export const READABLE_KIND = 'asked' satisfies TaskNoteKind;
+
 export const unread = (note: ReadableNote): boolean =>
-  note.kind === 'asked' && note.readAt === null;
+  note.kind === READABLE_KIND && note.readAt === null;
 
 export const anyUnread = (notes: readonly ReadableNote[]): boolean =>
   notes.some(unread);

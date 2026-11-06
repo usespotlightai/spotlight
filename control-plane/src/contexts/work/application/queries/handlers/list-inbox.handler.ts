@@ -1,4 +1,3 @@
-import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -9,6 +8,7 @@ import type {
   InboxNoticeDto,
   NoteDto,
 } from '@work/application/dto/inbox.dto';
+import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type {
   InboxEntrySummary,
   InboxItemSummary,

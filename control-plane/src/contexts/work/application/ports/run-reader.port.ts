@@ -1,11 +1,8 @@
-import type {
-  Page,
-  PageRequest,
-} from '@shared-kernel/application/dto/page.dto';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { InboxNote } from '@work/application/ports/inbox-reader.port';
 import type { ReviewState } from '@work/domain/services/conversations';

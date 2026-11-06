@@ -39,6 +39,7 @@ import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewab
 import {
   type Conversation,
   notesIn,
+  reopenable,
   worksOn,
 } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
@@ -768,9 +769,13 @@ export class Task extends EventRecorder {
     const closing = last?.to != null ? this.notes[last.to] : undefined;
 
     if (
-      last?.from !== from.value ||
-      closing?.form !== 'resolved' ||
-      !closing.voice.isPerson
+      !reopenable(
+        from.value,
+        last,
+        closing
+          ? { form: closing.form, byAPerson: closing.voice.isPerson }
+          : null,
+      )
     ) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} has no conversation resolved by a person at that note.`,

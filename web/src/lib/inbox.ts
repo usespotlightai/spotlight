@@ -308,37 +308,9 @@ export const resolvable = (
   entry: InboxEntry,
 ): entry is InboxItem | InboxNotice => entry.kind !== 'run' && !entry.resolved;
 
-const running = (entry: InboxEntry): boolean =>
-  entry.kind === 'run' ||
-  (entry.kind === 'task' && !entry.resolved && entry.progress !== null);
-
-export type InboxSectionId = 'open' | 'running' | 'resolved';
-
-export const sectionOf = (entry: InboxEntry): InboxSectionId => {
-  if (entry.unread) {
-    return 'open';
-  }
-  if (entry.resolved) {
-    return 'resolved';
-  }
-
-  return running(entry) ? 'running' : 'open';
-};
-
 export const reopenable = (
   entry: InboxEntry,
-): entry is InboxItem | InboxNotice => {
-  if (entry.kind === 'run' || !entry.resolved) {
-    return false;
-  }
-  if (entry.kind === 'notice' || entry.inboxRequest) {
-    return true;
-  }
-
-  const closing = entry.lastNote;
-
-  return closing?.form === 'resolved' && closing.voice === 'person';
-};
+): entry is InboxItem | InboxNotice => entry.reopenable;
 
 export const entryKey = (entry: InboxEntry): string =>
   `${entry.kind}:${entry.id}`;

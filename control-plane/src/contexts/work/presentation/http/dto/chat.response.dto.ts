@@ -1,5 +1,4 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { pageResponseOf } from '@platform/http/paging';
 import {
   CHAT_MESSAGE_KIND_NAMES,
   PROPOSAL_STATE_NAMES,
@@ -7,6 +6,7 @@ import {
 import { PROGRESS_NAMES } from '@work/application/dto/task.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { InboxAuthorResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
+import { pageResponseOf } from '@work/presentation/http/paging';
 
 export class ChatSetupResponseDto {
   @ApiProperty({ example: 'acme/infra' })

@@ -13,11 +13,11 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { after } from '@platform/persistence/drizzle/keyset';
-import { type Page, pageOf } from '@shared-kernel/application/dto/page.dto';
+import { after, pageOf } from '@platform/persistence/drizzle/keyset';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { Page } from '@work/application/dto/page.dto';
 import type {
   TaskListing,
   TaskNoteSummary,
@@ -25,6 +25,7 @@ import type {
   TaskSummary,
 } from '@work/application/ports/task-reader.port';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
+import { cursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -75,13 +76,14 @@ export class DrizzleTaskReader implements TaskReaderPort {
     }
 
     const { page } = listing;
+    const before = cursorOf(page.before);
     const rows = await this.summariesIn(
       teamId,
       and(
         eq(station.kind, 'completed'),
         isNull(setupNote.taskId),
         listing.lineId ? eq(line.id, listing.lineId) : undefined,
-        page.before ? after(task.rank, task.id, page.before) : undefined,
+        before ? after(task.rank, task.id, before) : undefined,
       ),
       page.limit + 1,
     );

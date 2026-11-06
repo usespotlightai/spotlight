@@ -5,15 +5,18 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { olderThan, sortableTime } from '@platform/persistence/drizzle/keyset';
+import {
+  olderThan,
+  pageOf,
+  sortableTime,
+} from '@platform/persistence/drizzle/keyset';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import {
   mapPage,
   type Page,
   type PageRequest,
-  pageOf,
-} from '@shared-kernel/application/dto/page.dto';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+} from '@work/application/dto/page.dto';
 import type {
   ChatReaderPort,
   ChatSummary,
@@ -23,6 +26,7 @@ import type {
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { Progress } from '@work/domain/value-objects/run-state';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
+import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
   chat,
@@ -101,6 +105,7 @@ export class DrizzleChatReader implements ChatReaderPort {
     userId: UserId,
     page: PageRequest,
   ): Promise<Page<ChatSummary>> {
+    const before = timeCursorOf(page.before);
     const rows = await this.db
       .select({ chat, cursorAt: sortableTime(chat.updatedAt) })
       .from(chat)
@@ -108,9 +113,7 @@ export class DrizzleChatReader implements ChatReaderPort {
         and(
           eq(chat.teamId, teamId.value),
           eq(chat.startedById, userId.value),
-          page.before
-            ? olderThan(chat.updatedAt, chat.id, page.before)
-            : undefined,
+          before ? olderThan(chat.updatedAt, chat.id, before) : undefined,
         ),
       )
       .orderBy(desc(chat.updatedAt), desc(chat.id))

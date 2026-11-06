@@ -1,10 +1,10 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
-import type { Page } from '@shared-kernel/application/dto/page.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { ChatSummaryDto } from '@work/application/dto/chat.dto';
+import type { Page } from '@work/application/dto/page.dto';
 import type { ChatReaderPort } from '@work/application/ports/chat-reader.port';
 import type { ListChatsQuery } from '@work/application/queries/chat.queries';
 

@@ -58,6 +58,10 @@ export class Notice {
     });
   }
 
+  static reopenable(resolvedAt: Date | null): boolean {
+    return resolvedAt !== null;
+  }
+
   static rehydrate(state: NoticeState): Notice {
     if (state.resolvedAt && state.resolvedAt < state.createdAt) {
       throw new InconsistentStateError(
@@ -128,7 +132,7 @@ export class Notice {
   }
 
   reopen(): Notice {
-    return this.state.resolvedAt
+    return Notice.reopenable(this.state.resolvedAt)
       ? new Notice({ ...this.state, resolvedAt: null })
       : this;
   }

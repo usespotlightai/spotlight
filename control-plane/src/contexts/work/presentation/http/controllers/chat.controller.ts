@@ -25,12 +25,6 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import { ApiPageQuery, pageRequestOf } from '@platform/http/paging';
-import {
-  isTimeKey,
-  mapPage,
-  type Page,
-} from '@shared-kernel/application/dto/page.dto';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import {
   AcceptProposalCommand,
@@ -40,6 +34,7 @@ import {
   StopChatCommand,
 } from '@work/application/commands/chat.commands';
 import type { ChatDto, ChatSummaryDto } from '@work/application/dto/chat.dto';
+import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type {
   JournalledRunDto,
   RunJournalDto,
@@ -68,6 +63,7 @@ import { choiceInput } from '@work/presentation/http/mappers/choice-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
 import { setupInput } from '@work/presentation/http/mappers/setup-input';
+import { ApiPageQuery, pageRequestOf } from '@work/presentation/http/paging';
 
 @ApiTags('chats')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -101,13 +97,7 @@ export class ChatController {
     const chats = await this.queryBus.execute<
       ListChatsQuery,
       Page<ChatSummaryDto> | null
-    >(
-      new ListChatsQuery(
-        teamId,
-        user.id,
-        pageRequestOf(before, limit, isTimeKey),
-      ),
-    );
+    >(new ListChatsQuery(teamId, user.id, pageRequestOf(before, limit)));
 
     if (!chats) {
       throw new NotFoundException();

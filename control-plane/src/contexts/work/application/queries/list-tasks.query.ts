@@ -1,5 +1,8 @@
-import type { PageRequest } from '@shared-kernel/application/dto/page.dto';
-import type { TaskListState } from '@work/application/ports/task-reader.port';
+import type { PageRequest } from '@work/application/dto/page.dto';
+
+export const TASK_LIST_STATES = ['open', 'completed'] as const;
+
+export type TaskListState = (typeof TASK_LIST_STATES)[number];
 
 export class ListTasksQuery {
   constructor(

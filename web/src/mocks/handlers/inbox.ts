@@ -16,7 +16,11 @@ import type {
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { pageOf } from '@/mocks/paging';
 import { taskOfRun, teamOfTask, world } from '@/mocks/world';
-import type { InboxConversation, InboxEntry } from '@/mocks/world/inbox';
+import {
+  type InboxConversation,
+  type InboxEntry,
+  shown,
+} from '@/mocks/world/inbox';
 import { noDecisions } from '@/mocks/world/inbox-reviews';
 import { pastScoresOf } from '@/mocks/world/inbox-scores';
 import { inboxStore, nextId } from '@/mocks/world/inbox-store';
@@ -161,10 +165,10 @@ const notedBySam = (
 
 const rowOf = (entry: InboxEntry) => {
   if (entry.kind !== 'task') {
-    return entry;
+    return shown(entry);
   }
 
-  const { notes, ...row } = entry;
+  const { notes, ...row } = shown(entry);
 
   return { ...row, lastNote: notes[notes.length - 1] ?? null };
 };
@@ -199,7 +203,10 @@ const conversationHandlers = [
     const item = itemOf(param(params, 'itemId'));
 
     return isOurs(params) && item
-      ? json({ ...item, lastNote: item.notes[item.notes.length - 1] ?? null })
+      ? json({
+          ...shown(item),
+          lastNote: item.notes[item.notes.length - 1] ?? null,
+        })
       : notFound();
   }),
 
@@ -209,7 +216,7 @@ const conversationHandlers = [
         entry.kind === 'notice' && entry.id === param(params, 'noticeId'),
     );
 
-    return isOurs(params) && notice ? json(notice) : notFound();
+    return isOurs(params) && notice ? json(shown(notice)) : notFound();
   }),
 
   api.post(

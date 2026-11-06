@@ -6,10 +6,12 @@ import {
 import {
   APPROVAL_SUBJECTS,
   INBOX_APPROVAL_STATUSES,
+  INBOX_DTO_SECTIONS,
   INBOX_NOTICE_FORMS,
   INBOX_REQUEST_DTO_FORMS,
   type InboxApprovalDto,
   type InboxConnectionDto,
+  type InboxDtoSection,
   type InboxFailureDto,
   type InboxNoticeDto,
   type InboxRequestDto,
@@ -439,6 +441,21 @@ export class InboxItemResponseDto {
   readonly resolved: boolean;
 
   @ApiProperty({
+    enum: INBOX_DTO_SECTIONS,
+    example: 'open',
+    description:
+      'The inbox section that shows it: open, running or resolved. An unread item is always open',
+  })
+  readonly section: InboxDtoSection;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task',
+  })
+  readonly reopenable: boolean;
+
+  @ApiProperty({
     enum: [...PROGRESS_NAMES, null],
     nullable: true,
     type: String,
@@ -508,6 +525,8 @@ export class InboxItemResponseDto {
     this.createdAt = item.createdAt;
     this.askedAt = item.askedAt;
     this.resolved = item.resolved;
+    this.section = item.section;
+    this.reopenable = item.reopenable;
     this.progress = item.progress;
     this.runId = item.runId;
     this.unread = item.unread;
@@ -616,6 +635,20 @@ export class InboxNoticeResponseDto {
   })
   readonly resolved: boolean;
 
+  @ApiProperty({
+    enum: INBOX_DTO_SECTIONS,
+    example: 'open',
+    description:
+      'The inbox section that shows it: open until a person resolves it',
+  })
+  readonly section: InboxDtoSection;
+
+  @ApiProperty({
+    example: false,
+    description: 'True when the person can open it again: once it is resolved',
+  })
+  readonly reopenable: boolean;
+
   constructor(notice: InboxNoticeDto) {
     this.id = notice.id;
     this.teamId = notice.teamId;
@@ -630,6 +663,8 @@ export class InboxNoticeResponseDto {
     this.askedAt = notice.askedAt;
     this.unread = notice.unread;
     this.resolved = notice.resolved;
+    this.section = notice.section;
+    this.reopenable = notice.reopenable;
   }
 }
 
@@ -691,6 +726,16 @@ export class InboxRunResponseDto {
   @ApiProperty({ enum: [false], description: 'Never resolved' })
   readonly resolved = false as const;
 
+  @ApiProperty({
+    enum: INBOX_DTO_SECTIONS,
+    example: 'running',
+    description: 'The inbox section that shows it: running',
+  })
+  readonly section: InboxDtoSection;
+
+  @ApiProperty({ enum: [false], description: 'Never reopenable' })
+  readonly reopenable = false as const;
+
   constructor(entry: InboxRunDto) {
     this.id = entry.id;
     this.taskId = entry.taskId;
@@ -702,6 +747,7 @@ export class InboxRunResponseDto {
     this.stationCount = entry.stationCount;
     this.progress = entry.progress;
     this.askedAt = entry.askedAt;
+    this.section = entry.section;
   }
 }
 

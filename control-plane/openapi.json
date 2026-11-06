@@ -2741,11 +2741,17 @@
               }
             }
           },
+          "400": {
+            "description": "A page limit that is not a whole number above 0"
+          },
           "401": {
             "description": "No valid session"
           },
           "404": {
             "description": "No such workspace for this caller"
+          },
+          "422": {
+            "description": "A page cursor that this list did not give"
           }
         },
         "summary": "What waits on a person, newest first: the tasks put to them, the runs working on their tasks, and notices about their team’s work. Open entries come in one page; resolved entries come a page at a time",
@@ -3492,11 +3498,17 @@
               }
             }
           },
+          "400": {
+            "description": "A page limit that is not a whole number above 0"
+          },
           "401": {
             "description": "No valid session"
           },
           "404": {
             "description": "No such team for this caller"
+          },
+          "422": {
+            "description": "A page cursor that this list did not give"
           }
         },
         "summary": "The tasks at a team’s stations in board order: every open task, or a page of completed tasks",
@@ -3632,8 +3644,14 @@
               }
             }
           },
+          "400": {
+            "description": "A page limit that is not a whole number above 0"
+          },
           "401": {
             "description": "No valid session"
+          },
+          "422": {
+            "description": "A page cursor that this list did not give"
           }
         },
         "summary": "The runs of the team, across its stations, newest first",
@@ -4250,11 +4268,17 @@
               }
             }
           },
+          "400": {
+            "description": "A page limit that is not a whole number above 0"
+          },
           "401": {
             "description": "No valid session"
           },
           "404": {
             "description": "No such team for this caller"
+          },
+          "422": {
+            "description": "A page cursor that this list did not give"
           }
         },
         "summary": "The chats the caller has started with the team’s agent, latest first",
@@ -25152,6 +25176,21 @@
             "example": false,
             "description": "True once it is resolved, and is no longer yours to answer"
           },
+          "section": {
+            "type": "string",
+            "enum": [
+              "open",
+              "running",
+              "resolved"
+            ],
+            "example": "open",
+            "description": "The inbox section that shows it: open, running or resolved. An unread item is always open"
+          },
+          "reopenable": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task"
+          },
           "progress": {
             "type": "string",
             "enum": [
@@ -25227,6 +25266,8 @@
           "createdAt",
           "askedAt",
           "resolved",
+          "section",
+          "reopenable",
           "progress",
           "runId",
           "unread",
@@ -25326,6 +25367,21 @@
             "type": "boolean",
             "example": false,
             "description": "True once its person resolved it"
+          },
+          "section": {
+            "type": "string",
+            "enum": [
+              "open",
+              "running",
+              "resolved"
+            ],
+            "example": "open",
+            "description": "The inbox section that shows it: open until a person resolves it"
+          },
+          "reopenable": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when the person can open it again: once it is resolved"
           }
         },
         "required": [
@@ -25340,7 +25396,9 @@
           "externalLink",
           "askedAt",
           "unread",
-          "resolved"
+          "resolved",
+          "section",
+          "reopenable"
         ]
       },
       "InboxRunResponseDto": {
@@ -25417,6 +25475,23 @@
               false
             ],
             "description": "Never resolved"
+          },
+          "section": {
+            "type": "string",
+            "enum": [
+              "open",
+              "running",
+              "resolved"
+            ],
+            "example": "running",
+            "description": "The inbox section that shows it: running"
+          },
+          "reopenable": {
+            "type": "boolean",
+            "enum": [
+              false
+            ],
+            "description": "Never reopenable"
           }
         },
         "required": [
@@ -25432,7 +25507,9 @@
           "progress",
           "askedAt",
           "unread",
-          "resolved"
+          "resolved",
+          "section",
+          "reopenable"
         ]
       },
       "InboxItemViewResponseDto": {
@@ -25520,6 +25597,21 @@
             "example": false,
             "description": "True once it is resolved, and is no longer yours to answer"
           },
+          "section": {
+            "type": "string",
+            "enum": [
+              "open",
+              "running",
+              "resolved"
+            ],
+            "example": "open",
+            "description": "The inbox section that shows it: open, running or resolved. An unread item is always open"
+          },
+          "reopenable": {
+            "type": "boolean",
+            "example": false,
+            "description": "True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task"
+          },
           "progress": {
             "type": "string",
             "enum": [
@@ -25602,6 +25694,8 @@
           "createdAt",
           "askedAt",
           "resolved",
+          "section",
+          "reopenable",
           "progress",
           "runId",
           "unread",

@@ -2,8 +2,10 @@ import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import {
   awaitsAPerson,
   conversationsOf,
+  listedAsOpen,
   notesIn,
   pendingIn,
+  reopenable,
   reviewsIn,
   stillOpen,
   worksOn,
@@ -54,6 +56,48 @@ describe('stillOpen', () => {
 
   it('does not once something has', () => {
     expect(stillOpen({ from: 0, to: 2 })).toBe(false);
+  });
+});
+
+describe('listedAsOpen', () => {
+  const seen = { kind: 'asked' as const, readAt: new Date(0) };
+  const unseen = { kind: 'asked' as const, readAt: null };
+
+  it('lists an open conversation while its task is unfinished', () => {
+    expect(listedAsOpen({ from: 0, to: null, notes: [seen] }, false)).toBe(
+      true,
+    );
+    expect(listedAsOpen({ from: 0, to: null, notes: [unseen] }, true)).toBe(
+      false,
+    );
+  });
+
+  it('lists a closed conversation only while an ask in it is unread', () => {
+    expect(listedAsOpen({ from: 0, to: 1, notes: [unseen] }, true)).toBe(true);
+    expect(listedAsOpen({ from: 0, to: 1, notes: [seen] }, false)).toBe(false);
+  });
+});
+
+describe('reopenable', () => {
+  const resolvedByAPerson = { form: 'resolved' as const, byAPerson: true };
+
+  it('reopens the last conversation where a person resolved it', () => {
+    expect(reopenable(2, { from: 2, to: 4 }, resolvedByAPerson)).toBe(true);
+  });
+
+  it('does not reopen a conversation a later one followed', () => {
+    expect(reopenable(0, { from: 2, to: 4 }, resolvedByAPerson)).toBe(false);
+    expect(reopenable(2, { from: 2, to: null }, null)).toBe(false);
+    expect(reopenable(2, null, null)).toBe(false);
+  });
+
+  it('does not reopen a conversation a station or a pass closed', () => {
+    expect(
+      reopenable(2, { from: 2, to: 4 }, { form: 'resolved', byAPerson: false }),
+    ).toBe(false);
+    expect(
+      reopenable(2, { from: 2, to: 4 }, { form: 'words', byAPerson: true }),
+    ).toBe(false);
   });
 });
 

@@ -1634,6 +1634,14 @@ export type InboxItemResponseDto = {
    */
   resolved: boolean;
   /**
+   * The inbox section that shows it: open, running or resolved. An unread item is always open
+   */
+  section: 'open' | 'running' | 'resolved';
+  /**
+   * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
+   */
+  reopenable: boolean;
+  /**
    * What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
    */
   progress: 'queued' | 'in-progress' | 'stopping' | null;
@@ -1705,6 +1713,14 @@ export type InboxNoticeResponseDto = {
    * True once its person resolved it
    */
   resolved: boolean;
+  /**
+   * The inbox section that shows it: open until a person resolves it
+   */
+  section: 'open' | 'running' | 'resolved';
+  /**
+   * True when the person can open it again: once it is resolved
+   */
+  reopenable: boolean;
 };
 
 export type InboxRunResponseDto = {
@@ -1748,6 +1764,14 @@ export type InboxRunResponseDto = {
    * Never resolved
    */
   resolved: false;
+  /**
+   * The inbox section that shows it: running
+   */
+  section: 'open' | 'running' | 'resolved';
+  /**
+   * Never reopenable
+   */
+  reopenable: false;
 };
 
 export type InboxItemViewResponseDto = {
@@ -1791,6 +1815,14 @@ export type InboxItemViewResponseDto = {
    * True once it is resolved, and is no longer yours to answer
    */
   resolved: boolean;
+  /**
+   * The inbox section that shows it: open, running or resolved. An unread item is always open
+   */
+  section: 'open' | 'running' | 'resolved';
+  /**
+   * True when the person can open it again. A conversation can open again when a person resolved it and it is the last conversation of the task
+   */
+  reopenable: boolean;
   /**
    * What the run on it is doing, so an answer is coming: queued until a runner takes it, then in progress, and stopping once someone asked it to stop
    */
@@ -9832,6 +9864,10 @@ export type ListInboxData = {
 
 export type ListInboxErrors = {
   /**
+   * A page limit that is not a whole number above 0
+   */
+  400: unknown;
+  /**
    * No valid session
    */
   401: unknown;
@@ -9839,6 +9875,10 @@ export type ListInboxErrors = {
    * No such workspace for this caller
    */
   404: unknown;
+  /**
+   * A page cursor that this list did not give
+   */
+  422: unknown;
 };
 
 export type ListInboxResponses = {
@@ -10328,6 +10368,10 @@ export type ListTasksData = {
 
 export type ListTasksErrors = {
   /**
+   * A page limit that is not a whole number above 0
+   */
+  400: unknown;
+  /**
    * No valid session
    */
   401: unknown;
@@ -10335,6 +10379,10 @@ export type ListTasksErrors = {
    * No such team for this caller
    */
   404: unknown;
+  /**
+   * A page cursor that this list did not give
+   */
+  422: unknown;
 };
 
 export type ListTasksResponses = {
@@ -10420,9 +10468,17 @@ export type ListTeamRunsData = {
 
 export type ListTeamRunsErrors = {
   /**
+   * A page limit that is not a whole number above 0
+   */
+  400: unknown;
+  /**
    * No valid session
    */
   401: unknown;
+  /**
+   * A page cursor that this list did not give
+   */
+  422: unknown;
 };
 
 export type ListTeamRunsResponses = {
@@ -10768,6 +10824,10 @@ export type ListChatsData = {
 
 export type ListChatsErrors = {
   /**
+   * A page limit that is not a whole number above 0
+   */
+  400: unknown;
+  /**
    * No valid session
    */
   401: unknown;
@@ -10775,6 +10835,10 @@ export type ListChatsErrors = {
    * No such team for this caller
    */
   404: unknown;
+  /**
+   * A page cursor that this list did not give
+   */
+  422: unknown;
 };
 
 export type ListChatsResponses = {

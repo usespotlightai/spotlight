@@ -1,4 +1,4 @@
-import { FIRST_PAGE } from '@shared-kernel/application/dto/page.dto';
+import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import type {
   TaskReaderPort,
   TaskSummary,

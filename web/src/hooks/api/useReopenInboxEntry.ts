@@ -41,7 +41,11 @@ export function useReopenInboxEntry() {
     },
 
     onMutate: ({ slug, entry }) => ({
-      rollback: patchInboxEntry(queryClient, slug, entry, { resolved: false }),
+      rollback: patchInboxEntry(queryClient, slug, entry, {
+        resolved: false,
+        section: 'open',
+        reopenable: false,
+      }),
     }),
 
     onError: (_error, _input, context) => context?.rollback(),

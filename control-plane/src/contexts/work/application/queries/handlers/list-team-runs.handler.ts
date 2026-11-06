@@ -1,9 +1,9 @@
-import { mapPage, type Page } from '@shared-kernel/application/dto/page.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type { TeamRunDto } from '@work/application/dto/task-run.dto';
 import { TaskRunMapper } from '@work/application/mappers/task-run.mapper';
 import type { RunReaderPort } from '@work/application/ports/run-reader.port';

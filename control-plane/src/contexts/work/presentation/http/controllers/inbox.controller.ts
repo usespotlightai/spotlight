@@ -24,12 +24,6 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import { ApiPageQuery, pageRequestOf } from '@platform/http/paging';
-import {
-  isTimeKey,
-  mapPage,
-  type Page,
-} from '@shared-kernel/application/dto/page.dto';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
 import { MarkInboxItemReadCommand } from '@work/application/commands/mark-inbox-item-read.command';
@@ -47,6 +41,7 @@ import type {
   InboxNoticeDto,
   NoteDto,
 } from '@work/application/dto/inbox.dto';
+import { mapPage, type Page } from '@work/application/dto/page.dto';
 import type {
   JournalledRunDto,
   RunJournalDto,
@@ -87,6 +82,7 @@ import { draftGenerationInput } from '@work/presentation/http/mappers/draft-gene
 import { editsInput } from '@work/presentation/http/mappers/edits-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
+import { ApiPageQuery, pageRequestOf } from '@work/presentation/http/paging';
 
 const noteResponse = (note: NoteDto): NoteResponseDto =>
   new NoteResponseDto(
@@ -142,6 +138,8 @@ const taskItemFields = (
   createdAt: item.createdAt,
   askedAt: item.askedAt,
   resolved: item.resolved,
+  section: item.section,
+  reopenable: item.reopenable,
   progress: item.progress,
   runId: item.runId,
   unread: item.unread,
@@ -209,7 +207,7 @@ export class InboxController {
         slug,
         user.id,
         state ?? 'open',
-        pageRequestOf(before, limit, isTimeKey),
+        pageRequestOf(before, limit),
       ),
     );
 

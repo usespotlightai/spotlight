@@ -9,10 +9,10 @@ import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleRunnerReader } from '@runners/infrastructure/persistence/drizzle/readers/runner.reader';
-import { FIRST_PAGE } from '@shared-kernel/application/dto/page.dto';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { InboxItemDto } from '@work/application/dto/inbox.dto';
+import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import { ListInboxHandler } from '@work/application/queries/handlers/list-inbox.handler';
 import { ListInboxQuery } from '@work/application/queries/list-inbox.query';
 import { setupDoneNote } from '@work/domain/services/setup-list';

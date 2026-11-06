@@ -46,7 +46,7 @@ export function journalsOfTaskRun(
 ): Promise<RunJournal[]> {
   return journalsOf(
     db,
-    and(eq(run.id, runId.value), eq(run.taskId, taskId.value)),
+    sql`${eq(run.id, runId.value)} and ${eq(run.taskId, taskId.value)}`,
   );
 }
 
@@ -57,7 +57,7 @@ export function journalsOfChatRun(
 ): Promise<RunJournal[]> {
   return journalsOf(
     db,
-    and(eq(run.id, runId.value), eq(run.chatId, chatId.value)),
+    sql`${eq(run.id, runId.value)} and ${eq(run.chatId, chatId.value)}`,
   );
 }
 
@@ -171,7 +171,7 @@ export async function journalOfRun(
 
 async function journalsOf(
   db: DrizzleDatabase,
-  which: SQL | undefined,
+  which: SQL,
 ): Promise<RunJournal[]> {
   const runs = await db
     .select({ id: run.id, attempt: run.attempt, createdAt: run.createdAt })

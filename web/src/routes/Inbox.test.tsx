@@ -56,6 +56,8 @@ const item = (over: Record<string, unknown> = {}) => ({
   createdAt: '2026-08-29T09:02:00.000Z',
   askedAt: '2026-08-29T12:00:00.000Z',
   resolved: false,
+  section: 'open',
+  reopenable: false,
   progress: null,
   runId: null,
   inboxRequest: null,
@@ -87,6 +89,8 @@ const notice = (over: Record<string, unknown> = {}) => ({
   askedAt: '2026-08-29T13:00:00.000Z',
   unread: true,
   resolved: false,
+  section: 'open',
+  reopenable: false,
   ...over,
 });
 
@@ -125,7 +129,14 @@ describe('Inbox', () => {
     });
 
     it('unresolves what is resolved on request', async () => {
-      waiting.mockReturnValue([notice({ resolved: true, unread: false })]);
+      waiting.mockReturnValue([
+        notice({
+          resolved: true,
+          unread: false,
+          section: 'resolved',
+          reopenable: true,
+        }),
+      ]);
       renderAt('/w/acme/inbox');
 
       await userEvent.click(screen.getByRole('button', { name: /Resolved/ }));
@@ -138,7 +149,7 @@ describe('Inbox', () => {
     });
 
     it('does not offer to unresolve a conversation that moved on by itself', () => {
-      waiting.mockReturnValue([item({ resolved: true })]);
+      waiting.mockReturnValue([item({ resolved: true, section: 'resolved' })]);
       renderAt('/w/acme/inbox');
 
       expect(
@@ -211,7 +222,12 @@ describe('Inbox', () => {
       const person = userEvent.setup();
       waiting.mockReturnValue([
         item(),
-        item({ id: 'task_2:0', taskId: 'task_2', resolved: true }),
+        item({
+          id: 'task_2:0',
+          taskId: 'task_2',
+          resolved: true,
+          section: 'resolved',
+        }),
       ]);
       renderAt('/w/acme/inbox');
 
@@ -246,7 +262,7 @@ describe('Inbox', () => {
     });
 
     it('stays, counting none, when nothing is open', () => {
-      waiting.mockReturnValue([item({ resolved: true })]);
+      waiting.mockReturnValue([item({ resolved: true, section: 'resolved' })]);
       renderAt('/w/acme/inbox');
 
       expect(screen.getByRole('button', { name: /Open/ })).toHaveTextContent(
@@ -265,6 +281,7 @@ describe('Inbox', () => {
           title: 'Cap the retries',
           progress: 'in-progress',
           runId: 'run_2',
+          section: 'running',
         }),
       ]);
     });
@@ -338,6 +355,8 @@ describe('Inbox', () => {
           askedAt: '2026-08-29T12:00:00.000Z',
           unread: false,
           resolved: false,
+          section: 'running',
+          reopenable: false,
         },
       ]);
       renderAt('/w/acme/inbox');
@@ -357,7 +376,11 @@ describe('Inbox', () => {
 
     it('leaves what is resolved where it is', () => {
       waiting.mockReturnValue([
-        item({ resolved: true, progress: 'in-progress' }),
+        item({
+          resolved: true,
+          progress: 'in-progress',
+          section: 'resolved',
+        }),
       ]);
       renderAt('/w/acme/inbox');
 
@@ -379,6 +402,7 @@ describe('Inbox', () => {
           taskId: 'task_2',
           title: 'Cap the retries',
           resolved: true,
+          section: 'resolved',
         }),
       ]);
     });
@@ -447,7 +471,12 @@ describe('Inbox', () => {
 
     it('moves to resolved once dismissed', () => {
       waiting.mockReturnValue([
-        notice({ resolved: true, unread: false }),
+        notice({
+          resolved: true,
+          unread: false,
+          section: 'resolved',
+          reopenable: true,
+        }),
         item(),
       ]);
       renderAt('/w/acme/inbox');

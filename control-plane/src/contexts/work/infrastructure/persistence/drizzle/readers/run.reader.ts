@@ -9,18 +9,18 @@ import {
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { olderThan, sortableTime } from '@platform/persistence/drizzle/keyset';
 import {
-  type Page,
-  type PageRequest,
+  olderThan,
   pageOf,
-} from '@shared-kernel/application/dto/page.dto';
+  sortableTime,
+} from '@platform/persistence/drizzle/keyset';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
+import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type {
   RunConfigSummary,
   RunConfigView,
@@ -37,6 +37,7 @@ import {
   takenUpOnAnswer,
 } from '@work/domain/value-objects/run-state';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
+import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -168,10 +169,11 @@ export class DrizzleRunReader implements RunReaderPort {
     viewerId: UserId,
     page: PageRequest,
   ): Promise<Page<TeamRunSummary>> {
+    const before = timeCursorOf(page.before);
     const rows = await this.teamRuns(
       teamId,
       viewerId,
-      page.before ? olderThan(run.createdAt, run.id, page.before) : undefined,
+      before ? olderThan(run.createdAt, run.id, before) : undefined,
       page.limit + 1,
     );
 

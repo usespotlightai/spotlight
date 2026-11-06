@@ -1,13 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import {
-  decodeCursor,
-  type PageRequest,
-} from '@shared-kernel/application/dto/page.dto';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { PageRequest } from '@work/application/dto/page.dto';
+import { InvalidPageCursorError } from '@work/application/errors/invalid-page-cursor.error';
 import type { InboxItemSummary } from '@work/application/ports/inbox-reader.port';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
@@ -31,7 +29,7 @@ afterAll(async () => {
 const at = (minute: number) => new Date(Date.UTC(2026, 9, 20, 9, minute, 0, 0));
 
 const pageAfter = (next: string | null, limit: number): PageRequest => ({
-  before: next ? decodeCursor(next) : null,
+  before: next,
   limit,
 });
 
@@ -96,6 +94,7 @@ const aLine = async () => {
       kind: 'asked' | 'answered' | 'passed' | 'reopened';
       at: Date;
       unseen?: boolean;
+      form?: 'words' | 'resolved';
     }[],
   ) =>
     db.insert(schema.taskNote).values(
@@ -109,6 +108,7 @@ const aLine = async () => {
         voice:
           each.kind === 'asked' ? ('station' as const) : ('person' as const),
         kind: each.kind,
+        form: each.form ?? ('words' as const),
         readAt: each.unseen ? null : each.at,
       })),
     );
@@ -218,7 +218,11 @@ describe('the inbox, open and resolved', () => {
       )) ?? [];
 
     expect(open.map((each) => each.id)).toEqual([`${finished}:0`]);
-    expect(open[0]).toMatchObject({ resolved: true, unread: true });
+    expect(open[0]).toMatchObject({
+      resolved: true,
+      unread: true,
+      section: 'open',
+    });
     expect((open[0] as InboxItemSummary | undefined)?.lastNote?.body).toBe(
       'passed 2',
     );
@@ -254,6 +258,56 @@ describe('the inbox, open and resolved', () => {
       (resolved?.items[0] as InboxItemSummary | undefined)?.lastNote?.body,
     ).toBe('passed 3');
     expect(resolved?.next).toBeNull();
+  });
+
+  it('lets a person reopen only the last conversation, where a person resolved it', async () => {
+    const line = await aLine();
+    const resolved = await line.addTask({ stationId: line.work });
+    const followed = await line.addTask({ stationId: line.work });
+
+    await line.addNotes(resolved, [
+      { kind: 'asked', at: at(0) },
+      { kind: 'passed', at: at(1), form: 'resolved' },
+    ]);
+    await line.addNotes(followed, [
+      { kind: 'asked', at: at(2) },
+      { kind: 'passed', at: at(3), form: 'resolved' },
+      { kind: 'asked', at: at(4) },
+    ]);
+
+    const page = await inboxOf(line.workspaceId).resolvedForWorkspaceMember(
+      'acme',
+      UserId.of(line.viewer),
+      pageAfter(null, 10),
+    );
+
+    expect(
+      page?.items.map((each) => ({
+        id: each.id,
+        section: each.section,
+        reopenable: each.reopenable,
+      })),
+    ).toEqual([
+      { id: `${followed}:0`, section: 'resolved', reopenable: false },
+      { id: `${resolved}:0`, section: 'resolved', reopenable: true },
+    ]);
+  });
+
+  it('refuses a cursor it did not give', async () => {
+    const line = await aLine();
+    const rankCursor = Buffer.from(JSON.stringify(['a0', 'task_1'])).toString(
+      'base64url',
+    );
+
+    for (const before of ['not-a-cursor', rankCursor]) {
+      await expect(
+        inboxOf(line.workspaceId).resolvedForWorkspaceMember(
+          'acme',
+          UserId.of(line.viewer),
+          pageAfter(before, 1),
+        ),
+      ).rejects.toThrow(InvalidPageCursorError);
+    }
   });
 
   it('opens a resolved conversation by its id, with every note', async () => {

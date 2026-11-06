@@ -1,13 +1,11 @@
-import type {
-  Page,
-  PageRequest,
-} from '@shared-kernel/application/dto/page.dto';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
+import type { InboxSection } from '@work/domain/services/inbox-section';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
@@ -105,6 +103,8 @@ export interface InboxItemSummary {
   readonly createdAt: Date;
   readonly askedAt: Date;
   readonly resolved: boolean;
+  readonly section: InboxSection;
+  readonly reopenable: boolean;
   readonly progress: Progress | null;
   readonly runId: string | null;
   readonly unread: boolean;
@@ -134,6 +134,8 @@ export interface InboxNoticeSummary {
   readonly askedAt: Date;
   readonly unread: boolean;
   readonly resolved: boolean;
+  readonly section: InboxSection;
+  readonly reopenable: boolean;
 }
 
 export interface InboxRunSummary {
@@ -150,6 +152,8 @@ export interface InboxRunSummary {
   readonly askedAt: Date;
   readonly unread: false;
   readonly resolved: false;
+  readonly section: InboxSection;
+  readonly reopenable: false;
 }
 
 export type InboxEntrySummary =

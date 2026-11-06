@@ -8,7 +8,8 @@ import {
   type InboxNotice,
 } from '@/lib/inbox';
 
-type EntryPatch = { resolved: boolean; unread?: boolean };
+type EntryPatch = Pick<InboxItem, 'resolved' | 'section' | 'reopenable'> &
+  Partial<Pick<InboxItem, 'unread'>>;
 
 export const patchInboxEntry = (
   queryClient: QueryClient,

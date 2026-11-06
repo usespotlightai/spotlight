@@ -1,4 +1,4 @@
-import type { PageRequest } from '@shared-kernel/application/dto/page.dto';
+import type { PageRequest } from '@work/application/dto/page.dto';
 
 export class ListTeamRunsQuery {
   constructor(
