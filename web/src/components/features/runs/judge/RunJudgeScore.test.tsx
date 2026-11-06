@@ -120,10 +120,12 @@ describe('RunJudgeScore', () => {
           qualified: false,
           measure: 'kappa',
           agreement: 0.38,
-          reading: 'fair-to-slight',
+          reading: 'fair',
           pairs: 24,
+          minPairs: 10,
           minAgreement: 0.6,
           hiddenReason: 'below-min-agreement',
+          failing: true,
         },
       }),
     );
@@ -132,7 +134,9 @@ describe('RunJudgeScore', () => {
 
     expect(screen.getByText('Hidden')).toBeInTheDocument();
     expect(
-      screen.getByText('Hidden. Cohen’s kappa: 0.38. Minimum required: 0.60'),
+      screen.getByText(
+        'Judge scores are hidden. Cohen’s kappa: 0.38. Minimum required: 0.60.',
+      ),
     ).toBeInTheDocument();
     expect(
       document.querySelector('[data-slot="judge-verdict"]'),

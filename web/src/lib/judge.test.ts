@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   comparisonStats,
+  confusionCellNote,
+  confusionNote,
   formatCalibration,
   formatScore,
   gradeOptions,
+  pairsStat,
   type RubricVersion,
+  scoreVisibility,
   valueOfGrade,
 } from '@/lib/judge';
 
@@ -14,8 +18,10 @@ const CALIBRATION = {
   agreement: 0.3,
   reading: 'weak' as const,
   pairs: 4,
+  minPairs: 10,
   minAgreement: 0.5,
   hiddenReason: 'too-few-pairs' as const,
+  failing: false,
 };
 
 describe('judge', () => {
@@ -46,12 +52,12 @@ describe('judge', () => {
 
   it('says why a judge’s scores are hidden', () => {
     expect(formatCalibration(CALIBRATION)).toBe(
-      'Hidden until more runs have scores from both the judge and people. Runs so far: 4',
+      'Judge scores are hidden until 10 runs have scores from both the judge and people. Runs so far: 4.',
     );
     expect(
       formatCalibration({ ...CALIBRATION, hiddenReason: 'no-agreement' }),
     ).toBe(
-      'Hidden. Agreement can’t be measured while all scores are identical.',
+      'Judge scores are hidden. Agreement cannot be measured while all scores are the same.',
     );
   });
 
@@ -60,7 +66,40 @@ describe('judge', () => {
       formatCalibration({ ...CALIBRATION, hiddenReason: 'unreadable-rubric' }),
     ).toMatch(/cannot be read/);
   });
+
+  it('states whether judge scores show on runs, with the reason apart', () => {
+    expect(scoreVisibility(CALIBRATION)).toEqual({
+      hidden: true,
+      failing: false,
+      text: 'Judge scores are hidden on runs.',
+      reason:
+        'They show when 10 runs have scores from both the judge and people.',
+    });
+    expect(
+      scoreVisibility({
+        ...CALIBRATION,
+        measure: 'kappa',
+        hiddenReason: 'below-min-agreement',
+        failing: true,
+      }),
+    ).toMatchObject({
+      failing: true,
+      reason: 'Cohen’s kappa is below the minimum, 0.50.',
+    });
+    expect(
+      scoreVisibility({ ...CALIBRATION, qualified: true, hiddenReason: null }),
+    ).toMatchObject({ hidden: false, text: 'Judge scores show on runs.' });
+  });
 });
+
+const QUALIFIED = {
+  ...CALIBRATION,
+  qualified: true,
+  pairs: 24,
+  minAgreement: 0.6,
+  hiddenReason: null,
+  failing: false,
+};
 
 const version = (
   kind: RubricVersion['kind'],
@@ -68,8 +107,14 @@ const version = (
 ): RubricVersion =>
   ({
     kind,
+    judged: 30,
     agreement: {
       pairs: 24,
+      measured: true,
+      pairsProgress: 1,
+      agreed: 21,
+      compared: 24,
+      belowMinimum: false,
       observed: null,
       kappa: null,
       spearman: null,
@@ -93,17 +138,70 @@ describe('comparisonStats', () => {
     });
 
     expect(
-      comparisonStats(yesNo).map((stat) => [
+      comparisonStats(yesNo, QUALIFIED).map((stat) => [
         stat.label,
         stat.value,
-        stat.reading,
-        stat.note.title,
+        stat.detail,
+        stat.gauge,
       ]),
     ).toEqual([
-      ['Cohen’s kappa', '0.71', 'Substantial', 'Cohen’s kappa'],
-      ['F1 score', '0.91', null, 'F1 score'],
-      ['Overall agreement', '88%', null, 'Overall agreement'],
+      ['Cohen’s kappa', '0.71', 'Substantial', 0.71],
+      ['Same score', '88%', '21 of 24 runs', undefined],
+      ['F1 score', '0.91', null, undefined],
     ]);
+  });
+
+  it('names the minimum next to the reading when the server flags agreement below it', () => {
+    const [kappa] = comparisonStats(
+      version('yes-no', {
+        kappa: 0.19,
+        belowMinimum: true,
+        readings: { kappa: 'slight', pearson: null, spearman: null },
+      }),
+      QUALIFIED,
+    );
+
+    expect(kappa).toMatchObject({
+      detail: 'Slight · minimum 0.60',
+      failing: true,
+    });
+  });
+
+  it('shows no figures while the server says too few runs have both scores, only how far along they are', () => {
+    const few = version('yes-no', {
+      pairs: 3,
+      measured: false,
+      pairsProgress: 0.3,
+      kappa: 0,
+    });
+    const calibration = { ...CALIBRATION, pairs: 3, minPairs: 10 };
+
+    expect(comparisonStats(few, calibration)).toEqual([]);
+    expect(pairsStat(few, calibration)).toMatchObject({
+      value: '3 of 10',
+      detail: 'Kappa, same score and F1 show at 10 runs.',
+      progress: 0.3,
+    });
+    expect(pairsStat(version('yes-no'), calibration)).toMatchObject({
+      value: '24',
+      detail: 'Of 30 judged',
+      progress: null,
+    });
+  });
+
+  it('counts claims, not runs, on a rubric of claims', () => {
+    const [, same] = comparisonStats(
+      version('claims', { agreed: 94, compared: 108, observed: 94 / 108 }),
+      QUALIFIED,
+    );
+
+    expect(same?.detail).toBe('94 of 108 claims');
+    expect(
+      confusionCellNote('claims', 'met', 'not met', 1).rows,
+    ).toContainEqual(['Claims', '1 claim']);
+    expect(confusionNote('claims').body).toMatch(
+      /Each run counts once per claim\.$/,
+    );
   });
 
   it('shows a number rubric’s agreement as correlations and errors', () => {
@@ -116,29 +214,30 @@ describe('comparisonStats', () => {
     });
 
     expect(
-      comparisonStats(exact).map((stat) => [
+      comparisonStats(exact, QUALIFIED).map((stat) => [
         stat.label,
         stat.value,
-        stat.reading,
+        stat.detail,
       ]),
     ).toEqual([
-      ['Pearson correlation', '1.00', 'Very strong'],
-      ['Spearman correlation', '1.00', 'Weak'],
-      ['Mean absolute error', '0.00', null],
-      ['Root mean square error', '0.00', null],
+      ['Pearson’s r', '1.00', 'Very strong'],
+      ['Spearman’s ρ', '1.00', 'Weak'],
+      ['MAE', '0.00', null],
+      ['RMSE', '0.00', null],
     ]);
   });
 
   it('notes no reading where there is no figure, and gives the scale as rows', () => {
-    const [kappa] = comparisonStats(version('yes-no'));
+    const [kappa] = comparisonStats(version('yes-no'), QUALIFIED);
 
-    expect(kappa?.reading).toBeNull();
+    expect(kappa?.detail).toBeNull();
     expect(kappa?.note.rows?.map(([, word]) => word)).toEqual([
       'Almost perfect',
       'Substantial',
       'Moderate',
-      'Fair to slight',
-      'Less than chance',
+      'Fair',
+      'Slight',
+      'No better than chance',
     ]);
   });
 });

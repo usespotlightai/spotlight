@@ -15,8 +15,16 @@ describe('ClaimAgreements', () => {
             observed: 0.75,
             kappa: 0.5,
             reading: 'moderate',
+            belowMinimum: true,
           },
-          { index: 1, pairs: 0, observed: null, kappa: null, reading: null },
+          {
+            index: 1,
+            pairs: 0,
+            observed: null,
+            kappa: null,
+            reading: null,
+            belowMinimum: false,
+          },
         ]}
       />,
     );

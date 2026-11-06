@@ -44,12 +44,7 @@ const TipContent = ({
       note={{
         title: formatDay(point.day),
         rows: [
-          [
-            'Judge',
-            point.judge === null
-              ? `Hidden, over ${point.judged}`
-              : `${scoreOf(kind, point.judge)} over ${point.judged}`,
-          ],
+          ['Judge', `${scoreOf(kind, point.judge)} over ${point.judged}`],
           ['People', `${scoreOf(kind, point.people)} over ${point.labelled}`],
         ],
       }}
@@ -69,20 +64,15 @@ export function JudgeTrend({
     return null;
   }
 
-  const judgeShown = trend.some((each) => each.judge !== null);
-
   return (
     <figure data-slot="judge-trend" className="flex flex-1 flex-col gap-1">
       <figcaption className="flex items-center gap-3 text-muted-foreground text-xs">
         <span data-slot="judge-trend-judge" className="flex items-center gap-1">
           <span aria-hidden className="size-2 rounded-full bg-chart-primary" />
-          {judgeShown ? 'Judge' : 'Judge hidden'}
+          Judge
         </span>
         <span className="flex items-center gap-1">
-          <span
-            aria-hidden
-            className="size-2 rounded-full bg-muted-foreground"
-          />
+          <span aria-hidden className="size-2 rounded-full bg-chart-2" />
           People
         </span>
       </figcaption>

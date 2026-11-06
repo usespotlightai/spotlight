@@ -5153,23 +5153,31 @@ export type JudgeCalibrationResponseDto = {
   /**
    * How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s
    */
-  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair-to-slight' | 'poor' | 'very-strong' | 'strong' | 'weak' | 'inverse' | null;
+  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | 'very-strong' | 'strong' | 'weak' | 'inverse' | null;
   /**
    * Runs of the current rubric with both a judge score and people’s
    */
   pairs: number;
+  /**
+   * Runs with both a judge score and people’s that agreement needs before it counts
+   */
+  minPairs: number;
   minAgreement: number | null;
   /**
    * Why the judge’s scores are hidden, where they are
    */
   hiddenReason: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-min-agreement' | null;
+  /**
+   * Whether the judge’s scores are hidden for a reason other than too few runs with both scores
+   */
+  failing: boolean;
 };
 
 export type AgreementReadingsResponseDto = {
   /**
-   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair to slight from 0, poor below; none without a kappa
+   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa
    */
-  kappa: 'almost-perfect' | 'substantial' | 'moderate' | 'fair-to-slight' | 'poor' | null;
+  kappa: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | null;
   /**
    * How strong Pearson’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one
    */
@@ -5192,13 +5200,37 @@ export type ClaimAgreementResponseDto = {
   observed: number | null;
   kappa: number | null;
   /**
-   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair to slight from 0, poor below; none without a kappa
+   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa
    */
-  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair-to-slight' | 'poor' | null;
+  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | null;
+  /**
+   * Whether the claim’s kappa is below the minimum agreement
+   */
+  belowMinimum: boolean;
 };
 
 export type AgreementResponseDto = {
   pairs: number;
+  /**
+   * Whether enough runs have both scores for the figures below to count
+   */
+  measured: boolean;
+  /**
+   * How far the pairs are towards the minimum that agreement needs, from 0 to 1
+   */
+  pairsProgress: number;
+  /**
+   * Scores where the judge and people agree: runs, or claim marks for a judge of claims
+   */
+  agreed: number;
+  /**
+   * Scores compared: runs, or claim marks for a judge of claims
+   */
+  compared: number;
+  /**
+   * Whether the headline measure, kappa or Spearman’s, is below the minimum agreement
+   */
+  belowMinimum: boolean;
   /**
    * The share of pairs where the judge and people gave the same score
    */
@@ -5276,7 +5308,18 @@ export type RubricVersionResponseDto = {
    * How often each score was given, in the confusion’s order
    */
   distribution: Array<ScoreCountResponseDto>;
+  /**
+   * Daily means of the judge’s and people’s scores, the judge’s included while its scores are hidden on runs
+   */
   trend: Array<TrendPointResponseDto>;
+  /**
+   * Whether enough runs have both scores, over more than one day, to draw the trend
+   */
+  trendShown: boolean;
+  /**
+   * Runs with both scores that the trend needs
+   */
+  trendMinPairs: number;
   firstAt: string;
   lastAt: string;
 };
@@ -6459,16 +6502,24 @@ export type StationJudgeCalibrationResponseDto = {
   /**
    * How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s
    */
-  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair-to-slight' | 'poor' | 'very-strong' | 'strong' | 'weak' | 'inverse' | null;
+  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair' | 'slight' | 'chance' | 'very-strong' | 'strong' | 'weak' | 'inverse' | null;
   /**
    * Runs of the current rubric with both a judge score and people’s
    */
   pairs: number;
+  /**
+   * Runs with both a judge score and people’s that agreement needs before it counts
+   */
+  minPairs: number;
   minAgreement: number | null;
   /**
    * Why the judge’s scores are hidden, where they are
    */
   hiddenReason: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-min-agreement' | null;
+  /**
+   * Whether the judge’s scores are hidden for a reason other than too few runs with both scores
+   */
+  failing: boolean;
   lineId: string;
   stationId: string;
 };
