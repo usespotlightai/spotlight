@@ -59,6 +59,31 @@ export interface DiffFacts {
 
 export const NO_FACTS: DiffFacts = { hunks: [], links: [], imports: [] };
 
+export const connectedGroups = (
+  hunks: readonly HunkId[],
+  links: readonly HunkLink[],
+): HunkId[][] => {
+  const parent = new Map<HunkId, HunkId>(hunks.map((hunk) => [hunk, hunk]));
+  const root = (hunk: HunkId): HunkId => {
+    const above = parent.get(hunk) ?? hunk;
+    return above === hunk ? hunk : root(above);
+  };
+
+  for (const { from, to } of links) {
+    if (parent.has(from) && parent.has(to)) {
+      parent.set(root(from), root(to));
+    }
+  }
+
+  const groups = new Map<HunkId, HunkId[]>();
+
+  for (const hunk of hunks) {
+    groups.set(root(hunk), [...(groups.get(root(hunk)) ?? []), hunk]);
+  }
+
+  return [...groups.values()];
+};
+
 export const placedHunks = (facts: DiffFacts): HunkId[] =>
   facts.hunks.filter((each) => !each.incidental).map((each) => each.hunk);
 

@@ -1,10 +1,10 @@
 import type { StackProblem } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import type {
-  DiffFacts,
-  HunkLink,
+import {
+  connectedGroups,
+  type DiffFacts,
+  type HunkLink,
 } from '@change-review/domain/services/diff-facts';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
-import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
 interface Assignment {
   readonly cohort: number;
@@ -173,29 +173,13 @@ const unconnectedProblems = (
       return [];
     }
 
-    const group = new Map<HunkId, HunkId>(hunks.map((hunk) => [hunk, hunk]));
-    const root = (hunk: HunkId): HunkId => {
-      const parent = group.get(hunk) ?? hunk;
-      return parent === hunk ? hunk : root(parent);
-    };
+    const groups = connectedGroups(hunks, facts.links);
 
-    for (const { from, to } of facts.links) {
-      if (group.has(from) && group.has(to)) {
-        group.set(root(from), root(to));
-      }
-    }
-
-    const groups = new Map<string, string[]>();
-
-    for (const hunk of hunks) {
-      groups.set(root(hunk), [...(groups.get(root(hunk)) ?? []), hunk]);
-    }
-
-    return groups.size > 1
+    return groups.length > 1
       ? [
           {
             code: 'unconnected',
-            message: `cohort ${c + 1} joins hunks the code does not connect (${[...groups.values()].map((each) => each.join(', ')).join(' | ')}) without saying why`,
+            message: `cohort ${c + 1} joins hunks the code does not connect (${groups.map((each) => each.join(', ')).join(' | ')}) without saying why`,
           },
         ]
       : [];
@@ -228,27 +212,27 @@ export const derivedDependencies = (
   const derived = new Map<string, Map<number, Set<string>>>();
 
   for (const { kind, from, to, because } of links) {
-    const user = assignments.get(from);
-    const definer = assignments.get(to);
+    const later = assignments.get(from);
+    const earlier = assignments.get(to);
 
     if (
       kind === 'moves' ||
-      !user ||
-      !definer ||
-      user.cohort !== definer.cohort ||
-      definer.layer >= user.layer
+      !later ||
+      !earlier ||
+      later.cohort !== earlier.cohort ||
+      earlier.layer >= later.layer
     ) {
       continue;
     }
 
-    const key = `${user.cohort}.${user.layer}`;
+    const key = `${later.cohort}.${later.layer}`;
     const layers = derived.get(key) ?? new Map<number, Set<string>>();
-    const symbols = layers.get(definer.layer + 1) ?? new Set<string>();
+    const symbols = layers.get(earlier.layer + 1) ?? new Set<string>();
 
     for (const symbol of because) {
-      symbols.add(symbol);
+      symbols.add(kind === 'removes' ? `removes ${symbol}` : symbol);
     }
-    layers.set(definer.layer + 1, symbols);
+    layers.set(earlier.layer + 1, symbols);
     derived.set(key, layers);
   }
 

@@ -85,24 +85,40 @@ const cohort = (layers: ProposedLayer[]): ProposedCohort => ({
   layers,
 });
 
-const hunksOf = (cohorts: readonly ProposedCohort[]) =>
-  cohorts.map((each) =>
-    each.layers.map((one) => one.hunks.map((entry) => entry.hunk)),
-  );
+const hunksOf = (each: ProposedCohort) =>
+  each.layers.map((one) => one.hunks.map((entry) => entry.hunk));
+
+const asked = (hunks: string[]) => ({
+  question: `What does ${hunks.join(' and ')} show?`,
+  answer: 'The invitation flow.',
+  hunks: hunks.map((each) => HunkId.of(each)),
+});
 
 describe('withMovedCodeTogether', () => {
   it('puts moved code in one layer and keeps the note on its file', () => {
-    const [arranged] = withMovedCodeTogether(
+    const arranged = withMovedCodeTogether(
       DIFF,
       facts([link('moves', 'h3', 'h1'), link('uses', 'h2', 'h1', 'Invite')]),
-      [cohort([layer(['h1', 'h2']), layer(['h3'])])],
+      cohort([layer(['h1', 'h2']), layer(['h3'])]),
     );
 
-    expect(hunksOf(arranged ? [arranged] : [])).toEqual([[['h1', 'h2', 'h3']]]);
-    expect(arranged?.layers[0]?.notes.map((each) => each.path)).toEqual([
+    expect(hunksOf(arranged)).toEqual([['h1', 'h2', 'h3']]);
+    expect(arranged.layers[0]?.notes.map((each) => each.path)).toEqual([
       'src/h1.ts',
       'src/h2.ts',
       'src/h3.ts',
+    ]);
+  });
+
+  it('writes no note for a moved file that had none', () => {
+    const arranged = withMovedCodeTogether(
+      DIFF,
+      facts([link('moves', 'h2', 'h1')]),
+      cohort([layer(['h1']), { ...layer(['h2']), notes: [] }]),
+    );
+
+    expect(arranged.layers.map((each) => each.notes)).toEqual([
+      [{ path: 'src/h1.ts', note: 'h1 note' }],
     ]);
   });
 
@@ -110,10 +126,10 @@ describe('withMovedCodeTogether', () => {
     const arranged = withMovedCodeTogether(
       DIFF,
       facts([link('moves', 'h3', 'h1'), link('uses', 'h3', 'h2', 'Invite')]),
-      [cohort([layer(['h1']), layer(['h2', 'h3'])])],
+      cohort([layer(['h1']), layer(['h2', 'h3'])]),
     );
 
-    expect(hunksOf(arranged)).toEqual([[['h2', 'h3', 'h1']]]);
+    expect(hunksOf(arranged)).toEqual([['h2', 'h3', 'h1']]);
   });
 
   it('joins code moved both ways and along a chain', () => {
@@ -124,64 +140,99 @@ describe('withMovedCodeTogether', () => {
         link('moves', 'h2', 'h1'),
         link('moves', 'h3', 'h2'),
       ]),
-      [cohort([layer(['h1']), layer(['h2']), layer(['h3', 'h4'])])],
+      cohort([layer(['h1']), layer(['h2']), layer(['h3', 'h4'])]),
     );
 
-    expect(hunksOf(arranged)).toEqual([[['h3', 'h4', 'h1', 'h2']]]);
+    expect(hunksOf(arranged)).toEqual([['h3', 'h4', 'h1', 'h2']]);
   });
 
   it('points a dependency on an emptied layer at the layer that holds its hunks', () => {
-    const [arranged] = withMovedCodeTogether(
+    const arranged = withMovedCodeTogether(
       DIFF,
       facts([link('moves', 'h2', 'h1')]),
-      [
-        cohort([
-          layer(['h1']),
-          layer(['h2', 'h3']),
-          layer(
-            ['h4'],
-            [
-              { layer: 1, because: ['A'] },
-              { layer: 2, because: ['B'] },
-            ],
-          ),
-        ]),
-      ],
+      cohort([
+        layer(['h1']),
+        layer(['h2', 'h3']),
+        layer(
+          ['h4'],
+          [
+            { layer: 1, because: ['A'] },
+            { layer: 2, because: ['B'] },
+          ],
+        ),
+      ]),
     );
 
-    expect(arranged?.layers.map((each) => each.dependsOn)).toEqual([
+    expect(arranged.layers.map((each) => each.dependsOn)).toEqual([
       [],
       [{ layer: 1, because: ['A', 'B'] }],
     ]);
   });
 
-  it('keeps the questions of an emptied layer on the layer that holds its hunks', () => {
-    const question = {
-      question: 'What happens to an expired invite?',
-      answer: 'It is refused.',
-      hunks: [HunkId.of('h1')],
-    };
-    const [arranged] = withMovedCodeTogether(
+  it('keeps what an emptied layer depends on, on the layer that holds its hunks', () => {
+    const arranged = withMovedCodeTogether(
       DIFF,
       facts([link('moves', 'h2', 'h1')]),
-      [cohort([{ ...layer(['h1']), questions: [question] }, layer(['h2'])])],
+      cohort([
+        layer(['h3']),
+        layer(['h1'], [{ layer: 1, because: ['Invite'] }]),
+        layer(['h2']),
+      ]),
     );
 
-    expect(arranged?.layers).toHaveLength(1);
-    expect(arranged?.layers[0]?.questions).toEqual([question]);
+    expect(hunksOf(arranged)).toEqual([['h3'], ['h2', 'h1']]);
+    expect(arranged.layers[1]?.dependsOn).toEqual([
+      { layer: 1, because: ['Invite'] },
+    ]);
   });
 
-  it('leaves moved code across cohorts to the model', () => {
-    const cohorts = [cohort([layer(['h1'])]), cohort([layer(['h2'])])];
+  it('keeps the questions of an emptied layer on the layer that holds its hunks', () => {
+    const question = asked(['h1']);
+    const arranged = withMovedCodeTogether(
+      DIFF,
+      facts([link('moves', 'h2', 'h1')]),
+      cohort([{ ...layer(['h1']), questions: [question] }, layer(['h2'])]),
+    );
+
+    expect(arranged.layers).toHaveLength(1);
+    expect(arranged.layers[0]?.questions).toEqual([question]);
+  });
+
+  it('moves a question about moved code to the layer that shows it', () => {
+    const question = asked(['h1']);
+    const arranged = withMovedCodeTogether(
+      DIFF,
+      facts([link('moves', 'h2', 'h1')]),
+      cohort([
+        { ...layer(['h1', 'h3']), questions: [question] },
+        layer(['h4']),
+        layer(['h2']),
+      ]),
+    );
+
+    expect(hunksOf(arranged)).toEqual([['h3'], ['h4'], ['h2', 'h1']]);
+    expect(arranged.layers.map((each) => each.questions)).toEqual([
+      [],
+      [],
+      [question],
+    ]);
+  });
+
+  it('keeps a layer that was proposed without hunks, for the checks to refuse', () => {
+    const arranged = withMovedCodeTogether(
+      DIFF,
+      facts([link('moves', 'h2', 'h1')]),
+      cohort([layer([]), layer(['h1']), layer(['h2'])]),
+    );
+
+    expect(hunksOf(arranged)).toEqual([[], ['h2', 'h1']]);
+  });
+
+  it('leaves code moved in from another cohort to the model', () => {
+    const proposed = cohort([layer(['h1'])]);
 
     expect(
-      hunksOf(
-        withMovedCodeTogether(
-          DIFF,
-          facts([link('moves', 'h2', 'h1')]),
-          cohorts,
-        ),
-      ),
-    ).toEqual(hunksOf(cohorts));
+      withMovedCodeTogether(DIFF, facts([link('moves', 'h2', 'h1')]), proposed),
+    ).toBe(proposed);
   });
 });

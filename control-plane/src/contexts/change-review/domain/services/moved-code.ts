@@ -1,34 +1,20 @@
-import type { DiffFacts } from '@change-review/domain/services/diff-facts';
+import { withHunksMovedInto } from '@change-review/domain/services/cohort-hunks';
+import {
+  connectedGroups,
+  type DiffFacts,
+} from '@change-review/domain/services/diff-facts';
 import { factProblems } from '@change-review/domain/services/fact-rules';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
-import type {
-  ProposedCohort,
-  ProposedLayer,
-} from '@change-review/domain/value-objects/stack-cohort.vo';
+import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
 const movedGroups = (facts: DiffFacts): HunkId[][] => {
-  const parent = new Map<HunkId, HunkId>();
-  const root = (hunk: HunkId): HunkId => {
-    const above = parent.get(hunk) ?? hunk;
-    return above === hunk ? hunk : root(above);
-  };
+  const moves = facts.links.filter((link) => link.kind === 'moves');
 
-  for (const { kind, from, to } of facts.links) {
-    if (kind === 'moves') {
-      parent.set(from, parent.get(from) ?? from);
-      parent.set(to, parent.get(to) ?? to);
-      parent.set(root(from), root(to));
-    }
-  }
-
-  const groups = new Map<HunkId, HunkId[]>();
-
-  for (const hunk of parent.keys()) {
-    groups.set(root(hunk), [...(groups.get(root(hunk)) ?? []), hunk]);
-  }
-
-  return [...groups.values()];
+  return connectedGroups(
+    [...new Set(moves.flatMap(({ from, to }) => [from, to]))],
+    moves,
+  );
 };
 
 const layerIndexOf = (cohort: ProposedCohort, hunk: HunkId): number =>
@@ -36,158 +22,34 @@ const layerIndexOf = (cohort: ProposedCohort, hunk: HunkId): number =>
     layer.hunks.some((entry) => entry.hunk === hunk),
   );
 
-const placedIn = (
-  diff: Diff,
-  cohort: ProposedCohort,
-  group: readonly HunkId[],
-  target: number,
-): ProposedCohort => {
-  const moving = new Set<string>(group);
-  const pathOf = (hunk: HunkId) => diff.fileOf(hunk)?.path ?? null;
-  const pathsOf = (hunks: ProposedLayer['hunks']) =>
-    new Set(hunks.map((entry) => pathOf(entry.hunk)));
-  const carried = new Map(
-    cohort.layers.flatMap((layer) => {
-      const paths = pathsOf(
-        layer.hunks.filter((entry) => moving.has(entry.hunk)),
-      );
-      return layer.notes
-        .filter((each) => paths.has(each.path))
-        .map((each) => [each.path, each] as const);
-    }),
-  );
-
-  const layers = cohort.layers.map((layer, l): ProposedLayer => {
-    if (l === target) {
-      const arriving = group.filter(
-        (hunk) => !layer.hunks.some((entry) => entry.hunk === hunk),
-      );
-      const noted = new Set(layer.notes.map((each) => each.path));
-      const notes = [...layer.notes];
-
-      for (const hunk of arriving) {
-        const path = pathOf(hunk);
-        const note = path === null ? undefined : carried.get(path);
-
-        if (path !== null && note && !noted.has(path)) {
-          notes.push(note);
-          noted.add(path);
-        }
-      }
-
-      return {
-        ...layer,
-        hunks: [...layer.hunks, ...arriving.map((hunk) => ({ hunk }))],
-        notes,
-      };
-    }
-
-    const hunks = layer.hunks.filter((entry) => !moving.has(entry.hunk));
-    const before = pathsOf(layer.hunks);
-    const still = pathsOf(hunks);
-
-    return {
-      ...layer,
-      hunks,
-      notes: layer.notes.filter(
-        (each) => still.has(each.path) || !before.has(each.path),
-      ),
-    };
-  });
-
-  const emptied = layers.flatMap((layer, l) =>
-    layer.hunks.length === 0 ? [l] : [],
-  );
-  const gathered = layers.map((layer, l) =>
-    l === target
-      ? {
-          ...layer,
-          questions: [
-            ...layer.questions,
-            ...emptied.flatMap((at) => cohort.layers[at]?.questions ?? []),
-          ],
-        }
-      : layer,
-  );
-
-  const kept = gathered.flatMap((layer, l) =>
-    layer.hunks.length > 0 ? [{ layer, from: l + 1 }] : [],
-  );
-  const renumbered = new Map(kept.map(({ from }, place) => [from, place + 1]));
-  const holding = new Set(emptied.map((at) => at + 1));
-  const now = (layer: number) =>
-    renumbered.get(holding.has(layer) ? target + 1 : layer);
-
-  return {
-    ...cohort,
-    layers: kept.map(({ layer }, place) => {
-      const merged = new Map<number, Set<string>>();
-
-      for (const dependency of layer.dependsOn) {
-        const at = now(dependency.layer);
-        const pointsBack =
-          !holding.has(dependency.layer) || (at !== undefined && at <= place);
-
-        if (at !== undefined && pointsBack) {
-          merged.set(
-            at,
-            new Set([...(merged.get(at) ?? []), ...dependency.because]),
-          );
-        }
-      }
-
-      return {
-        ...layer,
-        dependsOn: [...merged].map(([at, because]) => ({
-          layer: at,
-          because: [...because],
-        })),
-      };
-    }),
-  };
-};
-
 const togetherIn = (
   diff: Diff,
   facts: DiffFacts,
-  cohorts: readonly ProposedCohort[],
+  cohort: ProposedCohort,
   group: readonly HunkId[],
-): ProposedCohort[] => {
-  const c = cohorts.findIndex((cohort) =>
-    group.every((hunk) => layerIndexOf(cohort, hunk) >= 0),
-  );
-  const cohort = cohorts[c];
+): ProposedCohort => {
+  const at = [...new Set(group.map((hunk) => layerIndexOf(cohort, hunk)))];
 
-  if (!cohort) {
-    return [...cohorts];
+  if (at.includes(-1) || at.length < 2) {
+    return cohort;
   }
 
-  const targets = [
-    ...new Set(group.map((hunk) => layerIndexOf(cohort, hunk))),
-  ].sort((a, b) => b - a);
-
-  if (targets.length < 2) {
-    return [...cohorts];
-  }
-
-  const candidates = targets.map((target) =>
-    cohorts.map((each, at) =>
-      at === c ? placedIn(diff, each, group, target) : each,
-    ),
-  );
+  const candidates = at
+    .sort((a, b) => b - a)
+    .map((target) => withHunksMovedInto(diff, cohort, group, target));
   const broken = candidates.map(
-    (candidate) => factProblems(candidate, facts).length,
+    (candidate) => factProblems([candidate], facts).length,
   );
 
-  return candidates[broken.indexOf(Math.min(...broken))] ?? [...cohorts];
+  return candidates[broken.indexOf(Math.min(...broken))] ?? cohort;
 };
 
 export const withMovedCodeTogether = (
   diff: Diff,
   facts: DiffFacts,
-  cohorts: readonly ProposedCohort[],
-): ProposedCohort[] =>
+  cohort: ProposedCohort,
+): ProposedCohort =>
   movedGroups(facts).reduce(
     (arranged, group) => togetherIn(diff, facts, arranged, group),
-    [...cohorts],
+    cohort,
   );

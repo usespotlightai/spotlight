@@ -8,6 +8,7 @@ import {
   derivedDependencies,
   factProblems,
 } from '@change-review/domain/services/fact-rules';
+import { withMovedCodeTogether } from '@change-review/domain/services/moved-code';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
   asksQuestions,
@@ -278,11 +279,20 @@ export const StackProposal = {
     cohorts: readonly ProposedCohort[];
     also?: readonly StackProblem[];
   }): StackCohort[] {
-    const problems = [
-      ...shapeProblems(input.diff, input.cohorts),
-      ...factProblems(input.cohorts, input.facts),
+    const problemsOf = (cohorts: readonly ProposedCohort[]) => [
+      ...shapeProblems(input.diff, cohorts),
+      ...factProblems(cohorts, input.facts),
       ...(input.also ?? []),
     ];
+    const together = input.cohorts.map((cohort) =>
+      withMovedCodeTogether(input.diff, input.facts, cohort),
+    );
+
+    if (problemsOf(together).length === 0) {
+      return numbered(together, input.facts);
+    }
+
+    const problems = problemsOf(input.cohorts);
 
     if (problems.length > 0) {
       throw new InvalidChangeStackError(problems);

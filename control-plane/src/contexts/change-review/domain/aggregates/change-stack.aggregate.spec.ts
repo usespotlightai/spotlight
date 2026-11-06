@@ -453,6 +453,63 @@ describe('ChangeStack with facts from the code', () => {
       { layer: 'c1.l2', because: ['POST /invitations'] },
     ]);
   });
+
+  describe('moved code', () => {
+    const MOVES: HunkLink[] = [
+      {
+        kind: 'moves',
+        from: HunkId.of('h3'),
+        to: HunkId.of('h1'),
+        because: ['schema.ts → Invite.tsx'],
+      },
+    ];
+
+    it('puts moved code that a stack parts in one layer', () => {
+      const ready = generating(factsWith(MOVES)).propose(
+        [
+          invitations([
+            layer('Model', ['h1']),
+            layer('API', ['h2']),
+            layer('UI', ['h3']),
+          ]),
+        ],
+        LATER,
+      );
+
+      expect(
+        ready.cohorts[0]?.layers.map((each) =>
+          each.hunks.map((entry) => entry.hunk),
+        ),
+      ).toEqual([['h2'], ['h3', 'h1']]);
+    });
+
+    it('names the problems in the layers as proposed when putting moved code together does not help', () => {
+      const proposed = [
+        invitations([
+          layer('Model', ['h1']),
+          { ...layer('API', ['h2']), title: '' },
+          layer('UI', ['h3']),
+        ]),
+      ];
+
+      expect(() =>
+        generating(factsWith(MOVES)).propose(proposed, LATER),
+      ).toThrow(
+        expect.objectContaining({
+          problems: [
+            expect.objectContaining({
+              message:
+                'cohort 1, layer 2 needs a title of at most 120 characters',
+            }),
+            expect.objectContaining({
+              message:
+                'h3 is code moved from h1, so they belong in the same layer',
+            }),
+          ],
+        }),
+      );
+    });
+  });
 });
 
 describe('ChangeStack read back from what was stored', () => {

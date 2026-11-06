@@ -186,7 +186,7 @@ describe('StackOutline', () => {
     ).toThrow('h2, which is not in the diff');
   });
 
-  it('layers moved code together before it checks the layers', () => {
+  it('takes layers that part moved code, which Spotlight puts together', () => {
     const moving: DiffFacts = {
       ...FACTS,
       links: [
@@ -210,14 +210,12 @@ describe('StackOutline', () => {
       questions: [],
     });
 
-    const layered = StackOutline.layered(part, outlined, [
+    const layers = [
       layerOf('h1', 'src/invite.ts'),
       layerOf('h3', 'src/routes.ts'),
-    ]);
+    ];
 
-    expect(
-      layered.layers.map((each) => each.hunks.map((entry) => entry.hunk)),
-    ).toEqual([['h3', 'h1']]);
+    expect(StackOutline.layered(part, outlined, layers).layers).toEqual(layers);
   });
 
   it('keeps a stored cohort as the proposal it came from', () => {

@@ -190,4 +190,22 @@ describe('derivedDependencies', () => {
       [1, new Set(['Invite'])],
     ]);
   });
+
+  it('names a removal as one in what a layer depends on', () => {
+    const derived = derivedDependencies(
+      [cohort([['h2'], ['h1']])],
+      [
+        {
+          kind: 'removes',
+          from: HunkId.of('h1'),
+          to: HunkId.of('h2'),
+          because: ['legacy'],
+        },
+      ],
+    );
+
+    expect([...(derived.get('0.1') ?? new Map()).entries()]).toEqual([
+      [1, new Set(['removes legacy'])],
+    ]);
+  });
 });
