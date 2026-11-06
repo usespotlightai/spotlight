@@ -1,5 +1,5 @@
 import { timestamptz } from "@platform/persistence/drizzle/columns";
-import { relations, sql } from "drizzle-orm";
+import { relations } from "drizzle-orm";
 import {
   pgTable,
   text,
@@ -9,12 +9,10 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-export const user = pgTable(
-  "user",
-  {
+export const user = pgTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
-  email: text("email").notNull(),
+  email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
   createdAt: timestamptz("created_at").defaultNow().notNull(),
@@ -22,9 +20,7 @@ export const user = pgTable(
     .defaultNow()
     .$onUpdate(() => /* @__PURE__ */ new Date())
     .notNull(),
-  },
-  (table) => [uniqueIndex("user_email_uidx").on(sql`lower(${table.email})`)],
-);
+});
 
 export const session = pgTable(
   "session",
@@ -67,11 +63,11 @@ export const account = pgTable(
       .notNull(),
   },
   (table) => [
-    index("account_userId_idx").on(table.userId),
     uniqueIndex("account_provider_account_uidx").on(
       table.providerId,
       table.accountId,
     ),
+    index("account_userId_idx").on(table.userId),
   ],
 );
 

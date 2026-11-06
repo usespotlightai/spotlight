@@ -1,4 +1,5 @@
 import { bearerSessions } from '@identity/infrastructure/auth/bearer-sessions';
+import { oneAccountPerProviderAccount } from '@identity/infrastructure/auth/one-account-per-provider-account';
 import type { RateLimitStorage } from '@identity/infrastructure/auth/redis-rate-limit';
 import * as schema from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 import { publicUrlOf } from '@platform/config/env';
@@ -45,6 +46,7 @@ export const createAuth = (
     hooks: { before: refusesClientChosenFields },
     plugins: [
       bearerSessions(),
+      oneAccountPerProviderAccount(),
       deviceAuthorization({
         verificationUri: new URL('/device', publicUrlOf(env)).toString(),
         expiresIn: '15m',

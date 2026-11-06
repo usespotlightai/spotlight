@@ -2043,7 +2043,6 @@ CREATE TABLE "workspace_archive" (
 	CONSTRAINT "workspace_archive_granted_to_one" CHECK (("workspace_archive"."granted_to_run_id" is null) <> ("workspace_archive"."granted_to_sandbox_id" is null))
 );
 --> statement-breakpoint
-ALTER TABLE "user" DROP CONSTRAINT "user_email_unique";--> statement-breakpoint
 DROP INDEX "account_issuer_accountId_uidx";--> statement-breakpoint
 ALTER TABLE "account" ALTER COLUMN "access_token_expires_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
 ALTER TABLE "account" ALTER COLUMN "refresh_token_expires_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
@@ -2364,5 +2363,4 @@ CREATE INDEX "workspace_archive_task_idx" ON "workspace_archive" USING btree ("t
 CREATE INDEX "workspace_archive_chat_idx" ON "workspace_archive" USING btree ("chat_id");--> statement-breakpoint
 CREATE INDEX "workspace_archive_granted_to_run_idx" ON "workspace_archive" USING btree ("granted_to_run_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "account_provider_account_uidx" ON "account" USING btree ("provider_id","account_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "user_email_uidx" ON "user" USING btree (lower("email"));--> statement-breakpoint
 ALTER TABLE "account" DROP COLUMN "issuer";
