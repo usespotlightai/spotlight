@@ -629,6 +629,7 @@ const services: Provider[] = [
       DrizzleStackCheckRepository,
       DrizzleChangeStackRepository,
       DrizzleDecisionSetRepository,
+      DrizzleQuestionAnswerRepository,
       TRANSACTION,
       CLOCK,
     ],
@@ -639,6 +640,7 @@ const services: Provider[] = [
       checks: DrizzleStackCheckRepository,
       stacks: DrizzleChangeStackRepository,
       decisions: DrizzleDecisionSetRepository,
+      answers: DrizzleQuestionAnswerRepository,
       transaction: TransactionPort,
       clock: ClockPort,
     ) =>
@@ -649,6 +651,7 @@ const services: Provider[] = [
         checks,
         stacks,
         decisions,
+        answers,
         transaction,
         clock,
       ),

@@ -292,7 +292,7 @@ describe('run facts', () => {
     await taskPullRequests.add(opened);
 
     expect(await factOf('run_2')).toMatchObject({
-      openedBy: 'user_ada',
+      openedById: 'user_ada',
       taskOpenedAt: at(3),
       pullRequest: PULL.value,
       pullRequestState: 'open',
@@ -341,7 +341,7 @@ describe('run facts', () => {
     await records.add(ended('run_x', 'task_x'));
 
     expect(await factOf('run_x')).toMatchObject({
-      openedBy: null,
+      openedById: null,
       taskOpenedAt: null,
       pullRequest: null,
       pullRequestState: null,
@@ -441,12 +441,12 @@ describe('run facts', () => {
     expect(await factOf('run_ours')).toBeNull();
     expect(await factOf('run_shared')).toMatchObject({
       teamId: NEXT_DOOR.value,
-      openedBy: null,
+      openedById: null,
       pullRequestState: null,
       pullRequest: null,
     });
     expect(await factOf('run_theirs')).toMatchObject({
-      openedBy: 'user_ada',
+      openedById: 'user_ada',
       pullRequestState: 'merged',
     });
   });
@@ -493,7 +493,7 @@ describe('run facts', () => {
     );
 
     expect(await factOf('run_1')).toMatchObject({
-      openedBy: 'user_ada',
+      openedById: 'user_ada',
       pullRequestState: null,
     });
   });

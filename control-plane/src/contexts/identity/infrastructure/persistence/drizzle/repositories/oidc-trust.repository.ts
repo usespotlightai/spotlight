@@ -42,7 +42,7 @@ const toTrust = (row: Row): OidcTrust =>
     scopes: TokenScopes.named(row.scopes),
     lifetime: TokenLifetime.ofMinutes(row.lifetimeMinutes),
     description: OidcTrustDescription.of(row.description),
-    createdBy: UserId.of(row.createdBy),
+    createdBy: UserId.of(row.createdById),
     createdAt: row.createdAt,
     version: row.version,
     grantVersion: row.grantVersion,
@@ -75,7 +75,7 @@ export class DrizzleOidcTrustRepository implements OidcTrustRepository {
           workspaceId: added.workspaceId.value,
           key: added.key.value,
           ...specOf(added),
-          createdBy: added.createdBy.value,
+          createdById: added.createdBy.value,
           createdAt: added.createdAt,
           version: added.version,
         });

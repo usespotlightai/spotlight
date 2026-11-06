@@ -74,8 +74,8 @@ describe('inviting people to a workspace (e2e)', () => {
       { id: gone, workspaceId, key: 'gone', name: 'Gone' },
     ]);
     await db.insert(schema.teamMember).values([
-      { teamId: mobile, userId: seat.owner },
-      { teamId: gone, userId: seat.owner },
+      { workspaceId, teamId: mobile, userId: seat.owner },
+      { workspaceId, teamId: gone, userId: seat.owner },
     ]);
   });
 

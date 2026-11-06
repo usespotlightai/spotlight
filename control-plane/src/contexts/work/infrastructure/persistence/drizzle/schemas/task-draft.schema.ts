@@ -1,11 +1,6 @@
+import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import {
-  customType,
-  integer,
-  pgTable,
-  text,
-  timestamp,
-} from 'drizzle-orm/pg-core';
+import { customType, integer, pgTable, text } from 'drizzle-orm/pg-core';
 
 const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
   dataType: () => 'bytea',
@@ -19,5 +14,5 @@ export const taskDraft = pgTable('task_draft', {
     .references(() => task.id, { onDelete: 'cascade' }),
   state: bytea('state'),
   generation: integer('generation').notNull().default(0),
-  updatedAt: timestamp('updated_at').notNull(),
+  updatedAt: timestamptz('updated_at').notNull(),
 });

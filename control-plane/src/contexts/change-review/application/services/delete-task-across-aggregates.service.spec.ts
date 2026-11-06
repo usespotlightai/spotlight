@@ -5,6 +5,7 @@ import { CheckReservationDropped } from '@change-review/domain/events/check-rese
 import { LeasedCheckDeleted } from '@change-review/domain/events/leased-check-deleted.event';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
+import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
@@ -59,6 +60,7 @@ const deleting = (checks: readonly StackCheck[]) => {
       } as unknown as StackCheckRepository,
       { removeForTask: step('stacks') } as unknown as ChangeStackRepository,
       { removeForTask: step('decisions') } as unknown as DecisionSetRepository,
+      { removeForTask: step('answers') } as unknown as QuestionAnswerRepository,
       { inTransaction: (work) => work() } as TransactionPort,
       { now: () => NOW, sleep: async () => {} },
     ),
@@ -81,10 +83,11 @@ describe('DeleteTaskAcrossAggregates', () => {
     ]);
     expect(steps).toEqual([
       'outbox',
-      'comments',
       'reviews',
+      'comments',
       'check',
       'check',
+      'answers',
       'stacks',
       'decisions',
     ]);

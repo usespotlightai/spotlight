@@ -40,7 +40,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
         expiresAt: workspaceInvite.expiresAt,
       })
       .from(workspaceInvite)
-      .leftJoin(user, eq(user.id, workspaceInvite.invitedBy))
+      .leftJoin(user, eq(user.id, workspaceInvite.invitedById))
       .where(
         and(
           eq(workspaceInvite.workspaceId, workspaceId.value),
@@ -85,7 +85,7 @@ export class DrizzleInviteReader implements InviteReaderPort {
       })
       .from(workspaceInvite)
       .innerJoin(workspace, eq(workspace.id, workspaceInvite.workspaceId))
-      .leftJoin(user, eq(user.id, workspaceInvite.invitedBy))
+      .leftJoin(user, eq(user.id, workspaceInvite.invitedById))
       .where(eq(workspaceInvite.tokenHash, hash.value))
       .limit(1);
 

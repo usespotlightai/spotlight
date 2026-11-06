@@ -170,7 +170,8 @@ describe('answers to the questions of a change stack', () => {
     expect((await questionsFor(BEA))?.[0]?.answered).toBeNull();
   });
 
-  it('forgets the answers when the change stack goes', async () => {
+  it('forgets the answers of a task before its change stacks go', async () => {
+    await answers.removeForTask(TaskId.of('task_1'));
     await database.db.execute(
       sql`delete from change_stack where id = 'stack_1'`,
     );

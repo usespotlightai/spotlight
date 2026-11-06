@@ -1,13 +1,16 @@
-import type { HookFiringState } from '@integrations/domain/aggregates/hook-firing.aggregate';
+import { HOOK_FIRING_STATES } from '@integrations/domain/aggregates/hook-firing.aggregate';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
 import type { CauseLink } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
   text,
-  timestamp,
   unique,
 } from 'drizzle-orm/pg-core';
 
@@ -24,7 +27,7 @@ export const hookDefinition = pgTable(
     signingSecret: text('signing_secret'),
     signingSecretVersion: integer('signing_secret_version'),
     version: integer('version').notNull().default(1),
-    updatedAt: timestamp('updated_at')
+    updatedAt: timestamptz('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
@@ -34,6 +37,8 @@ export const hookDefinition = pgTable(
     index('hook_definition_on_idx').on(table.teamId, table.on),
   ],
 );
+
+export const hookFiringState = pgEnum('hook_firing_state', HOOK_FIRING_STATES);
 
 export const hookFiring = pgTable(
   'hook_firing',
@@ -57,17 +62,18 @@ export const hookFiring = pgTable(
       .$type<Record<string, unknown>[]>()
       .notNull()
       .default([]),
-    state: text('state').$type<HookFiringState>().notNull().default('pending'),
+    state: hookFiringState('state').notNull().default('pending'),
     attempts: integer('attempts').notNull().default(0),
-    dueAt: timestamp('due_at').defaultNow().notNull(),
-    claimedAt: timestamp('claimed_at'),
+    dueAt: timestamptz('due_at').defaultNow().notNull(),
+    claimedAt: timestamptz('claimed_at'),
     failure: text('failure'),
     failed: text('failed'),
-    firedAt: timestamp('fired_at').defaultNow().notNull(),
-    handledAt: timestamp('handled_at'),
+    firedAt: timestamptz('fired_at').defaultNow().notNull(),
+    handledAt: timestamptz('handled_at'),
     version: integer('version').notNull().default(1),
   },
   (table) => [
+    check('hook_firing_attempts_not_negative', sql`${table.attempts} >= 0`),
     unique().on(table.hookId, table.occurrence),
     index('hook_firing_state_idx').on(table.state, table.dueAt),
     index('hook_firing_repeats_idx').on(
@@ -86,7 +92,7 @@ export const hookCallback = pgTable(
     taskId: text('task_id').notNull(),
     hook: text('hook').notNull(),
     firingId: text('firing_id'),
-    expiresAt: timestamp('expires_at').notNull(),
+    expiresAt: timestamptz('expires_at').notNull(),
   },
   (table) => [index('hook_callback_expires_idx').on(table.expiresAt)],
 );

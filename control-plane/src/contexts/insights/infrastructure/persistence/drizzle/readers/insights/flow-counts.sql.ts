@@ -134,7 +134,7 @@ const deliveriesIn = async (
 ): Promise<readonly DeliveryMoments[]> => {
   const { current, previous } = team.period;
   const between = (column: SQL): SQL =>
-    sql`${column} >= ${iso(previous.from)}::timestamp and ${column} < ${iso(current.to)}::timestamp`;
+    sql`${column} >= ${iso(previous.from)}::timestamptz and ${column} < ${iso(current.to)}::timestamptz`;
   const result = await db.execute<DeliveryRow>(sql`
     select
       ${taskPullRequest.taskId} as task_id,

@@ -2,11 +2,15 @@ import type { WebhookHeaders } from '@integrations/application/ports/webhook-pro
 
 export const DELIVERY_QUEUE = Symbol('DELIVERY_QUEUE');
 
-export interface StoredDelivery {
-  readonly integration: string;
+export interface DeliveryAddressee {
   readonly workspaceId: string;
   readonly teamId: string;
   readonly teamKey: string;
+}
+
+export interface StoredDelivery {
+  readonly integration: string;
+  readonly to: DeliveryAddressee | null;
   readonly id: string;
   readonly headers: WebhookHeaders;
   readonly body: unknown;

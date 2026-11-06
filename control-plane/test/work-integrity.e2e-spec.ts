@@ -98,6 +98,7 @@ describe('a line that drops a station', () => {
 
     await db.insert(schema.station).values({
       id: reviewId.value,
+      workspaceId: team.workspaceId.value,
       lineId: team.line.id.value,
       key: 'code-review',
       name: 'Review',

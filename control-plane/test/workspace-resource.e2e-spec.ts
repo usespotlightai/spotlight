@@ -234,7 +234,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
     });
     await db
       .insert(schema.teamMember)
-      .values({ teamId, userId: fixture.admin });
+      .values({ workspaceId: made.body.id, teamId, userId: fixture.admin });
 
     const rejected = await as(fixture.admin).delete(
       made.body.id,

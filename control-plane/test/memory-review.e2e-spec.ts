@@ -203,7 +203,7 @@ describe('reviewing the memories a run proposed', () => {
       'Approve me.',
       'Edited.',
     ]);
-    expect(active.every((each) => each.approvedBy === team.owner.value)).toBe(
+    expect(active.every((each) => each.approvedById === team.owner.value)).toBe(
       true,
     );
     expect(active.every((each) => each.steps?.join() === '5')).toBe(true);
@@ -346,9 +346,11 @@ describe('reviewing the memories a run proposed', () => {
       userId: teammate,
       role: 'member',
     });
-    await db
-      .insert(schema.teamMember)
-      .values({ teamId: team.teamId.value, userId: teammate });
+    await db.insert(schema.teamMember).values({
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      userId: teammate,
+    });
 
     await eventually(async () =>
       inboxRequestFor(await inbox(team.owner.value), runId),

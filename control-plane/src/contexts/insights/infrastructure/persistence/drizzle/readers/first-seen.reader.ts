@@ -53,12 +53,12 @@ export class DrizzleFirstSeen implements FirstSeenPort {
     );
     const opened = await this.context.db
       .select({
-        person: taskHumanAction.openedBy,
+        person: taskHumanAction.openedById,
         at: min(taskHumanAction.openedAt),
       })
       .from(taskHumanAction)
-      .where(and(onTeam, inArray(taskHumanAction.openedBy, [...people])))
-      .groupBy(taskHumanAction.openedBy);
+      .where(and(onTeam, inArray(taskHumanAction.openedById, [...people])))
+      .groupBy(taskHumanAction.openedById);
     const acted = await this.context.db
       .select({
         person: sql<string>`act.value->>'by'`,
@@ -78,16 +78,16 @@ export class DrizzleFirstSeen implements FirstSeenPort {
       )
       .groupBy(sql`act.value->>'by'`);
     const chatted = await this.context.db
-      .select({ person: chatRecord.startedBy, at: min(chatRecord.startedAt) })
+      .select({ person: chatRecord.startedById, at: min(chatRecord.startedAt) })
       .from(chatRecord)
       .where(
         and(
           eq(chatRecord.workspaceId, workspaceId.value),
           eq(chatRecord.teamId, teamId.value),
-          inArray(chatRecord.startedBy, [...people]),
+          inArray(chatRecord.startedById, [...people]),
         ),
       )
-      .groupBy(chatRecord.startedBy);
+      .groupBy(chatRecord.startedById);
 
     return earliest([...opened, ...acted, ...chatted]);
   }

@@ -30,7 +30,7 @@ import {
 } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { deleteRunnersOf } from './support/runners';
+import { deleteRunnersOf, deleteRunsOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -231,7 +231,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     await db
       .delete(schema.configurationChange)
       .where(eq(schema.configurationChange.workspaceId, workspaceId));
-    await db.delete(schema.run).where(eq(schema.run.workspaceId, workspaceId));
+    await deleteRunsOf(db, workspaceId);
     await db
       .delete(schema.secret)
       .where(eq(schema.secret.workspaceId, workspaceId));

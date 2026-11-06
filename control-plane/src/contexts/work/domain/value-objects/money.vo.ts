@@ -1,5 +1,9 @@
 import { InvalidMoneyError } from '@work/domain/exceptions/invalid-money.error';
 
+const CURRENCY = /^[A-Z]{3}$/;
+
+const codeOf = (currency: string): string => currency.trim().toUpperCase();
+
 export class Money {
   private constructor(
     readonly amount: number,
@@ -11,10 +15,10 @@ export class Money {
       throw new InvalidMoneyError('must be a positive amount');
     }
 
-    const counted = currency.trim();
+    const counted = codeOf(currency);
 
-    if (counted.length === 0) {
-      throw new InvalidMoneyError('must name its currency');
+    if (!CURRENCY.test(counted)) {
+      throw new InvalidMoneyError('must name its currency as an ISO 4217 code');
     }
 
     return new Money(amount, counted);
@@ -24,7 +28,10 @@ export class Money {
     amount: number | null | undefined,
     currency: string | null | undefined,
   ): Money | null {
-    return amount === null || amount === undefined || !currency
+    return amount === null ||
+      amount === undefined ||
+      !currency ||
+      !CURRENCY.test(codeOf(currency))
       ? null
       : Money.of(amount, currency);
   }

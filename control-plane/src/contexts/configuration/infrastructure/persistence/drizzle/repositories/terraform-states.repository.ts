@@ -119,6 +119,10 @@ export class DrizzleTerraformStates implements TerraformStateRepository {
           writtenBy: written.writtenBy,
           writtenAt: written.writtenAt,
         });
+        await this.context.db
+          .update(terraformState)
+          .set({ latestVersionId: written.id.value })
+          .where(eq(terraformState.id, state.id.value));
       }
 
       await this.events.dispatch(state.pullEvents());
@@ -163,26 +167,18 @@ export class DrizzleTerraformStates implements TerraformStateRepository {
 
   async deleteForWorkspace(workspaceId: WorkspaceId): Promise<void> {
     await this.context.inTransaction(async () => {
-      const states = await this.context.db
+      await this.context.db
         .delete(terraformState)
-        .where(eq(terraformState.workspaceId, workspaceId.value))
-        .returning({ id: terraformState.id });
-
-      if (states.length > 0) {
-        await this.context.db.delete(terraformStateVersion).where(
-          inArray(
-            terraformStateVersion.stateId,
-            states.map(({ id }) => id),
-          ),
-        );
-      }
+        .where(eq(terraformState.workspaceId, workspaceId.value));
     });
   }
 
   private async stored(state: TerraformState): Promise<void> {
     const columns = {
       lock: lockRowOf(state.lock),
-      latestVersionId: state.latest?.id.value ?? null,
+      ...(state.written
+        ? {}
+        : { latestVersionId: state.latest?.id.value ?? null }),
     };
 
     if (state.isNew) {

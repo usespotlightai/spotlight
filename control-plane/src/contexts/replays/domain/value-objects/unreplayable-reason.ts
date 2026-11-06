@@ -1,4 +1,4 @@
-const UNREPLAYABLE_REASONS = [
+export const UNREPLAYABLE_REASONS = [
   'unknown-run',
   'not-a-task-run',
   'task-gone',

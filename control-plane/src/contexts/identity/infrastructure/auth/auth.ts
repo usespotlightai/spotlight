@@ -35,6 +35,7 @@ export const createAuth = (
     ...(rateLimit && { rateLimit: { customStorage: rateLimit } }),
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
+    account: { encryptOAuthTokens: true },
     socialProviders: {
       github: {
         clientId: env.GITHUB_CLIENT_ID,

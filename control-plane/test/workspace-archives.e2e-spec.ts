@@ -20,6 +20,7 @@ import { DrizzleArchiveReferences } from '@work/infrastructure/persistence/drizz
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { aRunOf } from './support/run-ended';
 import * as schema from './support/schema';
 
 const HOUR = 60 * 60_000;
@@ -60,8 +61,22 @@ beforeAll(async () => {
     name: 'Delivery',
   });
   await db.insert(schema.station).values([
-    { id: stationId, key: 'build', lineId, name: 'Build', position: 0 },
-    { id: otherStationId, key: 'ship', lineId, name: 'Ship', position: 1 },
+    {
+      id: stationId,
+      key: 'build',
+      workspaceId: 'ws_1',
+      lineId,
+      name: 'Build',
+      position: 0,
+    },
+    {
+      id: otherStationId,
+      key: 'ship',
+      workspaceId: 'ws_1',
+      lineId,
+      name: 'Ship',
+      position: 1,
+    },
   ]);
 }, 60_000);
 
@@ -127,12 +142,13 @@ const archived = async (
     holder.kind === 'task'
       ? ResumeKey.forTask(holder.taskId.value)
       : ResumeKey.forChat(holder.chatId.value);
+  const grantee = await aRunOf(db, { id: randomUUID(), workspaceId: 'ws_1' });
   const granted = WorkspaceArchive.grant({
     id: WorkspaceArchiveId.of(randomUUID()),
     workspaceId: WorkspaceId.of('ws_1'),
     resumeKey: key,
     holder,
-    grantee: ArchiveGrantee.run(RunId.of(randomUUID())),
+    grantee: ArchiveGrantee.run(RunId.of(grantee)),
     size: STORED.size,
     digest: STORED.digest,
     at: times.grantedAt,
@@ -303,6 +319,7 @@ describe('storing workspace archives', () => {
         workspaceId: 'ws_1',
         harness: 'dev',
         state: 'completed',
+        endedAt: new Date(),
         spec: {},
         startedFromArchiveId: archive.id.value,
         startedFromCheckouts: [],

@@ -233,7 +233,7 @@ const filtered = (
             .where(
               and(
                 eq(taskHumanAction.workspaceId, workspace),
-                eq(taskHumanAction.openedBy, filter.personId),
+                eq(taskHumanAction.openedById, filter.personId),
               ),
             ),
         ),

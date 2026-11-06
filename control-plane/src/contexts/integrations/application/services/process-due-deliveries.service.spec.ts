@@ -14,9 +14,7 @@ const NOW = new Date('2026-09-07T10:00:00.000Z');
 
 const waiting = (id: string, attempts = 0): StoredDelivery => ({
   integration: 'github',
-  workspaceId: '',
-  teamId: '',
-  teamKey: '',
+  to: null,
   id,
   headers: {},
   body: {},

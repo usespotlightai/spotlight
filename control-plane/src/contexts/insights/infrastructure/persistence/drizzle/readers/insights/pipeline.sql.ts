@@ -18,7 +18,7 @@ export const openedFor = (team: TeamInPeriod, taskIds: SQL): SQL => sql`
   from ${taskHumanAction}
   where ${ofTeamHumanActions(team)}
     and ${taskHumanAction.taskId} in (${taskIds})
-    and ${taskHumanAction.openedAt} >= ${iso(team.period.lookback.from)}::timestamp`;
+    and ${taskHumanAction.openedAt} >= ${iso(team.period.lookback.from)}::timestamptz`;
 
 export const ranOfOpened = (team: TeamInPeriod): SQL => sql`
   select ${runFact}.*

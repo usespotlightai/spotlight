@@ -1,8 +1,18 @@
+import {
+  amount,
+  isCurrencyCode,
+  literals,
+  timestamptz,
+} from '@platform/persistence/drizzle/columns';
 import type { BriefedMemoriesParts } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTaskParts } from '@work/domain/value-objects/briefed-task.vo';
-import { RUN_STATES } from '@work/domain/value-objects/run-state';
+import {
+  RUN_STATES,
+  TERMINAL_RUN_STATES,
+} from '@work/domain/value-objects/run-state';
 import type { StartedCheckoutParts } from '@work/domain/value-objects/started-checkout.vo';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
+import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { sql } from 'drizzle-orm';
 import {
@@ -10,7 +20,7 @@ import {
   bigint,
   boolean,
   check,
-  doublePrecision,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -18,7 +28,7 @@ import {
   pgTable,
   primaryKey,
   text,
-  timestamp,
+  unique,
 } from 'drizzle-orm/pg-core';
 
 export const runState = pgEnum('run_state', RUN_STATES);
@@ -53,13 +63,13 @@ export const run = pgTable(
     placementImage: text('placement_image'),
     ranIn: text('ran_in'),
     claimedBy: text('claimed_by'),
-    leaseExpiresAt: timestamp('lease_expires_at'),
-    stopRequestedAt: timestamp('stop_requested_at'),
+    leaseExpiresAt: timestamptz('lease_expires_at'),
+    stopRequestedAt: timestamptz('stop_requested_at'),
     reservedFor: text('reserved_for'),
     reservedPool: text('reserved_pool'),
-    reservedUntil: timestamp('reserved_until'),
+    reservedUntil: timestamptz('reserved_until'),
     provisionAttempts: integer('provision_attempts').notNull().default(0),
-    nextProvisionAttemptAt: timestamp('next_provision_attempt_at'),
+    nextProvisionAttemptAt: timestamptz('next_provision_attempt_at'),
     requeueCount: integer('requeue_count').notNull().default(0),
     suspendedAttempts: integer('suspended_attempts')
       .array()
@@ -69,8 +79,8 @@ export const run = pgTable(
       .$type<BriefedMemoriesParts>()
       .notNull()
       .default({ briefed: [], omitted: [] }),
-    startedAt: timestamp('started_at'),
-    endedAt: timestamp('ended_at'),
+    startedAt: timestamptz('started_at'),
+    endedAt: timestamptz('ended_at'),
     stationFingerprint: text('station_fingerprint'),
     stationConfig: jsonb('station_config').$type<StationConfigParts>(),
     briefedTask: jsonb('briefed_task').$type<BriefedTaskParts>(),
@@ -79,23 +89,28 @@ export const run = pgTable(
       readonly StartedCheckoutParts[]
     >(),
     startedFromAttempt: integer('started_from_attempt'),
-    startedFromAt: timestamp('started_from_at'),
+    startedFromAt: timestamptz('started_from_at'),
     askedAPerson: boolean('asked_a_person').notNull().default(false),
-    claimableFrom: timestamp('claimable_from'),
+    claimableFrom: timestamptz('claimable_from'),
     exitCode: integer('exit_code'),
     message: text('message'),
     failure: text('failure'),
     stopped: boolean('stopped').notNull().default(false),
     version: integer('version').notNull().default(0),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    queuedAt: timestamp('queued_at').defaultNow().notNull(),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
+    queuedAt: timestamptz('queued_at').defaultNow().notNull(),
     traceparent: text('traceparent'),
-    updatedAt: timestamp('updated_at')
+    updatedAt: timestamptz('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
   (table) => [
+    check(
+      'run_provision_attempts_not_negative',
+      sql`${table.provisionAttempts} >= 0`,
+    ),
+    check('run_requeue_count_not_negative', sql`${table.requeueCount} >= 0`),
     index('run_queue_idx').on(
       table.harness,
       table.state,
@@ -108,9 +123,19 @@ export const run = pgTable(
     index('run_station_idx').on(table.stationId, table.createdAt),
     index('run_station_fingerprint_idx').on(table.stationFingerprint),
     check(
+      'run_ended_at_matches_state',
+      sql`(${table.state} in (${literals(TERMINAL_RUN_STATES)})) = (${table.endedAt} is not null)`,
+    ),
+    check(
       'run_station_config_check',
       sql`(${table.stationConfig} is null) = (${table.stationFingerprint} is null)`,
     ),
+    unique('run_workspace_id_id_key').on(table.workspaceId, table.id),
+    foreignKey({
+      name: 'run_chat_fk',
+      columns: [table.workspaceId, table.chatId],
+      foreignColumns: [chat.workspaceId, chat.id],
+    }),
     index('run_chat_idx').on(table.chatId),
     index('run_replay_of_idx').on(table.replayOfRunId),
     index('run_search_idx').on(table.searchId),
@@ -131,7 +156,7 @@ export const runJournalEntry = pgTable(
     attempt: integer('attempt').notNull(),
     seq: integer('seq').notNull(),
     type: text('type').notNull(),
-    at: timestamp('at').notNull(),
+    at: timestamptz('at').notNull(),
     message: text('message'),
     data: text('data'),
   },
@@ -164,7 +189,7 @@ export const runUsage = pgTable(
     changedLines: integer('changed_lines').notNull().default(0),
     contextTokens: integer('context_tokens'),
     contextWindow: integer('context_window'),
-    cost: doublePrecision('cost'),
+    cost: amount('cost'),
     currency: text('currency'),
     inputTokens: bigint('input_tokens', { mode: 'number' }),
     outputTokens: bigint('output_tokens', { mode: 'number' }),
@@ -174,7 +199,10 @@ export const runUsage = pgTable(
       .$type<RunUsageTools>()
       .notNull()
       .default({ servers: [], skills: [] }),
-    recordedAt: timestamp('recorded_at').defaultNow().notNull(),
+    recordedAt: timestamptz('recorded_at').defaultNow().notNull(),
   },
-  (table) => [primaryKey({ columns: [table.runId, table.attempt] })],
+  (table) => [
+    primaryKey({ columns: [table.runId, table.attempt] }),
+    check('run_usage_currency_code', isCurrencyCode(table.currency)),
+  ],
 );

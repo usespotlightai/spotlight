@@ -217,7 +217,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         name: `reader-${id.slice(0, 8)}`,
         scopes: ['read'],
         tokenHash: app.get<TokenIssuer>(TOKEN_ISSUER).hash(bearer),
-        issuedBy: fixture.admin,
+        issuedById: fixture.admin,
         issuedAt: new Date(),
       });
 

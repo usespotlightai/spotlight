@@ -36,7 +36,7 @@ const rehydrated = (row: Row): WorkspaceToken =>
     description: TokenDescription.of(row.description),
     scopes: TokenScopes.named(row.scopes),
     hash: TokenHash.of(row.tokenHash),
-    issuedBy: UserId.of(row.issuedBy),
+    issuedBy: UserId.of(row.issuedById),
     issuedAt: row.issuedAt,
     expiresAt: row.expiresAt,
     issuedByTrustId:
@@ -67,7 +67,7 @@ export class DrizzleWorkspaceTokenRepository
           description: added.description.value,
           scopes: added.scopes.all.map((each) => each.value),
           tokenHash: added.hash.value,
-          issuedBy: added.issuedBy.value,
+          issuedById: added.issuedBy.value,
           issuedAt: added.issuedAt,
           expiresAt: added.expiresAt,
           issuedByTrustId: added.issuedByTrustId?.value ?? null,

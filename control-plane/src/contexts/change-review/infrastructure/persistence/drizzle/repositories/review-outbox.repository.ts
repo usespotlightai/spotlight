@@ -1,15 +1,41 @@
 import type {
   ReviewOutboxEntry,
+  ReviewOutboxKind,
   ReviewOutboxPort,
 } from '@change-review/application/ports/review-outbox.port';
 import { reviewOutbox } from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  FOREIGN_KEY_VIOLATION,
+  violates,
+} from '@platform/persistence/drizzle/violations';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, lte, sql } from 'drizzle-orm';
 
 const FAILURE_LIMIT = 1_000;
+
+const SUBJECT_GONE = 'review_outbox_';
+
+const subjectColumns = (kind: ReviewOutboxKind, subjectId: string) =>
+  kind === 'review'
+    ? { reviewId: subjectId, commentId: null }
+    : { reviewId: null, commentId: subjectId };
+
+const subjectOf = (row: {
+  readonly reviewId: string | null;
+  readonly commentId: string | null;
+}): string => {
+  const subject = row.reviewId ?? row.commentId;
+
+  if (subject === null) {
+    throw new InconsistentStateError('review outbox entry', 'has no subject');
+  }
+
+  return subject;
+};
 
 @Injectable()
 export class DrizzleReviewOutbox implements ReviewOutboxPort {
@@ -19,14 +45,24 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
     sync: Omit<ReviewOutboxEntry, 'attempts'>,
     dueAt: Date,
   ): Promise<void> {
-    await this.context.db.insert(reviewOutbox).values({
-      id: sync.id,
-      workspaceId: sync.workspaceId.value,
-      taskId: sync.taskId.value,
-      kind: sync.kind,
-      subjectId: sync.subjectId,
-      dueAt,
-    });
+    try {
+      await this.context.inSavepoint(async () => {
+        await this.context.db.insert(reviewOutbox).values({
+          id: sync.id,
+          workspaceId: sync.workspaceId.value,
+          taskId: sync.taskId.value,
+          kind: sync.kind,
+          ...subjectColumns(sync.kind, sync.subjectId),
+          dueAt,
+        });
+      });
+    } catch (error) {
+      if (violates(error, FOREIGN_KEY_VIOLATION, SUBJECT_GONE)) {
+        return;
+      }
+
+      throw error;
+    }
   }
 
   async claimDue(
@@ -60,7 +96,7 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
           workspaceId: WorkspaceId.of(found.workspaceId),
           taskId: TaskId.of(found.taskId),
           kind: found.kind,
-          subjectId: found.subjectId,
+          subjectId: subjectOf(found),
           attempts: found.attempts,
         }
       : null;
@@ -105,7 +141,8 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
   async failuresFor(taskId: TaskId): Promise<ReadonlyMap<string, string>> {
     const rows = await this.context.db
       .select({
-        subjectId: reviewOutbox.subjectId,
+        reviewId: reviewOutbox.reviewId,
+        commentId: reviewOutbox.commentId,
         failure: reviewOutbox.failure,
       })
       .from(reviewOutbox)
@@ -118,7 +155,7 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
 
     return new Map(
       rows.map((row) => [
-        row.subjectId,
+        subjectOf(row),
         row.failure ?? 'Spotlight couldn’t reach GitHub.',
       ]),
     );

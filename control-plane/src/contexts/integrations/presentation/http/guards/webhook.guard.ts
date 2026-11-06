@@ -2,6 +2,7 @@ import {
   WORKSPACE_READER,
   type WorkspaceReaderPort,
 } from '@identity/application/ports/workspace-reader.port';
+import type { DeliveryAddressee } from '@integrations/application/ports/delivery-queue.port';
 import type {
   Delivered,
   WebhookProviderPort,
@@ -24,7 +25,7 @@ interface DeliveredRequest {
   readonly headers: Record<string, string | string[] | undefined>;
   readonly body?: unknown;
   readonly params?: Record<string, string>;
-  deliveredTo?: { workspaceId: string; teamId: string };
+  deliveredTo?: DeliveryAddressee | null;
   answered?: string | null;
 }
 
@@ -43,17 +44,17 @@ export class WebhookGuard implements CanActivate {
     const slug = request.params?.slug;
     const teamKey = request.params?.teamKey;
 
-    const at =
+    const team =
       slug && teamKey
         ? await this.workspaces.identifyTeam(slug, teamKey)
-        : { workspaceId: '', teamId: '' };
+        : null;
+    const to = team && teamKey ? { ...team, teamKey } : null;
+    const known = !(slug && teamKey) || to !== null;
 
-    const provider = at
+    const provider = known
       ? await this.providers.find({
-          workspaceId: at.workspaceId,
-          teamId: at.teamId,
-          teamKey: teamKey ?? '',
           integration: request.params?.integration ?? '',
+          to,
         })
       : null;
 
@@ -64,13 +65,13 @@ export class WebhookGuard implements CanActivate {
     };
 
     // Unknown teams and providers fail as bad signatures do. This shows no data to the caller.
-    if (!at || !provider || !(await this.trusts(provider, delivered))) {
+    if (!known || !provider || !(await this.trusts(provider, delivered))) {
       this.logger.warn(
         {
-          workspaceId: at?.workspaceId || undefined,
-          teamId: at?.teamId || undefined,
+          workspaceId: to?.workspaceId,
+          teamId: to?.teamId,
           integration: request.params?.integration,
-          reason: !at
+          reason: !known
             ? 'unknown-team'
             : !provider
               ? 'unknown-integration'
@@ -81,7 +82,7 @@ export class WebhookGuard implements CanActivate {
       throw new UnauthorizedException();
     }
 
-    request.deliveredTo = at;
+    request.deliveredTo = to;
     request.answered = provider.answer?.(delivered) ?? null;
 
     return true;

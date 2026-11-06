@@ -5,6 +5,7 @@ import type { QuestionAnswerRepository } from '@change-review/domain/repositorie
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { QuestionAnswerId } from '@change-review/domain/value-objects/question-answer-id.vo';
 import { QuestionId } from '@change-review/domain/value-objects/stack-ids';
+import { changeStack } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 import { questionAnswer } from '@change-review/infrastructure/persistence/drizzle/schemas/question-answer.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -13,9 +14,10 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -128,5 +130,19 @@ export class DrizzleQuestionAnswerRepository
       .limit(1);
 
     return row ? toAnswer(row) : null;
+  }
+
+  async removeForTask(taskId: TaskId): Promise<void> {
+    await this.context.db
+      .delete(questionAnswer)
+      .where(
+        inArray(
+          questionAnswer.stackId,
+          this.context.db
+            .select({ id: changeStack.id })
+            .from(changeStack)
+            .where(eq(changeStack.taskId, taskId.value)),
+        ),
+      );
   }
 }

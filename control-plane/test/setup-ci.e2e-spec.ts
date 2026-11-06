@@ -19,6 +19,7 @@ import {
   it,
 } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { deleteChatsOf } from './support/runners';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -109,10 +110,7 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
   });
 
   afterEach(async () => {
-    await db.delete(schema.run).where(eq(schema.run.workspaceId, workspaceId));
-    await db
-      .delete(schema.chat)
-      .where(eq(schema.chat.workspaceId, workspaceId));
+    await deleteChatsOf(db, workspaceId);
     await db
       .delete(schema.oidcTrust)
       .where(eq(schema.oidcTrust.workspaceId, workspaceId));
@@ -133,11 +131,11 @@ describe('setting up CI when an admin picks the configuration repository (e2e)',
       audience: 'spotlight',
       subject: 'repo:acme/infra:pull_request',
       scopes: ['plan'],
-      createdBy: owner,
+      createdById: owner,
     });
     expect(byKey['github-apply']).toMatchObject({
       subject: 'repo:acme/infra:ref:refs/heads/main',
-      createdBy: owner,
+      createdById: owner,
     });
     expect([...(byKey['github-apply']?.scopes ?? [])].sort()).toEqual([
       'configure',

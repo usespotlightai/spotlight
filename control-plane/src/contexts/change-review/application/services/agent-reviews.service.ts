@@ -70,10 +70,10 @@ export class AgentReviews implements PullRequestReviewingPort {
         now: this.clock.now(),
       });
 
+      await this.reviews.add(review);
       for (const comment of claimed) {
         await this.comments.save(comment);
       }
-      await this.reviews.add(review);
 
       return review.id.value;
     });

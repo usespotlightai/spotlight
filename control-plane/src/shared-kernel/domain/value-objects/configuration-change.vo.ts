@@ -24,7 +24,9 @@ export const CONFIGURED_RESOURCES = [
 
 export type ConfiguredResource = (typeof CONFIGURED_RESOURCES)[number];
 
-export type ConfigurationAction = 'created' | 'updated' | 'deleted';
+export const CONFIGURATION_ACTIONS = ['created', 'updated', 'deleted'] as const;
+
+export type ConfigurationAction = (typeof CONFIGURATION_ACTIONS)[number];
 
 type RecordedValue =
   | null

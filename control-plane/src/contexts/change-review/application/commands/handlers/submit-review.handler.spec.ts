@@ -58,7 +58,18 @@ const submitting = (over: { racing?: boolean } = {}) => {
     {
       add: async (review: Review) => void reviews.push(review),
     } as unknown as ReviewRepository,
-    { inTransaction: (work) => work() },
+    {
+      inTransaction: async (work) => {
+        const kept = reviews.length;
+
+        try {
+          return await work();
+        } catch (error) {
+          reviews.length = kept;
+          throw error;
+        }
+      },
+    },
     { generate: () => `review_${++ids}` },
     { now: () => NOW, sleep: async () => {} },
   );

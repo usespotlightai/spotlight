@@ -18,6 +18,7 @@ import { DrizzleTracedTaskReader } from '@work/infrastructure/persistence/drizzl
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { endedAtFor } from './support/run-ended';
 import * as schema from './support/schema';
 
 let database: TestDatabase;
@@ -71,6 +72,7 @@ const chatRun = async (state: RunState) => {
     harness: 'dev',
     chatId: chat.id.value,
     state,
+    endedAt: endedAtFor(state),
     claimedBy: RUNNER,
     spec: {},
   });
@@ -93,6 +95,7 @@ const taskOfTeam = async (teamId: string) => {
   await db.insert(schema.station).values({
     id: stationId,
     key: 'triage',
+    workspaceId: 'ws_1',
     lineId,
     name: 'Triage',
     position: 0,

@@ -92,9 +92,9 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
     recordedAt: row.recordedAt,
     state: row.state,
     decision:
-      row.decidedBy && row.decidedAt
+      row.decidedById && row.decidedAt
         ? MemoryDecision.of({
-            by: UserId.of(row.decidedBy),
+            by: UserId.of(row.decidedById),
             at: row.decidedAt,
           })
         : null,
@@ -130,29 +130,32 @@ const columnsOf = (draft: MemoryDraft) => ({
 });
 
 const proposalRows = (draft: MemoryDraft) =>
-  draft.proposals.map((each, position) => ({
-    id: each.id.value,
-    draftId: draft.id.value,
-    position,
-    kind: each.kind,
-    body: each.body.value,
-    teamId: each.scope.teamId.value,
-    lineId: each.scope.lineId,
-    stationId: each.scope.stationId,
-    repository: each.scope.repository?.value ?? null,
-    paths: each.scope.paths.map((path) => path.value),
-    taskId: each.provenance.taskId.value,
-    runId: each.provenance.runId.value,
-    steps: [...each.provenance.steps],
-    notes: [...each.provenance.notes],
-    source: each.source,
-    proposedBy: each.proposedBy,
-    supersedes: each.supersedes?.value ?? null,
-    recordedAt: each.recordedAt,
-    state: each.state,
-    decidedBy: each.decision?.by.value ?? null,
-    decidedAt: each.decision?.at ?? null,
-  }));
+  draft.proposals.map(
+    (each, position) =>
+      ({
+        id: each.id.value,
+        draftId: draft.id.value,
+        position,
+        kind: each.kind,
+        body: each.body.value,
+        teamId: each.scope.teamId.value,
+        lineId: each.scope.lineId,
+        stationId: each.scope.stationId,
+        repository: each.scope.repository?.value ?? null,
+        paths: each.scope.paths.map((path) => path.value),
+        taskId: each.provenance.taskId.value,
+        runId: each.provenance.runId.value,
+        steps: [...each.provenance.steps],
+        notes: [...each.provenance.notes],
+        source: each.source,
+        proposedBy: each.proposedBy,
+        supersedes: each.supersedes?.value ?? null,
+        recordedAt: each.recordedAt,
+        state: each.state,
+        decidedById: each.decision?.by.value ?? null,
+        decidedAt: each.decision?.at ?? null,
+      }) satisfies typeof memoryProposal.$inferInsert,
+  );
 
 @Injectable()
 export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {

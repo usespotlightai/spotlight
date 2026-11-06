@@ -10,6 +10,8 @@ CREATE TYPE "public"."review_state" AS ENUM('submitted', 'posted', 'failed', 'di
 CREATE TYPE "public"."review_verdict" AS ENUM('comment', 'approve', 'request-changes');--> statement-breakpoint
 CREATE TYPE "public"."stack_check_status" AS ENUM('waiting', 'redrafting', 'checked', 'skipped');--> statement-breakpoint
 CREATE TYPE "public"."github_pull_request_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
+CREATE TYPE "public"."configuration_action" AS ENUM('created', 'updated', 'deleted');--> statement-breakpoint
+CREATE TYPE "public"."configuration_actor" AS ENUM('spotlight', 'person', 'token');--> statement-breakpoint
 CREATE TYPE "public"."job_function" AS ENUM('marketing', 'leadership', 'product-management', 'sales-success', 'data', 'student', 'engineering', 'founder', 'other');--> statement-breakpoint
 CREATE TYPE "public"."workspace_role" AS ENUM('owner', 'admin', 'member');--> statement-breakpoint
 CREATE TYPE "public"."workspace_token_scope" AS ENUM('read', 'plan', 'configure', 'secrets', 'runners', 'trusts');--> statement-breakpoint
@@ -24,6 +26,8 @@ CREATE TYPE "public"."run_record_ending" AS ENUM('completed', 'failed', 'stopped
 CREATE TYPE "public"."score_kind" AS ENUM('yes-no', 'number', 'claims');--> statement-breakpoint
 CREATE TYPE "public"."score_source" AS ENUM('judge', 'person');--> statement-breakpoint
 CREATE TYPE "public"."task_pull_request_state" AS ENUM('open', 'merged', 'closed');--> statement-breakpoint
+CREATE TYPE "public"."delivery_state" AS ENUM('pending', 'working', 'done', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."hook_firing_state" AS ENUM('pending', 'working', 'done', 'failed', 'superseded');--> statement-breakpoint
 CREATE TYPE "public"."memory_drafting_failure" AS ENUM('no-evidence', 'request-failed', 'unreadable', 'errored', 'interrupted');--> statement-breakpoint
 CREATE TYPE "public"."memory_kind" AS ENUM('rationale', 'rejected-approach', 'failure', 'environment', 'preference', 'correction');--> statement-breakpoint
 CREATE TYPE "public"."memory_proposal_state" AS ENUM('proposed', 'approved', 'rejected');--> statement-breakpoint
@@ -46,20 +50,30 @@ CREATE TYPE "public"."replay_search_stop_reason" AS ENUM('iterations-spent', 'ce
 CREATE TYPE "public"."replay_search_trigger" AS ENUM('schedule', 'alert', 'request');--> statement-breakpoint
 CREATE TYPE "public"."replay_state" AS ENUM('queued', 'running', 'finished', 'stopped', 'ceiling-reached');--> statement-breakpoint
 CREATE TYPE "public"."search_skip_reason" AS ENUM('no-agent', 'no-scoring', 'set-too-small', 'no-fresh-held-out', 'ceiling-too-low', 'noisy', 'judge-unstable', 'flaky-checks', 'no-headroom', 'monthly-ceiling', 'pull-request-open', 'cooldown');--> statement-breakpoint
+CREATE TYPE "public"."unreplayable_reason" AS ENUM('unknown-run', 'not-a-task-run', 'task-gone', 'still-running', 'no-starting-point', 'no-briefing', 'archive-gone', 'attachments-gone', 'answer-gone', 'repository-gone', 'not-at-the-station', 'candidate-unfit', 'cannot-start', 'unchecked', 'cancelled', 'dispatch-failed');--> statement-breakpoint
+CREATE TYPE "public"."runner_work_kind" AS ENUM('run', 'check');--> statement-breakpoint
+CREATE TYPE "public"."sandbox_state" AS ENUM('starting', 'ready', 'draining', 'gone');--> statement-breakpoint
+CREATE TYPE "public"."secret_source" AS ENUM('built-in', 'aws-secrets-manager');--> statement-breakpoint
+CREATE TYPE "public"."chat_message_kind" AS ENUM('message', 'proposed');--> statement-breakpoint
 CREATE TYPE "public"."inbox_request_form" AS ENUM('memories', 'grade', 'alert');--> statement-breakpoint
+CREATE TYPE "public"."station_kind" AS ENUM('backlog', 'work', 'completed');--> statement-breakpoint
+CREATE TYPE "public"."network_call_state" AS ENUM('waiting', 'claimed', 'answered', 'expired', 'cancelled');--> statement-breakpoint
 CREATE TYPE "public"."notice_form" AS ENUM('ended', 'advice');--> statement-breakpoint
 CREATE TYPE "public"."replay_run_claimed" AS ENUM('queued', 'cancelled', 'unreplayable');--> statement-breakpoint
 CREATE TYPE "public"."run_state" AS ENUM('queued', 'claimed', 'suspended', 'completed', 'failed', 'cancelled', 'superseded');--> statement-breakpoint
-CREATE SEQUENCE "public"."memory_handle_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1;--> statement-breakpoint
+CREATE TYPE "public"."task_note_form" AS ENUM('words', 'setup', 'resolved', 'approval', 'failure', 'connection');--> statement-breakpoint
+CREATE TYPE "public"."task_note_kind" AS ENUM('asked', 'passed', 'answered', 'message', 'reopened');--> statement-breakpoint
+CREATE TYPE "public"."voice" AS ENUM('station', 'person', 'world');--> statement-breakpoint
 CREATE TABLE "event_delivery" (
 	"event_id" uuid NOT NULL,
 	"subscriber" text NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
-	"due_at" timestamp DEFAULT now() NOT NULL,
-	"delivered_at" timestamp,
-	"dead_lettered_at" timestamp,
+	"due_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"delivered_at" timestamp (3) with time zone,
+	"dead_lettered_at" timestamp (3) with time zone,
 	"last_error" text,
-	CONSTRAINT "event_delivery_event_id_subscriber_pk" PRIMARY KEY("event_id","subscriber")
+	CONSTRAINT "event_delivery_event_id_subscriber_pk" PRIMARY KEY("event_id","subscriber"),
+	CONSTRAINT "event_delivery_attempts_not_negative" CHECK ("event_delivery"."attempts" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "event_outbox" (
@@ -68,7 +82,7 @@ CREATE TABLE "event_outbox" (
 	"payload" jsonb NOT NULL,
 	"cause" jsonb,
 	"traceparent" text,
-	"recorded_at" timestamp DEFAULT now() NOT NULL
+	"recorded_at" timestamp (3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "idempotent_create" (
@@ -76,7 +90,7 @@ CREATE TABLE "idempotent_create" (
 	"key" text NOT NULL,
 	"fingerprint" text NOT NULL,
 	"created_id" text,
-	"created_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "idempotent_create_scope_key_pk" PRIMARY KEY("scope","key")
 );
 --> statement-breakpoint
@@ -85,7 +99,7 @@ CREATE TABLE "catalog_call" (
 	"workspace_id" text NOT NULL,
 	"run_id" text NOT NULL,
 	"item" text NOT NULL,
-	"called_at" timestamp NOT NULL,
+	"called_at" timestamp (3) with time zone NOT NULL,
 	"ms" integer NOT NULL,
 	"succeeded" boolean NOT NULL,
 	"billable" boolean NOT NULL
@@ -94,7 +108,7 @@ CREATE TABLE "catalog_call" (
 CREATE TABLE "workspace_plan" (
 	"workspace_id" text PRIMARY KEY NOT NULL,
 	"plan" text NOT NULL,
-	"expires_at" timestamp
+	"expires_at" timestamp (3) with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "change_stack" (
@@ -109,8 +123,8 @@ CREATE TABLE "change_stack" (
 	"files" jsonb NOT NULL,
 	"cohorts" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"failure" text,
-	"started_at" timestamp NOT NULL,
-	"completed_at" timestamp,
+	"started_at" timestamp (3) with time zone NOT NULL,
+	"completed_at" timestamp (3) with time zone,
 	"facts" jsonb NOT NULL,
 	"check_command" text,
 	"check_setup" text,
@@ -119,8 +133,10 @@ CREATE TABLE "change_stack" (
 	"redrafting" boolean DEFAULT false NOT NULL,
 	"usage" jsonb NOT NULL,
 	"job_attempts" integer DEFAULT 0 NOT NULL,
-	"job_due_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"job_due_at" timestamp (3) with time zone,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "change_stack_workspace_id_id_key" UNIQUE("workspace_id","id"),
+	CONSTRAINT "change_stack_job_attempts_not_negative" CHECK ("change_stack"."job_attempts" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "decision" (
@@ -132,16 +148,17 @@ CREATE TABLE "decision" (
 	"why" text NOT NULL,
 	"alternatives" jsonb NOT NULL,
 	"paths" jsonb NOT NULL,
-	"journal_steps" jsonb NOT NULL
+	"journal_steps" jsonb NOT NULL,
+	CONSTRAINT "decision_position_not_negative" CHECK ("decision"."position" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "decision_dispute" (
 	"id" text PRIMARY KEY NOT NULL,
 	"decision_id" text NOT NULL,
 	"path" text NOT NULL,
-	"by_user_id" text NOT NULL,
+	"disputed_by_id" text NOT NULL,
 	"reason" text NOT NULL,
-	"at" timestamp NOT NULL
+	"at" timestamp (3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "decision_set" (
@@ -150,14 +167,15 @@ CREATE TABLE "decision_set" (
 	"workspace_id" text NOT NULL,
 	"source_run_id" text,
 	"generation_run_id" text,
-	"generation_requested_at" timestamp,
+	"generation_requested_at" timestamp (3) with time zone,
 	"job_attempts" integer DEFAULT 0 NOT NULL,
-	"job_due_at" timestamp,
+	"job_due_at" timestamp (3) with time zone,
 	"status" "decision_status" DEFAULT 'proposed' NOT NULL,
 	"merged_repository" text,
 	"merged_commit" text,
-	"merged_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"merged_at" timestamp (3) with time zone,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "decision_set_job_attempts_not_negative" CHECK ("decision_set"."job_attempts" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "question_answer" (
@@ -172,7 +190,7 @@ CREATE TABLE "question_answer" (
 	"verdict" "answer_verdict" NOT NULL,
 	"feedback" text,
 	"usage" jsonb NOT NULL,
-	"answered_at" timestamp NOT NULL,
+	"answered_at" timestamp (3) with time zone NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -185,12 +203,12 @@ CREATE TABLE "review" (
 	"author_name" text,
 	"verdict" "review_verdict" NOT NULL,
 	"body" text NOT NULL,
-	"comment_ids" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"state" "review_state" NOT NULL,
 	"github_id" bigint,
-	"submitted_at" timestamp NOT NULL,
-	"posted_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"submitted_at" timestamp (3) with time zone NOT NULL,
+	"posted_at" timestamp (3) with time zone,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "review_workspace_id_id_key" UNIQUE("workspace_id","id")
 );
 --> statement-breakpoint
 CREATE TABLE "review_comment" (
@@ -214,10 +232,20 @@ CREATE TABLE "review_comment" (
 	"sent_body" text,
 	"edit_pending" boolean DEFAULT false NOT NULL,
 	"pending_own_edits" jsonb DEFAULT '[]'::jsonb NOT NULL,
-	"created_at" timestamp NOT NULL,
-	"edited_at" timestamp,
+	"created_at" timestamp (3) with time zone NOT NULL,
+	"edited_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "review_comment_workspace_id_id_key" UNIQUE("workspace_id","id"),
 	CONSTRAINT "review_comment_lines_check" CHECK (("review_comment"."side" is null) = ("review_comment"."line" is null) and ("review_comment"."line" is not null or "review_comment"."start_line" is null))
+);
+--> statement-breakpoint
+CREATE TABLE "review_included_comment" (
+	"review_id" text NOT NULL,
+	"workspace_id" text NOT NULL,
+	"comment_id" text NOT NULL,
+	"position" integer NOT NULL,
+	CONSTRAINT "review_included_comment_review_id_comment_id_pk" PRIMARY KEY("review_id","comment_id"),
+	CONSTRAINT "review_included_comment_position_not_negative" CHECK ("review_included_comment"."position" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "review_outbox" (
@@ -225,12 +253,15 @@ CREATE TABLE "review_outbox" (
 	"workspace_id" text NOT NULL,
 	"task_id" text NOT NULL,
 	"kind" "review_outbox_kind" NOT NULL,
-	"subject_id" text NOT NULL,
+	"review_id" text,
+	"comment_id" text,
 	"state" "review_outbox_state" DEFAULT 'pending' NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
-	"due_at" timestamp NOT NULL,
+	"due_at" timestamp (3) with time zone NOT NULL,
 	"failure" text,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "review_outbox_attempts_not_negative" CHECK ("review_outbox"."attempts" >= 0),
+	CONSTRAINT "review_outbox_one_subject" CHECK (("review_outbox"."kind" = 'review') = ("review_outbox"."review_id" is not null) and num_nonnulls("review_outbox"."review_id", "review_outbox"."comment_id") = 1)
 );
 --> statement-breakpoint
 CREATE TABLE "stack_check" (
@@ -250,16 +281,19 @@ CREATE TABLE "stack_check" (
 	"outcome" jsonb,
 	"claimed_by" text,
 	"attempts" integer DEFAULT 0 NOT NULL,
-	"lease_expires_at" timestamp,
-	"claimed_at" timestamp,
-	"waiting_since" timestamp NOT NULL,
+	"lease_expires_at" timestamp (3) with time zone,
+	"claimed_at" timestamp (3) with time zone,
+	"waiting_since" timestamp (3) with time zone NOT NULL,
 	"reserved_for" text,
 	"reserved_pool" text,
-	"reserved_until" timestamp,
+	"reserved_until" timestamp (3) with time zone,
 	"provision_attempts" integer DEFAULT 0 NOT NULL,
-	"next_provision_attempt_at" timestamp,
+	"next_provision_attempt_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
-	CONSTRAINT "stack_check_stack_id_recheck_pk" PRIMARY KEY("stack_id","recheck")
+	CONSTRAINT "stack_check_stack_id_recheck_pk" PRIMARY KEY("stack_id","recheck"),
+	CONSTRAINT "stack_check_redraft_count_not_negative" CHECK ("stack_check"."redraft_count" >= 0),
+	CONSTRAINT "stack_check_attempts_not_negative" CHECK ("stack_check"."attempts" >= 0),
+	CONSTRAINT "stack_check_provision_attempts_not_negative" CHECK ("stack_check"."provision_attempts" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "harness_profile" (
@@ -270,7 +304,7 @@ CREATE TABLE "harness_profile" (
 	"mcp_servers" jsonb NOT NULL,
 	"native" jsonb NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "harness_profile_team_id_key_unique" UNIQUE("team_id","key")
 );
 --> statement-breakpoint
@@ -280,7 +314,7 @@ CREATE TABLE "skill_definition" (
 	"key" text NOT NULL,
 	"files" jsonb NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "skill_definition_team_id_key_unique" UNIQUE("team_id","key")
 );
 --> statement-breakpoint
@@ -291,7 +325,7 @@ CREATE TABLE "terraform_state" (
 	"lock" jsonb,
 	"latest_version_id" text,
 	"version" integer DEFAULT 1 NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "terraform_state_workspace_id_name_unique" UNIQUE("workspace_id","name")
 );
 --> statement-breakpoint
@@ -304,15 +338,16 @@ CREATE TABLE "terraform_state_version" (
 	"md5" text NOT NULL,
 	"size" integer NOT NULL,
 	"written_by" text NOT NULL,
-	"written_at" timestamp NOT NULL,
-	CONSTRAINT "terraform_state_version_state_id_number_unique" UNIQUE("state_id","number")
+	"written_at" timestamp (3) with time zone NOT NULL,
+	CONSTRAINT "terraform_state_version_state_id_number_unique" UNIQUE("state_id","number"),
+	CONSTRAINT "terraform_state_version_size_not_negative" CHECK ("terraform_state_version"."size" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "github_connection" (
 	"workspace_id" text PRIMARY KEY NOT NULL,
 	"installation_id" text NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "github_connection_installation_id_unique" UNIQUE("installation_id")
 );
 --> statement-breakpoint
@@ -328,13 +363,13 @@ CREATE TABLE "github_pull_request" (
 	"additions" integer,
 	"deletions" integer,
 	"changed_files" integer,
-	"opened_at" timestamp NOT NULL,
+	"opened_at" timestamp (3) with time zone NOT NULL,
 	"draft" boolean DEFAULT false NOT NULL,
-	"ready_for_review_at" timestamp,
+	"ready_for_review_at" timestamp (3) with time zone,
 	"draft_periods" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"state" "github_pull_request_state" NOT NULL,
-	"closed_at" timestamp,
-	"updated_at" timestamp NOT NULL,
+	"closed_at" timestamp (3) with time zone,
+	"updated_at" timestamp (3) with time zone NOT NULL,
 	"reverts" jsonb,
 	"reviews" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"dismissed_reviews" jsonb DEFAULT '[]'::jsonb NOT NULL,
@@ -352,28 +387,28 @@ CREATE TABLE "device_code" (
 	"device_code" text NOT NULL,
 	"user_code" text NOT NULL,
 	"user_id" text,
-	"expires_at" timestamp NOT NULL,
+	"expires_at" timestamp (3) with time zone NOT NULL,
 	"status" text NOT NULL,
-	"last_polled_at" timestamp,
+	"last_polled_at" timestamp (3) with time zone,
 	"polling_interval" integer,
 	"client_id" text,
 	"scope" text
 );
 --> statement-breakpoint
 CREATE TABLE "configuration_change" (
-	"seq" bigserial PRIMARY KEY NOT NULL,
+	"seq" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "configuration_change_seq_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
 	"workspace_id" text NOT NULL,
 	"resource" text NOT NULL,
 	"resource_id" text NOT NULL,
 	"key" text NOT NULL,
-	"action" text NOT NULL,
-	"actor" text NOT NULL,
+	"action" "configuration_action" NOT NULL,
+	"actor" "configuration_actor" NOT NULL,
 	"user_id" text,
 	"token_id" text,
 	"trust_id" text,
 	"client" text,
 	"details" jsonb DEFAULT '{}'::jsonb NOT NULL,
-	"recorded_at" timestamp DEFAULT now() NOT NULL
+	"recorded_at" timestamp (3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "user_email" (
@@ -381,18 +416,18 @@ CREATE TABLE "user_email" (
 	"user_id" text NOT NULL,
 	"email" text NOT NULL,
 	"token_hash" text NOT NULL,
-	"added_at" timestamp DEFAULT now() NOT NULL,
-	"sent_at" timestamp NOT NULL,
-	"expires_at" timestamp NOT NULL,
-	"verified_at" timestamp,
+	"added_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"sent_at" timestamp (3) with time zone NOT NULL,
+	"expires_at" timestamp (3) with time zone NOT NULL,
+	"verified_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 1 NOT NULL,
 	CONSTRAINT "user_email_token_hash_unique" UNIQUE("token_hash")
 );
 --> statement-breakpoint
 CREATE TABLE "verification_send" (
-	"id" serial PRIMARY KEY NOT NULL,
+	"id" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "verification_send_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
 	"user_id" text NOT NULL,
-	"sent_at" timestamp NOT NULL
+	"sent_at" timestamp (3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "oidc_trust" (
@@ -406,16 +441,18 @@ CREATE TABLE "oidc_trust" (
 	"scopes" "workspace_token_scope"[] NOT NULL,
 	"lifetime_minutes" integer NOT NULL,
 	"description" text DEFAULT '' NOT NULL,
-	"created_by" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
+	"created_by_id" text NOT NULL,
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
-	"grant_version" integer DEFAULT 0 NOT NULL
+	"grant_version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "oidc_trust_workspace_id_id_key" UNIQUE("workspace_id","id"),
+	CONSTRAINT "oidc_trust_lifetime_minutes_positive" CHECK ("oidc_trust"."lifetime_minutes" > 0)
 );
 --> statement-breakpoint
 CREATE TABLE "oidc_trust_usage" (
 	"trust_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
-	"last_issued_at" timestamp NOT NULL
+	"last_issued_at" timestamp (3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "signup_survey" (
@@ -423,7 +460,7 @@ CREATE TABLE "signup_survey" (
 	"respondent_id" text,
 	"job_function" "job_function" NOT NULL,
 	"referral_source" text,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "team" (
@@ -432,14 +469,16 @@ CREATE TABLE "team" (
 	"workspace_id" text NOT NULL,
 	"name" text NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "team_workspace_id_id_key" UNIQUE("workspace_id","id")
 );
 --> statement-breakpoint
 CREATE TABLE "team_member" (
+	"workspace_id" text NOT NULL,
 	"team_id" text NOT NULL,
 	"user_id" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "team_member_team_id_user_id_pk" PRIMARY KEY("team_id","user_id")
 );
 --> statement-breakpoint
@@ -449,8 +488,8 @@ CREATE TABLE "workspace" (
 	"slug" text NOT NULL,
 	"outbound_hosts" text[] DEFAULT '{}' NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "workspace_slug_unique" UNIQUE("slug")
 );
 --> statement-breakpoint
@@ -460,16 +499,16 @@ CREATE TABLE "workspace_invite" (
 	"email" text NOT NULL,
 	"role" "workspace_role" NOT NULL,
 	"token_hash" text NOT NULL,
-	"invited_by" text,
-	"invited_at" timestamp DEFAULT now() NOT NULL,
-	"expires_at" timestamp NOT NULL,
-	"accepted_at" timestamp,
-	"accepted_by" text,
-	"revoked_at" timestamp,
+	"invited_by_id" text,
+	"invited_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"expires_at" timestamp (3) with time zone NOT NULL,
+	"accepted_at" timestamp (3) with time zone,
+	"accepted_by_id" text,
+	"revoked_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 1 NOT NULL,
 	CONSTRAINT "workspace_invite_token_hash_unique" UNIQUE("token_hash"),
 	CONSTRAINT "workspace_invite_role" CHECK ("workspace_invite"."role" <> 'owner'),
-	CONSTRAINT "workspace_invite_accepted_by" CHECK ("workspace_invite"."accepted_by" is null or "workspace_invite"."accepted_at" is not null),
+	CONSTRAINT "workspace_invite_accepted_by" CHECK ("workspace_invite"."accepted_by_id" is null or "workspace_invite"."accepted_at" is not null),
 	CONSTRAINT "workspace_invite_ended_once" CHECK (not ("workspace_invite"."accepted_at" is not null and "workspace_invite"."revoked_at" is not null))
 );
 --> statement-breakpoint
@@ -483,7 +522,7 @@ CREATE TABLE "workspace_member" (
 	"workspace_id" text NOT NULL,
 	"user_id" text NOT NULL,
 	"role" "workspace_role" NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "workspace_member_workspace_id_user_id_pk" PRIMARY KEY("workspace_id","user_id")
 );
 --> statement-breakpoint
@@ -494,9 +533,9 @@ CREATE TABLE "workspace_token" (
 	"description" text DEFAULT '' NOT NULL,
 	"scopes" "workspace_token_scope"[] NOT NULL,
 	"token_hash" text NOT NULL,
-	"issued_by" text NOT NULL,
-	"issued_at" timestamp NOT NULL,
-	"expires_at" timestamp,
+	"issued_by_id" text NOT NULL,
+	"issued_at" timestamp (3) with time zone NOT NULL,
+	"expires_at" timestamp (3) with time zone,
 	"issued_by_trust_id" text,
 	"trust_version" integer,
 	"run_id" text,
@@ -518,30 +557,31 @@ CREATE TABLE "change_judging" (
 	"pass_threshold" double precision NOT NULL,
 	"reference_run_id" text,
 	"spent" jsonb NOT NULL,
-	"queued_at" timestamp NOT NULL,
+	"queued_at" timestamp (3) with time zone NOT NULL,
 	"pending" boolean NOT NULL,
 	"job_attempts" integer DEFAULT 0 NOT NULL,
-	"job_due_at" timestamp,
-	"judged_at" timestamp,
+	"job_due_at" timestamp (3) with time zone,
+	"judged_at" timestamp (3) with time zone,
 	"failure" "judging_failure",
-	"failed_at" timestamp,
+	"failed_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
-	CONSTRAINT "change_judging_run_id_attempt_pk" PRIMARY KEY("run_id","attempt")
+	CONSTRAINT "change_judging_run_id_attempt_pk" PRIMARY KEY("run_id","attempt"),
+	CONSTRAINT "change_judging_job_attempts_not_negative" CHECK ("change_judging"."job_attempts" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "chat_record" (
 	"chat_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
 	"team_id" text NOT NULL,
-	"started_by" text NOT NULL,
-	"started_at" timestamp NOT NULL,
+	"started_by_id" text NOT NULL,
+	"started_at" timestamp (3) with time zone NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "deleted_pull_request" (
 	"workspace_id" text NOT NULL,
 	"pull_request" text NOT NULL,
-	"updated_at" timestamp NOT NULL,
+	"updated_at" timestamp (3) with time zone NOT NULL,
 	CONSTRAINT "deleted_pull_request_workspace_id_pull_request_pk" PRIMARY KEY("workspace_id","pull_request")
 );
 --> statement-breakpoint
@@ -572,20 +612,21 @@ CREATE TABLE "judging" (
 	"claims" jsonb NOT NULL,
 	"pass_threshold" double precision NOT NULL,
 	"rubric_version" text NOT NULL,
-	"queued_at" timestamp NOT NULL,
+	"queued_at" timestamp (3) with time zone NOT NULL,
 	"pending" boolean NOT NULL,
 	"job_attempts" integer DEFAULT 0 NOT NULL,
-	"job_due_at" timestamp,
-	"judged_at" timestamp,
+	"job_due_at" timestamp (3) with time zone,
+	"judged_at" timestamp (3) with time zone,
 	"failure" "judging_failure",
-	"failed_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"failed_at" timestamp (3) with time zone,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "judging_job_attempts_not_negative" CHECK ("judging"."job_attempts" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "pending_review" (
 	"workspace_id" text NOT NULL,
 	"pull_request" text NOT NULL,
-	"at" timestamp NOT NULL,
+	"at" timestamp (3) with time zone NOT NULL,
 	CONSTRAINT "pending_review_workspace_id_pull_request_at_pk" PRIMARY KEY("workspace_id","pull_request","at")
 );
 --> statement-breakpoint
@@ -601,16 +642,16 @@ CREATE TABLE "pull_request_record" (
 	"additions" integer,
 	"deletions" integer,
 	"changed_files" integer,
-	"opened_at" timestamp,
+	"opened_at" timestamp (3) with time zone,
 	"state" "pull_request_record_state",
-	"closed_at" timestamp,
-	"updated_at" timestamp,
-	"ready_for_review_at" timestamp,
+	"closed_at" timestamp (3) with time zone,
+	"updated_at" timestamp (3) with time zone,
+	"ready_for_review_at" timestamp (3) with time zone,
 	"draft_periods" jsonb DEFAULT '[]'::jsonb NOT NULL,
-	"first_review_at" timestamp,
-	"first_unblocking_review_at" timestamp,
-	"first_approved_at" timestamp,
-	"human_reviewed_at" timestamp[] DEFAULT '{}' NOT NULL,
+	"first_review_at" timestamp (3) with time zone,
+	"first_unblocking_review_at" timestamp (3) with time zone,
+	"first_approved_at" timestamp (3) with time zone,
+	"human_reviewed_at" timestamp (3) with time zone[] DEFAULT '{}' NOT NULL,
 	"reviews" integer DEFAULT 0 NOT NULL,
 	"review_rounds" integer DEFAULT 0 NOT NULL,
 	"review_comments" integer DEFAULT 0 NOT NULL,
@@ -621,7 +662,7 @@ CREATE TABLE "pull_request_record" (
 	"owner_task_id" text,
 	"owner_team_id" text,
 	"review_task_ids" text[] DEFAULT '{}' NOT NULL,
-	"github_purged_at" timestamp,
+	"github_purged_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "pull_request_record_workspace_id_pull_request_pk" PRIMARY KEY("workspace_id","pull_request")
 );
@@ -640,23 +681,23 @@ CREATE TABLE "run_fact" (
 	"profile_key" text,
 	"repositories" jsonb NOT NULL,
 	"skills" jsonb NOT NULL,
-	"queued_at" timestamp,
-	"started_at" timestamp,
-	"ended_at" timestamp NOT NULL,
-	"began_at" timestamp NOT NULL,
+	"queued_at" timestamp (3) with time zone,
+	"started_at" timestamp (3) with time zone,
+	"ended_at" timestamp (3) with time zone NOT NULL,
+	"began_at" timestamp (3) with time zone NOT NULL,
 	"ending" "run_record_ending" NOT NULL,
 	"ran" boolean NOT NULL,
 	"failure" text,
 	"visit" integer NOT NULL,
 	"asked" boolean NOT NULL,
-	"superseded_at" timestamp,
+	"superseded_at" timestamp (3) with time zone,
 	"checks" "run_record_checks",
-	"checked_at" timestamp,
+	"checked_at" timestamp (3) with time zone,
 	"first_human_action" "human_action",
-	"first_human_action_at" timestamp,
-	"approval_answered_at" timestamp,
+	"first_human_action_at" timestamp (3) with time zone,
+	"approval_answered_at" timestamp (3) with time zone,
 	"passed_to" text,
-	"passed_at" timestamp,
+	"passed_at" timestamp (3) with time zone,
 	"usage_recorded" boolean NOT NULL,
 	"ms" integer,
 	"steps" integer,
@@ -664,7 +705,7 @@ CREATE TABLE "run_fact" (
 	"changed_lines" integer,
 	"context_tokens" integer,
 	"context_window" integer,
-	"cost" double precision,
+	"cost" numeric(24, 12),
 	"currency" text,
 	"input_tokens" bigint,
 	"output_tokens" bigint,
@@ -673,12 +714,13 @@ CREATE TABLE "run_fact" (
 	"tools" jsonb,
 	"dismissals" jsonb NOT NULL,
 	"memories" jsonb NOT NULL,
-	"opened_by" text,
-	"task_opened_at" timestamp,
+	"opened_by_id" text,
+	"task_opened_at" timestamp (3) with time zone,
 	"pull_request" text,
 	"pull_request_state" "task_pull_request_state",
-	"pull_request_opened_at" timestamp,
-	"pull_request_closed_at" timestamp
+	"pull_request_opened_at" timestamp (3) with time zone,
+	"pull_request_closed_at" timestamp (3) with time zone,
+	CONSTRAINT "run_fact_currency_code" CHECK ("run_fact"."currency" ~ '^[A-Z]{3}$')
 );
 --> statement-breakpoint
 CREATE TABLE "run_record" (
@@ -695,21 +737,21 @@ CREATE TABLE "run_record" (
 	"profile_key" text,
 	"repositories" jsonb,
 	"skills" jsonb,
-	"queued_at" timestamp,
-	"started_at" timestamp,
-	"ended_at" timestamp,
+	"queued_at" timestamp (3) with time zone,
+	"started_at" timestamp (3) with time zone,
+	"ended_at" timestamp (3) with time zone,
 	"ending" "run_record_ending",
 	"failure" text,
 	"visit" integer,
 	"asked" boolean DEFAULT false NOT NULL,
-	"superseded_at" timestamp,
+	"superseded_at" timestamp (3) with time zone,
 	"checks" "run_record_checks",
-	"checked_at" timestamp,
+	"checked_at" timestamp (3) with time zone,
 	"first_human_action" "human_action",
-	"first_human_action_at" timestamp,
-	"approval_answered_at" timestamp,
+	"first_human_action_at" timestamp (3) with time zone,
+	"approval_answered_at" timestamp (3) with time zone,
 	"passed_to" text,
-	"passed_at" timestamp,
+	"passed_at" timestamp (3) with time zone,
 	"usage_recorded" boolean DEFAULT false NOT NULL,
 	"ms" integer,
 	"steps" integer,
@@ -717,7 +759,7 @@ CREATE TABLE "run_record" (
 	"changed_lines" integer,
 	"context_tokens" integer,
 	"context_window" integer,
-	"cost" double precision,
+	"cost" numeric(24, 12),
 	"currency" text,
 	"input_tokens" bigint,
 	"output_tokens" bigint,
@@ -726,7 +768,8 @@ CREATE TABLE "run_record" (
 	"tools" jsonb,
 	"dismissals" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"memories" jsonb DEFAULT '{"briefed":[],"recalled":[]}'::jsonb NOT NULL,
-	"version" integer DEFAULT 0 NOT NULL
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "run_record_currency_code" CHECK ("run_record"."currency" ~ '^[A-Z]{3}$')
 );
 --> statement-breakpoint
 CREATE TABLE "score" (
@@ -746,8 +789,8 @@ CREATE TABLE "score" (
 	"model" text,
 	"reasons" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"seen" jsonb DEFAULT '{"steps":[],"hunks":[]}'::jsonb NOT NULL,
-	"by" text,
-	"at" timestamp NOT NULL,
+	"scored_by_id" text,
+	"at" timestamp (3) with time zone NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -763,15 +806,16 @@ CREATE TABLE "side_by_side_judging" (
 	"most_attempts" integer NOT NULL,
 	"shown_order" "pair_order" NOT NULL,
 	"spent" jsonb NOT NULL,
-	"queued_at" timestamp NOT NULL,
+	"queued_at" timestamp (3) with time zone NOT NULL,
 	"pending" boolean NOT NULL,
 	"job_attempts" integer DEFAULT 0 NOT NULL,
-	"job_due_at" timestamp,
-	"judged_at" timestamp,
+	"job_due_at" timestamp (3) with time zone,
+	"judged_at" timestamp (3) with time zone,
 	"failure" "judging_failure",
-	"failed_at" timestamp,
+	"failed_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
-	CONSTRAINT "side_by_side_judging_run_id_other_run_id_pk" PRIMARY KEY("run_id","other_run_id")
+	CONSTRAINT "side_by_side_judging_run_id_other_run_id_pk" PRIMARY KEY("run_id","other_run_id"),
+	CONSTRAINT "side_by_side_judging_job_attempts_not_negative" CHECK ("side_by_side_judging"."job_attempts" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "station_alert" (
@@ -785,10 +829,11 @@ CREATE TABLE "station_alert" (
 	"baseline" double precision,
 	"run_id" text NOT NULL,
 	"task_id" text NOT NULL,
-	"fired_at" timestamp NOT NULL,
-	"resolved_at" timestamp,
+	"fired_at" timestamp (3) with time zone NOT NULL,
+	"resolved_at" timestamp (3) with time zone,
 	"clear_runs" integer DEFAULT 0 NOT NULL,
-	"last_seen_run_id" text
+	"last_seen_run_id" text,
+	CONSTRAINT "station_alert_clear_runs_not_negative" CHECK ("station_alert"."clear_runs" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "station_alert_state" (
@@ -806,7 +851,7 @@ CREATE TABLE "station_config_pull_request" (
 	"station_id" text NOT NULL,
 	"fingerprint" text NOT NULL,
 	"url" text NOT NULL,
-	"opened_at" timestamp NOT NULL
+	"opened_at" timestamp (3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "task_change_shape" (
@@ -815,7 +860,7 @@ CREATE TABLE "task_change_shape" (
 	"team_id" text NOT NULL,
 	"change_titles" text[] DEFAULT '{}' NOT NULL,
 	"change_intents" text[] DEFAULT '{}' NOT NULL,
-	"shaped_at" timestamp NOT NULL,
+	"shaped_at" timestamp (3) with time zone NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -824,7 +869,7 @@ CREATE TABLE "task_failures" (
 	"workspace_id" text NOT NULL,
 	"team_id" text NOT NULL,
 	"occurrences" jsonb DEFAULT '[]'::jsonb NOT NULL,
-	"last_at" timestamp,
+	"last_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -834,11 +879,11 @@ CREATE TABLE "task_human_action" (
 	"team_id" text,
 	"line_id" text,
 	"station_id" text,
-	"opened_by" text,
-	"opened_at" timestamp,
+	"opened_by_id" text,
+	"opened_at" timestamp (3) with time zone,
 	"asks" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"actions" jsonb DEFAULT '[]'::jsonb NOT NULL,
-	"last_action_at" timestamp,
+	"last_action_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -848,28 +893,31 @@ CREATE TABLE "task_pull_request" (
 	"team_id" text NOT NULL,
 	"pull_request" text NOT NULL,
 	"state" "task_pull_request_state" DEFAULT 'open' NOT NULL,
-	"opened_at" timestamp NOT NULL,
-	"first_review_at" timestamp,
-	"closed_at" timestamp,
+	"opened_at" timestamp (3) with time zone NOT NULL,
+	"first_review_at" timestamp (3) with time zone,
+	"closed_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "inbound_delivery" (
+	"seq" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "inbound_delivery_seq_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
 	"integration" text NOT NULL,
-	"workspace_id" text DEFAULT '' NOT NULL,
-	"team_id" text DEFAULT '' NOT NULL,
-	"team_key" text DEFAULT '' NOT NULL,
+	"workspace_id" text,
+	"team_id" text,
+	"team_key" text,
 	"id" text NOT NULL,
 	"headers" jsonb NOT NULL,
 	"body" jsonb NOT NULL,
-	"state" text DEFAULT 'pending' NOT NULL,
+	"state" "delivery_state" DEFAULT 'pending' NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
-	"due_at" timestamp DEFAULT now() NOT NULL,
-	"claimed_at" timestamp,
+	"due_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"claimed_at" timestamp (3) with time zone,
 	"failed" text,
-	"received_at" timestamp DEFAULT now() NOT NULL,
-	"handled_at" timestamp,
-	CONSTRAINT "inbound_delivery_integration_team_id_id_pk" PRIMARY KEY("integration","team_id","id")
+	"received_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"handled_at" timestamp (3) with time zone,
+	CONSTRAINT "inbound_delivery_key" UNIQUE NULLS NOT DISTINCT("integration","team_id","id"),
+	CONSTRAINT "inbound_delivery_attempts_not_negative" CHECK ("inbound_delivery"."attempts" >= 0),
+	CONSTRAINT "inbound_delivery_whole_addressee" CHECK (num_nonnulls("inbound_delivery"."workspace_id", "inbound_delivery"."team_id", "inbound_delivery"."team_key") in (0, 3))
 );
 --> statement-breakpoint
 CREATE TABLE "hook_callback" (
@@ -878,7 +926,7 @@ CREATE TABLE "hook_callback" (
 	"task_id" text NOT NULL,
 	"hook" text NOT NULL,
 	"firing_id" text,
-	"expires_at" timestamp NOT NULL
+	"expires_at" timestamp (3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "hook_definition" (
@@ -892,7 +940,7 @@ CREATE TABLE "hook_definition" (
 	"signing_secret" text,
 	"signing_secret_version" integer,
 	"version" integer DEFAULT 1 NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "hook_definition_team_id_key_unique" UNIQUE("team_id","key")
 );
 --> statement-breakpoint
@@ -911,16 +959,17 @@ CREATE TABLE "hook_firing" (
 	"cause" jsonb NOT NULL,
 	"link" jsonb NOT NULL,
 	"steps" jsonb DEFAULT '[]'::jsonb NOT NULL,
-	"state" text DEFAULT 'pending' NOT NULL,
+	"state" "hook_firing_state" DEFAULT 'pending' NOT NULL,
 	"attempts" integer DEFAULT 0 NOT NULL,
-	"due_at" timestamp DEFAULT now() NOT NULL,
-	"claimed_at" timestamp,
+	"due_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"claimed_at" timestamp (3) with time zone,
 	"failure" text,
 	"failed" text,
-	"fired_at" timestamp DEFAULT now() NOT NULL,
-	"handled_at" timestamp,
+	"fired_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"handled_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 1 NOT NULL,
-	CONSTRAINT "hook_firing_hook_id_occurrence_unique" UNIQUE("hook_id","occurrence")
+	CONSTRAINT "hook_firing_hook_id_occurrence_unique" UNIQUE("hook_id","occurrence"),
+	CONSTRAINT "hook_firing_attempts_not_negative" CHECK ("hook_firing"."attempts" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "inferred_output_schema" (
@@ -929,7 +978,7 @@ CREATE TABLE "inferred_output_schema" (
 	"integration" text NOT NULL,
 	"shape" jsonb NOT NULL,
 	"calls" integer NOT NULL,
-	"inferred_at" timestamp NOT NULL,
+	"inferred_at" timestamp (3) with time zone NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
 	CONSTRAINT "inferred_output_schema_team_id_tool_pk" PRIMARY KEY("team_id","tool")
 );
@@ -941,13 +990,13 @@ CREATE TABLE "integration_connection" (
 	"owner" text NOT NULL,
 	"access_token" text NOT NULL,
 	"refresh_token" text,
-	"expires_at" timestamp,
+	"expires_at" timestamp (3) with time zone,
 	"scopes" text DEFAULT '' NOT NULL,
 	"linked_account" text,
-	"refresh_failed_at" timestamp,
-	"refresh_claimed_until" timestamp,
+	"refresh_failed_at" timestamp (3) with time zone,
+	"refresh_claimed_until" timestamp (3) with time zone,
 	"version" integer DEFAULT 1 NOT NULL,
-	"connected_at" timestamp DEFAULT now() NOT NULL,
+	"connected_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "integration_connection_team_id_integration_owner_pk" PRIMARY KEY("team_id","integration","owner")
 );
 --> statement-breakpoint
@@ -955,7 +1004,7 @@ CREATE TABLE "integration_cursor" (
 	"team_id" text NOT NULL,
 	"integration" text NOT NULL,
 	"cursor" text,
-	"ran_at" timestamp,
+	"ran_at" timestamp (3) with time zone,
 	CONSTRAINT "integration_cursor_team_id_integration_pk" PRIMARY KEY("team_id","integration")
 );
 --> statement-breakpoint
@@ -967,11 +1016,11 @@ CREATE TABLE "integration_definition" (
 	"tools" jsonb NOT NULL,
 	"spec_fingerprint" text,
 	"spec_hash" text,
-	"spec_read_at" timestamp,
+	"spec_read_at" timestamp (3) with time zone,
 	"spec_problem" text,
 	"spec_skipped" jsonb,
 	"version" integer DEFAULT 1 NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "integration_definition_team_id_integration_unique" UNIQUE("team_id","integration")
 );
 --> statement-breakpoint
@@ -986,15 +1035,15 @@ CREATE TABLE "oauth2_client_registration" (
 	"token_endpoint" text,
 	"client_id" text NOT NULL,
 	"client_secret" text,
-	"secret_expires_at" timestamp,
+	"secret_expires_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 1 NOT NULL,
-	"registered_at" timestamp DEFAULT now() NOT NULL,
+	"registered_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "oauth2_client_registration_team_id_integration_pk" PRIMARY KEY("team_id","integration")
 );
 --> statement-breakpoint
 CREATE TABLE "oauth2_spent_nonce" (
 	"nonce" text PRIMARY KEY NOT NULL,
-	"until" timestamp NOT NULL
+	"until" timestamp (3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "person_tool_policy" (
@@ -1011,7 +1060,7 @@ CREATE TABLE "spec_document" (
 	"kind" text NOT NULL,
 	"operations" integer NOT NULL,
 	"skipped" jsonb NOT NULL,
-	"read_at" timestamp NOT NULL
+	"read_at" timestamp (3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "spec_operation" (
@@ -1019,12 +1068,13 @@ CREATE TABLE "spec_operation" (
 	"name" text NOT NULL,
 	"position" integer NOT NULL,
 	"operation" jsonb NOT NULL,
-	CONSTRAINT "spec_operation_hash_name_pk" PRIMARY KEY("hash","name")
+	CONSTRAINT "spec_operation_hash_name_pk" PRIMARY KEY("hash","name"),
+	CONSTRAINT "spec_operation_position_not_negative" CHECK ("spec_operation"."position" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "memory" (
 	"id" text PRIMARY KEY NOT NULL,
-	"handle" integer NOT NULL,
+	"handle" integer GENERATED BY DEFAULT AS IDENTITY (sequence name "memory_handle_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 2147483647 START WITH 1 CACHE 1),
 	"workspace_id" text NOT NULL,
 	"kind" "memory_kind" NOT NULL,
 	"body" text NOT NULL,
@@ -1040,13 +1090,15 @@ CREATE TABLE "memory" (
 	"source" "memory_source" NOT NULL,
 	"supersedes" text,
 	"status" "memory_status" DEFAULT 'active' NOT NULL,
-	"approved_by" text NOT NULL,
-	"approved_at" timestamp NOT NULL,
-	"retired_at" timestamp,
-	"retired_by" text,
+	"approved_by_id" text NOT NULL,
+	"approved_at" timestamp (3) with time zone NOT NULL,
+	"retired_at" timestamp (3) with time zone,
+	"retired_by_id" text,
 	"retire_reason" text,
 	"superseded_by" text,
-	"version" integer DEFAULT 0 NOT NULL
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "memory_workspace_id_id_key" UNIQUE("workspace_id","id"),
+	CONSTRAINT "memory_retired_at_matches_status" CHECK (("memory"."status" = 'retired') = ("memory"."retired_at" is not null))
 );
 --> statement-breakpoint
 CREATE TABLE "memory_draft" (
@@ -1054,14 +1106,16 @@ CREATE TABLE "memory_draft" (
 	"task_id" text NOT NULL,
 	"workspace_id" text NOT NULL,
 	"drafting_run_id" text,
-	"drafting_requested_at" timestamp,
+	"drafting_requested_at" timestamp (3) with time zone,
 	"job_attempts" integer DEFAULT 0 NOT NULL,
-	"job_due_at" timestamp,
+	"job_due_at" timestamp (3) with time zone,
 	"drafted_in" text,
 	"notes_read" integer DEFAULT 0 NOT NULL,
 	"failure" "memory_drafting_failure",
-	"failed_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"failed_at" timestamp (3) with time zone,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "memory_draft_job_attempts_not_negative" CHECK ("memory_draft"."job_attempts" >= 0),
+	CONSTRAINT "memory_draft_notes_read_not_negative" CHECK ("memory_draft"."notes_read" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "memory_proposal" (
@@ -1082,17 +1136,19 @@ CREATE TABLE "memory_proposal" (
 	"source" "memory_source" NOT NULL,
 	"proposed_by" "memory_proposer" NOT NULL,
 	"supersedes" text,
-	"recorded_at" timestamp NOT NULL,
+	"recorded_at" timestamp (3) with time zone NOT NULL,
 	"state" "memory_proposal_state" DEFAULT 'proposed' NOT NULL,
-	"decided_by" text,
-	"decided_at" timestamp
+	"decided_by_id" text,
+	"decided_at" timestamp (3) with time zone,
+	CONSTRAINT "memory_proposal_position_not_negative" CHECK ("memory_proposal"."position" >= 0),
+	CONSTRAINT "memory_proposal_decided_matches_state" CHECK (("memory_proposal"."state" = 'proposed') = ("memory_proposal"."decided_at" is null) and ("memory_proposal"."decided_by_id" is null) = ("memory_proposal"."decided_at" is null))
 );
 --> statement-breakpoint
 CREATE TABLE "memory_use" (
 	"memory_id" text NOT NULL,
 	"run_id" text NOT NULL,
 	"via" "memory_use_via" NOT NULL,
-	"at" timestamp NOT NULL,
+	"at" timestamp (3) with time zone NOT NULL,
 	CONSTRAINT "memory_use_memory_id_run_id_via_pk" PRIMARY KEY("memory_id","run_id","via")
 );
 --> statement-breakpoint
@@ -1115,7 +1171,7 @@ CREATE TABLE "config_pull_request" (
 	"github_id" bigint,
 	"based_on" text,
 	"proposing" text,
-	"checked_at" timestamp,
+	"checked_at" timestamp (3) with time zone,
 	"closed_because" "config_pull_request_close_reason",
 	"close_failure_code" "config_pull_request_error",
 	"close_failure_message" text,
@@ -1126,10 +1182,11 @@ CREATE TABLE "config_pull_request" (
 	"error_wanted" jsonb,
 	"retries" integer NOT NULL,
 	"last_commit" text,
-	"due_at" timestamp,
-	"created_at" timestamp NOT NULL,
-	"updated_at" timestamp NOT NULL,
-	"version" integer DEFAULT 0 NOT NULL
+	"due_at" timestamp (3) with time zone,
+	"created_at" timestamp (3) with time zone NOT NULL,
+	"updated_at" timestamp (3) with time zone NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "config_pull_request_retries_not_negative" CHECK ("config_pull_request"."retries" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "replay" (
@@ -1145,7 +1202,7 @@ CREATE TABLE "replay" (
 	"checked" boolean NOT NULL,
 	"rubric_version" text,
 	"scoring_hash" text NOT NULL,
-	"ceiling_amount" double precision NOT NULL,
+	"ceiling_amount" numeric(24, 12) NOT NULL,
 	"ceiling_currency" text NOT NULL,
 	"unpriced_rate" double precision,
 	"run_subset" jsonb,
@@ -1156,10 +1213,11 @@ CREATE TABLE "replay" (
 	"pairwise_reference_id" text,
 	"search_id" text,
 	"state" "replay_state" NOT NULL,
-	"started_at" timestamp NOT NULL,
-	"ended_at" timestamp,
-	"stopped_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"started_at" timestamp (3) with time zone NOT NULL,
+	"ended_at" timestamp (3) with time zone,
+	"stopped_at" timestamp (3) with time zone,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "replay_ceiling_currency_code" CHECK ("replay"."ceiling_currency" ~ '^[A-Z]{3}$')
 );
 --> statement-breakpoint
 CREATE TABLE "replay_candidate" (
@@ -1190,7 +1248,7 @@ CREATE TABLE "replay_candidate" (
 	"hypothesis" text,
 	"reference_commit" text,
 	"reference_pull_request" integer,
-	"created_at" timestamp NOT NULL,
+	"created_at" timestamp (3) with time zone NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1216,12 +1274,13 @@ CREATE TABLE "replay_check" (
 	"candidate_scoring" text NOT NULL,
 	"max_regressions" integer NOT NULL,
 	"min_gain" double precision NOT NULL,
-	"ceiling_amount" double precision NOT NULL,
+	"ceiling_amount" numeric(24, 12) NOT NULL,
 	"ceiling_currency" text NOT NULL,
 	"repeats" integer NOT NULL,
 	"scoring_pinned_to_live" jsonb NOT NULL,
 	"baseline" "replay_check_baseline" NOT NULL,
-	"created_at" timestamp NOT NULL
+	"created_at" timestamp (3) with time zone NOT NULL,
+	CONSTRAINT "replay_check_ceiling_currency_code" CHECK ("replay_check"."ceiling_currency" ~ '^[A-Z]{3}$')
 );
 --> statement-breakpoint
 CREATE TABLE "replay_entry" (
@@ -1234,19 +1293,19 @@ CREATE TABLE "replay_entry" (
 	"queued" boolean DEFAULT false NOT NULL,
 	"fingerprint" text,
 	"queue_attempts" integer DEFAULT 0 NOT NULL,
-	"unreplayable_reason" text,
+	"unreplayable_reason" "unreplayable_reason",
 	"not_run" boolean DEFAULT false NOT NULL,
 	"result" "replay_run_result",
 	"failure" text,
 	"stopped" boolean,
 	"asked" boolean,
 	"next" text,
-	"ended_at" timestamp,
+	"ended_at" timestamp (3) with time zone,
 	"measured" boolean DEFAULT false NOT NULL,
 	"ms" double precision,
 	"steps" integer,
 	"changed_lines" integer,
-	"cost_amount" double precision,
+	"cost_amount" numeric(24, 12),
 	"cost_currency" text,
 	"input_tokens" bigint,
 	"output_tokens" bigint,
@@ -1263,7 +1322,10 @@ CREATE TABLE "replay_entry" (
 	"recheck" jsonb,
 	"pairing" jsonb,
 	"pairing_spent" jsonb,
-	CONSTRAINT "replay_entry_replay_id_position_pk" PRIMARY KEY("replay_id","position")
+	CONSTRAINT "replay_entry_replay_id_position_pk" PRIMARY KEY("replay_id","position"),
+	CONSTRAINT "replay_entry_position_not_negative" CHECK ("replay_entry"."position" >= 0),
+	CONSTRAINT "replay_entry_queue_attempts_not_negative" CHECK ("replay_entry"."queue_attempts" >= 0),
+	CONSTRAINT "replay_entry_cost_currency_code" CHECK ("replay_entry"."cost_currency" ~ '^[A-Z]{3}$')
 );
 --> statement-breakpoint
 CREATE TABLE "replay_search" (
@@ -1278,7 +1340,7 @@ CREATE TABLE "replay_search" (
 	"effort" text,
 	"iterations" integer NOT NULL,
 	"per_iteration" integer NOT NULL,
-	"ceiling_amount" double precision NOT NULL,
+	"ceiling_amount" numeric(24, 12) NOT NULL,
 	"ceiling_currency" text NOT NULL,
 	"concurrency" integer NOT NULL,
 	"repeats" integer NOT NULL,
@@ -1296,9 +1358,10 @@ CREATE TABLE "replay_search" (
 	"stop_reason" "replay_search_stop_reason",
 	"trigger" "replay_search_trigger" NOT NULL,
 	"pick" jsonb,
-	"started_at" timestamp NOT NULL,
-	"ended_at" timestamp,
-	"version" integer DEFAULT 0 NOT NULL
+	"started_at" timestamp (3) with time zone NOT NULL,
+	"ended_at" timestamp (3) with time zone,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "replay_search_ceiling_currency_code" CHECK ("replay_search"."ceiling_currency" ~ '^[A-Z]{3}$')
 );
 --> statement-breakpoint
 CREATE TABLE "replay_search_iteration" (
@@ -1314,7 +1377,8 @@ CREATE TABLE "replay_search_iteration" (
 	"result" "replay_search_reflection_result",
 	"reflected_on" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"causes" jsonb DEFAULT '[]'::jsonb NOT NULL,
-	CONSTRAINT "replay_search_iteration_search_id_number_pk" PRIMARY KEY("search_id","number")
+	CONSTRAINT "replay_search_iteration_search_id_number_pk" PRIMARY KEY("search_id","number"),
+	CONSTRAINT "replay_search_iteration_attempts_not_negative" CHECK ("replay_search_iteration"."attempts" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "replay_set" (
@@ -1323,10 +1387,10 @@ CREATE TABLE "replay_set" (
 	"team_id" text NOT NULL,
 	"line_id" text NOT NULL,
 	"station_id" text NOT NULL,
-	"created_at" timestamp NOT NULL,
-	"refreshed_at" timestamp,
+	"created_at" timestamp (3) with time zone NOT NULL,
+	"refreshed_at" timestamp (3) with time zone,
 	"last_refresh" jsonb,
-	"station_gone_at" timestamp,
+	"station_gone_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1334,8 +1398,8 @@ CREATE TABLE "replay_set_entry" (
 	"set_id" text NOT NULL,
 	"run_id" text NOT NULL,
 	"task_id" text NOT NULL,
-	"ended_at" timestamp NOT NULL,
-	"added_at" timestamp NOT NULL,
+	"ended_at" timestamp (3) with time zone NOT NULL,
+	"added_at" timestamp (3) with time zone NOT NULL,
 	CONSTRAINT "replay_set_entry_set_id_run_id_pk" PRIMARY KEY("set_id","run_id")
 );
 --> statement-breakpoint
@@ -1345,19 +1409,20 @@ CREATE TABLE "station_search_schedule" (
 	"team_id" text NOT NULL,
 	"line_id" text NOT NULL,
 	"set_id" text NOT NULL,
-	"last_started_at" timestamp,
+	"last_started_at" timestamp (3) with time zone,
 	"last_skip_reason" "search_skip_reason",
-	"last_skip_at" timestamp,
+	"last_skip_at" timestamp (3) with time zone,
 	"searched_tasks" jsonb NOT NULL,
-	"alert_pending_since" timestamp,
+	"alert_pending_since" timestamp (3) with time zone,
 	"rejected" jsonb NOT NULL,
 	"rejected_against" text,
-	"last_rejected_at" timestamp,
-	"last_improved_at" timestamp,
+	"last_rejected_at" timestamp (3) with time zone,
+	"last_improved_at" timestamp (3) with time zone,
 	"request_day" text,
 	"request_count" integer DEFAULT 0 NOT NULL,
-	"check_after" timestamp NOT NULL,
-	"version" integer DEFAULT 0 NOT NULL
+	"check_after" timestamp (3) with time zone NOT NULL,
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "station_search_schedule_request_count_not_negative" CHECK ("station_search_schedule"."request_count" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "egress" (
@@ -1368,19 +1433,19 @@ CREATE TABLE "egress" (
 	"token_hash" text NOT NULL,
 	"token_version" integer,
 	"version" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "egress_token" (
 	"token_hash" text PRIMARY KEY NOT NULL,
 	"egress_id" text NOT NULL,
-	"used_at" timestamp DEFAULT now() NOT NULL
+	"used_at" timestamp (3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "pool_token" (
 	"token_hash" text PRIMARY KEY NOT NULL,
 	"pool_id" text NOT NULL,
-	"used_at" timestamp DEFAULT now() NOT NULL
+	"used_at" timestamp (3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "runner" (
@@ -1398,12 +1463,12 @@ CREATE TABLE "runner" (
 	"harness_versions" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"image" text,
 	"is_default" boolean DEFAULT false NOT NULL,
-	"work_kind" text,
+	"work_kind" "runner_work_kind",
 	"work_id" text,
-	"claim_by" timestamp NOT NULL,
-	"started_at" timestamp NOT NULL,
-	"last_heartbeat_at" timestamp,
-	"ended_at" timestamp,
+	"claim_by" timestamp (3) with time zone NOT NULL,
+	"started_at" timestamp (3) with time zone NOT NULL,
+	"last_heartbeat_at" timestamp (3) with time zone,
+	"ended_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "runner_whole_work" CHECK (("runner"."work_kind" is null) = ("runner"."work_id" is null)),
 	CONSTRAINT "runner_one_credential_source" CHECK (("runner"."pool_id" is null) <> ("runner"."trust_id" is null))
@@ -1421,10 +1486,11 @@ CREATE TABLE "runner_host" (
 	"running" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"images" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"boot_id" text NOT NULL,
-	"first_heartbeat_at" timestamp NOT NULL,
-	"online_since" timestamp NOT NULL,
-	"last_heartbeat_at" timestamp NOT NULL,
+	"first_heartbeat_at" timestamp (3) with time zone NOT NULL,
+	"online_since" timestamp (3) with time zone NOT NULL,
+	"last_heartbeat_at" timestamp (3) with time zone NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "runner_host_capacity_positive" CHECK ("runner_host"."capacity" > 0),
 	CONSTRAINT "runner_host_one_credential_source" CHECK (("runner_host"."pool_id" is null) <> ("runner_host"."trust_id" is null))
 );
 --> statement-breakpoint
@@ -1442,7 +1508,7 @@ CREATE TABLE "runner_pool" (
 	"provision_egress" text,
 	"provision_egress_traffic" text,
 	"version" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "runner_pool_one_mode" CHECK (("runner_pool"."token_hash" is null) <> ("runner_pool"."provision_url" is null) and ("runner_pool"."provision_url" is null) = ("runner_pool"."provision_secret" is null)),
 	CONSTRAINT "runner_pool_egress_pushes" CHECK ("runner_pool"."provision_egress" is null or "runner_pool"."provision_url" is not null)
 );
@@ -1456,7 +1522,7 @@ CREATE TABLE "runner_trust" (
 	"audience" text NOT NULL,
 	"labels" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox" (
@@ -1465,11 +1531,11 @@ CREATE TABLE "sandbox" (
 	"key" text,
 	"host_id" text,
 	"token_hash" text,
-	"state" text NOT NULL,
+	"state" "sandbox_state" NOT NULL,
 	"leases" jsonb DEFAULT '[]'::jsonb NOT NULL,
-	"idle_since" timestamp,
-	"started_at" timestamp NOT NULL,
-	"gone_at" timestamp,
+	"idle_since" timestamp (3) with time zone,
+	"started_at" timestamp (3) with time zone NOT NULL,
+	"gone_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "sandbox_host_has_token" CHECK (("sandbox"."host_id" is null) = ("sandbox"."token_hash" is null)),
 	CONSTRAINT "sandbox_gone_at_matches_state" CHECK (("sandbox"."state" = 'gone') = ("sandbox"."gone_at" is not null))
@@ -1490,7 +1556,7 @@ CREATE TABLE "run_grants" (
 	"recipient" text,
 	"fetched_by_egress_id" text,
 	"lease_lost" boolean DEFAULT false NOT NULL,
-	"ended_at" timestamp,
+	"ended_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 1 NOT NULL
 );
 --> statement-breakpoint
@@ -1498,14 +1564,14 @@ CREATE TABLE "secret" (
 	"id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
 	"name" text NOT NULL,
-	"source" text NOT NULL,
+	"source" "secret_source" NOT NULL,
 	"source_secret_id" text,
 	"source_field" text,
 	"bindings" jsonb NOT NULL,
 	"value_version" integer,
-	"rotated_at" timestamp NOT NULL,
+	"rotated_at" timestamp (3) with time zone NOT NULL,
 	"version" integer DEFAULT 1 NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "secret_workspace_id_name_unique" UNIQUE("workspace_id","name")
 );
 --> statement-breakpoint
@@ -1513,7 +1579,7 @@ CREATE TABLE "secret_data_key" (
 	"workspace_id" text PRIMARY KEY NOT NULL,
 	"key_id" text NOT NULL,
 	"wrapped" text NOT NULL,
-	"issued_at" timestamp DEFAULT now() NOT NULL
+	"issued_at" timestamp (3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "secret_grant" (
@@ -1526,7 +1592,7 @@ CREATE TABLE "secret_grant" (
 CREATE TABLE "secret_value" (
 	"secret_id" text PRIMARY KEY NOT NULL,
 	"ciphertext" text NOT NULL,
-	"stored_at" timestamp DEFAULT now() NOT NULL
+	"stored_at" timestamp (3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "attachment_claim" (
@@ -1534,7 +1600,7 @@ CREATE TABLE "attachment_claim" (
 	"workspace_id" text NOT NULL,
 	"task_id" text,
 	"chat_id" text,
-	"claimed_at" timestamp DEFAULT now() NOT NULL,
+	"claimed_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "attachment_claim_one_holder" CHECK (num_nonnulls("attachment_claim"."task_id", "attachment_claim"."chat_id") = 1)
 );
 --> statement-breakpoint
@@ -1554,8 +1620,9 @@ CREATE TABLE "chat" (
 	"session_id" text,
 	"runner_id" text,
 	"version" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "chat_workspace_id_id_key" UNIQUE("workspace_id","id")
 );
 --> statement-breakpoint
 CREATE TABLE "chat_attachment" (
@@ -1566,7 +1633,9 @@ CREATE TABLE "chat_attachment" (
 	"name" text NOT NULL,
 	"content_type" text NOT NULL,
 	"size" integer NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "chat_attachment_place_not_negative" CHECK ("chat_attachment"."place" >= 0),
+	CONSTRAINT "chat_attachment_size_not_negative" CHECK ("chat_attachment"."size" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "chat_mark" (
@@ -1581,16 +1650,17 @@ CREATE TABLE "chat_mark" (
 CREATE TABLE "chat_message" (
 	"chat_id" text NOT NULL,
 	"position" integer NOT NULL,
-	"kind" text NOT NULL,
+	"kind" "chat_message_kind" NOT NULL,
 	"body" text NOT NULL,
-	"at" timestamp NOT NULL,
+	"at" timestamp (3) with time zone NOT NULL,
 	"author_id" text,
 	"run_id" text,
 	"traces" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"proposal" jsonb,
-	"acknowledged_at" timestamp,
+	"acknowledged_at" timestamp (3) with time zone,
 	"acknowledged_by_run_id" text,
-	CONSTRAINT "chat_message_chat_id_position_pk" PRIMARY KEY("chat_id","position")
+	CONSTRAINT "chat_message_chat_id_position_pk" PRIMARY KEY("chat_id","position"),
+	CONSTRAINT "chat_message_position_not_negative" CHECK ("chat_message"."position" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "inbox_request" (
@@ -1599,15 +1669,15 @@ CREATE TABLE "inbox_request" (
 	"task_id" text NOT NULL,
 	"form" "inbox_request_form" NOT NULL,
 	"about" text NOT NULL,
-	"created_at" timestamp NOT NULL,
-	"resolved_at" timestamp,
+	"created_at" timestamp (3) with time zone NOT NULL,
+	"resolved_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "inbox_request_read" (
 	"inbox_request_id" text NOT NULL,
 	"user_id" text NOT NULL,
-	"read_at" timestamp NOT NULL,
+	"read_at" timestamp (3) with time zone NOT NULL,
 	CONSTRAINT "inbox_request_read_inbox_request_id_user_id_pk" PRIMARY KEY("inbox_request_id","user_id")
 );
 --> statement-breakpoint
@@ -1624,15 +1694,17 @@ CREATE TABLE "line" (
 	"source" jsonb,
 	"runners" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "line_workspace_id_id_key" UNIQUE("workspace_id","id")
 );
 --> statement-breakpoint
 CREATE TABLE "line_reaction" (
 	"line_id" text NOT NULL,
 	"happening" text NOT NULL,
 	"from_station_id" text,
-	"to_station_id" text NOT NULL
+	"to_station_id" text NOT NULL,
+	CONSTRAINT "line_reaction_key" UNIQUE NULLS NOT DISTINCT("line_id","happening","from_station_id")
 );
 --> statement-breakpoint
 CREATE TABLE "line_repository" (
@@ -1646,12 +1718,13 @@ CREATE TABLE "line_repository" (
 CREATE TABLE "station" (
 	"id" text PRIMARY KEY NOT NULL,
 	"key" text NOT NULL,
+	"workspace_id" text NOT NULL,
 	"line_id" text NOT NULL,
 	"name" text NOT NULL,
 	"position" integer NOT NULL,
 	"color" text DEFAULT '#a3a8b0' NOT NULL,
 	"description" text,
-	"kind" text DEFAULT 'work' NOT NULL,
+	"kind" "station_kind" DEFAULT 'work' NOT NULL,
 	"finishes" boolean DEFAULT false NOT NULL,
 	"harness" text,
 	"model" text,
@@ -1666,8 +1739,10 @@ CREATE TABLE "station" (
 	"judge" jsonb,
 	"alerts" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"search" jsonb,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "station_workspace_id_id_key" UNIQUE("workspace_id","id"),
+	CONSTRAINT "station_position_not_negative" CHECK ("station"."position" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "station_route" (
@@ -1680,14 +1755,16 @@ CREATE TABLE "station_skill" (
 	"station_id" text NOT NULL,
 	"skill" text NOT NULL,
 	"position" integer NOT NULL,
-	CONSTRAINT "station_skill_station_id_skill_pk" PRIMARY KEY("station_id","skill")
+	CONSTRAINT "station_skill_station_id_skill_pk" PRIMARY KEY("station_id","skill"),
+	CONSTRAINT "station_skill_position_not_negative" CHECK ("station_skill"."position" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "station_tool" (
 	"station_id" text NOT NULL,
 	"tool" text NOT NULL,
 	"position" integer NOT NULL,
-	CONSTRAINT "station_tool_station_id_tool_pk" PRIMARY KEY("station_id","tool")
+	CONSTRAINT "station_tool_station_id_tool_pk" PRIMARY KEY("station_id","tool"),
+	CONSTRAINT "station_tool_position_not_negative" CHECK ("station_tool"."position" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "network_call" (
@@ -1700,19 +1777,19 @@ CREATE TABLE "network_call" (
 	"timeout_ms" integer NOT NULL,
 	"secrets" text[] DEFAULT '{}'::text[] NOT NULL,
 	"secrets_token_hash" text,
-	"secrets_redeemed_at" timestamp,
-	"queued_at" timestamp NOT NULL,
-	"expires_at" timestamp NOT NULL,
-	"state" text NOT NULL,
+	"secrets_redeemed_at" timestamp (3) with time zone,
+	"queued_at" timestamp (3) with time zone NOT NULL,
+	"expires_at" timestamp (3) with time zone NOT NULL,
+	"state" "network_call_state" NOT NULL,
 	"claimed_by" text,
-	"claimed_at" timestamp,
-	"responded_at" timestamp,
+	"claimed_at" timestamp (3) with time zone,
+	"responded_at" timestamp (3) with time zone,
 	"response_status" integer,
 	"response_headers" jsonb,
 	"response_body" text,
 	"response_ms" integer,
 	"response_error" text,
-	"expired_at" timestamp,
+	"expired_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1729,8 +1806,8 @@ CREATE TABLE "notice" (
 	"external_label" text,
 	"headline" text NOT NULL,
 	"points" jsonb NOT NULL,
-	"created_at" timestamp NOT NULL,
-	"resolved_at" timestamp,
+	"created_at" timestamp (3) with time zone NOT NULL,
+	"resolved_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "notice_subject_idx" UNIQUE NULLS NOT DISTINCT("team_id","addressee_id","form","subject")
 );
@@ -1738,7 +1815,7 @@ CREATE TABLE "notice" (
 CREATE TABLE "processed_event" (
 	"workspace_id" text NOT NULL,
 	"key" text NOT NULL,
-	"processed_at" timestamp NOT NULL,
+	"processed_at" timestamp (3) with time zone NOT NULL,
 	CONSTRAINT "processed_event_workspace_id_key_pk" PRIMARY KEY("workspace_id","key")
 );
 --> statement-breakpoint
@@ -1747,11 +1824,11 @@ CREATE TABLE "replay_run_claim" (
 	"claimed_as" "replay_run_claimed" NOT NULL,
 	"unreplayable_reason" text,
 	"reason" text,
-	"claimed_at" timestamp DEFAULT now() NOT NULL
+	"claimed_at" timestamp (3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "run_connection" (
-	"id" serial PRIMARY KEY NOT NULL,
+	"id" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "run_connection_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
 	"run_id" text NOT NULL,
 	"attempt" integer NOT NULL,
 	"host" text NOT NULL,
@@ -1762,7 +1839,7 @@ CREATE TABLE "run_connection" (
 	"outcome" text NOT NULL,
 	"status" integer,
 	"reason" text,
-	"at" timestamp NOT NULL
+	"at" timestamp (3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "run" (
@@ -1785,36 +1862,40 @@ CREATE TABLE "run" (
 	"placement_image" text,
 	"ran_in" text,
 	"claimed_by" text,
-	"lease_expires_at" timestamp,
-	"stop_requested_at" timestamp,
+	"lease_expires_at" timestamp (3) with time zone,
+	"stop_requested_at" timestamp (3) with time zone,
 	"reserved_for" text,
 	"reserved_pool" text,
-	"reserved_until" timestamp,
+	"reserved_until" timestamp (3) with time zone,
 	"provision_attempts" integer DEFAULT 0 NOT NULL,
-	"next_provision_attempt_at" timestamp,
+	"next_provision_attempt_at" timestamp (3) with time zone,
 	"requeue_count" integer DEFAULT 0 NOT NULL,
 	"suspended_attempts" integer[] DEFAULT '{}'::integer[] NOT NULL,
 	"briefed_memories" jsonb DEFAULT '{"briefed":[],"omitted":[]}'::jsonb NOT NULL,
-	"started_at" timestamp,
-	"ended_at" timestamp,
+	"started_at" timestamp (3) with time zone,
+	"ended_at" timestamp (3) with time zone,
 	"station_fingerprint" text,
 	"station_config" jsonb,
 	"briefed_task" jsonb,
 	"started_from_archive_id" text,
 	"started_from_checkouts" jsonb,
 	"started_from_attempt" integer,
-	"started_from_at" timestamp,
+	"started_from_at" timestamp (3) with time zone,
 	"asked_a_person" boolean DEFAULT false NOT NULL,
-	"claimable_from" timestamp,
+	"claimable_from" timestamp (3) with time zone,
 	"exit_code" integer,
 	"message" text,
 	"failure" text,
 	"stopped" boolean DEFAULT false NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"queued_at" timestamp DEFAULT now() NOT NULL,
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"queued_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
 	"traceparent" text,
-	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "run_workspace_id_id_key" UNIQUE("workspace_id","id"),
+	CONSTRAINT "run_provision_attempts_not_negative" CHECK ("run"."provision_attempts" >= 0),
+	CONSTRAINT "run_requeue_count_not_negative" CHECK ("run"."requeue_count" >= 0),
+	CONSTRAINT "run_ended_at_matches_state" CHECK (("run"."state" in ('completed', 'failed', 'cancelled', 'superseded')) = ("run"."ended_at" is not null)),
 	CONSTRAINT "run_station_config_check" CHECK (("run"."station_config" is null) = ("run"."station_fingerprint" is null))
 );
 --> statement-breakpoint
@@ -1823,7 +1904,7 @@ CREATE TABLE "run_event" (
 	"attempt" integer NOT NULL,
 	"seq" integer NOT NULL,
 	"type" text NOT NULL,
-	"at" timestamp NOT NULL,
+	"at" timestamp (3) with time zone NOT NULL,
 	"message" text,
 	"data" text,
 	CONSTRAINT "run_event_run_id_attempt_seq_pk" PRIMARY KEY("run_id","attempt","seq")
@@ -1838,29 +1919,37 @@ CREATE TABLE "run_usage" (
 	"changed_lines" integer DEFAULT 0 NOT NULL,
 	"context_tokens" integer,
 	"context_window" integer,
-	"cost" double precision,
+	"cost" numeric(24, 12),
 	"currency" text,
 	"input_tokens" bigint,
 	"output_tokens" bigint,
 	"cache_read_tokens" bigint,
 	"cache_write_tokens" bigint,
 	"tools" jsonb DEFAULT '{"servers":[],"skills":[]}'::jsonb NOT NULL,
-	"recorded_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "run_usage_run_id_attempt_pk" PRIMARY KEY("run_id","attempt")
+	"recorded_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "run_usage_run_id_attempt_pk" PRIMARY KEY("run_id","attempt"),
+	CONSTRAINT "run_usage_currency_code" CHECK ("run_usage"."currency" ~ '^[A-Z]{3}$')
 );
 --> statement-breakpoint
 CREATE TABLE "starting_point_hold" (
 	"holder" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
-	"run_ids" text[] DEFAULT '{}'::text[] NOT NULL,
-	"version" integer DEFAULT 0 NOT NULL
+	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "starting_point_hold_workspace_id_holder_key" UNIQUE("workspace_id","holder")
+);
+--> statement-breakpoint
+CREATE TABLE "starting_point_hold_run" (
+	"holder" text NOT NULL,
+	"workspace_id" text NOT NULL,
+	"run_id" text NOT NULL,
+	CONSTRAINT "starting_point_hold_run_holder_run_id_pk" PRIMARY KEY("holder","run_id")
 );
 --> statement-breakpoint
 CREATE TABLE "task_draft" (
 	"task_id" text PRIMARY KEY NOT NULL,
 	"state" "bytea",
 	"generation" integer DEFAULT 0 NOT NULL,
-	"updated_at" timestamp NOT NULL
+	"updated_at" timestamp (3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "task" (
@@ -1883,11 +1972,12 @@ CREATE TABLE "task" (
 	"pull_request" text,
 	"reviewing" boolean DEFAULT false NOT NULL,
 	"review_from_outside" boolean DEFAULT false NOT NULL,
-	"finished_at" timestamp,
+	"finished_at" timestamp (3) with time zone,
 	"revision" integer DEFAULT 0 NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"updated_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "task_workspace_id_id_key" UNIQUE("workspace_id","id")
 );
 --> statement-breakpoint
 CREATE TABLE "task_attachment" (
@@ -1898,7 +1988,9 @@ CREATE TABLE "task_attachment" (
 	"name" text NOT NULL,
 	"content_type" text NOT NULL,
 	"size" integer NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
+	"created_at" timestamp (3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "task_attachment_place_not_negative" CHECK ("task_attachment"."place" >= 0),
+	CONSTRAINT "task_attachment_size_not_negative" CHECK ("task_attachment"."size" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "task_mark" (
@@ -1915,22 +2007,23 @@ CREATE TABLE "task_note" (
 	"station" text NOT NULL,
 	"station_id" text NOT NULL,
 	"body" text NOT NULL,
-	"at" timestamp NOT NULL,
-	"voice" text DEFAULT 'station' NOT NULL,
+	"at" timestamp (3) with time zone NOT NULL,
+	"voice" "voice" DEFAULT 'station' NOT NULL,
 	"author_id" text,
 	"co_author_ids" text[] DEFAULT '{}'::text[] NOT NULL,
 	"run_id" text,
-	"kind" text NOT NULL,
-	"form" text DEFAULT 'words' NOT NULL,
+	"kind" "task_note_kind" NOT NULL,
+	"form" "task_note_form" DEFAULT 'words' NOT NULL,
 	"anchor" jsonb,
 	"approval" jsonb,
 	"failure" jsonb,
 	"deferred_move" jsonb,
 	"connection_ask" jsonb,
-	"answered_at" timestamp,
-	"read_at" timestamp,
-	"acknowledged_at" timestamp,
-	CONSTRAINT "task_note_task_id_position_pk" PRIMARY KEY("task_id","position")
+	"answered_at" timestamp (3) with time zone,
+	"read_at" timestamp (3) with time zone,
+	"acknowledged_at" timestamp (3) with time zone,
+	CONSTRAINT "task_note_task_id_position_pk" PRIMARY KEY("task_id","position"),
+	CONSTRAINT "task_note_position_not_negative" CHECK ("task_note"."position" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "workspace_archive" (
@@ -1943,28 +2036,59 @@ CREATE TABLE "workspace_archive" (
 	"granted_to_sandbox_id" text,
 	"size" bigint NOT NULL,
 	"sha256" text NOT NULL,
-	"granted_at" timestamp NOT NULL,
-	"completed_at" timestamp,
+	"granted_at" timestamp (3) with time zone NOT NULL,
+	"completed_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "workspace_archive_size_not_negative" CHECK ("workspace_archive"."size" >= 0),
 	CONSTRAINT "workspace_archive_granted_to_one" CHECK (("workspace_archive"."granted_to_run_id" is null) <> ("workspace_archive"."granted_to_sandbox_id" is null))
 );
 --> statement-breakpoint
+ALTER TABLE "user" DROP CONSTRAINT "user_email_unique";--> statement-breakpoint
 DROP INDEX "account_issuer_accountId_uidx";--> statement-breakpoint
+ALTER TABLE "account" ALTER COLUMN "access_token_expires_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "account" ALTER COLUMN "refresh_token_expires_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "account" ALTER COLUMN "created_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "account" ALTER COLUMN "created_at" SET DEFAULT now();--> statement-breakpoint
+ALTER TABLE "account" ALTER COLUMN "updated_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "session" ALTER COLUMN "expires_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "session" ALTER COLUMN "created_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "session" ALTER COLUMN "created_at" SET DEFAULT now();--> statement-breakpoint
+ALTER TABLE "session" ALTER COLUMN "updated_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "user" ALTER COLUMN "created_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "user" ALTER COLUMN "created_at" SET DEFAULT now();--> statement-breakpoint
+ALTER TABLE "user" ALTER COLUMN "updated_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "user" ALTER COLUMN "updated_at" SET DEFAULT now();--> statement-breakpoint
+ALTER TABLE "verification" ALTER COLUMN "expires_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "verification" ALTER COLUMN "created_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "verification" ALTER COLUMN "created_at" SET DEFAULT now();--> statement-breakpoint
+ALTER TABLE "verification" ALTER COLUMN "updated_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "verification" ALTER COLUMN "updated_at" SET DEFAULT now();--> statement-breakpoint
 ALTER TABLE "event_delivery" ADD CONSTRAINT "event_delivery_event_id_event_outbox_id_fk" FOREIGN KEY ("event_id") REFERENCES "public"."event_outbox"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "decision" ADD CONSTRAINT "decision_set_id_decision_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."decision_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "decision_dispute" ADD CONSTRAINT "decision_dispute_decision_id_decision_id_fk" FOREIGN KEY ("decision_id") REFERENCES "public"."decision"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "question_answer" ADD CONSTRAINT "question_answer_stack_id_change_stack_id_fk" FOREIGN KEY ("stack_id") REFERENCES "public"."change_stack"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "question_answer" ADD CONSTRAINT "question_answer_stack_fk" FOREIGN KEY ("workspace_id","stack_id") REFERENCES "public"."change_stack"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "review_comment" ADD CONSTRAINT "review_comment_review_id_review_id_fk" FOREIGN KEY ("review_id") REFERENCES "public"."review"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "review_comment" ADD CONSTRAINT "review_comment_reply_to_fk" FOREIGN KEY ("workspace_id","reply_to_id") REFERENCES "public"."review_comment"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "review_included_comment" ADD CONSTRAINT "review_included_comment_review_fk" FOREIGN KEY ("workspace_id","review_id") REFERENCES "public"."review"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "review_included_comment" ADD CONSTRAINT "review_included_comment_comment_fk" FOREIGN KEY ("workspace_id","comment_id") REFERENCES "public"."review_comment"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "review_outbox" ADD CONSTRAINT "review_outbox_review_fk" FOREIGN KEY ("workspace_id","review_id") REFERENCES "public"."review"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "review_outbox" ADD CONSTRAINT "review_outbox_comment_fk" FOREIGN KEY ("workspace_id","comment_id") REFERENCES "public"."review_comment"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "stack_check" ADD CONSTRAINT "stack_check_stack_fk" FOREIGN KEY ("workspace_id","stack_id") REFERENCES "public"."change_stack"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "terraform_state" ADD CONSTRAINT "terraform_state_latest_version_id_terraform_state_version_id_fk" FOREIGN KEY ("latest_version_id") REFERENCES "public"."terraform_state_version"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "terraform_state_version" ADD CONSTRAINT "terraform_state_version_state_id_terraform_state_id_fk" FOREIGN KEY ("state_id") REFERENCES "public"."terraform_state"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_email" ADD CONSTRAINT "user_email_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "verification_send" ADD CONSTRAINT "verification_send_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "oidc_trust" ADD CONSTRAINT "oidc_trust_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "oidc_trust_usage" ADD CONSTRAINT "oidc_trust_usage_trust_fk" FOREIGN KEY ("workspace_id","trust_id") REFERENCES "public"."oidc_trust"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "signup_survey" ADD CONSTRAINT "signup_survey_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "signup_survey" ADD CONSTRAINT "signup_survey_respondent_id_user_id_fk" FOREIGN KEY ("respondent_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team" ADD CONSTRAINT "team_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "team_member" ADD CONSTRAINT "team_member_team_id_team_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."team"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team_member" ADD CONSTRAINT "team_member_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "team_member" ADD CONSTRAINT "team_member_team_fk" FOREIGN KEY ("workspace_id","team_id") REFERENCES "public"."team"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "team_member" ADD CONSTRAINT "team_member_workspace_member_fk" FOREIGN KEY ("workspace_id","user_id") REFERENCES "public"."workspace_member"("workspace_id","user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_invite" ADD CONSTRAINT "workspace_invite_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspace_invite" ADD CONSTRAINT "workspace_invite_invited_by_user_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workspace_invite" ADD CONSTRAINT "workspace_invite_accepted_by_user_id_fk" FOREIGN KEY ("accepted_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_invite" ADD CONSTRAINT "workspace_invite_invited_by_id_user_id_fk" FOREIGN KEY ("invited_by_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_invite" ADD CONSTRAINT "workspace_invite_accepted_by_id_user_id_fk" FOREIGN KEY ("accepted_by_id") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_invite_team" ADD CONSTRAINT "workspace_invite_team_invite_id_workspace_invite_id_fk" FOREIGN KEY ("invite_id") REFERENCES "public"."workspace_invite"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_invite_team" ADD CONSTRAINT "workspace_invite_team_team_id_team_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."team"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspace_member" ADD CONSTRAINT "workspace_member_workspace_id_workspace_id_fk" FOREIGN KEY ("workspace_id") REFERENCES "public"."workspace"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -1973,25 +2097,29 @@ ALTER TABLE "workspace_token" ADD CONSTRAINT "workspace_token_workspace_id_works
 ALTER TABLE "station_alert" ADD CONSTRAINT "station_alert_station_id_station_alert_state_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station_alert_state"("station_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "hook_firing" ADD CONSTRAINT "hook_firing_hook_id_hook_definition_id_fk" FOREIGN KEY ("hook_id") REFERENCES "public"."hook_definition"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "spec_operation" ADD CONSTRAINT "spec_operation_hash_spec_document_hash_fk" FOREIGN KEY ("hash") REFERENCES "public"."spec_document"("hash") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "memory" ADD CONSTRAINT "memory_supersedes_fk" FOREIGN KEY ("workspace_id","supersedes") REFERENCES "public"."memory"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "memory" ADD CONSTRAINT "memory_superseded_by_fk" FOREIGN KEY ("workspace_id","superseded_by") REFERENCES "public"."memory"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memory_proposal" ADD CONSTRAINT "memory_proposal_draft_id_memory_draft_id_fk" FOREIGN KEY ("draft_id") REFERENCES "public"."memory_draft"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "memory_proposal" ADD CONSTRAINT "memory_proposal_supersedes_memory_id_fk" FOREIGN KEY ("supersedes") REFERENCES "public"."memory"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memory_use" ADD CONSTRAINT "memory_use_memory_id_memory_id_fk" FOREIGN KEY ("memory_id") REFERENCES "public"."memory"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "replay_entry" ADD CONSTRAINT "replay_entry_replay_id_replay_id_fk" FOREIGN KEY ("replay_id") REFERENCES "public"."replay"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "replay_search_iteration" ADD CONSTRAINT "replay_search_iteration_search_id_replay_search_id_fk" FOREIGN KEY ("search_id") REFERENCES "public"."replay_search"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "replay_set_entry" ADD CONSTRAINT "replay_set_entry_set_id_replay_set_id_fk" FOREIGN KEY ("set_id") REFERENCES "public"."replay_set"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_grant" ADD CONSTRAINT "secret_grant_run_id_run_grants_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run_grants"("run_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "secret_value" ADD CONSTRAINT "secret_value_secret_id_secret_id_fk" FOREIGN KEY ("secret_id") REFERENCES "public"."secret"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_chat_id_chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_task_fk" FOREIGN KEY ("workspace_id","task_id") REFERENCES "public"."task"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "attachment_claim" ADD CONSTRAINT "attachment_claim_chat_fk" FOREIGN KEY ("workspace_id","chat_id") REFERENCES "public"."chat"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "chat_attachment" ADD CONSTRAINT "chat_attachment_chat_id_chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "chat_mark" ADD CONSTRAINT "chat_mark_chat_id_chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "chat_mark" ADD CONSTRAINT "chat_mark_chat_fk" FOREIGN KEY ("workspace_id","chat_id") REFERENCES "public"."chat"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "chat_message" ADD CONSTRAINT "chat_message_chat_id_chat_id_fk" FOREIGN KEY ("chat_id") REFERENCES "public"."chat"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "inbox_request" ADD CONSTRAINT "inbox_request_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "chat_message" ADD CONSTRAINT "chat_message_run_id_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "inbox_request" ADD CONSTRAINT "inbox_request_task_fk" FOREIGN KEY ("workspace_id","task_id") REFERENCES "public"."task"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "inbox_request_read" ADD CONSTRAINT "inbox_request_read_inbox_request_id_inbox_request_id_fk" FOREIGN KEY ("inbox_request_id") REFERENCES "public"."inbox_request"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "line_reaction" ADD CONSTRAINT "line_reaction_line_id_line_id_fk" FOREIGN KEY ("line_id") REFERENCES "public"."line"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "line_reaction" ADD CONSTRAINT "line_reaction_from_station_id_station_id_fk" FOREIGN KEY ("from_station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "line_reaction" ADD CONSTRAINT "line_reaction_to_station_id_station_id_fk" FOREIGN KEY ("to_station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "line_repository" ADD CONSTRAINT "line_repository_line_id_line_id_fk" FOREIGN KEY ("line_id") REFERENCES "public"."line"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "station" ADD CONSTRAINT "station_line_id_line_id_fk" FOREIGN KEY ("line_id") REFERENCES "public"."line"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "station" ADD CONSTRAINT "station_line_fk" FOREIGN KEY ("workspace_id","line_id") REFERENCES "public"."line"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "station_route" ADD CONSTRAINT "station_route_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "station_route" ADD CONSTRAINT "station_route_to_station_id_station_id_fk" FOREIGN KEY ("to_station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "station_skill" ADD CONSTRAINT "station_skill_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -1999,14 +2127,20 @@ ALTER TABLE "station_tool" ADD CONSTRAINT "station_tool_station_id_station_id_fk
 ALTER TABLE "run_connection" ADD CONSTRAINT "run_connection_run_id_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run" ADD CONSTRAINT "run_replay_of_run_id_run_id_fk" FOREIGN KEY ("replay_of_run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run" ADD CONSTRAINT "run_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "run" ADD CONSTRAINT "run_chat_fk" FOREIGN KEY ("workspace_id","chat_id") REFERENCES "public"."chat"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run_event" ADD CONSTRAINT "run_event_run_id_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run_usage" ADD CONSTRAINT "run_usage_run_id_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "starting_point_hold_run" ADD CONSTRAINT "starting_point_hold_run_hold_fk" FOREIGN KEY ("workspace_id","holder") REFERENCES "public"."starting_point_hold"("workspace_id","holder") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "starting_point_hold_run" ADD CONSTRAINT "starting_point_hold_run_run_fk" FOREIGN KEY ("workspace_id","run_id") REFERENCES "public"."run"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_draft" ADD CONSTRAINT "task_draft_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "task" ADD CONSTRAINT "task_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "task" ADD CONSTRAINT "task_origin_station_id_station_id_fk" FOREIGN KEY ("origin_station_id") REFERENCES "public"."station"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "task" ADD CONSTRAINT "task_station_fk" FOREIGN KEY ("workspace_id","station_id") REFERENCES "public"."station"("workspace_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "task" ADD CONSTRAINT "task_proposed_in_chat_fk" FOREIGN KEY ("workspace_id","proposed_in_chat_id") REFERENCES "public"."chat"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "task" ADD CONSTRAINT "task_origin_station_fk" FOREIGN KEY ("origin_station_id") REFERENCES "public"."station"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_attachment" ADD CONSTRAINT "task_attachment_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "task_mark" ADD CONSTRAINT "task_mark_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "task_mark" ADD CONSTRAINT "task_mark_task_fk" FOREIGN KEY ("workspace_id","task_id") REFERENCES "public"."task"("workspace_id","id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "task_note" ADD CONSTRAINT "task_note_task_id_task_id_fk" FOREIGN KEY ("task_id") REFERENCES "public"."task"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "task_note" ADD CONSTRAINT "task_note_run_id_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workspace_archive" ADD CONSTRAINT "workspace_archive_granted_to_run_fk" FOREIGN KEY ("workspace_id","granted_to_run_id") REFERENCES "public"."run"("workspace_id","id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "event_delivery_due_idx" ON "event_delivery" USING btree ("due_at");--> statement-breakpoint
 CREATE INDEX "event_delivery_pending_idx" ON "event_delivery" USING btree ("subscriber") WHERE "event_delivery"."delivered_at" is null;--> statement-breakpoint
 CREATE INDEX "catalog_call_workspace_called_idx" ON "catalog_call" USING btree ("workspace_id","called_at");--> statement-breakpoint
@@ -2020,10 +2154,16 @@ CREATE INDEX "decision_set_generation_idx" ON "decision_set" USING btree ("gener
 CREATE INDEX "decision_set_merged_idx" ON "decision_set" USING btree ("workspace_id","merged_repository","merged_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "question_answer_person_idx" ON "question_answer" USING btree ("stack_id","person_id","question_id");--> statement-breakpoint
 CREATE INDEX "review_task_idx" ON "review" USING btree ("task_id","submitted_at");--> statement-breakpoint
+CREATE INDEX "review_comment_reply_to_idx" ON "review_comment" USING btree ("reply_to_id");--> statement-breakpoint
+CREATE INDEX "review_comment_review_idx" ON "review_comment" USING btree ("review_id");--> statement-breakpoint
 CREATE INDEX "review_comment_task_idx" ON "review_comment" USING btree ("task_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "review_comment_github_idx" ON "review_comment" USING btree ("workspace_id","github_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "review_included_comment_position_idx" ON "review_included_comment" USING btree ("review_id","position");--> statement-breakpoint
+CREATE INDEX "review_included_comment_comment_idx" ON "review_included_comment" USING btree ("comment_id");--> statement-breakpoint
 CREATE INDEX "review_outbox_due_idx" ON "review_outbox" USING btree ("state","due_at");--> statement-breakpoint
 CREATE INDEX "review_outbox_task_idx" ON "review_outbox" USING btree ("task_id");--> statement-breakpoint
+CREATE INDEX "review_outbox_review_idx" ON "review_outbox" USING btree ("review_id");--> statement-breakpoint
+CREATE INDEX "review_outbox_comment_idx" ON "review_outbox" USING btree ("comment_id");--> statement-breakpoint
 CREATE INDEX "stack_check_run_idx" ON "stack_check" USING btree ("run_id");--> statement-breakpoint
 CREATE INDEX "stack_check_task_idx" ON "stack_check" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "stack_check_waiting_idx" ON "stack_check" USING btree ("workspace_id","status");--> statement-breakpoint
@@ -2040,10 +2180,12 @@ CREATE UNIQUE INDEX "user_email_verified_email_idx" ON "user_email" USING btree 
 CREATE INDEX "user_email_user_idx" ON "user_email" USING btree ("user_id","added_at");--> statement-breakpoint
 CREATE INDEX "verification_send_user_idx" ON "verification_send" USING btree ("user_id","sent_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "oidc_trust_workspace_key_idx" ON "oidc_trust" USING btree ("workspace_id","key");--> statement-breakpoint
-CREATE INDEX "team_workspace_idx" ON "team" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "signup_survey_respondent_idx" ON "signup_survey" USING btree ("respondent_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "team_workspace_key_idx" ON "team" USING btree ("workspace_id","key");--> statement-breakpoint
 CREATE INDEX "team_member_user_idx" ON "team_member" USING btree ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "workspace_invite_workspace_email_idx" ON "workspace_invite" USING btree ("workspace_id",lower("email")) WHERE "workspace_invite"."accepted_at" is null and "workspace_invite"."revoked_at" is null;--> statement-breakpoint
+CREATE INDEX "workspace_invite_invited_by_idx" ON "workspace_invite" USING btree ("invited_by_id");--> statement-breakpoint
+CREATE INDEX "workspace_invite_accepted_by_idx" ON "workspace_invite" USING btree ("accepted_by_id");--> statement-breakpoint
 CREATE INDEX "workspace_invite_workspace_idx" ON "workspace_invite" USING btree ("workspace_id","invited_at");--> statement-breakpoint
 CREATE INDEX "workspace_invite_team_team_idx" ON "workspace_invite_team" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "workspace_member_user_idx" ON "workspace_member" USING btree ("user_id");--> statement-breakpoint
@@ -2077,7 +2219,7 @@ CREATE INDEX "run_record_task_idx" ON "run_record" USING btree ("task_id","ended
 CREATE INDEX "run_record_workspace_idx" ON "run_record" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "run_record_ended_idx" ON "run_record" USING btree ("ended_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "score_judge_idx" ON "score" USING btree ("run_id","rubric_version") WHERE "score"."source" = 'judge';--> statement-breakpoint
-CREATE UNIQUE INDEX "score_person_idx" ON "score" USING btree ("run_id","by") WHERE "score"."source" = 'person';--> statement-breakpoint
+CREATE UNIQUE INDEX "score_person_idx" ON "score" USING btree ("run_id","scored_by_id") WHERE "score"."source" = 'person';--> statement-breakpoint
 CREATE INDEX "score_station_idx" ON "score" USING btree ("station_id","at");--> statement-breakpoint
 CREATE INDEX "score_task_idx" ON "score" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "score_workspace_idx" ON "score" USING btree ("workspace_id","team_id");--> statement-breakpoint
@@ -2104,6 +2246,7 @@ CREATE INDEX "hook_firing_repeats_idx" ON "hook_firing" USING btree ("hook_id","
 CREATE INDEX "inferred_output_schema_integration_idx" ON "inferred_output_schema" USING btree ("team_id","integration");--> statement-breakpoint
 CREATE INDEX "integration_connection_owner_idx" ON "integration_connection" USING btree ("team_id","owner");--> statement-breakpoint
 CREATE UNIQUE INDEX "memory_handle_idx" ON "memory" USING btree ("handle");--> statement-breakpoint
+CREATE INDEX "memory_superseded_by_idx" ON "memory" USING btree ("superseded_by");--> statement-breakpoint
 CREATE UNIQUE INDEX "memory_supersedes_idx" ON "memory" USING btree ("supersedes");--> statement-breakpoint
 CREATE INDEX "memory_status_idx" ON "memory" USING btree ("team_id","status","approved_at");--> statement-breakpoint
 CREATE INDEX "memory_body_search_idx" ON "memory" USING gin (to_tsvector('english', "body"));--> statement-breakpoint
@@ -2176,19 +2319,16 @@ CREATE INDEX "attachment_claim_chat_idx" ON "attachment_claim" USING btree ("cha
 CREATE INDEX "chat_team_starter_idx" ON "chat" USING btree ("team_id","started_by_id","updated_at");--> statement-breakpoint
 CREATE INDEX "chat_attachment_chat_idx" ON "chat_attachment" USING btree ("chat_id","message_position");--> statement-breakpoint
 CREATE UNIQUE INDEX "chat_mark_finding_uidx" ON "chat_mark" USING btree ("workspace_id","kind","value") WHERE "chat_mark"."finds";--> statement-breakpoint
+CREATE INDEX "chat_message_run_idx" ON "chat_message" USING btree ("run_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "inbox_request_about_idx" ON "inbox_request" USING btree ("task_id","form","about");--> statement-breakpoint
 CREATE INDEX "inbox_request_workspace_idx" ON "inbox_request" USING btree ("workspace_id","resolved_at");--> statement-breakpoint
-CREATE INDEX "line_team_idx" ON "line" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "line_workspace_idx" ON "line" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "line_team_key_idx" ON "line" USING btree ("team_id","key");--> statement-breakpoint
 CREATE UNIQUE INDEX "line_team_role_idx" ON "line" USING btree ("team_id","role") WHERE "line"."role" is not null;--> statement-breakpoint
-CREATE INDEX "line_reaction_line_idx" ON "line_reaction" USING btree ("line_id");--> statement-breakpoint
-CREATE INDEX "line_repository_line_idx" ON "line_repository" USING btree ("line_id");--> statement-breakpoint
-CREATE INDEX "station_line_idx" ON "station" USING btree ("line_id");--> statement-breakpoint
+CREATE INDEX "line_reaction_from_station_idx" ON "line_reaction" USING btree ("from_station_id");--> statement-breakpoint
+CREATE INDEX "line_reaction_to_station_idx" ON "line_reaction" USING btree ("to_station_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "station_line_key_idx" ON "station" USING btree ("line_id","key");--> statement-breakpoint
-CREATE INDEX "station_route_station_idx" ON "station_route" USING btree ("station_id");--> statement-breakpoint
-CREATE INDEX "station_skill_station_idx" ON "station_skill" USING btree ("station_id");--> statement-breakpoint
-CREATE INDEX "station_tool_station_idx" ON "station_tool" USING btree ("station_id");--> statement-breakpoint
+CREATE INDEX "station_route_to_station_idx" ON "station_route" USING btree ("to_station_id");--> statement-breakpoint
 CREATE INDEX "network_call_waiting_idx" ON "network_call" USING btree ("workspace_id","state","queued_at");--> statement-breakpoint
 CREATE INDEX "network_call_expiring_idx" ON "network_call" USING btree ("state","expires_at");--> statement-breakpoint
 CREATE INDEX "network_call_responded_idx" ON "network_call" USING btree ("state","responded_at");--> statement-breakpoint
@@ -2209,14 +2349,20 @@ CREATE INDEX "run_replay_of_idx" ON "run" USING btree ("replay_of_run_id");--> s
 CREATE INDEX "run_search_idx" ON "run" USING btree ("search_id");--> statement-breakpoint
 CREATE INDEX "run_reserved_idx" ON "run" USING btree ("reserved_for");--> statement-breakpoint
 CREATE INDEX "run_started_from_idx" ON "run" USING btree ("started_from_archive_id","started_from_at");--> statement-breakpoint
+CREATE INDEX "starting_point_hold_run_run_idx" ON "starting_point_hold_run" USING btree ("workspace_id","run_id");--> statement-breakpoint
+CREATE INDEX "task_proposed_in_chat_idx" ON "task" USING btree ("proposed_in_chat_id");--> statement-breakpoint
 CREATE INDEX "task_station_idx" ON "task" USING btree ("station_id","rank");--> statement-breakpoint
+CREATE INDEX "task_origin_station_idx" ON "task" USING btree ("origin_station_id");--> statement-breakpoint
 CREATE INDEX "task_workspace_idx" ON "task" USING btree ("workspace_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "task_workspace_branch_uidx" ON "task" USING btree ("workspace_id","branch");--> statement-breakpoint
 CREATE INDEX "task_attachment_task_idx" ON "task_attachment" USING btree ("task_id","note_position");--> statement-breakpoint
 CREATE INDEX "task_mark_task_idx" ON "task_mark" USING btree ("task_id");--> statement-breakpoint
-CREATE INDEX "task_note_task_idx" ON "task_note" USING btree ("task_id","position");--> statement-breakpoint
+CREATE INDEX "task_note_run_idx" ON "task_note" USING btree ("run_id");--> statement-breakpoint
 CREATE INDEX "task_note_connection_ask_idx" ON "task_note" USING btree (("connection_ask"->>'personId'),("connection_ask"->>'integration')) WHERE "task_note"."connection_ask" is not null and ("task_note"."connection_ask"->>'met')::boolean = false;--> statement-breakpoint
 CREATE INDEX "workspace_archive_resume_idx" ON "workspace_archive" USING btree ("workspace_id","resume_key","completed_at");--> statement-breakpoint
 CREATE INDEX "workspace_archive_task_idx" ON "workspace_archive" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "workspace_archive_chat_idx" ON "workspace_archive" USING btree ("chat_id");--> statement-breakpoint
+CREATE INDEX "workspace_archive_granted_to_run_idx" ON "workspace_archive" USING btree ("granted_to_run_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "account_provider_account_uidx" ON "account" USING btree ("provider_id","account_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "user_email_uidx" ON "user" USING btree (lower("email"));--> statement-breakpoint
 ALTER TABLE "account" DROP COLUMN "issuer";

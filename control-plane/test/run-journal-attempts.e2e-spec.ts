@@ -72,14 +72,14 @@ const chatRun = async () => {
 const requeued = async (runId: RunId, attempt: number) => {
   await db
     .update(schema.run)
-    .set({ attempt, state: 'claimed' })
+    .set({ attempt, state: 'claimed', endedAt: null })
     .where(eq(schema.run.id, runId.value));
 };
 
 const finished = async (runId: RunId) => {
   await db
     .update(schema.run)
-    .set({ state: 'completed' })
+    .set({ state: 'completed', endedAt: new Date() })
     .where(eq(schema.run.id, runId.value));
 };
 
@@ -185,7 +185,12 @@ describe('recording the usage of a run that paused for a person', () => {
     });
     await db
       .update(schema.run)
-      .set({ attempt: 2, suspendedAttempts: [1], state: 'claimed' })
+      .set({
+        attempt: 2,
+        suspendedAttempts: [1],
+        state: 'claimed',
+        endedAt: null,
+      })
       .where(eq(schema.run.id, runId.value));
     await journal.append(RunAttempt.of(runId, 2), [
       messageChunk(1, 50),
@@ -223,7 +228,12 @@ describe('recording the tokens a run used', () => {
     ]);
     await db
       .update(schema.run)
-      .set({ attempt: 2, suspendedAttempts: [1], state: 'claimed' })
+      .set({
+        attempt: 2,
+        suspendedAttempts: [1],
+        state: 'claimed',
+        endedAt: null,
+      })
       .where(eq(schema.run.id, runId.value));
     await journal.append(RunAttempt.of(runId, 2), [
       turned(1, {
