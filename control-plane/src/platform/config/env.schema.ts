@@ -28,6 +28,9 @@ const duration = (fallback: string) =>
     })
     .pipe(z.number().int().positive());
 
+const unsetWhenEmpty = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((raw) => (raw === '' ? undefined : raw), schema.optional());
+
 export const databaseSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
 });
@@ -97,11 +100,14 @@ export const envSchema = databaseSchema
     SENTRY_DSN: z.string().optional(),
     SENTRY_WEB_DSN: z.string().optional(),
     SENTRY_ENVIRONMENT: z.string().optional(),
-    OPENROUTER_API_KEY: z.string().optional(),
-    CHANGE_STACK_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
-    DECISIONS_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
-    MEMORIES_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
-    JUDGE_MODEL: z.string().min(1).default('google/gemini-3.8-flash'),
+    LLM_BASE_URL: unsetWhenEmpty(z.url({ protocol: /^https?$/ })),
+    LLM_API_KEY: unsetWhenEmpty(z.string().min(1)),
+    LLM_MODEL: unsetWhenEmpty(z.string().min(1)),
+    LLM_SUPPORTS_REASONING_EFFORT: z.stringbool().default(false),
+    CHANGE_STACK_MODEL: unsetWhenEmpty(z.string().min(1)),
+    DECISIONS_MODEL: unsetWhenEmpty(z.string().min(1)),
+    MEMORIES_MODEL: unsetWhenEmpty(z.string().min(1)),
+    JUDGE_MODEL: unsetWhenEmpty(z.string().min(1)),
     LOG_LEVEL: z.enum(LOG_LEVELS).optional(),
   })
   .refine(
@@ -120,6 +126,22 @@ export const envSchema = databaseSchema
       path: ['SPOTLIGHT_PLATFORM_EGRESS_TOKEN'],
       message:
         'goes with SPOTLIGHT_PLATFORM_EGRESS_URL. Set both to name the platform egress, or neither; generate a token with: openssl rand -hex 32',
+    },
+  )
+  .refine(
+    (env) =>
+      (env.LLM_BASE_URL === undefined) ===
+      [
+        env.LLM_MODEL,
+        env.CHANGE_STACK_MODEL,
+        env.DECISIONS_MODEL,
+        env.MEMORIES_MODEL,
+        env.JUDGE_MODEL,
+      ].every((model) => model === undefined),
+    {
+      path: ['LLM_BASE_URL'],
+      message:
+        'goes with LLM_MODEL. Set a base URL and a model to use a model endpoint, or set neither',
     },
   )
   .transform((env) => ({

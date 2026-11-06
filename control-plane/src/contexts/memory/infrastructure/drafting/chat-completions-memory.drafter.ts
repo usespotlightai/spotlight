@@ -9,10 +9,11 @@ import { MEMORY_SCOPE_LEVELS } from '@memory/domain/value-objects/memory-scope-l
 import {
   type Fetch,
   JsonSchema,
-  OpenRouterEmptyCompletionError,
-  OpenRouterRequestError,
+  ModelEmptyCompletionError,
+  type ModelEndpoint,
+  ModelRequestError,
   requestJson,
-} from '@platform/openrouter/openrouter-json';
+} from '@platform/llm/chat-completions';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 8_000;
@@ -113,22 +114,21 @@ const buildPrompt = (request: MemoryDraftRequest): string => {
   ].join('\n\n');
 };
 
-export class OpenRouterMemoryDrafter implements MemoryDrafterPort {
+export class ChatCompletionsMemoryDrafter implements MemoryDrafterPort {
   constructor(
-    private readonly apiKey: string | undefined,
-    private readonly model: string,
+    private readonly endpoint: ModelEndpoint | null,
     private readonly fetch: Fetch = globalThis.fetch,
   ) {}
 
   get available(): boolean {
-    return Boolean(this.apiKey);
+    return this.endpoint !== null;
   }
 
   async draft(request: MemoryDraftRequest): Promise<readonly ProposedMemory[]> {
-    if (!this.apiKey) {
+    if (!this.endpoint) {
       throw new MemoryDraftingError(
         'request-failed',
-        'no OpenRouter API key is set',
+        'no model endpoint is set',
       );
     }
 
@@ -136,8 +136,7 @@ export class OpenRouterMemoryDrafter implements MemoryDrafterPort {
       const {
         answer: { memories },
       } = await requestJson({
-        apiKey: this.apiKey,
-        model: this.model,
+        endpoint: this.endpoint,
         fetch: this.fetch,
         responseSchema: MEMORIES,
         system: SYSTEM,
@@ -147,10 +146,10 @@ export class OpenRouterMemoryDrafter implements MemoryDrafterPort {
 
       return memories;
     } catch (error) {
-      if (error instanceof OpenRouterRequestError) {
+      if (error instanceof ModelRequestError) {
         throw new MemoryDraftingError('request-failed', error.message);
       }
-      if (error instanceof OpenRouterEmptyCompletionError) {
+      if (error instanceof ModelEmptyCompletionError) {
         throw new MemoryDraftingError('unreadable', error.message);
       }
       throw error;

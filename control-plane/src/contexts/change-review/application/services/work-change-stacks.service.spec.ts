@@ -170,7 +170,7 @@ describe('WorkChangeStacks', () => {
     const worked = working(
       generating(),
       async () => {
-        throw new Error('No OpenRouter API key is set for change stacks');
+        throw new Error('No model endpoint is set for change stacks');
       },
       false,
     );

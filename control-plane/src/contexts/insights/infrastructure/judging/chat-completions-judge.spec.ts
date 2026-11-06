@@ -1,7 +1,14 @@
 import { JudgingError } from '@insights/application/errors/judging.error';
 import type { JudgeRequest } from '@insights/application/ports/judge.port';
-import { OpenRouterJudge } from '@insights/infrastructure/judging/openrouter-judge';
+import { ChatCompletionsJudge } from '@insights/infrastructure/judging/chat-completions-judge';
 import { describe, expect, it } from 'vitest';
+
+const ENDPOINT = {
+  baseUrl: 'https://models.example.com/v1',
+  apiKey: 'test-key',
+  model: 'some/model',
+  supportsReasoningEffort: false,
+};
 
 const REQUEST: JudgeRequest = {
   rubric: 'Did the run retry uploads without a queue?',
@@ -70,9 +77,9 @@ const completed = (content: string, finish = 'stop') =>
 const judging = (
   fetch: typeof globalThis.fetch,
   request: JudgeRequest = REQUEST,
-) => new OpenRouterJudge('key', 'some/model', fetch).judge(request);
+) => new ChatCompletionsJudge(ENDPOINT, fetch).judge(request);
 
-describe('judging a run through OpenRouter', () => {
+describe('judging a run through a chat completions endpoint', () => {
   it('keeps the rubric in its instructions and sends the evidence as one JSON document', async () => {
     const { requests, fetch } = answering(
       completed(JSON.stringify({ passes: true, reasons: REASONS })),
@@ -87,6 +94,7 @@ describe('judging a run through OpenRouter', () => {
       verdict: { value: true, reasons: REASONS },
       guidance: null,
       usage: null,
+      model: 'some/model',
     });
     expect(body.model).toBe('some/model');
     expect(body.response_format.json_schema.name).toBe('yes_no_verdict');
@@ -303,12 +311,12 @@ describe('judging a run through OpenRouter', () => {
     });
   });
 
-  it('hands back what a cut-short answer cost, since it is billed all the same', async () => {
+  it('hands back the tokens a cut-short answer used, since they are billed all the same', async () => {
     const { fetch } = answering(
       new Response(
         JSON.stringify({
           choices: [{ finish_reason: 'length', message: { content: '{' } }],
-          usage: { prompt_tokens: 900, completion_tokens: 4_000, cost: 0.04 },
+          usage: { prompt_tokens: 900, completion_tokens: 4_000 },
         }),
         { status: 200 },
       ),
@@ -319,14 +327,14 @@ describe('judging a run through OpenRouter', () => {
       usage: {
         inputTokens: 900,
         outputTokens: 4_000,
-        cost: { amount: 0.04, currency: 'USD' },
+        cost: null,
       },
     });
   });
 
-  it('does not judge without an API key', async () => {
+  it('does not judge without a model endpoint', async () => {
     await expect(
-      new OpenRouterJudge(undefined, 'some/model').judge(REQUEST),
+      new ChatCompletionsJudge(null).judge(REQUEST),
     ).rejects.toBeInstanceOf(JudgingError);
   });
 
@@ -368,8 +376,8 @@ describe('judging a run through OpenRouter', () => {
     });
   });
 
-  it('requests what the call cost, and hands it back with the verdict', async () => {
-    const { requests, fetch } = answering(
+  it('hands back the tokens the call used, with no price', async () => {
+    const { fetch } = answering(
       new Response(
         JSON.stringify({
           choices: [
@@ -388,13 +396,10 @@ describe('judging a run through OpenRouter', () => {
 
     const judged = await judging(fetch);
 
-    expect(JSON.parse(String(requests[0]?.body)).usage).toEqual({
-      include: true,
-    });
     expect(judged.usage).toEqual({
       inputTokens: 1_200,
       outputTokens: 90,
-      cost: { amount: 0.004, currency: 'USD' },
+      cost: null,
     });
   });
 });

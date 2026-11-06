@@ -1,15 +1,21 @@
 import { factsOf } from '@change-review/domain/services/diff-facts';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
-import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import {
-  DEFAULT_MODEL,
+  ChatCompletionsChangeStackGenerator,
   describeProblem,
-  OpenRouterChangeStackGenerator,
   redraftPrompt,
-} from '@change-review/infrastructure/change-stacks/openrouter-change-stack.generator';
+} from '@change-review/infrastructure/change-stacks/chat-completions-change-stack.generator';
+import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { PatternCodeReading } from '@change-review/infrastructure/change-stacks/pattern-code.reading';
 import { describe, expect, it } from 'vitest';
+
+const ENDPOINT = {
+  baseUrl: 'https://models.example.com/v1',
+  apiKey: 'test-key',
+  model: 'some/model',
+  supportsReasoningEffort: true,
+};
 
 const { diff: DIFF } = new GitDiffReader().read(
   [
@@ -62,7 +68,7 @@ const answering = (status: number, body: unknown) => {
   return { requests, fetch };
 };
 
-const generate = (generator: OpenRouterChangeStackGenerator) =>
+const generate = (generator: ChatCompletionsChangeStackGenerator) =>
   generator.generate({
     diff: DIFF,
     repository: RepositoryName.of('web'),
@@ -86,12 +92,12 @@ describe('describeProblem', () => {
   });
 });
 
-describe('OpenRouterChangeStackGenerator', () => {
+describe('ChatCompletionsChangeStackGenerator', () => {
   it('is unavailable without a key', async () => {
-    const generator = new OpenRouterChangeStackGenerator('');
+    const generator = new ChatCompletionsChangeStackGenerator(null);
 
     expect(generator.available).toBe(false);
-    await expect(generate(generator)).rejects.toThrow('No OpenRouter API key');
+    await expect(generate(generator)).rejects.toThrow('No model endpoint');
   });
 
   it('requests a stack in the stack’s own shape from the model, from providers that follow it', async () => {
@@ -105,7 +111,7 @@ describe('OpenRouterChangeStackGenerator', () => {
     });
 
     const { cohorts, usage } = await generate(
-      new OpenRouterChangeStackGenerator('or-key', DEFAULT_MODEL, fetch),
+      new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch),
     );
 
     expect(usage).toBeNull();
@@ -137,18 +143,17 @@ describe('OpenRouterChangeStackGenerator', () => {
       },
     ]);
     expect(requests[0]?.url).toBe(
-      'https://openrouter.ai/api/v1/chat/completions',
+      'https://models.example.com/v1/chat/completions',
     );
     expect(
       (requests[0]?.init.headers as Record<string, string> | undefined)
         ?.Authorization,
-    ).toBe('Bearer or-key');
+    ).toBe('Bearer test-key');
 
     const body = JSON.parse(String(requests[0]?.init.body));
-    expect(body.model).toBe('google/gemini-3.8-flash');
-    expect(body.provider).toEqual({ require_parameters: true });
-    expect(body.max_tokens).toBe(65_536);
-    expect(body.reasoning).toEqual({ effort: 'medium' });
+    expect(body.model).toBe('some/model');
+    expect(body.max_completion_tokens).toBe(65_536);
+    expect(body.reasoning_effort).toBe('medium');
     expect(body.response_format.json_schema.strict).toBe(true);
     expect(JSON.stringify(body.response_format.json_schema.schema)).not.toMatch(
       /minimum|maximum|\$schema/,
@@ -178,17 +183,15 @@ describe('OpenRouterChangeStackGenerator', () => {
     expect(body.messages[1].content).toContain('- leaves h2 out');
   });
 
-  it('says why the OpenRouter request failed', async () => {
+  it('says why the model request failed', async () => {
     const { fetch } = answering(402, {
       error: { message: 'Insufficient credits' },
     });
 
     await expect(
-      generate(
-        new OpenRouterChangeStackGenerator('or-key', DEFAULT_MODEL, fetch),
-      ),
+      generate(new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch)),
     ).rejects.toThrow(
-      'The OpenRouter request failed. Response: 402 Insufficient credits',
+      'The model request failed. Response: 402 Insufficient credits',
     );
   });
 
@@ -212,9 +215,7 @@ describe('OpenRouterChangeStackGenerator', () => {
     });
 
     await expect(
-      generate(
-        new OpenRouterChangeStackGenerator('or-key', DEFAULT_MODEL, fetch),
-      ),
+      generate(new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch)),
     ).rejects.toThrow();
   });
 
@@ -224,12 +225,10 @@ describe('OpenRouterChangeStackGenerator', () => {
     });
 
     await expect(
-      generate(
-        new OpenRouterChangeStackGenerator('or-key', DEFAULT_MODEL, fetch),
-      ),
+      generate(new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch)),
     ).rejects.toMatchObject({
       name: 'GenerationError',
-      message: 'OpenRouter returned no usable answer. Reason: length',
+      message: 'The model returned no usable answer. Reason: length',
       truncated: true,
     });
   });
@@ -240,14 +239,12 @@ describe('OpenRouterChangeStackGenerator', () => {
     });
 
     await expect(
-      generate(
-        new OpenRouterChangeStackGenerator('or-key', DEFAULT_MODEL, fetch),
-      ),
+      generate(new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch)),
     ).rejects.toMatchObject({ name: 'GenerationError', truncated: false });
   });
 });
 
-describe('OpenRouterChangeStackGenerator, split in calls', () => {
+describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
   const answer = (content: unknown) =>
     answering(200, {
       choices: [
@@ -273,9 +270,8 @@ describe('OpenRouterChangeStackGenerator, split in calls', () => {
       ],
     });
 
-    const { cohorts } = await new OpenRouterChangeStackGenerator(
-      'or-key',
-      DEFAULT_MODEL,
+    const { cohorts } = await new ChatCompletionsChangeStackGenerator(
+      ENDPOINT,
       fetch,
     ).outline({
       diff: DIFF,
@@ -287,7 +283,7 @@ describe('OpenRouterChangeStackGenerator, split in calls', () => {
     expect(cohorts[0]?.hunks).toEqual(['h1']);
     const body = bodyOf(requests);
     expect(body.response_format.json_schema.name).toBe('change_stack_outline');
-    expect(body.reasoning).toEqual({ effort: 'medium' });
+    expect(body.reasoning_effort).toBe('medium');
     expect(body.messages[0].content).toContain(
       'Place every hunk exactly once, in the hunks of one cohort.',
     );
@@ -299,9 +295,8 @@ describe('OpenRouterChangeStackGenerator, split in calls', () => {
   it('requests the layers of one cohort from its own part of the diff', async () => {
     const { requests, fetch } = answer({ layers: COHORTS[0]?.layers });
 
-    const { layers } = await new OpenRouterChangeStackGenerator(
-      'or-key',
-      DEFAULT_MODEL,
+    const { layers } = await new ChatCompletionsChangeStackGenerator(
+      ENDPOINT,
       fetch,
     ).layers({
       part: { diff: DIFF, facts: factsOf(DIFF, new PatternCodeReading()) },
