@@ -1,3 +1,8 @@
+import {
+  amount,
+  isCurrencyCode,
+  timestamptz,
+} from '@platform/persistence/drizzle/columns';
 import { BASELINE_STATUSES } from '@replays/domain/value-objects/baseline-status';
 import { CANDIDATE_KINDS } from '@replays/domain/value-objects/candidate-kind';
 import type { WantedValue } from '@replays/domain/value-objects/config-pull-request-reason.vo';
@@ -26,10 +31,12 @@ import {
 } from '@replays/domain/value-objects/search-state';
 import { SEARCH_STOP_REASONS } from '@replays/domain/value-objects/search-stop-reason';
 import { SEARCH_TRIGGERS } from '@replays/domain/value-objects/search-trigger';
+import { UNREPLAYABLE_REASONS } from '@replays/domain/value-objects/unreplayable-reason';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  check,
   doublePrecision,
   index,
   integer,
@@ -38,11 +45,14 @@ import {
   pgTable,
   primaryKey,
   text,
-  timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 export const replayState = pgEnum('replay_state', REPLAY_STATES);
+export const unreplayableReason = pgEnum(
+  'unreplayable_reason',
+  UNREPLAYABLE_REASONS,
+);
 
 export const replayCandidateKind = pgEnum(
   'replay_candidate_kind',
@@ -228,10 +238,10 @@ export const replaySet = pgTable(
     teamId: text('team_id').notNull(),
     lineId: text('line_id').notNull(),
     stationId: text('station_id').notNull(),
-    createdAt: timestamp('created_at').notNull(),
-    refreshedAt: timestamp('refreshed_at'),
+    createdAt: timestamptz('created_at').notNull(),
+    refreshedAt: timestamptz('refreshed_at'),
     lastRefresh: jsonb('last_refresh').$type<StoredSetRefresh>(),
-    stationGoneAt: timestamp('station_gone_at'),
+    stationGoneAt: timestamptz('station_gone_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -250,8 +260,8 @@ export const replaySetEntry = pgTable(
       .references(() => replaySet.id, { onDelete: 'cascade' }),
     runId: text('run_id').notNull(),
     taskId: text('task_id').notNull(),
-    endedAt: timestamp('ended_at').notNull(),
-    addedAt: timestamp('added_at').notNull(),
+    endedAt: timestamptz('ended_at').notNull(),
+    addedAt: timestamptz('added_at').notNull(),
   },
   (table) => [primaryKey({ columns: [table.setId, table.runId] })],
 );
@@ -286,7 +296,7 @@ export const replayCandidate = pgTable(
     hypothesis: text('hypothesis'),
     referenceCommit: text('reference_commit'),
     referencePullRequest: integer('reference_pull_request'),
-    createdAt: timestamp('created_at').notNull(),
+    createdAt: timestamptz('created_at').notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -313,7 +323,7 @@ export const replay = pgTable(
     checked: boolean('checked').notNull(),
     rubricVersion: text('rubric_version'),
     scoringHash: text('scoring_hash').notNull(),
-    ceilingAmount: doublePrecision('ceiling_amount').notNull(),
+    ceilingAmount: amount('ceiling_amount').notNull(),
     ceilingCurrency: text('ceiling_currency').notNull(),
     unpricedRate: doublePrecision('unpriced_rate'),
     runSubset: jsonb('run_subset').$type<string[]>(),
@@ -327,12 +337,16 @@ export const replay = pgTable(
     pairwiseReferenceId: text('pairwise_reference_id'),
     searchId: text('search_id'),
     state: replayState('state').notNull(),
-    startedAt: timestamp('started_at').notNull(),
-    endedAt: timestamp('ended_at'),
-    stoppedAt: timestamp('stopped_at'),
+    startedAt: timestamptz('started_at').notNull(),
+    endedAt: timestamptz('ended_at'),
+    stoppedAt: timestamptz('stopped_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check(
+      'replay_ceiling_currency_code',
+      isCurrencyCode(table.ceilingCurrency),
+    ),
     index('replay_set_idx').on(table.setId),
     index('replay_candidate_idx').on(table.candidateId),
     index('replay_team_state_idx').on(table.teamId, table.state),
@@ -356,19 +370,19 @@ export const replayEntry = pgTable(
     queued: boolean('queued').notNull().default(false),
     fingerprint: text('fingerprint'),
     queueAttempts: integer('queue_attempts').notNull().default(0),
-    unreplayableReason: text('unreplayable_reason'),
+    unreplayableReason: unreplayableReason('unreplayable_reason'),
     notRun: boolean('not_run').notNull().default(false),
     result: replayRunResult('result'),
     failure: text('failure'),
     stopped: boolean('stopped'),
     asked: boolean('asked'),
     next: text('next'),
-    endedAt: timestamp('ended_at'),
+    endedAt: timestamptz('ended_at'),
     measured: boolean('measured').notNull().default(false),
     ms: doublePrecision('ms'),
     steps: integer('steps'),
     changedLines: integer('changed_lines'),
-    costAmount: doublePrecision('cost_amount'),
+    costAmount: amount('cost_amount'),
     costCurrency: text('cost_currency'),
     inputTokens: bigint('input_tokens', { mode: 'number' }),
     outputTokens: bigint('output_tokens', { mode: 'number' }),
@@ -390,6 +404,15 @@ export const replayEntry = pgTable(
     pairingSpent: jsonb('pairing_spent').$type<StoredModelSpent>(),
   },
   (table) => [
+    check('replay_entry_position_not_negative', sql`${table.position} >= 0`),
+    check(
+      'replay_entry_queue_attempts_not_negative',
+      sql`${table.queueAttempts} >= 0`,
+    ),
+    check(
+      'replay_entry_cost_currency_code',
+      isCurrencyCode(table.costCurrency),
+    ),
     primaryKey({ columns: [table.replayId, table.position] }),
     uniqueIndex('replay_entry_run_idx').on(table.runId),
   ],
@@ -409,7 +432,7 @@ export const replaySearch = pgTable(
     effort: text('effort'),
     iterations: integer('iterations').notNull(),
     perIteration: integer('per_iteration').notNull(),
-    ceilingAmount: doublePrecision('ceiling_amount').notNull(),
+    ceilingAmount: amount('ceiling_amount').notNull(),
     ceilingCurrency: text('ceiling_currency').notNull(),
     concurrency: integer('concurrency').notNull(),
     repeats: integer('repeats').notNull(),
@@ -436,11 +459,15 @@ export const replaySearch = pgTable(
     stopReason: replaySearchStopReason('stop_reason'),
     trigger: replaySearchTrigger('trigger').notNull(),
     pick: jsonb('pick').$type<StoredSearchPick>(),
-    startedAt: timestamp('started_at').notNull(),
-    endedAt: timestamp('ended_at'),
+    startedAt: timestamptz('started_at').notNull(),
+    endedAt: timestamptz('ended_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check(
+      'replay_search_ceiling_currency_code',
+      isCurrencyCode(table.ceilingCurrency),
+    ),
     index('replay_search_team_idx').on(table.teamId),
     index('replay_search_set_idx').on(table.setId),
     index('replay_search_line_started_idx').on(table.lineId, table.startedAt),
@@ -482,6 +509,10 @@ export const replaySearchIteration = pgTable(
       .default(sql`'[]'::jsonb`),
   },
   (table) => [
+    check(
+      'replay_search_iteration_attempts_not_negative',
+      sql`${table.attempts} >= 0`,
+    ),
     primaryKey({ columns: [table.searchId, table.number] }),
     uniqueIndex('replay_search_iteration_run_idx').on(table.runId),
   ],
@@ -516,16 +547,20 @@ export const replayCheck = pgTable(
     candidateScoring: text('candidate_scoring').notNull(),
     maxRegressions: integer('max_regressions').notNull(),
     minGain: doublePrecision('min_gain').notNull(),
-    ceilingAmount: doublePrecision('ceiling_amount').notNull(),
+    ceilingAmount: amount('ceiling_amount').notNull(),
     ceilingCurrency: text('ceiling_currency').notNull(),
     repeats: integer('repeats').notNull(),
     scoringPinnedToLive: jsonb('scoring_pinned_to_live')
       .$type<string[]>()
       .notNull(),
     baseline: replayCheckBaseline('baseline').notNull(),
-    createdAt: timestamp('created_at').notNull(),
+    createdAt: timestamptz('created_at').notNull(),
   },
   (table) => [
+    check(
+      'replay_check_ceiling_currency_code',
+      isCurrencyCode(table.ceilingCurrency),
+    ),
     index('replay_check_team_idx').on(table.teamId),
     index('replay_check_awaiting_idx')
       .on(table.createdAt)
@@ -576,7 +611,7 @@ export const configPullRequest = pgTable(
     gitHubId: bigint('github_id', { mode: 'number' }),
     basedOn: text('based_on'),
     proposing: text('proposing'),
-    checkedAt: timestamp('checked_at'),
+    checkedAt: timestamptz('checked_at'),
     closedBecause: configPullRequestCloseReason('closed_because'),
     closeFailureCode: configPullRequestError('close_failure_code'),
     closeFailureMessage: text('close_failure_message'),
@@ -587,12 +622,16 @@ export const configPullRequest = pgTable(
     errorWanted: jsonb('error_wanted').$type<WantedValue>(),
     retries: integer('retries').notNull(),
     lastCommit: text('last_commit'),
-    dueAt: timestamp('due_at'),
-    createdAt: timestamp('created_at').notNull(),
-    updatedAt: timestamp('updated_at').notNull(),
+    dueAt: timestamptz('due_at'),
+    createdAt: timestamptz('created_at').notNull(),
+    updatedAt: timestamptz('updated_at').notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check(
+      'config_pull_request_retries_not_negative',
+      sql`${table.retries} >= 0`,
+    ),
     uniqueIndex('config_pull_request_candidate_idx').on(
       table.searchId,
       table.candidateId,
@@ -628,21 +667,25 @@ export const stationSearchSchedule = pgTable(
     teamId: text('team_id').notNull(),
     lineId: text('line_id').notNull(),
     setId: text('set_id').notNull(),
-    lastStartedAt: timestamp('last_started_at'),
+    lastStartedAt: timestamptz('last_started_at'),
     lastSkipReason: searchSkipReason('last_skip_reason'),
-    lastSkipAt: timestamp('last_skip_at'),
+    lastSkipAt: timestamptz('last_skip_at'),
     searchedTasks: jsonb('searched_tasks').$type<string[]>().notNull(),
-    alertPendingSince: timestamp('alert_pending_since'),
+    alertPendingSince: timestamptz('alert_pending_since'),
     rejected: jsonb('rejected').$type<string[]>().notNull(),
     rejectedAgainst: text('rejected_against'),
-    lastRejectedAt: timestamp('last_rejected_at'),
-    lastImprovedAt: timestamp('last_improved_at'),
+    lastRejectedAt: timestamptz('last_rejected_at'),
+    lastImprovedAt: timestamptz('last_improved_at'),
     requestDay: text('request_day'),
     requestCount: integer('request_count').notNull().default(0),
-    checkAfter: timestamp('check_after').notNull(),
+    checkAfter: timestamptz('check_after').notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check(
+      'station_search_schedule_request_count_not_negative',
+      sql`${table.requestCount} >= 0`,
+    ),
     uniqueIndex('station_search_schedule_set_idx').on(table.setId),
     index('station_search_schedule_team_idx').on(table.teamId),
     index('station_search_schedule_line_idx').on(table.lineId),

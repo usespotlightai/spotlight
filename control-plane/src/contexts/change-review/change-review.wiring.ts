@@ -126,13 +126,13 @@ import { GitHubConnections } from '@change-review/infrastructure/acl/github-conn
 import { People } from '@change-review/infrastructure/acl/people.adapter';
 import { Work } from '@change-review/infrastructure/acl/work.adapter';
 import { Workspaces } from '@change-review/infrastructure/acl/workspaces.adapter';
-import { OpenRouterAnswerGrader } from '@change-review/infrastructure/answers/openrouter-answer.grader';
+import { ChatCompletionsAnswerGrader } from '@change-review/infrastructure/answers/chat-completions-answer.grader';
+import { ChatCompletionsChangeStackGenerator } from '@change-review/infrastructure/change-stacks/chat-completions-change-stack.generator';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { GitPatchWriter } from '@change-review/infrastructure/change-stacks/git-patch.writer';
-import { OpenRouterChangeStackGenerator } from '@change-review/infrastructure/change-stacks/openrouter-change-stack.generator';
 import { PatternCodeReading } from '@change-review/infrastructure/change-stacks/pattern-code.reading';
 import { TreeSitterSymbolIndexer } from '@change-review/infrastructure/change-stacks/tree-sitter/tree-sitter-symbol.indexer';
-import { OpenRouterDecisionGenerator } from '@change-review/infrastructure/decisions/openrouter-decision.generator';
+import { ChatCompletionsDecisionGenerator } from '@change-review/infrastructure/decisions/chat-completions-decision.generator';
 import { WebReviewLinks } from '@change-review/infrastructure/links/web-review.links';
 import { DrizzleChangeStackReader } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.reader';
 import { DrizzleChangeStackRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/change-stack.repository';
@@ -188,6 +188,7 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   CLOCK,
@@ -341,27 +342,24 @@ const adapters: Provider[] = [
     provide: CHANGE_STACK_GENERATOR,
     inject: [ENV],
     useFactory: (env: Env) =>
-      new OpenRouterChangeStackGenerator(
-        env.OPENROUTER_API_KEY,
-        env.CHANGE_STACK_MODEL,
+      new ChatCompletionsChangeStackGenerator(
+        modelEndpointOf(env, env.CHANGE_STACK_MODEL),
       ),
   },
   {
     provide: DECISION_GENERATOR,
     inject: [ENV],
     useFactory: (env: Env) =>
-      new OpenRouterDecisionGenerator(
-        env.OPENROUTER_API_KEY,
-        env.DECISIONS_MODEL,
+      new ChatCompletionsDecisionGenerator(
+        modelEndpointOf(env, env.DECISIONS_MODEL),
       ),
   },
   {
     provide: ANSWER_GRADER,
     inject: [ENV],
     useFactory: (env: Env) =>
-      new OpenRouterAnswerGrader(
-        env.OPENROUTER_API_KEY,
-        env.CHANGE_STACK_MODEL,
+      new ChatCompletionsAnswerGrader(
+        modelEndpointOf(env, env.CHANGE_STACK_MODEL),
       ),
   },
   {
@@ -629,6 +627,7 @@ const services: Provider[] = [
       DrizzleStackCheckRepository,
       DrizzleChangeStackRepository,
       DrizzleDecisionSetRepository,
+      DrizzleQuestionAnswerRepository,
       TRANSACTION,
       CLOCK,
     ],
@@ -639,6 +638,7 @@ const services: Provider[] = [
       checks: DrizzleStackCheckRepository,
       stacks: DrizzleChangeStackRepository,
       decisions: DrizzleDecisionSetRepository,
+      answers: DrizzleQuestionAnswerRepository,
       transaction: TransactionPort,
       clock: ClockPort,
     ) =>
@@ -649,6 +649,7 @@ const services: Provider[] = [
         checks,
         stacks,
         decisions,
+        answers,
         transaction,
         clock,
       ),

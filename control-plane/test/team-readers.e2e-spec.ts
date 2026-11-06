@@ -118,9 +118,11 @@ beforeAll(async () => {
     key: `payments-${otherTeam.slice(0, 8)}`,
     name: 'Payments',
   });
-  await db
-    .insert(schema.teamMember)
-    .values({ teamId: otherTeam, userId: ELSEWHERE_IN_WORKSPACE });
+  await db.insert(schema.teamMember).values({
+    workspaceId,
+    teamId: otherTeam,
+    userId: ELSEWHERE_IN_WORKSPACE,
+  });
   await db.insert(schema.runRecord).values({
     runId: RUN,
     workspaceId,
@@ -236,6 +238,7 @@ describe('who is told which memories a run used on a deleted team’s line', () 
     await db.insert(schema.station).values([
       {
         id: stationId,
+        workspaceId: team.workspaceId.value,
         lineId,
         key: 'backlog',
         name: 'Backlog',
@@ -244,6 +247,7 @@ describe('who is told which memories a run used on a deleted team’s line', () 
       },
       {
         id: randomUUID(),
+        workspaceId: team.workspaceId.value,
         lineId,
         key: 'completed',
         name: 'Completed',

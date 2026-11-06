@@ -27,12 +27,11 @@ export interface JudgeAnswer {
   readonly verdict: Verdict;
   readonly guidance: string | null;
   readonly usage: ModelCall | null;
+  readonly model: string;
 }
 
 export interface JudgePort {
   readonly available: boolean;
-
-  readonly model: string;
 
   judge(request: JudgeRequest): Promise<JudgeAnswer>;
 }

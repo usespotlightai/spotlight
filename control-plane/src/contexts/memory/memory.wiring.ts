@@ -73,7 +73,7 @@ import { MEMORY_PAYLOAD_TYPES } from '@memory/domain/payload-types';
 import { People } from '@memory/infrastructure/acl/people.adapter';
 import { Reviews } from '@memory/infrastructure/acl/reviews.adapter';
 import { Work } from '@memory/infrastructure/acl/work.adapter';
-import { OpenRouterMemoryDrafter } from '@memory/infrastructure/drafting/openrouter-memory.drafter';
+import { ChatCompletionsMemoryDrafter } from '@memory/infrastructure/drafting/chat-completions-memory.drafter';
 import { DrizzleMemoryRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory.repository';
 import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import { DrizzleMemoryRelevance } from '@memory/infrastructure/persistence/drizzle/repositories/memory-relevance.reader';
@@ -94,6 +94,7 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   CLOCK,
@@ -350,7 +351,9 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     provide: MEMORY_DRAFTER,
     inject: [ENV],
     useFactory: (env: Env) =>
-      new OpenRouterMemoryDrafter(env.OPENROUTER_API_KEY, env.MEMORIES_MODEL),
+      new ChatCompletionsMemoryDrafter(
+        modelEndpointOf(env, env.MEMORIES_MODEL),
+      ),
   },
   {
     provide: RequestMemories,

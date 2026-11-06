@@ -219,6 +219,12 @@ export const f1Of = (
   return positives === 0 ? null : (2 * both) / positives;
 };
 
+export const agreedOf = (confusion: Confusion): number =>
+  confusion.cells.reduce((sum, row, at) => sum + (row[at] ?? 0), 0);
+
+export const comparedOf = (confusion: Confusion): number =>
+  confusion.cells.flat().reduce((sum, each) => sum + each, 0);
+
 export const distributionOf = (confusion: Confusion): ScoreCount[] =>
   confusion.values.map((value, at) => ({
     value,

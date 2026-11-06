@@ -43,6 +43,7 @@ const taskRun = async () => {
   await db.insert(schema.station).values({
     id: stationId,
     key: 'triage',
+    workspaceId: 'ws_1',
     lineId,
     name: 'Triage',
     position: 0,

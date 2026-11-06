@@ -1,3 +1,4 @@
+import { MeterBar } from '@/components/features/stations/judge/MeterBar';
 import { WithTooltip } from '@/components/shared/WithTooltip';
 import {
   type ClaimAgreement,
@@ -6,16 +7,19 @@ import {
   readingWord,
 } from '@/lib/judge';
 
-const percent = (value: number): string =>
-  `${Math.round(Math.min(Math.max(value, 0), 1) * 100)}%`;
-
 type KappaBarProps = {
   kappa: number | null;
   reading: ClaimAgreement['reading'];
+  failing: boolean;
   minAgreement: number | null;
 };
 
-export function KappaBar({ kappa, reading, minAgreement }: KappaBarProps) {
+export function KappaBar({
+  kappa,
+  reading,
+  failing,
+  minAgreement,
+}: KappaBarProps) {
   return (
     <WithTooltip
       tooltip={{
@@ -29,23 +33,12 @@ export function KappaBar({ kappa, reading, minAgreement }: KappaBarProps) {
         <span className="w-8 shrink-0 text-foreground tabular-nums">
           {formatStat(kappa)}
         </span>
-        <span
-          aria-hidden
-          className="relative h-1.5 min-w-12 flex-1 rounded-full bg-muted"
-        >
-          {kappa !== null && (
-            <span
-              className="absolute inset-y-0 left-0 rounded-full bg-chart-primary"
-              style={{ width: percent(kappa) }}
-            />
-          )}
-          {minAgreement !== null && (
-            <span
-              className="absolute -inset-y-1 w-px bg-foreground/40"
-              style={{ left: percent(minAgreement) }}
-            />
-          )}
-        </span>
+        <MeterBar
+          share={kappa}
+          marker={minAgreement}
+          failing={failing}
+          className="min-w-12 flex-1"
+        />
       </span>
     </WithTooltip>
   );

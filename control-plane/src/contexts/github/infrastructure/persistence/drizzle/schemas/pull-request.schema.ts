@@ -4,6 +4,7 @@ import type {
   BotComment,
   PullRequestThread,
 } from '@github/domain/value-objects/bot-activity.vo';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
 import {
   boolean,
   index,
@@ -13,7 +14,6 @@ import {
   pgTable,
   primaryKey,
   text,
-  timestamp,
 } from 'drizzle-orm/pg-core';
 
 export interface StoredReview extends Omit<WebhookReview, 'at'> {
@@ -45,16 +45,16 @@ export const githubPullRequest = pgTable(
     additions: integer('additions'),
     deletions: integer('deletions'),
     changedFiles: integer('changed_files'),
-    openedAt: timestamp('opened_at').notNull(),
+    openedAt: timestamptz('opened_at').notNull(),
     draft: boolean('draft').notNull().default(false),
-    readyForReviewAt: timestamp('ready_for_review_at'),
+    readyForReviewAt: timestamptz('ready_for_review_at'),
     draftPeriods: jsonb('draft_periods')
       .$type<StoredDraftPeriod[]>()
       .notNull()
       .default([]),
     state: githubPullRequestState('state').notNull(),
-    closedAt: timestamp('closed_at'),
-    updatedAt: timestamp('updated_at').notNull(),
+    closedAt: timestamptz('closed_at'),
+    updatedAt: timestamptz('updated_at').notNull(),
     reverts: jsonb('reverts').$type<RevertTarget>(),
     reviews: jsonb('reviews').$type<StoredReview[]>().notNull().default([]),
     dismissedReviews: jsonb('dismissed_reviews')

@@ -1,5 +1,12 @@
-import { OpenRouterDecisionGenerator } from '@change-review/infrastructure/decisions/openrouter-decision.generator';
+import { ChatCompletionsDecisionGenerator } from '@change-review/infrastructure/decisions/chat-completions-decision.generator';
 import { describe, expect, it } from 'vitest';
+
+const ENDPOINT = {
+  baseUrl: 'https://models.example.com/v1',
+  apiKey: 'test-key',
+  model: 'some/model',
+  supportsReasoningEffort: false,
+};
 
 const DECISIONS = [
   {
@@ -30,7 +37,7 @@ const REASONED = {
   changed: ['api/src/uploads.ts'],
 };
 
-describe('generating decisions through OpenRouter', () => {
+describe('generating decisions through a chat completions endpoint', () => {
   it('requests decisions with the run’s numbered reasoning and the files it changed', async () => {
     const { requests, fetch } = answering(200, {
       choices: [
@@ -41,9 +48,8 @@ describe('generating decisions through OpenRouter', () => {
       ],
     });
 
-    const generated = await new OpenRouterDecisionGenerator(
-      'key',
-      'some/model',
+    const generated = await new ChatCompletionsDecisionGenerator(
+      ENDPOINT,
       fetch,
     ).generate(REASONED);
 
@@ -59,10 +65,12 @@ describe('generating decisions through OpenRouter', () => {
   });
 
   it('does not generate without a key', async () => {
-    const generator = new OpenRouterDecisionGenerator(undefined, 'some/model');
+    const generator = new ChatCompletionsDecisionGenerator(null);
 
     expect(generator.available).toBe(false);
-    await expect(generator.generate(REASONED)).rejects.toThrow('No OpenRouter');
+    await expect(generator.generate(REASONED)).rejects.toThrow(
+      'No model endpoint',
+    );
   });
 
   it('rejects an answer the model stopped early', async () => {
@@ -71,9 +79,7 @@ describe('generating decisions through OpenRouter', () => {
     });
 
     await expect(
-      new OpenRouterDecisionGenerator('key', 'some/model', fetch).generate(
-        REASONED,
-      ),
-    ).rejects.toThrow('OpenRouter returned no usable answer. Reason: length');
+      new ChatCompletionsDecisionGenerator(ENDPOINT, fetch).generate(REASONED),
+    ).rejects.toThrow('The model returned no usable answer. Reason: length');
   });
 });

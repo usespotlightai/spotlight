@@ -1,10 +1,12 @@
 import { JOB_FUNCTIONS } from '@identity/domain/value-objects/job-function.vo';
 import { WORKSPACE_ROLES } from '@identity/domain/value-objects/workspace-role.vo';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { TOKEN_SCOPES } from '@shared-kernel/domain/value-objects/token-scope.vo';
 import { sql } from 'drizzle-orm';
 import {
   check,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -12,7 +14,7 @@ import {
   pgTable,
   primaryKey,
   text,
-  timestamp,
+  unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -31,8 +33,8 @@ export const workspace = pgTable('workspace', {
   slug: text('slug').notNull().unique(),
   outboundHosts: text('outbound_hosts').array().notNull().default([]),
   version: integer('version').default(0).notNull(),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at')
+  createdAt: timestamptz('created_at').defaultNow().notNull(),
+  updatedAt: timestamptz('updated_at')
     .defaultNow()
     .$onUpdate(() => new Date())
     .notNull(),
@@ -48,7 +50,7 @@ export const workspaceMember = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
     role: workspaceRole('role').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.workspaceId, table.userId] }),
@@ -56,17 +58,21 @@ export const workspaceMember = pgTable(
   ],
 );
 
-export const signupSurvey = pgTable('signup_survey', {
-  workspaceId: text('workspace_id')
-    .primaryKey()
-    .references(() => workspace.id, { onDelete: 'cascade' }),
-  respondentId: text('respondent_id').references(() => user.id, {
-    onDelete: 'set null',
-  }),
-  jobFunction: jobFunction('job_function').notNull(),
-  referralSource: text('referral_source'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+export const signupSurvey = pgTable(
+  'signup_survey',
+  {
+    workspaceId: text('workspace_id')
+      .primaryKey()
+      .references(() => workspace.id, { onDelete: 'cascade' }),
+    respondentId: text('respondent_id').references(() => user.id, {
+      onDelete: 'set null',
+    }),
+    jobFunction: jobFunction('job_function').notNull(),
+    referralSource: text('referral_source'),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
+  },
+  (table) => [index('signup_survey_respondent_idx').on(table.respondentId)],
+);
 
 export const team = pgTable(
   'team',
@@ -78,31 +84,40 @@ export const team = pgTable(
       .references(() => workspace.id, { onDelete: 'restrict' }),
     name: text('name').notNull(),
     version: integer('version').default(0).notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at')
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
+    updatedAt: timestamptz('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
   (table) => [
-    index('team_workspace_idx').on(table.workspaceId),
     uniqueIndex('team_workspace_key_idx').on(table.workspaceId, table.key),
+    unique('team_workspace_id_id_key').on(table.workspaceId, table.id),
   ],
 );
 
 export const teamMember = pgTable(
   'team_member',
   {
-    teamId: text('team_id')
-      .notNull()
-      .references(() => team.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.teamId, table.userId] }),
+    foreignKey({
+      name: 'team_member_team_fk',
+      columns: [table.workspaceId, table.teamId],
+      foreignColumns: [team.workspaceId, team.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'team_member_workspace_member_fk',
+      columns: [table.workspaceId, table.userId],
+      foreignColumns: [workspaceMember.workspaceId, workspaceMember.userId],
+    }),
     index('team_member_user_idx').on(table.userId),
   ],
 );
@@ -117,22 +132,24 @@ export const workspaceInvite = pgTable(
     email: text('email').notNull(),
     role: workspaceRole('role').notNull(),
     tokenHash: text('token_hash').notNull().unique(),
-    invitedBy: text('invited_by').references(() => user.id, {
+    invitedById: text('invited_by_id').references(() => user.id, {
       onDelete: 'set null',
     }),
-    invitedAt: timestamp('invited_at').defaultNow().notNull(),
-    expiresAt: timestamp('expires_at').notNull(),
-    acceptedAt: timestamp('accepted_at'),
-    acceptedBy: text('accepted_by').references(() => user.id, {
+    invitedAt: timestamptz('invited_at').defaultNow().notNull(),
+    expiresAt: timestamptz('expires_at').notNull(),
+    acceptedAt: timestamptz('accepted_at'),
+    acceptedById: text('accepted_by_id').references(() => user.id, {
       onDelete: 'set null',
     }),
-    revokedAt: timestamp('revoked_at'),
+    revokedAt: timestamptz('revoked_at'),
     version: integer('version').notNull().default(1),
   },
   (table) => [
     uniqueIndex('workspace_invite_workspace_email_idx')
       .on(table.workspaceId, sql`lower(${table.email})`)
       .where(sql`${table.acceptedAt} is null and ${table.revokedAt} is null`),
+    index('workspace_invite_invited_by_idx').on(table.invitedById),
+    index('workspace_invite_accepted_by_idx').on(table.acceptedById),
     index('workspace_invite_workspace_idx').on(
       table.workspaceId,
       table.invitedAt,
@@ -140,7 +157,7 @@ export const workspaceInvite = pgTable(
     check('workspace_invite_role', sql`${table.role} <> 'owner'`),
     check(
       'workspace_invite_accepted_by',
-      sql`${table.acceptedBy} is null or ${table.acceptedAt} is not null`,
+      sql`${table.acceptedById} is null or ${table.acceptedAt} is not null`,
     ),
     check(
       'workspace_invite_ended_once',
@@ -176,9 +193,9 @@ export const workspaceToken = pgTable(
     description: text('description').notNull().default(''),
     scopes: workspaceTokenScope('scopes').array().notNull(),
     tokenHash: text('token_hash').notNull().unique(),
-    issuedBy: text('issued_by').notNull(),
-    issuedAt: timestamp('issued_at').notNull(),
-    expiresAt: timestamp('expires_at'),
+    issuedById: text('issued_by_id').notNull(),
+    issuedAt: timestamptz('issued_at').notNull(),
+    expiresAt: timestamptz('expires_at'),
     issuedByTrustId: text('issued_by_trust_id'),
     trustVersion: integer('trust_version'),
     runId: text('run_id'),
@@ -229,12 +246,17 @@ export const oidcTrust = pgTable(
     scopes: workspaceTokenScope('scopes').array().notNull(),
     lifetimeMinutes: integer('lifetime_minutes').notNull(),
     description: text('description').notNull().default(''),
-    createdBy: text('created_by').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
+    createdById: text('created_by_id').notNull(),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
     version: integer('version').default(0).notNull(),
     grantVersion: integer('grant_version').default(0).notNull(),
   },
   (table) => [
+    check(
+      'oidc_trust_lifetime_minutes_positive',
+      sql`${table.lifetimeMinutes} > 0`,
+    ),
+    unique('oidc_trust_workspace_id_id_key').on(table.workspaceId, table.id),
     uniqueIndex('oidc_trust_workspace_key_idx').on(
       table.workspaceId,
       table.key,
@@ -242,8 +264,18 @@ export const oidcTrust = pgTable(
   ],
 );
 
-export const oidcTrustUsage = pgTable('oidc_trust_usage', {
-  trustId: text('trust_id').primaryKey(),
-  workspaceId: text('workspace_id').notNull(),
-  lastIssuedAt: timestamp('last_issued_at').notNull(),
-});
+export const oidcTrustUsage = pgTable(
+  'oidc_trust_usage',
+  {
+    trustId: text('trust_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    lastIssuedAt: timestamptz('last_issued_at').notNull(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'oidc_trust_usage_trust_fk',
+      columns: [table.workspaceId, table.trustId],
+      foreignColumns: [oidcTrust.workspaceId, oidcTrust.id],
+    }).onDelete('cascade'),
+  ],
+);

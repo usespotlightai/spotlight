@@ -153,7 +153,7 @@ const projected = (db: DrizzleDatabase, where: SQL) =>
       tools: runRecord.tools,
       dismissals: runRecord.dismissals,
       memories: runRecord.memories,
-      openedBy: taskHumanAction.openedBy,
+      openedById: taskHumanAction.openedById,
       taskOpenedAt: sql<Date | null>`${taskHumanAction.openedAt}`.as(
         'task_opened_at',
       ),
@@ -213,7 +213,7 @@ export class DrizzleRunFactProjection implements RunFactsPort {
 
   async deleteOpenings(deleted: DeletedTasks): Promise<void> {
     await this.deleteForTasks(deleted, {
-      openedBy: null,
+      openedById: null,
       taskOpenedAt: null,
     });
   }

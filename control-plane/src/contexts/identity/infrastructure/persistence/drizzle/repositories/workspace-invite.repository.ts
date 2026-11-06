@@ -170,13 +170,13 @@ export class DrizzleWorkspaceInviteRepository
       email: invite.email.value,
       role: invite.spec.role.value,
       tokenHash: invite.tokenHash.value,
-      invitedBy: invite.invitedBy?.value ?? null,
+      invitedById: invite.invitedBy?.value ?? null,
       invitedAt: invite.invitedAt,
       expiresAt: invite.expiresAt,
       acceptedAt: invite.acceptedAt,
-      acceptedBy: invite.acceptedBy?.value ?? null,
+      acceptedById: invite.acceptedBy?.value ?? null,
       revokedAt: invite.revokedAt,
-    };
+    } satisfies typeof workspaceInvite.$inferInsert;
   }
 
   private rehydrated(row: Row, teams: readonly TeamId[]): WorkspaceInvite {
@@ -186,11 +186,11 @@ export class DrizzleWorkspaceInviteRepository
       email: EmailAddress.of(row.email),
       spec: InviteSpec.of(WorkspaceRole.of(row.role), teams),
       tokenHash: TokenHash.of(row.tokenHash),
-      invitedBy: row.invitedBy ? UserId.of(row.invitedBy) : null,
+      invitedBy: row.invitedById ? UserId.of(row.invitedById) : null,
       invitedAt: row.invitedAt,
       expiresAt: row.expiresAt,
       acceptedAt: row.acceptedAt,
-      acceptedBy: row.acceptedBy ? UserId.of(row.acceptedBy) : null,
+      acceptedBy: row.acceptedById ? UserId.of(row.acceptedById) : null,
       revokedAt: row.revokedAt,
       version: row.version,
     });

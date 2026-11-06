@@ -36,9 +36,7 @@ export class ReadDeliveryHandler
       const stored = command.delivered;
       const provider = await this.providers.find({
         integration: stored.integration,
-        workspaceId: stored.workspaceId,
-        teamId: stored.teamId,
-        teamKey: stored.teamKey,
+        to: stored.to,
       });
 
       if (!provider) {
@@ -78,9 +76,9 @@ export class ReadDeliveryHandler
         () =>
           this.reactions.react(
             workspaceId,
-            stored.teamId ? TeamId.of(stored.teamId) : null,
+            stored.to ? TeamId.of(stored.to.teamId) : null,
             news,
-            `delivery:${stored.integration}:${stored.teamId}:${stored.id}`,
+            `delivery:${stored.integration}:${stored.to?.teamId ?? ''}:${stored.id}`,
           ),
       );
     } catch (error) {
@@ -96,8 +94,8 @@ export class ReadDeliveryHandler
       {
         deliveryId: stored.id,
         integration: stored.integration,
-        workspaceId: stored.workspaceId,
-        teamId: stored.teamId,
+        workspaceId: stored.to?.workspaceId,
+        teamId: stored.to?.teamId,
         reason,
       },
       'Ignored a delivery',

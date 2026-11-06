@@ -208,6 +208,7 @@ beforeAll(async () => {
   await db.insert(schema.station).values([
     {
       id: BACKLOG,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'backlog',
       name: 'Backlog',
@@ -216,6 +217,7 @@ beforeAll(async () => {
     },
     {
       id: BUILD,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'build',
       name: 'Build',
@@ -225,6 +227,7 @@ beforeAll(async () => {
     },
     {
       id: SHIP,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'ship',
       name: 'Ship',
@@ -234,6 +237,7 @@ beforeAll(async () => {
     },
     {
       id: DEPLOY,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'deploy',
       name: 'Deploy',
@@ -244,6 +248,7 @@ beforeAll(async () => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'completed',
       name: 'Completed',

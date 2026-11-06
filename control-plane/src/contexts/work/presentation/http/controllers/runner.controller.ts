@@ -31,6 +31,11 @@ import {
 } from '@nestjs/swagger';
 import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import {
+  RUN_COMPLETION,
+  RUN_EVENTS,
+  RUN_TOOL_CALL,
+} from '@platform/http/routes';
 import { AckMessagesCommand } from '@work/application/commands/ack-messages.command';
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { ReplyToReviewCommentCommand } from '@work/application/commands/reply-to-review-comment.command';
@@ -503,7 +508,7 @@ export class RunnerController {
     );
   }
 
-  @Post('runs/:runId/events')
+  @Post(RUN_EVENTS)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'appendRunEvents',
@@ -521,7 +526,7 @@ export class RunnerController {
     );
   }
 
-  @Post('runs/:runId/tools/:tool')
+  @Post(RUN_TOOL_CALL)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'useTool',
@@ -626,7 +631,7 @@ export class RunnerController {
     );
   }
 
-  @Post('runs/:runId/completion')
+  @Post(RUN_COMPLETION)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'completeRun',

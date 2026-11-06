@@ -85,10 +85,10 @@ const working = async (
     },
     {
       available,
-      model: 'some/model',
       judge: async (request) => {
         requests.push(request);
         return {
+          model: 'some/model',
           verdict: await answer(request),
           guidance,
           usage: {
@@ -145,10 +145,10 @@ describe('WorkChangeJudgings', () => {
       },
       {
         available: true,
-        model: 'some/model',
         judge: async (request) => {
           requests.push(request);
           return {
+            model: 'some/model',
             verdict: {
               claims: request.claims.map((_, index) => ({
                 index,

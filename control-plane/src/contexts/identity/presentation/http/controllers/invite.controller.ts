@@ -43,6 +43,7 @@ import {
 } from '@nestjs/swagger';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { RateLimited } from '@platform/http/decorators/rate-limited.decorator';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 
 const listed = (raw: unknown): string[] =>
@@ -191,6 +192,7 @@ export class InviteController {
 
   @Get(':token')
   @AllowAnonymous()
+  @RateLimited({ name: 'invite-preview', max: 30, windowSeconds: 60 })
   @ApiOperation({
     operationId: 'readInvite',
     summary: 'Read the preview of an invitation',

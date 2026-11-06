@@ -133,7 +133,7 @@ describe('generating the decisions a run made', () => {
 
   it('retries later when generation fails, then dead-letters the job', async () => {
     const worked = working(REASONED, async () => {
-      throw new Error('OpenRouter failed to generate: 503');
+      throw new Error('The model failed to generate: 503');
     });
 
     for (let day = 0; day <= MAX_JOB_ATTEMPTS; day += 1) {

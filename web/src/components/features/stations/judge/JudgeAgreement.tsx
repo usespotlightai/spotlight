@@ -6,6 +6,11 @@ import { JudgeAgreementSkeleton } from '@/components/features/stations/judge/Jud
 import { JudgeCoverageBar } from '@/components/features/stations/judge/JudgeCoverage';
 import { JudgeStatistics } from '@/components/features/stations/judge/JudgeStatistics';
 import { JudgeTrend } from '@/components/features/stations/judge/JudgeTrend';
+import {
+  DETAILS_GRID,
+  SUBSECTIONS,
+} from '@/components/features/stations/judge/layout';
+import { ScoreVisibilityLine } from '@/components/features/stations/judge/ScoreVisibilityLine';
 import { TabSection } from '@/components/features/stations/TabSection';
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { MembersOnly } from '@/components/features/team/MembersOnly';
@@ -15,13 +20,19 @@ import { MenuPicker } from '@/components/shared/MenuPicker';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
 import { notFound } from '@/lib/error';
 import {
+  CLAIMS_TITLE,
+  CONFUSION_TITLE,
+  COVERAGE_NOTE,
   comparisonStats,
+  confusionNote,
   coverageTitle,
   formatRubric,
   formatTrendCaption,
+  pairsStat,
   type RubricVersion,
   type StationJudgeAgreement,
-  TREND_MIN_PAIRS,
+  scoreVisibility,
+  TREND_TITLE,
   trendWaitNote,
 } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
@@ -94,12 +105,9 @@ export function JudgeAgreement({
       data-slot="judge-agreement"
       className="@container flex flex-col gap-10"
     >
-      <TabSection title={coverageTitle(coverage)}>
-        <JudgeCoverageBar coverage={coverage} />
-      </TabSection>
-
       <TabSection
-        title={`Agreement on ${shown.current ? 'the current' : 'an earlier'} rubric`}
+        title="Agreement with people"
+        scope={versions.length > 1 ? undefined : formatRubric(shown)}
         action={
           versions.length > 1 && (
             <MenuPicker
@@ -118,14 +126,29 @@ export function JudgeAgreement({
           )
         }
       >
-        <JudgeStatistics stats={comparisonStats(shown)} />
+        {shown.current && (
+          <ScoreVisibilityLine visibility={scoreVisibility(calibration)} />
+        )}
+        <JudgeStatistics
+          pairs={pairsStat(shown, calibration)}
+          stats={comparisonStats(shown, calibration)}
+          minAgreement={calibration.minAgreement}
+        />
+        <div className={SUBSECTIONS}>
+          <AgreementDetails
+            shown={shown}
+            judge={judge}
+            minAgreement={calibration.minAgreement}
+          />
+          <TabSection
+            level={3}
+            title={coverageTitle(coverage)}
+            description={COVERAGE_NOTE}
+          >
+            <JudgeCoverageBar coverage={coverage} />
+          </TabSection>
+        </div>
       </TabSection>
-
-      <AgreementDetails
-        shown={shown}
-        judge={judge}
-        minAgreement={calibration.minAgreement}
-      />
     </div>
   );
 }
@@ -146,25 +169,30 @@ function AgreementDetails({
   return (
     <>
       {agreement.pairs > 0 && (
-        <div className="grid gap-x-12 gap-y-10 @2xl:grid-cols-[auto_minmax(0,1fr)]">
-          <TabSection title="Where they disagree">
+        <div className={DETAILS_GRID}>
+          <TabSection
+            level={3}
+            title={CONFUSION_TITLE}
+            description={confusionNote(shown.kind)}
+          >
             <ConfusionMatrix
+              kind={shown.kind}
+              measured={agreement.measured}
               confusion={shown.confusion}
               distribution={shown.distribution}
-              observed={agreement.observed}
-              pairs={agreement.pairs}
             />
           </TabSection>
 
           <TabSection
-            title="Over time"
+            level={3}
+            title={TREND_TITLE}
             description={formatTrendCaption(shown.kind)}
           >
-            {agreement.pairs >= TREND_MIN_PAIRS && shown.trend.length > 1 ? (
+            {shown.trendShown ? (
               <JudgeTrend trend={shown.trend} kind={shown.kind} />
             ) : (
               <p className="text-muted-foreground text-sm">
-                {trendWaitNote(agreement.pairs)}
+                {trendWaitNote(shown)}
               </p>
             )}
           </TabSection>
@@ -172,7 +200,7 @@ function AgreementDetails({
       )}
 
       {agreement.claims.length > 0 && (
-        <TabSection title="By claim">
+        <TabSection level={3} title={CLAIMS_TITLE}>
           <ClaimAgreements
             agreements={agreement.claims}
             claims={shown.current && judge ? judge.claims : []}

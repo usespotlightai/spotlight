@@ -1,24 +1,30 @@
+import { timestamptz } from '@platform/persistence/drizzle/columns';
 import type {
   JsonObject,
   JsonValue,
 } from '@shared-kernel/domain/services/json-value';
-import type {
-  TaskNoteForm,
-  TaskNoteKind,
+import {
+  TASK_NOTE_FORMS,
+  TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
-import type { AuthorKind } from '@work/domain/value-objects/voice.vo';
+import { VOICES } from '@work/domain/value-objects/voice.vo';
+import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
+import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
+  foreignKey,
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
   primaryKey,
   text,
-  timestamp,
+  unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -81,21 +87,21 @@ export interface FailureRow {
   readonly occurrences: number;
 }
 
+export const taskNoteKind = pgEnum('task_note_kind', TASK_NOTE_KINDS);
+export const taskNoteForm = pgEnum('task_note_form', TASK_NOTE_FORMS);
+export const voice = pgEnum('voice', VOICES);
+
 export const task = pgTable(
   'task',
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
-    stationId: text('station_id')
-      .notNull()
-      .references(() => station.id, { onDelete: 'restrict' }),
+    stationId: text('station_id').notNull(),
     title: text('title').notNull(),
     branch: text('branch').notNull(),
     description: text('description'),
     rank: text('rank').notNull().default('i'),
-    originStationId: text('origin_station_id').references(() => station.id, {
-      onDelete: 'set null',
-    }),
+    originStationId: text('origin_station_id'),
     createdById: text('created_by_id'),
     openedFrom: text('opened_from').notNull(),
     proposedInChatId: text('proposed_in_chat_id'),
@@ -107,17 +113,35 @@ export const task = pgTable(
     pullRequest: text('pull_request'),
     reviewing: boolean('reviewing').notNull().default(false),
     reviewFromOutside: boolean('review_from_outside').notNull().default(false),
-    finishedAt: timestamp('finished_at'),
+    finishedAt: timestamptz('finished_at'),
     revision: integer('revision').notNull().default(0),
     version: integer('version').notNull().default(0),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at')
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
+    updatedAt: timestamptz('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
   (table) => [
+    unique('task_workspace_id_id_key').on(table.workspaceId, table.id),
+    foreignKey({
+      name: 'task_station_fk',
+      columns: [table.workspaceId, table.stationId],
+      foreignColumns: [station.workspaceId, station.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'task_proposed_in_chat_fk',
+      columns: [table.workspaceId, table.proposedInChatId],
+      foreignColumns: [chat.workspaceId, chat.id],
+    }),
+    index('task_proposed_in_chat_idx').on(table.proposedInChatId),
     index('task_station_idx').on(table.stationId, table.rank),
+    foreignKey({
+      name: 'task_origin_station_fk',
+      columns: [table.originStationId],
+      foreignColumns: [station.id],
+    }).onDelete('set null'),
+    index('task_origin_station_idx').on(table.originStationId),
     index('task_workspace_idx').on(table.workspaceId),
     index('task_workspace_assignee_idx').on(
       table.workspaceId,
@@ -140,28 +164,29 @@ export const taskNote = pgTable(
     station: text('station').notNull(),
     stationId: text('station_id').notNull(),
     body: text('body').notNull(),
-    at: timestamp('at').notNull(),
-    voice: text('voice').$type<AuthorKind>().notNull().default('station'),
+    at: timestamptz('at').notNull(),
+    voice: voice('voice').notNull().default('station'),
     authorId: text('author_id'),
     coAuthorIds: text('co_author_ids')
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
-    runId: text('run_id'),
-    kind: text('kind').$type<TaskNoteKind>().notNull(),
-    form: text('form').$type<TaskNoteForm>().notNull().default('words'),
+    runId: text('run_id').references(() => run.id),
+    kind: taskNoteKind('kind').notNull(),
+    form: taskNoteForm('form').notNull().default('words'),
     anchor: jsonb('anchor').$type<AnchorRow>(),
     approval: jsonb('approval').$type<ApprovalRow>(),
     failure: jsonb('failure').$type<FailureRow>(),
     deferredMove: jsonb('deferred_move').$type<DeferredMoveRow>(),
     connectionAsk: jsonb('connection_ask').$type<ConnectionAskRow>(),
-    answeredAt: timestamp('answered_at'),
-    readAt: timestamp('read_at'),
-    acknowledgedAt: timestamp('acknowledged_at'),
+    answeredAt: timestamptz('answered_at'),
+    readAt: timestamptz('read_at'),
+    acknowledgedAt: timestamptz('acknowledged_at'),
   },
   (table) => [
+    check('task_note_position_not_negative', sql`${table.position} >= 0`),
     primaryKey({ columns: [table.taskId, table.position] }),
-    index('task_note_task_idx').on(table.taskId, table.position),
+    index('task_note_run_idx').on(table.runId),
     index('task_note_passed_idx')
       .on(table.taskId, table.at)
       .where(sql`${table.kind} = 'passed'`),
@@ -188,9 +213,11 @@ export const taskAttachment = pgTable(
     name: text('name').notNull(),
     contentType: text('content_type').notNull(),
     size: integer('size').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [
+    check('task_attachment_place_not_negative', sql`${table.place} >= 0`),
+    check('task_attachment_size_not_negative', sql`${table.size} >= 0`),
     index('task_attachment_task_idx').on(table.taskId, table.notePosition),
   ],
 );
@@ -199,13 +226,16 @@ export const taskMark = pgTable(
   'task_mark',
   {
     workspaceId: text('workspace_id').notNull(),
-    taskId: text('task_id')
-      .notNull()
-      .references(() => task.id, { onDelete: 'cascade' }),
+    taskId: text('task_id').notNull(),
     kind: text('kind').notNull(),
     value: text('value').notNull(),
   },
   (table) => [
+    foreignKey({
+      name: 'task_mark_task_fk',
+      columns: [table.workspaceId, table.taskId],
+      foreignColumns: [task.workspaceId, task.id],
+    }).onDelete('cascade'),
     primaryKey({ columns: [table.workspaceId, table.kind, table.value] }),
     index('task_mark_task_idx').on(table.taskId),
   ],

@@ -10,6 +10,7 @@ import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizz
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { endedAtFor } from './support/run-ended';
 import * as schema from './support/schema';
 
 let database: TestDatabase;
@@ -54,6 +55,7 @@ const taskOnLine = async (...names: string[]) => {
     names.map((name, position) => ({
       id: stations[position],
       key: `station-${position}`,
+      workspaceId: 'ws_1',
       lineId,
       name,
       position,
@@ -102,6 +104,7 @@ const taskOnLine = async (...names: string[]) => {
       taskId,
       stationId,
       state,
+      endedAt: endedAtFor(state),
       spec: {
         command: { executable: 'sh', args: [] },
         briefing: 'Fix the queue.',

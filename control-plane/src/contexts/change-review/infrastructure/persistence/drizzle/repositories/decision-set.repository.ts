@@ -94,7 +94,7 @@ const toDecision = (
         DecisionDispute.rehydrate({
           id: DecisionDisputeId.of(each.id),
           path: FilePath.of(each.path),
-          by: UserId.of(each.byUserId),
+          by: UserId.of(each.disputedById),
           reason: each.reason,
           at: each.at,
         }),
@@ -234,7 +234,7 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
           id: each.id.value,
           decisionId,
           path: each.path.value,
-          byUserId: each.by.value,
+          disputedById: each.by.value,
           reason: each.reason,
           at: each.at,
         })),

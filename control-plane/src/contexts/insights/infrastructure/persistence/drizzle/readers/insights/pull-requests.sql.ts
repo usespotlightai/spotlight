@@ -49,7 +49,7 @@ end`;
 
 const spent = sql`(
   select
-    (sum(${runFact.cost} order by ${inEndOrder}) filter (where ${pricedRun}))::float8 as amount,
+    sum(${runFact.cost}::float8 order by ${inEndOrder}) filter (where ${pricedRun}) as amount,
     min(${runFact.currency}) filter (where ${pricedRun}) as currency,
     count(distinct ${runFact.currency}) filter (where ${pricedRun})::int as currencies,
     count(*) filter (where ${pricedRun})::int as priced,
@@ -68,7 +68,7 @@ export const inLowerCase = (
   );
 
 export const atIn = (column: SQL, window: Window): SQL =>
-  sql`${column} >= ${iso(window.from)}::timestamp and ${column} < ${iso(window.to)}::timestamp`;
+  sql`${column} >= ${iso(window.from)}::timestamptz and ${column} < ${iso(window.to)}::timestamptz`;
 
 const coverageOf = (
   team: TeamInPeriod,
@@ -81,10 +81,10 @@ const coverageOf = (
       ${pullRequestRecord.ownerTeamId} = ${team.teamId.value}
       or ${inLowerCase(pullRequestRecord.repository, repositories)}
     )
-    and ${pullRequestRecord.openedAt} < ${iso(team.period.current.to)}::timestamp
+    and ${pullRequestRecord.openedAt} < ${iso(team.period.current.to)}::timestamptz
     and (
       ${pullRequestRecord.closedAt} is null
-      or ${pullRequestRecord.closedAt} >= ${iso(from)}::timestamp
+      or ${pullRequestRecord.closedAt} >= ${iso(from)}::timestamptz
     )`;
 
 const newestFirst = sql`${pullRequestRecord.openedAt} desc, ${pullRequestRecord.pullRequest} collate "C" desc`;

@@ -5,7 +5,10 @@ import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
-import { review } from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';
+import {
+  review,
+  reviewIncludedComment,
+} from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -16,11 +19,11 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 type Row = typeof review.$inferSelect;
 
-const toReview = (row: Row): Review =>
+const toReview = (row: Row, comments: readonly string[]): Review =>
   Review.rehydrate({
     id: ReviewId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
@@ -33,7 +36,7 @@ const toReview = (row: Row): Review =>
     }),
     verdict: row.verdict,
     body: row.body,
-    comments: row.commentIds.map((each) => ReviewCommentId.of(each)),
+    comments: comments.map((each) => ReviewCommentId.of(each)),
     state: row.state,
     githubId: row.githubId,
     submittedAt: row.submittedAt,
@@ -50,7 +53,6 @@ const toRow = (aggregate: Review): Row => ({
   authorName: aggregate.author.name.value,
   verdict: aggregate.verdict,
   body: aggregate.body,
-  commentIds: aggregate.comments.map((each) => each.value),
   state: aggregate.state,
   githubId: aggregate.githubId,
   submittedAt: aggregate.submittedAt,
@@ -75,6 +77,17 @@ export class DrizzleReviewRepository implements ReviewRepository {
 
   private async inserted(added: Review): Promise<void> {
     await this.context.db.insert(review).values(toRow(added));
+
+    if (added.comments.length > 0) {
+      await this.context.db.insert(reviewIncludedComment).values(
+        added.comments.map((each, position) => ({
+          reviewId: added.id.value,
+          workspaceId: added.workspaceId.value,
+          commentId: each.value,
+          position,
+        })),
+      );
+    }
   }
 
   async save(saved: Review): Promise<void> {
@@ -105,7 +118,20 @@ export class DrizzleReviewRepository implements ReviewRepository {
       .where(eq(review.id, id.value))
       .limit(1);
 
-    return row ? toReview(row) : null;
+    if (!row) {
+      return null;
+    }
+
+    const included = await this.context.db
+      .select({ commentId: reviewIncludedComment.commentId })
+      .from(reviewIncludedComment)
+      .where(eq(reviewIncludedComment.reviewId, row.id))
+      .orderBy(asc(reviewIncludedComment.position));
+
+    return toReview(
+      row,
+      included.map((each) => each.commentId),
+    );
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {

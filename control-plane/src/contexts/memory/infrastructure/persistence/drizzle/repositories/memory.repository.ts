@@ -80,13 +80,13 @@ const toMemory = (row: Row): Memory => {
     source: row.source,
     supersedes: row.supersedes ? MemoryId.of(row.supersedes) : null,
     approval: MemoryDecision.of({
-      by: UserId.of(row.approvedBy),
+      by: UserId.of(row.approvedById),
       at: row.approvedAt,
     }),
     retirement: row.retiredAt
       ? MemoryRetirement.rehydrate({
           at: row.retiredAt,
-          by: row.retiredBy ? UserId.of(row.retiredBy) : null,
+          by: row.retiredById ? UserId.of(row.retiredById) : null,
           reason: row.retireReason,
           supersededBy: row.supersededBy ? MemoryId.of(row.supersededBy) : null,
         })
@@ -95,13 +95,14 @@ const toMemory = (row: Row): Memory => {
   });
 };
 
-const changedColumnsOf = (stored: Memory) => ({
-  status: stored.status,
-  retiredAt: stored.retirement?.at ?? null,
-  retiredBy: stored.retirement?.by?.value ?? null,
-  retireReason: stored.retirement?.reason ?? null,
-  supersededBy: stored.retirement?.supersededBy?.value ?? null,
-});
+const changedColumnsOf = (stored: Memory) =>
+  ({
+    status: stored.status,
+    retiredAt: stored.retirement?.at ?? null,
+    retiredById: stored.retirement?.by?.value ?? null,
+    retireReason: stored.retirement?.reason ?? null,
+    supersededBy: stored.retirement?.supersededBy?.value ?? null,
+  }) satisfies Partial<typeof memory.$inferInsert>;
 
 export const activeAsOf = (at: Date | null) =>
   at
@@ -140,7 +141,7 @@ export class DrizzleMemoryRepository implements MemoryRepository {
           notes: added.provenance ? [...added.provenance.notes] : null,
           source: added.source,
           supersedes: added.supersedes?.value ?? null,
-          approvedBy: added.approval.by.value,
+          approvedById: added.approval.by.value,
           approvedAt: added.approval.at,
           version: added.version,
           ...changedColumnsOf(added),

@@ -57,6 +57,7 @@ beforeAll(async () => {
   await database.db.insert(schema.station).values({
     id: STATION,
     key: 'build',
+    workspaceId: 'ws_1',
     lineId,
     name: 'Build',
     position: 0,

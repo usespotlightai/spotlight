@@ -41,9 +41,7 @@ describe('ProviderForDelivery', () => {
       expect(
         (
           await providers.find({
-            workspaceId: '',
-            teamId: '',
-            teamKey: '',
+            to: null,
             integration: 'github',
           })
         )?.key,
@@ -55,9 +53,7 @@ describe('ProviderForDelivery', () => {
 
       expect(
         await providers.find({
-          workspaceId: '',
-          teamId: '',
-          teamKey: '',
+          to: null,
           integration: 'sentry',
         }),
       ).toBeNull();
@@ -68,9 +64,7 @@ describe('ProviderForDelivery', () => {
 
       expect(
         await providers.find({
-          workspaceId: '',
-          teamId: '',
-          teamKey: '',
+          to: null,
           integration: 'linear',
         }),
       ).toBeNull();
@@ -85,9 +79,7 @@ describe('ProviderForDelivery', () => {
       expect(
         (
           await providers.find({
-            workspaceId: 'ws_1',
-            teamId: 'team_1',
-            teamKey: 'platform',
+            to: { workspaceId: 'ws_1', teamId: 'team_1', teamKey: 'platform' },
             integration: 'linear',
           })
         )?.key,
@@ -98,9 +90,7 @@ describe('ProviderForDelivery', () => {
       const { providers, find } = finding(['github'], ['linear']);
 
       await providers.find({
-        workspaceId: 'ws_1',
-        teamId: 'team_1',
-        teamKey: 'platform',
+        to: { workspaceId: 'ws_1', teamId: 'team_1', teamKey: 'platform' },
         integration: 'linear',
       });
 
@@ -117,9 +107,7 @@ describe('ProviderForDelivery', () => {
 
       expect(
         await providers.find({
-          workspaceId: 'ws_1',
-          teamId: 'team_1',
-          teamKey: 'platform',
+          to: { workspaceId: 'ws_1', teamId: 'team_1', teamKey: 'platform' },
           integration: 'sentry',
         }),
       ).toBeNull();
@@ -130,9 +118,7 @@ describe('ProviderForDelivery', () => {
 
       expect(
         await providers.find({
-          workspaceId: 'ws_1',
-          teamId: 'team_1',
-          teamKey: 'platform',
+          to: { workspaceId: 'ws_1', teamId: 'team_1', teamKey: 'platform' },
           integration: 'github',
         }),
       ).toBeNull();

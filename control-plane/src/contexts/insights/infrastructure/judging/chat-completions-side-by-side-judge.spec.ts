@@ -1,7 +1,14 @@
 import { JudgingError } from '@insights/application/errors/judging.error';
 import type { SideBySideJudgeRequest } from '@insights/application/ports/side-by-side-judge.port';
-import { OpenRouterSideBySideJudge } from '@insights/infrastructure/judging/openrouter-side-by-side-judge';
+import { ChatCompletionsSideBySideJudge } from '@insights/infrastructure/judging/chat-completions-side-by-side-judge';
 import { describe, expect, it } from 'vitest';
+
+const ENDPOINT = {
+  baseUrl: 'https://models.example.com/v1',
+  apiKey: 'test-key',
+  model: 'some/model',
+  supportsReasoningEffort: false,
+};
 
 const hunk = (id: string, line: string) => ({
   id,
@@ -41,16 +48,15 @@ const completed = (content: string) =>
     { status: 200 },
   );
 
-describe('judging two changes side by side through OpenRouter', () => {
+describe('judging two changes side by side through a chat completions endpoint', () => {
   it('keeps the claims in its instructions, sends both changes and the accepted one as one JSON document, and reads which it preferred', async () => {
     const reasons = [{ text: 'A drains fast.', hunks: ['A:api/q.ts#1'] }];
     const { requests, fetch } = answering(
       completed(JSON.stringify({ preferred: 'A', reasons })),
     );
 
-    const answer = await new OpenRouterSideBySideJudge(
-      'key',
-      'some/model',
+    const answer = await new ChatCompletionsSideBySideJudge(
+      ENDPOINT,
       fetch,
     ).judgePair(REQUEST);
 
@@ -60,6 +66,7 @@ describe('judging two changes side by side through OpenRouter', () => {
     expect(answer).toEqual({
       verdict: { preferred: 'A', reasons },
       usage: null,
+      model: 'some/model',
     });
     expect(body.response_format.json_schema.name).toBe('pair_verdict');
     expect(system).toContain(
@@ -72,9 +79,9 @@ describe('judging two changes side by side through OpenRouter', () => {
     expect(evidence.reference.hunks[0].lines).toEqual(['+drainInOrder()']);
   });
 
-  it('does not judge without an API key', async () => {
+  it('does not judge without a model endpoint', async () => {
     await expect(
-      new OpenRouterSideBySideJudge(undefined, 'some/model').judgePair(REQUEST),
+      new ChatCompletionsSideBySideJudge(null).judgePair(REQUEST),
     ).rejects.toBeInstanceOf(JudgingError);
   });
 });

@@ -5,17 +5,19 @@ import { MEMORY_PROPOSERS } from '@memory/domain/value-objects/memory-proposer';
 import { MEMORY_SOURCES } from '@memory/domain/value-objects/memory-source';
 import { MEMORY_STATUSES } from '@memory/domain/value-objects/memory-status';
 import { MEMORY_USES } from '@memory/domain/value-objects/memory-use';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
 import {
+  check,
+  foreignKey,
   index,
   integer,
   jsonb,
   pgEnum,
-  pgSequence,
   pgTable,
   primaryKey,
   text,
-  timestamp,
+  unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -45,16 +47,21 @@ export const memoryDraft = pgTable(
     taskId: text('task_id').notNull(),
     workspaceId: text('workspace_id').notNull(),
     draftingRunId: text('drafting_run_id'),
-    draftingRequestedAt: timestamp('drafting_requested_at'),
+    draftingRequestedAt: timestamptz('drafting_requested_at'),
     jobAttempts: integer('job_attempts').notNull().default(0),
-    jobDueAt: timestamp('job_due_at'),
+    jobDueAt: timestamptz('job_due_at'),
     draftedIn: text('drafted_in'),
     notesRead: integer('notes_read').notNull().default(0),
     failure: memoryDraftingFailure('failure'),
-    failedAt: timestamp('failed_at'),
+    failedAt: timestamptz('failed_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check(
+      'memory_draft_job_attempts_not_negative',
+      sql`${table.jobAttempts} >= 0`,
+    ),
+    check('memory_draft_notes_read_not_negative', sql`${table.notesRead} >= 0`),
     uniqueIndex('memory_draft_task_idx').on(table.taskId),
     index('memory_draft_drafting_idx').on(table.draftingRequestedAt),
   ],
@@ -81,16 +88,21 @@ export const memoryProposal = pgTable(
     notes: jsonb('notes').$type<number[]>().notNull(),
     source: memorySource('source').notNull(),
     proposedBy: memoryProposer('proposed_by').notNull(),
-    supersedes: text('supersedes'),
-    recordedAt: timestamp('recorded_at').notNull(),
+    supersedes: text('supersedes').references(() => memory.id),
+    recordedAt: timestamptz('recorded_at').notNull(),
     state: memoryProposalState('state').notNull().default('proposed'),
-    decidedBy: text('decided_by'),
-    decidedAt: timestamp('decided_at'),
+    decidedById: text('decided_by_id'),
+    decidedAt: timestamptz('decided_at'),
   },
   (table) => [
+    check('memory_proposal_position_not_negative', sql`${table.position} >= 0`),
     uniqueIndex('memory_proposal_position_idx').on(
       table.draftId,
       table.position,
+    ),
+    check(
+      'memory_proposal_decided_matches_state',
+      sql`(${table.state} = 'proposed') = (${table.decidedAt} is null) and (${table.decidedById} is null) = (${table.decidedAt} is null)`,
     ),
     index('memory_proposal_decided_idx').on(
       table.teamId,
@@ -100,13 +112,13 @@ export const memoryProposal = pgTable(
   ],
 );
 
-export const memoryHandle = pgSequence('memory_handle_seq');
-
 export const memory = pgTable(
   'memory',
   {
     id: text('id').primaryKey(),
-    handle: integer('handle').notNull(),
+    handle: integer('handle')
+      .notNull()
+      .generatedByDefaultAsIdentity({ name: 'memory_handle_seq' }),
     workspaceId: text('workspace_id').notNull(),
     kind: memoryKind('kind').notNull(),
     body: text('body').notNull(),
@@ -122,18 +134,34 @@ export const memory = pgTable(
     source: memorySource('source').notNull(),
     supersedes: text('supersedes'),
     status: memoryStatus('status').notNull().default('active'),
-    approvedBy: text('approved_by').notNull(),
-    approvedAt: timestamp('approved_at').notNull(),
-    retiredAt: timestamp('retired_at'),
-    retiredBy: text('retired_by'),
+    approvedById: text('approved_by_id').notNull(),
+    approvedAt: timestamptz('approved_at').notNull(),
+    retiredAt: timestamptz('retired_at'),
+    retiredById: text('retired_by_id'),
     retireReason: text('retire_reason'),
     supersededBy: text('superseded_by'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    unique('memory_workspace_id_id_key').on(table.workspaceId, table.id),
     uniqueIndex('memory_handle_idx').on(table.handle),
+    foreignKey({
+      name: 'memory_supersedes_fk',
+      columns: [table.workspaceId, table.supersedes],
+      foreignColumns: [table.workspaceId, table.id],
+    }),
+    foreignKey({
+      name: 'memory_superseded_by_fk',
+      columns: [table.workspaceId, table.supersededBy],
+      foreignColumns: [table.workspaceId, table.id],
+    }),
+    index('memory_superseded_by_idx').on(table.supersededBy),
     uniqueIndex('memory_supersedes_idx').on(table.supersedes),
     index('memory_status_idx').on(table.teamId, table.status, table.approvedAt),
+    check(
+      'memory_retired_at_matches_status',
+      sql`(${table.status} = 'retired') = (${table.retiredAt} is not null)`,
+    ),
     index('memory_body_search_idx').using(
       'gin',
       sql`to_tsvector('english', ${table.body})`,
@@ -149,7 +177,7 @@ export const memoryUse = pgTable(
       .references(() => memory.id, { onDelete: 'cascade' }),
     runId: text('run_id').notNull(),
     via: memoryUseVia('via').notNull(),
-    at: timestamp('at').notNull(),
+    at: timestamptz('at').notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.memoryId, table.runId, table.via] }),

@@ -9,9 +9,10 @@ describe('agreement readings', () => {
     expect(kappaReadingOf(0.81)).toBe('almost-perfect');
     expect(kappaReadingOf(0.7)).toBe('substantial');
     expect(kappaReadingOf(0.41)).toBe('moderate');
-    expect(kappaReadingOf(0.4)).toBe('fair-to-slight');
-    expect(kappaReadingOf(0)).toBe('fair-to-slight');
-    expect(kappaReadingOf(-0.2)).toBe('poor');
+    expect(kappaReadingOf(0.4)).toBe('fair');
+    expect(kappaReadingOf(0.2)).toBe('slight');
+    expect(kappaReadingOf(0)).toBe('chance');
+    expect(kappaReadingOf(-0.2)).toBe('chance');
     expect(kappaReadingOf(null)).toBeNull();
   });
 

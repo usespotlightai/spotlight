@@ -138,7 +138,6 @@ const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
   available: true,
-  model: 'stub/judge',
   judge: async (request) => {
     requests.push(request);
     const fast = request.hunks.some((each) =>
@@ -147,6 +146,7 @@ const judge: JudgePort = {
     const cited = request.hunks.slice(0, 1).map((each) => each.id);
 
     return {
+      model: 'stub/judge',
       guidance: null,
       usage: {
         inputTokens: 2_000,
@@ -168,7 +168,6 @@ const pairRequests: SideBySideJudgeRequest[] = [];
 
 const pairJudge: SideBySideJudgePort = {
   available: true,
-  model: 'stub/pair-judge',
   judgePair: async (request) => {
     pairRequests.push(request);
     const fastIsA = request.a.hunks.some((each) =>
@@ -183,6 +182,7 @@ const pairJudge: SideBySideJudgePort = {
           : ('B' as const);
 
     return {
+      model: 'stub/pair-judge',
       usage: {
         inputTokens: 3_000,
         outputTokens: 60,
@@ -297,17 +297,6 @@ const anOriginal = async (title: string): Promise<Original> => {
     assigneeId: team.owner.value,
     finishedAt: at,
   });
-  await db.insert(schema.workspaceArchive).values({
-    id: archiveId,
-    workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
-    grantedToRunId: randomUUID(),
-    size: 1_024,
-    sha256: 'a'.repeat(64),
-    grantedAt: at,
-    completedAt: at,
-  });
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
@@ -346,6 +335,17 @@ const anOriginal = async (title: string): Promise<Original> => {
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
     startedFromAt: at,
+  });
+  await db.insert(schema.workspaceArchive).values({
+    id: archiveId,
+    workspaceId: team.workspaceId.value,
+    resumeKey: `task-${taskId}`,
+    taskId,
+    grantedToRunId: runId,
+    size: 1_024,
+    sha256: 'a'.repeat(64),
+    grantedAt: at,
+    completedAt: at,
   });
   await new DrizzleRunJournal(new DrizzleContext(db)).append(
     RunAttempt.of(RunId.of(runId), 1),
@@ -471,6 +471,7 @@ beforeAll(async () => {
   await db.insert(schema.station).values([
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'backlog',
       name: 'Backlog',
@@ -479,6 +480,7 @@ beforeAll(async () => {
     },
     {
       id: BUILD,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'build',
       name: 'Build',
@@ -498,6 +500,7 @@ beforeAll(async () => {
     },
     {
       id: SHIP,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'ship',
       name: 'Ship',
@@ -507,6 +510,7 @@ beforeAll(async () => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'completed',
       name: 'Completed',

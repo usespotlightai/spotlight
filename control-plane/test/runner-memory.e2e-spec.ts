@@ -158,6 +158,7 @@ beforeAll(async () => {
   await db.insert(schema.station).values([
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'backlog',
       name: 'Backlog',
@@ -166,6 +167,7 @@ beforeAll(async () => {
     },
     {
       id: BUILD,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'build',
       name: 'Build',
@@ -174,6 +176,7 @@ beforeAll(async () => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'completed',
       name: 'Completed',
@@ -355,7 +358,7 @@ describe('recalling what the team remembers from inside a run', () => {
         paths: [],
         source: 'person',
         supersedes: old.id,
-        approvedBy: team.owner.value,
+        approvedById: team.owner.value,
         approvedAt: new Date(),
       })
       .returning({ handle: schema.memory.handle });

@@ -37,8 +37,10 @@ const IMPLEMENTATION_JUDGE: StationJudgeCalibrationResponseDto = {
   agreement: 0.72,
   reading: 'substantial',
   pairs: 24,
+  minPairs: 10,
   minAgreement: 0.6,
   hiddenReason: null,
+  failing: false,
 };
 
 const JUDGES: readonly StationJudgeCalibrationResponseDto[] = [

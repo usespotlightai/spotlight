@@ -18,12 +18,11 @@ export interface SideBySideJudgeRequest {
 export interface SideBySideJudgeAnswer {
   readonly verdict: PairVerdict;
   readonly usage: ModelCall | null;
+  readonly model: string;
 }
 
 export interface SideBySideJudgePort {
   readonly available: boolean;
-
-  readonly model: string;
 
   judgePair(request: SideBySideJudgeRequest): Promise<SideBySideJudgeAnswer>;
 }

@@ -1,15 +1,20 @@
-import type { ChatMessageKind } from '@work/domain/entities/chat-message.entity';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { CHAT_MESSAGE_KINDS } from '@work/domain/entities/chat-message.entity';
 import type { ProposalState } from '@work/domain/entities/task-proposal.entity';
+import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
+  foreignKey,
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
   primaryKey,
   text,
-  timestamp,
+  unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -53,6 +58,8 @@ export interface TargetStationRow {
   readonly stationName: string;
 }
 
+export const chatMessageKind = pgEnum('chat_message_kind', CHAT_MESSAGE_KINDS);
+
 export const chat = pgTable(
   'chat',
   {
@@ -71,13 +78,14 @@ export const chat = pgTable(
     sessionId: text('session_id'),
     runnerId: text('runner_id'),
     version: integer('version').notNull().default(0),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at')
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
+    updatedAt: timestamptz('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
   (table) => [
+    unique('chat_workspace_id_id_key').on(table.workspaceId, table.id),
     index('chat_team_starter_idx').on(
       table.teamId,
       table.startedById,
@@ -94,17 +102,21 @@ export const chatMessage = pgTable(
       .notNull()
       .references(() => chat.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
-    kind: text('kind').$type<ChatMessageKind>().notNull(),
+    kind: chatMessageKind('kind').notNull(),
     body: text('body').notNull(),
-    at: timestamp('at').notNull(),
+    at: timestamptz('at').notNull(),
     authorId: text('author_id'),
-    runId: text('run_id'),
+    runId: text('run_id').references(() => run.id),
     traces: jsonb('traces').$type<TraceRow[]>().notNull().default([]),
     proposal: jsonb('proposal').$type<ProposalRow>(),
-    acknowledgedAt: timestamp('acknowledged_at'),
+    acknowledgedAt: timestamptz('acknowledged_at'),
     acknowledgedByRunId: text('acknowledged_by_run_id'),
   },
-  (table) => [primaryKey({ columns: [table.chatId, table.position] })],
+  (table) => [
+    check('chat_message_position_not_negative', sql`${table.position} >= 0`),
+    primaryKey({ columns: [table.chatId, table.position] }),
+    index('chat_message_run_idx').on(table.runId),
+  ],
 );
 
 export const chatAttachment = pgTable(
@@ -119,9 +131,11 @@ export const chatAttachment = pgTable(
     name: text('name').notNull(),
     contentType: text('content_type').notNull(),
     size: integer('size').notNull(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [
+    check('chat_attachment_place_not_negative', sql`${table.place} >= 0`),
+    check('chat_attachment_size_not_negative', sql`${table.size} >= 0`),
     index('chat_attachment_chat_idx').on(table.chatId, table.messagePosition),
   ],
 );
@@ -130,14 +144,17 @@ export const chatMark = pgTable(
   'chat_mark',
   {
     workspaceId: text('workspace_id').notNull(),
-    chatId: text('chat_id')
-      .notNull()
-      .references(() => chat.id, { onDelete: 'cascade' }),
+    chatId: text('chat_id').notNull(),
     kind: text('kind').notNull(),
     value: text('value').notNull(),
     finds: boolean('finds').notNull(),
   },
   (table) => [
+    foreignKey({
+      name: 'chat_mark_chat_fk',
+      columns: [table.workspaceId, table.chatId],
+      foreignColumns: [chat.workspaceId, chat.id],
+    }).onDelete('cascade'),
     primaryKey({ columns: [table.chatId, table.kind, table.value] }),
     uniqueIndex('chat_mark_finding_uidx')
       .on(table.workspaceId, table.kind, table.value)

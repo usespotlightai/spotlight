@@ -350,8 +350,8 @@ beforeAll(async () => {
       },
       {
         available: false,
-        model: 'some/model',
         judge: async () => ({
+          model: 'some/model',
           verdict: { value: true, reasons: [] },
           guidance: null,
           usage: null,

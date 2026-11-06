@@ -10,7 +10,7 @@ import type { HolderState } from '@work/domain/value-objects/archive-holder.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import { startingPointHold } from '@work/infrastructure/persistence/drizzle/schemas/starting-point-hold.schema';
+import { startingPointHoldRun } from '@work/infrastructure/persistence/drizzle/schemas/starting-point-hold.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { workspaceArchive } from '@work/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';
 import {
@@ -35,8 +35,8 @@ const newer = alias(workspaceArchive, 'newer');
 const startedFromIt = eq(run.startedFromArchiveId, workspaceArchive.id);
 
 const holdsTheRun = and(
-  eq(startingPointHold.workspaceId, run.workspaceId),
-  sql`${startingPointHold.runIds} @> ARRAY[${run.id}]`,
+  eq(startingPointHoldRun.workspaceId, run.workspaceId),
+  eq(startingPointHoldRun.runId, run.id),
 );
 
 const sameResume = and(
@@ -177,7 +177,7 @@ export class DrizzleArchiveReferences implements ArchiveReferencesPort {
     return this.db
       .select({ one: sql`1` })
       .from(run)
-      .innerJoin(startingPointHold, holdsTheRun)
+      .innerJoin(startingPointHoldRun, holdsTheRun)
       .where(startedFromIt);
   }
 }

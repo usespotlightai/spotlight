@@ -126,6 +126,7 @@ describe('an integration, created through the resource API (e2e)', () => {
     });
     await db.insert(schema.station).values({
       id: stationId,
+      workspaceId: team?.workspaceId ?? '',
       lineId,
       key: 'implementation',
       name: 'Implementation',

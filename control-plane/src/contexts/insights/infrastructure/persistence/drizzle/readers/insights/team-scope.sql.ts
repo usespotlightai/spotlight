@@ -22,8 +22,8 @@ export const ofTeamHumanActions = (team: TeamInPeriod): SQL => {
     and (
       (
         ${taskHumanAction.teamId} = ${team.teamId.value}
-        and ${taskHumanAction.lastActionAt} >= ${iso(lookback.from)}::timestamp
-        and ${taskHumanAction.openedAt} < ${iso(lookback.to)}::timestamp
+        and ${taskHumanAction.lastActionAt} >= ${iso(lookback.from)}::timestamptz
+        and ${taskHumanAction.openedAt} < ${iso(lookback.to)}::timestamptz
       )
       or ${taskHumanAction.taskId} in (${endedInLookback(team)})
     )`;
@@ -36,16 +36,16 @@ export const ofTeamTaskPullRequests = (team: TeamInPeriod): SQL => {
     and (
       (
         ${taskPullRequest.teamId} = ${team.teamId.value}
-        and ${taskPullRequest.openedAt} < ${iso(lookback.to)}::timestamp
+        and ${taskPullRequest.openedAt} < ${iso(lookback.to)}::timestamptz
         and (
           (
             ${taskPullRequest.closedAt} is null
             and (
-              ${taskPullRequest.openedAt} >= ${iso(lookback.from)}::timestamp
-              or ${taskPullRequest.firstReviewAt} >= ${iso(lookback.from)}::timestamp
+              ${taskPullRequest.openedAt} >= ${iso(lookback.from)}::timestamptz
+              or ${taskPullRequest.firstReviewAt} >= ${iso(lookback.from)}::timestamptz
             )
           )
-          or ${taskPullRequest.closedAt} >= ${iso(lookback.from)}::timestamp
+          or ${taskPullRequest.closedAt} >= ${iso(lookback.from)}::timestamptz
         )
       )
       or ${taskPullRequest.taskId} in (${endedInLookback(team)})
@@ -57,11 +57,11 @@ export const teamActivity = (team: TeamInPeriod): SQL => {
 
   return sql`(
     with acted as (
-      select ${taskHumanAction.openedBy} as opened_by, ${taskHumanAction.openedAt} as opened_at, ${taskHumanAction.actions} as actions
+      select ${taskHumanAction.openedById} as opened_by, ${taskHumanAction.openedAt} as opened_at, ${taskHumanAction.actions} as actions
       from ${taskHumanAction}
       where ${ofTeamHumanActions(team)}
     )
-    select acted.opened_by as person, 'opened' as kind, acted.opened_at at time zone 'UTC' as at
+    select acted.opened_by as person, 'opened' as kind, acted.opened_at as at
     from acted
     where acted.opened_by is not null and acted.opened_at is not null
     union all
@@ -69,11 +69,11 @@ export const teamActivity = (team: TeamInPeriod): SQL => {
     from acted
     cross join lateral jsonb_array_elements(acted.actions) as act(value)
     union all
-    select ${chatRecord.startedBy}, 'chatted', ${chatRecord.startedAt} at time zone 'UTC'
+    select ${chatRecord.startedById}, 'chatted', ${chatRecord.startedAt}
     from ${chatRecord}
     where ${chatRecord.workspaceId} = ${team.workspaceId.value}
       and ${chatRecord.teamId} = ${team.teamId.value}
-      and ${chatRecord.startedAt} >= ${iso(lookback.from)}::timestamp
-      and ${chatRecord.startedAt} < ${iso(lookback.to)}::timestamp
+      and ${chatRecord.startedAt} >= ${iso(lookback.from)}::timestamptz
+      and ${chatRecord.startedAt} < ${iso(lookback.to)}::timestamptz
   ) as activity`;
 };

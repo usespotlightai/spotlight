@@ -10,10 +10,11 @@ import { PAIR_LABELS } from '@insights/domain/value-objects/pair-order';
 import {
   type Fetch,
   JsonSchema,
-  OpenRouterEmptyCompletionError,
-  OpenRouterRequestError,
+  ModelEmptyCompletionError,
+  type ModelEndpoint,
+  ModelRequestError,
   requestJson,
-} from '@platform/openrouter/openrouter-json';
+} from '@platform/llm/chat-completions';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 4_000;
@@ -91,32 +92,30 @@ const evidenceOf = (request: SideBySideJudgeRequest): string =>
     },
   });
 
-export class OpenRouterSideBySideJudge implements SideBySideJudgePort {
+export class ChatCompletionsSideBySideJudge implements SideBySideJudgePort {
   constructor(
-    private readonly apiKey: string | undefined,
-    readonly model: string,
+    private readonly endpoint: ModelEndpoint | null,
     private readonly fetch: Fetch = globalThis.fetch,
   ) {}
 
   get available(): boolean {
-    return Boolean(this.apiKey);
+    return this.endpoint !== null;
   }
 
   async judgePair(
     request: SideBySideJudgeRequest,
   ): Promise<SideBySideJudgeAnswer> {
-    if (!this.apiKey) {
+    if (!this.endpoint) {
       throw new JudgingError(
         'request-failed',
-        'no OpenRouter API key is set',
+        'no model endpoint is set',
         null,
       );
     }
 
     try {
       const { answer, usage } = await requestJson({
-        apiKey: this.apiKey,
-        model: this.model,
+        endpoint: this.endpoint,
         fetch: this.fetch,
         system: systemOf(request),
         prompt: evidenceOf(request),
@@ -127,12 +126,13 @@ export class OpenRouterSideBySideJudge implements SideBySideJudgePort {
       return {
         verdict: { preferred: answer.preferred, reasons: answer.reasons },
         usage,
+        model: this.endpoint.model,
       };
     } catch (error) {
-      if (error instanceof OpenRouterRequestError) {
+      if (error instanceof ModelRequestError) {
         throw new JudgingError('request-failed', error.message, null);
       }
-      if (error instanceof OpenRouterEmptyCompletionError) {
+      if (error instanceof ModelEmptyCompletionError) {
         throw new JudgingError('unreadable', error.message, error.usage);
       }
       throw error;

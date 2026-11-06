@@ -26,9 +26,7 @@ const payloadOf = (ourOwn = false): Happened => ({
 
 const stored: StoredDelivery = {
   integration: 'github',
-  workspaceId: '',
-  teamId: '',
-  teamKey: '',
+  to: null,
   id: 'delivery_1',
   headers: {},
   body: {},

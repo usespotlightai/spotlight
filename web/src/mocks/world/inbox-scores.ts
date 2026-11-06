@@ -52,8 +52,10 @@ const TRUSTED: JudgeCalibrationResponseDto = {
   agreement: 0.71,
   reading: 'substantial',
   pairs: 24,
+  minPairs: 10,
   minAgreement: 0.6,
   hiddenReason: null,
+  failing: false,
 };
 
 const NEW_JUDGE: JudgeCalibrationResponseDto = {
@@ -62,8 +64,10 @@ const NEW_JUDGE: JudgeCalibrationResponseDto = {
   agreement: null,
   reading: null,
   pairs: 0,
+  minPairs: 10,
   minAgreement: 0.6,
   hiddenReason: 'too-few-pairs',
+  failing: false,
 };
 
 const NO_JUDGE: JudgeCalibrationResponseDto = {
@@ -72,8 +76,10 @@ const NO_JUDGE: JudgeCalibrationResponseDto = {
   agreement: null,
   reading: null,
   pairs: 0,
+  minPairs: 10,
   minAgreement: null,
   hiddenReason: 'no-judge',
+  failing: true,
 };
 
 const EARLIER_RUBRIC_BODY =

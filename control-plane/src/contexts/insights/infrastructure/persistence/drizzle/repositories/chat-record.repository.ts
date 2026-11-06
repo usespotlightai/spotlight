@@ -16,7 +16,7 @@ const toRecord = (row: ChatRow): ChatRecord =>
     chatId: row.chatId,
     workspaceId: WorkspaceId.of(row.workspaceId),
     teamId: TeamId.of(row.teamId),
-    startedBy: UserId.of(row.startedBy),
+    startedBy: UserId.of(row.startedById),
     startedAt: row.startedAt,
     version: row.version,
   });
@@ -32,7 +32,7 @@ export class DrizzleChatRecordRepository implements ChatRecordRepository {
         chatId: added.chatId,
         workspaceId: added.workspaceId.value,
         teamId: added.teamId.value,
-        startedBy: added.startedBy.value,
+        startedById: added.startedBy.value,
         startedAt: added.startedAt,
         version: added.version,
       })

@@ -315,6 +315,14 @@ describe('sandboxes (e2e)', () => {
 
   it('hands out no second run of a chat while an earlier run of it holds its lease', async () => {
     const chatId = randomUUID();
+    await db.insert(schema.chat).values({
+      id: chatId,
+      workspaceId,
+      teamId: 'team_1',
+      startedById: 'user_1',
+      title: 'Plan the queue',
+      harness: 'dev',
+    });
     await queue({ key: `chat-${chatId}`, chatId });
     await claim().expect(200);
     await queue({ key: `chat-${chatId}`, chatId });

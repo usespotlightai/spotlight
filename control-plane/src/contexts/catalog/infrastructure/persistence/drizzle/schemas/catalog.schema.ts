@@ -1,16 +1,10 @@
-import {
-  boolean,
-  index,
-  integer,
-  pgTable,
-  text,
-  timestamp,
-} from 'drizzle-orm/pg-core';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { boolean, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 
 export const workspacePlan = pgTable('workspace_plan', {
   workspaceId: text('workspace_id').primaryKey(),
   plan: text('plan').notNull(),
-  expiresAt: timestamp('expires_at'),
+  expiresAt: timestamptz('expires_at'),
 });
 
 export const catalogCall = pgTable(
@@ -20,7 +14,7 @@ export const catalogCall = pgTable(
     workspaceId: text('workspace_id').notNull(),
     runId: text('run_id').notNull(),
     item: text('item').notNull(),
-    calledAt: timestamp('called_at').notNull(),
+    calledAt: timestamptz('called_at').notNull(),
     ms: integer('ms').notNull(),
     succeeded: boolean('succeeded').notNull(),
     billable: boolean('billable').notNull(),

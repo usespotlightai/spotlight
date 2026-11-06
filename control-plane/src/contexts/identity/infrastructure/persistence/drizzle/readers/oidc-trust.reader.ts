@@ -23,7 +23,7 @@ export class DrizzleOidcTrustReader implements OidcTrustReaderPort {
         lastIssuedAt: oidcTrustUsage.lastIssuedAt,
       })
       .from(oidcTrust)
-      .leftJoin(user, eq(user.id, oidcTrust.createdBy))
+      .leftJoin(user, eq(user.id, oidcTrust.createdById))
       .leftJoin(oidcTrustUsage, eq(oidcTrustUsage.trustId, oidcTrust.id))
       .where(eq(oidcTrust.workspaceId, workspaceId.value))
       .orderBy(asc(oidcTrust.key));
@@ -38,7 +38,7 @@ export class DrizzleOidcTrustReader implements OidcTrustReaderPort {
       scopes: trust.scopes,
       lifetimeMinutes: trust.lifetimeMinutes,
       description: trust.description,
-      createdBy: { id: trust.createdBy, name: creatorName },
+      createdBy: { id: trust.createdById, name: creatorName },
       createdAt: trust.createdAt,
       lastIssuedAt,
     }));

@@ -26,7 +26,7 @@
     "db:studio": "drizzle-kit studio",
     "facts:rebuild": "ts-node -r tsconfig-paths/register src/rebuild-run-facts.ts",
     "openapi:generate": "ts-node -r tsconfig-paths/register scripts/generate-openapi.ts",
-    "auth:generate": "auth generate --config scripts/auth-config.ts --output src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts -y"
+    "auth:generate": "auth generate --config scripts/auth-config.ts --output src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts -y && node scripts/auth-schema-timestamptz.mjs src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts"
   },
   "dependencies": {
     "@aws-sdk/client-kms": "^3.1161.0",
@@ -42,7 +42,7 @@
     "@nestjs/cqrs": "^12.1.2",
     "@nestjs/platform-express": "^12.3.2",
     "@nestjs/schedule": "^12.0.2",
-    "@nestjs/swagger": "^12.0.5",
+    "@nestjs/swagger": "^12.1.0",
     "@opentelemetry/api": "^1.10.0",
     "@opentelemetry/core": "^3.0.0",
     "@opentelemetry/instrumentation-http": "^0.300.0",
@@ -92,7 +92,7 @@
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
     "@types/ws": "^8.18.2",
-    "@vitest/coverage-v8": "^5.0.5",
+    "@vitest/coverage-v8": "^5.1.0",
     "auth": "^1.7.15",
     "dotenv": "^18.0.9",
     "drizzle-kit": "^0.31.11",
@@ -105,7 +105,7 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^6.0.3",
     "unplugin-swc": "^2.0.0",
-    "vitest": "^5.0.2"
+    "vitest": "^5.1.0"
   },
   "overrides": {
     "esbuild": "^0.28.2",

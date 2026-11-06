@@ -113,6 +113,7 @@ export class WorkSideBySideJudgings implements PendingJobsPort {
 
     let spending = judging;
     const passes: PairShown[] = [];
+    const models: string[] = [];
 
     try {
       for (const evidence of shown) {
@@ -124,7 +125,7 @@ export class WorkSideBySideJudgings implements PendingJobsPort {
           );
         }
 
-        const { verdict, usage } = await this.judge.judgePair({
+        const { verdict, usage, model } = await this.judge.judgePair({
           rubric: judging.criteria.rubric,
           claims: judging.criteria.claims,
           title: evidence.title,
@@ -136,6 +137,7 @@ export class WorkSideBySideJudgings implements PendingJobsPort {
 
         spending = spending.recordModel(usage);
         passes.push({ verdict, evidence });
+        models.push(model);
       }
     } catch (error) {
       return error instanceof JudgingError
@@ -145,9 +147,17 @@ export class WorkSideBySideJudgings implements PendingJobsPort {
         : spending.scheduleRetry(this.clock.now());
     }
 
+    const [model] = models;
+
+    if (model === undefined) {
+      return spending.failed(
+        JudgingFailure.of('no-evidence', this.clock.now()),
+      );
+    }
+
     return spending.recordVerdict({
       passes: passes,
-      model: this.judge.model,
+      model,
       now: this.clock.now(),
     });
   }

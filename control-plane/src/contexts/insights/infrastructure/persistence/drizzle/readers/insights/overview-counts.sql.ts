@@ -138,8 +138,8 @@ const resolvedIn = async (
     left join ${taskHumanAction} on ${taskHumanAction.taskId} = ${taskPullRequest.taskId}
     where ${ofTeamTaskPullRequests(team)}
       and ${taskPullRequest.state} <> 'open'
-      and ${taskPullRequest.closedAt} >= ${iso(previous.from)}::timestamp
-      and ${taskPullRequest.closedAt} < ${iso(current.to)}::timestamp
+      and ${taskPullRequest.closedAt} >= ${iso(previous.from)}::timestamptz
+      and ${taskPullRequest.closedAt} < ${iso(current.to)}::timestamptz
     order by ${taskPullRequest.openedAt} desc, ${taskPullRequest.taskId} desc
   `);
 

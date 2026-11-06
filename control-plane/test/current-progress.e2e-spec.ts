@@ -14,6 +14,7 @@ import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/rea
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { aRunOf, endedAtFor } from './support/run-ended';
 import * as schema from './support/schema';
 
 let database: TestDatabase;
@@ -51,6 +52,7 @@ const inboxWith = async (
   await db.insert(schema.station).values({
     id: stationId,
     key: 'implementation',
+    workspaceId: workspaceId,
     lineId,
     name: 'Implementation',
     position: 0,
@@ -73,10 +75,17 @@ const inboxWith = async (
       taskId,
       stationId,
       state,
+      endedAt: endedAtFor(state),
       stopRequestedAt,
       spec: {},
     });
   }
+  const askedBy = await aRunOf(db, {
+    id: randomUUID(),
+    workspaceId,
+    taskId,
+    state: 'completed',
+  });
   const notes: (typeof schema.taskNote.$inferInsert)[] = [
     {
       taskId,
@@ -86,7 +95,7 @@ const inboxWith = async (
       body: 'Which queue?',
       at: new Date('2026-10-20T09:00:00.000Z'),
       voice: 'station',
-      runId: randomUUID(),
+      runId: askedBy,
       kind: 'asked',
     },
     ...(answered
@@ -260,6 +269,7 @@ describe('the progress of a chat whose run waits to start', () => {
         workspaceId: 'ws_1',
         harness: 'dev',
         state,
+        endedAt: endedAtFor(state),
         spec: {},
       });
     }

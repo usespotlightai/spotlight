@@ -128,8 +128,8 @@ import { MemoryUse } from '@insights/infrastructure/acl/memory-use.adapter';
 import { NoMemoryBenchmark } from '@insights/infrastructure/acl/no-memory-benchmark.adapter';
 import { People } from '@insights/infrastructure/acl/people.adapter';
 import { Work } from '@insights/infrastructure/acl/work.adapter';
-import { OpenRouterJudge } from '@insights/infrastructure/judging/openrouter-judge';
-import { OpenRouterSideBySideJudge } from '@insights/infrastructure/judging/openrouter-side-by-side-judge';
+import { ChatCompletionsJudge } from '@insights/infrastructure/judging/chat-completions-judge';
+import { ChatCompletionsSideBySideJudge } from '@insights/infrastructure/judging/chat-completions-side-by-side-judge';
 import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
 import { DrizzlePendingReviews } from '@insights/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
 import { DrizzleStationConfigPullRequests } from '@insights/infrastructure/persistence/drizzle/ledgers/station-config-pull-requests.ledger';
@@ -165,6 +165,7 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   CLOCK,
@@ -259,13 +260,13 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     provide: JUDGE,
     inject: [ENV],
     useFactory: (env: Env) =>
-      new OpenRouterJudge(env.OPENROUTER_API_KEY, env.JUDGE_MODEL),
+      new ChatCompletionsJudge(modelEndpointOf(env, env.JUDGE_MODEL)),
   },
   {
     provide: SIDE_BY_SIDE_JUDGE,
     inject: [ENV],
     useFactory: (env: Env) =>
-      new OpenRouterSideBySideJudge(env.OPENROUTER_API_KEY, env.JUDGE_MODEL),
+      new ChatCompletionsSideBySideJudge(modelEndpointOf(env, env.JUDGE_MODEL)),
   },
   DrizzleRunFactProjection,
   { provide: RUN_FACTS, useExisting: DrizzleRunFactProjection },

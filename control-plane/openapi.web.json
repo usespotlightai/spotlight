@@ -13531,8 +13531,9 @@
               "almost-perfect",
               "substantial",
               "moderate",
-              "fair-to-slight",
-              "poor",
+              "fair",
+              "slight",
+              "chance",
               "very-strong",
               "strong",
               "weak",
@@ -13546,6 +13547,11 @@
             "type": "number",
             "example": 24,
             "description": "Runs of the current rubric with both a judge score and people’s"
+          },
+          "minPairs": {
+            "type": "number",
+            "example": 10,
+            "description": "Runs with both a judge score and people’s that agreement needs before it counts"
           },
           "minAgreement": {
             "type": "number",
@@ -13564,6 +13570,10 @@
             ],
             "nullable": true,
             "description": "Why the judge’s scores are hidden, where they are"
+          },
+          "failing": {
+            "type": "boolean",
+            "description": "Whether the judge’s scores are hidden for a reason other than too few runs with both scores"
           }
         },
         "required": [
@@ -13572,8 +13582,10 @@
           "agreement",
           "reading",
           "pairs",
+          "minPairs",
           "minAgreement",
-          "hiddenReason"
+          "hiddenReason",
+          "failing"
         ]
       },
       "AgreementReadingsResponseDto": {
@@ -13585,12 +13597,13 @@
               "almost-perfect",
               "substantial",
               "moderate",
-              "fair-to-slight",
-              "poor",
+              "fair",
+              "slight",
+              "chance",
               null
             ],
             "nullable": true,
-            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair to slight from 0, poor below; none without a kappa"
+            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa"
           },
           "pearson": {
             "type": "string",
@@ -13654,12 +13667,17 @@
               "almost-perfect",
               "substantial",
               "moderate",
-              "fair-to-slight",
-              "poor",
+              "fair",
+              "slight",
+              "chance",
               null
             ],
             "nullable": true,
-            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair to slight from 0, poor below; none without a kappa"
+            "description": "How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair from 0.21, slight from 0.01, no better than chance at 0 and below; none without a kappa"
+          },
+          "belowMinimum": {
+            "type": "boolean",
+            "description": "Whether the claim’s kappa is below the minimum agreement"
           }
         },
         "required": [
@@ -13667,7 +13685,8 @@
           "pairs",
           "observed",
           "kappa",
-          "reading"
+          "reading",
+          "belowMinimum"
         ]
       },
       "AgreementResponseDto": {
@@ -13676,6 +13695,29 @@
           "pairs": {
             "type": "number",
             "example": 24
+          },
+          "measured": {
+            "type": "boolean",
+            "description": "Whether enough runs have both scores for the figures below to count"
+          },
+          "pairsProgress": {
+            "type": "number",
+            "example": 0.3,
+            "description": "How far the pairs are towards the minimum that agreement needs, from 0 to 1"
+          },
+          "agreed": {
+            "type": "number",
+            "example": 21,
+            "description": "Scores where the judge and people agree: runs, or claim marks for a judge of claims"
+          },
+          "compared": {
+            "type": "number",
+            "example": 24,
+            "description": "Scores compared: runs, or claim marks for a judge of claims"
+          },
+          "belowMinimum": {
+            "type": "boolean",
+            "description": "Whether the headline measure, kappa or Spearman’s, is below the minimum agreement"
           },
           "observed": {
             "type": "number",
@@ -13730,6 +13772,11 @@
         },
         "required": [
           "pairs",
+          "measured",
+          "pairsProgress",
+          "agreed",
+          "compared",
+          "belowMinimum",
           "observed",
           "kappa",
           "spearman",
@@ -13876,10 +13923,20 @@
             }
           },
           "trend": {
+            "description": "Daily means of the judge’s and people’s scores, the judge’s included while its scores are hidden on runs",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TrendPointResponseDto"
             }
+          },
+          "trendShown": {
+            "type": "boolean",
+            "description": "Whether enough runs have both scores, over more than one day, to draw the trend"
+          },
+          "trendMinPairs": {
+            "type": "number",
+            "example": 30,
+            "description": "Runs with both scores that the trend needs"
           },
           "firstAt": {
             "type": "string",
@@ -13899,6 +13956,8 @@
           "confusion",
           "distribution",
           "trend",
+          "trendShown",
+          "trendMinPairs",
           "firstAt",
           "lastAt"
         ]

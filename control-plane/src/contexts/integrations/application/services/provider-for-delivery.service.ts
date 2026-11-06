@@ -1,14 +1,13 @@
 import type { ConfiguredWebhookProvidersPort } from '@integrations/application/ports/configured-webhook-providers.port';
+import type { DeliveryAddressee } from '@integrations/application/ports/delivery-queue.port';
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
 import type { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface Addressed {
-  readonly workspaceId: string;
-  readonly teamId: string;
-  readonly teamKey: string;
   readonly integration: string;
+  readonly to: DeliveryAddressee | null;
 }
 
 export class ProviderForDelivery {
@@ -18,7 +17,9 @@ export class ProviderForDelivery {
   ) {}
 
   async find(addressed: Addressed): Promise<WebhookProviderPort | null> {
-    if (addressed.teamId === '') {
+    const { to } = addressed;
+
+    if (to === null) {
       return this.registered.find(addressed.integration);
     }
 
@@ -29,9 +30,9 @@ export class ProviderForDelivery {
 
     return this.configured.find(
       {
-        workspaceId: WorkspaceId.of(addressed.workspaceId),
-        teamId: TeamId.of(addressed.teamId),
-        teamKey: addressed.teamKey,
+        workspaceId: WorkspaceId.of(to.workspaceId),
+        teamId: TeamId.of(to.teamId),
+        teamKey: to.teamKey,
       },
       addressed.integration,
     );

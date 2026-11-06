@@ -37,6 +37,13 @@ const countOf = (value: unknown): number | null =>
 
 const DETAIL_LIMIT = 4_000;
 
+const priced = (
+  cost: { amount?: number; currency?: string } | undefined,
+): Money | null =>
+  cost?.currency && Money.isCurrency(cost.currency)
+    ? Money.maybe(cost.amount, cost.currency)
+    : null;
+
 interface AcpNotification {
   sessionId?: string;
   update?: {
@@ -568,7 +575,7 @@ export class JournalBuilder {
     this.#spent = {
       used: update.used,
       size: update.size,
-      cost: Money.maybe(update.cost?.amount, update.cost?.currency),
+      cost: priced(update.cost),
     };
     this.#spentBySession.set(session, this.#spent);
   }
