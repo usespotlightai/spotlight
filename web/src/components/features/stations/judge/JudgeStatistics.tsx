@@ -1,34 +1,57 @@
-import { InfoTooltip } from '@/components/shared/InfoTooltip';
-import type { ComparisonStat } from '@/lib/judge';
+import { InsightsTile } from '@/components/features/insights/InsightsTile';
+import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
+import { MeterBar } from '@/components/features/stations/judge/MeterBar';
+import type { ComparisonStat, PairsStat } from '@/lib/judge';
+
+type JudgeStatisticsProps = {
+  pairs: PairsStat;
+  stats: readonly ComparisonStat[];
+  minAgreement: number | null;
+};
 
 export function JudgeStatistics({
+  pairs,
   stats,
-}: {
-  stats: readonly ComparisonStat[];
-}) {
+  minAgreement,
+}: JudgeStatisticsProps) {
+  const leads = stats.length % 2 === 0;
+
   return (
-    <dl
-      data-slot="judge-statistics"
-      className="flex flex-wrap gap-x-12 gap-y-4"
-    >
-      {stats.map((stat) => (
-        <div key={stat.label} className="flex min-w-0 flex-col gap-1">
-          <dt className="flex items-center gap-1 text-muted-foreground text-xs">
-            {stat.label}
-            <InfoTooltip tooltip={stat.note} />
-          </dt>
-          <dd className="flex items-baseline gap-2">
-            <span className="font-medium text-foreground text-xl tabular-nums leading-7">
-              {stat.value}
-            </span>
-            {stat.reading && (
-              <span className="text-muted-foreground text-sm">
-                {stat.reading}
-              </span>
-            )}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <div data-slot="judge-statistics">
+      <InsightsTiles
+        label="Agreement with people"
+        className={stats.length === 0 ? 'grid-cols-1 sm:grid-cols-1' : ''}
+      >
+        <InsightsTile
+          className={leads ? 'max-sm:col-span-2' : undefined}
+          label={pairs.label}
+          value={pairs.value}
+          detail={pairs.detail}
+          tooltip={pairs.note}
+          visual={
+            pairs.progress !== null && <MeterBar share={pairs.progress} />
+          }
+        />
+        {stats.map((stat) => (
+          <InsightsTile
+            key={stat.label}
+            className={leads ? 'max-sm:odd:last:col-span-1' : undefined}
+            label={stat.label}
+            value={stat.value}
+            detail={stat.detail}
+            tooltip={stat.note}
+            visual={
+              stat.gauge != null && (
+                <MeterBar
+                  share={stat.gauge}
+                  marker={minAgreement}
+                  failing={stat.failing}
+                />
+              )
+            }
+          />
+        ))}
+      </InsightsTiles>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import {
   formatCalibration,
+  formatPairsProgress,
   formatStat,
   type JudgeCalibration,
   measureNote,
@@ -15,6 +16,24 @@ export function AgreementValue({
   const { agreement, minAgreement, measure, qualified, hiddenReason } =
     calibration;
   const note = measureNote(measure);
+
+  if (hiddenReason === 'too-few-pairs') {
+    return (
+      <span
+        data-slot="judge-calibration"
+        data-qualified={qualified}
+        className="flex items-center gap-1.5"
+      >
+        <span>Not measured</span>
+        <span className="text-muted-foreground tabular-nums">
+          · {formatPairsProgress(calibration)}
+        </span>
+        <InfoTooltip
+          tooltip={{ ...note, body: formatCalibration(calibration) }}
+        />
+      </span>
+    );
+  }
 
   if (agreement === null || minAgreement === null) {
     return (
@@ -40,13 +59,17 @@ export function AgreementValue({
       <span className="flex items-center gap-1.5">
         <span className="tabular-nums">{formatStat(agreement)}</span>
         {band && <span className="text-muted-foreground">{band}</span>}
-        {note && <InfoTooltip tooltip={note} />}
+        {below && (
+          <span className="text-outcome-failed">· below the minimum</span>
+        )}
+        {note && (
+          <InfoTooltip
+            tooltip={
+              below ? { ...note, body: formatCalibration(calibration) } : note
+            }
+          />
+        )}
       </span>
-      {below && (
-        <span className="text-outcome-failed">
-          Below the minimum. Judge scores are hidden.
-        </span>
-      )}
       {!qualified && !below && (
         <span className="text-muted-foreground">
           {formatCalibration(calibration)}

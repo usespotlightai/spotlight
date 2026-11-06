@@ -12,8 +12,10 @@ const TRUSTED: JudgeCalibrationResponseDto = {
   agreement: 0.71,
   reading: 'substantial',
   pairs: 24,
+  minPairs: 10,
   minAgreement: 0.6,
   hiddenReason: null,
+  failing: false,
 };
 
 export const runScoresOf = (

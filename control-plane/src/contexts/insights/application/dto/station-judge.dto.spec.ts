@@ -39,22 +39,23 @@ const judgeOnTrend = (
   );
 
 describe('rubricVersionOf', () => {
-  it('draws the judge’s trend for the current rubric while its judge is qualified', () => {
+  it('draws the judge’s trend for every rubric, even while its scores are hidden on runs', () => {
     expect(judgeOnTrend(CURRENT, QUALIFIED)).toEqual([0.75]);
-  });
-
-  it('leaves the judge out of the trend of an earlier rubric', () => {
-    expect(judgeOnTrend(EARLIER, QUALIFIED)).toEqual([null]);
-  });
-
-  it('leaves the judge out of the trend while it is not qualified', () => {
+    expect(judgeOnTrend(EARLIER, QUALIFIED)).toEqual([0.75]);
     expect(
       judgeOnTrend(CURRENT, {
         ...QUALIFIED,
         qualified: false,
         hiddenReason: 'below-min-agreement',
       }),
-    ).toEqual([null]);
+    ).toEqual([0.75]);
+  });
+
+  it('holds the trend back until enough runs have both scores', () => {
+    const version = rubricVersionOf(reportOf(CURRENT), CURRENT, QUALIFIED);
+
+    expect(version.trendShown).toBe(false);
+    expect(version.trendMinPairs).toBe(30);
   });
 });
 
@@ -77,5 +78,45 @@ describe('rubricVersionOf distribution', () => {
       { label: 'no', judge: 1, people: 2 },
       { label: 'yes', judge: 2, people: 1 },
     ]);
+  });
+});
+
+describe('rubricVersionOf agreement', () => {
+  const versionOf = (pairs: { judge: number; human: number }[]) =>
+    rubricVersionOf(
+      {
+        ...reportOf(CURRENT),
+        agreement: agreementOf(ScoreScale.yesNo(), pairs),
+      },
+      CURRENT,
+      QUALIFIED,
+    ).agreement;
+
+  it('counts the scores that agree, and says how far the pairs are towards the minimum', () => {
+    expect(
+      versionOf([
+        { judge: 1, human: 1 },
+        { judge: 1, human: 0 },
+        { judge: 0, human: 0 },
+      ]),
+    ).toMatchObject({
+      measured: false,
+      pairsProgress: 0.3,
+      agreed: 2,
+      compared: 3,
+    });
+  });
+
+  it('marks the agreement measured once enough runs have both scores, and flags kappa below the minimum', () => {
+    const agreement = versionOf(
+      Array.from({ length: 12 }, (_, at) => ({
+        judge: at % 2,
+        human: at % 3 === 0 ? 1 : 0,
+      })),
+    );
+
+    expect(agreement.measured).toBe(true);
+    expect(agreement.pairsProgress).toBe(1);
+    expect(agreement.belowMinimum).toBe(true);
   });
 });

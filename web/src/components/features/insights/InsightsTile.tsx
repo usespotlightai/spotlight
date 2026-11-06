@@ -5,6 +5,7 @@ import { TileSparkline } from '@/components/features/insights/TileSparkline';
 import { InfoTooltip } from '@/components/shared/InfoTooltip';
 import type { ShownDelta, TileDrill } from '@/lib/insights';
 import type { TooltipText } from '@/lib/tooltip-note';
+import { cn } from '@/lib/utils';
 
 const AGAINST = 'Against the previous period';
 
@@ -17,6 +18,7 @@ type InsightsTileProps = {
   drill?: TileDrill;
   trend?: readonly (number | null)[];
   visual?: ReactNode;
+  className?: string;
 };
 
 export function InsightsTile({
@@ -28,13 +30,17 @@ export function InsightsTile({
   drill,
   trend,
   visual,
+  className,
 }: InsightsTileProps) {
   const sparkline = trend !== undefined && trend.length > 1;
 
   return (
     <div
       data-slot="insights-tile"
-      className="flex min-h-[7.625rem] min-w-0 flex-col gap-1 overflow-hidden rounded-lg border border-border px-4 py-3 max-sm:odd:last:col-span-2"
+      className={cn(
+        'flex min-h-[7.625rem] min-w-0 flex-col gap-1 overflow-hidden rounded-lg border border-border px-4 py-3 max-sm:odd:last:col-span-2',
+        className,
+      )}
     >
       <dt className="flex min-h-5 items-center gap-1.5 text-muted-foreground text-sm leading-5">
         <span className="line-clamp-1" title={label}>

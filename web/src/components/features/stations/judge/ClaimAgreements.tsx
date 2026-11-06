@@ -4,6 +4,7 @@ import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
   EDGE_INDENT,
   ROW_DIVIDER,
+  TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import {
   CLAIM_HEADINGS,
@@ -30,10 +31,7 @@ export function ClaimAgreements({
         <li
           key={each.index}
           data-slot="claim-agreement"
-          className={cn(
-            'col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 text-xs @4xl:grid-cols-subgrid',
-            ROW_DIVIDER,
-          )}
+          className={cn(TABLE_ROW, ROW_DIVIDER)}
         >
           <span
             className={cn(
@@ -47,6 +45,7 @@ export function ClaimAgreements({
             <KappaBar
               kappa={each.kappa}
               reading={each.reading}
+              failing={each.belowMinimum}
               minAgreement={minAgreement}
             />
           </span>

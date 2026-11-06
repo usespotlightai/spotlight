@@ -2,8 +2,9 @@ export const KAPPA_READINGS = [
   'almost-perfect',
   'substantial',
   'moderate',
-  'fair-to-slight',
-  'poor',
+  'fair',
+  'slight',
+  'chance',
 ] as const;
 
 export type KappaReading = (typeof KAPPA_READINGS)[number];
@@ -22,7 +23,8 @@ const KAPPA_BANDS: readonly (readonly [number, KappaReading])[] = [
   [0.81, 'almost-perfect'],
   [0.61, 'substantial'],
   [0.41, 'moderate'],
-  [0, 'fair-to-slight'],
+  [0.21, 'fair'],
+  [0.01, 'slight'],
 ];
 
 const CORRELATION_BANDS: readonly (readonly [number, CorrelationReading])[] = [
@@ -40,7 +42,7 @@ const readingOf = <Reading extends string>(
   value === null ? null : (bands.find(([from]) => value >= from)?.[1] ?? below);
 
 export const kappaReadingOf = (kappa: number | null): KappaReading | null =>
-  readingOf(kappa, KAPPA_BANDS, 'poor');
+  readingOf(kappa, KAPPA_BANDS, 'chance');
 
 export const correlationReadingOf = (
   correlation: number | null,
