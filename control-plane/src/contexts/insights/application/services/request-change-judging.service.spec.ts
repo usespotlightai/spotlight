@@ -16,8 +16,8 @@ const requesting = (available = true) => {
     judgings,
     {
       available,
-      model: 'some/model',
       judge: async () => ({
+        model: 'some/model',
         verdict: { value: true, reasons: [] },
         guidance: null,
         usage: null,

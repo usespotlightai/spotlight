@@ -120,17 +120,6 @@ const anOriginal = async (): Promise<Original> => {
       size: 4,
     })),
   );
-  await db.insert(schema.workspaceArchive).values({
-    id: archiveId,
-    workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
-    grantedToRunId: randomUUID(),
-    size: 1_024,
-    sha256: 'a'.repeat(64),
-    grantedAt: at,
-    completedAt: at,
-  });
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
@@ -139,6 +128,7 @@ const anOriginal = async (): Promise<Original> => {
     stationId: BUILD,
     harness: 'claude-code',
     state: 'completed',
+    endedAt: new Date(),
     exitCode: 0,
     spec: {
       checkouts: [
@@ -178,6 +168,17 @@ const anOriginal = async (): Promise<Original> => {
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
     startedFromAt: at,
+  });
+  await db.insert(schema.workspaceArchive).values({
+    id: archiveId,
+    workspaceId: team.workspaceId.value,
+    resumeKey: `task-${taskId}`,
+    taskId,
+    grantedToRunId: runId,
+    size: 1_024,
+    sha256: 'a'.repeat(64),
+    grantedAt: at,
+    completedAt: at,
   });
 
   return { taskId, runId, archiveId, briefedFile, laterFile };
@@ -361,6 +362,7 @@ beforeAll(async () => {
   await db.insert(schema.station).values([
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'backlog',
       name: 'Backlog',
@@ -369,6 +371,7 @@ beforeAll(async () => {
     },
     {
       id: BUILD,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'build',
       name: 'Build',
@@ -379,6 +382,7 @@ beforeAll(async () => {
     },
     {
       id: SHIP,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'ship',
       name: 'Ship',
@@ -388,6 +392,7 @@ beforeAll(async () => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'completed',
       name: 'Completed',
@@ -412,7 +417,7 @@ beforeAll(async () => {
       teamId: team.teamId.value,
       paths: [],
       source: 'person',
-      approvedBy: team.owner.value,
+      approvedById: team.owner.value,
       approvedAt: new Date(),
     })
     .returning({ handle: schema.memory.handle });

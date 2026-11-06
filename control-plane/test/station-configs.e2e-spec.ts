@@ -98,6 +98,7 @@ const lineOf = async (teamId: string, key = 'delivery') => {
   await db.insert(schema.station).values({
     id: stationId,
     key: 'implementation',
+    workspaceId: 'ws_1',
     lineId,
     name: 'Implementation',
     position: 1,
@@ -303,6 +304,7 @@ describe('the station config a run ran with', () => {
     await db.insert(schema.station).values({
       id: review,
       key: 'review',
+      workspaceId: 'ws_1',
       lineId,
       name: 'Review',
       position: 2,

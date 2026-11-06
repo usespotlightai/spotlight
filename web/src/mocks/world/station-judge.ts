@@ -3,7 +3,7 @@ import type {
   StationJudgeAgreementResponseDto,
 } from '@/lib/api';
 import { daysAgo } from '@/mocks/clock';
-import { world } from '@/mocks/world';
+import { perWorld, world } from '@/mocks/world';
 import { stationOf, stationRuns } from '@/mocks/world/station-insights';
 
 export const RUBRIC =
@@ -48,6 +48,234 @@ const coverageOf = (
   };
 };
 
+const JUDGE_SHAPES = [
+  'seeded',
+  'few',
+  'healthy',
+  'poor',
+  'claims',
+  'number',
+] as const;
+
+export type JudgeShape = (typeof JUDGE_SHAPES)[number];
+
+export const judgeShape = perWorld(() => ({ shape: 'seeded' as JudgeShape }));
+
+type Version = StationJudgeAgreementResponseDto['versions'][number];
+
+type Agreement = Version['agreement'];
+
+type ShapedAgreement = {
+  readonly kind: Version['kind'];
+  readonly labels: readonly string[];
+  readonly cells: readonly (readonly number[])[];
+  readonly pairs?: number;
+  readonly headline: number;
+  readonly measure: 'kappa' | 'spearman';
+  readonly reading: NonNullable<Agreement['readings']['kappa']> | 'strong';
+  readonly figures: Partial<Agreement>;
+  readonly claims?: readonly string[];
+  readonly days: number;
+};
+
+const NO_FIGURES = {
+  kappa: null,
+  spearman: null,
+  pearson: null,
+  mae: null,
+  rmse: null,
+  f1: null,
+  readings: { kappa: null, pearson: null, spearman: null },
+  claims: [],
+} satisfies Partial<Agreement>;
+
+const MINIMUM_PAIRS = 10;
+
+const TREND_PAIRS = 30;
+
+const YES_NO = ['no', 'yes'];
+
+const SHAPES: Record<Exclude<JudgeShape, 'seeded'>, ShapedAgreement> = {
+  few: {
+    kind: 'yes-no',
+    labels: YES_NO,
+    cells: [
+      [0, 3],
+      [0, 0],
+    ],
+    headline: 0,
+    measure: 'kappa',
+    reading: 'chance',
+    figures: {
+      kappa: 0,
+      f1: 0,
+      readings: { kappa: 'chance', pearson: null, spearman: null },
+    },
+    days: 2,
+  },
+  healthy: {
+    kind: 'yes-no',
+    labels: YES_NO,
+    cells: [
+      [16, 4],
+      [5, 35],
+    ],
+    headline: 0.67,
+    measure: 'kappa',
+    reading: 'substantial',
+    figures: {
+      kappa: 0.67,
+      f1: 70 / 79,
+      readings: { kappa: 'substantial', pearson: null, spearman: null },
+    },
+    days: 12,
+  },
+  poor: {
+    kind: 'yes-no',
+    labels: YES_NO,
+    cells: [
+      [10, 8],
+      [8, 14],
+    ],
+    headline: 0.19,
+    measure: 'kappa',
+    reading: 'slight',
+    figures: {
+      kappa: 0.19,
+      f1: 28 / 44,
+      readings: { kappa: 'slight', pearson: null, spearman: null },
+    },
+    days: 10,
+  },
+  claims: {
+    kind: 'claims',
+    labels: ['not met', 'met'],
+    cells: [
+      [20, 8],
+      [6, 74],
+    ],
+    pairs: 36,
+    headline: 0.65,
+    measure: 'kappa',
+    reading: 'substantial',
+    figures: {
+      kappa: 0.65,
+      f1: 148 / 162,
+      readings: { kappa: 'substantial', pearson: null, spearman: null },
+      claims: [
+        {
+          index: 0,
+          pairs: 36,
+          observed: 34 / 36,
+          kappa: 0.82,
+          reading: 'almost-perfect',
+          belowMinimum: false,
+        },
+        {
+          index: 1,
+          pairs: 36,
+          observed: 33 / 36,
+          kappa: 0.71,
+          reading: 'substantial',
+          belowMinimum: false,
+        },
+        {
+          index: 2,
+          pairs: 36,
+          observed: 27 / 36,
+          kappa: 0.38,
+          reading: 'fair',
+          belowMinimum: true,
+        },
+      ],
+    },
+    claims: [
+      'Changes only what the spec requires',
+      'Leaves the tests passing',
+      'Says what it could not do',
+    ],
+    days: 11,
+  },
+  number: {
+    kind: 'number',
+    labels: ['1', '2', '3', '4', '5'],
+    cells: [
+      [2, 1, 0, 0, 0],
+      [1, 5, 2, 0, 0],
+      [0, 2, 9, 3, 0],
+      [0, 0, 3, 11, 2],
+      [0, 0, 0, 2, 5],
+    ],
+    headline: 0.82,
+    measure: 'spearman',
+    reading: 'strong',
+    figures: {
+      pearson: 0.84,
+      spearman: 0.82,
+      mae: 0.35,
+      rmse: 0.62,
+      readings: { kappa: null, pearson: 'strong', spearman: 'strong' },
+    },
+    days: 12,
+  },
+};
+
+const sum = (values: readonly number[]): number =>
+  values.reduce((total, each) => total + each, 0);
+
+const shapedVersion = (
+  shaped: ShapedAgreement,
+  minAgreement: number,
+): Version => {
+  const compared = sum(shaped.cells.flat());
+  const agreed = sum(shaped.cells.map((row, at) => row[at] ?? 0));
+  const pairs = shaped.pairs ?? compared;
+  const numbers = shaped.kind === 'number';
+
+  return {
+    rubricVersion: RUBRIC,
+    kind: shaped.kind,
+    current: true,
+    judged: pairs + 4,
+    agreement: {
+      ...NO_FIGURES,
+      ...shaped.figures,
+      pairs,
+      measured: pairs >= MINIMUM_PAIRS,
+      pairsProgress: Math.min(1, pairs / MINIMUM_PAIRS),
+      agreed,
+      compared,
+      belowMinimum: shaped.headline < minAgreement,
+      observed: agreed / compared,
+    },
+    confusion: {
+      labels: [...shaped.labels],
+      cells: shaped.cells.map((row) => [...row]),
+    },
+    distribution: shaped.labels.map((label, at) => ({
+      label,
+      judge: sum(shaped.cells[at] ?? []),
+      people: sum(shaped.cells.map((row) => row[at] ?? 0)),
+    })),
+    trend: Array.from({ length: shaped.days }, (_, at) => {
+      const judge = 0.55 + ((at * 7) % 5) / 20;
+      const people = 0.6 + ((at * 3) % 4) / 20;
+
+      return {
+        day: day(shaped.days - at),
+        judged: 6,
+        judge: numbers ? 1 + judge * 4 : judge,
+        labelled: 5,
+        people: numbers ? 1 + people * 4 : people,
+      };
+    }),
+    trendShown: pairs >= TREND_PAIRS && shaped.days > 1,
+    trendMinPairs: TREND_PAIRS,
+    firstAt: daysAgo(shaped.days),
+    lastAt: daysAgo(1),
+  };
+};
+
 const JUDGED_VERSIONS: StationJudgeAgreementResponseDto['versions'] = [
   {
     rubricVersion: RUBRIC,
@@ -56,6 +284,11 @@ const JUDGED_VERSIONS: StationJudgeAgreementResponseDto['versions'] = [
     judged: 14,
     agreement: {
       pairs: 12,
+      measured: true,
+      pairsProgress: 1,
+      agreed: 10,
+      compared: 12,
+      belowMinimum: false,
       observed: 10 / 12,
       kappa: 0.63,
       spearman: null,
@@ -84,6 +317,8 @@ const JUDGED_VERSIONS: StationJudgeAgreementResponseDto['versions'] = [
       { day: day(6), judged: 3, judge: 0.67, labelled: 2, people: 1 },
       { day: day(2), judged: 2, judge: 1, labelled: 2, people: 0.5 },
     ],
+    trendShown: false,
+    trendMinPairs: 30,
     firstAt: daysAgo(24),
     lastAt: daysAgo(1),
   },
@@ -94,6 +329,11 @@ const JUDGED_VERSIONS: StationJudgeAgreementResponseDto['versions'] = [
     judged: 5,
     agreement: {
       pairs: 4,
+      measured: false,
+      pairsProgress: 0.4,
+      agreed: 2,
+      compared: 4,
+      belowMinimum: false,
       observed: 0.5,
       kappa: null,
       spearman: 0.4,
@@ -120,9 +360,11 @@ const JUDGED_VERSIONS: StationJudgeAgreementResponseDto['versions'] = [
       people: [0, 1, 2, 1, 0][place] ?? 0,
     })),
     trend: [
-      { day: day(36), judged: 2, judge: null, labelled: 2, people: 3 },
-      { day: day(30), judged: 3, judge: null, labelled: 2, people: 3.5 },
+      { day: day(36), judged: 2, judge: 2.5, labelled: 2, people: 3 },
+      { day: day(30), judged: 3, judge: 3.5, labelled: 2, people: 3.5 },
     ],
+    trendShown: false,
+    trendMinPairs: 30,
     firstAt: daysAgo(EARLIER_RUBRIC_DAYS.from),
     lastAt: daysAgo(EARLIER_RUBRIC_DAYS.until),
   },
@@ -155,8 +397,10 @@ export const stationJudge = (
         agreement: null,
         reading: null,
         pairs: 0,
+        minPairs: 10,
         minAgreement: null,
         hiddenReason: 'no-judge',
+        failing: true,
       },
       versions: [],
       coverage: coverageOf(runs.length, 0, 0, answered),
@@ -186,11 +430,48 @@ export const stationJudge = (
         agreement: null,
         reading: null,
         pairs: 0,
+        minPairs: 10,
         minAgreement: judge.minAgreement,
         hiddenReason: 'too-few-pairs',
+        failing: false,
       },
       versions: [],
       coverage: coverageOf(runs.length, 0, 0, answered),
+    };
+  }
+
+  const { shape } = judgeShape();
+
+  if (shape !== 'seeded') {
+    const shaped = SHAPES[shape];
+    const version = shapedVersion(shaped, judge.minAgreement);
+    const { pairs } = version.agreement;
+    const hiddenReason = !version.agreement.measured
+      ? ('too-few-pairs' as const)
+      : version.agreement.belowMinimum
+        ? ('below-min-agreement' as const)
+        : null;
+
+    return {
+      stationId,
+      judge: {
+        ...settings,
+        kind: shaped.kind,
+        claims: [...(shaped.claims ?? [])],
+      },
+      calibration: {
+        qualified: hiddenReason === null,
+        measure: shaped.measure,
+        agreement: shaped.headline,
+        reading: shaped.reading,
+        pairs,
+        minPairs: MINIMUM_PAIRS,
+        minAgreement: judge.minAgreement,
+        hiddenReason,
+        failing: hiddenReason === 'below-min-agreement',
+      },
+      versions: [version],
+      coverage: coverageOf(pairs + 12, pairs, 4, 5),
     };
   }
 
@@ -203,8 +484,12 @@ export const stationJudge = (
       agreement: 0.63,
       reading: 'substantial',
       pairs: 12,
+      minPairs: 10,
       minAgreement: judge.minAgreement,
       hiddenReason: 0.63 >= judge.minAgreement ? null : 'below-min-agreement',
+      failing:
+        (0.63 >= judge.minAgreement ? null : 'below-min-agreement') ===
+        'below-min-agreement',
     },
     versions: JUDGED_VERSIONS,
     coverage: coverageOf(runs.length, 16, 3, Math.max(0, answered - 9)),

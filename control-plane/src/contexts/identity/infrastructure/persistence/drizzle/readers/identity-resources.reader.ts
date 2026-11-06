@@ -44,7 +44,7 @@ const TOKEN_COLUMNS = {
   name: workspaceToken.name,
   description: workspaceToken.description,
   scopes: workspaceToken.scopes,
-  issuedBy: workspaceToken.issuedBy,
+  issuedBy: workspaceToken.issuedById,
   issuedAt: workspaceToken.issuedAt,
   expiresAt: workspaceToken.expiresAt,
 };
@@ -61,7 +61,7 @@ const TRUST_COLUMNS = {
   scopes: oidcTrust.scopes,
   lifetimeMinutes: oidcTrust.lifetimeMinutes,
   description: oidcTrust.description,
-  createdBy: oidcTrust.createdBy,
+  createdBy: oidcTrust.createdById,
 };
 
 const issuedByHand = and(

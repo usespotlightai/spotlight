@@ -1,4 +1,5 @@
-import type { StationKind } from '@work/domain/entities/station.entity';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { STATION_KINDS } from '@work/domain/entities/station.entity';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 
 export interface ReviewsRow {
@@ -70,15 +71,20 @@ export interface StationAlertRow {
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
+  foreignKey,
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
   primaryKey,
   text,
-  timestamp,
+  unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
+
+export const stationKind = pgEnum('station_kind', STATION_KINDS);
 
 export const line = pgTable(
   'line',
@@ -95,14 +101,14 @@ export const line = pgTable(
     source: jsonb('source').$type<ConfigSourceRow>(),
     runners: jsonb('runners').$type<string[]>().notNull().default([]),
     version: integer('version').notNull().default(0),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at')
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
+    updatedAt: timestamptz('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
   (table) => [
-    index('line_team_idx').on(table.teamId),
+    unique('line_workspace_id_id_key').on(table.workspaceId, table.id),
     index('line_workspace_idx').on(table.workspaceId),
     uniqueIndex('line_team_key_idx').on(table.teamId, table.key),
     uniqueIndex('line_team_role_idx')
@@ -117,14 +123,13 @@ export const station = pgTable(
   {
     id: text('id').primaryKey(),
     key: text('key').notNull(),
-    lineId: text('line_id')
-      .notNull()
-      .references(() => line.id, { onDelete: 'cascade' }),
+    workspaceId: text('workspace_id').notNull(),
+    lineId: text('line_id').notNull(),
     name: text('name').notNull(),
     position: integer('position').notNull(),
     color: text('color').notNull().default(StationColor.plain().value),
     description: text('description'),
-    kind: text('kind').$type<StationKind>().notNull().default('work'),
+    kind: stationKind('kind').notNull().default('work'),
     finishes: boolean('finishes').notNull().default(false),
     harness: text('harness'),
     model: text('model'),
@@ -139,15 +144,21 @@ export const station = pgTable(
     judge: jsonb('judge').$type<StationJudgeRow>(),
     alerts: jsonb('alerts').$type<StationAlertRow[]>().notNull().default([]),
     search: jsonb('search').$type<StationSearchRow>(),
-    createdAt: timestamp('created_at').defaultNow().notNull(),
-    updatedAt: timestamp('updated_at')
+    createdAt: timestamptz('created_at').defaultNow().notNull(),
+    updatedAt: timestamptz('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
   },
   (table) => [
-    index('station_line_idx').on(table.lineId),
+    check('station_position_not_negative', sql`${table.position} >= 0`),
+    unique('station_workspace_id_id_key').on(table.workspaceId, table.id),
     uniqueIndex('station_line_key_idx').on(table.lineId, table.key),
+    foreignKey({
+      name: 'station_line_fk',
+      columns: [table.workspaceId, table.lineId],
+      foreignColumns: [line.workspaceId, line.id],
+    }).onDelete('cascade'),
   ],
 );
 
@@ -163,7 +174,7 @@ export const stationRoute = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.stationId, table.toStationId] }),
-    index('station_route_station_idx').on(table.stationId),
+    index('station_route_to_station_idx').on(table.toStationId),
   ],
 );
 
@@ -178,7 +189,7 @@ export const stationTool = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.stationId, table.tool] }),
-    index('station_tool_station_idx').on(table.stationId),
+    check('station_tool_position_not_negative', sql`${table.position} >= 0`),
   ],
 );
 
@@ -193,7 +204,7 @@ export const stationSkill = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.stationId, table.skill] }),
-    index('station_skill_station_idx').on(table.stationId),
+    check('station_skill_position_not_negative', sql`${table.position} >= 0`),
   ],
 );
 
@@ -207,10 +218,7 @@ export const lineRepository = pgTable(
     image: text('image'),
     setup: text('setup'),
   },
-  (table) => [
-    primaryKey({ columns: [table.lineId, table.repository] }),
-    index('line_repository_line_idx').on(table.lineId),
-  ],
+  (table) => [primaryKey({ columns: [table.lineId, table.repository] })],
 );
 
 export const lineReaction = pgTable(
@@ -227,5 +235,11 @@ export const lineReaction = pgTable(
       .notNull()
       .references(() => station.id, { onDelete: 'cascade' }),
   },
-  (table) => [index('line_reaction_line_idx').on(table.lineId)],
+  (table) => [
+    unique('line_reaction_key')
+      .on(table.lineId, table.happening, table.fromStationId)
+      .nullsNotDistinct(),
+    index('line_reaction_from_station_idx').on(table.fromStationId),
+    index('line_reaction_to_station_idx').on(table.toStationId),
+  ],
 );

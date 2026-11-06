@@ -1,9 +1,12 @@
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { sql } from 'drizzle-orm';
 import {
+  type AnyPgColumn,
+  check,
   integer,
   jsonb,
   pgTable,
   text,
-  timestamp,
   unique,
 } from 'drizzle-orm/pg-core';
 
@@ -15,7 +18,7 @@ export const skillDefinition = pgTable(
     key: text('key').notNull(),
     files: jsonb('files').$type<Record<string, string>>().notNull(),
     version: integer('version').notNull().default(1),
-    updatedAt: timestamp('updated_at')
+    updatedAt: timestamptz('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
@@ -46,7 +49,7 @@ export const harnessProfile = pgTable(
     mcpServers: jsonb('mcp_servers').$type<McpServerRow[]>().notNull(),
     native: jsonb('native').$type<Record<string, unknown>>().notNull(),
     version: integer('version').notNull().default(1),
-    updatedAt: timestamp('updated_at')
+    updatedAt: timestamptz('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
@@ -68,9 +71,11 @@ export const terraformState = pgTable(
     workspaceId: text('workspace_id').notNull(),
     name: text('name').notNull(),
     lock: jsonb('lock').$type<StateLockRow>(),
-    latestVersionId: text('latest_version_id'),
+    latestVersionId: text('latest_version_id').references(
+      (): AnyPgColumn => terraformStateVersion.id,
+    ),
     version: integer('version').notNull().default(1),
-    updatedAt: timestamp('updated_at')
+    updatedAt: timestamptz('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
@@ -82,14 +87,19 @@ export const terraformStateVersion = pgTable(
   'terraform_state_version',
   {
     id: text('id').primaryKey(),
-    stateId: text('state_id').notNull(),
+    stateId: text('state_id')
+      .notNull()
+      .references(() => terraformState.id, { onDelete: 'cascade' }),
     number: integer('number').notNull(),
     serial: integer('serial').notNull(),
     lineage: text('lineage').notNull(),
     md5: text('md5').notNull(),
     size: integer('size').notNull(),
     writtenBy: text('written_by').notNull(),
-    writtenAt: timestamp('written_at').notNull(),
+    writtenAt: timestamptz('written_at').notNull(),
   },
-  (table) => [unique().on(table.stateId, table.number)],
+  (table) => [
+    unique().on(table.stateId, table.number),
+    check('terraform_state_version_size_not_negative', sql`${table.size} >= 0`),
+  ],
 );

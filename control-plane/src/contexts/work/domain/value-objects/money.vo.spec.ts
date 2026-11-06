@@ -16,6 +16,12 @@ describe('Money', () => {
     expect(() => Money.of(1, ' ')).toThrow(InvalidMoneyError);
   });
 
+  it('counts in the ISO code of its currency', () => {
+    expect(Money.of(1, 'usd').currency).toBe('USD');
+    expect(() => Money.of(1, 'credits')).toThrow(InvalidMoneyError);
+    expect(() => Money.maybe(1, 'credits')).toThrow(InvalidMoneyError);
+  });
+
   it('reads nothing said as nothing spent', () => {
     expect(Money.maybe(null, 'USD')).toBeNull();
     expect(Money.maybe(1, null)).toBeNull();

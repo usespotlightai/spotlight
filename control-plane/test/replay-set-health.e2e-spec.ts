@@ -129,7 +129,6 @@ let judgeFlipsLeft = 4;
 
 const judge: JudgePort = {
   available: true,
-  model: 'stub/judge',
   judge: async (request: JudgeRequest) => {
     const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const run = MARKED.exec(scoredStep?.text ?? '')?.[1] ?? '';
@@ -143,6 +142,7 @@ const judge: JudgePort = {
     judgedRuns.set(run, times);
 
     return {
+      model: 'stub/judge',
       guidance: null,
       usage: {
         inputTokens: 2_000,
@@ -259,17 +259,6 @@ const anOriginal = async (): Promise<Original> => {
     assigneeId: team.owner.value,
     finishedAt: at,
   });
-  await db.insert(schema.workspaceArchive).values({
-    id: archiveId,
-    workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
-    grantedToRunId: randomUUID(),
-    size: 1_024,
-    sha256: 'a'.repeat(64),
-    grantedAt: at,
-    completedAt: at,
-  });
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
@@ -308,6 +297,17 @@ const anOriginal = async (): Promise<Original> => {
     startedFromCheckouts: [{ path: 'api', commit: COMMIT }],
     startedFromAttempt: 1,
     startedFromAt: at,
+  });
+  await db.insert(schema.workspaceArchive).values({
+    id: archiveId,
+    workspaceId: team.workspaceId.value,
+    resumeKey: `task-${taskId}`,
+    taskId,
+    grantedToRunId: runId,
+    size: 1_024,
+    sha256: 'a'.repeat(64),
+    grantedAt: at,
+    completedAt: at,
   });
   await new DrizzleRunJournal(new DrizzleContext(db)).append(
     RunAttempt.of(RunId.of(runId), 1),
@@ -640,6 +640,7 @@ beforeAll(async () => {
   await db.insert(schema.station).values([
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'backlog',
       name: 'Backlog',
@@ -648,6 +649,7 @@ beforeAll(async () => {
     },
     {
       id: BUILD,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'build',
       name: 'Build',
@@ -668,6 +670,7 @@ beforeAll(async () => {
     },
     {
       id: SHIP,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'ship',
       name: 'Ship',
@@ -677,6 +680,7 @@ beforeAll(async () => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'completed',
       name: 'Completed',

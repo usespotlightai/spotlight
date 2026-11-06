@@ -153,6 +153,7 @@ describe('a person moving a task by hand', () => {
     await servedDb.insert(schema.station).values([
       {
         id: BACKLOG,
+        workspaceId: team.workspaceId.value,
         lineId: LINE,
         key: 'backlog',
         name: 'Backlog',
@@ -161,6 +162,7 @@ describe('a person moving a task by hand', () => {
       },
       {
         id: BUILD,
+        workspaceId: team.workspaceId.value,
         lineId: LINE,
         key: 'build',
         name: 'Build',
@@ -169,6 +171,7 @@ describe('a person moving a task by hand', () => {
       },
       {
         id: SHIP,
+        workspaceId: team.workspaceId.value,
         lineId: LINE,
         key: 'ship',
         name: 'Ship',
@@ -177,6 +180,7 @@ describe('a person moving a task by hand', () => {
       },
       {
         id: randomUUID(),
+        workspaceId: team.workspaceId.value,
         lineId: LINE,
         key: 'completed',
         name: 'Completed',

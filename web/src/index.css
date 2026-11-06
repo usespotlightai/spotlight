@@ -105,7 +105,7 @@
   );
   --judge-neither: color-mix(
     in oklab,
-    var(--muted-foreground) 18%,
+    var(--muted-foreground) 35%,
     transparent
   );
 
@@ -239,9 +239,21 @@
   --chart-link-idle: 0.3;
   --chart-link-active: 0.7;
   --chart-link-dimmed: 0.1;
-  --judge-judge-only: #585fa0;
-  --judge-people-only: #8a8f98;
-  --judge-neither: #62666d;
+  --judge-judge-only: color-mix(
+    in oklab,
+    var(--chart-primary) 40%,
+    var(--foreground)
+  );
+  --judge-people-only: color-mix(
+    in oklab,
+    var(--muted-foreground) 90%,
+    transparent
+  );
+  --judge-neither: color-mix(
+    in oklab,
+    var(--muted-foreground) 55%,
+    transparent
+  );
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);

@@ -25,7 +25,7 @@ describe('JudgeTrend', () => {
     expect(judgeLegend()).toHaveTextContent(/^Judge$/);
   });
 
-  it('says the judge is hidden where its scores are left out', () => {
+  it('keeps the judge in the legend on a day without its scores', () => {
     render(
       <JudgeTrend
         kind="yes-no"
@@ -41,6 +41,6 @@ describe('JudgeTrend', () => {
       />,
     );
 
-    expect(judgeLegend()).toHaveTextContent('Judge hidden');
+    expect(judgeLegend()).toHaveTextContent(/^Judge$/);
   });
 });

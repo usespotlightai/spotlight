@@ -105,7 +105,7 @@ export const pullRequestCountsIn = async (
         from (
           select
             repository_key,
-            to_char(date_trunc('week', closed_at), 'YYYY-MM-DD') as week,
+            to_char(date_trunc('week', closed_at at time zone 'UTC'), 'YYYY-MM-DD') as week,
             made_by,
             count(*)::int as merged
           from merged

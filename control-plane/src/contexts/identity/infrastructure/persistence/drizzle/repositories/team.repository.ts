@@ -67,6 +67,7 @@ export class DrizzleTeamRepository implements TeamRepository {
       if (added.members.length > 0) {
         await this.context.db.insert(teamMember).values(
           added.members.map((member) => ({
+            workspaceId: added.workspaceId.value,
             teamId: added.id.value,
             userId: member.value,
           })),
@@ -132,7 +133,11 @@ export class DrizzleTeamRepository implements TeamRepository {
         await this.context.db
           .insert(teamMember)
           .values(
-            memberIds.map((userId) => ({ teamId: saved.id.value, userId })),
+            memberIds.map((userId) => ({
+              workspaceId: saved.workspaceId.value,
+              teamId: saved.id.value,
+              userId,
+            })),
           )
           .onConflictDoNothing({
             target: [teamMember.teamId, teamMember.userId],

@@ -16,9 +16,7 @@ export class AcceptDeliveryHandler
     try {
       const provider = await this.providers.find({
         integration: command.integration,
-        workspaceId: command.workspaceId,
-        teamId: command.teamId,
-        teamKey: command.teamKey,
+        to: command.to,
       });
 
       if (!provider) {
@@ -27,9 +25,7 @@ export class AcceptDeliveryHandler
 
       await this.queue.accept({
         integration: provider.key,
-        workspaceId: command.workspaceId,
-        teamId: command.teamId,
-        teamKey: command.teamKey,
+        to: command.to,
         id: provider.delivery(command.delivered),
         headers: command.delivered.headers,
         body: command.delivered.body,

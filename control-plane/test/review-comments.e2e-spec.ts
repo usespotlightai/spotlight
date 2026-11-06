@@ -85,3 +85,42 @@ describe('storing review comments', () => {
     ).rejects.toThrow();
   });
 });
+
+describe('removing the review comments of a task', () => {
+  it('keeps a reply on another task to one of its comments', async () => {
+    const parentTask = TaskId.of('task_parent');
+    const replyTask = TaskId.of('task_reply');
+    const anchor = ReviewAnchor.onFile('src/c.ts');
+    await comments.add(
+      ReviewComment.receive({
+        id: ReviewCommentId.of('parent'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        taskId: parentTask,
+        anchor,
+        body: 'Why this?',
+        author: ReviewAuthor.onGitHub('octocat'),
+        replyTo: null,
+        github: { id: 101, url: 'https://github.com/o/r/pull/1#r101' },
+        at: NOW,
+      }),
+    );
+    await comments.add(
+      ReviewComment.receive({
+        id: ReviewCommentId.of('reply'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        taskId: replyTask,
+        anchor,
+        body: 'Because of that.',
+        author: ReviewAuthor.onGitHub('octocat'),
+        replyTo: ReviewCommentId.of('parent'),
+        github: { id: 102, url: 'https://github.com/o/r/pull/1#r102' },
+        at: NOW,
+      }),
+    );
+
+    await comments.removeForTask(parentTask);
+
+    const left = await comments.ofTask(replyTask);
+    expect(left.map((each) => each.replyTo?.value)).toEqual(['parent']);
+  });
+});

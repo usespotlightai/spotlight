@@ -18,10 +18,16 @@ import type {
   SeenStep,
 } from '@insights/domain/value-objects/seen-evidence.vo';
 import { TASK_PULL_REQUEST_STATES } from '@insights/domain/value-objects/task-pull-request-state';
+import {
+  amount,
+  isCurrencyCode,
+  timestamptz,
+} from '@platform/persistence/drizzle/columns';
 import { type SQL, sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  check,
   doublePrecision,
   index,
   integer,
@@ -31,7 +37,6 @@ import {
   pgTable,
   primaryKey,
   text,
-  timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -151,21 +156,21 @@ export const runRecord = pgTable(
     profileKey: text('profile_key'),
     repositories: jsonb('repositories').$type<string[]>(),
     skills: jsonb('skills').$type<string[]>(),
-    queuedAt: timestamp('queued_at'),
-    startedAt: timestamp('started_at'),
-    endedAt: timestamp('ended_at'),
+    queuedAt: timestamptz('queued_at'),
+    startedAt: timestamptz('started_at'),
+    endedAt: timestamptz('ended_at'),
     ending: runRecordEnding('ending'),
     failure: text('failure'),
     visit: integer('visit'),
     asked: boolean('asked').notNull().default(false),
-    supersededAt: timestamp('superseded_at'),
+    supersededAt: timestamptz('superseded_at'),
     checks: runRecordChecks('checks'),
-    checkedAt: timestamp('checked_at'),
+    checkedAt: timestamptz('checked_at'),
     firstHumanAction: humanAction('first_human_action'),
-    firstHumanActionAt: timestamp('first_human_action_at'),
-    approvalAnsweredAt: timestamp('approval_answered_at'),
+    firstHumanActionAt: timestamptz('first_human_action_at'),
+    approvalAnsweredAt: timestamptz('approval_answered_at'),
     passedTo: text('passed_to'),
-    passedAt: timestamp('passed_at'),
+    passedAt: timestamptz('passed_at'),
     usageRecorded: boolean('usage_recorded').notNull().default(false),
     ms: integer('ms'),
     steps: integer('steps'),
@@ -173,7 +178,7 @@ export const runRecord = pgTable(
     changedLines: integer('changed_lines'),
     contextTokens: integer('context_tokens'),
     contextWindow: integer('context_window'),
-    cost: doublePrecision('cost'),
+    cost: amount('cost'),
     currency: text('currency'),
     inputTokens: bigint('input_tokens', { mode: 'number' }),
     outputTokens: bigint('output_tokens', { mode: 'number' }),
@@ -191,6 +196,7 @@ export const runRecord = pgTable(
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check('run_record_currency_code', isCurrencyCode(table.currency)),
     index('run_record_team_idx').on(table.teamId, table.endedAt),
     index('run_record_station_idx').on(table.stationId, table.endedAt),
     index('run_record_team_station_began_idx')
@@ -228,23 +234,23 @@ export const runFact = pgTable(
     profileKey: text('profile_key'),
     repositories: jsonb('repositories').$type<string[]>().notNull(),
     skills: jsonb('skills').$type<string[]>().notNull(),
-    queuedAt: timestamp('queued_at'),
-    startedAt: timestamp('started_at'),
-    endedAt: timestamp('ended_at').notNull(),
-    beganAt: timestamp('began_at').notNull(),
+    queuedAt: timestamptz('queued_at'),
+    startedAt: timestamptz('started_at'),
+    endedAt: timestamptz('ended_at').notNull(),
+    beganAt: timestamptz('began_at').notNull(),
     ending: runRecordEnding('ending').notNull(),
     ran: boolean('ran').notNull(),
     failure: text('failure'),
     visit: integer('visit').notNull(),
     asked: boolean('asked').notNull(),
-    supersededAt: timestamp('superseded_at'),
+    supersededAt: timestamptz('superseded_at'),
     checks: runRecordChecks('checks'),
-    checkedAt: timestamp('checked_at'),
+    checkedAt: timestamptz('checked_at'),
     firstHumanAction: humanAction('first_human_action'),
-    firstHumanActionAt: timestamp('first_human_action_at'),
-    approvalAnsweredAt: timestamp('approval_answered_at'),
+    firstHumanActionAt: timestamptz('first_human_action_at'),
+    approvalAnsweredAt: timestamptz('approval_answered_at'),
     passedTo: text('passed_to'),
-    passedAt: timestamp('passed_at'),
+    passedAt: timestamptz('passed_at'),
     usageRecorded: boolean('usage_recorded').notNull(),
     ms: integer('ms'),
     steps: integer('steps'),
@@ -252,7 +258,7 @@ export const runFact = pgTable(
     changedLines: integer('changed_lines'),
     contextTokens: integer('context_tokens'),
     contextWindow: integer('context_window'),
-    cost: doublePrecision('cost'),
+    cost: amount('cost'),
     currency: text('currency'),
     inputTokens: bigint('input_tokens', { mode: 'number' }),
     outputTokens: bigint('output_tokens', { mode: 'number' }),
@@ -261,14 +267,15 @@ export const runFact = pgTable(
     tools: jsonb('tools').$type<StoredTools>(),
     dismissals: jsonb('dismissals').$type<StoredDismissal[]>().notNull(),
     memories: jsonb('memories').$type<StoredMemories>().notNull(),
-    openedBy: text('opened_by'),
-    taskOpenedAt: timestamp('task_opened_at'),
+    openedById: text('opened_by_id'),
+    taskOpenedAt: timestamptz('task_opened_at'),
     pullRequest: text('pull_request'),
     pullRequestState: taskPullRequestState('pull_request_state'),
-    pullRequestOpenedAt: timestamp('pull_request_opened_at'),
-    pullRequestClosedAt: timestamp('pull_request_closed_at'),
+    pullRequestOpenedAt: timestamptz('pull_request_opened_at'),
+    pullRequestClosedAt: timestamptz('pull_request_closed_at'),
   },
   (table) => [
+    check('run_fact_currency_code', isCurrencyCode(table.currency)),
     index('run_fact_team_ended_idx').on(
       table.workspaceId,
       table.teamId,
@@ -293,9 +300,9 @@ export const taskPullRequest = pgTable(
     teamId: text('team_id').notNull(),
     pullRequest: text('pull_request').notNull(),
     state: taskPullRequestState('state').notNull().default('open'),
-    openedAt: timestamp('opened_at').notNull(),
-    firstReviewAt: timestamp('first_review_at'),
-    closedAt: timestamp('closed_at'),
+    openedAt: timestamptz('opened_at').notNull(),
+    firstReviewAt: timestamptz('first_review_at'),
+    closedAt: timestamptz('closed_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -312,7 +319,7 @@ export const pendingReview = pgTable(
   {
     workspaceId: text('workspace_id').notNull(),
     pullRequest: text('pull_request').notNull(),
-    at: timestamp('at').notNull(),
+    at: timestamptz('at').notNull(),
   },
   (table) => [
     primaryKey({
@@ -330,7 +337,7 @@ export const stationConfigPullRequest = pgTable(
     stationId: text('station_id').notNull(),
     fingerprint: text('fingerprint').notNull(),
     url: text('url').notNull(),
-    openedAt: timestamp('opened_at').notNull(),
+    openedAt: timestamptz('opened_at').notNull(),
   },
   (table) => [
     index('station_config_pull_request_station_idx').on(
@@ -353,14 +360,14 @@ export const taskHumanAction = pgTable(
     teamId: text('team_id'),
     lineId: text('line_id'),
     stationId: text('station_id'),
-    openedBy: text('opened_by'),
-    openedAt: timestamp('opened_at'),
+    openedById: text('opened_by_id'),
+    openedAt: timestamptz('opened_at'),
     asks: jsonb('asks').$type<StoredAsk[]>().notNull().default([]),
     actions: jsonb('actions')
       .$type<StoredHumanAction[]>()
       .notNull()
       .default([]),
-    lastActionAt: timestamp('last_action_at'),
+    lastActionAt: timestamptz('last_action_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -379,7 +386,7 @@ export const taskFailures = pgTable(
       .$type<StoredOccurrence[]>()
       .notNull()
       .default([]),
-    lastAt: timestamp('last_at'),
+    lastAt: timestamptz('last_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -415,7 +422,7 @@ export const deletedPullRequest = pgTable(
   {
     workspaceId: text('workspace_id').notNull(),
     pullRequest: text('pull_request').notNull(),
-    updatedAt: timestamp('updated_at').notNull(),
+    updatedAt: timestamptz('updated_at').notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.workspaceId, table.pullRequest] }),
@@ -437,19 +444,19 @@ export const pullRequestRecord = pgTable(
     additions: integer('additions'),
     deletions: integer('deletions'),
     changedFiles: integer('changed_files'),
-    openedAt: timestamp('opened_at'),
+    openedAt: timestamptz('opened_at'),
     state: pullRequestRecordState('state'),
-    closedAt: timestamp('closed_at'),
-    updatedAt: timestamp('updated_at'),
-    readyForReviewAt: timestamp('ready_for_review_at'),
+    closedAt: timestamptz('closed_at'),
+    updatedAt: timestamptz('updated_at'),
+    readyForReviewAt: timestamptz('ready_for_review_at'),
     draftPeriods: jsonb('draft_periods')
       .$type<{ from: string; to: string | null }[]>()
       .notNull()
       .default([]),
-    firstReviewAt: timestamp('first_review_at'),
-    firstUnblockingReviewAt: timestamp('first_unblocking_review_at'),
-    firstApprovedAt: timestamp('first_approved_at'),
-    humanReviewedAt: timestamp('human_reviewed_at')
+    firstReviewAt: timestamptz('first_review_at'),
+    firstUnblockingReviewAt: timestamptz('first_unblocking_review_at'),
+    firstApprovedAt: timestamptz('first_approved_at'),
+    humanReviewedAt: timestamptz('human_reviewed_at')
       .array()
       .notNull()
       .default([]),
@@ -466,7 +473,7 @@ export const pullRequestRecord = pgTable(
     ownerTaskId: text('owner_task_id'),
     ownerTeamId: text('owner_team_id'),
     reviewTaskIds: text('review_task_ids').array().notNull().default([]),
-    githubPurgedAt: timestamp('github_purged_at'),
+    githubPurgedAt: timestamptz('github_purged_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -496,7 +503,7 @@ export const taskChangeShape = pgTable(
     teamId: text('team_id').notNull(),
     changeTitles: text('change_titles').array().notNull().default([]),
     changeIntents: text('change_intents').array().notNull().default([]),
-    shapedAt: timestamp('shaped_at').notNull(),
+    shapedAt: timestamptz('shaped_at').notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -510,8 +517,8 @@ export const chatRecord = pgTable(
     chatId: text('chat_id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
-    startedBy: text('started_by').notNull(),
-    startedAt: timestamp('started_at').notNull(),
+    startedById: text('started_by_id').notNull(),
+    startedAt: timestamptz('started_at').notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -534,16 +541,17 @@ export const judging = pgTable(
     claims: jsonb('claims').$type<string[]>().notNull(),
     passThreshold: doublePrecision('pass_threshold').notNull(),
     rubricVersion: text('rubric_version').notNull(),
-    queuedAt: timestamp('queued_at').notNull(),
+    queuedAt: timestamptz('queued_at').notNull(),
     pending: boolean('pending').notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
-    jobDueAt: timestamp('job_due_at'),
-    judgedAt: timestamp('judged_at'),
+    jobDueAt: timestamptz('job_due_at'),
+    judgedAt: timestamptz('judged_at'),
     failure: judgingFailure('failure'),
-    failedAt: timestamp('failed_at'),
+    failedAt: timestamptz('failed_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check('judging_job_attempts_not_negative', sql`${table.jobAttempts} >= 0`),
     index('judging_pending_idx')
       .on(table.queuedAt)
       .where(sql`${table.pending}`),
@@ -575,16 +583,20 @@ export const changeJudging = pgTable(
     passThreshold: doublePrecision('pass_threshold').notNull(),
     referenceRunId: text('reference_run_id'),
     spent: jsonb('spent').$type<StoredModelSpend>().notNull(),
-    queuedAt: timestamp('queued_at').notNull(),
+    queuedAt: timestamptz('queued_at').notNull(),
     pending: boolean('pending').notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
-    jobDueAt: timestamp('job_due_at'),
-    judgedAt: timestamp('judged_at'),
+    jobDueAt: timestamptz('job_due_at'),
+    judgedAt: timestamptz('judged_at'),
     failure: judgingFailure('failure'),
-    failedAt: timestamp('failed_at'),
+    failedAt: timestamptz('failed_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check(
+      'change_judging_job_attempts_not_negative',
+      sql`${table.jobAttempts} >= 0`,
+    ),
     primaryKey({ columns: [table.runId, table.attempt] }),
     index('change_judging_pending_idx')
       .on(table.queuedAt)
@@ -607,16 +619,20 @@ export const sideBySideJudging = pgTable(
     maxAttempts: integer('most_attempts').notNull(),
     shownOrder: pairOrder('shown_order').notNull(),
     spent: jsonb('spent').$type<StoredModelSpend>().notNull(),
-    queuedAt: timestamp('queued_at').notNull(),
+    queuedAt: timestamptz('queued_at').notNull(),
     pending: boolean('pending').notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
-    jobDueAt: timestamp('job_due_at'),
-    judgedAt: timestamp('judged_at'),
+    jobDueAt: timestamptz('job_due_at'),
+    judgedAt: timestamptz('judged_at'),
     failure: judgingFailure('failure'),
-    failedAt: timestamp('failed_at'),
+    failedAt: timestamptz('failed_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
+    check(
+      'side_by_side_judging_job_attempts_not_negative',
+      sql`${table.jobAttempts} >= 0`,
+    ),
     primaryKey({ columns: [table.runId, table.otherRunId] }),
     index('side_by_side_judging_pending_idx')
       .on(table.queuedAt)
@@ -650,8 +666,8 @@ export const score = pgTable(
       .$type<StoredSeen>()
       .notNull()
       .default({ steps: [], hunks: [] }),
-    by: text('by'),
-    at: timestamp('at').notNull(),
+    scoredById: text('scored_by_id'),
+    at: timestamptz('at').notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -659,7 +675,7 @@ export const score = pgTable(
       .on(table.runId, table.rubricVersion)
       .where(sql`${table.source} = 'judge'`),
     uniqueIndex('score_person_idx')
-      .on(table.runId, table.by)
+      .on(table.runId, table.scoredById)
       .where(sql`${table.source} = 'person'`),
     index('score_station_idx').on(table.stationId, table.at),
     index('score_task_idx').on(table.taskId),
@@ -696,12 +712,16 @@ export const stationAlert = pgTable(
     baseline: doublePrecision('baseline'),
     runId: text('run_id').notNull(),
     taskId: text('task_id').notNull(),
-    firedAt: timestamp('fired_at').notNull(),
-    resolvedAt: timestamp('resolved_at'),
+    firedAt: timestamptz('fired_at').notNull(),
+    resolvedAt: timestamptz('resolved_at'),
     clearRuns: integer('clear_runs').notNull().default(0),
     lastSeenRunId: text('last_seen_run_id'),
   },
   (table) => [
+    check(
+      'station_alert_clear_runs_not_negative',
+      sql`${table.clearRuns} >= 0`,
+    ),
     index('station_alert_station_idx').on(table.stationId, table.firedAt),
     index('station_alert_task_idx').on(table.taskId),
     uniqueIndex('station_alert_open_rule_idx')

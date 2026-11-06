@@ -1,5 +1,5 @@
 {
-  "id": "1688570a-d7e9-41eb-8a9c-0f6df73d9ded",
+  "id": "dbecedee-70f0-4989-97ae-8fbf06338018",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -29,20 +29,20 @@
         },
         "due_at": {
           "name": "due_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "delivered_at": {
           "name": "delivered_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "dead_lettered_at": {
           "name": "dead_lettered_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -112,7 +112,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "event_delivery_attempts_not_negative": {
+          "name": "event_delivery_attempts_not_negative",
+          "value": "\"event_delivery\".\"attempts\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.event_outbox": {
@@ -151,7 +156,7 @@
         },
         "recorded_at": {
           "name": "recorded_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -195,7 +200,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -247,7 +252,7 @@
         },
         "called_at": {
           "name": "called_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -318,7 +323,7 @@
         },
         "expires_at": {
           "name": "expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         }
@@ -406,13 +411,13 @@
         },
         "started_at": {
           "name": "started_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "completed_at": {
           "name": "completed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -469,7 +474,7 @@
         },
         "job_due_at": {
           "name": "job_due_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -527,9 +532,23 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "change_stack_workspace_id_id_key": {
+          "name": "change_stack_workspace_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "change_stack_job_attempts_not_negative": {
+          "name": "change_stack_job_attempts_not_negative",
+          "value": "\"change_stack\".\"job_attempts\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.decision": {
@@ -648,7 +667,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "decision_position_not_negative": {
+          "name": "decision_position_not_negative",
+          "value": "\"decision\".\"position\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.decision_dispute": {
@@ -673,8 +697,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "by_user_id": {
-          "name": "by_user_id",
+        "disputed_by_id": {
+          "name": "disputed_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -687,7 +711,7 @@
         },
         "at": {
           "name": "at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -766,7 +790,7 @@
         },
         "generation_requested_at": {
           "name": "generation_requested_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -779,7 +803,7 @@
         },
         "job_due_at": {
           "name": "job_due_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -805,7 +829,7 @@
         },
         "merged_at": {
           "name": "merged_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -880,7 +904,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "decision_set_job_attempts_not_negative": {
+          "name": "decision_set_job_attempts_not_negative",
+          "value": "\"decision_set\".\"job_attempts\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.question_answer": {
@@ -956,7 +985,7 @@
         },
         "answered_at": {
           "name": "answered_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -998,17 +1027,19 @@
         }
       },
       "foreignKeys": {
-        "question_answer_stack_id_change_stack_id_fk": {
-          "name": "question_answer_stack_id_change_stack_id_fk",
+        "question_answer_stack_fk": {
+          "name": "question_answer_stack_fk",
           "tableFrom": "question_answer",
           "tableTo": "change_stack",
           "columnsFrom": [
+            "workspace_id",
             "stack_id"
           ],
           "columnsTo": [
+            "workspace_id",
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -1071,13 +1102,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "comment_ids": {
-          "name": "comment_ids",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
         "state": {
           "name": "state",
           "type": "review_state",
@@ -1093,13 +1117,13 @@
         },
         "submitted_at": {
           "name": "submitted_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "posted_at": {
           "name": "posted_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -1136,7 +1160,16 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "review_workspace_id_id_key": {
+          "name": "review_workspace_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1271,13 +1304,13 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "edited_at": {
           "name": "edited_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -1290,6 +1323,36 @@
         }
       },
       "indexes": {
+        "review_comment_reply_to_idx": {
+          "name": "review_comment_reply_to_idx",
+          "columns": [
+            {
+              "expression": "reply_to_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "review_comment_review_idx": {
+          "name": "review_comment_review_idx",
+          "columns": [
+            {
+              "expression": "review_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "review_comment_task_idx": {
           "name": "review_comment_task_idx",
           "columns": [
@@ -1333,14 +1396,155 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "review_comment_review_id_review_id_fk": {
+          "name": "review_comment_review_id_review_id_fk",
+          "tableFrom": "review_comment",
+          "tableTo": "review",
+          "columnsFrom": [
+            "review_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "review_comment_workspace_id_id_key": {
+          "name": "review_comment_workspace_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
         "review_comment_lines_check": {
           "name": "review_comment_lines_check",
           "value": "(\"review_comment\".\"side\" is null) = (\"review_comment\".\"line\" is null) and (\"review_comment\".\"line\" is not null or \"review_comment\".\"start_line\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.review_included_comment": {
+      "name": "review_included_comment",
+      "schema": "",
+      "columns": {
+        "review_id": {
+          "name": "review_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "comment_id": {
+          "name": "comment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "review_included_comment_position_idx": {
+          "name": "review_included_comment_position_idx",
+          "columns": [
+            {
+              "expression": "review_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "review_included_comment_comment_idx": {
+          "name": "review_included_comment_comment_idx",
+          "columns": [
+            {
+              "expression": "comment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "review_included_comment_review_fk": {
+          "name": "review_included_comment_review_fk",
+          "tableFrom": "review_included_comment",
+          "tableTo": "review",
+          "columnsFrom": [
+            "workspace_id",
+            "review_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "review_included_comment_comment_fk": {
+          "name": "review_included_comment_comment_fk",
+          "tableFrom": "review_included_comment",
+          "tableTo": "review_comment",
+          "columnsFrom": [
+            "workspace_id",
+            "comment_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "review_included_comment_review_id_comment_id_pk": {
+          "name": "review_included_comment_review_id_comment_id_pk",
+          "columns": [
+            "review_id",
+            "comment_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "review_included_comment_position_not_negative": {
+          "name": "review_included_comment_position_not_negative",
+          "value": "\"review_included_comment\".\"position\" >= 0"
         }
       },
       "isRLSEnabled": false
@@ -1374,11 +1578,17 @@
           "primaryKey": false,
           "notNull": true
         },
-        "subject_id": {
-          "name": "subject_id",
+        "review_id": {
+          "name": "review_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
+        },
+        "comment_id": {
+          "name": "comment_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "state": {
           "name": "state",
@@ -1397,7 +1607,7 @@
         },
         "due_at": {
           "name": "due_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -1409,7 +1619,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -1451,13 +1661,83 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "review_outbox_review_idx": {
+          "name": "review_outbox_review_idx",
+          "columns": [
+            {
+              "expression": "review_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "review_outbox_comment_idx": {
+          "name": "review_outbox_comment_idx",
+          "columns": [
+            {
+              "expression": "comment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "review_outbox_review_fk": {
+          "name": "review_outbox_review_fk",
+          "tableFrom": "review_outbox",
+          "tableTo": "review",
+          "columnsFrom": [
+            "workspace_id",
+            "review_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "review_outbox_comment_fk": {
+          "name": "review_outbox_comment_fk",
+          "tableFrom": "review_outbox",
+          "tableTo": "review_comment",
+          "columnsFrom": [
+            "workspace_id",
+            "comment_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "review_outbox_attempts_not_negative": {
+          "name": "review_outbox_attempts_not_negative",
+          "value": "\"review_outbox\".\"attempts\" >= 0"
+        },
+        "review_outbox_one_subject": {
+          "name": "review_outbox_one_subject",
+          "value": "(\"review_outbox\".\"kind\" = 'review') = (\"review_outbox\".\"review_id\" is not null) and num_nonnulls(\"review_outbox\".\"review_id\", \"review_outbox\".\"comment_id\") = 1"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.stack_check": {
@@ -1569,19 +1849,19 @@
         },
         "lease_expires_at": {
           "name": "lease_expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "claimed_at": {
           "name": "claimed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "waiting_since": {
           "name": "waiting_since",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -1599,7 +1879,7 @@
         },
         "reserved_until": {
           "name": "reserved_until",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -1612,7 +1892,7 @@
         },
         "next_provision_attempt_at": {
           "name": "next_provision_attempt_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -1713,7 +1993,23 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "stack_check_stack_fk": {
+          "name": "stack_check_stack_fk",
+          "tableFrom": "stack_check",
+          "tableTo": "change_stack",
+          "columnsFrom": [
+            "workspace_id",
+            "stack_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {
         "stack_check_stack_id_recheck_pk": {
           "name": "stack_check_stack_id_recheck_pk",
@@ -1725,7 +2021,20 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "stack_check_redraft_count_not_negative": {
+          "name": "stack_check_redraft_count_not_negative",
+          "value": "\"stack_check\".\"redraft_count\" >= 0"
+        },
+        "stack_check_attempts_not_negative": {
+          "name": "stack_check_attempts_not_negative",
+          "value": "\"stack_check\".\"attempts\" >= 0"
+        },
+        "stack_check_provision_attempts_not_negative": {
+          "name": "stack_check_provision_attempts_not_negative",
+          "value": "\"stack_check\".\"provision_attempts\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.harness_profile": {
@@ -1777,7 +2086,7 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -1837,7 +2146,7 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -1903,14 +2212,28 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "terraform_state_latest_version_id_terraform_state_version_id_fk": {
+          "name": "terraform_state_latest_version_id_terraform_state_version_id_fk",
+          "tableFrom": "terraform_state",
+          "tableTo": "terraform_state_version",
+          "columnsFrom": [
+            "latest_version_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "terraform_state_workspace_id_name_unique": {
@@ -1980,13 +2303,27 @@
         },
         "written_at": {
           "name": "written_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "terraform_state_version_state_id_terraform_state_id_fk": {
+          "name": "terraform_state_version_state_id_terraform_state_id_fk",
+          "tableFrom": "terraform_state_version",
+          "tableTo": "terraform_state",
+          "columnsFrom": [
+            "state_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "terraform_state_version_state_id_number_unique": {
@@ -1999,7 +2336,12 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "terraform_state_version_size_not_negative": {
+          "name": "terraform_state_version_size_not_negative",
+          "value": "\"terraform_state_version\".\"size\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.github_connection": {
@@ -2027,7 +2369,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -2122,7 +2464,7 @@
         },
         "opened_at": {
           "name": "opened_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -2135,7 +2477,7 @@
         },
         "ready_for_review_at": {
           "name": "ready_for_review_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -2155,13 +2497,13 @@
         },
         "closed_at": {
           "name": "closed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -2349,13 +2691,13 @@
         },
         "access_token_expires_at": {
           "name": "access_token_expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "refresh_token_expires_at": {
           "name": "refresh_token_expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -2373,19 +2715,40 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
       },
       "indexes": {
+        "account_provider_account_uidx": {
+          "name": "account_provider_account_uidx",
+          "columns": [
+            {
+              "expression": "provider_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "account_userId_idx": {
           "name": "account_userId_idx",
           "columns": [
@@ -2453,7 +2816,7 @@
         },
         "expires_at": {
           "name": "expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -2465,7 +2828,7 @@
         },
         "last_polled_at": {
           "name": "last_polled_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -2539,7 +2902,7 @@
         },
         "expires_at": {
           "name": "expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -2551,14 +2914,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -2664,14 +3027,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -2717,20 +3080,20 @@
         },
         "expires_at": {
           "name": "expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -2766,9 +3129,20 @@
       "columns": {
         "seq": {
           "name": "seq",
-          "type": "bigserial",
+          "type": "bigint",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "configuration_change_seq_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
         },
         "workspace_id": {
           "name": "workspace_id",
@@ -2796,13 +3170,15 @@
         },
         "action": {
           "name": "action",
-          "type": "text",
+          "type": "configuration_action",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
         "actor": {
           "name": "actor",
-          "type": "text",
+          "type": "configuration_actor",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -2839,7 +3215,7 @@
         },
         "recorded_at": {
           "name": "recorded_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -2905,26 +3281,26 @@
         },
         "added_at": {
           "name": "added_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "sent_at": {
           "name": "sent_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "expires_at": {
           "name": "expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "verified_at": {
           "name": "verified_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -3031,9 +3407,20 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
+          "type": "bigint",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "verification_send_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
         },
         "user_id": {
           "name": "user_id",
@@ -3043,7 +3430,7 @@
         },
         "sent_at": {
           "name": "sent_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -3159,15 +3546,15 @@
           "notNull": true,
           "default": "''"
         },
-        "created_by": {
-          "name": "created_by",
+        "created_by_id": {
+          "name": "created_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -3226,9 +3613,23 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "oidc_trust_workspace_id_id_key": {
+          "name": "oidc_trust_workspace_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "oidc_trust_lifetime_minutes_positive": {
+          "name": "oidc_trust_lifetime_minutes_positive",
+          "value": "\"oidc_trust\".\"lifetime_minutes\" > 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.oidc_trust_usage": {
@@ -3249,13 +3650,29 @@
         },
         "last_issued_at": {
           "name": "last_issued_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "oidc_trust_usage_trust_fk": {
+          "name": "oidc_trust_usage_trust_fk",
+          "tableFrom": "oidc_trust_usage",
+          "tableTo": "oidc_trust",
+          "columnsFrom": [
+            "workspace_id",
+            "trust_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -3293,13 +3710,29 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "signup_survey_respondent_idx": {
+          "name": "signup_survey_respondent_idx",
+          "columns": [
+            {
+              "expression": "respondent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "signup_survey_workspace_id_workspace_id_fk": {
           "name": "signup_survey_workspace_id_workspace_id_fk",
@@ -3371,35 +3804,20 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
       "indexes": {
-        "team_workspace_idx": {
-          "name": "team_workspace_idx",
-          "columns": [
-            {
-              "expression": "workspace_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "team_workspace_key_idx": {
           "name": "team_workspace_key_idx",
           "columns": [
@@ -3438,7 +3856,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "team_workspace_id_id_key": {
+          "name": "team_workspace_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -3447,6 +3874,12 @@
       "name": "team_member",
       "schema": "",
       "columns": {
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "team_id": {
           "name": "team_id",
           "type": "text",
@@ -3461,7 +3894,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -3485,19 +3918,6 @@
         }
       },
       "foreignKeys": {
-        "team_member_team_id_team_id_fk": {
-          "name": "team_member_team_id_team_id_fk",
-          "tableFrom": "team_member",
-          "tableTo": "team",
-          "columnsFrom": [
-            "team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "team_member_user_id_user_id_fk": {
           "name": "team_member_user_id_user_id_fk",
           "tableFrom": "team_member",
@@ -3509,6 +3929,36 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "team_member_team_fk": {
+          "name": "team_member_team_fk",
+          "tableFrom": "team_member",
+          "tableTo": "team",
+          "columnsFrom": [
+            "workspace_id",
+            "team_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "team_member_workspace_member_fk": {
+          "name": "team_member_workspace_member_fk",
+          "tableFrom": "team_member",
+          "tableTo": "workspace_member",
+          "columnsFrom": [
+            "workspace_id",
+            "user_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "user_id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -3564,14 +4014,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -3628,40 +4078,40 @@
           "primaryKey": false,
           "notNull": true
         },
-        "invited_by": {
-          "name": "invited_by",
+        "invited_by_id": {
+          "name": "invited_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
         "invited_at": {
           "name": "invited_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "expires_at": {
           "name": "expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "accepted_at": {
           "name": "accepted_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "accepted_by": {
-          "name": "accepted_by",
+        "accepted_by_id": {
+          "name": "accepted_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
         "revoked_at": {
           "name": "revoked_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -3692,6 +4142,36 @@
           ],
           "isUnique": true,
           "where": "\"workspace_invite\".\"accepted_at\" is null and \"workspace_invite\".\"revoked_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "workspace_invite_invited_by_idx": {
+          "name": "workspace_invite_invited_by_idx",
+          "columns": [
+            {
+              "expression": "invited_by_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "workspace_invite_accepted_by_idx": {
+          "name": "workspace_invite_accepted_by_idx",
+          "columns": [
+            {
+              "expression": "accepted_by_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -3732,12 +4212,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "workspace_invite_invited_by_user_id_fk": {
-          "name": "workspace_invite_invited_by_user_id_fk",
+        "workspace_invite_invited_by_id_user_id_fk": {
+          "name": "workspace_invite_invited_by_id_user_id_fk",
           "tableFrom": "workspace_invite",
           "tableTo": "user",
           "columnsFrom": [
-            "invited_by"
+            "invited_by_id"
           ],
           "columnsTo": [
             "id"
@@ -3745,12 +4225,12 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
-        "workspace_invite_accepted_by_user_id_fk": {
-          "name": "workspace_invite_accepted_by_user_id_fk",
+        "workspace_invite_accepted_by_id_user_id_fk": {
+          "name": "workspace_invite_accepted_by_id_user_id_fk",
           "tableFrom": "workspace_invite",
           "tableTo": "user",
           "columnsFrom": [
-            "accepted_by"
+            "accepted_by_id"
           ],
           "columnsTo": [
             "id"
@@ -3777,7 +4257,7 @@
         },
         "workspace_invite_accepted_by": {
           "name": "workspace_invite_accepted_by",
-          "value": "\"workspace_invite\".\"accepted_by\" is null or \"workspace_invite\".\"accepted_at\" is not null"
+          "value": "\"workspace_invite\".\"accepted_by_id\" is null or \"workspace_invite\".\"accepted_at\" is not null"
         },
         "workspace_invite_ended_once": {
           "name": "workspace_invite_ended_once",
@@ -3887,7 +4367,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -3994,21 +4474,21 @@
           "primaryKey": false,
           "notNull": true
         },
-        "issued_by": {
-          "name": "issued_by",
+        "issued_by_id": {
+          "name": "issued_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
         "issued_at": {
           "name": "issued_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "expires_at": {
           "name": "expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -4216,7 +4696,7 @@
         },
         "queued_at": {
           "name": "queued_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -4235,13 +4715,13 @@
         },
         "job_due_at": {
           "name": "job_due_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "judged_at": {
           "name": "judged_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -4254,7 +4734,7 @@
         },
         "failed_at": {
           "name": "failed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -4317,7 +4797,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "change_judging_job_attempts_not_negative": {
+          "name": "change_judging_job_attempts_not_negative",
+          "value": "\"change_judging\".\"job_attempts\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.chat_record": {
@@ -4342,15 +4827,15 @@
           "primaryKey": false,
           "notNull": true
         },
-        "started_by": {
-          "name": "started_by",
+        "started_by_id": {
+          "name": "started_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
         "started_at": {
           "name": "started_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -4425,7 +4910,7 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -4627,7 +5112,7 @@
         },
         "queued_at": {
           "name": "queued_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -4646,13 +5131,13 @@
         },
         "job_due_at": {
           "name": "job_due_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "judged_at": {
           "name": "judged_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -4665,7 +5150,7 @@
         },
         "failed_at": {
           "name": "failed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -4735,7 +5220,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "judging_job_attempts_not_negative": {
+          "name": "judging_job_attempts_not_negative",
+          "value": "\"judging\".\"job_attempts\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.pending_review": {
@@ -4756,7 +5246,7 @@
         },
         "at": {
           "name": "at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -4851,7 +5341,7 @@
         },
         "opened_at": {
           "name": "opened_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -4864,19 +5354,19 @@
         },
         "closed_at": {
           "name": "closed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "ready_for_review_at": {
           "name": "ready_for_review_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -4889,25 +5379,25 @@
         },
         "first_review_at": {
           "name": "first_review_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "first_unblocking_review_at": {
           "name": "first_unblocking_review_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "first_approved_at": {
           "name": "first_approved_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "human_reviewed_at": {
           "name": "human_reviewed_at",
-          "type": "timestamp[]",
+          "type": "timestamp (3) with time zone[]",
           "primaryKey": false,
           "notNull": true,
           "default": "'{}'"
@@ -4980,7 +5470,7 @@
         },
         "github_purged_at": {
           "name": "github_purged_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -5180,25 +5670,25 @@
         },
         "queued_at": {
           "name": "queued_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "started_at": {
           "name": "started_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "ended_at": {
           "name": "ended_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "began_at": {
           "name": "began_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -5235,7 +5725,7 @@
         },
         "superseded_at": {
           "name": "superseded_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -5248,7 +5738,7 @@
         },
         "checked_at": {
           "name": "checked_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -5261,13 +5751,13 @@
         },
         "first_human_action_at": {
           "name": "first_human_action_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "approval_answered_at": {
           "name": "approval_answered_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -5279,7 +5769,7 @@
         },
         "passed_at": {
           "name": "passed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -5327,7 +5817,7 @@
         },
         "cost": {
           "name": "cost",
-          "type": "double precision",
+          "type": "numeric(24, 12)",
           "primaryKey": false,
           "notNull": false
         },
@@ -5379,15 +5869,15 @@
           "primaryKey": false,
           "notNull": true
         },
-        "opened_by": {
-          "name": "opened_by",
+        "opened_by_id": {
+          "name": "opened_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
         "task_opened_at": {
           "name": "task_opened_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -5406,13 +5896,13 @@
         },
         "pull_request_opened_at": {
           "name": "pull_request_opened_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "pull_request_closed_at": {
           "name": "pull_request_closed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         }
@@ -5513,7 +6003,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "run_fact_currency_code": {
+          "name": "run_fact_currency_code",
+          "value": "\"run_fact\".\"currency\" ~ '^[A-Z]{3}$'"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.run_record": {
@@ -5600,19 +6095,19 @@
         },
         "queued_at": {
           "name": "queued_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "started_at": {
           "name": "started_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "ended_at": {
           "name": "ended_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -5644,7 +6139,7 @@
         },
         "superseded_at": {
           "name": "superseded_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -5657,7 +6152,7 @@
         },
         "checked_at": {
           "name": "checked_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -5670,13 +6165,13 @@
         },
         "first_human_action_at": {
           "name": "first_human_action_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "approval_answered_at": {
           "name": "approval_answered_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -5688,7 +6183,7 @@
         },
         "passed_at": {
           "name": "passed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -5737,7 +6232,7 @@
         },
         "cost": {
           "name": "cost",
-          "type": "double precision",
+          "type": "numeric(24, 12)",
           "primaryKey": false,
           "notNull": false
         },
@@ -5984,7 +6479,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "run_record_currency_code": {
+          "name": "run_record_currency_code",
+          "value": "\"run_record\".\"currency\" ~ '^[A-Z]{3}$'"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.score": {
@@ -6091,15 +6591,15 @@
           "notNull": true,
           "default": "'{\"steps\":[],\"hunks\":[]}'::jsonb"
         },
-        "by": {
-          "name": "by",
+        "scored_by_id": {
+          "name": "scored_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
         "at": {
           "name": "at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -6144,7 +6644,7 @@
               "nulls": "last"
             },
             {
-              "expression": "by",
+              "expression": "scored_by_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6294,7 +6794,7 @@
         },
         "queued_at": {
           "name": "queued_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -6313,13 +6813,13 @@
         },
         "job_due_at": {
           "name": "job_due_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "judged_at": {
           "name": "judged_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -6332,7 +6832,7 @@
         },
         "failed_at": {
           "name": "failed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -6395,7 +6895,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "side_by_side_judging_job_attempts_not_negative": {
+          "name": "side_by_side_judging_job_attempts_not_negative",
+          "value": "\"side_by_side_judging\".\"job_attempts\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.station_alert": {
@@ -6466,13 +6971,13 @@
         },
         "fired_at": {
           "name": "fired_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "resolved_at": {
           "name": "resolved_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -6574,7 +7079,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "station_alert_clear_runs_not_negative": {
+          "name": "station_alert_clear_runs_not_negative",
+          "value": "\"station_alert\".\"clear_runs\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.station_alert_state": {
@@ -6685,7 +7195,7 @@
         },
         "opened_at": {
           "name": "opened_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -6785,7 +7295,7 @@
         },
         "shaped_at": {
           "name": "shaped_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -6858,7 +7368,7 @@
         },
         "last_at": {
           "name": "last_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -6955,15 +7465,15 @@
           "primaryKey": false,
           "notNull": false
         },
-        "opened_by": {
-          "name": "opened_by",
+        "opened_by_id": {
+          "name": "opened_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
         "opened_at": {
           "name": "opened_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -6983,7 +7493,7 @@
         },
         "last_action_at": {
           "name": "last_action_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -7078,19 +7588,19 @@
         },
         "opened_at": {
           "name": "opened_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "first_review_at": {
           "name": "first_review_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "closed_at": {
           "name": "closed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -7157,6 +7667,23 @@
       "name": "inbound_delivery",
       "schema": "",
       "columns": {
+        "seq": {
+          "name": "seq",
+          "type": "bigint",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "inbound_delivery_seq_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
+        },
         "integration": {
           "name": "integration",
           "type": "text",
@@ -7167,22 +7694,19 @@
           "name": "workspace_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "''"
+          "notNull": false
         },
         "team_id": {
           "name": "team_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "''"
+          "notNull": false
         },
         "team_key": {
           "name": "team_key",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "''"
+          "notNull": false
         },
         "id": {
           "name": "id",
@@ -7204,7 +7728,8 @@
         },
         "state": {
           "name": "state",
-          "type": "text",
+          "type": "delivery_state",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
           "default": "'pending'"
@@ -7218,14 +7743,14 @@
         },
         "due_at": {
           "name": "due_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "claimed_at": {
           "name": "claimed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -7237,14 +7762,14 @@
         },
         "received_at": {
           "name": "received_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "handled_at": {
           "name": "handled_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         }
@@ -7273,9 +7798,11 @@
         }
       },
       "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "inbound_delivery_integration_team_id_id_pk": {
-          "name": "inbound_delivery_integration_team_id_id_pk",
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "inbound_delivery_key": {
+          "name": "inbound_delivery_key",
+          "nullsNotDistinct": true,
           "columns": [
             "integration",
             "team_id",
@@ -7283,9 +7810,17 @@
           ]
         }
       },
-      "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "inbound_delivery_attempts_not_negative": {
+          "name": "inbound_delivery_attempts_not_negative",
+          "value": "\"inbound_delivery\".\"attempts\" >= 0"
+        },
+        "inbound_delivery_whole_addressee": {
+          "name": "inbound_delivery_whole_addressee",
+          "value": "num_nonnulls(\"inbound_delivery\".\"workspace_id\", \"inbound_delivery\".\"team_id\", \"inbound_delivery\".\"team_key\") in (0, 3)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.hook_callback": {
@@ -7324,7 +7859,7 @@
         },
         "expires_at": {
           "name": "expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -7420,7 +7955,7 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -7557,7 +8092,8 @@
         },
         "state": {
           "name": "state",
-          "type": "text",
+          "type": "hook_firing_state",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
           "default": "'pending'"
@@ -7571,14 +8107,14 @@
         },
         "due_at": {
           "name": "due_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "claimed_at": {
           "name": "claimed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -7596,14 +8132,14 @@
         },
         "fired_at": {
           "name": "fired_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "handled_at": {
           "name": "handled_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -7692,7 +8228,12 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "hook_firing_attempts_not_negative": {
+          "name": "hook_firing_attempts_not_negative",
+          "value": "\"hook_firing\".\"attempts\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.inferred_output_schema": {
@@ -7731,7 +8272,7 @@
         },
         "inferred_at": {
           "name": "inferred_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -7823,7 +8364,7 @@
         },
         "expires_at": {
           "name": "expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -7842,13 +8383,13 @@
         },
         "refresh_failed_at": {
           "name": "refresh_failed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "refresh_claimed_until": {
           "name": "refresh_claimed_until",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -7861,7 +8402,7 @@
         },
         "connected_at": {
           "name": "connected_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -7930,7 +8471,7 @@
         },
         "ran_at": {
           "name": "ran_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         }
@@ -7999,7 +8540,7 @@
         },
         "spec_read_at": {
           "name": "spec_read_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -8024,7 +8565,7 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -8113,7 +8654,7 @@
         },
         "secret_expires_at": {
           "name": "secret_expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -8126,7 +8667,7 @@
         },
         "registered_at": {
           "name": "registered_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -8160,7 +8701,7 @@
         },
         "until": {
           "name": "until",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -8256,7 +8797,7 @@
         },
         "read_at": {
           "name": "read_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -8325,7 +8866,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "spec_operation_position_not_negative": {
+          "name": "spec_operation_position_not_negative",
+          "value": "\"spec_operation\".\"position\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.memory": {
@@ -8342,7 +8888,18 @@
           "name": "handle",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "memory_handle_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
         },
         "workspace_id": {
           "name": "workspace_id",
@@ -8438,26 +8995,26 @@
           "notNull": true,
           "default": "'active'"
         },
-        "approved_by": {
-          "name": "approved_by",
+        "approved_by_id": {
+          "name": "approved_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
         "approved_at": {
           "name": "approved_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "retired_at": {
           "name": "retired_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
-        "retired_by": {
-          "name": "retired_by",
+        "retired_by_id": {
+          "name": "retired_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -8494,6 +9051,21 @@
             }
           ],
           "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "memory_superseded_by_idx": {
+          "name": "memory_superseded_by_idx",
+          "columns": [
+            {
+              "expression": "superseded_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -8556,11 +9128,56 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "memory_supersedes_fk": {
+          "name": "memory_supersedes_fk",
+          "tableFrom": "memory",
+          "tableTo": "memory",
+          "columnsFrom": [
+            "workspace_id",
+            "supersedes"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "memory_superseded_by_fk": {
+          "name": "memory_superseded_by_fk",
+          "tableFrom": "memory",
+          "tableTo": "memory",
+          "columnsFrom": [
+            "workspace_id",
+            "superseded_by"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "memory_workspace_id_id_key": {
+          "name": "memory_workspace_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "memory_retired_at_matches_status": {
+          "name": "memory_retired_at_matches_status",
+          "value": "(\"memory\".\"status\" = 'retired') = (\"memory\".\"retired_at\" is not null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.memory_draft": {
@@ -8593,7 +9210,7 @@
         },
         "drafting_requested_at": {
           "name": "drafting_requested_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -8606,7 +9223,7 @@
         },
         "job_due_at": {
           "name": "job_due_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -8632,7 +9249,7 @@
         },
         "failed_at": {
           "name": "failed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -8680,7 +9297,16 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "memory_draft_job_attempts_not_negative": {
+          "name": "memory_draft_job_attempts_not_negative",
+          "value": "\"memory_draft\".\"job_attempts\" >= 0"
+        },
+        "memory_draft_notes_read_not_negative": {
+          "name": "memory_draft_notes_read_not_negative",
+          "value": "\"memory_draft\".\"notes_read\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.memory_proposal": {
@@ -8794,7 +9420,7 @@
         },
         "recorded_at": {
           "name": "recorded_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -8806,15 +9432,15 @@
           "notNull": true,
           "default": "'proposed'"
         },
-        "decided_by": {
-          "name": "decided_by",
+        "decided_by_id": {
+          "name": "decided_by_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
         "decided_at": {
           "name": "decided_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         }
@@ -8882,12 +9508,34 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "memory_proposal_supersedes_memory_id_fk": {
+          "name": "memory_proposal_supersedes_memory_id_fk",
+          "tableFrom": "memory_proposal",
+          "tableTo": "memory",
+          "columnsFrom": [
+            "supersedes"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "memory_proposal_position_not_negative": {
+          "name": "memory_proposal_position_not_negative",
+          "value": "\"memory_proposal\".\"position\" >= 0"
+        },
+        "memory_proposal_decided_matches_state": {
+          "name": "memory_proposal_decided_matches_state",
+          "value": "(\"memory_proposal\".\"state\" = 'proposed') = (\"memory_proposal\".\"decided_at\" is null) and (\"memory_proposal\".\"decided_by_id\" is null) = (\"memory_proposal\".\"decided_at\" is null)"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.memory_use": {
@@ -8915,7 +9563,7 @@
         },
         "at": {
           "name": "at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -9088,7 +9736,7 @@
         },
         "checked_at": {
           "name": "checked_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -9157,19 +9805,19 @@
         },
         "due_at": {
           "name": "due_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -9340,7 +9988,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "config_pull_request_retries_not_negative": {
+          "name": "config_pull_request_retries_not_negative",
+          "value": "\"config_pull_request\".\"retries\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.replay": {
@@ -9421,7 +10074,7 @@
         },
         "ceiling_amount": {
           "name": "ceiling_amount",
-          "type": "double precision",
+          "type": "numeric(24, 12)",
           "primaryKey": false,
           "notNull": true
         },
@@ -9489,19 +10142,19 @@
         },
         "started_at": {
           "name": "started_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "ended_at": {
           "name": "ended_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "stopped_at": {
           "name": "stopped_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -9621,7 +10274,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "replay_ceiling_currency_code": {
+          "name": "replay_ceiling_currency_code",
+          "value": "\"replay\".\"ceiling_currency\" ~ '^[A-Z]{3}$'"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.replay_candidate": {
@@ -9793,7 +10451,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -9998,7 +10656,7 @@
         },
         "ceiling_amount": {
           "name": "ceiling_amount",
-          "type": "double precision",
+          "type": "numeric(24, 12)",
           "primaryKey": false,
           "notNull": true
         },
@@ -10029,7 +10687,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -10119,7 +10777,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "replay_check_ceiling_currency_code": {
+          "name": "replay_check_ceiling_currency_code",
+          "value": "\"replay_check\".\"ceiling_currency\" ~ '^[A-Z]{3}$'"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.replay_entry": {
@@ -10184,7 +10847,8 @@
         },
         "unreplayable_reason": {
           "name": "unreplayable_reason",
-          "type": "text",
+          "type": "unreplayable_reason",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": false
         },
@@ -10228,7 +10892,7 @@
         },
         "ended_at": {
           "name": "ended_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -10259,7 +10923,7 @@
         },
         "cost_amount": {
           "name": "cost_amount",
-          "type": "double precision",
+          "type": "numeric(24, 12)",
           "primaryKey": false,
           "notNull": false
         },
@@ -10404,7 +11068,20 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "replay_entry_position_not_negative": {
+          "name": "replay_entry_position_not_negative",
+          "value": "\"replay_entry\".\"position\" >= 0"
+        },
+        "replay_entry_queue_attempts_not_negative": {
+          "name": "replay_entry_queue_attempts_not_negative",
+          "value": "\"replay_entry\".\"queue_attempts\" >= 0"
+        },
+        "replay_entry_cost_currency_code": {
+          "name": "replay_entry_cost_currency_code",
+          "value": "\"replay_entry\".\"cost_currency\" ~ '^[A-Z]{3}$'"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.replay_search": {
@@ -10479,7 +11156,7 @@
         },
         "ceiling_amount": {
           "name": "ceiling_amount",
-          "type": "double precision",
+          "type": "numeric(24, 12)",
           "primaryKey": false,
           "notNull": true
         },
@@ -10594,13 +11271,13 @@
         },
         "started_at": {
           "name": "started_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "ended_at": {
           "name": "ended_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -10685,7 +11362,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "replay_search_ceiling_currency_code": {
+          "name": "replay_search_ceiling_currency_code",
+          "value": "\"replay_search\".\"ceiling_currency\" ~ '^[A-Z]{3}$'"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.replay_search_iteration": {
@@ -10815,7 +11497,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "replay_search_iteration_attempts_not_negative": {
+          "name": "replay_search_iteration_attempts_not_negative",
+          "value": "\"replay_search_iteration\".\"attempts\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.replay_set": {
@@ -10854,13 +11541,13 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "refreshed_at": {
           "name": "refreshed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -10872,7 +11559,7 @@
         },
         "station_gone_at": {
           "name": "station_gone_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -10977,13 +11664,13 @@
         },
         "ended_at": {
           "name": "ended_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "added_at": {
           "name": "added_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -11054,7 +11741,7 @@
         },
         "last_started_at": {
           "name": "last_started_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -11067,7 +11754,7 @@
         },
         "last_skip_at": {
           "name": "last_skip_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -11079,7 +11766,7 @@
         },
         "alert_pending_since": {
           "name": "alert_pending_since",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -11097,13 +11784,13 @@
         },
         "last_rejected_at": {
           "name": "last_rejected_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "last_improved_at": {
           "name": "last_improved_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -11122,7 +11809,7 @@
         },
         "check_after": {
           "name": "check_after",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -11200,7 +11887,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "station_search_schedule_request_count_not_negative": {
+          "name": "station_search_schedule_request_count_not_negative",
+          "value": "\"station_search_schedule\".\"request_count\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.egress": {
@@ -11252,7 +11944,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -11321,7 +12013,7 @@
         },
         "used_at": {
           "name": "used_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -11353,7 +12045,7 @@
         },
         "used_at": {
           "name": "used_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -11462,7 +12154,8 @@
         },
         "work_kind": {
           "name": "work_kind",
-          "type": "text",
+          "type": "runner_work_kind",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": false
         },
@@ -11474,25 +12167,25 @@
         },
         "claim_by": {
           "name": "claim_by",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "started_at": {
           "name": "started_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "last_heartbeat_at": {
           "name": "last_heartbeat_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "ended_at": {
           "name": "ended_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -11695,19 +12388,19 @@
         },
         "first_heartbeat_at": {
           "name": "first_heartbeat_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "online_since": {
           "name": "online_since",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "last_heartbeat_at": {
           "name": "last_heartbeat_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -11786,6 +12479,10 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "runner_host_capacity_positive": {
+          "name": "runner_host_capacity_positive",
+          "value": "\"runner_host\".\"capacity\" > 0"
+        },
         "runner_host_one_credential_source": {
           "name": "runner_host_one_credential_source",
           "value": "(\"runner_host\".\"pool_id\" is null) <> (\"runner_host\".\"trust_id\" is null)"
@@ -11879,7 +12576,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -11995,7 +12692,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -12067,7 +12764,8 @@
         },
         "state": {
           "name": "state",
-          "type": "text",
+          "type": "sandbox_state",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -12080,19 +12778,19 @@
         },
         "idle_since": {
           "name": "idle_since",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "started_at": {
           "name": "started_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "gone_at": {
           "name": "gone_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -12333,7 +13031,7 @@
         },
         "ended_at": {
           "name": "ended_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -12408,7 +13106,8 @@
         },
         "source": {
           "name": "source",
-          "type": "text",
+          "type": "secret_source",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -12438,7 +13137,7 @@
         },
         "rotated_at": {
           "name": "rotated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -12451,7 +13150,7 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -12498,7 +13197,7 @@
         },
         "issued_at": {
           "name": "issued_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -12584,7 +13283,7 @@
         },
         "stored_at": {
           "name": "stored_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -12642,7 +13341,7 @@
         },
         "claimed_at": {
           "name": "claimed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -12681,27 +13380,31 @@
         }
       },
       "foreignKeys": {
-        "attachment_claim_task_id_task_id_fk": {
-          "name": "attachment_claim_task_id_task_id_fk",
+        "attachment_claim_task_fk": {
+          "name": "attachment_claim_task_fk",
           "tableFrom": "attachment_claim",
           "tableTo": "task",
           "columnsFrom": [
+            "workspace_id",
             "task_id"
           ],
           "columnsTo": [
+            "workspace_id",
             "id"
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "attachment_claim_chat_id_chat_id_fk": {
-          "name": "attachment_claim_chat_id_chat_id_fk",
+        "attachment_claim_chat_fk": {
+          "name": "attachment_claim_chat_fk",
           "tableFrom": "attachment_claim",
           "tableTo": "chat",
           "columnsFrom": [
+            "workspace_id",
             "chat_id"
           ],
           "columnsTo": [
+            "workspace_id",
             "id"
           ],
           "onDelete": "cascade",
@@ -12817,14 +13520,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -12861,7 +13564,16 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "chat_workspace_id_id_key": {
+          "name": "chat_workspace_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -12914,7 +13626,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -12961,7 +13673,16 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "chat_attachment_place_not_negative": {
+          "name": "chat_attachment_place_not_negative",
+          "value": "\"chat_attachment\".\"place\" >= 0"
+        },
+        "chat_attachment_size_not_negative": {
+          "name": "chat_attachment_size_not_negative",
+          "value": "\"chat_attachment\".\"size\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.chat_mark": {
@@ -13030,14 +13751,16 @@
         }
       },
       "foreignKeys": {
-        "chat_mark_chat_id_chat_id_fk": {
-          "name": "chat_mark_chat_id_chat_id_fk",
+        "chat_mark_chat_fk": {
+          "name": "chat_mark_chat_fk",
           "tableFrom": "chat_mark",
           "tableTo": "chat",
           "columnsFrom": [
+            "workspace_id",
             "chat_id"
           ],
           "columnsTo": [
+            "workspace_id",
             "id"
           ],
           "onDelete": "cascade",
@@ -13077,7 +13800,8 @@
         },
         "kind": {
           "name": "kind",
-          "type": "text",
+          "type": "chat_message_kind",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -13089,7 +13813,7 @@
         },
         "at": {
           "name": "at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -13120,7 +13844,7 @@
         },
         "acknowledged_at": {
           "name": "acknowledged_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -13131,7 +13855,23 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "chat_message_run_idx": {
+          "name": "chat_message_run_idx",
+          "columns": [
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "chat_message_chat_id_chat_id_fk": {
           "name": "chat_message_chat_id_chat_id_fk",
@@ -13144,6 +13884,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "chat_message_run_id_run_id_fk": {
+          "name": "chat_message_run_id_run_id_fk",
+          "tableFrom": "chat_message",
+          "tableTo": "run",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -13158,7 +13911,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "chat_message_position_not_negative": {
+          "name": "chat_message_position_not_negative",
+          "value": "\"chat_message\".\"position\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.inbox_request": {
@@ -13198,13 +13956,13 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "resolved_at": {
           "name": "resolved_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -13267,14 +14025,16 @@
         }
       },
       "foreignKeys": {
-        "inbox_request_task_id_task_id_fk": {
-          "name": "inbox_request_task_id_task_id_fk",
+        "inbox_request_task_fk": {
+          "name": "inbox_request_task_fk",
           "tableFrom": "inbox_request",
           "tableTo": "task",
           "columnsFrom": [
+            "workspace_id",
             "task_id"
           ],
           "columnsTo": [
+            "workspace_id",
             "id"
           ],
           "onDelete": "cascade",
@@ -13305,7 +14065,7 @@
         },
         "read_at": {
           "name": "read_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -13420,35 +14180,20 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
       "indexes": {
-        "line_team_idx": {
-          "name": "line_team_idx",
-          "columns": [
-            {
-              "expression": "team_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "line_workspace_idx": {
           "name": "line_workspace_idx",
           "columns": [
@@ -13510,7 +14255,16 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "line_workspace_id_id_key": {
+          "name": "line_workspace_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -13545,11 +14299,26 @@
         }
       },
       "indexes": {
-        "line_reaction_line_idx": {
-          "name": "line_reaction_line_idx",
+        "line_reaction_from_station_idx": {
+          "name": "line_reaction_from_station_idx",
           "columns": [
             {
-              "expression": "line_id",
+              "expression": "from_station_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "line_reaction_to_station_idx": {
+          "name": "line_reaction_to_station_idx",
+          "columns": [
+            {
+              "expression": "to_station_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -13603,7 +14372,17 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "line_reaction_key": {
+          "name": "line_reaction_key",
+          "nullsNotDistinct": true,
+          "columns": [
+            "line_id",
+            "happening",
+            "from_station_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -13637,23 +14416,7 @@
           "notNull": false
         }
       },
-      "indexes": {
-        "line_repository_line_idx": {
-          "name": "line_repository_line_idx",
-          "columns": [
-            {
-              "expression": "line_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "line_repository_line_id_line_id_fk": {
           "name": "line_repository_line_id_line_id_fk",
@@ -13699,6 +14462,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "line_id": {
           "name": "line_id",
           "type": "text",
@@ -13732,7 +14501,8 @@
         },
         "kind": {
           "name": "kind",
-          "type": "text",
+          "type": "station_kind",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
           "default": "'work'"
@@ -13829,35 +14599,20 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
       "indexes": {
-        "station_line_idx": {
-          "name": "station_line_idx",
-          "columns": [
-            {
-              "expression": "line_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "station_line_key_idx": {
           "name": "station_line_key_idx",
           "columns": [
@@ -13881,14 +14636,16 @@
         }
       },
       "foreignKeys": {
-        "station_line_id_line_id_fk": {
-          "name": "station_line_id_line_id_fk",
+        "station_line_fk": {
+          "name": "station_line_fk",
           "tableFrom": "station",
           "tableTo": "line",
           "columnsFrom": [
+            "workspace_id",
             "line_id"
           ],
           "columnsTo": [
+            "workspace_id",
             "id"
           ],
           "onDelete": "cascade",
@@ -13896,9 +14653,23 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "station_workspace_id_id_key": {
+          "name": "station_workspace_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "station_position_not_negative": {
+          "name": "station_position_not_negative",
+          "value": "\"station\".\"position\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.station_route": {
@@ -13919,11 +14690,11 @@
         }
       },
       "indexes": {
-        "station_route_station_idx": {
-          "name": "station_route_station_idx",
+        "station_route_to_station_idx": {
+          "name": "station_route_to_station_idx",
           "columns": [
             {
-              "expression": "station_id",
+              "expression": "to_station_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -14000,23 +14771,7 @@
           "notNull": true
         }
       },
-      "indexes": {
-        "station_skill_station_idx": {
-          "name": "station_skill_station_idx",
-          "columns": [
-            {
-              "expression": "station_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "station_skill_station_id_station_id_fk": {
           "name": "station_skill_station_id_station_id_fk",
@@ -14043,7 +14798,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "station_skill_position_not_negative": {
+          "name": "station_skill_position_not_negative",
+          "value": "\"station_skill\".\"position\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.station_tool": {
@@ -14069,23 +14829,7 @@
           "notNull": true
         }
       },
-      "indexes": {
-        "station_tool_station_idx": {
-          "name": "station_tool_station_idx",
-          "columns": [
-            {
-              "expression": "station_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
         "station_tool_station_id_station_id_fk": {
           "name": "station_tool_station_id_station_id_fk",
@@ -14112,7 +14856,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "station_tool_position_not_negative": {
+          "name": "station_tool_position_not_negative",
+          "value": "\"station_tool\".\"position\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.network_call": {
@@ -14176,25 +14925,26 @@
         },
         "secrets_redeemed_at": {
           "name": "secrets_redeemed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "queued_at": {
           "name": "queued_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "expires_at": {
           "name": "expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "state": {
           "name": "state",
-          "type": "text",
+          "type": "network_call_state",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -14206,13 +14956,13 @@
         },
         "claimed_at": {
           "name": "claimed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "responded_at": {
           "name": "responded_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -14248,7 +14998,7 @@
         },
         "expired_at": {
           "name": "expired_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -14438,13 +15188,13 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "resolved_at": {
           "name": "resolved_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -14530,7 +15280,7 @@
         },
         "processed_at": {
           "name": "processed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -14598,7 +15348,7 @@
         },
         "claimed_at": {
           "name": "claimed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -14618,9 +15368,20 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
+          "type": "bigint",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "identity": {
+            "type": "always",
+            "name": "run_connection_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
         },
         "run_id": {
           "name": "run_id",
@@ -14684,7 +15445,7 @@
         },
         "at": {
           "name": "at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -14872,13 +15633,13 @@
         },
         "lease_expires_at": {
           "name": "lease_expires_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "stop_requested_at": {
           "name": "stop_requested_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -14896,7 +15657,7 @@
         },
         "reserved_until": {
           "name": "reserved_until",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -14909,7 +15670,7 @@
         },
         "next_provision_attempt_at": {
           "name": "next_provision_attempt_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -14936,13 +15697,13 @@
         },
         "started_at": {
           "name": "started_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "ended_at": {
           "name": "ended_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -14984,7 +15745,7 @@
         },
         "started_from_at": {
           "name": "started_from_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -14997,7 +15758,7 @@
         },
         "claimable_from": {
           "name": "claimable_from",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -15035,14 +15796,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "queued_at": {
           "name": "queued_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -15055,7 +15816,7 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -15284,12 +16045,48 @@
           ],
           "onDelete": "set null",
           "onUpdate": "no action"
+        },
+        "run_chat_fk": {
+          "name": "run_chat_fk",
+          "tableFrom": "run",
+          "tableTo": "chat",
+          "columnsFrom": [
+            "workspace_id",
+            "chat_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "run_workspace_id_id_key": {
+          "name": "run_workspace_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {
+        "run_provision_attempts_not_negative": {
+          "name": "run_provision_attempts_not_negative",
+          "value": "\"run\".\"provision_attempts\" >= 0"
+        },
+        "run_requeue_count_not_negative": {
+          "name": "run_requeue_count_not_negative",
+          "value": "\"run\".\"requeue_count\" >= 0"
+        },
+        "run_ended_at_matches_state": {
+          "name": "run_ended_at_matches_state",
+          "value": "(\"run\".\"state\" in ('completed', 'failed', 'cancelled', 'superseded')) = (\"run\".\"ended_at\" is not null)"
+        },
         "run_station_config_check": {
           "name": "run_station_config_check",
           "value": "(\"run\".\"station_config\" is null) = (\"run\".\"station_fingerprint\" is null)"
@@ -15327,7 +16124,7 @@
         },
         "at": {
           "name": "at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
@@ -15432,7 +16229,7 @@
         },
         "cost": {
           "name": "cost",
-          "type": "double precision",
+          "type": "numeric(24, 12)",
           "primaryKey": false,
           "notNull": false
         },
@@ -15475,7 +16272,7 @@
         },
         "recorded_at": {
           "name": "recorded_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -15508,7 +16305,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "run_usage_currency_code": {
+          "name": "run_usage_currency_code",
+          "value": "\"run_usage\".\"currency\" ~ '^[A-Z]{3}$'"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.starting_point_hold": {
@@ -15527,13 +16329,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "run_ids": {
-          "name": "run_ids",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::text[]"
-        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -15545,6 +16340,107 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "starting_point_hold_workspace_id_holder_key": {
+          "name": "starting_point_hold_workspace_id_holder_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "holder"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.starting_point_hold_run": {
+      "name": "starting_point_hold_run",
+      "schema": "",
+      "columns": {
+        "holder": {
+          "name": "holder",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "workspace_id": {
+          "name": "workspace_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "starting_point_hold_run_run_idx": {
+          "name": "starting_point_hold_run_run_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "starting_point_hold_run_hold_fk": {
+          "name": "starting_point_hold_run_hold_fk",
+          "tableFrom": "starting_point_hold_run",
+          "tableTo": "starting_point_hold",
+          "columnsFrom": [
+            "workspace_id",
+            "holder"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "holder"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "starting_point_hold_run_run_fk": {
+          "name": "starting_point_hold_run_run_fk",
+          "tableFrom": "starting_point_hold_run",
+          "tableTo": "run",
+          "columnsFrom": [
+            "workspace_id",
+            "run_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "starting_point_hold_run_holder_run_id_pk": {
+          "name": "starting_point_hold_run_holder_run_id_pk",
+          "columns": [
+            "holder",
+            "run_id"
+          ]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -15575,7 +16471,7 @@
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -15725,7 +16621,7 @@
         },
         "finished_at": {
           "name": "finished_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -15745,20 +16641,35 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         }
       },
       "indexes": {
+        "task_proposed_in_chat_idx": {
+          "name": "task_proposed_in_chat_idx",
+          "columns": [
+            {
+              "expression": "proposed_in_chat_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "task_station_idx": {
           "name": "task_station_idx",
           "columns": [
@@ -15770,6 +16681,21 @@
             },
             {
               "expression": "rank",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "task_origin_station_idx": {
+          "name": "task_origin_station_idx",
+          "columns": [
+            {
+              "expression": "origin_station_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -15818,21 +16744,38 @@
         }
       },
       "foreignKeys": {
-        "task_station_id_station_id_fk": {
-          "name": "task_station_id_station_id_fk",
+        "task_station_fk": {
+          "name": "task_station_fk",
           "tableFrom": "task",
           "tableTo": "station",
           "columnsFrom": [
+            "workspace_id",
             "station_id"
           ],
           "columnsTo": [
+            "workspace_id",
             "id"
           ],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
-        "task_origin_station_id_station_id_fk": {
-          "name": "task_origin_station_id_station_id_fk",
+        "task_proposed_in_chat_fk": {
+          "name": "task_proposed_in_chat_fk",
+          "tableFrom": "task",
+          "tableTo": "chat",
+          "columnsFrom": [
+            "workspace_id",
+            "proposed_in_chat_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "task_origin_station_fk": {
+          "name": "task_origin_station_fk",
           "tableFrom": "task",
           "tableTo": "station",
           "columnsFrom": [
@@ -15846,7 +16789,16 @@
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "task_workspace_id_id_key": {
+          "name": "task_workspace_id_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "workspace_id",
+            "id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -15899,7 +16851,7 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
@@ -15946,7 +16898,16 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "task_attachment_place_not_negative": {
+          "name": "task_attachment_place_not_negative",
+          "value": "\"task_attachment\".\"place\" >= 0"
+        },
+        "task_attachment_size_not_negative": {
+          "name": "task_attachment_size_not_negative",
+          "value": "\"task_attachment\".\"size\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.task_mark": {
@@ -15996,14 +16957,16 @@
         }
       },
       "foreignKeys": {
-        "task_mark_task_id_task_id_fk": {
-          "name": "task_mark_task_id_task_id_fk",
+        "task_mark_task_fk": {
+          "name": "task_mark_task_fk",
           "tableFrom": "task_mark",
           "tableTo": "task",
           "columnsFrom": [
+            "workspace_id",
             "task_id"
           ],
           "columnsTo": [
+            "workspace_id",
             "id"
           ],
           "onDelete": "cascade",
@@ -16061,13 +17024,14 @@
         },
         "at": {
           "name": "at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "voice": {
           "name": "voice",
-          "type": "text",
+          "type": "voice",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
           "default": "'station'"
@@ -16093,13 +17057,15 @@
         },
         "kind": {
           "name": "kind",
-          "type": "text",
+          "type": "task_note_kind",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
         "form": {
           "name": "form",
-          "type": "text",
+          "type": "task_note_form",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true,
           "default": "'words'"
@@ -16136,35 +17102,29 @@
         },
         "answered_at": {
           "name": "answered_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "read_at": {
           "name": "read_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "acknowledged_at": {
           "name": "acknowledged_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         }
       },
       "indexes": {
-        "task_note_task_idx": {
-          "name": "task_note_task_idx",
+        "task_note_run_idx": {
+          "name": "task_note_run_idx",
           "columns": [
             {
-              "expression": "task_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "position",
+              "expression": "run_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -16211,6 +17171,19 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "task_note_run_id_run_id_fk": {
+          "name": "task_note_run_id_run_id_fk",
+          "tableFrom": "task_note",
+          "tableTo": "run",
+          "columnsFrom": [
+            "run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -16224,7 +17197,12 @@
       },
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "task_note_position_not_negative": {
+          "name": "task_note_position_not_negative",
+          "value": "\"task_note\".\"position\" >= 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.workspace_archive": {
@@ -16287,13 +17265,13 @@
         },
         "granted_at": {
           "name": "granted_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "completed_at": {
           "name": "completed_at",
-          "type": "timestamp",
+          "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -16362,13 +17340,48 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "workspace_archive_granted_to_run_idx": {
+          "name": "workspace_archive_granted_to_run_idx",
+          "columns": [
+            {
+              "expression": "granted_to_run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "workspace_archive_granted_to_run_fk": {
+          "name": "workspace_archive_granted_to_run_fk",
+          "tableFrom": "workspace_archive",
+          "tableTo": "run",
+          "columnsFrom": [
+            "workspace_id",
+            "granted_to_run_id"
+          ],
+          "columnsTo": [
+            "workspace_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {
+        "workspace_archive_size_not_negative": {
+          "name": "workspace_archive_size_not_negative",
+          "value": "\"workspace_archive\".\"size\" >= 0"
+        },
         "workspace_archive_granted_to_one": {
           "name": "workspace_archive_granted_to_one",
           "value": "(\"workspace_archive\".\"granted_to_run_id\" is null) <> (\"workspace_archive\".\"granted_to_sandbox_id\" is null)"
@@ -16490,6 +17503,24 @@
         "open",
         "merged",
         "closed"
+      ]
+    },
+    "public.configuration_action": {
+      "name": "configuration_action",
+      "schema": "public",
+      "values": [
+        "created",
+        "updated",
+        "deleted"
+      ]
+    },
+    "public.configuration_actor": {
+      "name": "configuration_actor",
+      "schema": "public",
+      "values": [
+        "spotlight",
+        "person",
+        "token"
       ]
     },
     "public.job_function": {
@@ -16636,6 +17667,27 @@
         "open",
         "merged",
         "closed"
+      ]
+    },
+    "public.delivery_state": {
+      "name": "delivery_state",
+      "schema": "public",
+      "values": [
+        "pending",
+        "working",
+        "done",
+        "failed"
+      ]
+    },
+    "public.hook_firing_state": {
+      "name": "hook_firing_state",
+      "schema": "public",
+      "values": [
+        "pending",
+        "working",
+        "done",
+        "failed",
+        "superseded"
       ]
     },
     "public.memory_drafting_failure": {
@@ -16869,6 +17921,62 @@
         "cooldown"
       ]
     },
+    "public.unreplayable_reason": {
+      "name": "unreplayable_reason",
+      "schema": "public",
+      "values": [
+        "unknown-run",
+        "not-a-task-run",
+        "task-gone",
+        "still-running",
+        "no-starting-point",
+        "no-briefing",
+        "archive-gone",
+        "attachments-gone",
+        "answer-gone",
+        "repository-gone",
+        "not-at-the-station",
+        "candidate-unfit",
+        "cannot-start",
+        "unchecked",
+        "cancelled",
+        "dispatch-failed"
+      ]
+    },
+    "public.runner_work_kind": {
+      "name": "runner_work_kind",
+      "schema": "public",
+      "values": [
+        "run",
+        "check"
+      ]
+    },
+    "public.sandbox_state": {
+      "name": "sandbox_state",
+      "schema": "public",
+      "values": [
+        "starting",
+        "ready",
+        "draining",
+        "gone"
+      ]
+    },
+    "public.secret_source": {
+      "name": "secret_source",
+      "schema": "public",
+      "values": [
+        "built-in",
+        "aws-secrets-manager"
+      ]
+    },
+    "public.chat_message_kind": {
+      "name": "chat_message_kind",
+      "schema": "public",
+      "values": [
+        "message",
+        "proposed"
+      ]
+    },
     "public.inbox_request_form": {
       "name": "inbox_request_form",
       "schema": "public",
@@ -16876,6 +17984,26 @@
         "memories",
         "grade",
         "alert"
+      ]
+    },
+    "public.station_kind": {
+      "name": "station_kind",
+      "schema": "public",
+      "values": [
+        "backlog",
+        "work",
+        "completed"
+      ]
+    },
+    "public.network_call_state": {
+      "name": "network_call_state",
+      "schema": "public",
+      "values": [
+        "waiting",
+        "claimed",
+        "answered",
+        "expired",
+        "cancelled"
       ]
     },
     "public.notice_form": {
@@ -16907,21 +18035,42 @@
         "cancelled",
         "superseded"
       ]
+    },
+    "public.task_note_form": {
+      "name": "task_note_form",
+      "schema": "public",
+      "values": [
+        "words",
+        "setup",
+        "resolved",
+        "approval",
+        "failure",
+        "connection"
+      ]
+    },
+    "public.task_note_kind": {
+      "name": "task_note_kind",
+      "schema": "public",
+      "values": [
+        "asked",
+        "passed",
+        "answered",
+        "message",
+        "reopened"
+      ]
+    },
+    "public.voice": {
+      "name": "voice",
+      "schema": "public",
+      "values": [
+        "station",
+        "person",
+        "world"
+      ]
     }
   },
   "schemas": {},
-  "sequences": {
-    "public.memory_handle_seq": {
-      "name": "memory_handle_seq",
-      "schema": "public",
-      "increment": "1",
-      "startWith": "1",
-      "minValue": "1",
-      "maxValue": "9223372036854775807",
-      "cache": "1",
-      "cycle": false
-    }
-  },
+  "sequences": {},
   "roles": {},
   "policies": {},
   "views": {},

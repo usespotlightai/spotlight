@@ -11,10 +11,11 @@ import {
 import {
   type Fetch,
   JsonSchema,
-  OpenRouterEmptyCompletionError,
-  OpenRouterRequestError,
+  ModelEmptyCompletionError,
+  type ModelEndpoint,
+  ModelRequestError,
   requestJson,
-} from '@platform/openrouter/openrouter-json';
+} from '@platform/llm/chat-completions';
 import { MAX_GUIDANCE_LENGTH } from '@shared-kernel/domain/value-objects/judge-guidance';
 import { z } from 'zod';
 
@@ -157,29 +158,27 @@ const evidenceOf = (request: JudgeRequest): string =>
       : {}),
   });
 
-export class OpenRouterJudge implements JudgePort {
+export class ChatCompletionsJudge implements JudgePort {
   constructor(
-    private readonly apiKey: string | undefined,
-    readonly model: string,
+    private readonly endpoint: ModelEndpoint | null,
     private readonly fetch: Fetch = globalThis.fetch,
   ) {}
 
   get available(): boolean {
-    return Boolean(this.apiKey);
+    return this.endpoint !== null;
   }
 
   async judge(request: JudgeRequest): Promise<JudgeAnswer> {
-    if (!this.apiKey) {
+    if (!this.endpoint) {
       throw new JudgingError(
         'request-failed',
-        'no OpenRouter API key is set',
+        'no model endpoint is set',
         null,
       );
     }
 
     const call = {
-      apiKey: this.apiKey,
-      model: this.model,
+      endpoint: this.endpoint,
       fetch: this.fetch,
       system: systemOf(request),
       prompt: evidenceOf(request),
@@ -198,6 +197,7 @@ export class OpenRouterJudge implements JudgePort {
           verdict: { claims: answer.claims },
           guidance: guidanceOf(answer),
           usage,
+          model: this.endpoint.model,
         };
       }
 
@@ -212,6 +212,7 @@ export class OpenRouterJudge implements JudgePort {
           verdict: { value: answer.passes, reasons: answer.reasons },
           guidance: guidanceOf(answer),
           usage,
+          model: this.endpoint.model,
         };
       }
 
@@ -225,12 +226,13 @@ export class OpenRouterJudge implements JudgePort {
         verdict: { value: answer.score, reasons: answer.reasons },
         guidance: guidanceOf(answer),
         usage,
+        model: this.endpoint.model,
       };
     } catch (error) {
-      if (error instanceof OpenRouterRequestError) {
+      if (error instanceof ModelRequestError) {
         throw new JudgingError('request-failed', error.message, null);
       }
-      if (error instanceof OpenRouterEmptyCompletionError) {
+      if (error instanceof ModelEmptyCompletionError) {
         throw new JudgingError('unreadable', error.message, error.usage);
       }
       throw error;

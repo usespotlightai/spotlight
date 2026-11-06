@@ -142,9 +142,10 @@ const aLeasedChatRun = async (): Promise<LeasedRun> => {
 };
 
 const anArchiveOf = async (
-  taskId: string,
+  of: { readonly taskId: string | null; readonly runId: string },
   completed: boolean,
 ): Promise<string> => {
+  const taskId = of.taskId as string;
   const id = randomUUID();
 
   await db.insert(schema.workspaceArchive).values({
@@ -152,7 +153,7 @@ const anArchiveOf = async (
     workspaceId: team.workspaceId.value,
     resumeKey: `task-${taskId}`,
     taskId,
-    grantedToRunId: randomUUID(),
+    grantedToRunId: of.runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
     grantedAt: new Date(),
@@ -190,6 +191,7 @@ beforeAll(async () => {
   await db.insert(schema.station).values([
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'backlog',
       name: 'Backlog',
@@ -198,6 +200,7 @@ beforeAll(async () => {
     },
     {
       id: BUILD,
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'build',
       name: 'Build',
@@ -207,6 +210,7 @@ beforeAll(async () => {
     },
     {
       id: randomUUID(),
+      workspaceId: team.workspaceId.value,
       lineId: DELIVERY,
       key: 'completed',
       name: 'Completed',
@@ -231,7 +235,7 @@ afterAll(async () => {
 describe('a runner saying where its run started', () => {
   it('records the completed archive the run restored and the commit each checkout began at', async () => {
     const leased = await aLeasedTaskRun();
-    const archiveId = await anArchiveOf(leased.taskId as string, true);
+    const archiveId = await anArchiveOf(leased, true);
 
     await report(leased, { ...atApi(), archiveId }).expect(204);
     await report(leased, { ...atApi(), archiveId }).expect(204);
@@ -283,8 +287,8 @@ describe('a runner saying where its run started', () => {
   it('rejects an archive the run could not have restored', async () => {
     const leased = await aLeasedTaskRun();
     const other = await aLeasedTaskRun();
-    const incomplete = await anArchiveOf(leased.taskId as string, false);
-    const ofAnotherTask = await anArchiveOf(other.taskId as string, true);
+    const incomplete = await anArchiveOf(leased, false);
+    const ofAnotherTask = await anArchiveOf(other, true);
 
     for (const archiveId of [incomplete, ofAnotherTask, randomUUID()]) {
       await report(leased, { ...atApi(), archiveId }).expect(422);

@@ -1,18 +1,13 @@
+import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import {
-  bigint,
-  index,
-  integer,
-  pgTable,
-  serial,
-  text,
-  timestamp,
-} from 'drizzle-orm/pg-core';
+import { bigint, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 
 export const runConnection = pgTable(
   'run_connection',
   {
-    id: serial('id').primaryKey(),
+    id: bigint('id', { mode: 'number' })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
     runId: text('run_id')
       .notNull()
       .references(() => run.id, { onDelete: 'cascade' }),
@@ -25,7 +20,7 @@ export const runConnection = pgTable(
     outcome: text('outcome').notNull(),
     status: integer('status'),
     reason: text('reason'),
-    at: timestamp('at').notNull(),
+    at: timestamptz('at').notNull(),
   },
   (table) => [
     index('run_connection_run_idx').on(table.runId, table.at),

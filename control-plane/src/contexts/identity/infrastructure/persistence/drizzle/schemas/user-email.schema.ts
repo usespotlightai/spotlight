@@ -1,12 +1,12 @@
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   index,
   integer,
   pgTable,
-  serial,
   text,
-  timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -19,10 +19,10 @@ export const userEmail = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     email: text('email').notNull(),
     tokenHash: text('token_hash').notNull().unique(),
-    addedAt: timestamp('added_at').defaultNow().notNull(),
-    sentAt: timestamp('sent_at').notNull(),
-    expiresAt: timestamp('expires_at').notNull(),
-    verifiedAt: timestamp('verified_at'),
+    addedAt: timestamptz('added_at').defaultNow().notNull(),
+    sentAt: timestamptz('sent_at').notNull(),
+    expiresAt: timestamptz('expires_at').notNull(),
+    verifiedAt: timestamptz('verified_at'),
     version: integer('version').notNull().default(1),
   },
   (table) => [
@@ -40,11 +40,13 @@ export const userEmail = pgTable(
 export const verificationSend = pgTable(
   'verification_send',
   {
-    id: serial('id').primaryKey(),
+    id: bigint('id', { mode: 'number' })
+      .primaryKey()
+      .generatedAlwaysAsIdentity(),
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    sentAt: timestamp('sent_at').notNull(),
+    sentAt: timestamptz('sent_at').notNull(),
   },
   (table) => [
     index('verification_send_user_idx').on(table.userId, table.sentAt),

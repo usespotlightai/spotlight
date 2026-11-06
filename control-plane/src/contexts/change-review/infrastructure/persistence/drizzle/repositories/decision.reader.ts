@@ -71,7 +71,7 @@ const toDecision = (
     .map((dispute) => ({
       id: dispute.id,
       path: dispute.path,
-      by: dispute.byUserId,
+      by: dispute.disputedById,
       byName: null,
       reason: dispute.reason,
       at: dispute.at,

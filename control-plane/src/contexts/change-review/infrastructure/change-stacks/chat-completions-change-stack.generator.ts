@@ -25,12 +25,11 @@ import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import {
   type Fetch,
   JsonSchema,
-  OpenRouterEmptyCompletionError,
+  ModelEmptyCompletionError,
+  type ModelEndpoint,
   requestJson,
-} from '@platform/openrouter/openrouter-json';
+} from '@platform/llm/chat-completions';
 import { z } from 'zod';
-
-export const DEFAULT_MODEL = 'google/gemini-3.8-flash';
 
 const MAX_OUTPUT = 65_536;
 
@@ -312,17 +311,16 @@ export const describeProblem = (problem: StackProblem): string => {
   return remedy ? `${problem.message}; ${remedy}` : problem.message;
 };
 
-export class OpenRouterChangeStackGenerator
+export class ChatCompletionsChangeStackGenerator
   implements ChangeStackGeneratorPort
 {
   constructor(
-    private readonly apiKey: string | undefined,
-    private readonly model: string = DEFAULT_MODEL,
+    private readonly endpoint: ModelEndpoint | null,
     private readonly fetch: Fetch = globalThis.fetch,
   ) {}
 
   get available(): boolean {
-    return Boolean(this.apiKey);
+    return this.endpoint !== null;
   }
 
   async generate({
@@ -395,13 +393,12 @@ export class OpenRouterChangeStackGenerator
     system: string,
     sections: readonly (string | null)[],
   ) {
-    if (!this.apiKey) {
-      throw new Error('No OpenRouter API key is set for change stacks');
+    if (!this.endpoint) {
+      throw new Error('No model endpoint is set for change stacks');
     }
 
     return requestJson({
-      apiKey: this.apiKey,
-      model: this.model,
+      endpoint: this.endpoint,
       fetch: this.fetch,
       responseSchema: schema,
       system,
@@ -409,7 +406,7 @@ export class OpenRouterChangeStackGenerator
       maxTokens: MAX_OUTPUT,
       reasoning: REASONING,
     }).catch((error: unknown) => {
-      throw error instanceof OpenRouterEmptyCompletionError
+      throw error instanceof ModelEmptyCompletionError
         ? new GenerationError(error.message, error.usage, {
             truncated: error.truncated,
           })

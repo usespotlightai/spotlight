@@ -99,11 +99,14 @@ describe('chat marks, stored in the database (e2e)', () => {
   });
 
   it('keeps the chat a task was proposed in', async () => {
-    const chat = startedIn(Mark.of('slack.thread', `C1:${randomUUID()}`));
     const { owner, stationId, line } = await createTeam(
       database.db,
       tasks,
       `chat-marks-${randomUUID()}`,
+    );
+    const chat = startedIn(
+      Mark.of('slack.thread', `C1:${randomUUID()}`),
+      line.workspaceId,
     );
     const proposedIn = ProposalOrigin.of({
       chatId: chat.id,
@@ -120,6 +123,7 @@ describe('chat marks, stored in the database (e2e)', () => {
       newId: () => randomUUID(),
     });
 
+    await chats.add(chat);
     await tasks.add(task);
 
     expect((await tasks.find(task.id))?.proposedIn).toEqual(proposedIn);

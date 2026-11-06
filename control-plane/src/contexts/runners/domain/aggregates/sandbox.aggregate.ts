@@ -8,14 +8,14 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export type SandboxState = 'starting' | 'ready' | 'draining' | 'gone';
-
-export const SANDBOX_STATES: readonly SandboxState[] = [
+export const SANDBOX_STATES = [
   'starting',
   'ready',
   'draining',
   'gone',
-];
+] as const;
+
+export type SandboxState = (typeof SANDBOX_STATES)[number];
 
 export const OPEN_SANDBOX_STATES: readonly SandboxState[] = [
   'starting',

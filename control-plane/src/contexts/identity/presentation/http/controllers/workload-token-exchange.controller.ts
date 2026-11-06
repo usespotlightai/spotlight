@@ -19,6 +19,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { RateLimited } from '@platform/http/decorators/rate-limited.decorator';
 import { CLIENT_HEADER } from '@platform/http/resources/resource-headers';
 import { WORKSPACE_TOKEN_EXCHANGE } from '@platform/http/routes';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
@@ -33,6 +34,7 @@ export class WorkloadTokenExchangeController {
   constructor(private readonly commandBus: CommandBus) {}
 
   @Post('exchange')
+  @RateLimited({ name: 'workload-token-exchange', max: 300, windowSeconds: 60 })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'exchangeWorkloadToken',

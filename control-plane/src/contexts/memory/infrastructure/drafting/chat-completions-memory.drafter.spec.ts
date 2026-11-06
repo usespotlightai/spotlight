@@ -1,8 +1,15 @@
 import { MemoryDraftingError } from '@memory/application/errors/memory-drafting.error';
 import type { MemoryDraftRequest } from '@memory/application/ports/memory-drafter.port';
-import { OpenRouterMemoryDrafter } from '@memory/infrastructure/drafting/openrouter-memory.drafter';
+import { ChatCompletionsMemoryDrafter } from '@memory/infrastructure/drafting/chat-completions-memory.drafter';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { describe, expect, it } from 'vitest';
+
+const ENDPOINT = {
+  baseUrl: 'https://models.example.com/v1',
+  apiKey: 'test-key',
+  model: 'some/model',
+  supportsReasoningEffort: false,
+};
 
 const MEMORIES = [
   {
@@ -60,9 +67,9 @@ const completed = (content: string, finish = 'stop') =>
   );
 
 const drafting = (fetch: typeof globalThis.fetch) =>
-  new OpenRouterMemoryDrafter('key', 'some/model', fetch).draft(REQUEST);
+  new ChatCompletionsMemoryDrafter(ENDPOINT, fetch).draft(REQUEST);
 
-describe('drafting memories through OpenRouter', () => {
+describe('drafting memories through a chat completions endpoint', () => {
   it('requests with the numbered steps and notes, the changed files, and what the team has approved', async () => {
     const { requests, fetch } = answering(
       completed(JSON.stringify({ memories: MEMORIES })),
@@ -140,7 +147,7 @@ describe('drafting memories through OpenRouter', () => {
   });
 
   it('does not draft without a key', async () => {
-    const drafter = new OpenRouterMemoryDrafter(undefined, 'some/model');
+    const drafter = new ChatCompletionsMemoryDrafter(null);
 
     expect(drafter.available).toBe(false);
     await expect(drafter.draft(REQUEST)).rejects.toBeInstanceOf(

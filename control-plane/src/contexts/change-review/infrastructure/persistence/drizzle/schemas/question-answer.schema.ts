@@ -6,13 +6,14 @@ import {
   changeStack,
   type StoredModelUsage,
 } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
+import { timestamptz } from '@platform/persistence/drizzle/columns';
 import {
+  foreignKey,
   integer,
   jsonb,
   pgEnum,
   pgTable,
   text,
-  timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -23,9 +24,7 @@ export const questionAnswer = pgTable(
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
-    stackId: text('stack_id')
-      .notNull()
-      .references(() => changeStack.id, { onDelete: 'cascade' }),
+    stackId: text('stack_id').notNull(),
     questionId: text('question_id').notNull(),
     personId: text('person_id').notNull(),
     asked: text('asked').notNull(),
@@ -34,7 +33,7 @@ export const questionAnswer = pgTable(
     verdict: answerVerdict('verdict').$type<AnswerVerdict>().notNull(),
     feedback: text('feedback'),
     usage: jsonb('usage').$type<StoredModelUsage>().notNull(),
-    answeredAt: timestamp('answered_at').notNull(),
+    answeredAt: timestamptz('answered_at').notNull(),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -43,5 +42,10 @@ export const questionAnswer = pgTable(
       table.personId,
       table.questionId,
     ),
+    foreignKey({
+      name: 'question_answer_stack_fk',
+      columns: [table.workspaceId, table.stackId],
+      foreignColumns: [changeStack.workspaceId, changeStack.id],
+    }),
   ],
 );

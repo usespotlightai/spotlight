@@ -38,6 +38,7 @@ import {
 } from '@nestjs/swagger';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
+import { RateLimited } from '@platform/http/decorators/rate-limited.decorator';
 import {
   type AuthenticatedUser,
   type RequestHeaders,
@@ -118,6 +119,7 @@ export class OAuth2ConnectionController {
 
   @Get(OAUTH2_CALLBACK_ROUTE)
   @AllowAnonymous()
+  @RateLimited({ name: 'oauth2-callback', max: 30, windowSeconds: 60 })
   @ApiExcludeEndpoint()
   async callback(
     @Query('state') state: string | undefined,

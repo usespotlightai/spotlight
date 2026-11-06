@@ -155,6 +155,7 @@ const toLine = (
 const rowsOf = (line: Line) =>
   line.stations.map((each) => ({
     id: each.id.value,
+    workspaceId: line.workspaceId.value,
     lineId: line.id.value,
     ...stationColumnsOf(each),
   }));
@@ -275,6 +276,7 @@ export class DrizzleLineRepository implements LineRepository {
       await this.context.db.insert(station).values(
         added.map((each) => ({
           id: each.id.value,
+          workspaceId: saved.workspaceId.value,
           lineId: saved.id.value,
           ...stationColumnsOf(each),
         })),
@@ -314,7 +316,7 @@ export class DrizzleLineRepository implements LineRepository {
         throw new LineVersionConflictError(deleted.id.value);
       }
     } catch (error) {
-      if (violates(error, RESTRICT_VIOLATION, 'task_station_id')) {
+      if (violates(error, RESTRICT_VIOLATION, 'task_station_fk')) {
         throw new StationNotEmptyError(
           deleted.stations.map((each) => each.id.value),
         );
@@ -330,7 +332,7 @@ export class DrizzleLineRepository implements LineRepository {
         .delete(station)
         .where(inArray(station.id, [...stationIds]));
     } catch (error) {
-      if (violates(error, RESTRICT_VIOLATION, 'task_station_id')) {
+      if (violates(error, RESTRICT_VIOLATION, 'task_station_fk')) {
         throw new StationNotEmptyError(stationIds);
       }
 

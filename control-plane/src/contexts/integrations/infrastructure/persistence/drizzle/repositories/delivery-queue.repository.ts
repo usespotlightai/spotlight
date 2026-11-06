@@ -21,9 +21,9 @@ export class DrizzleDeliveryQueue implements DeliveryQueuePort {
       .insert(inboundDelivery)
       .values({
         integration: delivered.integration,
-        workspaceId: delivered.workspaceId,
-        teamId: delivered.teamId,
-        teamKey: delivered.teamKey,
+        workspaceId: delivered.to?.workspaceId ?? null,
+        teamId: delivered.to?.teamId ?? null,
+        teamKey: delivered.to?.teamKey ?? null,
         id: delivered.id,
         headers: delivered.headers,
         body: delivered.body ?? {},
@@ -60,7 +60,7 @@ export class DrizzleDeliveryQueue implements DeliveryQueuePort {
         await this.context.db
           .update(inboundDelivery)
           .set({ state: 'working', claimedAt: now })
-          .where(this.theOne(waiting));
+          .where(eq(inboundDelivery.seq, waiting.seq));
       }
 
       return waiting ?? null;
@@ -72,9 +72,16 @@ export class DrizzleDeliveryQueue implements DeliveryQueuePort {
 
     return {
       integration: found.integration,
-      workspaceId: found.workspaceId,
-      teamId: found.teamId,
-      teamKey: found.teamKey,
+      to:
+        found.workspaceId !== null &&
+        found.teamId !== null &&
+        found.teamKey !== null
+          ? {
+              workspaceId: found.workspaceId,
+              teamId: found.teamId,
+              teamKey: found.teamKey,
+            }
+          : null,
       id: found.id,
       headers: found.headers as WebhookHeaders,
       body: found.body,
@@ -126,14 +133,10 @@ export class DrizzleDeliveryQueue implements DeliveryQueuePort {
       .where(this.theOne(delivered));
   }
 
-  private theOne(delivered: {
-    readonly integration: string;
-    readonly teamId: string;
-    readonly id: string;
-  }) {
+  private theOne(delivered: StoredDelivery) {
     return and(
       eq(inboundDelivery.integration, delivered.integration),
-      eq(inboundDelivery.teamId, delivered.teamId),
+      sql`${inboundDelivery.teamId} is not distinct from ${delivered.to?.teamId ?? null}`,
       eq(inboundDelivery.id, delivered.id),
     );
   }

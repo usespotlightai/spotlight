@@ -6,6 +6,11 @@ export type SentRequest = {
 
 const SENT = 'sentRequest';
 
+const GATEWAY_STATUSES = new Set([502, 503, 504]);
+
+export const isGatewayStatus = (status: number): boolean =>
+  GATEWAY_STATUSES.has(status);
+
 const pathOf = (url: string): string => {
   try {
     const { pathname, search } = new URL(url, window.location.origin);

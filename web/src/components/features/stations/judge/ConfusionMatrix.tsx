@@ -1,140 +1,144 @@
-import { useId } from 'react';
-import { formatPercent, type RubricVersion } from '@/lib/judge';
+import { WithTooltip } from '@/components/shared/WithTooltip';
+import {
+  confusionCellNote,
+  formatAxisLabel,
+  type RubricVersion,
+  type ScoreKind,
+} from '@/lib/judge';
 import { cn } from '@/lib/utils';
 
-const AXIS = 'font-normal text-muted-foreground text-left';
-const CELL = 'size-11 rounded-sm text-center';
-const TOTAL_COLUMN = 'h-11 w-14 pl-3 text-center text-muted-foreground';
-const TOTAL_ROW = 'h-14 w-11 pt-3 text-center text-muted-foreground';
+const AXIS = 'font-normal text-muted-foreground text-xs';
+const CELL = 'size-12 p-0';
+const TOTAL = 'text-center text-muted-foreground text-xs';
 
-const inkOf = (agree: boolean, count: number, max: number): string => {
+const inkOf = (
+  agree: boolean,
+  count: number,
+  max: number,
+  measured: boolean,
+): string => {
   if (count === 0) {
     return 'transparent';
   }
-  if (agree) {
-    return 'color-mix(in oklab, var(--outcome-sent-back) 14%, transparent)';
+  if (!measured) {
+    return 'color-mix(in oklab, var(--muted-foreground) 14%, transparent)';
   }
+  const strength = Math.round((agree ? 8 : 12) + (count / max) * 30);
 
-  return `color-mix(in oklab, var(--chart-primary) ${Math.round(16 + (count / max) * 24)}%, transparent)`;
+  return `color-mix(in oklab, var(${agree ? '--muted-foreground' : '--outcome-failed'}) ${strength}%, transparent)`;
 };
 
 type ConfusionMatrixProps = {
+  kind: ScoreKind;
+  measured: boolean;
   confusion: RubricVersion['confusion'];
   distribution: RubricVersion['distribution'];
-  observed: number | null;
-  pairs: number;
 };
 
 export function ConfusionMatrix({
+  kind,
+  measured,
   confusion,
   distribution,
-  observed,
-  pairs,
 }: ConfusionMatrixProps) {
-  const captionId = useId();
-  const misses = confusion.cells.flatMap((row, at) =>
-    row.filter((_, column) => column !== at),
-  );
-  const max = Math.max(1, ...misses);
+  const max = Math.max(1, ...confusion.cells.flat());
   const totals = new Map(distribution.map((each) => [each.label, each]));
 
   return (
-    <figure className="flex flex-col gap-3 text-xs">
-      <table
-        data-slot="confusion-matrix"
-        aria-labelledby={captionId}
-        className="self-start border-separate border-spacing-0.5 tabular-nums"
-      >
-        <thead>
-          <tr>
-            <th scope="col" className={cn(AXIS, 'pr-4 pb-1 align-bottom')}>
-              Judge said
-            </th>
+    <table
+      data-slot="confusion-matrix"
+      aria-label="Judge scores against people’s scores"
+      className="self-start border-separate border-spacing-1 text-sm tabular-nums"
+    >
+      <thead>
+        <tr>
+          <td />
+          <th
+            scope="colgroup"
+            colSpan={confusion.labels.length}
+            className={cn(AXIS, 'pb-0.5 text-center')}
+          >
+            People
+          </th>
+          <td />
+        </tr>
+        <tr>
+          <th scope="col" className={cn(AXIS, 'pr-3 text-left')}>
+            Judge
+          </th>
+          {confusion.labels.map((label) => (
             <th
-              scope="colgroup"
-              colSpan={confusion.labels.length}
-              className={cn(AXIS, 'pb-1 pl-1')}
-            >
-              People said
-            </th>
-            <td />
-          </tr>
-          <tr>
-            <td />
-            {confusion.labels.map((label) => (
-              <th
-                key={label}
-                scope="col"
-                className="w-11 pb-1 text-center font-normal text-foreground"
-              >
-                {label}
-              </th>
-            ))}
-            <th
+              key={label}
               scope="col"
-              className="w-14 pb-1 pl-3 text-center font-normal text-muted-foreground"
+              className="whitespace-nowrap px-1 pb-0.5 text-center font-normal text-foreground"
             >
-              Total
+              {formatAxisLabel(label)}
             </th>
-          </tr>
-        </thead>
-        <tbody>
-          {confusion.cells.map((row, at) => {
-            const label = confusion.labels[at] ?? '';
+          ))}
+          <th scope="col" className={cn(TOTAL, 'pl-2 font-normal')}>
+            Total
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {confusion.cells.map((row, at) => {
+          const label = confusion.labels[at] ?? '';
 
-            return (
-              <tr key={label}>
-                <th
-                  scope="row"
-                  className="pr-4 text-left font-normal text-foreground"
-                >
-                  {label}
-                </th>
-                {row.map((count, column) => {
-                  const agree = column === at;
+          return (
+            <tr key={label}>
+              <th
+                scope="row"
+                className="whitespace-nowrap pr-3 text-left font-normal text-foreground"
+              >
+                {formatAxisLabel(label)}
+              </th>
+              {row.map((count, column) => {
+                const agree = column === at;
+                const people = confusion.labels[column] ?? '';
 
-                  return (
-                    <td
-                      key={confusion.labels[column]}
-                      data-agree={agree}
-                      style={{ background: inkOf(agree, count, max) }}
-                      className={cn(
-                        CELL,
-                        count === 0 && 'text-muted-foreground',
-                        count > 0 && 'text-foreground',
-                        count > 0 && !agree && 'font-medium',
-                      )}
+                return (
+                  <td
+                    key={people}
+                    data-agree={agree}
+                    style={{ background: inkOf(agree, count, max, measured) }}
+                    className={cn(CELL, 'rounded-md')}
+                  >
+                    <WithTooltip
+                      tooltip={confusionCellNote(kind, label, people, count)}
                     >
-                      {count}
-                    </td>
-                  );
-                })}
-                <td className={TOTAL_COLUMN}>
-                  {totals.get(label)?.judge ?? 0}
-                </td>
-              </tr>
-            );
-          })}
-          <tr>
-            <th
-              scope="row"
-              className="pt-3 pr-4 text-left font-normal text-muted-foreground"
-            >
-              Total
-            </th>
-            {confusion.labels.map((label) => (
-              <td key={label} className={TOTAL_ROW}>
-                {totals.get(label)?.people ?? 0}
+                      <span
+                        className={cn(
+                          'flex size-full cursor-default items-center justify-center',
+                          count === 0
+                            ? 'text-muted-foreground'
+                            : 'text-foreground',
+                          count > 0 && !agree && 'font-medium',
+                        )}
+                      >
+                        {count}
+                      </span>
+                    </WithTooltip>
+                  </td>
+                );
+              })}
+              <td className={cn(TOTAL, 'pl-2')}>
+                {totals.get(label)?.judge ?? 0}
               </td>
-            ))}
-            <td />
-          </tr>
-        </tbody>
-      </table>
-      <figcaption id={captionId} className="text-muted-foreground text-sm">
-        They give the same score on {formatPercent(observed)} of the {pairs}{' '}
-        runs both scored.
-      </figcaption>
-    </figure>
+            </tr>
+          );
+        })}
+        <tr>
+          <th scope="row" className={cn(TOTAL, 'pr-3 text-left font-normal')}>
+            Total
+          </th>
+          {confusion.labels.map((label) => (
+            <td key={label} className={cn(TOTAL, 'pt-0.5')}>
+              {totals.get(label)?.people ?? 0}
+            </td>
+          ))}
+          <td />
+        </tr>
+      </tbody>
+    </table>
   );
 }

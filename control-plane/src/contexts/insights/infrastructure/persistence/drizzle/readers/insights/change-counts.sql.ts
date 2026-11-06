@@ -58,8 +58,8 @@ const shownMarkers = (team: TeamInPeriod): SQL => {
     facts as (
       select ${runFact}.* from ${runFact}
       where ${onTeam(team)}
-        and ${runFact.beganAt} >= ${iso(lookback.from)}::timestamp
-        and ${runFact.beganAt} < ${iso(lookback.to)}::timestamp
+        and ${runFact.beganAt} >= ${iso(lookback.from)}::timestamptz
+        and ${runFact.beganAt} < ${iso(lookback.to)}::timestamptz
     ),
     markers as (${configMarkers(team, lookback)}),
     placed as (
@@ -77,8 +77,8 @@ const shownMarkers = (team: TeamInPeriod): SQL => {
     ),
     shown as (
       select * from placed
-      where placed.began_at >= ${iso(current.from)}::timestamp
-        and placed.began_at < ${iso(current.to)}::timestamp
+      where placed.began_at >= ${iso(current.from)}::timestamptz
+        and placed.began_at < ${iso(current.to)}::timestamptz
     )`;
 };
 

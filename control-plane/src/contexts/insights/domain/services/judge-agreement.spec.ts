@@ -111,7 +111,7 @@ describe('judge agreement', () => {
     expect(yesNo.f1).toBeCloseTo(40 / 55);
     expect(yesNo.observed).toBeCloseTo(0.7);
     expect(yesNo.readings).toEqual({
-      kappa: 'fair-to-slight',
+      kappa: 'fair',
       pearson: null,
       spearman: null,
     });
@@ -197,7 +197,7 @@ describe('claimsAgreementOf', () => {
         pairs: 4,
         observed: 0.5,
         kappa: 0,
-        reading: 'fair-to-slight',
+        reading: 'chance',
       },
     ]);
     expect(agreement.f1).toBeCloseTo(0.75);

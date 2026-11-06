@@ -1,9 +1,11 @@
 import { claimsAgreementOf } from '@insights/domain/services/judge-agreement';
 import {
   calibrationOf,
+  failingOf,
   type JudgeCalibration,
   showsJudgeOf,
-  trendShownOf,
+  TREND_MIN_PAIRS,
+  trendReadyOf,
 } from '@insights/domain/services/judge-calibration';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { describe, expect, it } from 'vitest';
@@ -40,15 +42,31 @@ describe('showsJudgeOf', () => {
   });
 });
 
-describe('trendShownOf', () => {
-  it('keeps the judge’s daily mean where the judge is shown', () => {
-    expect(trendShownOf(TREND, true)).toEqual(TREND);
+describe('failingOf', () => {
+  it('fails a judge hidden for any reason but too few runs', () => {
+    expect(failingOf(QUALIFIED)).toBe(false);
+    expect(
+      failingOf({
+        ...QUALIFIED,
+        qualified: false,
+        hiddenReason: 'too-few-pairs',
+      }),
+    ).toBe(false);
+    expect(
+      failingOf({
+        ...QUALIFIED,
+        qualified: false,
+        hiddenReason: 'below-min-agreement',
+      }),
+    ).toBe(true);
   });
+});
 
-  it('leaves out the judge’s daily mean, keeping people’s, where it is hidden', () => {
-    expect(trendShownOf(TREND, false)).toEqual([
-      { day: '2026-09-30', judged: 4, judge: null, labelled: 3, people: 0.67 },
-    ]);
+describe('trendReadyOf', () => {
+  it('readies the trend once enough runs have both scores over more than one day', () => {
+    expect(trendReadyOf(TREND_MIN_PAIRS, [...TREND, ...TREND])).toBe(true);
+    expect(trendReadyOf(TREND_MIN_PAIRS - 1, [...TREND, ...TREND])).toBe(false);
+    expect(trendReadyOf(TREND_MIN_PAIRS, TREND)).toBe(false);
   });
 });
 

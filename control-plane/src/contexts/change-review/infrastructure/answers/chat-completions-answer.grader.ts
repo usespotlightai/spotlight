@@ -11,10 +11,11 @@ import {
 import {
   type Fetch,
   JsonSchema,
-  OpenRouterEmptyCompletionError,
-  OpenRouterRequestError,
+  ModelEmptyCompletionError,
+  type ModelEndpoint,
+  ModelRequestError,
   requestJson,
-} from '@platform/openrouter/openrouter-json';
+} from '@platform/llm/chat-completions';
 import { z } from 'zod';
 
 const MAX_OUTPUT = 1_000;
@@ -71,33 +72,31 @@ const described = (request: GradingRequest): string =>
     `The reviewer's answer: ${request.reply}`,
   ].join('\n\n');
 
-export class OpenRouterAnswerGrader implements AnswerGraderPort {
+export class ChatCompletionsAnswerGrader implements AnswerGraderPort {
   constructor(
-    private readonly apiKey: string | undefined,
-    private readonly model: string,
+    private readonly endpoint: ModelEndpoint | null,
     private readonly fetch: Fetch = globalThis.fetch,
   ) {}
 
   get available(): boolean {
-    return Boolean(this.apiKey);
+    return this.endpoint !== null;
   }
 
   async grade(request: GradingRequest): Promise<GradedAnswer> {
-    if (!this.apiKey) {
-      throw new Error('No OpenRouter API key is set for grading answers');
+    if (!this.endpoint) {
+      throw new Error('No model endpoint is set for grading answers');
     }
 
     const { answer, usage } = await requestJson({
-      apiKey: this.apiKey,
-      model: this.model,
+      endpoint: this.endpoint,
       fetch: this.fetch,
       responseSchema: GRADE,
       system: SYSTEM,
       prompt: described(request),
       maxTokens: MAX_OUTPUT,
     }).catch((error: unknown) => {
-      throw error instanceof OpenRouterRequestError ||
-        error instanceof OpenRouterEmptyCompletionError
+      throw error instanceof ModelRequestError ||
+        error instanceof ModelEmptyCompletionError
         ? new AnswerGradingError()
         : error;
     });

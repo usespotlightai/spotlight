@@ -95,19 +95,26 @@ const TREND_CAPTIONS: Record<ScoreKind, string> = {
   claims: 'share of claims met, by day',
 };
 
+export const TREND_TITLE = 'Scores by day';
+
 export const formatTrendCaption = (kind: ScoreKind): string =>
   sentenceOf(TREND_CAPTIONS[kind]);
 
 const sentenceOf = (words: string): string =>
   `${words.charAt(0).toUpperCase()}${words.slice(1)}.`;
 
-export const TREND_MIN_PAIRS = 30;
-
-export const trendWaitNote = (pairs: number): string =>
-  `The trend shows once ${TREND_MIN_PAIRS} runs on this rubric have both scores. ${pairs} ${pairs === 1 ? 'has' : 'have'} so far.`;
+export const trendWaitNote = (version: RubricVersion): string =>
+  `No trend yet. It shows at ${version.trendMinPairs} runs with both scores, on more than one day.`;
 
 export const coverageTitle = (coverage: JudgeCoverage): string =>
-  `Who scored the last ${coverage.runs} runs`;
+  `Last ${coverage.runs} runs by scorer`;
+
+export const COVERAGE_SKELETON_TITLE = 'Last runs by scorer';
+
+export const COVERAGE_NOTE =
+  'Who scored each of the station’s last runs, on any rubric. Only runs with both scores count towards agreement.';
+
+export const CLAIMS_TITLE = 'Agreement by claim';
 
 export const formatClaim = (
   claims: readonly (string | null)[],
@@ -170,8 +177,9 @@ const READING_WORDS: Record<Reading, string> = {
   'almost-perfect': 'Almost perfect',
   substantial: 'Substantial',
   moderate: 'Moderate',
-  'fair-to-slight': 'Fair to slight',
-  poor: 'Less than chance',
+  fair: 'Fair',
+  slight: 'Slight',
+  chance: 'No better than chance',
   'very-strong': 'Very strong',
   strong: 'Strong',
   weak: 'Weak',
@@ -185,8 +193,9 @@ const KAPPA_ROWS: TooltipNote['rows'] = [
   ['0.81 – 1.00', 'Almost perfect'],
   ['0.61 – 0.80', 'Substantial'],
   ['0.41 – 0.60', 'Moderate'],
-  ['0 – 0.40', 'Fair to slight'],
-  ['Below 0', 'Less than chance'],
+  ['0.21 – 0.40', 'Fair'],
+  ['0.01 – 0.20', 'Slight'],
+  ['0 and below', 'No better than chance'],
 ];
 
 const CORRELATION_ROWS: TooltipNote['rows'] = [
@@ -250,15 +259,56 @@ export const formatCalibration = (calibration: JudgeCalibration): string => {
     case 'no-judge':
       return 'This station has no judge. There are no scores to trust.';
     case 'unreadable-rubric':
-      return 'Hidden. The rubric names a scale that cannot be read.';
+      return 'Judge scores are hidden. The rubric names a scale that cannot be read.';
     case 'too-few-pairs':
-      return `Hidden until more runs have scores from both the judge and people. Runs so far: ${calibration.pairs}`;
+      return `Judge scores are hidden until ${calibration.minPairs} runs have scores from both the judge and people. Runs so far: ${calibration.pairs}.`;
     case 'no-agreement':
-      return 'Hidden. Agreement can’t be measured while all scores are identical.';
+      return 'Judge scores are hidden. Agreement cannot be measured while all scores are the same.';
     case 'below-min-agreement':
-      return `Hidden. ${formatMeasure(calibration.measure)}: ${formatStat(calibration.agreement)}. Minimum required: ${formatStat(calibration.minAgreement)}`;
+      return `Judge scores are hidden. ${formatMeasure(calibration.measure)}: ${formatStat(calibration.agreement)}. Minimum required: ${formatStat(calibration.minAgreement)}.`;
   }
 };
+
+export type ScoreVisibility = {
+  readonly hidden: boolean;
+  readonly failing: boolean;
+  readonly text: string;
+  readonly reason: string | null;
+};
+
+const SHOWN_TEXT = 'Judge scores show on runs.';
+
+const HIDDEN_TEXT = 'Judge scores are hidden on runs.';
+
+const hiddenBecause = (calibration: JudgeCalibration): string => {
+  switch (calibration.hiddenReason) {
+    case 'too-few-pairs':
+      return `They show when ${calibration.minPairs} runs have scores from both the judge and people.`;
+    case 'below-min-agreement':
+      return `${formatMeasure(calibration.measure)} is below the minimum, ${formatStat(calibration.minAgreement)}.`;
+    case 'no-agreement':
+      return 'Agreement cannot be measured while all scores are the same.';
+    case 'unreadable-rubric':
+      return 'The rubric names a scale that cannot be read.';
+    default:
+      return 'This station has no judge.';
+  }
+};
+
+export const scoreVisibility = (
+  calibration: JudgeCalibration,
+): ScoreVisibility =>
+  calibration.hiddenReason === null
+    ? { hidden: false, failing: false, text: SHOWN_TEXT, reason: null }
+    : {
+        hidden: true,
+        failing: calibration.failing,
+        text: HIDDEN_TEXT,
+        reason: hiddenBecause(calibration),
+      };
+
+export const formatPairsProgress = (calibration: JudgeCalibration): string =>
+  `${calibration.pairs} of ${calibration.minPairs} runs`;
 
 export const formatDay = (day: string): string =>
   new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
@@ -285,48 +335,135 @@ export const COVERAGE_PARTS = [
 export type ComparisonStat = {
   readonly label: string;
   readonly value: string;
-  readonly reading: string | null;
+  readonly detail: string | null;
+  readonly gauge?: number | null;
+  readonly failing?: boolean;
   readonly note: TooltipNote;
 };
+
+export type PairsStat = {
+  readonly label: string;
+  readonly value: string;
+  readonly detail: string;
+  readonly progress: number | null;
+  readonly note: TooltipNote;
+};
+
+const PAIRS_LABEL = 'Runs both scored';
+
+const PENDING_FIGURES: Record<ScoreKind, string> = {
+  'yes-no': 'Kappa, same score and F1',
+  claims: 'Kappa, same score and F1',
+  number: 'Correlations and errors',
+};
+
+export const pairsStat = (
+  version: RubricVersion,
+  calibration: JudgeCalibration,
+): PairsStat => {
+  const { pairs, measured, pairsProgress } = version.agreement;
+  const { minPairs } = calibration;
+
+  return {
+    label: PAIRS_LABEL,
+    value: measured ? String(pairs) : `${pairs} of ${minPairs}`,
+    detail: measured
+      ? `Of ${version.judged} judged`
+      : `${PENDING_FIGURES[version.kind]} show at ${minPairs} runs.`,
+    progress: measured ? null : pairsProgress,
+    note: {
+      title: PAIRS_LABEL,
+      body: `Runs on this rubric that both the judge and people scored, out of the runs on this rubric that the judge scored. Agreement needs ${minPairs} runs. The trend needs ${version.trendMinPairs} runs.`,
+    },
+  };
+};
+
+const UNITS: Record<ScoreKind, readonly [one: string, many: string]> = {
+  'yes-no': ['run', 'runs'],
+  number: ['run', 'runs'],
+  claims: ['claim', 'claims'],
+};
+
+const unitOf = (kind: ScoreKind, count: number): string =>
+  UNITS[kind][count === 1 ? 0 : 1];
+
+const sameScoreDetail = (version: RubricVersion): string =>
+  `${version.agreement.agreed} of ${version.agreement.compared} ${unitOf(version.kind, version.agreement.compared)}`;
+
+const readingDetail = (
+  reading: string | null,
+  version: RubricVersion,
+  calibration: JudgeCalibration,
+): string | null =>
+  version.agreement.belowMinimum && reading
+    ? `${reading} · minimum ${formatStat(calibration.minAgreement)}`
+    : reading;
 
 const ERROR_NOTE = (title: string, body: string): TooltipNote => ({
   title,
   body: `${body} Lower is better.`,
 });
 
-export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
+export const comparisonStats = (
+  version: RubricVersion,
+  calibration: JudgeCalibration,
+): ComparisonStat[] =>
+  version.agreement.measured
+    ? measuredStats(version, calibration).map((stat) =>
+        stat.gauge === undefined || calibration.minAgreement === null
+          ? stat
+          : {
+              ...stat,
+              note: {
+                ...stat.note,
+                body: `${stat.note.body} The line on the bar is the minimum, ${formatStat(calibration.minAgreement)}. ${MINIMUM_NOTE}`,
+              },
+            },
+      )
+    : [];
+
+const measuredStats = (
+  version: RubricVersion,
+  calibration: JudgeCalibration,
+): ComparisonStat[] => {
   const { agreement } = version;
   const { readings } = agreement;
 
   if (version.kind === 'number') {
     return [
       {
-        label: 'Pearson correlation',
+        label: 'Pearson’s r',
         value: formatStat(agreement.pearson),
-        reading: readingWord(readings.pearson),
-        note: correlationNoteOf('Pearson correlation', false),
+        detail: readingWord(readings.pearson),
+        note: correlationNoteOf('Pearson’s r, the Pearson correlation', false),
       },
       {
-        label: 'Spearman correlation',
+        label: 'Spearman’s ρ',
         value: formatStat(agreement.spearman),
-        reading: readingWord(readings.spearman),
-        note: correlationNoteOf('Spearman correlation', true),
+        detail: readingDetail(
+          readingWord(readings.spearman),
+          version,
+          calibration,
+        ),
+        gauge: agreement.spearman,
+        failing: agreement.belowMinimum,
+        note: correlationNoteOf('Spearman’s ρ, the Spearman correlation', true),
       },
       {
-        label: 'Mean absolute error',
+        label: 'MAE',
         value: formatStat(agreement.mae),
-        reading: null,
+        detail: null,
         note: ERROR_NOTE(
-          'Mean absolute error',
+          'Mean absolute error (MAE)',
           'How far the judge’s score is from people’s on average, in points on the rubric’s scale.',
         ),
       },
       {
-        label: 'Root mean square error',
+        label: 'RMSE',
         value: formatStat(agreement.rmse),
-        reading: null,
+        detail: null,
         note: ERROR_NOTE(
-          'Root mean square error',
+          'Root mean square error (RMSE)',
           'Like mean absolute error, but large misses count for more.',
         ),
       },
@@ -337,27 +474,29 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
     {
       label: 'Cohen’s kappa',
       value: formatStat(agreement.kappa),
-      reading: readingWord(readings.kappa),
+      detail: readingDetail(readingWord(readings.kappa), version, calibration),
+      gauge: agreement.kappa,
+      failing: agreement.belowMinimum,
       note: kappaNoteOf(
         version.kind === 'claims' ? 'It covers every claim together.' : null,
       ),
     },
     {
-      label: 'F1 score',
-      value: formatStat(agreement.f1),
-      reading: null,
+      label: 'Same score',
+      value: formatPercent(agreement.observed),
+      detail: sameScoreDetail(version),
       note: {
-        title: 'F1 score',
-        body: 'How well the judge finds the runs people scored yes. 1 is a perfect match.',
+        title: 'Same score',
+        body: 'The share of runs where the judge and people gave the same score. It also counts scores that agree by chance. Read it together with kappa.',
       },
     },
     {
-      label: 'Overall agreement',
-      value: formatPercent(agreement.observed),
-      reading: null,
+      label: 'F1 score',
+      value: formatStat(agreement.f1),
+      detail: null,
       note: {
-        title: 'Overall agreement',
-        body: 'The share of runs where both gave the same score. It counts lucky guesses, so read it with kappa.',
+        title: 'F1 score',
+        body: 'How well the judge finds the runs people scored yes. 1 is a perfect match.',
       },
     },
   ];
@@ -365,8 +504,8 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
 
 export const formatRubric = (version: RubricVersion): string =>
   version.current
-    ? 'Current version'
-    : `Version until ${formatDay(version.lastAt.slice(0, 10))}`;
+    ? 'Current rubric'
+    : `Rubric until ${formatDay(version.lastAt.slice(0, 10))}`;
 
 export const CLAIM_HEADINGS: readonly NestedHeading[] = [
   { label: CLAIM_COLUMN, indent: 'edge', size: 'minmax(12rem,3fr)' },
@@ -376,3 +515,31 @@ export const CLAIM_HEADINGS: readonly NestedHeading[] = [
 ];
 
 export const kappaNote = (): TooltipNote => kappaNoteOf();
+
+export const formatAxisLabel = (label: string): string =>
+  `${label.charAt(0).toUpperCase()}${label.slice(1)}`;
+
+export const confusionCellNote = (
+  kind: ScoreKind,
+  judge: string,
+  people: string,
+  count: number,
+): TooltipNote => ({
+  title: judge === people ? 'They agree' : 'They disagree',
+  rows: [
+    ['Judge', formatAxisLabel(judge)],
+    ['People', formatAxisLabel(people)],
+    [formatAxisLabel(UNITS[kind][1]), `${count} ${unitOf(kind, count)}`],
+  ],
+});
+
+export const CONFUSION_TITLE = 'Judge against people';
+
+export const confusionNote = (kind: ScoreKind): TooltipNote => {
+  const units = UNITS[kind][1];
+
+  return {
+    title: CONFUSION_TITLE,
+    body: `Rows are the judge’s score. Columns are people’s score. Cells on the diagonal are ${units} where they agree, in grey. Cells off the diagonal are ${units} where they disagree, in red. A stronger colour means more ${units}.${kind === 'claims' ? ' Each run counts once per claim.' : ''}`,
+  };
+};

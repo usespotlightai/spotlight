@@ -25,7 +25,7 @@ interface PageRow extends Record<string, unknown> {
 }
 
 const openBefore = (window: Window): SQL =>
-  sql`state = 'open' and opened_at < ${iso(window.to)}::timestamp`;
+  sql`state = 'open' and opened_at < ${iso(window.to)}::timestamptz`;
 
 const inStateOf = (filter: PullRequestFilter, window: Window): SQL => {
   if (filter.state === null) {

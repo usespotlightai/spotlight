@@ -65,10 +65,10 @@ const working = async (
     },
     {
       available: true,
-      model: 'some/model',
       judge: async (request) => {
         requests.push(request);
         return {
+          model: 'some/model',
           verdict: await answer(request),
           guidance: null,
           usage: null,

@@ -161,7 +161,7 @@ export const failingIn = async (
       left join ${taskHumanAction} on ${taskHumanAction.taskId} = ${taskFailures.taskId}
       where ${taskFailures.workspaceId} = ${team.workspaceId.value}
         and ${taskFailures.teamId} = ${team.teamId.value}
-        and ${taskFailures.lastAt} >= ${iso(window.from)}::timestamp
+        and ${taskFailures.lastAt} >= ${iso(window.from)}::timestamptz
         and ${at} >= ${asUtc(window.from)}
         and ${at} < ${asUtc(window.to)}
       order by ${taskFailures.lastAt} desc, ${taskFailures.taskId} desc, occurrence.position

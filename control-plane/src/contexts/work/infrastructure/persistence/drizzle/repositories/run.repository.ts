@@ -200,17 +200,17 @@ export class DrizzleRunRepository implements RunRepository {
         waited: string | number | null;
       }>(sql`
         SELECT id, traceparent,
-          extract(epoch from (${now.toISOString()}::timestamp - queued_at)) AS waited
+          extract(epoch from (${now.toISOString()}::timestamptz - queued_at)) AS waited
         FROM ${run}
         WHERE ${inArray(run.harness, named)}
           AND state = 'queued'
           AND workspace_id = ${by.workspaceId.value}
           AND ${
             by.claims === 'reserved'
-              ? sql`reserved_for = ${by.runner.value} AND reserved_until > ${now.toISOString()}::timestamp`
-              : sql`(reserved_for IS NULL OR reserved_for = ${by.runner.value} OR reserved_until <= ${now.toISOString()}::timestamp)`
+              ? sql`reserved_for = ${by.runner.value} AND reserved_until > ${now.toISOString()}::timestamptz`
+              : sql`(reserved_for IS NULL OR reserved_for = ${by.runner.value} OR reserved_until <= ${now.toISOString()}::timestamptz)`
           }
-          AND (claimable_from IS NULL OR claimable_from <= ${now.toISOString()}::timestamp)
+          AND (claimable_from IS NULL OR claimable_from <= ${now.toISOString()}::timestamptz)
           AND ${placementMatches(run.placement, run.placementImage, by.offer)}
           AND ${noEarlierRunStillLeased}
           AND ${routedBy(by.sandbox)}

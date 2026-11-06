@@ -1,12 +1,19 @@
+import { timestamptz } from '@platform/persistence/drizzle/columns';
+import { NETWORK_CALL_STATES } from '@work/domain/aggregates/network-call.aggregate';
 import { sql } from 'drizzle-orm';
 import {
   index,
   integer,
   jsonb,
+  pgEnum,
   pgTable,
   text,
-  timestamp,
 } from 'drizzle-orm/pg-core';
+
+export const networkCallState = pgEnum(
+  'network_call_state',
+  NETWORK_CALL_STATES,
+);
 
 export const networkCall = pgTable(
   'network_call',
@@ -20,19 +27,19 @@ export const networkCall = pgTable(
     timeoutMs: integer('timeout_ms').notNull(),
     secrets: text('secrets').array().notNull().default(sql`'{}'::text[]`),
     secretsTokenHash: text('secrets_token_hash'),
-    secretsRedeemedAt: timestamp('secrets_redeemed_at'),
-    queuedAt: timestamp('queued_at').notNull(),
-    expiresAt: timestamp('expires_at').notNull(),
-    state: text('state').notNull(),
+    secretsRedeemedAt: timestamptz('secrets_redeemed_at'),
+    queuedAt: timestamptz('queued_at').notNull(),
+    expiresAt: timestamptz('expires_at').notNull(),
+    state: networkCallState('state').notNull(),
     claimedBy: text('claimed_by'),
-    claimedAt: timestamp('claimed_at'),
-    respondedAt: timestamp('responded_at'),
+    claimedAt: timestamptz('claimed_at'),
+    respondedAt: timestamptz('responded_at'),
     responseStatus: integer('response_status'),
     responseHeaders: jsonb('response_headers').$type<Record<string, string>>(),
     responseBody: text('response_body'),
     responseMs: integer('response_ms'),
     responseError: text('response_error'),
-    expiredAt: timestamp('expired_at'),
+    expiredAt: timestamptz('expired_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [

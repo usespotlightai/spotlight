@@ -53,7 +53,7 @@ const ranIn = (team: TeamInPeriod): SQL => {
   return sql`
     select
       ${runFact}.*,
-      to_char(date_trunc('week', ${runFact.endedAt}), 'YYYY-MM-DD') as week
+      to_char(date_trunc('week', ${runFact.endedAt} at time zone 'UTC'), 'YYYY-MM-DD') as week
     from ${runFact}
     where ${onTeam(team)} and ${endedIn(current.from, current.to)} and ${ran}`;
 };

@@ -324,6 +324,23 @@ describe('JournalBuilder', () => {
     expect(builder.steps()).toEqual([]);
   });
 
+  it('keeps a cost it cannot read as unpriced', () => {
+    const builder = read(
+      sent({
+        sessionUpdate: 'usage_update',
+        used: 12_173,
+        size: 200_000,
+        cost: { amount: 3, currency: 'credits' },
+      }),
+    );
+
+    expect(builder.spent()).toEqual({
+      used: 12_173,
+      size: 200_000,
+      cost: null,
+    });
+  });
+
   it('adds up the tokens each turn reported, count by count', () => {
     const builder = new JournalBuilder();
     const turn = (usage: Record<string, unknown>, at: number) =>

@@ -41,6 +41,7 @@ export const listSetUp = async (
   await db.insert(schema.station).values([
     {
       id: stationId,
+      workspaceId: workspaceId,
       lineId: lineId,
       key: 'backlog',
       name: 'Backlog',
@@ -49,6 +50,7 @@ export const listSetUp = async (
     },
     {
       id: completedId,
+      workspaceId: workspaceId,
       lineId: lineId,
       key: 'completed',
       name: 'Completed',
@@ -126,7 +128,9 @@ export const createTeam = async (
     .insert(schema.team)
     .values({ id: teamId, workspaceId, key: slug, name: slug });
 
-  await db.insert(schema.teamMember).values({ teamId, userId: owner });
+  await db
+    .insert(schema.teamMember)
+    .values({ workspaceId, teamId, userId: owner });
 
   const { stationId, line, list } = await listSetUp(db, tasks, {
     workspaceId,
@@ -162,8 +166,8 @@ export const seatTeam = async (db: DrizzleDatabase, id: string) => {
     .insert(schema.team)
     .values({ id, workspaceId: id, key: 'team', name: id });
   await db.insert(schema.teamMember).values([
-    { teamId: id, userId: owner },
-    { teamId: id, userId: member },
+    { workspaceId: id, teamId: id, userId: owner },
+    { workspaceId: id, teamId: id, userId: member },
   ]);
 
   return {
