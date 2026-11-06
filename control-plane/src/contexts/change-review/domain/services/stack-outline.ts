@@ -8,6 +8,7 @@ import {
   placedHunks,
 } from '@change-review/domain/services/diff-facts';
 import { factProblems } from '@change-review/domain/services/fact-rules';
+import { withMovedCodeTogether } from '@change-review/domain/services/moved-code';
 import {
   cohortHeaderProblems,
   StackProposal,
@@ -190,7 +191,11 @@ export const StackOutline = {
     layers: readonly ProposedLayer[],
   ): ProposedCohort {
     const { hunks: _, ...outlined } = cohort;
-    const layered = { ...outlined, layers };
+    const [layered = { ...outlined, layers }] = withMovedCodeTogether(
+      part.diff,
+      part.facts,
+      [{ ...outlined, layers }],
+    );
 
     StackProposal.validate({
       diff: part.diff,

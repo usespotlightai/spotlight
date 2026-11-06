@@ -17,11 +17,15 @@ interface SymbolLink {
   readonly because: string;
 }
 
+interface UsageLink extends SymbolLink {
+  readonly kind: 'uses' | 'removes';
+}
+
 export interface IndexedFacts {
   readonly covered: ReadonlySet<HunkId>;
   readonly defines: ReadonlyMap<HunkId, readonly string[]>;
   readonly outside: ReadonlyMap<HunkId, readonly string[]>;
-  readonly links: readonly SymbolLink[];
+  readonly links: readonly UsageLink[];
   readonly tests: readonly SymbolLink[];
 }
 
@@ -116,7 +120,7 @@ export const indexedFacts = (
 
   const defines = new Map<HunkId, Set<string>>();
   const outside = new Map<HunkId, Set<string>>();
-  const links = new Map<string, SymbolLink>();
+  const links = new Map<string, UsageLink>();
   const tests = new Map<string, SymbolLink>();
   const methods = new Map<
     string,
@@ -152,12 +156,18 @@ export const indexedFacts = (
       return;
     }
 
-    const [from, to, because] =
+    const [kind, from, to] =
       file.side === 'after'
-        ? [user, definer, symbol.name]
-        : [definer, user, `${symbol.name} (removed)`];
+        ? (['uses', user, definer] as const)
+        : (['removes', definer, user] as const);
+    const because = symbol.name;
 
-    links.set(`${from}>${to}:${because}`, { from, to, because });
+    links.set(`${kind}:${from}>${to}:${because}`, {
+      kind,
+      from,
+      to,
+      because,
+    });
   };
 
   const cover = (

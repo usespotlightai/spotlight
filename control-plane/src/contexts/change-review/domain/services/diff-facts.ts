@@ -23,7 +23,7 @@ const FILE_CLASSES = [
 
 export type FileClass = (typeof FILE_CLASSES)[number];
 
-const LINK_KINDS = ['uses', 'tests', 'moves'] as const;
+const LINK_KINDS = ['uses', 'removes', 'tests', 'moves'] as const;
 
 export type LinkKind = (typeof LINK_KINDS)[number];
 
@@ -277,9 +277,9 @@ export const factsOf = (
     }
   }
 
-  for (const { from, to, because } of indexed.links) {
+  for (const { kind, from, to, because } of indexed.links) {
     if (!known.get(from)?.incidental && !known.get(to)?.incidental) {
-      link('uses', from, to, because);
+      link(kind, from, to, because);
     }
   }
 

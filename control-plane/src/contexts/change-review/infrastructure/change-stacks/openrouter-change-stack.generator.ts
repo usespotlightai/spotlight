@@ -94,6 +94,7 @@ const SET_ASIDE = `Lockfiles, generated files, snapshots, whole-file renames and
 const FACTS = `Spotlight has read the code and adds facts to each file and hunk. Treat them as fixed:`;
 
 const COHORT_FACTS = `- "uses": the hunk uses something another hunk defines, so it belongs in the same cohort, in the same layer or a later one.
+- "removes": the hunk removes something that another hunk stops using, so it belongs in the same cohort, in the same layer or a later one.
 - "tests": the hunk tests the code in another hunk, so it belongs in the same cohort and the same layer as that code, in the latest layer where it tests several.
 - "moves code from": the hunk is code moved from another hunk, so the two belong in the same layer. Say in the layer's summary that it moves code.
 - A file marked "migration" belongs in layer 1 of its cohort.
@@ -150,7 +151,7 @@ ${SET_ASIDE}
 
 ${FACTS}
 
-- "uses", "tests" and "moves code from": the hunk depends on another hunk, so the two belong in the same cohort.
+- "uses", "removes", "tests" and "moves code from": the hunk depends on another hunk, so the two belong in the same cohort.
 - "uses, unchanged": code the hunk uses that this diff leaves as it was. It links the hunk to nothing, but says which part of the codebase the hunk works with.
 ${JOINED}
 
@@ -204,7 +205,9 @@ const described = (diff: Diff, facts: DiffFacts): string => {
       .map((link) =>
         link.kind === 'moves'
           ? `moves code from ${link.to}`
-          : `${link.kind} ${link.because.join(', ')} (in ${link.to})`,
+          : link.kind === 'removes'
+            ? `removes ${link.because.join(', ')}, which ${link.to} stops using`
+            : `${link.kind} ${link.because.join(', ')} (in ${link.to})`,
       );
 
   return diff.files

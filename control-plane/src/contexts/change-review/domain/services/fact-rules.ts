@@ -30,28 +30,34 @@ const assignmentsOf = (
 const layerName = (assignment: Assignment): string =>
   `layer ${assignment.layer + 1}`;
 
-const usesProblems = (
+const ORDERED = {
+  uses: ({ from, to, because }: HunkLink) =>
+    `${from} uses ${because.join(', ')} from ${to}`,
+  removes: ({ from, to, because }: HunkLink) =>
+    `${from} removes ${because.join(', ')}, which ${to} stops using`,
+} as const;
+
+const orderProblems = (
+  code: keyof typeof ORDERED,
   links: readonly HunkLink[],
   assignments: ReadonlyMap<string, Assignment>,
 ): StackProblem[] =>
-  links.flatMap(({ from, to, because }): StackProblem[] => {
-    const user = assignments.get(from);
-    const definer = assignments.get(to);
-    const uses = `${from} uses ${because.join(', ')} from ${to}`;
+  links.flatMap((link): StackProblem[] => {
+    const later = assignments.get(link.from);
+    const earlier = assignments.get(link.to);
+    const fact = ORDERED[code](link);
 
-    if (!user || !definer) {
+    if (!later || !earlier) {
       return [];
     }
-    if (user.cohort !== definer.cohort) {
-      return [
-        { code: 'uses', message: `${uses}, so they belong in the same cohort` },
-      ];
+    if (later.cohort !== earlier.cohort) {
+      return [{ code, message: `${fact}, so they belong in the same cohort` }];
     }
-    if (user.layer < definer.layer) {
+    if (later.layer < earlier.layer) {
       return [
         {
-          code: 'uses',
-          message: `${uses}, so it cannot come in an earlier layer than ${to}`,
+          code,
+          message: `${fact}, so it cannot come in an earlier layer than ${link.to}`,
         },
       ];
     }
@@ -205,7 +211,8 @@ export const factProblems = (
     facts.links.filter((link) => link.kind === kind);
 
   return [
-    ...usesProblems(of('uses'), assignments),
+    ...orderProblems('uses', of('uses'), assignments),
+    ...orderProblems('removes', of('removes'), assignments),
     ...testsProblems(of('tests'), assignments),
     ...movesProblems(of('moves'), assignments),
     ...migrationProblems(cohorts, facts, assignments),

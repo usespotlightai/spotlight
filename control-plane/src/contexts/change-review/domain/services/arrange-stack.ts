@@ -2,6 +2,7 @@ import type {
   DiffFacts,
   FileClass,
 } from '@change-review/domain/services/diff-facts';
+import { withMovedCodeTogether } from '@change-review/domain/services/moved-code';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import type {
   ProposedCohort,
@@ -79,14 +80,18 @@ export const arranged = (
   const incidental = facts.hunks.filter((each) => each.incidental);
   const leaving = new Set(incidental.map((each) => each.hunk));
 
-  const cohorts = proposed.flatMap((cohort) => {
-    if (cohort.layers.length === 0) {
-      return [cohort];
-    }
+  const cohorts = withMovedCodeTogether(
+    diff,
+    facts,
+    proposed.flatMap((cohort) => {
+      if (cohort.layers.length === 0) {
+        return [cohort];
+      }
 
-    const remaining = withoutHunks(diff, cohort, leaving);
-    return remaining ? [remaining] : [];
-  });
+      const remaining = withoutHunks(diff, cohort, leaving);
+      return remaining ? [remaining] : [];
+    }),
+  );
 
   if (incidental.length === 0) {
     return cohorts;

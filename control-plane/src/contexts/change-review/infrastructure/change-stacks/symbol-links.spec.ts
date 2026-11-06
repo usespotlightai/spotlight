@@ -203,7 +203,7 @@ describe('factsOf with a symbol index', () => {
     );
 
     expect(facts.links).toEqual([
-      { kind: 'uses', from: 'h1', to: 'h2', because: ['legacy (removed)'] },
+      { kind: 'removes', from: 'h1', to: 'h2', because: ['legacy'] },
     ]);
   });
 });

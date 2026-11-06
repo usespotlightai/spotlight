@@ -186,6 +186,40 @@ describe('StackOutline', () => {
     ).toThrow('h2, which is not in the diff');
   });
 
+  it('layers moved code together before it checks the layers', () => {
+    const moving: DiffFacts = {
+      ...FACTS,
+      links: [
+        ...FACTS.links,
+        {
+          kind: 'moves',
+          from: HunkId.of('h3'),
+          to: HunkId.of('h1'),
+          because: ['src/invite.ts → src/routes.ts'],
+        },
+      ],
+    };
+    const outlined = cohort(['h1', 'h3']);
+    const part = StackOutline.partOf(DIFF, moving, outlined.hunks);
+    const layerOf = (id: string, path: string) => ({
+      title: `Change ${path}`,
+      summary: 'One step',
+      dependsOn: [],
+      hunks: [{ hunk: HunkId.of(id) }],
+      notes: [{ path, note: 'Moves the function.' }],
+      questions: [],
+    });
+
+    const layered = StackOutline.layered(part, outlined, [
+      layerOf('h1', 'src/invite.ts'),
+      layerOf('h3', 'src/routes.ts'),
+    ]);
+
+    expect(
+      layered.layers.map((each) => each.hunks.map((entry) => entry.hunk)),
+    ).toEqual([['h3', 'h1']]);
+  });
+
   it('keeps a stored cohort as the proposal it came from', () => {
     const c1 = CohortId.at(1);
     const stored: StackCohort = {

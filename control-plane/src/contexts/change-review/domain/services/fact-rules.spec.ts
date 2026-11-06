@@ -94,6 +94,28 @@ describe('factProblems', () => {
     ]);
   });
 
+  it('keeps a removed definition no earlier than the removal of its last use', () => {
+    const removing = facts(
+      [hunk('h1'), hunk('h2')],
+      [
+        {
+          kind: 'removes',
+          from: HunkId.of('h1'),
+          to: HunkId.of('h2'),
+          because: ['legacy'],
+        },
+      ],
+    );
+
+    expect(messagesOf([cohort([['h2'], ['h1']])], removing)).toEqual([]);
+    expect(messagesOf([cohort([['h1'], ['h2']])], removing)).toEqual([
+      'h1 removes legacy, which h2 stops using, so it cannot come in an earlier layer than h2',
+    ]);
+    expect(messagesOf([cohort([['h1']]), cohort([['h2']])], removing)).toEqual([
+      'h1 removes legacy, which h2 stops using, so they belong in the same cohort',
+    ]);
+  });
+
   it('puts a migration in the first layer of its cohort', () => {
     const migrating = facts(
       [hunk('h1'), hunk('h2', { fileClass: 'migration', linkable: false })],
