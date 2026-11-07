@@ -97,7 +97,7 @@ export interface CheckedStepDto {
   readonly durationMs: number;
 }
 
-export interface StackSkipDto {
+interface StackSkipDto {
   readonly code: SkipCode;
   readonly detail: string | null;
   readonly attempts: number | null;

@@ -29,8 +29,13 @@ import {
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { ChannelNoticeDto } from '@work/application/ports/channel-notices.port';
-import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
+import type { TaskLinksPort } from '@work/application/ports/task-links.port';
 import { describe, expect, it, vi } from 'vitest';
+
+const taskLinks: TaskLinksPort = {
+  taskPage: (slug, teamId, taskId) =>
+    `https://app.example/w/${slug}/team/${teamId}/tasks/${taskId}`,
+};
 
 const channelNotices = (...args: ConstructorParameters<typeof NotifyChannel>) =>
   new ChannelNotices(new NotifyChannel(...args));
@@ -111,7 +116,7 @@ const notifying = (definition = SLACK) => {
     callAuthFor(injecting().injection),
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
-      new WebTaskLinks('https://app.example'),
+      taskLinks,
       'https://app.example',
     ),
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },

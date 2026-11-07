@@ -1,6 +1,6 @@
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
 
-export const MEMORY_VIAS = ['briefed', 'recalled'] as const;
+const MEMORY_VIAS = ['briefed', 'recalled'] as const;
 
 export type MemoryVia = (typeof MEMORY_VIAS)[number];
 

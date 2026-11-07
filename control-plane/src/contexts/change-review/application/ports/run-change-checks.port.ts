@@ -1,7 +1,7 @@
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 export const RUN_CHANGE_CHECKS = Symbol('RUN_CHANGE_CHECKS');
 
-export type CheckedChangeStatus =
+type CheckedChangeStatus =
   | 'generating'
   | 'not-generated'
   | 'unchecked'

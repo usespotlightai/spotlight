@@ -41,7 +41,7 @@ export class SpotlightCredentials implements Credentials {
   }
 }
 
-export class RunCredentials implements Credentials {
+class RunCredentials implements Credentials {
   constructor(
     private readonly injection: SecretInjectionPort,
     private readonly run: RunOfCall,

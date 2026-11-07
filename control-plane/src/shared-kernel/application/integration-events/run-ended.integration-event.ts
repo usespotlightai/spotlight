@@ -16,7 +16,7 @@ export type RunRequesterPublished = {
   readonly team: string | null;
 };
 
-export type HandedOverFilePublished = {
+type HandedOverFilePublished = {
   readonly id: string;
   readonly name: string;
   readonly contentType: string;

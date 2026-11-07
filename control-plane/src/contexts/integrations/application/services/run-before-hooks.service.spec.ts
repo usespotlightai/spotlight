@@ -21,7 +21,6 @@ import { HookDecision } from '@integrations/domain/value-objects/hook-decision.v
 import { runStarting } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
 import { HookRunAttempt } from '@integrations/domain/value-objects/hook-run-attempt.vo';
-import { HookStepName } from '@integrations/domain/value-objects/hook-step-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 

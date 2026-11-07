@@ -4,7 +4,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const NOTICES = Symbol('NOTICES');
 
-export const NOTICE_FORMS = ['ended', 'advice'] as const;
+const NOTICE_FORMS = ['ended', 'advice'] as const;
 
 export type NoticeFormName = (typeof NOTICE_FORMS)[number];
 

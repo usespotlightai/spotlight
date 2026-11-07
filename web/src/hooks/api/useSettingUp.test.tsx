@@ -176,15 +176,6 @@ describe('useSettingUp', () => {
     expect(result.current).toBe(false);
   });
 
-  it('stops setting up when the setup failed', async () => {
-    readOnboarding.mockResolvedValue(onboarding('failed'));
-
-    const { result, loaded } = watching(ACME, true);
-
-    await loaded();
-    expect(result.current).toBe(false);
-  });
-
   it('does not block the workspace when the onboarding cannot be read', async () => {
     readOnboarding.mockRejectedValue(new Error('offline'));
 

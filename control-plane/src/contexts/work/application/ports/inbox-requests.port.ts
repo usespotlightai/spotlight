@@ -2,7 +2,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export const INBOX_REQUESTS = Symbol('INBOX_REQUESTS');
 
-export const INBOX_REQUEST_FORMS = ['memories', 'grade', 'alert'] as const;
+const INBOX_REQUEST_FORMS = ['memories', 'grade', 'alert'] as const;
 
 export type InboxRequestFormName = (typeof INBOX_REQUEST_FORMS)[number];
 

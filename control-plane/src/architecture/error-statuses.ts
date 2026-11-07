@@ -57,7 +57,7 @@ const exportedClassesByFile = (): ReadonlyMap<string, readonly string[]> =>
       .filter(([, classes]) => classes.length > 0),
   );
 
-export const statusOf = (error: Error): number => {
+const statusOf = (error: Error): number => {
   try {
     rethrowAsApplicationError(error);
   } catch (thrown) {

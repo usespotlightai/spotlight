@@ -26,11 +26,6 @@ export const runStarting = (): HookEventFacts =>
 export const runEnded = (outcome = 'completed'): HookEventFacts =>
   HookEventFacts.of({ on: 'run.ended', outcome });
 
-export const handoverSubmitting = (
-  note = 'done',
-  to: string | null = null,
-): HookEventFacts => HookEventFacts.of({ on: 'handover.submitting', to, note });
-
 export const pullRequestOpening = (
   changed: readonly string[],
   repository = 'acme/web',
@@ -55,9 +50,6 @@ export const pullRequestMerged = (
     mergeCommit: 'abc123',
     changed,
   });
-
-export const taskOpened = (): HookEventFacts =>
-  HookEventFacts.of({ on: 'task.opened' });
 
 export const taskMoved = (from = 'triage', to = 'build'): HookEventFacts =>
   HookEventFacts.of({ on: 'task.moved', from, to });

@@ -3,9 +3,7 @@ import type { JudgeCalibration } from '@insights/domain/services/judge-calibrati
 import type { StationLocation } from '@insights/domain/services/station-ranking';
 import type { ViewedTeam } from '@insights/domain/value-objects/viewed-team.vo';
 
-export interface StationJudgeCalibration
-  extends StationLocation,
-    JudgeCalibration {
+interface StationJudgeCalibration extends StationLocation, JudgeCalibration {
   readonly rubricVersion: string | null;
 }
 

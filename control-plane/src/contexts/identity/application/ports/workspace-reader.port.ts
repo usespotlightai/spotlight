@@ -3,9 +3,9 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export type WorkspaceRoleName = 'owner' | 'admin' | 'member';
+type WorkspaceRoleName = 'owner' | 'admin' | 'member';
 
-export type WorkspaceSetupStatus = 'pending' | 'done';
+type WorkspaceSetupStatus = 'pending' | 'done';
 
 export type TeamOriginName = 'sign-up' | 'configuration';
 

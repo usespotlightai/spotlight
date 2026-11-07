@@ -74,7 +74,7 @@ const verdictOn = (
   return after > before === HIGHER_IS_BETTER.has(measure) ? 'better' : 'worse';
 };
 
-export const verdictFrom = (
+const verdictFrom = (
   measure: AlertMeasure,
   was: MeasureReading,
   now: MeasureReading,

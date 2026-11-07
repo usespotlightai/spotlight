@@ -25,7 +25,7 @@ const STOPPED_OUTCOMES = ['blocked', 'failed'] as const;
 
 const AUTH_FAILED_STATUSES = [401, 403] as const;
 
-export const SERVER_ERROR = 500;
+const SERVER_ERROR = 500;
 
 export const CONNECTION_ERRORS = [
   ...STOPPED_OUTCOMES,

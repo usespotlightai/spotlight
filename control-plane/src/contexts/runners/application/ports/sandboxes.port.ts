@@ -18,7 +18,7 @@ export interface SandboxTakingRuns {
   readonly key: string;
 }
 
-export type SandboxStatus = 'starting' | 'ready' | 'draining' | 'gone';
+type SandboxStatus = 'starting' | 'ready' | 'draining' | 'gone';
 
 export interface OpenedSandbox {
   readonly id: string;

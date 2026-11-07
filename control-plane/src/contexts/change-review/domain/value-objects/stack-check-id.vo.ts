@@ -1,6 +1,6 @@
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 
-export const CHECK_ROUNDS = ['first', 'recheck'] as const;
+const CHECK_ROUNDS = ['first', 'recheck'] as const;
 
 export type CheckRound = (typeof CHECK_ROUNDS)[number];
 

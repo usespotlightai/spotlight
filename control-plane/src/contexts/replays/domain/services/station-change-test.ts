@@ -1,4 +1,4 @@
-export const STATION_CHANGE_TEST_MODES = ['test', 'search'] as const;
+const STATION_CHANGE_TEST_MODES = ['test', 'search'] as const;
 
 export type StationChangeTestMode = (typeof STATION_CHANGE_TEST_MODES)[number];
 

@@ -21,11 +21,7 @@ export type RunStateFact =
 
 export type RunTurnFact = 'pending' | 'kept';
 
-export const RUN_PROGRESS_FACTS = [
-  'queued',
-  'in-progress',
-  'stopping',
-] as const;
+const RUN_PROGRESS_FACTS = ['queued', 'in-progress', 'stopping'] as const;
 
 export type RunProgressFact = (typeof RUN_PROGRESS_FACTS)[number];
 
@@ -60,7 +56,7 @@ export interface RunFacts {
   readonly startedFrom: RunStartedFromFact | null;
 }
 
-export interface RunStartedFromFact {
+interface RunStartedFromFact {
   readonly archiveId: string | null;
   readonly archiveStored: boolean;
   readonly at: Date;

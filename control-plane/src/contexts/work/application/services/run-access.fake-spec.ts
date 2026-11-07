@@ -1,7 +1,7 @@
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunAccess } from '@work/application/services/run-access.service';
 
-export const WORKSPACE = WorkspaceId.of('ws_1');
+const WORKSPACE = WorkspaceId.of('ws_1');
 
 export const runAccessWhere = (sees: boolean): RunAccess =>
   new RunAccess(

@@ -7,11 +7,6 @@ export const TRACE_PARENT_VAR = 'TRACEPARENT';
 
 export const SKILL_FILE = 'SKILL.md';
 
-export const SKILL_FOLDER_LIMITS = {
-  files: 50,
-  characters: 512 * 1024,
-} as const;
-
 export interface RunCheckoutShape {
   readonly remote: string;
   readonly path?: string;
@@ -21,7 +16,7 @@ export interface RunCheckoutShape {
   readonly setup?: string;
 }
 
-export interface SessionOptionShape {
+interface SessionOptionShape {
   readonly id: string;
   readonly value: string;
   readonly optional?: boolean;
@@ -34,7 +29,7 @@ export interface RunCommandShape {
   readonly sessionOptions?: readonly SessionOptionShape[];
 }
 
-export interface RunHandoverShape {
+interface RunHandoverShape {
   readonly options: readonly string[];
   readonly noteLimit: number;
 }
@@ -44,7 +39,7 @@ export interface RunResumeShape {
   readonly resumeSession?: boolean;
 }
 
-export interface ToolInputShape {
+interface ToolInputShape {
   readonly name: string;
   readonly schema: JsonObject;
   readonly description?: string;
@@ -67,7 +62,7 @@ export interface SkillFileShape {
   readonly text: string;
 }
 
-export interface McpServerSetupShape {
+interface McpServerSetupShape {
   readonly name: string;
   readonly command: string;
   readonly args: readonly string[];

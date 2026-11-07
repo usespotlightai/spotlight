@@ -1,7 +1,7 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-export const LEASE_HOLDER_KINDS = ['run', 'editor'] as const;
+const LEASE_HOLDER_KINDS = ['run', 'editor'] as const;
 
 export type LeaseHolderKind = (typeof LEASE_HOLDER_KINDS)[number];
 

@@ -26,7 +26,7 @@ export interface RunWatch {
   ): () => void;
 }
 
-export const newestWithin = (
+const newestWithin = (
   entries: readonly RunJournalEntryView[],
   budget: number,
 ): RunJournalEntryView[] => {

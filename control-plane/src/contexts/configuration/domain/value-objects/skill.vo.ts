@@ -9,7 +9,7 @@ export interface SkillSecret {
   readonly description: string;
 }
 
-export const SKILL_FOLDER_LIMITS = {
+const SKILL_FOLDER_LIMITS = {
   files: 50,
   characters: 512 * 1024,
 } as const;

@@ -21,7 +21,7 @@ export interface RunToTrace {
   readonly endedAt: Date | null;
 }
 
-export interface TracedConnection {
+interface TracedConnection {
   readonly connection: RunConnectionContract;
   readonly count: number;
 }

@@ -8,7 +8,7 @@ import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 export const SKILLS = 'skills';
 
-export const skillAt = (key: string): string => `${SKILLS}/${key}`;
+const skillAt = (key: string): string => `${SKILLS}/${key}`;
 
 export const SkillProblems = {
   invalid(key: string, error: InvalidSkillError): ConfigurationProblem {

@@ -13,7 +13,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface ImprovedStationTarget {
+interface ImprovedStationTarget {
   readonly teamId: TeamId;
   readonly lineId: LineId;
   readonly lineKey: string;

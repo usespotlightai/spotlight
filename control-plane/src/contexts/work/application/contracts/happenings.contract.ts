@@ -10,7 +10,7 @@ export const REVIEW_MARK: string = REVIEW_MARK_KIND;
 
 export const REVIEW_ROLE: string = LineRole.REVIEW.value;
 
-export type ReviewTrigger = 'opened' | 'mentioned' | 'labelled';
+type ReviewTrigger = 'opened' | 'mentioned' | 'labelled';
 
 type HappeningState = 'raised' | 'resolved';
 

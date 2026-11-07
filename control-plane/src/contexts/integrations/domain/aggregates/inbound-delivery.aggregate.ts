@@ -1,5 +1,4 @@
 import { InvalidInboundDeliveryTransitionError } from '@integrations/domain/exceptions/invalid-inbound-delivery-transition.error';
-import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import { DELIVERING } from '@integrations/domain/services/delivery-retry';
 import type { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
 import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';

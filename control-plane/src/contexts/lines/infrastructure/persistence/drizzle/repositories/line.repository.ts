@@ -36,9 +36,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, inArray } from 'drizzle-orm';
 
 const rowsOf = (line: Line) =>

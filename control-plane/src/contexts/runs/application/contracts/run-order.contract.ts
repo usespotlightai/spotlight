@@ -10,7 +10,7 @@ export interface RunRefusalContract {
   readonly description: string;
 }
 
-export type WorkspaceRestores = 'always' | 'when-continuing';
+type WorkspaceRestores = 'always' | 'when-continuing';
 
 export interface RunWorkspaceContract {
   readonly key: string;

@@ -1,10 +1,6 @@
 import type { HookEventInstance } from '@integrations/application/ports/hook-runtime.port';
 import { taskViewOf } from '@integrations/application/ports/tasks-for-hooks.fake-spec';
-import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
-import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
-import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
-import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { usedTool } from '@integrations/domain/value-objects/hook-event-facts.fake-spec';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookOccurrenceKey } from '@integrations/domain/value-objects/hook-occurrence-key.vo';
@@ -17,7 +13,6 @@ import type {
 } from '@integrations/infrastructure/persistence/drizzle/readers/hook-definitions.reader';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T10:00:00.000Z');

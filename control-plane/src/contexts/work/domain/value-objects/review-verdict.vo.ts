@@ -1,10 +1,6 @@
 import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
 
-export const REVIEW_VERDICTS = [
-  'comment',
-  'approve',
-  'request-changes',
-] as const;
+const REVIEW_VERDICTS = ['comment', 'approve', 'request-changes'] as const;
 
 export type ReviewVerdictName = (typeof REVIEW_VERDICTS)[number];
 

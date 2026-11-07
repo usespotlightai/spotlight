@@ -138,7 +138,7 @@ const configOf = (row: Row): StationConfig | null => {
   );
 };
 
-export const toDispatch = (row: Row): Dispatch =>
+const toDispatch = (row: Row): Dispatch =>
   Dispatch.rehydrate({
     id: RunId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),

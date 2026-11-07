@@ -18,7 +18,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export type VisibleBlock = Readonly<Record<string, unknown>>;
 
-export interface VisibleRun {
+interface VisibleRun {
   readonly runId: string;
   readonly original: string;
   readonly repeat: number;
@@ -28,7 +28,7 @@ export interface VisibleRun {
   readonly guidance: string | null;
 }
 
-export interface VisibleCandidate {
+interface VisibleCandidate {
   readonly name: string;
   readonly fingerprint: string;
   readonly hypothesis: string;

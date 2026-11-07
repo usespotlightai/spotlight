@@ -4,10 +4,7 @@ import { PullRequestRecordVersionConflictError } from '@insights/domain/exceptio
 import { TaskChangeShapeVersionConflictError } from '@insights/domain/exceptions/task-change-shape-version-conflict.error';
 import type { PullRequestRecordRepository } from '@insights/domain/repositories/pull-request-record.repository';
 import type { TaskChangeShapeRepository } from '@insights/domain/repositories/task-change-shape.repository';
-import { spendingOf } from '@insights/domain/services/measures';
-import type { TeamPullRequest } from '@insights/domain/services/team-pull-requests';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
-import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 import {
   type ObservedPullRequest,
   SeenPullRequest,
@@ -16,7 +13,6 @@ import {
 import { inScope, removeVersioned } from '@insights/scoped.fake-spec';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const seenOf = (
@@ -77,33 +73,8 @@ export const observedOf = (
   };
 };
 
-export const teamPullRequestOf = (
-  number: number,
-  over: Partial<Omit<TeamPullRequest, 'seen' | 'spending'>> & {
-    readonly seen?: Partial<SeenPullRequestFields>;
-    readonly spends?: readonly (Money | null)[];
-  } = {},
-): TeamPullRequest => ({
-  pullRequest: `https://github.com/${over.seen?.repository ?? 'acme/api'}/pull/${number}`,
-  by: 'people',
-  taskId: null,
-  reviewTaskIds: [],
-  type: 'feature',
-  ...over,
-  seen: seenOf({ number, ...over.seen }),
-  spending: spendingOf(over.spends ?? []),
-});
-
 const keyOf = (workspaceId: WorkspaceId, pullRequest: PullRequestUrl) =>
   `${workspaceId.value} ${pullRequest.value}`;
-
-export interface TeamPullRequestWindow {
-  readonly workspaceId: WorkspaceId;
-  readonly teamId: TeamId;
-  readonly repositories: readonly string[];
-  readonly from: Date;
-  readonly to: Date;
-}
 
 export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
   readonly stored = new Map<string, PullRequestRecord>();

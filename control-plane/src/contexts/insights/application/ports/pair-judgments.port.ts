@@ -5,7 +5,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const PAIR_JUDGMENTS = Symbol('PAIR_JUDGMENTS');
 
-export const PAIR_JUDGMENT_ORDERS = ['run-first', 'other-first'] as const;
+const PAIR_JUDGMENT_ORDERS = ['run-first', 'other-first'] as const;
 
 export type PairJudgmentOrderKind = (typeof PAIR_JUDGMENT_ORDERS)[number];
 

@@ -31,7 +31,7 @@ const BINDINGS = contextBindings([STATION_CONFIG_PULL_REQUESTS]);
   providers: [...REPLAYS_PROVIDERS, ...BINDINGS.exposed],
   exports: [...BINDINGS.exposedTokens],
 })
-export class ReplaysModule {}
+class ReplaysModule {}
 
 @Module({
   imports: [ReplaysModule],

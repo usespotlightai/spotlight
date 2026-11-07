@@ -28,7 +28,7 @@ export interface SearchSkip {
   readonly at: Date;
 }
 
-export interface ReplacedSchedule {
+interface ReplacedSchedule {
   readonly lastStartedAt: Date | null;
   readonly lastSkip: SearchSkip | null;
   readonly alertPendingSince: Date | null;

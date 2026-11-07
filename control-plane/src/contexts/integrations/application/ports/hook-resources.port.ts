@@ -16,7 +16,7 @@ export interface WrittenHookMatch {
   readonly paths: readonly string[];
 }
 
-export interface WrittenHookRequest {
+interface WrittenHookRequest {
   readonly url: string;
   readonly headers: Readonly<Record<string, string>>;
   readonly body: unknown;

@@ -1,5 +1,4 @@
 import { SEARCH_OBJECTIVES as STATION_SEARCH_OBJECTIVES } from '@lines/domain/value-objects/search-policy.vo';
-import { ALERT_MEASURES as STATION_ALERT_MEASURES } from '@lines/domain/value-objects/station-alert.vo';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
 
 export type AlertMeasureView =
@@ -9,9 +8,6 @@ export type AlertMeasureView =
   | 'failed_rate'
   | 'merged_rate'
   | 'cost_per_run';
-
-export const ALERT_MEASURES: readonly AlertMeasureView[] =
-  STATION_ALERT_MEASURES;
 
 export type SearchObjectiveView = 'success' | 'cost';
 
@@ -31,7 +27,7 @@ export interface StationJudgeView {
   readonly minAgreement: number;
 }
 
-export interface SearchAgentView {
+interface SearchAgentView {
   readonly harness: string;
   readonly model: string | null;
   readonly effort: string | null;
@@ -89,12 +85,12 @@ export interface StationView {
   readonly skills: readonly string[];
 }
 
-export interface LineRepositoryView {
+interface LineRepositoryView {
   readonly repository: string;
   readonly setup: string | null;
 }
 
-export interface ReviewPolicyView {
+interface ReviewPolicyView {
   readonly start: 'opened' | 'mentioned';
   readonly mention: string;
   readonly label: string;
@@ -105,14 +101,14 @@ export interface ReviewPolicyView {
   };
 }
 
-export interface ReplayCheckView {
+interface ReplayCheckView {
   readonly maxRegressions: number;
   readonly ceiling: number;
   readonly currency: string;
   readonly minGain: number;
 }
 
-export interface ReactionView {
+interface ReactionView {
   readonly happening: string;
   readonly from: string | null;
   readonly to: string;

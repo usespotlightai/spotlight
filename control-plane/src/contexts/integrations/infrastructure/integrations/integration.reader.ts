@@ -22,14 +22,14 @@ import type { ExpressionEnginePort } from '@platform/expressions/expression-engi
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
-export interface ReadSpec {
+interface ReadSpec {
   readonly kind: ApiSpecKind;
   readonly tools: number;
   readonly readAt: Date;
   readonly problem: string | null;
 }
 
-export interface ReadIntegration {
+interface ReadIntegration {
   readonly integration: string;
   readonly path: string;
   readonly name: string;

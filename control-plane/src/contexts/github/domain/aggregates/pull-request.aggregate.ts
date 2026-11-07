@@ -55,7 +55,7 @@ export interface PullRequestSnapshot {
   readonly updatedAt: Date | null;
 }
 
-export type LineCommentDetails = {
+type LineCommentDetails = {
   readonly url: string;
   readonly path: string;
   readonly body: string;

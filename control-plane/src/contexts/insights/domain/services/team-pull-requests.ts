@@ -61,7 +61,7 @@ const authorOf = (record: PullRequestRecord): PullRequestAuthor => {
   return record.seen?.authorIsBot ? 'bots' : 'people';
 };
 
-export const roundBucketOf = (rounds: number): RoundBucket => {
+const roundBucketOf = (rounds: number): RoundBucket => {
   if (rounds >= 3) {
     return '3+';
   }

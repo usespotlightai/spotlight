@@ -13,7 +13,7 @@ const ONCE_MORE = Retry.backoff({
   maxDelayMs: 300_000,
 });
 
-export const JUDGING_FAILURES = {
+const JUDGING_FAILURES = {
   'no-evidence': Retry.never(),
   'request-failed': AGAIN,
   unreadable: ONCE_MORE,

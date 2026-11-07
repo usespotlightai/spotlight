@@ -5,7 +5,7 @@ import {
 } from '@shared-kernel/application/ports/logger.port';
 import { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 
-export class WorkStartup implements OnApplicationBootstrap {
+class WorkStartup implements OnApplicationBootstrap {
   constructor(
     private readonly setup: ReconcileSetup,
     private readonly logger: LoggerPort,

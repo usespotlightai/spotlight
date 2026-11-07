@@ -48,7 +48,7 @@ const BINDINGS = contextBindings([
   ],
   exports: [...BINDINGS.exposedTokens],
 })
-export class IntegrationsModule {}
+class IntegrationsModule {}
 
 @Module({
   imports: [IntegrationsModule],

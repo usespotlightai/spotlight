@@ -1,6 +1,6 @@
 export const SETUP_STEP_KEYS = ['github', 'harness', 'configuration'] as const;
 
-export type SetupStepKeyName = (typeof SETUP_STEP_KEYS)[number];
+type SetupStepKeyName = (typeof SETUP_STEP_KEYS)[number];
 
 export const PROVISIONING_NAMES = ['pending', 'done'] as const;
 

@@ -51,7 +51,7 @@ export const tracedRunsOf = (
   }));
 };
 
-export const connectionsOf = (
+const connectionsOf = (
   recorded: readonly ConnectionOfRun[],
   runId: string,
   attempt: number,
@@ -397,7 +397,7 @@ const runNode = (run: TracedRun): TraceNode => {
       kind: 'run',
       name: runName(run),
       from: run.startedAt,
-      to: run.endedAt > run.startedAt ? run.endedAt : run.startedAt,
+      to: new Date(Math.max(run.endedAt.getTime(), run.startedAt.getTime())),
       category: run.failed ? 'failed' : 'agent',
       step: null,
       span: null,

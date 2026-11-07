@@ -2,7 +2,7 @@ import type { JsonObject, JsonValue } from '@shared-kernel/domain/json-value';
 
 export const CHAT_TOOL_EXTENSIONS = Symbol('CHAT_TOOL_EXTENSIONS');
 
-export interface ChatToolTarget {
+interface ChatToolTarget {
   readonly teamId: string;
   readonly lineId: string;
   readonly lineKey: string;
@@ -20,7 +20,7 @@ export interface ChatToolExtensionContext {
   readonly target: ChatToolTarget | null;
 }
 
-export interface ChatToolInputDeclaration {
+interface ChatToolInputDeclaration {
   readonly name: string;
   readonly schema: JsonObject;
   readonly description: string | null;

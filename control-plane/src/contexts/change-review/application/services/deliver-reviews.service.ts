@@ -17,8 +17,6 @@ import {
   type DeliveryFailureCode,
 } from '@change-review/domain/value-objects/delivery-failure.vo';
 import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
-import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
-import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import {
   type OnPullRequest,
   SPOTLIGHT_ACTOR,

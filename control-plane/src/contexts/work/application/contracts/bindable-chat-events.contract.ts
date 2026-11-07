@@ -1,4 +1,4 @@
-export const CHAT_NOTICE_KINDS = [
+const CHAT_NOTICE_KINDS = [
   'chat.replied',
   'chat.refused',
   'chat.acknowledged',

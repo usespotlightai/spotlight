@@ -12,7 +12,7 @@ export interface ChangeJudgmentOrder {
   readonly guidanceRequested: boolean;
 }
 
-export interface ChangeJudgmentReason {
+interface ChangeJudgmentReason {
   readonly text: string;
   readonly steps: readonly number[];
   readonly hunks: readonly string[];

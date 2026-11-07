@@ -19,7 +19,7 @@ import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import type { UntrialableReason } from '@work/domain/value-objects/untrialable-reason';
 
-export interface StartedCheckoutFact {
+interface StartedCheckoutFact {
   readonly path: string;
   readonly commit: string;
 }
@@ -33,7 +33,7 @@ export interface TrialOriginal {
   readonly checkouts: readonly StartedCheckoutFact[];
 }
 
-export interface TrialCheckoutPlan {
+interface TrialCheckoutPlan {
   readonly path: string;
   readonly commit: string;
   readonly repository: string;

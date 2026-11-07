@@ -8,8 +8,7 @@ import {
 
 export const KIND_PATTERN = /^[a-z][a-z-]*\.[a-z][a-z-]*(\.v\d+)?$/;
 export const INTEGRATION_EVENT_KIND = /^([a-z-]+)\.[a-z-]+\.v\d+$/;
-export const INTEGRATION_EVENTS =
-  'shared-kernel/application/integration-events/';
+const INTEGRATION_EVENTS = 'shared-kernel/application/integration-events/';
 
 export const isDomainEventsPath = (path: string): boolean =>
   /^contexts\/[^/]+\/domain\/events\//.test(path);
@@ -46,7 +45,7 @@ export type DeclaredEvent = {
   readonly line: number;
 };
 
-export const eventClassesOf = (file: SourceFile): DeclaredEvent[] =>
+const eventClassesOf = (file: SourceFile): DeclaredEvent[] =>
   descendants(file.tree, ts.isClassDeclaration).flatMap((declaration) => {
     const kind = kindOf(declaration);
 

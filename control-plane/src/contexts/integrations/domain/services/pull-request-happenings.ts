@@ -1,11 +1,11 @@
 import { UnplaceableHappeningError } from '@integrations/domain/exceptions/unplaceable-happening.error';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 
-export const REVIEW_TRIGGERS = ['opened', 'mentioned', 'labelled'] as const;
+const REVIEW_TRIGGERS = ['opened', 'mentioned', 'labelled'] as const;
 
 export type ReviewTrigger = (typeof REVIEW_TRIGGERS)[number];
 
-export type ActivityKind =
+type ActivityKind =
   | 'opened'
   | 'labelled'
   | 'merged'

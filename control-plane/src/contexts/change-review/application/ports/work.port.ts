@@ -20,7 +20,7 @@ export interface RunForReview {
   readonly checkouts: number;
 }
 
-export const REASONED_STEP_KINDS = [
+const REASONED_STEP_KINDS = [
   'message',
   'thought',
   'planned',
@@ -28,7 +28,7 @@ export const REASONED_STEP_KINDS = [
   'remember',
 ] as const;
 
-export type ReasonedStepKind = (typeof REASONED_STEP_KINDS)[number];
+type ReasonedStepKind = (typeof REASONED_STEP_KINDS)[number];
 
 export interface ReasonedStep {
   readonly index: number;

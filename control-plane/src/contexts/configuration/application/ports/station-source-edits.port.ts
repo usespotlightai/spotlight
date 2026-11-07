@@ -17,7 +17,7 @@ export const STATION_SOURCE_FIELDS = [
 
 export type StationSourceField = (typeof STATION_SOURCE_FIELDS)[number];
 
-export interface StationSourceFile {
+interface StationSourceFile {
   readonly path: string;
   readonly content: string;
 }
@@ -42,14 +42,14 @@ export type StationSourceEditFailureCode =
   | 'file-missing'
   | 'edit-failed';
 
-export type StationSourceValue =
+type StationSourceValue =
   | string
   | number
   | boolean
   | null
   | readonly StationSourceValue[];
 
-export interface StationSourceEditFailure {
+interface StationSourceEditFailure {
   readonly code: StationSourceEditFailureCode;
   readonly message: string;
   readonly attribute: string | null;

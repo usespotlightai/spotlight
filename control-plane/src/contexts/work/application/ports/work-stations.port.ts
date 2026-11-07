@@ -5,9 +5,9 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const WORK_STATIONS = Symbol('WORK_STATIONS');
 
-export type ProjectedStationKind = 'backlog' | 'work' | 'completed';
+type ProjectedStationKind = 'backlog' | 'work' | 'completed';
 
-export interface ProjectedStation {
+interface ProjectedStation {
   readonly id: StationId;
   readonly key: string;
   readonly name: string;

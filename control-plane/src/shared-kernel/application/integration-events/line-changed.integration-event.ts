@@ -1,6 +1,6 @@
 export const LINE_CHANGED = 'lines.line-changed.v1';
 
-export type LaidOutStationKind = 'backlog' | 'work' | 'completed';
+type LaidOutStationKind = 'backlog' | 'work' | 'completed';
 
 export type LaidOutStation = {
   readonly id: string;

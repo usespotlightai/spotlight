@@ -19,9 +19,7 @@ const patternOf = (route: LargeBodyRoute): RegExp =>
       .join('/')}$`,
   );
 
-export const largeBodyRoutesOf = (
-  app: INestApplication,
-): readonly LargeBodyRoute[] =>
+const largeBodyRoutesOf = (app: INestApplication): readonly LargeBodyRoute[] =>
   controllerRoutesOf(app).filter(
     (route) => route.method === 'post' && route.marked(ACCEPTS_LARGE_BODY),
   );

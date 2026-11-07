@@ -74,7 +74,7 @@ export const monthSpentOf = (
     .filter((each) => each.currency === currency)
     .reduce((sum, each) => sum.plus(each), Money.none(currency));
 
-export const fitsMonth = (policy: SearchPolicy, monthSpent: Money): boolean =>
+const fitsMonth = (policy: SearchPolicy, monthSpent: Money): boolean =>
   monthSpent.plus(policy.ceiling).isWithin(policy.monthlyCeiling);
 
 export const fitsMonthAfter = (

@@ -135,7 +135,7 @@ export const weeksOf = (window: Window): readonly string[] => {
   return weeks;
 };
 
-export const sameRepository = (one: string, other: string): boolean =>
+const sameRepository = (one: string, other: string): boolean =>
   one.toLowerCase() === other.toLowerCase();
 
 const shareOf = (tallies: readonly MergedTally[]): Share => {
@@ -179,7 +179,7 @@ const repositoriesOf = (repositories: readonly string[]): readonly string[] => {
   return named;
 };
 
-export const spotlightShareFrom = (
+const spotlightShareFrom = (
   counts: PullRequestCounts,
   teamRepositories: readonly string[],
   window: Window,
@@ -217,7 +217,7 @@ const measuresFrom = (counts: MergedCounts): GroupMeasures => ({
   revertRate: rateOf(counts.reverted, counts.merged),
 });
 
-export const comparisonFrom = (counts: PullRequestCounts): Comparison => ({
+const comparisonFrom = (counts: PullRequestCounts): Comparison => ({
   repositories: counts.compared,
   spotlight: measuresFrom(counts.spotlight),
   people: measuresFrom(counts.people),

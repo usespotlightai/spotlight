@@ -216,7 +216,7 @@ export class IntegrationDefinition extends EventRecorder {
   changesSpec(reading: SpecFetchResult): boolean {
     const current = this.state.reading;
 
-    return !current || !current.sameReadingAs(reading);
+    return !current?.sameReadingAs(reading);
   }
 
   refreshSpec(

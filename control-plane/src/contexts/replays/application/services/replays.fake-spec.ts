@@ -589,7 +589,7 @@ export class FakeStationConfigCandidates
   });
 }
 
-export class FakeTrialableRuns implements TrialableRunsPort {
+class FakeTrialableRuns implements TrialableRunsPort {
   readonly replayables = new Map<string, RunReplayability>();
 
   recent: PickableRun[] = [];
@@ -610,7 +610,7 @@ export class FakeTrialableRuns implements TrialableRunsPort {
   recentAt = async () => this.recent;
 }
 
-export class FakeStartingPointHolds implements StartingPointHoldsPort {
+class FakeStartingPointHolds implements StartingPointHoldsPort {
   readonly held = new Map<string, readonly string[]>();
 
   hold = async (
@@ -629,9 +629,7 @@ export class FakeStartingPointHolds implements StartingPointHoldsPort {
   };
 }
 
-export class FakeRunDispatch
-  implements ReplayRunDispatching, SearchRunDispatching
-{
+class FakeRunDispatch implements ReplayRunDispatching, SearchRunDispatching {
   readonly dispatched: ReplayRunOrder[] = [];
   readonly cancelledQueued: string[] = [];
   unqueued: ReplayRunQueued | null = null;

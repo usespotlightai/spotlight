@@ -120,7 +120,6 @@ export const EXPECTED_ERROR_STATUSES: Readonly<Record<string, number>> = {
   'contexts/insights/domain/exceptions/invalid-pull-request-record.error: InvalidPullRequestRecordError': 422,
   'contexts/insights/domain/exceptions/invalid-rubric.error: InvalidRubricError': 422,
   'contexts/insights/domain/exceptions/invalid-run-filter.error: InvalidRunFilterError': 422,
-  'contexts/insights/domain/exceptions/invalid-run-page.error: InvalidRunPageError': 422,
   'contexts/insights/domain/exceptions/invalid-score.error: InvalidScoreError': 422,
   'contexts/insights/domain/exceptions/invalid-trace-range.error: InvalidTraceRangeError': 422,
   'contexts/insights/domain/exceptions/judging-version-conflict.error: JudgingVersionConflictError': 409,

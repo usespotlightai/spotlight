@@ -1,13 +1,13 @@
 import type { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
-export const PERMISSION_KINDS = ['read', 'edit', 'execute'] as const;
+const PERMISSION_KINDS = ['read', 'edit', 'execute'] as const;
 
-export type PermissionKind = (typeof PERMISSION_KINDS)[number];
+type PermissionKind = (typeof PERMISSION_KINDS)[number];
 
-export type PermissionDecision = 'allow' | 'ask' | 'deny';
+type PermissionDecision = 'allow' | 'ask' | 'deny';
 
-export interface PermissionRuleParts {
+interface PermissionRuleParts {
   readonly decision: PermissionDecision;
   readonly kind: PermissionKind;
   readonly pattern: string | null;
@@ -20,7 +20,7 @@ interface McpServerParts {
   readonly env: Readonly<Record<string, string>>;
 }
 
-export interface HarnessSettings {
+interface HarnessSettings {
   readonly rules: readonly PermissionRuleParts[];
   readonly mcpServers: readonly McpServerParts[];
   readonly native: Readonly<Record<string, unknown>>;

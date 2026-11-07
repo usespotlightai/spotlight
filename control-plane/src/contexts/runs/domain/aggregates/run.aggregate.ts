@@ -82,7 +82,7 @@ export interface RunClaimer {
   readonly workspaceId: WorkspaceId;
 }
 
-export type StateWhenCancelled = 'queued' | 'claimed' | 'suspended' | 'ended';
+type StateWhenCancelled = 'queued' | 'claimed' | 'suspended' | 'ended';
 
 export interface CancelledRun {
   readonly run: Run;

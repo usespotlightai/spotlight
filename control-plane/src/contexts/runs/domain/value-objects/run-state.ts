@@ -39,7 +39,7 @@ export const resumable = (
   turn: RunTurnState | null = null,
 ): boolean => state === 'suspended' && !stopRequested && turn !== 'pending';
 
-export const PROGRESSES = ['queued', 'in-progress', 'stopping'] as const;
+const PROGRESSES = ['queued', 'in-progress', 'stopping'] as const;
 
 export type Progress = (typeof PROGRESSES)[number];
 

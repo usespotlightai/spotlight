@@ -23,14 +23,11 @@ export type SourceFile = {
   readonly tree: ts.SourceFile;
 };
 
-export const isSpec = (path: string): boolean =>
+const isSpec = (path: string): boolean =>
   /\.(spec|fake-spec|e2e-spec)\.ts$/.test(path);
 
 export const contextOf = (path: string): string | null =>
   /^contexts\/([^/]+)\//.exec(path)?.[1] ?? null;
-
-export const layerOf = (path: string): string | null =>
-  /^contexts\/[^/]+\/([^/]+)\//.exec(path)?.[1] ?? null;
 
 export const CONTEXTS: readonly string[] = readdirSync(
   join(SOURCE_ROOT, 'contexts'),

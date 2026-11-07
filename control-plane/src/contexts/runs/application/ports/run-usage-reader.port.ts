@@ -1,11 +1,11 @@
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-export interface SpentFacts {
+interface SpentFacts {
   readonly amount: number;
   readonly currency: string;
 }
 
-export interface TokenFacts {
+interface TokenFacts {
   readonly input: number | null;
   readonly output: number | null;
   readonly cacheRead: number | null;

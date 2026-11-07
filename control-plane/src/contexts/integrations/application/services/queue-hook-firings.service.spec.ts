@@ -3,7 +3,6 @@ import type { ListeningHook } from '@integrations/application/ports/hook-runtime
 import {
   brokenHook,
   clock,
-  EVENT,
   firingsInMemory,
   hookNamed,
   logger,

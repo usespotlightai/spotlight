@@ -5,13 +5,13 @@ import type {
 } from '@work/domain/entities/task-note.entity';
 import { anyUnread, type ReadableNote } from '@work/domain/services/unread';
 
-export const OPENS_A_CONVERSATION = 'asked' satisfies TaskNoteKind;
+const OPENS_A_CONVERSATION = 'asked' satisfies TaskNoteKind;
 
-export const CLOSES_A_CONVERSATION = 'passed' satisfies TaskNoteKind;
+const CLOSES_A_CONVERSATION = 'passed' satisfies TaskNoteKind;
 
-export const REOPENS_A_CONVERSATION = 'reopened' satisfies TaskNoteKind;
+const REOPENS_A_CONVERSATION = 'reopened' satisfies TaskNoteKind;
 
-export const ANSWERS_A_QUESTION = 'answered' satisfies TaskNoteKind;
+const ANSWERS_A_QUESTION = 'answered' satisfies TaskNoteKind;
 
 export const TURNING_NOTE_KINDS: readonly TaskNoteKind[] = [
   OPENS_A_CONVERSATION,
@@ -97,7 +97,7 @@ export const conversationsOf = (
 
 export type ReviewState = 'pending' | 'answered';
 
-export interface Review {
+interface Review {
   readonly from: number;
   readonly state: ReviewState;
 }

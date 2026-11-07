@@ -83,7 +83,7 @@ export type HookStepIR =
       readonly fromNetwork: boolean;
     };
 
-export type HookSigningIR =
+type HookSigningIR =
   | { readonly kind: 'hmac' }
   | { readonly kind: 'oidc'; readonly audience: string };
 

@@ -11,7 +11,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const TASKS_FOR_HOOKS = Symbol('TASKS_FOR_HOOKS');
 
-export interface TaskWaitingView {
+interface TaskWaitingView {
   readonly conversationId: string;
   readonly body: string;
   readonly awaitsApproval: boolean;

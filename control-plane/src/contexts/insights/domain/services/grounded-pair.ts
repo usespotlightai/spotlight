@@ -21,7 +21,7 @@ export interface PairShown {
   readonly evidence: PairEvidence;
 }
 
-export interface PairPass {
+interface PairPass {
   readonly runShownFirst: boolean;
   readonly winner: PairWinner;
   readonly reasons: readonly PairReason[];

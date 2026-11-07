@@ -1,4 +1,4 @@
-export type StepKind = 'message' | 'thought' | 'tool' | 'planned' | 'hook';
+type StepKind = 'message' | 'thought' | 'tool' | 'planned' | 'hook';
 
 export interface SpentCost {
   readonly amount: number;
@@ -32,7 +32,7 @@ export interface JournalStep {
   readonly change: StepChange | null;
 }
 
-export interface RunSpent {
+interface RunSpent {
   readonly used: number;
   readonly size: number;
   readonly cost: SpentCost | null;

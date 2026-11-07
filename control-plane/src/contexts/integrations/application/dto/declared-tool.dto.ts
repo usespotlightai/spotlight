@@ -2,7 +2,7 @@ import type { JsonObject, JsonValue } from '@shared-kernel/domain/json-value';
 
 export type ToolCallInputs = Readonly<Record<string, JsonValue>>;
 
-export interface DeclaredToolInput {
+interface DeclaredToolInput {
   readonly name: string;
   readonly schema: JsonObject;
   readonly description: string | null;

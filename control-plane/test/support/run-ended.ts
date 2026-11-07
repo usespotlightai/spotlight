@@ -6,7 +6,7 @@ import {
 import { requestedBySpec, requestedByTask } from './runs';
 import * as schema from './schema';
 
-export const endedAtFor = (state: RunState, at = new Date()): Date | null =>
+const endedAtFor = (state: RunState, at = new Date()): Date | null =>
   (TERMINAL_RUN_STATES as readonly RunState[]).includes(state) ? at : null;
 
 export const endingFor = (state: RunState, at = new Date()) => ({

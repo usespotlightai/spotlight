@@ -1,7 +1,7 @@
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import type { ChangeStackState } from '@change-review/domain/value-objects/stack-progress.vo';
 
-export const CHANGE_CHECK_STATUSES = [
+const CHANGE_CHECK_STATUSES = [
   'generating',
   'not-generated',
   'unchecked',

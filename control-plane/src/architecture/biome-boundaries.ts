@@ -27,7 +27,7 @@ const OVERRIDES: readonly BiomeOverride[] =
 
 const BOUNDARY = /^Context boundary: .*may depend on ([^.]*)\./;
 
-export const contextOfOverride = (override: BiomeOverride): string | null =>
+const contextOfOverride = (override: BiomeOverride): string | null =>
   /^src\/contexts\/([^/]+)\//.exec(override.includes?.[0] ?? '')?.[1] ?? null;
 
 const boundariesOf = (override: BiomeOverride): Pattern[] =>

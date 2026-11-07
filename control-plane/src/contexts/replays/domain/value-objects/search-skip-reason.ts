@@ -15,7 +15,7 @@ export const SEARCH_SKIP_REASONS = [
 
 export type SearchSkipReason = (typeof SEARCH_SKIP_REASONS)[number];
 
-export const TRANSIENT_SKIP_REASONS = [
+const TRANSIENT_SKIP_REASONS = [
   'cooldown',
   'pull-request-open',
   'set-too-small',
@@ -29,7 +29,7 @@ export type LastingSkipReason = Exclude<
   (typeof TRANSIENT_SKIP_REASONS)[number]
 >;
 
-export const isTransientSkip = (reason: SearchSkipReason): boolean =>
+const isTransientSkip = (reason: SearchSkipReason): boolean =>
   (TRANSIENT_SKIP_REASONS as readonly SearchSkipReason[]).includes(reason);
 
 export const isLastingSkip = (

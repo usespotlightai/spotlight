@@ -90,10 +90,10 @@ import {
   RUNNER_AUTHENTICATOR,
   type RunnerAuthenticatorPort,
 } from '@runners/application/ports/runner-authenticator.port';
+import { RUNNER_CLAIMANTS } from '@runners/application/ports/runner-claimants.port';
 import { RUNNER_CONFIGURATION } from '@runners/application/ports/runner-configuration.port';
 import { RUNNER_DEFINITIONS } from '@runners/application/ports/runner-definitions.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
-import { RUNNER_CLAIMANTS } from '@runners/application/ports/runner-claimants.port';
 import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.port';
 import { RUNNER_IDENTITY } from '@runners/application/ports/runner-identity.port';
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
@@ -144,10 +144,10 @@ import { DeleteRunnersOfDeletedWorkspace } from '@runners/application/services/d
 import { HostAdmission } from '@runners/application/services/host-admission.service';
 import { PurgeStaleHosts } from '@runners/application/services/purge-stale-hosts.service';
 import { RunnerAuthenticator } from '@runners/application/services/runner-authenticator.service';
+import { RunnerClaimants } from '@runners/application/services/runner-claimants.service';
 import { RunnerConfiguration } from '@runners/application/services/runner-configuration.service';
 import { RunnerDependents } from '@runners/application/services/runner-dependents.service';
 import { RunnerEgress } from '@runners/application/services/runner-egress.service';
-import { RunnerClaimants } from '@runners/application/services/runner-claimants.service';
 import { RunnerHeartbeats } from '@runners/application/services/runner-heartbeats.service';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
 import { RunnerTokens } from '@runners/application/services/runner-tokens.service';

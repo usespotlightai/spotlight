@@ -4,7 +4,7 @@ import type { StationKey } from '@shared-kernel/domain/value-objects/station-key
 
 export type StationRule = 'routes' | 'tools' | 'skills' | IdleStationSetting;
 
-export type SearchSetting = 'ceiling' | 'cooldown';
+type SearchSetting = 'ceiling' | 'cooldown';
 
 export type PlanFlaw =
   | {

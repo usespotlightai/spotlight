@@ -8,7 +8,6 @@ import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { LineAlreadyExistsError } from '@lines/domain/exceptions/line-already-exists.error';
 import { LineInUseError } from '@lines/domain/exceptions/line-in-use.error';
 import { LineRoleTakenError } from '@lines/domain/exceptions/line-role-taken.error';
-import { StationNotEmptyError } from '@lines/domain/exceptions/station-not-empty.error';
 import type { LineRepository } from '@lines/domain/repositories/line.repository';
 import {
   BUILT_IN_LINES,

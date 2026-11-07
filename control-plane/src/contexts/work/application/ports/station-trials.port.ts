@@ -3,7 +3,7 @@ import type { UntrialableReasonCode } from '@work/application/contracts/untriala
 
 export const STATION_TRIALS = Symbol('STATION_TRIALS');
 
-export const TRIAL_FOLLOW_UPS = ['accepted', 'sent-back'] as const;
+const TRIAL_FOLLOW_UPS = ['accepted', 'sent-back'] as const;
 
 export type TrialFollowUp = (typeof TRIAL_FOLLOW_UPS)[number];
 

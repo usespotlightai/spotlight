@@ -17,7 +17,7 @@ export interface RunLocation {
   readonly repositories: readonly Repository[];
 }
 
-export interface BriefedMemory {
+interface BriefedMemory {
   readonly id: string;
   readonly handle: string;
 }

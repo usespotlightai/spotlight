@@ -16,7 +16,7 @@ import {
   withoutExtension,
 } from './source-index';
 
-export const TABLE_WRITERS: Readonly<Record<string, readonly string[]>> = {
+const TABLE_WRITERS: Readonly<Record<string, readonly string[]>> = {
   catalog_call: [
     'contexts/catalog/infrastructure/persistence/drizzle/ledgers/catalog-call.ledger.ts',
   ],
@@ -112,7 +112,7 @@ export const TABLE_WRITERS: Readonly<Record<string, readonly string[]>> = {
   ],
 };
 
-export const LIBRARY_TABLES: ReadonlySet<string> = new Set([
+const LIBRARY_TABLES: ReadonlySet<string> = new Set([
   'account',
   'device_code',
   'session',
@@ -140,10 +140,7 @@ const rootsOf = (table: string, seen = new Set<string>()): Set<string> => {
   );
 };
 
-export const CHILD_TABLE_ROOTS: ReadonlyMap<
-  string,
-  ReadonlySet<string>
-> = new Map(
+const CHILD_TABLE_ROOTS: ReadonlyMap<string, ReadonlySet<string>> = new Map(
   [...new Set(SNAPSHOT_FOREIGN_KEYS.map((key) => key.tableFrom))]
     .filter((table) => !isAggregateTable(table) && !(table in TABLE_WRITERS))
     .map((table) => [table, rootsOf(table)] as const)
@@ -211,7 +208,7 @@ const rawWrites = (file: SourceFile): string[] => {
     });
 };
 
-export const tablesWrittenIn = (file: SourceFile): ReadonlySet<string> =>
+const tablesWrittenIn = (file: SourceFile): ReadonlySet<string> =>
   new Set([...builderWrites(file), ...rawWrites(file)]);
 
 const childWritesOf = (

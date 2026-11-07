@@ -5,21 +5,21 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const RUN_TURNS = Symbol('RUN_TURNS');
 
-export interface TurnOutcomeFacts {
+interface TurnOutcomeFacts {
   readonly exitCode: number;
   readonly failure: string | null;
   readonly message: string | null;
   readonly stopped: boolean;
 }
 
-export interface TurnFileFacts {
+interface TurnFileFacts {
   readonly id: string;
   readonly name: string;
   readonly contentType: string;
   readonly size: number;
 }
 
-export interface TurnHandoverFacts {
+interface TurnHandoverFacts {
   readonly next: string;
   readonly note: string;
   readonly files: readonly TurnFileFacts[];

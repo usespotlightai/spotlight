@@ -97,7 +97,7 @@ export const searchRunEnding = (ended: {
   started: ended.started,
 });
 
-export const RUN_STATES = [
+const RUN_STATES = [
   'queued',
   'claimed',
   'suspended',

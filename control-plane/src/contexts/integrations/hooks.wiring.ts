@@ -111,10 +111,7 @@ import {
   HOOK_CALLBACK_TOKENS,
   type HookCallbackTokenRepository,
 } from '@integrations/domain/repositories/hook-callback-token.repository';
-import {
-  HOOK_DEFINITIONS,
-  type HookDefinitionRepository,
-} from '@integrations/domain/repositories/hook-definition.repository';
+import { HOOK_DEFINITIONS } from '@integrations/domain/repositories/hook-definition.repository';
 import {
   HOOK_FIRINGS,
   type HookFiringRepository,

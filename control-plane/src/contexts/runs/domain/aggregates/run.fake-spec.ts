@@ -16,11 +16,11 @@ type Ordering = Pick<RunOrdered, 'requester' | 'policy' | 'workspace'> & {
   readonly now: Date;
 };
 
-export const ORDERED_AT = new Date('2026-01-01T00:00:00.000Z');
+const ORDERED_AT = new Date('2026-01-01T00:00:00.000Z');
 
 const TEAM = TeamId.of('team_1');
 
-export const TURN_POLICY = RunPolicy.of({
+const TURN_POLICY = RunPolicy.of({
   holdsTurn: true,
   gated: true,
   actsBeyondItself: true,
@@ -38,7 +38,7 @@ export const CONVERSATION_POLICY = RunPolicy.of({
   exclusive: true,
 });
 
-export const ISOLATED_POLICY = RunPolicy.of({
+const ISOLATED_POLICY = RunPolicy.of({
   holdsTurn: false,
   gated: false,
   actsBeyondItself: false,
@@ -47,7 +47,7 @@ export const ISOLATED_POLICY = RunPolicy.of({
   exclusive: false,
 });
 
-export const SPEC_POLICY = RunPolicy.of({
+const SPEC_POLICY = RunPolicy.of({
   holdsTurn: false,
   gated: false,
   actsBeyondItself: true,

@@ -102,7 +102,7 @@ export const tableAccessIn = (file: SourceFile): Violation[] => {
   ];
 };
 
-export const crossOwnerForeignKeys = (): Violation[] =>
+const crossOwnerForeignKeys = (): Violation[] =>
   SNAPSHOT_FOREIGN_KEYS.flatMap((key) => {
     const from = ownerOfTable(key.tableFrom);
     const to = ownerOfTable(key.tableTo);

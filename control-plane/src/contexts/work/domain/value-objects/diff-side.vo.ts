@@ -1,6 +1,6 @@
 import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
 
-export const DIFF_SIDES = ['new', 'old'] as const;
+const DIFF_SIDES = ['new', 'old'] as const;
 
 export type DiffSideName = (typeof DIFF_SIDES)[number];
 

@@ -40,8 +40,13 @@ import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
-import { WebTaskLinks } from '@work/infrastructure/links/web-task-links';
+import type { TaskLinksPort } from '@work/application/ports/task-links.port';
 import { describe, expect, it, vi } from 'vitest';
+
+const taskLinks: TaskLinksPort = {
+  taskPage: (slug, teamId, taskId) =>
+    `https://app.example/w/${slug}/team/${teamId}/tasks/${taskId}`,
+};
 
 const taskNotices = (...args: ConstructorParameters<typeof NotifyTask>) =>
   new TaskNotices(new NotifyTask(...args));
@@ -158,7 +163,7 @@ const notifying = (
     callAuthFor(injection),
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
-      new WebTaskLinks('https://app.example'),
+      taskLinks,
       'https://app.example',
     ),
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -487,7 +492,7 @@ const uploading = (
     callAuth,
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
-      new WebTaskLinks('https://app.example'),
+      taskLinks,
       'https://app.example',
     ),
     { warn, info: vi.fn(), error: vi.fn(), debug: vi.fn() },

@@ -15,7 +15,7 @@ export interface TrialFacts {
   readonly taskExists: boolean;
 }
 
-export type TrialAnswer = 'not-asked' | 'present' | 'gone';
+type TrialAnswer = 'not-asked' | 'present' | 'gone';
 
 export interface TrialInputs {
   readonly filesStored: boolean;

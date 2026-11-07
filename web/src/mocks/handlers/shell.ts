@@ -55,7 +55,7 @@ export const shellHandlers = [
     const tasks = world().tasks[teamId] ?? [];
 
     return json(
-      query.get('state') === 'completed'
+      query.get('state') === 'completed-station'
         ? pageOf(
             tasks.filter((task) => completed.has(task.stationId)),
             request,

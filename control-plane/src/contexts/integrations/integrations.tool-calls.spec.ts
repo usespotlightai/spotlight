@@ -50,7 +50,6 @@ import {
   scopedTo,
   unscoped,
 } from '@platform/outbound/outbound-scope.fake-spec';
-import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';

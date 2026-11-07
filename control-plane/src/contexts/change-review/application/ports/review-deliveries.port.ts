@@ -17,7 +17,7 @@ export const REVIEW_DELIVERY_KINDS = [
 
 export type ReviewDeliveryKind = (typeof REVIEW_DELIVERY_KINDS)[number];
 
-export type CommentDeliveryKind = Exclude<ReviewDeliveryKind, 'review'>;
+type CommentDeliveryKind = Exclude<ReviewDeliveryKind, 'review'>;
 
 export type ReviewDeliverySubject =
   | { readonly kind: 'review'; readonly subject: ReviewId }
