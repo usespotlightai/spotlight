@@ -83,7 +83,10 @@ export class SetHealths {
         HEALTH_SAMPLES_PER_GROUP,
       ),
     );
-    const replayed = [...read, ...(await this.comparisonsMissingFrom(read))];
+    const replayed = [
+      ...read,
+      ...(await this.comparisonsMissingFrom(read)),
+    ].map((each) => each.outcome());
     const candidates =
       replayed.length === 0
         ? []
@@ -119,7 +122,12 @@ export class SetHealths {
       replays.map((each) => each.candidateId),
     );
 
-    return wantsCalibration(set, replays, candidates, liveFingerprint);
+    return wantsCalibration(
+      set,
+      replays.map((each) => each.outcome()),
+      candidates,
+      liveFingerprint,
+    );
   }
 
   private async comparisonsMissingFrom(
