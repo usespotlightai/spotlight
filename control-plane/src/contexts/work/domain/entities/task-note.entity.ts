@@ -43,7 +43,7 @@ export type TaskNoteForm = (typeof TASK_NOTE_FORMS)[number];
 export class TaskNote {
   private constructor(
     readonly position: NotePosition,
-    readonly station: StationName,
+    readonly station: StationName | null,
     readonly stationId: StationId,
     readonly body: TaskNoteBody,
     readonly at: Date,
@@ -63,7 +63,7 @@ export class TaskNote {
 
   static of(input: {
     position: NotePosition;
-    station: StationName;
+    station: StationName | null;
     stationId: StationId;
     body: TaskNoteBody;
     at: Date;

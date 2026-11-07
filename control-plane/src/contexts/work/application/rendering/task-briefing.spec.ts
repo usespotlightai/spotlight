@@ -281,6 +281,26 @@ describe('TaskBriefing', () => {
     );
   });
 
+  it('carries forward a note of a station its line no longer names, without a heading', () => {
+    const noted = withNotes(
+      task('station_1'),
+
+      TaskNote.of({
+        position: NotePosition.of(0),
+        voice: Voice.station(),
+        station: null,
+        stationId: StationId.of('station_gone'),
+        body: TaskNoteBody.of('Reproduced on restart.'),
+        at: new Date('2026-08-28T10:00:00.000Z'),
+        kind: 'passed',
+      }),
+    );
+
+    expect(brief(triage(), noted)).toContain(
+      '## Already done\n\nReproduced on restart.',
+    );
+  });
+
   it('says where in the workspace each file handed over will be', () => {
     const queue = Attachment.of({
       id: 'file_1',

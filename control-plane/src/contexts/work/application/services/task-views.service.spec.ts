@@ -277,7 +277,7 @@ describe('TaskViews', () => {
         'From the hook core/audit:\n\nAudit logged.',
       );
       expect(noted?.voice.isStation).toBe(true);
-      expect(noted?.station.value).toBe('Implementation');
+      expect(noted?.station?.value).toBe('Implementation');
     });
 
     it('answers no question put to a person, and hands the agent nothing to resume on', async () => {

@@ -5,7 +5,7 @@ export const PROGRESS_NAMES = PROGRESSES;
 
 interface TaskNoteDto {
   readonly position: number;
-  readonly station: string;
+  readonly station: string | null;
   readonly body: string;
 }
 

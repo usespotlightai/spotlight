@@ -6,7 +6,7 @@ import type { PullRequestReviewsPort } from '@github/application/ports/pull-requ
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 const removing = (error: unknown) =>
   new GitHubReviewPosting({
@@ -76,5 +76,60 @@ describe('GitHubReviewPosting', () => {
     const error = new TypeError('Cannot read properties of undefined');
 
     await expect(removing(error)).rejects.toBe(error);
+  });
+
+  it('posts a review on GitHub in GitHub’s terms, and answers in Change Review’s', async () => {
+    const submit = vi.fn(async () => ({
+      githubId: 900,
+      postedAs: 'comment' as const,
+      comments: [{ id: 100, url: 'https://github.com/c/100' }, null],
+    }));
+    const posting = new GitHubReviewPosting({
+      submit,
+    } as unknown as PullRequestReviewsPort);
+
+    const posted = await posting.submit({
+      workspaceId: WorkspaceId.of('workspace_1'),
+      pullRequest: PullRequestUrl.of('https://github.com/acme/web/pull/7'),
+      by: { kind: 'spotlight' },
+      verdict: 'request-changes',
+      body: 'Please fix',
+      comments: [
+        { path: 'a.ts', side: 'new', line: 3, startLine: null, body: 'Here' },
+      ],
+    });
+
+    expect(submit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: 'request-changes',
+        by: { kind: 'spotlight' },
+        comments: [
+          { path: 'a.ts', side: 'new', line: 3, startLine: null, body: 'Here' },
+        ],
+      }),
+    );
+    expect(posted).toEqual({
+      githubId: 900,
+      verdict: 'comment',
+      comments: [{ id: 100, url: 'https://github.com/c/100' }, null],
+    });
+  });
+
+  it('replies to a thread as a reply to GitHub’s comment', async () => {
+    const reply = vi.fn(async () => ({ id: 5, url: 'https://github.com/c/5' }));
+
+    await new GitHubReviewPosting({
+      reply,
+    } as unknown as PullRequestReviewsPort).reply({
+      workspaceId: WorkspaceId.of('workspace_1'),
+      pullRequest: PullRequestUrl.of('https://github.com/acme/web/pull/7'),
+      by: { kind: 'spotlight' },
+      thread: 77,
+      body: 'Done',
+    });
+
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({ to: 77, body: 'Done' }),
+    );
   });
 });

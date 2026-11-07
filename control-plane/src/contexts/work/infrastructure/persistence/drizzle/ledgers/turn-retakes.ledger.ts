@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { TurnRetakesPort } from '@work/application/ports/turn-retakes.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type {
+  DueRetake,
+  TurnRetakeClaim,
+  TurnRetakesPort,
+} from '@work/application/ports/turn-retakes.port';
 import { turnRetake } from '@work/infrastructure/persistence/drizzle/schemas/turn-retake.schema';
-import { and, eq, lt } from 'drizzle-orm';
+import { and, asc, eq, lt } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleTurnRetakes implements TurnRetakesPort {
@@ -18,48 +22,61 @@ export class DrizzleTurnRetakes implements TurnRetakesPort {
     return found?.checkedAt ?? null;
   }
 
-  async advance(
-    runId: RunId,
-    suspendedAt: Date,
-    from: Date | null,
-    to: Date,
-  ): Promise<boolean> {
-    const advanced = from
+  async claim(claim: TurnRetakeClaim): Promise<boolean> {
+    const { runId, suspendedAt, attempt, from, to, retakes } = claim;
+    const claimed = from
       ? await this.context.db
           .update(turnRetake)
-          .set({ checkedAt: to })
+          .set({
+            checkedAt: to,
+            attempt,
+            ...(retakes ? { retakeDue: true } : {}),
+          })
           .where(
             and(this.turn(runId, suspendedAt), eq(turnRetake.checkedAt, from)),
           )
           .returning({ runId: turnRetake.runId })
       : await this.context.db
           .insert(turnRetake)
-          .values({ runId: runId.value, suspendedAt, checkedAt: to })
+          .values({
+            runId: runId.value,
+            suspendedAt,
+            attempt,
+            checkedAt: to,
+            retakeDue: retakes,
+          })
           .onConflictDoNothing()
           .returning({ runId: turnRetake.runId });
 
-    return advanced.length > 0;
+    return claimed.length > 0;
   }
 
-  async release(
-    runId: RunId,
-    suspendedAt: Date,
-    from: Date,
-    to: Date | null,
-  ): Promise<void> {
-    const claimed = and(
-      this.turn(runId, suspendedAt),
-      eq(turnRetake.checkedAt, from),
-    );
+  async due(limit: number): Promise<readonly DueRetake[]> {
+    const rows = await this.context.db
+      .select({
+        runId: turnRetake.runId,
+        suspendedAt: turnRetake.suspendedAt,
+        attempt: turnRetake.attempt,
+        checkedAt: turnRetake.checkedAt,
+      })
+      .from(turnRetake)
+      .where(eq(turnRetake.retakeDue, true))
+      .orderBy(asc(turnRetake.suspendedAt), asc(turnRetake.runId))
+      .limit(limit);
 
-    if (to) {
-      await this.context.db
-        .update(turnRetake)
-        .set({ checkedAt: to })
-        .where(claimed);
-    } else {
-      await this.context.db.delete(turnRetake).where(claimed);
-    }
+    return rows.map((row) => ({ ...row, runId: RunId.of(row.runId) }));
+  }
+
+  async retaken(retake: DueRetake): Promise<void> {
+    await this.context.db
+      .update(turnRetake)
+      .set({ retakeDue: false })
+      .where(
+        and(
+          this.turn(retake.runId, retake.suspendedAt),
+          eq(turnRetake.checkedAt, retake.checkedAt),
+        ),
+      );
   }
 
   async forgetSuspendedBefore(before: Date): Promise<void> {

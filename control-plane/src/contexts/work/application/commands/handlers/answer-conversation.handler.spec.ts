@@ -233,7 +233,7 @@ describe('AnswerConversation', () => {
     const last = saved?.notes[saved.notes.length - 1];
     expect(last?.body.value).toBe('Cap it at 500.');
     expect(last?.voice.author?.value).toBe('user_1');
-    expect(last?.station.value).toBe('Triage');
+    expect(last?.station?.value).toBe('Triage');
   });
 
   it('names the people who wrote the answer with the person it was put to', async () => {

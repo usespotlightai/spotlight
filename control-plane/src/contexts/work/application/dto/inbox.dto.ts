@@ -74,7 +74,7 @@ export interface NoteDto {
   readonly kind: string;
   readonly form: string;
   readonly voice: string;
-  readonly station: string;
+  readonly station: string | null;
   readonly stationColor: string;
   readonly stationPosition: number;
   readonly runId: string | null;
@@ -89,7 +89,7 @@ export interface NoteDto {
 }
 
 interface InboxStationDto {
-  readonly name: string;
+  readonly name: string | null;
   readonly color: string;
   readonly position: number;
 }
@@ -102,7 +102,7 @@ export interface InboxItemDto {
   readonly title: string;
   readonly description: string | null;
   readonly attachments: readonly AttachmentDto[];
-  readonly station: string;
+  readonly station: string | null;
   readonly stationColor: string;
   readonly stationPosition: number;
   readonly stationCount: number;

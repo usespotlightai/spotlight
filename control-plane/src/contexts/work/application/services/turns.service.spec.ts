@@ -13,7 +13,10 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { TurnRetakesPort } from '@work/application/ports/turn-retakes.port';
+import type {
+  DueRetake,
+  TurnRetakesPort,
+} from '@work/application/ports/turn-retakes.port';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
 import {
   STUCK_TURNS_METRIC,
@@ -46,6 +49,10 @@ const turnAged = (
   stopRequested: false,
 });
 
+interface StoredRetake extends DueRetake {
+  readonly due: boolean;
+}
+
 const turning = (
   over: {
     turns?: readonly TurnFacts[];
@@ -53,6 +60,8 @@ const turning = (
     facts?: readonly RunFacts[];
     holds?: boolean;
     takeFails?: boolean;
+    retakes?: Map<string, StoredRetake>;
+    crashesBeforeRetaking?: boolean;
   } = {},
 ) => {
   const take = vi.fn(async (): Promise<void> => {
@@ -67,7 +76,7 @@ const turning = (
   }));
   const count = vi.fn();
   const error = vi.fn();
-  const checked = new Map<string, Date>();
+  const stored = over.retakes ?? new Map<string, StoredRetake>();
   const key = (runId: RunId, suspendedAt: Date) =>
     `${runId.value}@${suspendedAt.getTime()}`;
   const turns = new Turns(
@@ -78,24 +87,36 @@ const turning = (
     } satisfies RunTurnsPort,
     {
       checkedAt: async (runId, suspendedAt) =>
-        checked.get(key(runId, suspendedAt)) ?? null,
-      advance: async (runId, suspendedAt, from, to) => {
-        if ((checked.get(key(runId, suspendedAt)) ?? null) !== from) {
+        stored.get(key(runId, suspendedAt))?.checkedAt ?? null,
+      claim: async ({ runId, suspendedAt, attempt, from, to, retakes }) => {
+        const was = stored.get(key(runId, suspendedAt));
+
+        if ((was?.checkedAt ?? null) !== from) {
           return false;
         }
-        checked.set(key(runId, suspendedAt), to);
+        stored.set(key(runId, suspendedAt), {
+          runId,
+          suspendedAt,
+          attempt,
+          checkedAt: to,
+          due: retakes || (was?.due ?? false),
+        });
         return true;
       },
-      release: async (runId, suspendedAt, from, to) => {
-        if (
-          checked.get(key(runId, suspendedAt))?.getTime() !== from.getTime()
-        ) {
-          return;
+      due: async () => {
+        if (over.crashesBeforeRetaking) {
+          throw new Error('The process stopped');
         }
-        if (to) {
-          checked.set(key(runId, suspendedAt), to);
-        } else {
-          checked.delete(key(runId, suspendedAt));
+        return [...stored.values()].filter((each) => each.due);
+      },
+      retaken: async (retake) => {
+        const was = stored.get(key(retake.runId, retake.suspendedAt));
+
+        if (was && was.checkedAt === retake.checkedAt) {
+          stored.set(key(retake.runId, retake.suspendedAt), {
+            ...was,
+            due: false,
+          });
         }
       },
       forgetSuspendedBefore: async () => undefined,
@@ -149,6 +170,28 @@ describe('Turns', () => {
     await failing.turns.retakePending(new Date(NOW.getTime() + MINUTE));
 
     expect(failing.take).toHaveBeenCalledTimes(2);
+  });
+
+  it('decides a turn again after a stop between its claim and its retake (R4-RW-09)', async () => {
+    const retakes = new Map<string, StoredRetake>();
+    const pending = [turnAged(45 * MINUTE + 30_000)];
+    const crashed = turning({
+      turns: pending,
+      retakes,
+      crashesBeforeRetaking: true,
+    });
+
+    await crashed.turns.retakePending(NOW).catch(() => undefined);
+
+    expect(crashed.take).not.toHaveBeenCalled();
+
+    const restarted = turning({ turns: pending, retakes });
+
+    await restarted.turns.retakePending(new Date(NOW.getTime() + MINUTE));
+    await restarted.turns.retakePending(new Date(NOW.getTime() + 2 * MINUTE));
+
+    expect(restarted.take).toHaveBeenCalledTimes(1);
+    expect(restarted.take).toHaveBeenCalledWith(RUN, 1);
   });
 
   it('leaves alone a turn pending for less than the longest delivery', async () => {

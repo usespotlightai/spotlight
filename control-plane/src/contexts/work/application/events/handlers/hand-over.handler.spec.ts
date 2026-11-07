@@ -327,7 +327,7 @@ describe('HandOver', () => {
   it('names the station the note came from', async () => {
     await handOver();
 
-    expect(saved?.notes[0]?.station.value).toBe('Triage');
+    expect(saved?.notes[0]?.station?.value).toBe('Triage');
   });
 
   it('leaves a task alone once another run has taken it', async () => {

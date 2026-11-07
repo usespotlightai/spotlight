@@ -2162,7 +2162,7 @@ CREATE TABLE "task_mark" (
 CREATE TABLE "task_note" (
 	"task_id" text NOT NULL,
 	"position" integer NOT NULL,
-	"station" text NOT NULL,
+	"station" text,
 	"station_id" text NOT NULL,
 	"body" text NOT NULL,
 	"at" timestamp (3) with time zone NOT NULL,
@@ -2205,7 +2205,9 @@ CREATE TABLE "tool_use" (
 CREATE TABLE "turn_retake" (
 	"run_id" text NOT NULL,
 	"suspended_at" timestamp (3) with time zone NOT NULL,
+	"attempt" integer NOT NULL,
 	"checked_at" timestamp (3) with time zone NOT NULL,
+	"retake_due" boolean DEFAULT false NOT NULL,
 	CONSTRAINT "turn_retake_run_id_suspended_at_pk" PRIMARY KEY("run_id","suspended_at")
 );
 --> statement-breakpoint

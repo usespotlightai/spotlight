@@ -6,7 +6,6 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -1166,7 +1165,7 @@ export class Task extends EventRecorder {
       reviewing: this.reviewedHead?.repository ?? null,
       attachments: this.attachments,
       notes: this.notes.map((note) => ({
-        station: note.station.value,
+        station: note.station?.value ?? null,
         body: note.body.value,
         attachments: note.attachments,
       })),
@@ -1740,9 +1739,7 @@ export class Task extends EventRecorder {
         ...this.notes,
         TaskNote.of({
           ...newNote,
-          station:
-            newNote.line?.stationAt(this.stationId)?.name ??
-            StationName.of('Unknown'),
+          station: newNote.line?.stationAt(this.stationId)?.name ?? null,
           stationId: this.stationId,
           kind,
           position: NotePosition.nextIn(this.notes),

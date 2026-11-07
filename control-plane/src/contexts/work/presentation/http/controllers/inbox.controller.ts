@@ -79,6 +79,7 @@ import { editsInput } from '@work/presentation/http/mappers/edits-input';
 import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { NoteHttpMapper } from '@work/presentation/http/mappers/note.http.mapper';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
+import { stationLabelOf } from '@work/presentation/http/mappers/station-label';
 import { ApiPageQuery, pageRequestOf } from '@work/presentation/http/paging';
 
 const taskItemFields = (
@@ -90,17 +91,17 @@ const taskItemFields = (
   title: item.title,
   description: item.description,
   attachments: item.attachments.map(AttachmentHttpMapper.toResponse),
-  station: item.station,
+  station: stationLabelOf(item.station),
   stationColor: item.stationColor,
   stationPosition: item.stationPosition,
   stationCount: item.stationCount,
   originStation: new InboxStationResponseDto(
-    item.originStation.name,
+    stationLabelOf(item.originStation.name),
     item.originStation.color,
     item.originStation.position,
   ),
   currentStation: new InboxStationResponseDto(
-    item.currentStation.name,
+    stationLabelOf(item.currentStation.name),
     item.currentStation.color,
     item.currentStation.position,
   ),

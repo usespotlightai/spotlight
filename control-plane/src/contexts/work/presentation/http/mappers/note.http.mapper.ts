@@ -7,6 +7,7 @@ import {
   NoteResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
+import { stationLabelOf } from '@work/presentation/http/mappers/station-label';
 
 export const NoteHttpMapper = {
   toResponse: (note: NoteDto): NoteResponseDto =>
@@ -15,7 +16,7 @@ export const NoteHttpMapper = {
       note.kind,
       note.form,
       note.voice,
-      note.station,
+      stationLabelOf(note.station),
       note.stationColor,
       note.stationPosition,
       note.runId,

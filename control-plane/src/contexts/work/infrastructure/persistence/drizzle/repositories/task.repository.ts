@@ -155,7 +155,7 @@ const toNote = (row: NoteRow, attachments: AttachmentRow[]): TaskNote =>
   TaskNote.of({
     position: NotePosition.of(row.position),
     attachments: toAttachments(attachments, row.position),
-    station: StationName.of(row.station),
+    station: row.station === null ? null : StationName.of(row.station),
     stationId: StationId.of(row.stationId),
     body: TaskNoteBody.of(row.body),
     at: row.at,
@@ -692,7 +692,7 @@ export class DrizzleTaskRepository implements TaskRepository {
         saved.notes.map((note, position) => ({
           taskId: saved.id.value,
           position,
-          station: note.station.value,
+          station: note.station?.value ?? null,
           stationId: note.stationId.value,
           body: note.body.value,
           at: note.at,

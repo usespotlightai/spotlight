@@ -6,7 +6,7 @@ import type { Progress } from '@work/domain/value-objects/progress';
 
 export interface TaskNoteSummary {
   readonly position: number;
-  readonly station: string;
+  readonly station: string | null;
   readonly body: string;
 }
 

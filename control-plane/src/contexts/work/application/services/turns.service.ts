@@ -9,7 +9,10 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import { RunCheckoutsMapper } from '@work/application/mappers/run-checkouts.mapper';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { TurnRetakesPort } from '@work/application/ports/turn-retakes.port';
+import type {
+  DueRetake,
+  TurnRetakesPort,
+} from '@work/application/ports/turn-retakes.port';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
 import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
@@ -49,27 +52,17 @@ export class Turns {
       const check = TurnWait.checkOf(turn.suspendedAt, checkedAt, now);
 
       if (
-        !(check.retakes || check.givesUp) ||
-        !(await this.retakes.advance(
-          turn.runId,
-          turn.suspendedAt,
-          checkedAt,
-          now,
-        ))
+        (check.retakes || check.givesUp) &&
+        (await this.retakes.claim({
+          runId: turn.runId,
+          suspendedAt: turn.suspendedAt,
+          attempt: turn.attempt,
+          from: checkedAt,
+          to: now,
+          retakes: check.retakes,
+        })) &&
+        check.givesUp
       ) {
-        continue;
-      }
-
-      if (check.retakes && !(await this.retaken(turn)) && !check.givesUp) {
-        await this.retakes.release(
-          turn.runId,
-          turn.suspendedAt,
-          now,
-          checkedAt,
-        );
-      }
-
-      if (check.givesUp) {
         this.telemetry.count(STUCK_TURNS_METRIC);
         this.logger.error(
           { runId: turn.runId.value, suspendedAt: turn.suspendedAt },
@@ -77,6 +70,8 @@ export class Turns {
         );
       }
     }
+
+    await this.performDueRetakes();
   }
 
   async resumeAnswered(now: Date): Promise<void> {
@@ -134,13 +129,21 @@ export class Turns {
     await this.retakes.forgetSuspendedBefore(TurnWait.retakesKeptAfter(now));
   }
 
-  private async retaken(turn: TurnFacts): Promise<boolean> {
+  private async performDueRetakes(): Promise<void> {
+    for (const retake of await this.retakes.due(PAGE)) {
+      if (await this.retaken(retake)) {
+        await this.retakes.retaken(retake);
+      }
+    }
+  }
+
+  private async retaken(retake: DueRetake): Promise<boolean> {
     try {
-      await this.taking.take(turn.runId, turn.attempt);
+      await this.taking.take(retake.runId, retake.attempt);
       return true;
     } catch (error) {
       this.logger.warn(
-        { err: error, runId: turn.runId.value },
+        { err: error, runId: retake.runId.value },
         'The turn of a run could not be decided again; it is tried later',
       );
       return false;

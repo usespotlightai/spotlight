@@ -4,6 +4,7 @@ import type {
   ReviewDeliveriesPort,
   ReviewDeliveryKind,
 } from '@change-review/application/ports/review-deliveries.port';
+import type { ReviewPostingPort } from '@change-review/application/ports/review-posting.port';
 import { DeliverReviews } from '@change-review/application/services/deliver-reviews.service';
 import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
@@ -17,8 +18,6 @@ import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewDeliveryId } from '@change-review/domain/value-objects/review-delivery-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
-
-import type { PullRequestReviewsPort } from '@github/application/ports/pull-request-reviews.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -59,7 +58,7 @@ const delivering = (over: {
   leaseLost?: boolean;
   comments?: ReviewComment[];
   reviews?: Review[];
-  github?: Partial<PullRequestReviewsPort>;
+  github?: Partial<ReviewPostingPort>;
   editedWhilePosting?: (comment: ReviewComment) => ReviewComment;
 }) => {
   const comments = new Map(
@@ -117,10 +116,10 @@ const delivering = (over: {
 
   const conflicts = new Set<string>();
 
-  const github: PullRequestReviewsPort = {
+  const github: ReviewPostingPort = {
     submit: vi.fn(async (input) => ({
       githubId: 900,
-      postedAs: input.event,
+      verdict: input.verdict,
       comments: input.comments.map((_: unknown, index: number) => ({
         id: 100 + index,
         url: `https://github.com/c/${100 + index}`,
@@ -220,7 +219,7 @@ describe('DeliverReviews', () => {
 
     expect(delivered.github.submit).toHaveBeenCalledWith(
       expect.objectContaining({
-        event: 'request-changes',
+        verdict: 'request-changes',
         body: 'A few things',
         by: { kind: 'person', userId: ADA, name: 'Ada' },
         comments: [
@@ -697,7 +696,7 @@ describe('DeliverReviews', () => {
     await delivered.service.deliverDue();
 
     expect(delivered.github.reply).toHaveBeenCalledWith(
-      expect.objectContaining({ to: 77, body: 'Done' }),
+      expect.objectContaining({ thread: 77, body: 'Done' }),
     );
     expect(delivered.comments.get('comment_2')?.github?.id).toBe(555);
   });

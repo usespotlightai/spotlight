@@ -1,5 +1,5 @@
 {
-  "id": "8bee6ef3-abe7-4759-9f7e-e8c1480e8b13",
+  "id": "0774f40d-5af7-43b5-9f6f-d31029451c34",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -17888,7 +17888,7 @@
           "name": "station",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "station_id": {
           "name": "station_id",
@@ -18226,11 +18226,24 @@
           "primaryKey": false,
           "notNull": true
         },
+        "attempt": {
+          "name": "attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
         "checked_at": {
           "name": "checked_at",
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": true
+        },
+        "retake_due": {
+          "name": "retake_due",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {},

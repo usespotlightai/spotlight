@@ -5,7 +5,11 @@ import type {
   ReviewDeliveriesPort,
 } from '@change-review/application/ports/review-deliveries.port';
 import type { ReviewDeliveryWorkPort } from '@change-review/application/ports/review-delivery-work.port';
-import type { ReviewPostingPort } from '@change-review/application/ports/review-posting.port';
+import {
+  type PostingTarget,
+  type ReviewPostingPort,
+  SPOTLIGHT_POSTER,
+} from '@change-review/application/ports/review-posting.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
 import { ReviewCommentVersionConflictError } from '@change-review/domain/exceptions/review-comment-version-conflict.error';
@@ -17,10 +21,6 @@ import {
   type DeliveryFailureCode,
 } from '@change-review/domain/value-objects/delivery-failure.vo';
 import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
-import {
-  type OnPullRequest,
-  SPOTLIGHT_ACTOR,
-} from '@github/application/ports/pull-request-reviews.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
@@ -199,7 +199,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       throw new DeliveryFailed('not-connected');
     }
 
-    const on = async (author: ReviewAuthor): Promise<OnPullRequest> => ({
+    const on = async (author: ReviewAuthor): Promise<PostingTarget> => ({
       workspaceId: task.workspaceId,
       pullRequest: task.pullRequest as NonNullable<typeof task.pullRequest>,
       by: author.userId
@@ -210,7 +210,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
               (await this.people.find(author.userId))?.name ??
               author.name.value,
           }
-        : SPOTLIGHT_ACTOR,
+        : SPOTLIGHT_POSTER,
     });
 
     if (delivery.kind === 'review') {
@@ -260,7 +260,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
 
   private async postReview(
     delivery: Extract<LeasedReviewDelivery, { kind: 'review' }>,
-    on: (author: ReviewAuthor) => Promise<OnPullRequest>,
+    on: (author: ReviewAuthor) => Promise<PostingTarget>,
   ): Promise<void> {
     const review = await this.reviews.find(delivery.subject);
 
@@ -285,7 +285,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
     const submitted = await this.sent(delivery, () =>
       this.github.submit({
         ...author,
-        event: review.verdict,
+        verdict: review.verdict,
         body: review.body,
         comments: plan.onLines.flatMap((comment) =>
           comment.anchor.lines
@@ -307,7 +307,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
       await this.reviews.save(
         review.postedAs({
           githubId: submitted.githubId,
-          verdictOnGitHub: submitted.postedAs,
+          verdictOnGitHub: submitted.verdict,
           comments,
           onLinesOnGitHub: submitted.comments,
           now: this.clock.now(),
@@ -347,7 +347,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
   private async postReply(
     delivery: LeasedReviewDelivery,
     reply: ReviewComment,
-    target: OnPullRequest,
+    target: PostingTarget,
   ): Promise<void> {
     if (!reply.sending) {
       return;
@@ -377,7 +377,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
     const posted = await this.sent(delivery, () =>
       this.github.reply({
         ...target,
-        to: thread.id,
+        thread: thread.id,
         body: reply.sentBody ?? reply.body,
       }),
     );
@@ -388,7 +388,7 @@ export class DeliverReviews implements ReviewDeliveryWorkPort {
   private async postOnFile(
     delivery: LeasedReviewDelivery,
     comment: ReviewComment,
-    target: OnPullRequest,
+    target: PostingTarget,
   ): Promise<void> {
     if (!comment.sending) {
       return;

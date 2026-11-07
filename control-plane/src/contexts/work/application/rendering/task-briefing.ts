@@ -190,9 +190,13 @@ export const TaskBriefing = {
     tools: readonly DeclaredTool[];
   }): string {
     const station = input.line.stationAt(input.task.stationId);
-    const notes = input.task.notes.map(
-      (note) =>
-        `### ${note.station}\n\n${Attached.beside(note.body, note.attachments)}`,
+    const notes = input.task.notes.map((note) =>
+      [
+        note.station === null ? null : `### ${note.station}`,
+        Attached.beside(note.body, note.attachments),
+      ]
+        .filter((part) => part !== null)
+        .join('\n\n'),
     );
 
     return [

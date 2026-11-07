@@ -161,14 +161,12 @@ describe('Task, the station a note is written at', () => {
   it('names the station the task is at, from its own line', () => {
     const noted = added().addMessage({ ...newNote, line: LINE });
 
-    expect(lastOf(noted)?.station.value).toBe('Triage');
+    expect(lastOf(noted)?.station?.value).toBe('Triage');
     expect(lastOf(noted)?.stationId.value).toBe('station_1');
   });
 
-  it('names a station its line no longer has as gone', () => {
-    expect(lastOf(added().addMessage(newNote))?.station).toEqual(
-      StationName.of('Unknown'),
-    );
+  it('names no station when its line no longer has it', () => {
+    expect(lastOf(added().addMessage(newNote))?.station).toBeNull();
   });
 });
 
@@ -324,7 +322,7 @@ describe('Task', () => {
       }),
     );
 
-    expect(noted.notes.map((each) => each.station.value)).toEqual([
+    expect(noted.notes.map((each) => each.station?.value)).toEqual([
       'Triage',
       'Spec',
     ]);
@@ -1648,7 +1646,7 @@ describe('Task, what it is doing', () => {
           notes: [
             TaskNote.of({
               ...newNote,
-              station: StationName.of('Unknown'),
+              station: null,
               stationId: HERE,
               kind: 'message',
               position: NotePosition.of(1),

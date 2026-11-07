@@ -1,12 +1,20 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
-import { pgTable, primaryKey, text } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+} from 'drizzle-orm/pg-core';
 
 export const turnRetake = pgTable(
   'turn_retake',
   {
     runId: text('run_id').notNull(),
     suspendedAt: timestamptz('suspended_at').notNull(),
+    attempt: integer('attempt').notNull(),
     checkedAt: timestamptz('checked_at').notNull(),
+    retakeDue: boolean('retake_due').notNull().default(false),
   },
   (table) => [primaryKey({ columns: [table.runId, table.suspendedAt] })],
 );

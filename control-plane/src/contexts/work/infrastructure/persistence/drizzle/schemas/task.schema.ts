@@ -156,7 +156,7 @@ export const taskNote = pgTable(
       .notNull()
       .references(() => task.id, { onDelete: 'cascade' }),
     position: integer('position').notNull(),
-    station: text('station').notNull(),
+    station: text('station'),
     stationId: text('station_id').notNull(),
     body: text('body').notNull(),
     at: timestamptz('at').notNull(),

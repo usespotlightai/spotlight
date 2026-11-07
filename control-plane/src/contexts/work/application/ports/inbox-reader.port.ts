@@ -59,7 +59,7 @@ export interface InboxNote {
   readonly kind: TaskNoteKind;
   readonly form: TaskNoteForm;
   readonly voice: VoiceKind;
-  readonly station: string;
+  readonly station: string | null;
   readonly stationId: string;
   readonly stationColor: string;
   readonly stationPosition: number;
@@ -81,7 +81,7 @@ interface InboxRequestView {
 }
 
 interface InboxStation {
-  readonly name: string;
+  readonly name: string | null;
   readonly color: string;
   readonly position: number;
 }
@@ -94,7 +94,7 @@ export interface InboxItemSummary {
   readonly title: string;
   readonly description: string | null;
   readonly attachments: readonly AttachmentSummary[];
-  readonly station: string;
+  readonly station: string | null;
   readonly stationColor: string;
   readonly stationPosition: number;
   readonly stationCount: number;
