@@ -3,9 +3,9 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { ReplyToReviewCommentCommand } from '@work/application/commands/reply-to-review-comment.command';
+import { RunWorksNoTaskError } from '@work/application/errors/run-works-no-task.error';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunLoader } from '@work/application/services/run-loader.service';
-import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ReviewCommentHandle } from '@work/domain/value-objects/review-comment-handle.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -31,7 +31,7 @@ export class ReplyToReviewCommentHandler
       );
 
       if (!worked) {
-        throw new NoRepositoryError();
+        throw new RunWorksNoTaskError('reply to a review comment');
       }
 
       const { task } = worked;

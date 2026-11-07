@@ -3,9 +3,9 @@ import { connectionsInMemory } from '@runs/application/ports/run-connections.fak
 import type { RunUsageReaderPort } from '@runs/application/ports/run-usage-reader.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
-  RunOutcomeShape,
-  RunOutcomesPort,
-} from '@work/application/ports/run-outcomes.port';
+  RunResultShape,
+  RunResultsPort,
+} from '@work/application/ports/run-results.port';
 import type {
   KeyedStation,
   StationRunReaderPort,
@@ -93,8 +93,8 @@ const journal = (runId: string): RunJournal => ({
 
 const outcomeOf = (
   runId: string,
-  ending: RunOutcomeShape['ending'],
-): RunOutcomeShape => ({
+  ending: RunResultShape['ending'],
+): RunResultShape => ({
   runId,
   fingerprint: FP,
   endedAt: '2026-09-30T10:05:00.000Z',
@@ -110,7 +110,7 @@ const reading = ({
   team = 'team_1',
   keyed = [IMPLEMENTATION],
   runs = [ran('run_3'), ran('run_2'), ran('run_1')],
-  outcomes = [] as RunOutcomeShape[],
+  outcomes = [] as RunResultShape[],
   replaysFrom,
   scope,
   among = [],
@@ -119,7 +119,7 @@ const reading = ({
   replaysFrom?: Date | null;
   keyed?: KeyedStation[];
   runs?: StationRunRow[];
-  outcomes?: RunOutcomeShape[];
+  outcomes?: RunResultShape[];
   scope?: TraceScope | null;
   among?: StationRunRow[];
 } = {}) => {
@@ -140,7 +140,7 @@ const reading = ({
       among.filter((each) => runIds.includes(each.runId)),
     journalsOf: async (ids) => ids.map(journal),
   };
-  const outcomesPort: RunOutcomesPort = {
+  const outcomesPort: RunResultsPort = {
     of: async () => new Map(outcomes.map((each) => [each.runId, each])),
   };
 

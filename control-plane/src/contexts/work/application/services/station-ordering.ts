@@ -8,12 +8,10 @@ import type {
   PreparedHarness,
   SkillsHome,
 } from '@runs/application/ports/harness-launch.port';
-import { BUILT_IN_SKILL_KEY_LIST } from '@shared-kernel/domain/built-in-skills';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import { ReadyProfileMapper } from '@work/application/mappers/ready-profile.mapper';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
 import { skillFilesOf } from '@work/application/mappers/skill-files.mapper';
-import { StationConfigMapper } from '@work/application/mappers/station-config.mapper';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
 import type { ContentHashPort } from '@work/application/ports/content-hash.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
@@ -27,15 +25,13 @@ import {
   orderAt,
   type RunOrder,
 } from '@work/domain/services/run-order';
+import { RunReadying } from '@work/domain/services/run-readying';
+import { stationConfigOf } from '@work/domain/services/station-config-of';
 import { runCheckoutsOf } from '@work/domain/services/task-checkouts';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import {
-  type ReadyProfile,
-  withoutServers,
-} from '@work/domain/value-objects/ready-profile';
+import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { Station } from '@work/domain/value-objects/station.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
@@ -77,27 +73,6 @@ const laidOut = (
   settingFiles: laid.settingFiles,
 });
 
-interface Readying {
-  denied(
-    station: Station,
-    denied: readonly DeniedCatalogItem[],
-  ): readonly DeniedCatalogItem[];
-  profile(profile: ReadyProfile): ReadyProfile;
-}
-
-const AS_A_TASK_RUN: Readying = {
-  denied: (_station, denied) => denied,
-  profile: (profile) => profile,
-};
-
-const AS_A_TRIAL: Readying = {
-  denied: (station, denied) =>
-    denied.filter(
-      (each) => !station.tools.some((tool) => tool.value === each.id),
-    ),
-  profile: withoutServers,
-};
-
 export class StationOrdering {
   constructor(
     private readonly harnesses: HarnessCatalog,
@@ -110,17 +85,17 @@ export class StationOrdering {
   ) {}
 
   ordered(line: LineMap, at: OrderedAt): Promise<Ordered | null> {
-    return this.orderedAs(line, at, AS_A_TASK_RUN);
+    return this.orderedAs(line, at, RunReadying.asATaskRun);
   }
 
   orderedForTrial(line: LineMap, at: OrderedAt): Promise<Ordered | null> {
-    return this.orderedAs(line, at, AS_A_TRIAL);
+    return this.orderedAs(line, at, RunReadying.asATrial);
   }
 
   private async orderedAs(
     line: LineMap,
     at: OrderedAt,
-    readying: Readying,
+    readying: RunReadying,
   ): Promise<Ordered | null> {
     const station = line.stationAt(at.stationId) ?? null;
     const teamSkills = station
@@ -186,12 +161,12 @@ export class StationOrdering {
   }
 
   prepared(order: RunOrder): PreparedHarness | null {
-    return this.preparedAs(order, AS_A_TASK_RUN);
+    return this.preparedAs(order, RunReadying.asATaskRun);
   }
 
   private preparedAs(
     order: RunOrder,
-    readying: Readying,
+    readying: RunReadying,
   ): PreparedHarness | null {
     const profile = order.enabled.profile;
 
@@ -207,19 +182,8 @@ export class StationOrdering {
     line: LineMap,
   ): StationConfig | null {
     return station
-      ? StationConfigMapper.configuredAs(
-          {
-            station,
-            line,
-            order,
-            folders: folders.filter(
-              (each) =>
-                !BUILT_IN_SKILL_KEY_LIST.some(
-                  (key) => key.value === each.skill.key,
-                ),
-            ),
-          },
-          this.hash,
+      ? stationConfigOf({ station, line, order, folders }, (text) =>
+          this.hash.sha256(text),
         )
       : null;
   }

@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { CONTROL_PLANE_SEQ } from '@runs/application/contracts/run-journal.contract';
 import type {
   ControlPlaneEntry,
   JournalEntry,
   RunJournalPort,
 } from '@runs/application/ports/run-journal.port';
+import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { runJournalEntry } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import { and, eq, lte, min } from 'drizzle-orm';
@@ -58,10 +58,10 @@ export class DrizzleRunJournal implements RunJournalPort {
           and(
             eq(runJournalEntry.runId, attempt.runId.value),
             eq(runJournalEntry.attempt, attempt.number),
-            lte(runJournalEntry.seq, CONTROL_PLANE_SEQ),
+            lte(runJournalEntry.seq, JournalSeq.firstControlPlane),
           ),
         );
-      const seq = lowest?.seq == null ? CONTROL_PLANE_SEQ : lowest.seq - 1;
+      const seq = JournalSeq.controlPlaneBelow(lowest?.seq ?? null).value;
 
       const written = await this.context.db
         .insert(runJournalEntry)

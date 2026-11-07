@@ -1,4 +1,4 @@
-export const RUN_OUTCOMES = Symbol('RUN_OUTCOMES');
+export const RUN_RESULTS = Symbol('RUN_RESULTS');
 
 type RunEndingShape =
   | 'completed'
@@ -8,7 +8,7 @@ type RunEndingShape =
   | 'cancelled'
   | 'superseded';
 
-export interface RunOutcomeShape {
+export interface RunResultShape {
   readonly runId: string;
   readonly fingerprint: string | null;
   readonly endedAt: string;
@@ -23,9 +23,9 @@ export interface RunOutcomeShape {
   readonly pullRequestState: 'open' | 'merged' | 'closed' | null;
 }
 
-export interface RunOutcomesPort {
+export interface RunResultsPort {
   of(
     runIds: readonly string[],
     asOf: Date | null,
-  ): Promise<ReadonlyMap<string, RunOutcomeShape>>;
+  ): Promise<ReadonlyMap<string, RunResultShape>>;
 }

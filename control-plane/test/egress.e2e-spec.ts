@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { RunLeasesWorker } from '@runs/presentation/workers/run-leases.worker';
 import { eq, inArray, ne } from 'drizzle-orm';
 import {
   afterAll,
@@ -263,6 +264,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
       .update(schema.run)
       .set({ leaseExpiresAt: new Date(Date.now() - 1_000) })
       .where(eq(schema.run.id, runId));
+    await app.get(RunLeasesWorker).tick();
     await db
       .update(schema.sandbox)
       .set({ state: 'gone', goneAt: new Date() })

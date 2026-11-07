@@ -2,11 +2,11 @@ import type { RunOutcomeDto } from '@insights/application/dto/run-outcome.dto';
 import type { RunOutcomes } from '@insights/application/services/run-outcomes.service';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
-  RunOutcomeShape,
-  RunOutcomesPort,
-} from '@work/application/ports/run-outcomes.port';
+  RunResultShape,
+  RunResultsPort,
+} from '@work/application/ports/run-results.port';
 
-const shapeOf = (outcome: RunOutcomeDto): RunOutcomeShape => ({
+const shapeOf = (outcome: RunOutcomeDto): RunResultShape => ({
   runId: outcome.runId,
   fingerprint: outcome.fingerprint,
   endedAt: outcome.endedAt,
@@ -18,13 +18,13 @@ const shapeOf = (outcome: RunOutcomeDto): RunOutcomeShape => ({
   pullRequestState: outcome.pullRequestState,
 });
 
-export class WorkRunOutcomes implements RunOutcomesPort {
+export class WorkRunOutcomes implements RunResultsPort {
   constructor(private readonly outcomes: RunOutcomes) {}
 
   async of(
     runIds: readonly string[],
     asOf: Date | null,
-  ): Promise<ReadonlyMap<string, RunOutcomeShape>> {
+  ): Promise<ReadonlyMap<string, RunResultShape>> {
     const outcomes = await this.outcomes.of(
       runIds.filter((each) => each.trim()).map(RunId.of),
       asOf,

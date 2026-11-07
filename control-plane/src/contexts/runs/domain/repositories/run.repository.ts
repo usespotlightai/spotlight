@@ -1,4 +1,5 @@
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
+import type { QueuedRuns } from '@runs/domain/services/claim-order';
 import type { Claimant } from '@runs/domain/value-objects/claimant';
 import type { RequesterOwner } from '@runs/domain/value-objects/run-requester.vo';
 import type { RunTurnState } from '@runs/domain/value-objects/run-turn.vo';
@@ -10,8 +11,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface RunRepository {
   add(run: Run): Promise<void>;
 
-  // Must be atomic and follow ClaimOrder. Two runners must never claim the same run.
-  claimNext(by: Claimant, now: Date): Promise<Run | null>;
+  claimCandidates(by: Claimant, now: Date, max: number): Promise<QueuedRuns>;
 
   findById(id: RunId): Promise<Run | null>;
 
@@ -42,7 +42,7 @@ export interface RunRepository {
       readonly withSecrets: boolean;
       readonly avoiding: readonly WorkspaceKey[];
     },
-  ): Promise<readonly Run[]>;
+  ): Promise<QueuedRuns>;
 
   withExpiredReservations(now: Date): Promise<readonly Run[]>;
 

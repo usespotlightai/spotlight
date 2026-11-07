@@ -1,11 +1,11 @@
-import type { RunOutcomeShape } from '@work/application/ports/run-outcomes.port';
+import type { RunResultShape } from '@work/application/ports/run-results.port';
 import {
   historyLength,
   turnedOut,
 } from '@work/application/read-models/history-selection';
 import { describe, expect, it } from 'vitest';
 
-const outcome: RunOutcomeShape = {
+const outcome: RunResultShape = {
   runId: 'run_1',
   fingerprint: null,
   endedAt: '2026-09-30T10:00:00.000Z',

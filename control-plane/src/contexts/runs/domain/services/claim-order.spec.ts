@@ -3,7 +3,9 @@ import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { ClaimOrder } from '@runs/domain/services/claim-order';
 import type { Claimant } from '@runs/domain/value-objects/claimant';
 import { RunPriority } from '@runs/domain/value-objects/run-priority.vo';
+import type { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
+import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -36,13 +38,14 @@ const waiting = (
     harness?: string;
     workspace?: string;
     placement?: string[];
+    ordering?: ReturnType<typeof orderedFor.spec>;
   } = {},
-) => ({
-  run: Run.enqueue({
+) =>
+  Run.enqueue({
     id: RunId.of(id),
     workspaceId: WorkspaceId.of(over.workspace ?? 'ws_1'),
     harness: HarnessId.of(over.harness ?? 'dev'),
-    ...orderedFor.spec(),
+    ...(over.ordering ?? orderedFor.spec()),
     priority: RunPriority.of(over.priority ?? 0),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
@@ -51,21 +54,20 @@ const waiting = (
       resume: {},
     }),
     placement: RunnerPlacement.of(over.placement ?? []),
-  }),
-  queuedAt: new Date(over.queuedAt ?? '2026-09-17T09:00:00.000Z'),
-});
+    queuedAt: new Date(over.queuedAt ?? '2026-09-17T09:00:00.000Z'),
+  });
 
-const next = (...runs: ReturnType<typeof waiting>[]) =>
-  ClaimOrder.next(runs, BY, NOW)?.id.value ?? null;
+const inOrder = (
+  runs: readonly Run[],
+  by: Claimant = BY,
+  now: Date = NOW,
+  leasedRequesters: readonly RunRequester[] = [],
+) => ClaimOrder.inOrder({ waiting: runs, leasedRequesters }, by, now);
 
-const reservedFor = (
-  entry: ReturnType<typeof waiting>,
-  runner: string,
-  at = NOW,
-) => ({
-  ...entry,
-  run: entry.run.reservedFor(RunnerId.of(runner), PoolId.of('burst'), at),
-});
+const next = (...runs: Run[]) => inOrder(runs)[0]?.id.value ?? null;
+
+const reservedFor = (entry: Run, runner: string, at = NOW) =>
+  entry.reservedFor(RunnerId.of(runner), PoolId.of('burst'), at);
 
 describe('ClaimOrder', () => {
   it('hands out the station nearest the end of the line first', () => {
@@ -91,17 +93,13 @@ describe('ClaimOrder', () => {
       priority: 3,
       queuedAt: '2026-09-17T08:00:00.000Z',
     });
-    const backingOff = {
-      ...requeued,
-      run: requeued.run
-        .claim(BY.runner, NOW)
-        .requeue(BY.runner, NOW, 'connect ECONNREFUSED'),
-    };
+    const backingOff = requeued
+      .claim(BY.runner, NOW)
+      .requeue(BY.runner, NOW, 'connect ECONNREFUSED');
 
     expect(next(backingOff, waiting('other', { priority: 1 }))).toBe('other');
     expect(
-      ClaimOrder.next([backingOff], BY, new Date(NOW.getTime() + 5_000))?.id
-        .value,
+      inOrder([backingOff], BY, new Date(NOW.getTime() + 5_000))[0]?.id.value,
     ).toBe('requeued');
   });
 
@@ -136,13 +134,37 @@ describe('ClaimOrder', () => {
   it('hands out nothing already claimed', () => {
     const taken = waiting('taken');
 
+    expect(inOrder([taken.claim(RunnerId.of('runner_2'), NOW)])).toEqual([]);
+  });
+
+  it('holds back a run while another run of its requester holds a lease', () => {
+    const held = waiting('held', {
+      priority: 9,
+      ordering: orderedFor.task('task_9'),
+    });
+
     expect(
-      ClaimOrder.next(
-        [{ ...taken, run: taken.run.claim(RunnerId.of('runner_2'), NOW) }],
-        BY,
-        NOW,
+      inOrder([held, waiting('free')], BY, NOW, [held.requester]).map(
+        (each) => each.id.value,
       ),
-    ).toBeNull();
+    ).toEqual(['free']);
+    expect(next(held, waiting('free'))).toBe('held');
+  });
+
+  it('routes into the sandbox of its key, and away from the sandboxes held', () => {
+    const ordering = orderedFor.spec('keyed', 'sandboxed');
+    const keyed = waiting('keyed', { ordering });
+    const key = WorkspaceKey.of('workspace', 'sandboxed');
+
+    expect(inOrder([keyed], { ...BY, sandbox: { avoiding: [key] } })).toEqual(
+      [],
+    );
+    expect(
+      inOrder([keyed, waiting('other', { priority: 9 })], {
+        ...BY,
+        sandbox: { into: key },
+      }).map((each) => each.id.value),
+    ).toEqual(['keyed']);
   });
 
   describe('with runs reserved for a provisioned runner', () => {
@@ -150,26 +172,24 @@ describe('ClaimOrder', () => {
 
     it('hands a provisioned runner only the run reserved for it', () => {
       expect(
-        ClaimOrder.next(
+        inOrder(
           [
             waiting('open', { priority: 9 }),
             reservedFor(waiting('theirs', { priority: 5 }), 'pooled_2'),
             reservedFor(waiting('mine'), 'pooled_1'),
           ],
           POOLED,
-          NOW,
-        )?.id.value,
+        )[0]?.id.value,
       ).toBe('mine');
     });
 
     it('hands a provisioned runner nothing once its reservation expired', () => {
       expect(
-        ClaimOrder.next(
+        inOrder(
           [reservedFor(waiting('mine'), 'pooled_1', FIVE_MINUTES_AGO)],
           POOLED,
-          NOW,
         ),
-      ).toBeNull();
+      ).toEqual([]);
     });
 
     it('never hands another runner a run while it is reserved for someone else', () => {
@@ -193,27 +213,24 @@ describe('ClaimOrder', () => {
       expect(ClaimOrder.forRequested(null, BY)).toBe('start');
       expect(
         ClaimOrder.forRequested(
-          waiting('taken').run.claim(RunnerId.of('runner_2'), NOW),
+          waiting('taken').claim(RunnerId.of('runner_2'), NOW),
           BY,
         ),
       ).toBe('start');
     });
 
     it('takes the queued run of its key first, which then starts in it', () => {
-      expect(ClaimOrder.forRequested(waiting('queued').run, BY)).toBe(
+      expect(ClaimOrder.forRequested(waiting('queued'), BY)).toBe(
         'run-of-its-key',
       );
     });
 
     it('leaves it to another runner when the newest run of its key does not fit this one', () => {
       expect(
-        ClaimOrder.forRequested(waiting('other', { harness: 'other' }).run, BY),
+        ClaimOrder.forRequested(waiting('other', { harness: 'other' }), BY),
       ).toBe('skip');
       expect(
-        ClaimOrder.forRequested(
-          waiting('placed', { placement: ['gpu'] }).run,
-          BY,
-        ),
+        ClaimOrder.forRequested(waiting('placed', { placement: ['gpu'] }), BY),
       ).toBe('skip');
     });
   });

@@ -1,5 +1,4 @@
 import {
-  HOOK_CALLED,
   TOOL_REFUSED,
   TURN_USAGE,
 } from '@runs/application/contracts/run-journal.contract';
@@ -8,6 +7,7 @@ import type {
   JournalEntry,
   RunJournalPort,
 } from '@runs/application/ports/run-journal.port';
+import { HOOK_CALLED } from '@runs/domain/value-objects/journal-entry-type';
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { decoded } from '@runs/infrastructure/journal/journalled';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';

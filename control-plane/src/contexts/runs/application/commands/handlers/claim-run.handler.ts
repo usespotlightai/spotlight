@@ -8,7 +8,7 @@ import { claimedRun } from '@runs/application/services/claimed-work';
 import type { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import type { LongPoll } from '@runs/application/services/long-poll';
 import type { ProvisionFailures } from '@runs/application/services/provision-failures.service';
-import type { RunLeases } from '@runs/application/services/run-leases.service';
+import type { RunClaims } from '@runs/application/services/run-claims.service';
 import { UnknownRunnerError } from '@runs/domain/exceptions/unknown-runner.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import type { Claimant } from '@runs/domain/value-objects/claimant';
@@ -23,7 +23,7 @@ export class ClaimRunHandler
 {
   constructor(
     private readonly runs: RunRepository,
-    private readonly leases: RunLeases,
+    private readonly claims: RunClaims,
     private readonly heartbeats: RunnerHeartbeatsPort,
     private readonly clock: ClockPort,
     private readonly checks: CheckWorkPort,
@@ -49,8 +49,6 @@ export class ClaimRunHandler
       if (heartbeat.claims === 'nothing') {
         return null;
       }
-
-      await this.leases.expireLeases(this.clock.now());
 
       const claimant: Claimant = {
         runner: runnerId,
@@ -92,7 +90,7 @@ export class ClaimRunHandler
           claimant.workspaceId.value,
           this.clock.now(),
         );
-        const claimed = await this.runs.claimNext(
+        const claimed = await this.claims.next(
           {
             ...claimant,
             sandbox: { avoiding: held.map((each) => WorkspaceKey.parse(each)) },

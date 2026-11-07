@@ -2,19 +2,12 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { RunnerActivityDto } from '@runs/application/dto/runner-activity.dto';
 import { requesterRefOf } from '@runs/application/ports/run-requester-labels.port';
 import type { RunViewersPort } from '@runs/application/ports/run-viewers.port';
-import {
-  LEASED_RUN_KINDS,
-  type LeasedRunKind,
-  type RunnerActivityReaderPort,
-} from '@runs/application/ports/runner-activity-reader.port';
+import type { RunnerActivityReaderPort } from '@runs/application/ports/runner-activity-reader.port';
 import type { ListRunnerActivityQuery } from '@runs/application/queries/list-runner-activity.query';
 import type { RunRequesterLabels } from '@runs/application/services/run-requester-labels.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-
-const kindOf = (kind: string): LeasedRunKind =>
-  LEASED_RUN_KINDS.find((each) => each === kind) ?? 'spec';
 
 export class ListRunnerActivityHandler
   implements
@@ -52,7 +45,7 @@ export class ListRunnerActivityHandler
           currentRun: {
             id: each.runId.value,
             state: each.state,
-            kind: kindOf(each.requester.kind),
+            kind: each.requester.kind,
             teamId: each.teamId,
             readable: reads,
             title: reads

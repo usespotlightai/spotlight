@@ -115,7 +115,6 @@ import {
   RUN_CONNECTIONS,
   type RunConnectionsPort,
 } from '@runs/application/ports/run-connections.port';
-import { RUN_EVENT_READER } from '@runs/application/ports/run-event-reader.port';
 import {
   RUN_FACTS,
   type RunFactsPort,
@@ -123,6 +122,7 @@ import {
 import { RUN_FILES } from '@runs/application/ports/run-files.port';
 import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
 import { RUN_JOURNAL } from '@runs/application/ports/run-journal.port';
+import { RUN_JOURNAL_ENTRY_READER } from '@runs/application/ports/run-journal-entry-reader.port';
 import { RUN_JOURNALS } from '@runs/application/ports/run-journals.port';
 import { RUN_LEASES } from '@runs/application/ports/run-leases.port';
 import { RUN_PROGRESS } from '@runs/application/ports/run-progress.port';
@@ -130,6 +130,10 @@ import { RUN_REQUESTER_LABELS } from '@runs/application/ports/run-requester-labe
 import { RUN_START_GATES } from '@runs/application/ports/run-start-gates.port';
 import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
 import { RUN_STREAM } from '@runs/application/ports/run-stream.port';
+import {
+  RUN_TRACE_LINKS,
+  type RunTraceLinksPort,
+} from '@runs/application/ports/run-trace-links.port';
 import { RUN_TURNS } from '@runs/application/ports/run-turns.port';
 import { RUN_USAGES } from '@runs/application/ports/run-usage-reader.port';
 import {
@@ -195,6 +199,7 @@ import { ProvisionFailures } from '@runs/application/services/provision-failures
 import { ProvisionWork } from '@runs/application/services/provision-work.service';
 import { PurgeRunConnections } from '@runs/application/services/purge-run-connections.service';
 import { RemoveReleasedArchives } from '@runs/application/services/remove-released-archives.service';
+import { RunClaims } from '@runs/application/services/run-claims.service';
 import { RunCredentials } from '@runs/application/services/run-credentials.service';
 import { RunFacts } from '@runs/application/services/run-facts.service';
 import { RunLeases } from '@runs/application/services/run-leases.service';
@@ -212,7 +217,7 @@ import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledg
 import { DrizzleRunUsages } from '@runs/infrastructure/persistence/drizzle/ledgers/run-usages.ledger';
 import { DrizzleArchiveReferences } from '@runs/infrastructure/persistence/drizzle/readers/archive-references.reader';
 import { DrizzleQueuedPlacements } from '@runs/infrastructure/persistence/drizzle/readers/queued-placements.reader';
-import { DrizzleRunEventReader } from '@runs/infrastructure/persistence/drizzle/readers/run-event.reader';
+import { DrizzleRunJournalEntryReader } from '@runs/infrastructure/persistence/drizzle/readers/run-journal-entry.reader';
 import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/readers/run-journals';
 import { DrizzleRunnerActivityReader } from '@runs/infrastructure/persistence/drizzle/readers/runner-activity.reader';
 import { DrizzleNetworkCallRepository } from '@runs/infrastructure/persistence/drizzle/repositories/network-call.repository';
@@ -224,6 +229,7 @@ import { StorageHosts } from '@runs/infrastructure/storage/storage-hosts';
 import { InMemoryRunStream } from '@runs/infrastructure/streaming/in-memory-run-stream';
 import { RedisRunStream } from '@runs/infrastructure/streaming/redis-run-stream';
 import { RunGauges } from '@runs/infrastructure/telemetry/run-gauges';
+import { DrizzleRunTraceLinks } from '@runs/infrastructure/telemetry/run-trace-links';
 import { runsSubscribers } from '@runs/presentation/events/runs.subscribers';
 import { EgressController } from '@runs/presentation/http/controllers/egress.controller';
 import { HarnessController } from '@runs/presentation/http/controllers/harness.controller';
@@ -472,7 +478,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     },
   },
 
-  { provide: RUN_EVENT_READER, useClass: DrizzleRunEventReader },
+  { provide: RUN_JOURNAL_ENTRY_READER, useClass: DrizzleRunJournalEntryReader },
 
   {
     provide: RUN_STREAM,
@@ -490,6 +496,19 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     provide: RunLeases,
     inject: [DrizzleRunRepository],
     useFactory: (runs: DrizzleRunRepository) => new RunLeases(runs),
+  },
+
+  DrizzleRunTraceLinks,
+  { provide: RUN_TRACE_LINKS, useExisting: DrizzleRunTraceLinks },
+
+  {
+    provide: RunClaims,
+    inject: [DrizzleRunRepository, TELEMETRY, RUN_TRACE_LINKS],
+    useFactory: (
+      runs: DrizzleRunRepository,
+      telemetry: TelemetryPort,
+      traces: RunTraceLinksPort,
+    ) => new RunClaims(runs, telemetry, traces),
   },
 
   {
@@ -528,7 +547,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ReadRunNetworkQuery, ReadRunNetworkHandler, [
     RUN_VIEWERS,
-    RUN_EVENT_READER,
+    RUN_JOURNAL_ENTRY_READER,
     RUN_CONNECTIONS,
   ]),
 
@@ -766,12 +785,12 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(ReadRunEventsQuery, ReadRunEventsHandler, [
     RUN_VIEWERS,
-    RUN_EVENT_READER,
+    RUN_JOURNAL_ENTRY_READER,
   ]),
 
   ...bindCommandHandler(ClaimRunCommand, ClaimRunHandler, [
     DrizzleRunRepository,
-    RunLeases,
+    RunClaims,
     RUNNER_HEARTBEATS,
     CLOCK,
     CHECK_WORK,
@@ -787,7 +806,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
     RUNNERS,
     RUNNER_HEARTBEATS,
     DrizzleRunRepository,
-    RunLeases,
+    RunClaims,
     CHECK_WORK,
     CLOCK,
     ClaimGate,
@@ -889,6 +908,7 @@ export const RUNS_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ActiveRunsQuery, ActiveRunsHandler, [
     RUNNER_EGRESS,
     EgressSecretFetches,
+    CHECK_WORK,
     CLOCK,
   ]),
 

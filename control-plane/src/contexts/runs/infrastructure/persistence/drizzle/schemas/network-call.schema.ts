@@ -39,7 +39,7 @@ export const networkCall = pgTable(
     responseBody: text('response_body'),
     responseMs: integer('response_ms'),
     responseError: text('response_error'),
-    expiredAt: timestamptz('expired_at'),
+    abandonedAt: timestamptz('abandoned_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -50,6 +50,6 @@ export const networkCall = pgTable(
     ),
     index('network_call_expiring_idx').on(table.state, table.expiresAt),
     index('network_call_responded_idx').on(table.state, table.respondedAt),
-    index('network_call_expired_idx').on(table.state, table.expiredAt),
+    index('network_call_abandoned_idx').on(table.state, table.abandonedAt),
   ],
 );

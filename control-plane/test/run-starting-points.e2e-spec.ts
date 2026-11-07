@@ -8,7 +8,6 @@ import { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo'
 import { WorkspaceArchiveId } from '@runs/domain/value-objects/workspace-archive-id.vo';
 import type { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
-import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -38,13 +37,9 @@ let dispatches: DrizzleDispatchRepository;
 
 beforeAll(async () => {
   database = await openDatabase('run_starting_points');
-  runs = new DrizzleRunRepository(
-    new DrizzleContext(database.db),
-    {
-      dispatch: async () => {},
-    },
-    telemetryInMemory(),
-  );
+  runs = new DrizzleRunRepository(new DrizzleContext(database.db), {
+    dispatch: async () => {},
+  });
   dispatches = new DrizzleDispatchRepository(new DrizzleContext(database.db), {
     dispatch: async () => {},
   });

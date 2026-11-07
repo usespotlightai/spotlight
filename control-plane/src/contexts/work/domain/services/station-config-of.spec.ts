@@ -1,10 +1,10 @@
-import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
+import { createHash } from 'node:crypto';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
-import { StationConfigMapper } from '@work/application/mappers/station-config.mapper';
 import type { RunOrder } from '@work/domain/services/run-order';
+import { stationConfigOf } from '@work/domain/services/station-config-of';
 import {
   judgeOf,
   stationOf,
@@ -14,7 +14,8 @@ import { LineRepositories } from '@work/domain/value-objects/line-repositories.v
 import type { Station } from '@work/domain/value-objects/station.vo';
 import { describe, expect, it } from 'vitest';
 
-const HASH = new Sha256ContentHash();
+const sha256 = (text: string): string =>
+  createHash('sha256').update(text).digest('hex');
 
 const LINE = {
   image: null,
@@ -43,12 +44,12 @@ const station = (
   });
 
 const configured = (at: Station) =>
-  StationConfigMapper.configuredAs(
+  stationConfigOf(
     { station: at, line: LINE, order: ORDER, folders: [] },
-    HASH,
+    sha256,
   );
 
-describe('StationConfigMapper', () => {
+describe('stationConfigOf', () => {
   it('configures the judge by its rubric hash, sample and minimum agreement', () => {
     const judged = station({
       judge: judgeOf({
@@ -59,7 +60,7 @@ describe('StationConfigMapper', () => {
     });
 
     expect(configured(judged).parts.judge).toEqual({
-      rubricHash: HASH.sha256(
+      rubricHash: sha256(
         JSON.stringify({ rubric: RUBRIC, claims: [], passThreshold: 1 }),
       ),
       sample: 0.2,

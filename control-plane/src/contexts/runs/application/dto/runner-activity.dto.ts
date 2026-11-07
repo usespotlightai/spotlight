@@ -1,9 +1,7 @@
-import type { LeasedRunKind } from '@runs/application/ports/runner-activity-reader.port';
-
 export interface LeasedRunDto {
   readonly id: string;
   readonly state: string;
-  readonly kind: LeasedRunKind;
+  readonly kind: string;
   readonly teamId: string | null;
   readonly readable: boolean;
   readonly title: string | null;

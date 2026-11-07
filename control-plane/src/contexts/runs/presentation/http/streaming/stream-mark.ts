@@ -1,5 +1,5 @@
-import { isControlPlaneEntry } from '@runs/application/contracts/run-journal.contract';
 import type { RunEventView } from '@runs/application/ports/run-stream.port';
+import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 
 const counted = (raw: string | undefined): number | null => {
   const parsed = Number.parseInt(raw ?? '', 10);
@@ -23,7 +23,9 @@ export const cursorOf = (
 };
 
 export const eventIdOf = (event: RunEventView): string | undefined =>
-  isControlPlaneEntry(event.seq) ? undefined : `${event.attempt}:${event.seq}`;
+  JournalSeq.isControlPlane(event.seq)
+    ? undefined
+    : `${event.attempt}:${event.seq}`;
 
 export class StreamMark {
   private attempt: number;
@@ -46,7 +48,7 @@ export class StreamMark {
       this.sentControlPlaneEntries.clear();
     }
 
-    if (isControlPlaneEntry(event.seq)) {
+    if (JournalSeq.isControlPlane(event.seq)) {
       if (this.sentControlPlaneEntries.has(event.seq)) {
         return false;
       }

@@ -1,39 +1,22 @@
 import { InvalidStartingPointHoldError } from '@runs/domain/exceptions/invalid-starting-point-hold.error';
+import { HoldHolder } from '@runs/domain/value-objects/hold-holder.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const MAX_HOLDER_LENGTH = 200;
 export const MAX_HELD_RUNS = 500;
-
-const holderNamed = (holder: string): string => {
-  const named = holder.trim();
-
-  if (named.length === 0 || named.length > MAX_HOLDER_LENGTH) {
-    throw new InvalidStartingPointHoldError(
-      `holder name must be 1 to ${MAX_HOLDER_LENGTH} characters`,
-    );
-  }
-
-  return named;
-};
 
 export class StartingPointHold {
   private constructor(
-    readonly holder: string,
+    readonly holder: HoldHolder,
     readonly workspaceId: WorkspaceId,
     readonly runs: readonly RunId[],
     readonly version: number,
     readonly isReleased: boolean,
   ) {}
 
-  static take(holder: string, workspaceId: WorkspaceId): StartingPointHold {
-    return new StartingPointHold(
-      holderNamed(holder),
-      workspaceId,
-      [],
-      0,
-      false,
-    );
+  static take(holder: HoldHolder, workspaceId: WorkspaceId): StartingPointHold {
+    return new StartingPointHold(holder, workspaceId, [], 0, false);
   }
 
   static rehydrate(input: {
@@ -42,8 +25,15 @@ export class StartingPointHold {
     runs: readonly RunId[];
     version: number;
   }): StartingPointHold {
+    if (input.runs.length === 0 || input.runs.length > MAX_HELD_RUNS) {
+      throw new InconsistentStateError(
+        'starting point hold',
+        `${input.holder} holds ${input.runs.length} runs`,
+      );
+    }
+
     return new StartingPointHold(
-      input.holder,
+      HoldHolder.of(input.holder),
       input.workspaceId,
       input.runs,
       input.version,
@@ -51,8 +41,18 @@ export class StartingPointHold {
     );
   }
 
-  holding(runs: readonly RunId[]): StartingPointHold {
+  holding(runs: readonly RunId[], workspaceId: WorkspaceId): StartingPointHold {
+    if (!workspaceId.equals(this.workspaceId)) {
+      throw new InvalidStartingPointHoldError(
+        'can hold only runs of its own workspace',
+      );
+    }
+
     const held = [...new Set(runs.map((each) => each.value))];
+
+    if (held.length === 0) {
+      return this.released();
+    }
 
     if (held.length > MAX_HELD_RUNS) {
       throw new InvalidStartingPointHoldError(

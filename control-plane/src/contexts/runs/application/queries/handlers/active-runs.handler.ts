@@ -3,6 +3,7 @@ import type {
   SharedEgressAuthentication,
 } from '@runners/application/ports/runner-egress.port';
 import type { EgressActiveRunsDto } from '@runs/application/dto/egress-authorization.dto';
+import type { CheckWorkPort } from '@runs/application/ports/check-work.port';
 import type { ActiveRunsQuery } from '@runs/application/queries/egress.queries';
 import type { EgressSecretFetches } from '@runs/application/services/egress-secret-fetches.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -19,6 +20,7 @@ export class ActiveRunsHandler
   constructor(
     private readonly egress: RunnerEgressPort,
     private readonly fetches: EgressSecretFetches,
+    private readonly checks: CheckWorkPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -57,8 +59,16 @@ export class ActiveRunsHandler
   private async isStillActive(
     authorized: SharedEgressAuthentication,
   ): Promise<boolean> {
-    if (authorized.work?.kind !== 'run') {
+    if (!authorized.work) {
       return true;
+    }
+
+    if (authorized.work.kind === 'check') {
+      return this.checks.isLeasedBy(
+        authorized.work.id,
+        RunnerId.of(authorized.runnerId),
+        this.clock.now(),
+      );
     }
 
     return (

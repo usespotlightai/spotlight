@@ -18,7 +18,6 @@ import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
-import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -425,13 +424,9 @@ describe('a catalog call (e2e)', () => {
   });
 
   it('fails a run refused at dispatch, with its reason on record', async () => {
-    const runs = new DrizzleRunRepository(
-      new DrizzleContext(db),
-      {
-        dispatch: async () => {},
-      },
-      telemetryInMemory(),
-    );
+    const runs = new DrizzleRunRepository(new DrizzleContext(db), {
+      dispatch: async () => {},
+    });
     const id = RunId.of(randomUUID());
 
     await runs.add(

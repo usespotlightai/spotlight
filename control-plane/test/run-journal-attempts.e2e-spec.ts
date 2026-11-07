@@ -6,7 +6,7 @@ import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunRequester } from '@runs/domain/value-objects/run-requester.vo';
 import { DrizzleRunJournal } from '@runs/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleRunUsages } from '@runs/infrastructure/persistence/drizzle/ledgers/run-usages.ledger';
-import { DrizzleRunEventReader } from '@runs/infrastructure/persistence/drizzle/readers/run-event.reader';
+import { DrizzleRunJournalEntryReader } from '@runs/infrastructure/persistence/drizzle/readers/run-journal-entry.reader';
 import { DrizzleRunJournals } from '@runs/infrastructure/persistence/drizzle/readers/run-journals';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -21,7 +21,7 @@ import * as schema from './support/schema';
 let database: TestDatabase;
 let db: DrizzleDatabase;
 let journal: DrizzleRunJournal;
-let events: DrizzleRunEventReader;
+let events: DrizzleRunJournalEntryReader;
 let runUsages: DrizzleRunUsages;
 const usageRecorded: DomainEvent[] = [];
 
@@ -56,7 +56,7 @@ beforeAll(async () => {
   database = await openDatabase('run_journal_attempts');
   db = database.db;
   journal = new DrizzleRunJournal(new DrizzleContext(db));
-  events = new DrizzleRunEventReader(db);
+  events = new DrizzleRunJournalEntryReader(db);
   runUsages = new DrizzleRunUsages(new DrizzleContext(db), {
     dispatch: async (events) => {
       usageRecorded.push(...events);

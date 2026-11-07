@@ -1,6 +1,6 @@
 import type { StationConfigShape } from '@work/application/contracts/station-config.contract';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
-import type { RunOutcomeShape } from '@work/application/ports/run-outcomes.port';
+import type { RunResultShape } from '@work/application/ports/run-results.port';
 import type { FileChange } from '@work/application/read-models/file-changes-of';
 
 export interface HistoryUsage {
@@ -12,7 +12,7 @@ export interface HistoryUsage {
   readonly currency: string | null;
 }
 
-export type HistoryOutcome = RunOutcomeShape & {
+export type HistoryOutcome = RunResultShape & {
   readonly usage: HistoryUsage | null;
 };
 

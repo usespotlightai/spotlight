@@ -55,6 +55,8 @@ export interface CheckWorkPort {
     now: Date,
   ): Promise<CheckLeaseRenewal>;
 
+  isLeasedBy(stackId: string, runner: RunnerId, now: Date): Promise<boolean>;
+
   waitingPlacements(
     workspaceId: WorkspaceId,
     now: Date,

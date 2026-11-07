@@ -1,9 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { CONTROL_PLANE_SEQ } from '@runs/application/contracts/run-journal.contract';
-import type { RunEventReaderPort } from '@runs/application/ports/run-event-reader.port';
+import {
+  EGRESS_CHECKED,
+  type EgressEnforcement,
+} from '@runs/application/contracts/run-journal.contract';
+import type { RunJournalEntryReaderPort } from '@runs/application/ports/run-journal-entry-reader.port';
 import type { RunEventView } from '@runs/application/ports/run-stream.port';
+import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
+import { enforcementOf } from '@runs/infrastructure/journal/egress-enforcement';
 import { runJournalEntry } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { and, asc, desc, eq, gt, lte } from 'drizzle-orm';
@@ -38,7 +43,7 @@ const viewOf = (row: {
 });
 
 @Injectable()
-export class DrizzleRunEventReader implements RunEventReaderPort {
+export class DrizzleRunJournalEntryReader implements RunJournalEntryReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
   async eventsSince(
@@ -70,7 +75,9 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
     const controlPlaneEntries = await this.db
       .select(columns)
       .from(runJournalEntry)
-      .where(and(ofAttempt, lte(runJournalEntry.seq, CONTROL_PLANE_SEQ)))
+      .where(
+        and(ofAttempt, lte(runJournalEntry.seq, JournalSeq.firstControlPlane)),
+      )
       .orderBy(desc(runJournalEntry.at), asc(runJournalEntry.seq))
       .limit(MAX_CONTROL_PLANE_ENTRIES);
 
@@ -80,31 +87,23 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
       .reduce(inPlace, entries.reverse().map(viewOf));
   }
 
-  async lastOfType(
+  async egressEnforcementOf(
     runId: RunId,
     attempt: number,
-    type: string,
-  ): Promise<RunEventView | null> {
+  ): Promise<EgressEnforcement | null> {
     const [found] = await this.db
-      .select({
-        attempt: runJournalEntry.attempt,
-        seq: runJournalEntry.seq,
-        type: runJournalEntry.type,
-        at: runJournalEntry.at,
-        message: runJournalEntry.message,
-        data: runJournalEntry.data,
-      })
+      .select({ data: runJournalEntry.data })
       .from(runJournalEntry)
       .where(
         and(
           eq(runJournalEntry.runId, runId.value),
           eq(runJournalEntry.attempt, attempt),
-          eq(runJournalEntry.type, type),
+          eq(runJournalEntry.type, EGRESS_CHECKED),
         ),
       )
       .orderBy(desc(runJournalEntry.at), desc(runJournalEntry.seq))
       .limit(1);
 
-    return found ? viewOf(found) : null;
+    return enforcementOf(found?.data);
   }
 }

@@ -2,11 +2,7 @@ import {
   AGENT_STOPPED,
   EGRESS_CHECKED,
   type EgressEnforcement,
-  HOOK_CALLED,
   type JournalStep,
-  PROVISION_FAILED,
-  parseEnforcement,
-  RUN_PAUSED,
   type RunMarks,
   type RunSpent,
   type StepChange,
@@ -15,6 +11,12 @@ import {
   TURN_USAGE,
 } from '@runs/application/contracts/run-journal.contract';
 import type { CalledStep } from '@runs/domain/services/tool-attribution';
+import { AgentTurns } from '@runs/domain/value-objects/agent-turns.vo';
+import {
+  HOOK_CALLED,
+  PROVISION_FAILED,
+  RUN_PAUSED,
+} from '@runs/domain/value-objects/journal-entry-type';
 import { Money } from '@runs/domain/value-objects/money.vo';
 import type { StepKind } from '@runs/domain/value-objects/step-kind';
 import { Tokens } from '@runs/domain/value-objects/tokens.vo';
@@ -25,6 +27,7 @@ import {
   readingPaths,
   requestedSkillOf,
 } from '@runs/infrastructure/acp/harness-tools';
+import { enforcementOf } from '@runs/infrastructure/journal/egress-enforcement';
 import {
   decoded,
   type Journalled,
@@ -219,22 +222,6 @@ const WORKING = 'in_progress';
 
 const ENDED_STATUSES = new Set(['completed', 'failed']);
 
-interface Span {
-  readonly from: number;
-  readonly to: number;
-}
-
-const overlapping = (spans: readonly Span[], within: Span): number =>
-  spans.reduce(
-    (sum, span) =>
-      sum +
-      Math.max(
-        0,
-        Math.min(span.to, within.to) - Math.max(span.from, within.from),
-      ),
-    0,
-  );
-
 interface RefusedCall {
   readonly toolCallId?: unknown;
 }
@@ -394,7 +381,7 @@ export class JournalBuilder {
 
   private checked(event: Journalled): void {
     this.#egressEnforcement =
-      parseEnforcement(event.data) ?? this.#egressEnforcement;
+      enforcementOf(event.data) ?? this.#egressEnforcement;
   }
 
   private ranHook(event: Journalled): void {
@@ -484,7 +471,7 @@ export class JournalBuilder {
     );
   }
 
-  private calledOf(step: Building, turns: readonly Span[]): CalledStep {
+  private calledOf(step: Building, turns: AgentTurns | null): CalledStep {
     const tool = harnessToolOf(step.named, step.text, step.tool);
     const ending = callEndingOf(
       step.status,
@@ -502,39 +489,20 @@ export class JournalBuilder {
       ms:
         ending === 'unfinished'
           ? null
-          : overlapping(turns, {
+          : (turns?.workingWithin({
               from: (step.workingAt ?? step.startedAt).getTime(),
               to: step.endedAt.getTime(),
-            }),
+            }) ?? 0),
       ending,
     };
   }
 
   ms(): number | null {
-    if (this.#notifiedAt.length === 0) {
-      return null;
-    }
-
-    return this.turns().reduce((sum, span) => sum + span.to - span.from, 0);
+    return this.turns()?.ms ?? null;
   }
 
-  private turns(): Span[] {
-    const pauses = this.#pausedAt
-      .map((at) => at.getTime())
-      .sort((a, b) => a - b);
-    const turns = new Map<number, Span>();
-
-    for (const at of this.#notifiedAt.map((each) => each.getTime())) {
-      const turn = pauses.filter((pause) => pause < at).length;
-      const span = turns.get(turn);
-
-      turns.set(turn, {
-        from: Math.min(span?.from ?? at, at),
-        to: Math.max(span?.to ?? at, at),
-      });
-    }
-
-    return [...turns.values()];
+  private turns(): AgentTurns | null {
+    return AgentTurns.of(this.#notifiedAt, this.#pausedAt);
   }
 
   marks(): RunMarks {

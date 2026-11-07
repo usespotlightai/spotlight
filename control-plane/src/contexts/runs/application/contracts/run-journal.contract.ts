@@ -1,12 +1,6 @@
 import type { Money } from '@runs/domain/value-objects/money.vo';
 import type { StepKind } from '@runs/domain/value-objects/step-kind';
 
-export const PROVISION_FAILED = 'provision.failed';
-
-export const HOOK_CALLED = 'hook.called';
-
-export const RUN_PAUSED = 'run.paused';
-
 export const TURN_USAGE = 'usage';
 
 export const TOOL_REFUSED = 'tool.refused';
@@ -16,33 +10,6 @@ export const EGRESS_CHECKED = 'egress.checked';
 export const AGENT_STOPPED = 'agent.stopped';
 
 export type EgressEnforcement = 'enforced' | 'not-enforced';
-
-export const parseEnforcement = (
-  data: string | null | undefined,
-): EgressEnforcement | null => {
-  if (!data) {
-    return null;
-  }
-
-  try {
-    const parsed = JSON.parse(Buffer.from(data, 'base64').toString('utf8')) as {
-      enforced?: unknown;
-    };
-
-    if (typeof parsed.enforced !== 'boolean') {
-      return null;
-    }
-
-    return parsed.enforced ? 'enforced' : 'not-enforced';
-  } catch {
-    return null;
-  }
-};
-
-export const CONTROL_PLANE_SEQ = -1_000_000;
-
-export const isControlPlaneEntry = (seq: number): boolean =>
-  seq <= CONTROL_PLANE_SEQ;
 
 export interface StepLocation {
   readonly path: string;

@@ -5,7 +5,6 @@ import type { RunsPort } from '@runs/application/ports/runs.port';
 import { RunFacts } from '@runs/application/services/run-facts.service';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleWorkspaceArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
-import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
@@ -32,7 +31,7 @@ beforeAll(async () => {
   const context = new DrizzleContext(db);
   works = new RunWorks(
     new RunFacts(
-      new DrizzleRunRepository(context, NO_EVENTS, telemetryInMemory()),
+      new DrizzleRunRepository(context, NO_EVENTS),
       new DrizzleWorkspaceArchiveRepository(context, NO_EVENTS),
     ),
     {} as RunsPort,

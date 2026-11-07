@@ -1,4 +1,4 @@
-import type { RunEventReaderPort } from '@runs/application/ports/run-event-reader.port';
+import type { RunJournalEntryReaderPort } from '@runs/application/ports/run-journal-entry-reader.port';
 import type {
   RunViewersPort,
   WatchedRun,
@@ -20,8 +20,8 @@ const reading = (watchable: boolean) => {
   } as unknown as RunViewersPort;
   const events = {
     eventsSince: vi.fn(async () => [ENTRY]),
-    lastOfType: vi.fn(async () => null),
-  } satisfies RunEventReaderPort;
+    egressEnforcementOf: vi.fn(async () => null),
+  } satisfies RunJournalEntryReaderPort;
 
   return { events, handler: new ReadRunEventsHandler(runs, events) };
 };

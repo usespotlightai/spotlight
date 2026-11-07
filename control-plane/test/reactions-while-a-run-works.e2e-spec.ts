@@ -7,6 +7,7 @@ import { CommandBus } from '@nestjs/cqrs';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { CompleteRunCommand } from '@runs/application/commands/runner.commands';
+import { ClaimOrder } from '@runs/domain/services/claim-order';
 import { RunOutcome } from '@runs/domain/value-objects/run-outcome.vo';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
@@ -216,13 +217,15 @@ const approvalRequested = async (task: Task, runId: RunId) => {
 };
 
 const awaitingProvision = async () =>
-  (
+  ClaimOrder.provisionable(
     await runs.awaitingProvision(team.workspaceId, new Date(), {
       skip: 0,
       max: 1_000,
       withSecrets: false,
       avoiding: [],
-    })
+    }),
+    new Date(),
+    false,
   ).map((each) => each.id.value);
 
 const atStation = (task: Task, station: string) =>

@@ -11,10 +11,10 @@ import { LinesModule } from '@lines/lines.module';
 import { MemoryModule } from '@memory/memory.module';
 import { Module } from '@nestjs/common';
 import { contextBindings } from '@platform/bindings/context-bindings';
-import { RUN_OUTCOMES } from '@work/application/ports/run-outcomes.port';
+import { RUN_RESULTS } from '@work/application/ports/run-results.port';
 import { WorkModule } from '@work/work.module';
 
-const BINDINGS = contextBindings([RUN_OUTCOMES]);
+const BINDINGS = contextBindings([RUN_RESULTS]);
 
 @Module({
   imports: [

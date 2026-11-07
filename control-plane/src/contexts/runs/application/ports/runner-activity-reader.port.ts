@@ -5,16 +5,6 @@ import type {
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export const LEASED_RUN_KINDS = [
-  'task',
-  'chat',
-  'replay',
-  'search',
-  'spec',
-] as const;
-
-export type LeasedRunKind = (typeof LEASED_RUN_KINDS)[number];
-
 export const RUNNER_ACTIVITY_READER = Symbol('RUNNER_ACTIVITY_READER');
 
 export interface LeasedRun {

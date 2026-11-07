@@ -17,7 +17,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
 import { DrizzleUsedTokens } from '@runners/infrastructure/persistence/drizzle/ledgers/used-tokens.ledger';
 import { POOL_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-pool-resource.controller';
-import { CONTROL_PLANE_SEQ } from '@runs/application/contracts/run-journal.contract';
+import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
@@ -1101,7 +1101,7 @@ describe('runner pools (e2e)', () => {
         [0, 1, 2, 3, 4].map((back) => [
           'provision.failed',
           'Provisioning failed · unreachable',
-          CONTROL_PLANE_SEQ - back,
+          JournalSeq.firstControlPlane - back,
         ]),
       );
     }, 30_000);

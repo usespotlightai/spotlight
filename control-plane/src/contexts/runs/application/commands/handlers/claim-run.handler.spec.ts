@@ -15,7 +15,7 @@ import type {
 import { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import { LongPoll } from '@runs/application/services/long-poll';
 import type { ProvisionFailures } from '@runs/application/services/provision-failures.service';
-import type { RunLeases } from '@runs/application/services/run-leases.service';
+import type { RunClaims } from '@runs/application/services/run-claims.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
@@ -109,7 +109,6 @@ const claiming = (
   const saved: Run[] = [];
   const unclaim = vi.fn(async () => {});
   const failed = vi.fn(async () => null);
-  const expireLeases = vi.fn(async () => []);
   let now = NOW;
   const clock = {
     now: () => now,
@@ -118,7 +117,6 @@ const claiming = (
     },
   } as ClockPort;
   const runs = {
-    claimNext,
     reservedFor: vi.fn(async () => over.reservedFor ?? null),
     findById: vi.fn(async () => queued()),
     save: vi.fn(async (run: Run) => {
@@ -130,11 +128,12 @@ const claiming = (
     claimReserved,
     unclaim,
     renewLease: vi.fn(async () => 'renewed' as const),
+    isLeasedBy: vi.fn(async () => false),
     waitingPlacements: vi.fn(async () => []),
   };
   const handler = new ClaimRunHandler(
     runs,
-    { expireLeases } as unknown as RunLeases,
+    { next: claimNext } as unknown as RunClaims,
     {
       heartbeat: vi.fn(async () =>
         over.seen === undefined ? seenAs() : over.seen,
@@ -161,7 +160,6 @@ const claiming = (
     execute: (command: ClaimRunCommand) => handler.execute(command),
     pooled,
     failed,
-    expireLeases,
     claimReserved,
     saved,
     unclaim,
@@ -248,7 +246,6 @@ describe('ClaimRunHandler', () => {
     expect(await handler.execute(new ClaimRunCommand('runner_1'))).toBeNull();
     expect(claimNext).not.toHaveBeenCalled();
     expect(claimCheck).not.toHaveBeenCalled();
-    expect(handler.expireLeases).not.toHaveBeenCalled();
   });
 
   describe('for a runner started for one reserved run', () => {

@@ -18,7 +18,7 @@ import type { ClaimGate } from '@runs/application/services/claim-gate.service';
 import { claimedRun } from '@runs/application/services/claimed-work';
 import type { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import type { LongPoll } from '@runs/application/services/long-poll';
-import type { RunLeases } from '@runs/application/services/run-leases.service';
+import type { RunClaims } from '@runs/application/services/run-claims.service';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
 import { ClaimOrder } from '@runs/domain/services/claim-order';
@@ -65,7 +65,7 @@ export class ClaimHostWorkHandler
     private readonly runners: RunnersPort,
     private readonly heartbeats: RunnerHeartbeatsPort,
     private readonly runs: RunRepository,
-    private readonly leases: RunLeases,
+    private readonly claims: RunClaims,
     private readonly checks: CheckWorkPort,
     private readonly clock: ClockPort,
     private readonly starting: ClaimGate,
@@ -177,8 +177,6 @@ export class ClaimHostWorkHandler
       return null;
     }
 
-    await this.leases.expireLeases(this.clock.now());
-
     const found = await this.polls.polled<Claimed | 'requeued'>(async () => {
       const requested = await this.claimedForRequested(
         runner,
@@ -237,7 +235,7 @@ export class ClaimHostWorkHandler
     host: string,
     until: Date,
   ): Promise<Claimed | 'requeued' | null> {
-    const run = await this.runs.claimNext(claimant, this.clock.now());
+    const run = await this.claims.next(claimant, this.clock.now());
     const start = run
       ? await this.starting.mayStart(run, claimant.runner, until)
       : null;
@@ -252,15 +250,20 @@ export class ClaimHostWorkHandler
 
     await this.taken.run(run, claimant.runner);
 
-    const sandbox = await this.sandboxes.holdForRun(
-      {
-        workspaceId: run.workspaceId.value,
-        key: run.workspaceKey?.value ?? null,
-        hostId: host,
-        runId: run.id.value,
-      },
-      this.clock.now(),
-    );
+    const sandbox = await this.sandboxes
+      .holdForRun(
+        {
+          workspaceId: run.workspaceId.value,
+          key: run.workspaceKey?.value ?? null,
+          hostId: host,
+          runId: run.id.value,
+        },
+        this.clock.now(),
+      )
+      .catch(async (error: unknown) => {
+        await this.taken.dropRun(run, claimant.runner);
+        throw error;
+      });
 
     return {
       kind: 'work',
@@ -326,8 +329,6 @@ export class ClaimHostWorkHandler
       return null;
     }
 
-    await this.leases.expireLeases(this.clock.now());
-
     const claimant = claimantOf(runner, heartbeat, {
       into: WorkspaceKey.parse(into.key),
     });
@@ -343,7 +344,7 @@ export class ClaimHostWorkHandler
     }
 
     const found = await this.polls.polled<Run | 'requeued'>(async () => {
-      const run = await this.runs.claimNext(claimant, this.clock.now());
+      const run = await this.claims.next(claimant, this.clock.now());
       const start = run
         ? await this.starting.mayStart(run, runner, until)
         : null;

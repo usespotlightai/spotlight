@@ -6,6 +6,7 @@ import {
   WORKSPACE_ARCHIVE_STORE,
   type WorkspaceArchiveStorePort,
 } from '@runs/application/ports/workspace-archive-store.port';
+import { RunClaims } from '@runs/application/services/run-claims.service';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -686,10 +687,10 @@ describe('a message in a run chat', () => {
 describe('a run queued while an earlier run of its task is still leased', () => {
   const claimsNext = async (): Promise<string[]> => {
     const claimed: string[] = [];
-    const runs = app.get(DrizzleRunRepository);
+    const claims = app.get(RunClaims);
 
     for (let taken = 0; taken < 5; taken++) {
-      const next = await runs.claimNext(
+      const next = await claims.next(
         {
           runner: RunnerId.of(`runner-${randomUUID()}`),
           workspaceId: team.workspaceId,

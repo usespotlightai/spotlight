@@ -69,6 +69,18 @@ export class RunWorks {
     return { run, work: await this.workOf(run) };
   }
 
+  async leasedRunWork(
+    runId: string,
+    runnerId: string,
+  ): Promise<LeasedRunWork | null> {
+    const run = await this.leases.leasedBy(
+      RunId.of(runId),
+      RunnerId.of(runnerId),
+    );
+
+    return run ? { run, work: await this.workOf(run) } : null;
+  }
+
   async workLeasedBy(runId: string, runnerId: string): Promise<RunWork | null> {
     const run = await this.leases.leasedBy(
       RunId.of(runId),

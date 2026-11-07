@@ -16,12 +16,14 @@ import type { ProvisionFailures } from '@runs/application/services/provision-fai
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { ClaimOrder } from '@runs/domain/services/claim-order';
 import {
   type PoolOnOffer,
   PoolRoom,
   poolChoiceFor,
 } from '@runs/domain/services/pool-choice';
 import { poolCouldTake } from '@runs/domain/services/pool-fit';
+import { ProvisionPlan } from '@runs/domain/services/provision-plan';
 import { WorkspaceKey } from '@runs/domain/value-objects/workspace-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -176,33 +178,53 @@ export class ProvisionWork {
       this.clock.now(),
     );
 
+    const withEgress = pools.some((offered) => offered.egress);
+
     for (const page of [
-      (skip: number) =>
-        this.runs
-          .awaitingProvision(first.workspaceId, this.clock.now(), {
+      async (skip: number) => {
+        const queued = await this.runs.awaitingProvision(
+          first.workspaceId,
+          this.clock.now(),
+          {
             skip,
             max: PAGE,
-            withSecrets: pools.some((offered) => offered.egress),
+            withSecrets: withEgress,
             avoiding: held.map((each) => WorkspaceKey.parse(each)),
-          })
-          .then((runs) => runs.map((run) => this.provisionableRun(run))),
-      (skip: number) =>
-        this.checks
-          .awaiting(first.workspaceId, this.clock.now(), { skip, max: PAGE })
-          .then((checks) =>
-            checks.map((check) => this.provisionableCheck(check)),
-          ),
+          },
+        );
+
+        return {
+          read: queued.waiting.length,
+          found: ClaimOrder.provisionable(
+            queued,
+            this.clock.now(),
+            withEgress,
+          ).map((run) => this.provisionableRun(run)),
+        };
+      },
+      async (skip: number) => {
+        const checks = await this.checks.awaiting(
+          first.workspaceId,
+          this.clock.now(),
+          { skip, max: PAGE },
+        );
+
+        return {
+          read: checks.length,
+          found: checks.map((check) => this.provisionableCheck(check)),
+        };
+      },
     ]) {
       for (
         let at = 0;
         at < MAX_PAGES && placed.length < MAX_AT_ONCE && room.anyLeft;
         at++
       ) {
-        const found = await page(at * PAGE);
+        const { read, found } = await page(at * PAGE);
 
         found.forEach(place);
 
-        if (found.length < PAGE) {
+        if (read < PAGE) {
           break;
         }
       }
@@ -459,11 +481,13 @@ export class ProvisionWork {
     then: Then,
     last: boolean,
   ): Promise<Provisioned> {
-    if (provisioned.outcome === 'provisioned') {
+    const next = ProvisionPlan.after(provisioned.outcome, last);
+
+    if (next === 'done') {
       return 'done';
     }
 
-    if (provisioned.outcome === 'failed' && last) {
+    if (next === 'record-failure' && provisioned.outcome === 'failed') {
       await then.failed(
         ProvisionFailure.of(provisioned.kind, provisioned.detail),
       );

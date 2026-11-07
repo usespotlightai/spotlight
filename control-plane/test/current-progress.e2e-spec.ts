@@ -4,7 +4,6 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunFacts } from '@runs/application/services/run-facts.service';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleWorkspaceArchiveRepository } from '@runs/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
-import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -40,7 +39,7 @@ const progress = () => {
   const noEvents = { dispatch: async () => {} };
 
   return new RunFacts(
-    new DrizzleRunRepository(context, noEvents, telemetryInMemory()),
+    new DrizzleRunRepository(context, noEvents),
     new DrizzleWorkspaceArchiveRepository(context, noEvents),
   );
 };

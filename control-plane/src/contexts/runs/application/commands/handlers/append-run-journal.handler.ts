@@ -3,6 +3,7 @@ import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
 import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
 import { UnknownRunError } from '@runs/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { ReportedJournalEntry } from '@runs/domain/value-objects/reported-journal-entry.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -25,13 +26,16 @@ export class AppendRunJournalHandler
       }
 
       const attempt = journalling.journalFor(RunnerId.of(command.runnerId));
+      const reported = command.entries.map((entry) =>
+        ReportedJournalEntry.of(entry),
+      );
 
       await this.journal.append(
         attempt,
-        command.entries.map((entry) => ({
-          seq: entry.seq,
+        reported.map((entry) => ({
+          seq: entry.seq.value,
           type: entry.type,
-          at: new Date(entry.at),
+          at: entry.at,
           message: entry.message,
           data: entry.data,
         })),

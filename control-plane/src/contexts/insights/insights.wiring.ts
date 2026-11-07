@@ -209,7 +209,7 @@ import {
   RUN_EVIDENCE,
   type RunEvidencePort,
 } from '@work/application/ports/run-evidence.port';
-import { RUN_OUTCOMES } from '@work/application/ports/run-outcomes.port';
+import { RUN_RESULTS } from '@work/application/ports/run-results.port';
 import {
   STATION_RUNS,
   type StationRunsPort,
@@ -337,7 +337,7 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
     useFactory: (people: PeoplePort) => new InsightsAccess(people),
   },
   {
-    provide: RUN_OUTCOMES,
+    provide: RUN_RESULTS,
     inject: [STATION_FACTS],
     useFactory: (facts: StationFactsPort) =>
       new WorkRunOutcomes(new RunOutcomes(facts)),

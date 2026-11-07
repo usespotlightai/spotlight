@@ -1,9 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type { LeasedRunDto } from '@runs/application/dto/runner-activity.dto';
-import {
-  LEASED_RUN_KINDS,
-  type LeasedRunKind,
-} from '@runs/application/ports/runner-activity-reader.port';
 
 export class LeasedRunResponseDto {
   @ApiProperty({ example: '3f9c1b7e-52a4-4d6f-8e1b-0a7c4d2f9b63' })
@@ -13,11 +9,11 @@ export class LeasedRunResponseDto {
   readonly state: string;
 
   @ApiProperty({
-    enum: LEASED_RUN_KINDS,
+    example: 'task',
     description:
-      'What the run is for: a task at a station, an agent chat, a replay, a search, or only the spec it was queued with',
+      'The kind of work the run is for, as the requester that ordered it names it, for example task, chat or spec',
   })
-  readonly kind: LeasedRunKind;
+  readonly kind: string;
 
   @ApiProperty({
     type: String,
@@ -36,7 +32,7 @@ export class LeasedRunResponseDto {
     type: String,
     nullable: true,
     description:
-      'The task’s or chat’s title; null for a replay, a search or a run queued with only a spec, or where the caller cannot read the run’s team',
+      'The title the run’s requester gives it; null where the requester gives none, or where the caller cannot read the run’s team',
   })
   readonly title: string | null;
 

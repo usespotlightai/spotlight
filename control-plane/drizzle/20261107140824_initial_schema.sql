@@ -1722,7 +1722,7 @@ CREATE TABLE "network_call" (
 	"response_body" text,
 	"response_ms" integer,
 	"response_error" text,
-	"expired_at" timestamp (3) with time zone,
+	"abandoned_at" timestamp (3) with time zone,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1758,6 +1758,7 @@ CREATE TABLE "run" (
 	"asks" "run_asks" NOT NULL,
 	"listed" boolean NOT NULL,
 	"exclusive" boolean NOT NULL,
+	"injects_secrets" boolean DEFAULT false NOT NULL,
 	"workspace_key" text,
 	"workspace_rejoinable" boolean,
 	"workspace_restores" "workspace_restores",
@@ -1810,7 +1811,7 @@ CREATE TABLE "run" (
 	CONSTRAINT "run_workspace_check" CHECK (("run"."workspace_key" is null) = ("run"."workspace_rejoinable" is null) and ("run"."workspace_key" is null) = ("run"."workspace_restores" is null))
 );
 --> statement-breakpoint
-CREATE TABLE "run_event" (
+CREATE TABLE "run_journal_entry" (
 	"run_id" text NOT NULL,
 	"attempt" integer NOT NULL,
 	"seq" integer NOT NULL,
@@ -1818,7 +1819,7 @@ CREATE TABLE "run_event" (
 	"at" timestamp (3) with time zone NOT NULL,
 	"message" text,
 	"data" text,
-	CONSTRAINT "run_event_run_id_attempt_seq_pk" PRIMARY KEY("run_id","attempt","seq")
+	CONSTRAINT "run_journal_entry_run_id_attempt_seq_pk" PRIMARY KEY("run_id","attempt","seq")
 );
 --> statement-breakpoint
 CREATE TABLE "run_usage" (
@@ -2450,10 +2451,10 @@ CREATE UNIQUE INDEX "workspace_runners_workspace_idx" ON "workspace_runners" USI
 CREATE INDEX "network_call_waiting_idx" ON "network_call" USING btree ("workspace_id","state","queued_at");--> statement-breakpoint
 CREATE INDEX "network_call_expiring_idx" ON "network_call" USING btree ("state","expires_at");--> statement-breakpoint
 CREATE INDEX "network_call_responded_idx" ON "network_call" USING btree ("state","responded_at");--> statement-breakpoint
-CREATE INDEX "network_call_expired_idx" ON "network_call" USING btree ("state","expired_at");--> statement-breakpoint
+CREATE INDEX "network_call_abandoned_idx" ON "network_call" USING btree ("state","abandoned_at");--> statement-breakpoint
 CREATE INDEX "run_connection_run_idx" ON "run_connection" USING btree ("run_id","at");--> statement-breakpoint
 CREATE INDEX "run_connection_at_idx" ON "run_connection" USING btree ("at");--> statement-breakpoint
-CREATE INDEX "run_queue_idx" ON "run" USING btree ("harness","state","priority","created_at");--> statement-breakpoint
+CREATE INDEX "run_queue_idx" ON "run" USING btree ("harness","state","priority","queued_at");--> statement-breakpoint
 CREATE INDEX "run_lease_idx" ON "run" USING btree ("lease_expires_at");--> statement-breakpoint
 CREATE INDEX "run_workspace_idx" ON "run" USING btree ("workspace_id");--> statement-breakpoint
 CREATE INDEX "run_requester_idx" ON "run" USING btree ("requester_owner","requester_kind","requester_id");--> statement-breakpoint

@@ -45,6 +45,7 @@ const queueOf = (
         claimReserved: vi.fn(async () => null),
         unclaim: vi.fn(async () => {}),
         renewLease: vi.fn(async () => 'renewed' as const),
+        isLeasedBy: vi.fn(async () => false),
         waitingPlacements: vi.fn(async () => checks),
       },
       { now: () => NOW } as ClockPort,

@@ -8,6 +8,7 @@ import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { RunClaims } from '@runs/application/services/run-claims.service';
 import { DrizzleRunRepository } from '@runs/infrastructure/persistence/drizzle/repositories/run.repository';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -29,19 +30,19 @@ const NOW = new Date('2026-01-02T03:04:05.000Z');
 let database: TestDatabase;
 let db: DrizzleDatabase;
 let runs: DrizzleRunRepository;
+let claims: RunClaims;
 let checks: DrizzleStackCheckRepository;
 const telemetry = telemetryInMemory();
 
 beforeAll(async () => {
   database = await openDatabase('runner_claim');
   db = database.db;
-  runs = new DrizzleRunRepository(
-    new DrizzleContext(db),
-    {
-      dispatch: async () => {},
-    },
-    telemetry,
-  );
+  runs = new DrizzleRunRepository(new DrizzleContext(db), {
+    dispatch: async () => {},
+  });
+  claims = new RunClaims(runs, telemetry, {
+    linkActiveSpanTo: async () => {},
+  });
   checks = new DrizzleStackCheckRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
@@ -153,13 +154,13 @@ describe('claiming a run', () => {
   it('never hands a runner a run queued in another workspace', async () => {
     await queue('ws_theirs');
 
-    await expect(runs.claimNext(claimant('ws_mine'), NOW)).resolves.toBeNull();
+    await expect(claims.next(claimant('ws_mine'), NOW)).resolves.toBeNull();
   });
 
   it('hands a runner a run queued in its own workspace', async () => {
     const mine = await queue('ws_own');
 
-    const claimed = await runs.claimNext(claimant('ws_own'), NOW);
+    const claimed = await claims.next(claimant('ws_own'), NOW);
 
     expect(claimed?.id.value).toBe(mine);
   });
@@ -171,7 +172,7 @@ describe('claiming a run', () => {
       .set({ queuedAt: new Date(NOW.getTime() - 90_000) })
       .where(eq(schema.run.id, mine));
 
-    await runs.claimNext(claimant('ws_waited'), NOW);
+    await claims.next(claimant('ws_waited'), NOW);
 
     expect(telemetry.measured[telemetry.measured.length - 1]).toEqual({
       metric: 'spotlight.runs.claim_wait_seconds',
@@ -187,7 +188,7 @@ describe('claiming a requeued run', () => {
     const first = await queue(workspaceId);
     const runner = RunnerId.of(randomUUID());
 
-    const claimed = await runs.claimNext(
+    const claimed = await claims.next(
       claimant(workspaceId, ['runner-1'], 'any', runner),
       NOW,
     );
@@ -204,12 +205,12 @@ describe('claiming a requeued run', () => {
     );
     const other = await queue(workspaceId);
 
-    expect((await runs.claimNext(claimant(workspaceId), NOW))?.id.value).toBe(
+    expect((await claims.next(claimant(workspaceId), NOW))?.id.value).toBe(
       other,
     );
-    expect(await runs.claimNext(claimant(workspaceId), NOW)).toBeNull();
+    expect(await claims.next(claimant(workspaceId), NOW)).toBeNull();
 
-    const again = await runs.claimNext(
+    const again = await claims.next(
       claimant(workspaceId),
       new Date(NOW.getTime() + 5_000),
     );
@@ -224,13 +225,13 @@ describe('claiming placed work', () => {
     const placed = await queue('ws_placed', [['vpc-a', 'build-1'], ['gpu']]);
 
     await expect(
-      runs.claimNext(claimant('ws_placed', ['vpc-a']), NOW),
+      claims.next(claimant('ws_placed', ['vpc-a']), NOW),
     ).resolves.toBeNull();
     await expect(
-      runs.claimNext(claimant('ws_placed', ['gpu']), NOW),
+      claims.next(claimant('ws_placed', ['gpu']), NOW),
     ).resolves.toBeNull();
 
-    const claimed = await runs.claimNext(
+    const claimed = await claims.next(
       claimant('ws_placed', ['build-1', 'gpu']),
       NOW,
     );
@@ -263,9 +264,9 @@ describe('claiming a run reserved for a provisioned runner', () => {
     const runId = await queue(workspaceId);
     await reserve(runId, provisioned, LATER);
 
-    expect(await runs.claimNext(claimant(workspaceId), NOW)).toBeNull();
+    expect(await claims.next(claimant(workspaceId), NOW)).toBeNull();
 
-    const claimed = await runs.claimNext(
+    const claimed = await claims.next(
       claimant(workspaceId, ['runner-1'], 'reserved', provisioned),
       NOW,
     );
@@ -279,7 +280,7 @@ describe('claiming a run reserved for a provisioned runner', () => {
     const runId = await queue(workspaceId);
     await reserve(runId, RunnerId.of(randomUUID()), NOW);
 
-    expect((await runs.claimNext(claimant(workspaceId), LATER))?.id.value).toBe(
+    expect((await claims.next(claimant(workspaceId), LATER))?.id.value).toBe(
       runId,
     );
   });
@@ -289,10 +290,7 @@ describe('claiming a run reserved for a provisioned runner', () => {
     await queue(workspaceId);
 
     expect(
-      await runs.claimNext(
-        claimant(workspaceId, ['runner-1'], 'reserved'),
-        NOW,
-      ),
+      await claims.next(claimant(workspaceId, ['runner-1'], 'reserved'), NOW),
     ).toBeNull();
   });
 });

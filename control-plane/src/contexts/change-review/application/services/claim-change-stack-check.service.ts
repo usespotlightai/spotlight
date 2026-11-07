@@ -126,6 +126,16 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     }
   }
 
+  async isLeasedBy(
+    stackId: string,
+    runner: RunnerId,
+    now: Date,
+  ): Promise<boolean> {
+    return (await this.checks.ofStack(ChangeStackId.of(stackId))).some(
+      (check) => check.beingCheckedBy(runner, now),
+    );
+  }
+
   async renewLease(
     runId: RunId,
     stackId: string,

@@ -1,4 +1,3 @@
-import { CONTROL_PLANE_SEQ } from '@runs/application/contracts/run-journal.contract';
 import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
 import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
 import { ProvisionFailures } from '@runs/application/services/provision-failures.service';
@@ -6,6 +5,7 @@ import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { JournalSeq } from '@runs/domain/value-objects/journal-seq.vo';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -52,7 +52,7 @@ const failing = (stored: Run, conflicts = 0) => {
   };
   const written: number[] = [];
   const append = vi.fn(async () => {
-    const seq = CONTROL_PLANE_SEQ - written.length;
+    const seq = JournalSeq.firstControlPlane - written.length;
     written.push(seq);
     return seq;
   });
@@ -108,7 +108,7 @@ describe('ProvisionFailures', () => {
     expect(publish).toHaveBeenCalledWith('run_1', [
       expect.objectContaining({
         attempt: 1,
-        seq: CONTROL_PLANE_SEQ,
+        seq: JournalSeq.firstControlPlane,
         type: 'provision.failed',
         at: NOON.toISOString(),
       }),

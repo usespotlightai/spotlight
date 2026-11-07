@@ -22,7 +22,7 @@ import type {
 } from '@runs/application/services/claim-gate.service';
 import { ClaimsTaken } from '@runs/application/services/claims-taken.service';
 import { LongPoll } from '@runs/application/services/long-poll';
-import type { RunLeases } from '@runs/application/services/run-leases.service';
+import type { RunClaims } from '@runs/application/services/run-claims.service';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
@@ -137,7 +137,6 @@ const pulling = (
   };
   const saved: Run[] = [];
   const runs = {
-    claimNext,
     newestWithKey: vi.fn(async () => over.newest ?? null),
     queuedWithKey: vi.fn(async () => over.queuedForKey ?? []),
     findById: vi.fn(async () => over.run ?? null),
@@ -151,6 +150,7 @@ const pulling = (
     claimReserved: vi.fn(async () => null),
     unclaim,
     renewLease: vi.fn(async () => 'renewed' as const),
+    isLeasedBy: vi.fn(async () => false),
     waitingPlacements: vi.fn(async () => []),
   };
   const sandboxes = {
@@ -178,7 +178,7 @@ const pulling = (
     runners as unknown as RunnersPort,
     heartbeats as RunnerHeartbeatsPort,
     runs,
-    { expireLeases: vi.fn(async () => []) } as unknown as RunLeases,
+    { next: claimNext } as unknown as RunClaims,
     checks,
     clock,
     { mayStart: mayStart } as unknown as ClaimGate,
@@ -370,6 +370,15 @@ describe('ClaimHostWorkHandler', () => {
       },
       NOW,
     );
+  });
+
+  it('puts the run back and releases the runner when the sandbox for the claimed run cannot be held', async () => {
+    const { handler, runners, sandboxes, saved } = pulling({ run: taken() });
+    sandboxes.holdForRun.mockRejectedValueOnce(new Error('sandboxes down'));
+
+    await expect(handler.execute(pull())).rejects.toThrow('sandboxes down');
+    expect(saved[saved.length - 1]?.state).toBe('queued');
+    expect(runners.release).toHaveBeenCalledWith(POOLED, NOW);
   });
 
   it('leaves the runs of keys that ready sandboxes keep to those sandboxes', async () => {

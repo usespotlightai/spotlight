@@ -11,9 +11,9 @@ import type {
   RunnerHistoryAnswer,
 } from '@work/application/dto/runner-history.dto';
 import type {
-  RunOutcomeShape,
-  RunOutcomesPort,
-} from '@work/application/ports/run-outcomes.port';
+  RunResultShape,
+  RunResultsPort,
+} from '@work/application/ports/run-results.port';
 import type {
   StationRunReaderPort,
   StationRunRow,
@@ -42,12 +42,12 @@ const sinceOf = (written: string | null): Date | null => {
 };
 
 const withUsage = (
-  outcome: RunOutcomeShape | null,
+  outcome: RunResultShape | null,
   usage: RunUsage | null,
 ): HistoryOutcome | null =>
   outcome && { ...outcome, usage: historyUsageOf(usage) };
 
-type Outcomes = Awaited<ReturnType<RunOutcomesPort['of']>>;
+type Outcomes = Awaited<ReturnType<RunResultsPort['of']>>;
 
 export class ReadRunnerHistoryHandler
   implements QueryHandlerPort<ReadRunnerHistoryQuery, RunnerHistoryAnswer>
@@ -55,7 +55,7 @@ export class ReadRunnerHistoryHandler
   constructor(
     private readonly accesses: HistoryAccesses,
     private readonly stations: StationRunReaderPort,
-    private readonly outcomes: RunOutcomesPort,
+    private readonly outcomes: RunResultsPort,
     private readonly usages: RunUsageReaderPort,
     private readonly histories: StationRunHistories,
   ) {}

@@ -73,6 +73,7 @@ export const run = pgTable(
     asks: runAsks('asks').notNull(),
     listed: boolean('listed').notNull(),
     exclusive: boolean('exclusive').notNull(),
+    injectsSecrets: boolean('injects_secrets').notNull().default(false),
     workspaceKey: text('workspace_key'),
     workspaceRejoinable: boolean('workspace_rejoinable'),
     workspaceRestores: workspaceRestores('workspace_restores'),
@@ -145,7 +146,7 @@ export const run = pgTable(
       table.harness,
       table.state,
       table.priority,
-      table.createdAt,
+      table.queuedAt,
     ),
     index('run_lease_idx').on(table.leaseExpiresAt),
     index('run_workspace_idx').on(table.workspaceId),
@@ -180,7 +181,7 @@ export const run = pgTable(
 );
 
 export const runJournalEntry = pgTable(
-  'run_event',
+  'run_journal_entry',
   {
     runId: text('run_id').notNull(),
     attempt: integer('attempt').notNull(),

@@ -1,4 +1,4 @@
-import type { RunEventReaderPort } from '@runs/application/ports/run-event-reader.port';
+import type { RunJournalEntryReaderPort } from '@runs/application/ports/run-journal-entry-reader.port';
 import type { RunEventView } from '@runs/application/ports/run-stream.port';
 import type { RunViewersPort } from '@runs/application/ports/run-viewers.port';
 import type { ReadRunEventsQuery } from '@runs/application/queries/read-run-events.query';
@@ -15,7 +15,7 @@ export class ReadRunEventsHandler
 {
   constructor(
     private readonly runs: RunViewersPort,
-    private readonly events: RunEventReaderPort,
+    private readonly events: RunJournalEntryReaderPort,
   ) {}
 
   async execute(query: ReadRunEventsQuery): Promise<RunEventView[]> {

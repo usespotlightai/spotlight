@@ -17,6 +17,7 @@ import type {
   CheckedRepository,
   RunWorks,
 } from '@work/application/services/run-works.service';
+import { CheckGitAccess } from '@work/domain/services/check-git-access';
 
 export class CarryGitCall implements GitGatewayPort {
   constructor(
@@ -56,13 +57,10 @@ export class CarryGitCall implements GitGatewayPort {
     repo: string,
     service: GitService,
   ): Promise<CheckedRepository | null> {
-    const leased = await this.works
-      .leasedBy(runId, runnerId)
-      .then((found) => ({ found }))
-      .catch((error: unknown) => ({ error }));
+    const leased = await this.works.leasedRunWork(runId, runnerId);
 
-    if ('found' in leased) {
-      const { work } = leased.found;
+    if (leased) {
+      const { work } = leased;
 
       const repository = work
         ? await work.repositoryNamed(repo, service)
@@ -74,16 +72,18 @@ export class CarryGitCall implements GitGatewayPort {
     }
 
     if (
-      service === 'git-receive-pack' ||
-      !(await this.checking.isCheckOfRunLeasedBy(
+      CheckGitAccess.mayCall(service) &&
+      (await this.checking.isCheckOfRunLeasedBy(
         RunId.of(runId),
         RunnerId.of(runnerId),
         this.clock.now(),
       ))
     ) {
-      throw leased.error;
+      return this.works.repositoryForCheck(RunId.of(runId), repo);
     }
 
-    return this.works.repositoryForCheck(RunId.of(runId), repo);
+    await this.works.leasedBy(runId, runnerId);
+
+    return null;
   }
 }

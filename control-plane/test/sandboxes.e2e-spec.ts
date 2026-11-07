@@ -10,6 +10,7 @@ import {
   WORKSPACE_ARCHIVE_STORE,
   type WorkspaceArchiveStorePort,
 } from '@runs/application/ports/workspace-archive-store.port';
+import { RunLeasesWorker } from '@runs/presentation/workers/run-leases.worker';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -456,6 +457,7 @@ describe('sandboxes (e2e)', () => {
       .update(schema.run)
       .set({ leaseExpiresAt: new Date(Date.now() - 1_000) })
       .where(eq(schema.run.id, runId));
+    await app.get(RunLeasesWorker).tick();
     await claim().expect(204);
 
     const released = await eventually(async () => {

@@ -1,6 +1,6 @@
-import { EGRESS_CHECKED } from '@runs/application/contracts/run-journal.contract';
+import type { EgressEnforcement } from '@runs/application/contracts/run-journal.contract';
 import type { RunConnectionsPort } from '@runs/application/ports/run-connections.port';
-import type { RunEventReaderPort } from '@runs/application/ports/run-event-reader.port';
+import type { RunJournalEntryReaderPort } from '@runs/application/ports/run-journal-entry-reader.port';
 import type { RunViewersPort } from '@runs/application/ports/run-viewers.port';
 import { ReadRunNetworkHandler } from '@runs/application/queries/handlers/read-run-network.handler';
 import { ReadRunNetworkQuery } from '@runs/application/queries/read-run-network.query';
@@ -9,9 +9,6 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const AT = new Date('2026-10-16T12:00:00.000Z');
-
-const encoded = (data: unknown) =>
-  Buffer.from(JSON.stringify(data)).toString('base64');
 
 const connection = (host: string) =>
   RunConnection.of({
@@ -26,20 +23,18 @@ const connection = (host: string) =>
     at: AT,
   });
 
-const reading = (checked: string | null, visible = true) => {
-  const read: string[] = [];
+const reading = (checked: EgressEnforcement | null, visible = true) => {
+  const read: number[] = [];
   const runs = {
     watchedBy: async (runId: RunId) => (visible ? { runId, attempt: 2 } : null),
   } as unknown as RunViewersPort;
   const events = {
     eventsSince: async () => [],
-    lastOfType: async (_runId: RunId, _attempt: number, type: string) => {
-      read.push(type);
-      return checked === null
-        ? null
-        : { attempt: 2, seq: 3, type, at: AT.toISOString(), data: checked };
+    egressEnforcementOf: async (_runId: RunId, attempt: number) => {
+      read.push(attempt);
+      return checked;
     },
-  } satisfies RunEventReaderPort;
+  } satisfies RunJournalEntryReaderPort;
   const connections = {
     record: async () => {},
     of: async () => [
@@ -58,7 +53,7 @@ const reading = (checked: string | null, visible = true) => {
 
 describe('ReadRunNetworkHandler', () => {
   it('reads the connections of the current attempt, and egress enforced', async () => {
-    const { handler, read } = reading(encoded({ enforced: true }));
+    const { handler, read } = reading('enforced');
 
     await expect(
       handler.execute(new ReadRunNetworkQuery('run_1', 'user_1')),
@@ -81,18 +76,13 @@ describe('ReadRunNetworkHandler', () => {
         },
       ],
     });
-    expect(read).toEqual([EGRESS_CHECKED]);
+    expect(read).toEqual([2]);
   });
 
   it('reads egress not enforced, or no check at all', async () => {
-    for (const [checked, egressEnforcement] of [
-      [encoded({ enforced: false }), 'not-enforced'],
-      [null, null],
-      [encoded({ enforced: 'yes' }), null],
-      ['not base64 json', null],
-    ] as const) {
+    for (const egressEnforcement of ['not-enforced', null] as const) {
       await expect(
-        reading(checked).handler.execute(
+        reading(egressEnforcement).handler.execute(
           new ReadRunNetworkQuery('run_1', 'user_1'),
         ),
       ).resolves.toMatchObject({ egressEnforcement });

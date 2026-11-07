@@ -1,6 +1,6 @@
-import { RUN_PAUSED } from '@runs/application/contracts/run-journal.contract';
 import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
 import type { RunPaused } from '@runs/domain/events/run-paused.event';
+import { RUN_PAUSED } from '@runs/domain/value-objects/journal-entry-type';
 import { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 
 export class PauseMarks {

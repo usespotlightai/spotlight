@@ -3,6 +3,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { StartingPointHold } from '@runs/domain/aggregates/starting-point-hold.aggregate';
 import { StartingPointHoldVersionConflictError } from '@runs/domain/exceptions/starting-point-hold-version-conflict.error';
 import type { StartingPointHoldRepository } from '@runs/domain/repositories/starting-point-hold.repository';
+import type { HoldHolder } from '@runs/domain/value-objects/hold-holder.vo';
 import {
   startingPointHold,
   startingPointHoldRun,
@@ -17,11 +18,11 @@ export class DrizzleStartingPointHoldRepository
 {
   constructor(private readonly context: DrizzleContext) {}
 
-  async find(holder: string): Promise<StartingPointHold | null> {
+  async find(holder: HoldHolder): Promise<StartingPointHold | null> {
     const [row] = await this.context.db
       .select()
       .from(startingPointHold)
-      .where(eq(startingPointHold.holder, holder))
+      .where(eq(startingPointHold.holder, holder.value))
       .limit(1);
 
     if (!row) {
@@ -31,7 +32,7 @@ export class DrizzleStartingPointHoldRepository
     const runs = await this.context.db
       .select({ runId: startingPointHoldRun.runId })
       .from(startingPointHoldRun)
-      .where(eq(startingPointHoldRun.holder, holder))
+      .where(eq(startingPointHoldRun.holder, holder.value))
       .orderBy(asc(startingPointHoldRun.runId));
 
     return StartingPointHold.rehydrate({
@@ -51,7 +52,7 @@ export class DrizzleStartingPointHoldRepository
       const written = await this.context.db
         .insert(startingPointHold)
         .values({
-          holder: hold.holder,
+          holder: hold.holder.value,
           workspaceId: hold.workspaceId.value,
           version: hold.version,
         })
@@ -59,7 +60,7 @@ export class DrizzleStartingPointHoldRepository
         .returning({ holder: startingPointHold.holder });
 
       if (written.length === 0) {
-        throw new StartingPointHoldVersionConflictError(hold.holder);
+        throw new StartingPointHoldVersionConflictError(hold.holder.value);
       }
 
       await this.heldRuns(hold);
@@ -69,7 +70,7 @@ export class DrizzleStartingPointHoldRepository
   async save(hold: StartingPointHold): Promise<void> {
     await this.context.inTransaction(async () => {
       const at = and(
-        eq(startingPointHold.holder, hold.holder),
+        eq(startingPointHold.holder, hold.holder.value),
         eq(startingPointHold.version, hold.version),
       );
       const written = hold.isReleased
@@ -84,13 +85,13 @@ export class DrizzleStartingPointHoldRepository
             .returning({ holder: startingPointHold.holder });
 
       if (written.length === 0) {
-        throw new StartingPointHoldVersionConflictError(hold.holder);
+        throw new StartingPointHoldVersionConflictError(hold.holder.value);
       }
 
       if (!hold.isReleased) {
         await this.context.db
           .delete(startingPointHoldRun)
-          .where(eq(startingPointHoldRun.holder, hold.holder));
+          .where(eq(startingPointHoldRun.holder, hold.holder.value));
         await this.heldRuns(hold);
       }
     });
@@ -103,7 +104,7 @@ export class DrizzleStartingPointHoldRepository
 
     await this.context.db.insert(startingPointHoldRun).values(
       hold.runs.map((each) => ({
-        holder: hold.holder,
+        holder: hold.holder.value,
         workspaceId: hold.workspaceId.value,
         runId: each.value,
       })),

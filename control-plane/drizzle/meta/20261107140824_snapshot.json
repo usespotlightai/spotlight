@@ -1,5 +1,5 @@
 {
-  "id": "f11f9d56-d9d4-42e3-87fd-6c5fac844ce6",
+  "id": "f1294d1d-aeaa-4edf-8b6b-95af30748834",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -14089,8 +14089,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "expired_at": {
-          "name": "expired_at",
+        "abandoned_at": {
+          "name": "abandoned_at",
           "type": "timestamp (3) with time zone",
           "primaryKey": false,
           "notNull": false
@@ -14173,8 +14173,8 @@
           "method": "btree",
           "with": {}
         },
-        "network_call_expired_idx": {
-          "name": "network_call_expired_idx",
+        "network_call_abandoned_idx": {
+          "name": "network_call_abandoned_idx",
           "columns": [
             {
               "expression": "state",
@@ -14183,7 +14183,7 @@
               "nulls": "last"
             },
             {
-              "expression": "expired_at",
+              "expression": "abandoned_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -14436,6 +14436,13 @@
           "type": "boolean",
           "primaryKey": false,
           "notNull": true
+        },
+        "injects_secrets": {
+          "name": "injects_secrets",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "workspace_key": {
           "name": "workspace_key",
@@ -14741,7 +14748,7 @@
               "nulls": "last"
             },
             {
-              "expression": "created_at",
+              "expression": "queued_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -14967,8 +14974,8 @@
       },
       "isRLSEnabled": false
     },
-    "public.run_event": {
-      "name": "run_event",
+    "public.run_journal_entry": {
+      "name": "run_journal_entry",
       "schema": "",
       "columns": {
         "run_id": {
@@ -15017,8 +15024,8 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {
-        "run_event_run_id_attempt_seq_pk": {
-          "name": "run_event_run_id_attempt_seq_pk",
+        "run_journal_entry_run_id_attempt_seq_pk": {
+          "name": "run_journal_entry_run_id_attempt_seq_pk",
           "columns": [
             "run_id",
             "attempt",

@@ -36,7 +36,7 @@ const progressOf = (row: Row): NetworkCallProgress => {
   }
 
   if (row.state === 'expired' || row.state === 'cancelled') {
-    if (!row.expiredAt) {
+    if (!row.abandonedAt) {
       throw new InconsistentStateError(
         'network call',
         `was completed at no time (${row.id})`,
@@ -45,7 +45,7 @@ const progressOf = (row: Row): NetworkCallProgress => {
 
     return {
       kind: row.state,
-      at: row.expiredAt,
+      at: row.abandonedAt,
       claimed: row.claimedBy !== null,
     };
   }
@@ -138,7 +138,7 @@ const progressColumns = (progress: NetworkCallProgress) => {
   }
 
   if (progress.kind === 'expired' || progress.kind === 'cancelled') {
-    return { state: progress.kind, expiredAt: progress.at };
+    return { state: progress.kind, abandonedAt: progress.at };
   }
 
   if (progress.kind === 'claimed') {
@@ -261,7 +261,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
           ),
           and(
             inArray(networkCall.state, ['expired', 'cancelled']),
-            lte(networkCall.expiredAt, at),
+            lte(networkCall.abandonedAt, at),
           ),
         ),
       )

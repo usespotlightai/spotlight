@@ -1,9 +1,9 @@
-import { PROVISION_FAILED } from '@runs/application/contracts/run-journal.contract';
 import type { RunJournalPort } from '@runs/application/ports/run-journal.port';
 import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
 import type { Run } from '@runs/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { PROVISION_FAILED } from '@runs/domain/value-objects/journal-entry-type';
 import type { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';

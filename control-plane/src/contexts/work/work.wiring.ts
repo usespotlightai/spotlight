@@ -311,8 +311,8 @@ import {
   RUN_JOURNAL_READER,
   type RunJournalReaderPort,
 } from '@work/application/ports/run-journal-reader.port';
-import { RUN_OUTCOMES } from '@work/application/ports/run-outcomes.port';
 import { RUN_READER } from '@work/application/ports/run-reader.port';
+import { RUN_RESULTS } from '@work/application/ports/run-results.port';
 import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
 import { STATION_CONFIG_CANDIDATES } from '@work/application/ports/station-config-candidates.port';
 import { STATION_HISTORY } from '@work/application/ports/station-history.port';
@@ -1873,7 +1873,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ReadRunnerHistoryQuery, ReadRunnerHistoryHandler, [
     HistoryAccesses,
     STATION_RUN_READER,
-    RUN_OUTCOMES,
+    RUN_RESULTS,
     RUN_USAGES,
     StationRunHistories,
   ]),

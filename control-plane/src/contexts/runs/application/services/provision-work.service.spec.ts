@@ -118,14 +118,16 @@ const provisioning = (
         readonly withSecrets: boolean;
         readonly avoiding: readonly WorkspaceKey[];
       },
-    ) =>
-      [...stored.values()]
+    ) => ({
+      waiting: [...stored.values()]
         .filter(
           (each) =>
             each.workspaceId.equals(workspaceId) &&
             each.provisionableAt(at, page.withSecrets),
         )
         .slice(page.skip, page.skip + page.max),
+      leasedRequesters: [],
+    }),
   );
   const recorded: DomainEvent[] = [];
   const runs = {

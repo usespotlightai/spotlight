@@ -4,17 +4,14 @@ import {
   UNIQUE_VIOLATION,
   violates,
 } from '@platform/persistence/drizzle/violations';
-import {
-  activeTraceparent,
-  linkActiveSpanTo,
-} from '@platform/telemetry/trace-context';
+import { activeTraceparent } from '@platform/telemetry/trace-context';
 import { RunSpecContract } from '@runs/application/contracts/run-spec.contract';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
 import { InvalidRunOrderError } from '@runs/domain/exceptions/invalid-run-order.error';
 import { RunAlreadyExistsError } from '@runs/domain/exceptions/run-already-exists.error';
 import { RunVersionConflictError } from '@runs/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
-import { ClaimOrder } from '@runs/domain/services/claim-order';
+import type { QueuedRuns } from '@runs/domain/services/claim-order';
 import type {
   Claimant,
   SandboxRouting,
@@ -56,10 +53,6 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import {
-  TELEMETRY,
-  type TelemetryPort,
-} from '@shared-kernel/application/ports/telemetry.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
@@ -85,22 +78,6 @@ import {
   type SQL,
   sql,
 } from 'drizzle-orm';
-
-const injectsNoSecrets = sql`coalesce(jsonb_array_length(${run.spec} -> 'injectedSecrets'), 0) = 0
-  AND coalesce((${run.spec} ->> 'spotlightApi')::boolean, false) = false`;
-
-const noEarlierRunStillLeased = sql`(NOT ${run.exclusive} OR NOT EXISTS (
-  SELECT 1 FROM ${run} AS earlier
-  WHERE earlier.requester_owner = ${run.requesterOwner}
-    AND earlier.requester_kind = ${run.requesterKind}
-    AND earlier.requester_id = ${run.requesterId}
-    AND earlier.exclusive
-    AND earlier.id <> ${run.id}
-    AND earlier.state IN (${sql.join(
-      LEASED_RUN_STATES.map((each) => sql`${each}`),
-      sql`, `,
-    )})
-))`;
 
 const keyOf = sql`coalesce(${run.workspaceKey}, '')`;
 
@@ -133,7 +110,6 @@ export class DrizzleRunRepository implements RunRepository {
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
     private readonly events: DomainEventDispatcher,
-    @Inject(TELEMETRY) private readonly telemetry: TelemetryPort,
   ) {}
 
   async add(added: Run): Promise<void> {
@@ -155,6 +131,7 @@ export class DrizzleRunRepository implements RunRepository {
           orderFingerprint: added.orderFingerprint,
           state: added.state,
           spec: added.spec.value,
+          injectsSecrets: added.injectsSecrets,
           exitCode: added.outcome?.exitCode ?? null,
           message: added.outcome?.message ?? null,
           failure: added.outcome?.failure?.code ?? null,
@@ -177,59 +154,81 @@ export class DrizzleRunRepository implements RunRepository {
       });
   }
 
-  async claimNext(by: Claimant, now: Date): Promise<Run | null> {
+  async claimCandidates(
+    by: Claimant,
+    now: Date,
+    max: number,
+  ): Promise<QueuedRuns> {
     if (by.harnesses.length === 0) {
-      return null;
+      return { waiting: [], leasedRequesters: [] };
     }
 
-    const named = by.harnesses.map((harness) => harness.value);
+    const rows = await this.selected()
+      .where(
+        and(
+          inArray(
+            run.harness,
+            by.harnesses.map((harness) => harness.value),
+          ),
+          eq(run.state, 'queued'),
+          eq(run.workspaceId, by.workspaceId.value),
+          by.claims === 'reserved'
+            ? and(
+                eq(run.reservedFor, by.runner.value),
+                gt(run.reservedUntil, now),
+              )
+            : or(
+                isNull(run.reservedFor),
+                eq(run.reservedFor, by.runner.value),
+                lte(run.reservedUntil, now),
+              ),
+          or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
+          placementMatches(run.placement, run.placementImage, by.offer),
+          routedBy(by.sandbox),
+        ),
+      )
+      .orderBy(desc(run.priority), asc(run.queuedAt), asc(run.id))
+      .limit(max);
 
-    return this.context.inTransaction(async () => {
-      const locked = await this.context.db.execute<{
-        id: string;
-        traceparent: string | null;
-        waited: string | number | null;
-      }>(sql`
-        SELECT id, traceparent,
-          extract(epoch from (${now.toISOString()}::timestamptz - queued_at)) AS waited
-        FROM ${run}
-        WHERE ${inArray(run.harness, named)}
-          AND state = 'queued'
-          AND workspace_id = ${by.workspaceId.value}
-          AND ${
-            by.claims === 'reserved'
-              ? sql`reserved_for = ${by.runner.value} AND reserved_until > ${now.toISOString()}::timestamptz`
-              : sql`(reserved_for IS NULL OR reserved_for = ${by.runner.value} OR reserved_until <= ${now.toISOString()}::timestamptz)`
-          }
-          AND (claimable_from IS NULL OR claimable_from <= ${now.toISOString()}::timestamptz)
-          AND ${placementMatches(run.placement, run.placementImage, by.offer)}
-          AND ${noEarlierRunStillLeased}
-          AND ${routedBy(by.sandbox)}
-        ORDER BY priority DESC, created_at
-        FOR UPDATE SKIP LOCKED
-        LIMIT 1
-      `);
+    return this.queuedRunsOf(rows.map(toRun));
+  }
 
-      const [row] = locked.rows;
-      const found = row ? await this.findById(RunId.of(row.id)) : null;
+  private async queuedRunsOf(waiting: readonly Run[]): Promise<QueuedRuns> {
+    const exclusive = waiting.filter((each) => each.policy.exclusive);
 
-      if (!found || !ClaimOrder.takeable(found, by, now)) {
-        return null;
-      }
+    if (exclusive.length === 0) {
+      return { waiting, leasedRequesters: [] };
+    }
 
-      const claimed = found.claim(by.runner, now);
-      await this.save(claimed);
-      this.context.afterCommit(() => {
-        linkActiveSpanTo(row?.traceparent ?? null);
-        this.telemetry.measure(
-          'spotlight.runs.claim_wait_seconds',
-          Math.max(0, Number(row?.waited ?? 0)),
-          { 'spotlight.run.kind': claimed.requester.kind },
-        );
-      });
+    const leased = await this.context.db
+      .selectDistinct({
+        requesterOwner: run.requesterOwner,
+        requesterKind: run.requesterKind,
+        requesterId: run.requesterId,
+      })
+      .from(run)
+      .where(
+        and(
+          eq(run.exclusive, true),
+          inArray(run.state, [...LEASED_RUN_STATES]),
+          inArray(run.requesterId, [
+            ...new Set(exclusive.map((each) => each.requester.id)),
+          ]),
+        ),
+      );
 
-      return claimed;
-    });
+    return {
+      waiting,
+      leasedRequesters: leased.map((row) =>
+        RunRequester.of({
+          owner: row.requesterOwner,
+          kind: row.requesterKind,
+          id: row.requesterId,
+          token: null,
+          team: null,
+        }),
+      ),
+    };
   }
 
   private selected() {
@@ -314,6 +313,7 @@ export class DrizzleRunRepository implements RunRepository {
           saved.endedAt ?? sql`coalesce(${run.endedAt}, now())`,
         ),
         spec: saved.spec.value,
+        injectsSecrets: saved.injectsSecrets,
         suspendedAttempts: [...saved.suspendedAttempts],
         askedAPerson: saved.askedAPerson,
         ...turnOf(saved),
@@ -391,28 +391,27 @@ export class DrizzleRunRepository implements RunRepository {
       readonly withSecrets: boolean;
       readonly avoiding: readonly WorkspaceKey[];
     },
-  ): Promise<readonly Run[]> {
+  ): Promise<QueuedRuns> {
     const rows = await this.selected()
       .where(
         and(
           eq(run.workspaceId, workspaceId.value),
           eq(run.state, 'queued'),
           isNull(run.reservedFor),
-          page.withSecrets ? undefined : injectsNoSecrets,
+          page.withSecrets ? undefined : eq(run.injectsSecrets, false),
           or(
             isNull(run.nextProvisionAttemptAt),
             lte(run.nextProvisionAttemptAt, now),
           ),
           or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
-          noEarlierRunStillLeased,
           routedBy({ avoiding: page.avoiding }),
         ),
       )
-      .orderBy(desc(run.priority), run.createdAt, run.id)
+      .orderBy(desc(run.priority), asc(run.queuedAt), asc(run.id))
       .limit(page.max)
       .offset(page.skip);
 
-    return rows.map(toRun);
+    return this.queuedRunsOf(rows.map(toRun));
   }
 
   async withExpiredReservations(now: Date): Promise<readonly Run[]> {
