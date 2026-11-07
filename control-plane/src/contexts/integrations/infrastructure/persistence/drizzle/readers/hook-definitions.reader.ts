@@ -70,7 +70,7 @@ export class DrizzleHookDefinitionsReader implements HookToolsPort {
 
     return rows.map((row) => ({
       hook: HookKey.of(row.key),
-      tools: row.tools.map((tool) => ToolName.of(tool)),
+      tools: row.tools.map((tool) => ToolName.rehydrate(tool)),
     }));
   }
 }

@@ -5,6 +5,8 @@ import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
+const PURGE_BATCH = 100;
+
 export class DeleteReplayRunDecisions {
   constructor(
     private readonly decisions: ReplayRunDecisionRepository,
@@ -17,6 +19,21 @@ export class DeleteReplayRunDecisions {
 
   async ofReplay(replayId: ReplayId): Promise<void> {
     await this.deleteEach(await this.decisions.ofReplay(replayId));
+  }
+
+  async ofDeletedReplays(decidedBefore: Date): Promise<void> {
+    for (;;) {
+      const orphaned = await this.decisions.ofDeletedReplays(
+        decidedBefore,
+        PURGE_BATCH,
+      );
+
+      await this.deleteEach(orphaned);
+
+      if (orphaned.length < PURGE_BATCH) {
+        return;
+      }
+    }
   }
 
   private async deleteEach(

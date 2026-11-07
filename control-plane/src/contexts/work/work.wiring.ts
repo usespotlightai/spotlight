@@ -1077,9 +1077,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: TurnsWorker,
-    inject: [Turns, CLOCK, LOGGER],
-    useFactory: (turns: Turns, clock: ClockPort, logger: LoggerPort) =>
-      new TurnsWorker(turns, clock, logger),
+    inject: [Turns, LOGGER],
+    useFactory: (turns: Turns, logger: LoggerPort) =>
+      new TurnsWorker(turns, logger),
   },
 
   {

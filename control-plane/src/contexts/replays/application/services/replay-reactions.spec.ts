@@ -606,6 +606,28 @@ describe('DeleteReplayRunDecisions', () => {
     expect([...decisions.decisions.keys()]).toEqual(['run_2']);
   });
 
+  it('purges the decisions a stopped process left for deleted replays, and keeps recent ones and those of kept replays (R7-04)', async () => {
+    const decisions = new InMemoryReplayRunDecisions();
+    const cutoff = new Date('2026-11-07T11:00:00.000Z');
+    decisions.deletedReplays.add('replay_gone');
+    decisions.now = new Date(cutoff.getTime() - 1);
+    for (let each = 0; each < 150; each += 1) {
+      await decisions.add(decidedIn(`run_gone_${each}`, 'replay_gone'));
+    }
+    await decisions.add(decidedIn('run_kept', 'replay_kept'));
+    decisions.now = new Date(cutoff.getTime() + 1);
+    await decisions.add(decidedIn('run_recent', 'replay_gone'));
+
+    await new DeleteReplayRunDecisions(decisions, TRANSACTION).ofDeletedReplays(
+      cutoff,
+    );
+
+    expect([...decisions.decisions.keys()].sort()).toEqual([
+      'run_kept',
+      'run_recent',
+    ]);
+  });
+
   it('skips a decision deleted meanwhile, and deletes one changed meanwhile, so a redelivery finishes without an error', async () => {
     const decisions = new InMemoryReplayRunDecisions();
     await decisions.add(decidedIn('run_1', 'replay_1'));

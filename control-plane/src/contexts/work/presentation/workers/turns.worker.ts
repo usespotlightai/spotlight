@@ -1,6 +1,5 @@
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import {
   TURNS_EVERY_MS,
@@ -16,7 +15,6 @@ export class TurnsWorker implements OnModuleDestroy {
 
   constructor(
     private readonly turns: Turns,
-    private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -28,20 +26,16 @@ export class TurnsWorker implements OnModuleDestroy {
   @Interval(TURNS_EVERY_MS)
   async tick(): Promise<void> {
     await this.ticked(async () => {
-      const now = this.clock.now();
-
-      await this.turns.retakePending(now);
-      await this.turns.resumeAnswered(now);
+      await this.turns.retakePending();
+      await this.turns.resumeAnswered();
     });
   }
 
   @Interval(DAY_MS)
   async daily(): Promise<void> {
     await this.ticked(async () => {
-      const now = this.clock.now();
-
-      await this.turns.cancelAbandoned(now);
-      await this.turns.forgetOldRetakes(now);
+      await this.turns.cancelAbandoned();
+      await this.turns.forgetOldRetakes();
     });
   }
 

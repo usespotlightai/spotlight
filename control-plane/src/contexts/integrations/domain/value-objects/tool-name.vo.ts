@@ -1,14 +1,15 @@
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
   INTEGRATION_KEY_SHAPE,
   SLUG_SHAPE,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
-const PROVIDED = new RegExp(`^${INTEGRATION_KEY_SHAPE}\\.${SLUG_SHAPE}$`);
+const SHAPED = new RegExp(`^${INTEGRATION_KEY_SHAPE}\\.${SLUG_SHAPE}$`);
 
 const isProvided = (named: string): boolean =>
-  PROVIDED.test(named) &&
+  SHAPED.test(named) &&
   !IntegrationKey.isReserved(named.slice(0, named.indexOf('.')));
 
 export class ToolName {
@@ -27,6 +28,17 @@ export class ToolName {
     return new ToolName(trimmed);
   }
 
+  static rehydrate(stored: string): ToolName {
+    if (!SHAPED.test(stored)) {
+      throw new InconsistentStateError(
+        'tool',
+        'was stored in a shape it cannot take',
+      );
+    }
+
+    return new ToolName(stored);
+  }
+
   static parsed(raw: string): ToolName | null {
     const trimmed = raw.trim();
 
@@ -42,7 +54,9 @@ export class ToolName {
   }
 
   get integration(): IntegrationKey {
-    return IntegrationKey.of(this.value.slice(0, this.value.indexOf('.')));
+    return IntegrationKey.rehydrate(
+      this.value.slice(0, this.value.indexOf('.')),
+    );
   }
 
   get name(): string {

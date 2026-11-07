@@ -52,7 +52,7 @@ const rehydrated = (row: Row): IntegrationDefinition =>
     teamId: TeamId.of(row.teamId),
     integration: IntegrationKey.rehydrate(row.integration),
     document: DefinitionDocument.of(row.definition),
-    tools: row.tools.map((tool) => ToolName.of(tool)),
+    tools: row.tools.map((tool) => ToolName.rehydrate(tool)),
     reading: readingOf(row),
     relistsTools: row.relistsTools,
     version: row.version,

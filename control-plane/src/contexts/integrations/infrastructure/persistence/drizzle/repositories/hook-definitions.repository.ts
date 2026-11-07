@@ -46,7 +46,7 @@ const rehydrated = (row: Row): HookDefinition =>
     key: HookKey.of(row.key),
     event: HookEvent.of(row.on),
     document: DefinitionDocument.of(row.definition),
-    tools: row.tools.map((tool) => ToolName.of(tool)),
+    tools: row.tools.map((tool) => ToolName.rehydrate(tool)),
     blocks: row.blocks,
     signing:
       row.signingSecretVersion === null

@@ -94,12 +94,11 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
   ) {}
 
   async dispatch(order: ReplayRunOrder): Promise<ReplayRunQueued> {
-    const decision = await this.decidedFirst(
+    const decision = await this.decidedWhileReplayExists(
       ReplayRunDecision.decidedToQueue(order.run, order.owner),
     );
 
-    if (!decision || !(await this.replays.find(order.owner.replayId))) {
-      await this.abandoned(order.run, decision);
+    if (!decision) {
       return CANCELLED;
     }
 
@@ -164,16 +163,11 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
     owner: ReplayRunOwner,
     leaveRunAsIs: boolean,
   ): Promise<CancelledRun> {
-    const decision = await this.decidedFirst(
+    const decision = await this.decidedWhileReplayExists(
       ReplayRunDecision.decidedToCancel(run, owner),
     );
 
-    if (!decision || !(await this.replays.find(owner.replayId))) {
-      await this.abandoned(run, decision);
-      return NEVER_QUEUED;
-    }
-
-    if (!decision.mayQueue) {
+    if (!decision?.mayQueue) {
       return NEVER_QUEUED;
     }
 
@@ -236,6 +230,24 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
       case 'ended':
         return true;
     }
+  }
+
+  private async decidedWhileReplayExists(
+    first: ReplayRunDecision,
+  ): Promise<ReplayRunDecision | null> {
+    if (!(await this.replays.find(first.owner.replayId))) {
+      await this.abandoned(first.runId, await this.decisions.find(first.runId));
+      return null;
+    }
+
+    const decision = await this.decidedFirst(first);
+
+    if (!decision || !(await this.replays.find(first.owner.replayId))) {
+      await this.abandoned(first.runId, decision);
+      return null;
+    }
+
+    return decision;
   }
 
   private async decidedFirst(

@@ -58,7 +58,7 @@ const offeredBy = (
 ): OfferedTools =>
   OfferedTools.listed(
     integration,
-    ToolName.parsedAll(defined.tools),
+    defined.tools.map((tool) => ToolName.rehydrate(tool)),
     defined.generatedFrom ? ContentHash.of(defined.generatedFrom) : null,
   );
 

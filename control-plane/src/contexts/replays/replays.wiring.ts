@@ -147,6 +147,7 @@ import { OpenConfigPullRequests } from '@replays/application/services/open-confi
 import { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
 import { PendingSearchSteps } from '@replays/application/services/pending-search-steps.service';
 import { PickSearchCandidates } from '@replays/application/services/pick-search-candidates.service';
+import { PurgeOrphanedReplayRunDecisions } from '@replays/application/services/purge-orphaned-replay-run-decisions.service';
 import { ReconcileConfigPullRequests } from '@replays/application/services/reconcile-config-pull-requests.service';
 import { RecordLineChange } from '@replays/application/services/record-line-change.service';
 import { RecordReplayChangeReview } from '@replays/application/services/record-replay-change-review.service';
@@ -575,6 +576,12 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       decisions: DrizzleReplayRunDecisionRepository,
       transaction: TransactionPort,
     ) => new DeleteReplayRunDecisions(decisions, transaction),
+  },
+  {
+    provide: PurgeOrphanedReplayRunDecisions,
+    inject: [DeleteReplayRunDecisions, CLOCK],
+    useFactory: (deleting: DeleteReplayRunDecisions, clock: ClockPort) =>
+      new PurgeOrphanedReplayRunDecisions(deleting, clock),
   },
   {
     provide: StartSearchReplays,
@@ -1485,6 +1492,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       PendingSearchSteps,
       WorkChangeJudgings,
       WorkSideBySideJudgings,
+      PurgeOrphanedReplayRunDecisions,
       LOGGER,
     ],
     useFactory: (
@@ -1499,6 +1507,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       steps: PendingSearchSteps,
       changes: WorkChangeJudgings,
       pairs: WorkSideBySideJudgings,
+      orphans: PurgeOrphanedReplayRunDecisions,
       logger: LoggerPort,
     ) =>
       new PendingJobWorker(
@@ -1514,6 +1523,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           steps,
           changes,
           pairs,
+          orphans,
         ],
         logger,
       ),

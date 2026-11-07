@@ -18,11 +18,16 @@ import {
   ReplayRunDispatch,
   type ReplayRunOrder,
 } from '@replays/application/services/replay-run-dispatch.service';
-import type { ReplayRunOwner } from '@replays/domain/aggregates/replay-run-decision.aggregate';
+import {
+  ReplayRunDecision,
+  type ReplayRunOwner,
+} from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
+import { aReplay } from '@replays/domain/replays.fake-spec';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
+import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { DrizzleReplayRunDecisionRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-run-decision.repository';
 import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import { RUNS, type RunsPort } from '@runs/application/ports/runs.port';
@@ -872,6 +877,39 @@ describe('a replay deleted while its run is dispatched', () => {
     expect(await runRow(run.value)).toBeUndefined();
     expect(await decisionRow(run.value)).toBeUndefined();
     expect((await dispatchRow(run.value))?.refused).toBe('withdrawn');
+  });
+
+  it('purges a decision a stopped process left for a deleted replay, and keeps recent ones and those of kept replays (R7-04)', async () => {
+    const hour = 60 * 60_000;
+    const decisions = app.get(DrizzleReplayRunDecisionRepository);
+    const kept = randomUUID();
+    await app.get(DrizzleReplayRepository).add(aReplay({ id: kept }));
+    const decided = async (replayId: string, decidedAt: Date) => {
+      const run = RunId.of(randomUUID());
+      await decisions.add(
+        ReplayRunDecision.decidedToQueue(run, {
+          ...ownerOf(),
+          replayId: ReplayId.of(replayId),
+        }),
+      );
+      await db
+        .update(schema.replayRunDecision)
+        .set({ decidedAt })
+        .where(eq(schema.replayRunDecision.runId, run.value));
+      return run.value;
+    };
+    const longAgo = new Date(Date.now() - 2 * hour);
+    const orphaned = await decided(randomUUID(), longAgo);
+    const recent = await decided(randomUUID(), new Date());
+    const ofKeptReplay = await decided(kept, longAgo);
+
+    await app
+      .get(DeleteReplayRunDecisions)
+      .ofDeletedReplays(new Date(Date.now() - hour));
+
+    expect(await decisionRow(orphaned)).toBeUndefined();
+    expect(await decisionRow(recent)).toBeDefined();
+    expect(await decisionRow(ofKeptReplay)).toBeDefined();
   });
 
   it('queues nothing and keeps no decision when the stored replay is gone before the dispatch', async () => {

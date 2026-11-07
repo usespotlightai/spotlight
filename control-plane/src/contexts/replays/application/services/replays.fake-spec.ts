@@ -1131,6 +1131,9 @@ export class InMemoryChecks implements ReplayCheckRepository {
 
 export class InMemoryReplayRunDecisions implements ReplayRunDecisionRepository {
   readonly decisions = new Map<string, ReplayRunDecision>();
+  readonly decidedAt = new Map<string, Date>();
+  readonly deletedReplays = new Set<string>();
+  now = new Date('2026-11-07T12:00:00.000Z');
 
   find = async (runId: RunId) => this.decisions.get(runId.value) ?? null;
 
@@ -1144,11 +1147,21 @@ export class InMemoryReplayRunDecisions implements ReplayRunDecisionRepository {
       each.owner.replayId.equals(replayId),
     );
 
+  ofDeletedReplays = async (decidedBefore: Date, limit: number) =>
+    [...this.decisions.values()]
+      .filter(
+        (each) =>
+          this.deletedReplays.has(each.owner.replayId.value) &&
+          (this.decidedAt.get(each.runId.value) ?? this.now) < decidedBefore,
+      )
+      .slice(0, limit);
+
   add = async (decision: ReplayRunDecision) => {
     if (this.decisions.has(decision.runId.value)) {
       throw new ReplayRunDecisionVersionConflictError(decision.runId);
     }
     this.decisions.set(decision.runId.value, decision);
+    this.decidedAt.set(decision.runId.value, this.now);
   };
 
   save = async (decision: ReplayRunDecision) => {
@@ -1159,6 +1172,7 @@ export class InMemoryReplayRunDecisions implements ReplayRunDecisionRepository {
     }
     if (decision.isDeleted) {
       this.decisions.delete(decision.runId.value);
+      this.decidedAt.delete(decision.runId.value);
       return;
     }
     this.decisions.set(

@@ -24,6 +24,7 @@ import {
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { TurnWait } from '@work/domain/services/turn-wait';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -93,6 +94,7 @@ const turning = (
     started: true,
   }));
   const count = vi.fn();
+  const forget = vi.fn(async () => undefined);
   const error = vi.fn();
   const stored = over.retakes ?? new Map<string, StoredRetake>();
   const key = (runId: RunId, suspendedAt: Date) =>
@@ -179,7 +181,7 @@ const turning = (
           });
         }
       },
-      forgetSuspendedBefore: async () => undefined,
+      forgetSuspendedBefore: forget,
     } satisfies TurnRetakesPort,
     { of: async () => over.facts ?? [] } as unknown as RunFactsPort,
     { resume, cancel } as unknown as RunsPort,
@@ -207,10 +209,21 @@ const turning = (
   );
   const tick = async (now: Date) => {
     clock.at = now;
-    await turns.retakePending(now);
+    await turns.retakePending();
   };
 
-  return { turns, tick, stored, clock, take, resume, cancel, count, error };
+  return {
+    turns,
+    tick,
+    stored,
+    clock,
+    take,
+    resume,
+    cancel,
+    count,
+    error,
+    forget,
+  };
 };
 
 describe('Turns', () => {
@@ -410,7 +423,7 @@ describe('Turns', () => {
       facts: [{ runId: RUN, turn: 'kept', attempt: 3 } as RunFacts],
     });
 
-    await turns.resumeAnswered(NOW);
+    await turns.resumeAnswered();
 
     expect(resume).toHaveBeenCalledWith(RUN, 3, 'answered', []);
   });
@@ -426,10 +439,27 @@ describe('Turns', () => {
       holds: true,
     });
 
-    await kept.turns.cancelAbandoned(NOW);
-    await held.turns.cancelAbandoned(NOW);
+    await kept.turns.cancelAbandoned();
+    await held.turns.cancelAbandoned();
 
     expect(kept.cancel).toHaveBeenCalledWith(RUN, expect.any(String));
     expect(held.cancel).not.toHaveBeenCalled();
+  });
+
+  it('reads every threshold from the clock it was given (R7-03)', async () => {
+    const clock = new TickingClock();
+    const later = new Date(NOW.getTime() + 3 * 24 * 60 * MINUTE);
+    const { turns, forget, cancel } = turning({
+      clock,
+      turns: [turnAged(MINUTE, 'kept')],
+      holds: false,
+    });
+
+    clock.at = later;
+    await turns.forgetOldRetakes();
+    await turns.cancelAbandoned();
+
+    expect(forget).toHaveBeenCalledWith(TurnWait.retakesKeptAfter(later));
+    expect(cancel).toHaveBeenCalledWith(RUN, expect.any(String));
   });
 });

@@ -14,7 +14,7 @@ type Row = typeof inferredOutputSchema.$inferSelect;
 const rehydrate = (row: Row): InferredOutputSchema =>
   InferredOutputSchema.rehydrate({
     teamId: TeamId.of(row.teamId),
-    tool: ToolName.of(row.tool),
+    tool: ToolName.rehydrate(row.tool),
     shape: OutputShape.fromStored(row.shape),
     calls: row.calls,
     inferredAt: row.inferredAt,

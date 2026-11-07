@@ -10,6 +10,11 @@ export interface ReplayRunDecisionRepository {
 
   ofReplay(replayId: ReplayId): Promise<readonly ReplayRunDecision[]>;
 
+  ofDeletedReplays(
+    decidedBefore: Date,
+    limit: number,
+  ): Promise<readonly ReplayRunDecision[]>;
+
   add(decision: ReplayRunDecision): Promise<void>;
 
   save(decision: ReplayRunDecision): Promise<void>;

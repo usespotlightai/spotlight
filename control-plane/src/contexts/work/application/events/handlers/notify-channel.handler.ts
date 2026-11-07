@@ -22,6 +22,7 @@ import type { ProposalDismissed } from '@work/domain/events/proposal-dismissed.e
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { DispatchEndedBy } from '@work/domain/value-objects/dispatch-ending.vo';
 
 export class NotifyChannel implements RunEndingReactions {
   constructor(
@@ -48,15 +49,17 @@ export class NotifyChannel implements RunEndingReactions {
     }
   }
 
+  private readonly reactions: Record<
+    DispatchEndedBy,
+    (event: RunEndedIntegrationEvent) => Promise<void>
+  > = {
+    turn: (event) => this.completed(event),
+    exhaustion: (event) => this.exhausted(event),
+    cancellation: () => Promise.resolve(),
+  };
+
   async onRunEnded(event: RunEndedIntegrationEvent): Promise<void> {
-    switch (RunEndedFacts.ending(event).endedBy) {
-      case 'turn':
-        return this.completed(event);
-      case 'exhaustion':
-        return this.exhausted(event);
-      case 'cancellation':
-        return;
-    }
+    await this.reactions[RunEndedFacts.ending(event).endedBy](event);
   }
 
   private async completed(event: RunEndedIntegrationEvent): Promise<void> {

@@ -44,7 +44,9 @@ export class Turns {
     private readonly logger: LoggerPort,
   ) {}
 
-  async retakePending(now: Date): Promise<void> {
+  async retakePending(): Promise<void> {
+    const now = this.clock.now();
+
     for await (const turn of this.olderThan(
       'pending',
       TurnWait.firstRetakeAfter(now),
@@ -78,7 +80,8 @@ export class Turns {
     await this.performDueRetakes();
   }
 
-  async resumeAnswered(now: Date): Promise<void> {
+  async resumeAnswered(): Promise<void> {
+    const now = this.clock.now();
     const answered = await this.tasks.withTurnAnsweredBetween(
       TurnWait.answeredResumeUntil(now),
       new Date(now.getTime() - TurnWait.ANSWER_GRACE_MS),
@@ -111,10 +114,10 @@ export class Turns {
     }
   }
 
-  async cancelAbandoned(now: Date): Promise<void> {
+  async cancelAbandoned(): Promise<void> {
     for await (const turn of this.olderThan(
       'kept',
-      new Date(now.getTime() - TurnWait.ABANDONED_AFTER_MS),
+      new Date(this.clock.now().getTime() - TurnWait.ABANDONED_AFTER_MS),
     )) {
       const subject = (await this.dispatches.find(turn.runId))?.subject;
       const task =
@@ -129,8 +132,10 @@ export class Turns {
     }
   }
 
-  async forgetOldRetakes(now: Date): Promise<void> {
-    await this.retakes.forgetSuspendedBefore(TurnWait.retakesKeptAfter(now));
+  async forgetOldRetakes(): Promise<void> {
+    await this.retakes.forgetSuspendedBefore(
+      TurnWait.retakesKeptAfter(this.clock.now()),
+    );
   }
 
   private async performDueRetakes(): Promise<void> {

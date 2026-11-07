@@ -18,7 +18,7 @@ const rehydrate = (row: Row): PersonToolPolicy =>
     personId: UserId.of(row.personId),
     integration: IntegrationKey.rehydrate(row.integration),
     rules: Object.entries(row.rules).map(([tool, rule]) => ({
-      tool: ToolName.of(tool),
+      tool: ToolName.rehydrate(tool),
       rule: PersonToolRule.of(rule),
     })),
     version: row.version,

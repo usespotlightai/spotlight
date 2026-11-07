@@ -6,11 +6,14 @@ import type { ReplayRunDecisionRepository } from '@replays/domain/repositories/r
 import { MovesOnWords } from '@replays/domain/value-objects/moves-on-words.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
-import { replayRunDecision } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
+import {
+  replay,
+  replayRunDecision,
+} from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, type SQL } from 'drizzle-orm';
+import { and, asc, eq, lt, notExists, type SQL } from 'drizzle-orm';
 
 type DecisionRow = typeof replayRunDecision.$inferSelect;
 
@@ -71,6 +74,30 @@ export class DrizzleReplayRunDecisionRepository
       .select()
       .from(replayRunDecision)
       .where(eq(replayRunDecision.replayId, replayId.value));
+
+    return rows.map(toDecision);
+  }
+
+  async ofDeletedReplays(
+    decidedBefore: Date,
+    limit: number,
+  ): Promise<readonly ReplayRunDecision[]> {
+    const rows = await this.context.db
+      .select()
+      .from(replayRunDecision)
+      .where(
+        and(
+          lt(replayRunDecision.decidedAt, decidedBefore),
+          notExists(
+            this.context.db
+              .select({ id: replay.id })
+              .from(replay)
+              .where(eq(replay.id, replayRunDecision.replayId)),
+          ),
+        ),
+      )
+      .orderBy(asc(replayRunDecision.decidedAt))
+      .limit(limit);
 
     return rows.map(toDecision);
   }

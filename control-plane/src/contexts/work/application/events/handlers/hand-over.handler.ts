@@ -12,6 +12,7 @@ import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { HandoverFor } from '@work/domain/services/handover-for';
+import type { DispatchEndedBy } from '@work/domain/value-objects/dispatch-ending.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 interface WaitingTask {
@@ -28,15 +29,17 @@ export class HandOver implements RunEndingReactions {
     private readonly readings: RunJournalReadingsPort,
   ) {}
 
+  private readonly reactions: Record<
+    DispatchEndedBy,
+    (event: RunEndedIntegrationEvent) => Promise<void>
+  > = {
+    turn: (event) => this.completed(event),
+    exhaustion: (event) => this.exhausted(event),
+    cancellation: () => Promise.resolve(),
+  };
+
   async onRunEnded(event: RunEndedIntegrationEvent): Promise<void> {
-    switch (RunEndedFacts.ending(event).endedBy) {
-      case 'turn':
-        return this.completed(event);
-      case 'exhaustion':
-        return this.exhausted(event);
-      case 'cancellation':
-        return;
-    }
+    await this.reactions[RunEndedFacts.ending(event).endedBy](event);
   }
 
   private async completed(event: RunEndedIntegrationEvent): Promise<void> {

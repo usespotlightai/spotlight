@@ -205,6 +205,32 @@ describe('ReplayRunDispatch', () => {
     expect(trials.requests).toEqual([]);
   });
 
+  it('adds no decision at all, not even for a moment, for a replay deleted before the dispatch (R7-04)', async () => {
+    replayKept = false;
+    const added: string[] = [];
+    const add = decisions.add;
+    decisions.add = async (decision) => {
+      added.push(decision.runId.value);
+      await add(decision);
+    };
+
+    await dispatch.dispatch(ORDER);
+    await dispatch.cancel(RUN, OWNER, false);
+
+    expect(added).toEqual([]);
+    expect(runs.queuedRuns).toEqual(new Set());
+  });
+
+  it('removes a decision a stopped process left for a deleted replay when the run comes up again (R7-04)', async () => {
+    await decisions.add(ReplayRunDecision.decidedToQueue(RUN, OWNER));
+    replayKept = false;
+
+    expect(await dispatch.cancel(RUN, OWNER, false)).toEqual({
+      wasQueued: false,
+    });
+    expect(await decisions.find(RUN)).toBeNull();
+  });
+
   it('queues nothing once a cancel decided the run first', async () => {
     await decisions.add(ReplayRunDecision.decidedToCancel(RUN, OWNER));
 
