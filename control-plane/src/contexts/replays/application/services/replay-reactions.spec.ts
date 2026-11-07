@@ -1,6 +1,5 @@
 import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
 import { DeleteReplayRunDecisions } from '@replays/application/services/delete-replay-run-decisions.service';
-import { ReplayRunDecision } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import { DeleteReplays } from '@replays/application/services/delete-replays.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
 import { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
@@ -32,11 +31,12 @@ import { RequestReplayRecheck } from '@replays/application/services/request-repl
 import { RequestReplayRejudging } from '@replays/application/services/request-replay-rejudging.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import { ReplayRunDecision } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/entities/replay-entry.entity';
+import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import type { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
 import type { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
 import type { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
-import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import {

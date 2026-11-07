@@ -2019,7 +2019,7 @@
             "description": "No such run leased by this runner"
           }
         },
-        "summary": "Every active memory that applies to the run, as files to write into its workspace",
+        "summary": "Every active memory that applies to the run, as files to write into its working copy",
         "tags": [
           "runners"
         ]
@@ -5515,7 +5515,7 @@
             "example": [
               "api/src/uploads"
             ],
-            "description": "Paths it is about, relative to the run’s workspace, each starting with the checkout folder",
+            "description": "Paths it is about, relative to the run’s working copy, each starting with the checkout folder",
             "type": "array",
             "items": {
               "type": "string"
@@ -5539,7 +5539,7 @@
           "path": {
             "type": "string",
             "example": ".spotlight/memory/repositories/acme/api/src/uploads/M-18.md",
-            "description": "Where to write it, relative to the run’s workspace"
+            "description": "Where to write it, relative to the run’s working copy"
           },
           "body": {
             "type": "string",

@@ -1005,6 +1005,43 @@
         ]
       }
     },
+    "/runs/{runId}/network": {
+      "get": {
+        "operationId": "readTeamlessRunNetwork",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunNetworkResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run of no team for this caller"
+          }
+        },
+        "summary": "The connections a run of no team made through a shared egress, and if egress was enforced",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
     "/runs/{runId}/stream": {
       "get": {
         "operationId": "streamRun",
@@ -12934,7 +12971,7 @@
             }
           },
           "recalled": {
-            "description": "What the run looked up with spotlight recall, or read from the memory folder in its workspace",
+            "description": "What the run looked up with spotlight recall, or read from the memory folder in its working copy",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TeamMemoryResponseDto"

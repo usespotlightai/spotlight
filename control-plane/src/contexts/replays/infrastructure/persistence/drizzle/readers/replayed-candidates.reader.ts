@@ -23,11 +23,11 @@ import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.v
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { candidateSearchOf } from '@replays/infrastructure/persistence/drizzle/mappers/candidate-search.mapper';
 import {
   closeFailureOf,
   reasonOf,
 } from '@replays/infrastructure/persistence/drizzle/mappers/config-pull-request-reason.mapper';
-import { candidateSearchOf } from '@replays/infrastructure/persistence/drizzle/mappers/candidate-search.mapper';
 import { outcomeFrom } from '@replays/infrastructure/persistence/drizzle/mappers/replay-outcome.mapper';
 import { DrizzleReplayOutcomes } from '@replays/infrastructure/persistence/drizzle/projections/replay-outcomes.projection';
 import {
@@ -47,16 +47,7 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  gte,
-  inArray,
-  type SQL,
-  sql,
-} from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, type SQL, sql } from 'drizzle-orm';
 
 type SearchRow = typeof replaySearch.$inferSelect;
 

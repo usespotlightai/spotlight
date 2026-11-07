@@ -1,6 +1,6 @@
 import type { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
-import type { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import type { ReplayRunDecision } from '@replays/domain/aggregates/replay-run-decision.aggregate';
+import type { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import type { ReplayRunDecisionRepository } from '@replays/domain/repositories/replay-run-decision.repository';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';

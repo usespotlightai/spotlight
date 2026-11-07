@@ -1,9 +1,9 @@
-import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { OrderedTrial } from '@replays/application/ports/station-trials.port';
 import type { SearchRunFact } from '@replays/domain/services/search-reconciliation';
 import type { ReplaysRequester } from '@replays/domain/value-objects/replays-requester.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 

@@ -1,4 +1,3 @@
-import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
@@ -6,6 +5,7 @@ import type { SearchPolicy } from '@replays/domain/value-objects/search-policy.v
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

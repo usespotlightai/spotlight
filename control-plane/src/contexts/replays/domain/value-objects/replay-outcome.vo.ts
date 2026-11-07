@@ -16,24 +16,24 @@ import type { JudgeScaleKind } from '@shared-kernel/domain/value-objects/judge-s
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
-export interface OutcomeMeasures {
+interface OutcomeMeasures {
   readonly steps: number;
   readonly ms: number | null;
   readonly cost: Money | null;
 }
 
-export interface OutcomeVerdict {
+interface OutcomeVerdict {
   readonly value: number;
   readonly scale: JudgeScaleKind;
   readonly referenced: boolean;
 }
 
-export interface OutcomeChecks {
+interface OutcomeChecks {
   readonly state: ChecksState;
   readonly pending: boolean;
 }
 
-export interface OutcomeJudging {
+interface OutcomeJudging {
   readonly pending: boolean;
 }
 
@@ -94,7 +94,7 @@ export const spentIn = (spent: ModelSpent, currency: string): Money =>
   spent.spends.find((each) => each.currency === currency) ??
   Money.none(currency);
 
-export const spentElsewhereIn = (
+const spentElsewhereIn = (
   spent: ModelSpent,
   currency: string,
 ): readonly Money[] =>

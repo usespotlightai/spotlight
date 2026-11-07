@@ -1,4 +1,3 @@
-import type { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { ScoredSearch } from '@replays/domain/services/search-scores';
 import type { HealthCandidate } from '@replays/domain/services/set-health';
@@ -11,6 +10,7 @@ import type {
   ConfigPullRequestState,
 } from '@replays/domain/value-objects/config-pull-request-state';
 import type { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
+import type { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
@@ -40,7 +40,7 @@ export interface ReplayedSetRow {
   readonly runs: readonly RunId[];
 }
 
-export interface ReplayedProposalRow {
+interface ReplayedProposalRow {
   readonly candidateId: CandidateId;
   readonly name: CandidateName;
   readonly replay: { readonly replayId: ReplayId };

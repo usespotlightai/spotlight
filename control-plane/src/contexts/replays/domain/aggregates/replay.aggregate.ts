@@ -2,6 +2,7 @@ import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggr
 import { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
 import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayCeilingReached } from '@replays/domain/events/replay-ceiling-reached.event';
+import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
@@ -11,7 +12,6 @@ import { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudgin
 import { ReplaySideBySideJudgingRequested } from '@replays/domain/events/replay-side-by-side-judging-requested.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
 import { ReplayStopRequested } from '@replays/domain/events/replay-stop-requested.event';
-import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import { ReplayEndedError } from '@replays/domain/exceptions/replay-ended.error';

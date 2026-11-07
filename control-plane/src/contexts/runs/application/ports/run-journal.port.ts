@@ -11,18 +11,18 @@ export interface JournalEntry {
   readonly data?: string;
 }
 
-export interface HookCalledFacts {
+interface HookCalledFacts {
   readonly type: 'hook.called';
   readonly call: HookCallTrace;
 }
 
-export interface ProvisionFailedFacts {
+interface ProvisionFailedFacts {
   readonly type: 'provision.failed';
   readonly failure: string;
   readonly detail: string;
 }
 
-export interface RunPausedFacts {
+interface RunPausedFacts {
   readonly type: 'run.paused';
   readonly resumesAtOnce: boolean;
 }

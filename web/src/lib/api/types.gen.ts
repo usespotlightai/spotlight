@@ -4928,7 +4928,7 @@ export type RunMemoriesResponseDto = {
    */
   omitted: Array<TeamMemoryResponseDto>;
   /**
-   * What the run looked up with spotlight recall, or read from the memory folder in its workspace
+   * What the run looked up with spotlight recall, or read from the memory folder in its working copy
    */
   recalled: Array<TeamMemoryResponseDto>;
   /**
@@ -4956,7 +4956,7 @@ export type RememberRequestDto = {
    */
   scope?: 'team' | 'line' | 'station';
   /**
-   * Paths it is about, relative to the run’s workspace, each starting with the checkout folder
+   * Paths it is about, relative to the run’s working copy, each starting with the checkout folder
    */
   paths?: Array<string>;
   /**
@@ -4967,7 +4967,7 @@ export type RememberRequestDto = {
 
 export type MemoryFileResponseDto = {
   /**
-   * Where to write it, relative to the run’s workspace
+   * Where to write it, relative to the run’s working copy
    */
   path: string;
   body: string;
@@ -11235,6 +11235,32 @@ export type ReadRunNetworkResponses = {
 };
 
 export type ReadRunNetworkResponse = ReadRunNetworkResponses[keyof ReadRunNetworkResponses];
+
+export type ReadTeamlessRunNetworkData = {
+  body?: never;
+  path: {
+    runId: string;
+  };
+  query?: never;
+  url: '/runs/{runId}/network';
+};
+
+export type ReadTeamlessRunNetworkErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such run of no team for this caller
+   */
+  404: unknown;
+};
+
+export type ReadTeamlessRunNetworkResponses = {
+  200: RunNetworkResponseDto;
+};
+
+export type ReadTeamlessRunNetworkResponse = ReadTeamlessRunNetworkResponses[keyof ReadTeamlessRunNetworkResponses];
 
 export type StreamRunData = {
   body?: never;

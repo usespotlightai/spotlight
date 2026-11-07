@@ -14,7 +14,7 @@ interface TaskReviewSummary {
   readonly conversationId: string;
 }
 
-export interface TaskPersonSummary {
+interface TaskPersonSummary {
   readonly id: string;
   readonly name: string;
   readonly image: string | null;

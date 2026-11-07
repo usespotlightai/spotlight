@@ -5789,6 +5789,43 @@
         ]
       }
     },
+    "/runs/{runId}/network": {
+      "get": {
+        "operationId": "readTeamlessRunNetwork",
+        "parameters": [
+          {
+            "name": "runId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunNetworkResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such run of no team for this caller"
+          }
+        },
+        "summary": "The connections a run of no team made through a shared egress, and if egress was enforced",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
     "/runs/{runId}/stream": {
       "get": {
         "operationId": "streamRun",
@@ -19364,7 +19401,7 @@
             "description": "No such run leased by this runner"
           }
         },
-        "summary": "Every active memory that applies to the run, as files to write into its workspace",
+        "summary": "Every active memory that applies to the run, as files to write into its working copy",
         "tags": [
           "runners"
         ]
@@ -33400,7 +33437,7 @@
             }
           },
           "recalled": {
-            "description": "What the run looked up with spotlight recall, or read from the memory folder in its workspace",
+            "description": "What the run looked up with spotlight recall, or read from the memory folder in its working copy",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TeamMemoryResponseDto"
@@ -33474,7 +33511,7 @@
             "example": [
               "api/src/uploads"
             ],
-            "description": "Paths it is about, relative to the run’s workspace, each starting with the checkout folder",
+            "description": "Paths it is about, relative to the run’s working copy, each starting with the checkout folder",
             "type": "array",
             "items": {
               "type": "string"
@@ -33498,7 +33535,7 @@
           "path": {
             "type": "string",
             "example": ".spotlight/memory/repositories/acme/api/src/uploads/M-18.md",
-            "description": "Where to write it, relative to the run’s workspace"
+            "description": "Where to write it, relative to the run’s working copy"
           },
           "body": {
             "type": "string",

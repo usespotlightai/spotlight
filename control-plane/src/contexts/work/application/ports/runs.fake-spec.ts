@@ -240,7 +240,7 @@ export const leasedRun = (
   ...part,
 });
 
-export class RunNotFound extends ApplicationError {
+class RunNotFound extends ApplicationError {
   readonly kind = 'not-found' as const;
 }
 

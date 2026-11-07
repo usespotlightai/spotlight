@@ -16,10 +16,10 @@ import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo'
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 
 export const MAX_REPLAYED = 500;
 
