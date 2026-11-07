@@ -4,6 +4,7 @@ import {
   monthSpentOf,
   monthStartOf,
   nextMonthStartOf,
+  requestRefusalOf,
   type SetInput,
   setVerdict,
 } from '@replays/domain/services/search-schedule';
@@ -274,5 +275,32 @@ describe('month spend', () => {
         'USD',
       ),
     ).toEqual(Money.of(22, 'USD'));
+  });
+});
+
+describe('requestRefusalOf', () => {
+  const free = {
+    resultPending: false,
+    pullRequestOpen: false,
+    fitsMonth: true,
+    takesRequest: true,
+    scores: true,
+  };
+
+  it('takes a request at a free station that scores, else names the first reason it refuses', () => {
+    expect(requestRefusalOf(free)).toBeNull();
+    expect(
+      requestRefusalOf({ ...free, resultPending: true, scores: false }),
+    ).toBe('result-pending');
+    expect(requestRefusalOf({ ...free, pullRequestOpen: true })).toBe(
+      'pull-request-open',
+    );
+    expect(requestRefusalOf({ ...free, fitsMonth: false })).toBe(
+      'monthly-ceiling',
+    );
+    expect(requestRefusalOf({ ...free, takesRequest: false })).toBe(
+      'request-limit',
+    );
+    expect(requestRefusalOf({ ...free, scores: false })).toBe('no-scoring');
   });
 });

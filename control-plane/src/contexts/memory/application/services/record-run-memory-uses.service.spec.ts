@@ -3,6 +3,7 @@ import type { WorkPort } from '@memory/application/ports/work.port';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
+import type { RecordedMemoryUses } from '@memory/domain/entities/recorded-memory-uses.entity';
 import { MemoriesUsed } from '@memory/domain/events/memories-used.event';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -11,7 +12,9 @@ import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -40,7 +43,7 @@ const storedMemory = (
     body: MemoryBody.of('Keep it simple.'),
     scope: MemoryScope.of({
       teamId: TEAM,
-      lineId: applies ? 'line_1' : 'line_other',
+      lineId: LineId.of(applies ? 'line_1' : 'line_other'),
     }),
     provenance: null,
     by: MemoryDecision.of({ by: ADA, at: NOW }),
@@ -54,28 +57,35 @@ const recording = (
   isActive: (handle: string) => boolean = () => true,
   applies: (handle: string) => boolean = () => true,
 ) => {
-  const record = vi.fn(async () => undefined);
   const dispatched: DomainEvent[] = [];
+  const record = vi.fn(
+    async (
+      runId: RunId,
+      via: string,
+      memories: readonly MemoryId[],
+      at: Date,
+    ) => ({ runId, via, memories, at }),
+  );
   const lookedUp: { teamId: TeamId; handles: string[] }[] = [];
   const service = new RecordRunMemoryUses(
     new RecordMemoryUses(
-      { record } as unknown as MemoryUsesPort,
       {
-        dispatch: async (events: readonly DomainEvent[]) => {
-          dispatched.push(...events);
+        record: async (uses: RecordedMemoryUses) => {
+          dispatched.push(...uses.pullEvents());
+          await record(uses.runId, uses.via, uses.memories, uses.at);
         },
-      },
+      } as unknown as MemoryUsesPort,
       { inTransaction: (work) => work() },
       { now: () => NOW, sleep: async () => undefined },
     ),
     {
       contextOfRun: async () => ({
         teamId: TEAM,
-        lineId: 'line_1',
-        stationId: 'station_1',
+        lineId: LineId.of('line_1'),
+        stationId: StationId.of('station_1'),
         repositories: [],
       }),
-      referencedUnder: async () => referenced,
+      memoryFilesRead: async () => referenced,
     } as unknown as WorkPort,
     {
       withHandles: async (teamId: TeamId, handles: MemoryHandle[]) => {

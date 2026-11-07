@@ -3,45 +3,43 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import type { ChannelChats } from '@work/application/services/channel-chats.service';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
-import type { RunDetached } from '@work/domain/events/run-detached.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
+import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import { Happening } from '@work/domain/value-objects/happening.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  deliveryLineOf,
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -92,12 +90,12 @@ const at = (
   position: number,
   kind: 'backlog' | 'work' | 'completed' = 'work',
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     harness: kind === 'work' ? HarnessId.of('dev') : undefined,
     kind,
   });
@@ -110,7 +108,7 @@ const sends = (happening: Happening, to: string, from?: string) =>
   });
 
 const line = (more: readonly Reaction[] = []) =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -153,9 +151,9 @@ const tasks = (found: Task | null) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    findByMarks: vi.fn(async () => found),
+    findByCorrelation: vi.fn(async () => (found ? [found] : [])),
+    holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -164,13 +162,12 @@ const tasks = (found: Task | null) =>
 
 const lines = () =>
   ({
-    add: vi.fn(),
-    save: vi.fn(),
     find: vi.fn(async () => line()),
     findByStation: vi.fn(async () => line()),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
-  }) satisfies LineRepository;
+    candidate: vi.fn(),
+  }) satisfies LineMapsPort;
 
 const dispatch: TaskDispatching = {
   runIdFor: async ({ task }) => {
@@ -374,7 +371,7 @@ describe('ReactToHappenings', () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
-        station: StationName.of('Code Review'),
+        station: null,
         body: TaskNoteBody.of('Addressed all three comments. Look again?'),
         at: NOW,
       },
@@ -395,7 +392,7 @@ describe('ReactToHappenings', () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
-        station: StationName.of('Code Review'),
+        station: null,
         body: TaskNoteBody.of('Which repository should this live in?'),
         at: NOW,
       },
@@ -447,7 +444,7 @@ describe('ReactToHappenings', () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
-        station: StationName.of('Code Review'),
+        station: null,
         body: TaskNoteBody.of('Which repository should this live in?'),
         at: NOW,
       },
@@ -503,7 +500,7 @@ describe('ReactToHappenings', () => {
       .assignRun(RunId.of('run_1'), line())
       .putToAPerson(RunId.of('run_1'), {
         voice: Voice.station(RunId.of('run_1')),
-        station: StationName.of('Code Review'),
+        station: null,
         body: TaskNoteBody.of('Which repository should this live in?'),
         at: NOW,
       });
@@ -559,7 +556,7 @@ describe('ReactToHappenings', () => {
       taskAt().askedAbout(
         {
           voice: Voice.station(),
-          station: StationName.of('Code Review'),
+          station: null,
           body: TaskNoteBody.of('What does the queue look like now?'),
           at: NOW,
         },
@@ -634,7 +631,7 @@ describe('ReactToHappenings', () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
-        station: StationName.of('Code Review'),
+        station: null,
         body: TaskNoteBody.of('Which queue should I drain?'),
         at: NOW,
       },
@@ -801,7 +798,7 @@ describe('ReactToHappenings', () => {
       const task = taskAt(stationId)
         .assignRun(RunId.of('run_1'), line())
         .putToAPerson(RunId.of('run_1'), {
-          station: StationName.of('Implementation'),
+          station: null,
           body: TaskNoteBody.of('Which queue should I drain?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -895,7 +892,7 @@ describe('ReactToHappenings', () => {
           saved
             ?.pullEvents()
             .filter((each) => each.kind === 'task.run-detached')
-            .map((each) => (each as RunDetached).runId),
+            .map((each) => (each as TaskRunDetached).runId),
         ).toEqual([RunId.of('run_1')]);
         expect(dispatched).toHaveLength(0);
       });
@@ -926,7 +923,7 @@ describe('ReactToHappenings', () => {
           saved
             ?.pullEvents()
             .filter((each) => each.kind === 'task.run-detached')
-            .map((each) => (each as RunDetached).runId),
+            .map((each) => (each as TaskRunDetached).runId),
         ).toEqual([RunId.of('run_1')]);
         expect(dispatched).toHaveLength(0);
       });
@@ -969,7 +966,7 @@ describe('ReactToHappenings', () => {
       channels,
     ).react(WorkspaceId.of('ws_1'), null, [news(MERGED, null)], 'received-as');
 
-    expect(stored.findByMarks).toHaveBeenCalledWith(
+    expect(stored.findByCorrelation).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
       expect.anything(),
     );
@@ -980,11 +977,9 @@ describe('ReactToHappenings', () => {
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     let next = 0;
-    const opening = Line.create({
-      by: changeActorIn(),
+    const opening = deliveryLineOf({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
-      line: BUILT_IN_LINES[0] as LineOpening,
       newId: () => `id_${++next}`,
     });
     const entry = opening.entry as Station;
@@ -997,9 +992,9 @@ describe('ReactToHappenings', () => {
       save: vi.fn(),
       find: vi.fn(async () => null),
       remove: vi.fn(),
-      allAtStation: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
-      findByMarks: vi.fn(async () => null),
+      findByCorrelation: vi.fn(async () => []),
+      holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
@@ -1007,13 +1002,12 @@ describe('ReactToHappenings', () => {
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      add: vi.fn(),
-      save: vi.fn(),
       find: vi.fn(async () => opening),
       findByStation: vi.fn(async () => opening),
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
-    } satisfies LineRepository;
+      candidate: vi.fn(),
+    } satisfies LineMapsPort;
 
     const filed: Happened = {
       happening: ISSUE_CREATED.value,
@@ -1063,11 +1057,9 @@ describe('ReactToHappenings', () => {
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     let next = 0;
-    const opening = Line.create({
-      by: changeActorIn(),
+    const opening = deliveryLineOf({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
-      line: BUILT_IN_LINES[0] as LineOpening,
       newId: () => `id_${++next}`,
     });
 
@@ -1079,9 +1071,9 @@ describe('ReactToHappenings', () => {
       save: vi.fn(),
       find: vi.fn(async () => null),
       remove: vi.fn(),
-      allAtStation: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
-      findByMarks: vi.fn(async () => null),
+      findByCorrelation: vi.fn(async () => []),
+      holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
@@ -1089,13 +1081,12 @@ describe('ReactToHappenings', () => {
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      add: vi.fn(),
-      save: vi.fn(),
       find: vi.fn(async () => opening),
       findByStation: vi.fn(async () => opening),
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
-    } satisfies LineRepository;
+      candidate: vi.fn(),
+    } satisfies LineMapsPort;
 
     const byEmail = vi.fn(async () => UserId.of('user_9'));
 
@@ -1144,11 +1135,9 @@ describe('ReactToHappenings', () => {
     const issueMark = Mark.of('linear.issue', 'ISS-1');
 
     let next = 0;
-    const opening = Line.create({
-      by: changeActorIn(),
+    const opening = deliveryLineOf({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
-      line: BUILT_IN_LINES[0] as LineOpening,
       newId: () => `id_${++next}`,
     });
 
@@ -1160,9 +1149,9 @@ describe('ReactToHappenings', () => {
       save: vi.fn(),
       find: vi.fn(async () => null),
       remove: vi.fn(),
-      allAtStation: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
-      findByMarks: vi.fn(async () => null),
+      findByCorrelation: vi.fn(async () => []),
+      holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
@@ -1170,13 +1159,12 @@ describe('ReactToHappenings', () => {
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      add: vi.fn(),
-      save: vi.fn(),
       find: vi.fn(async () => opening),
       findByStation: vi.fn(async () => opening),
       ofWorkspace: vi.fn(async () => [opening]),
       ofTeam: vi.fn(async () => []),
-    } satisfies LineRepository;
+      candidate: vi.fn(),
+    } satisfies LineMapsPort;
 
     const filed: Happened = {
       happening: ISSUE_CREATED.value,
@@ -1220,15 +1208,11 @@ describe('ReactToHappenings', () => {
 
     const delivery = (key: string) => {
       let next = 0;
-      return Line.create({
-        by: changeActorIn(),
+      return deliveryLineOf({
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TeamId.of('team_1'),
-        line: {
-          ...(BUILT_IN_LINES[0] as LineOpening),
-          key: LineKey.of(key),
-          name: LineName.of(key),
-        },
+        key,
+        name: key,
         newId: () => `${key}_${++next}`,
       });
     };
@@ -1244,9 +1228,9 @@ describe('ReactToHappenings', () => {
       save: vi.fn(),
       find: vi.fn(async () => null),
       remove: vi.fn(),
-      allAtStation: vi.fn(async () => []),
       placementsAt: vi.fn(async () => []),
-      findByMarks: vi.fn(async () => null),
+      findByCorrelation: vi.fn(async () => []),
+      holdingMark: vi.fn(async () => []),
       settingUpFor: vi.fn(async () => null),
       settingUpIn: vi.fn(async () => []),
       settingUp: vi.fn(async () => []),
@@ -1254,13 +1238,12 @@ describe('ReactToHappenings', () => {
     } satisfies TaskRepository & TaskPlacementsPort;
 
     const running = {
-      add: vi.fn(),
-      save: vi.fn(),
       find: vi.fn(async () => first),
       findByStation: vi.fn(async () => first),
       ofWorkspace: vi.fn(async () => [second, first]),
       ofTeam: vi.fn(async () => []),
-    } satisfies LineRepository;
+      candidate: vi.fn(),
+    } satisfies LineMapsPort;
 
     const filed: Happened = {
       happening: ISSUE_CREATED.value,

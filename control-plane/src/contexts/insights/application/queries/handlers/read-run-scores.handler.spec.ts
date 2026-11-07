@@ -1,10 +1,16 @@
-import type { StationJudge } from '@insights/application/ports/evidence.port';
+import type { StationJudge } from '@insights/application/ports/station-judges.port';
 import { ReadRunScoresHandler } from '@insights/application/queries/handlers/read-run-scores.handler';
 import { ReadRunScoresQuery } from '@insights/application/queries/read-run-scores.query';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { RunScoresViews } from '@insights/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { Score } from '@insights/domain/aggregates/score.aggregate';
+import { Citation } from '@insights/domain/value-objects/citation.vo';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
+import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
+import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import {
   JudgingsInMemory,
   judgeScore,
@@ -14,20 +20,14 @@ import {
   RUBRIC_VERSION,
   rubricOf,
   ScoresInMemory,
-} from '@insights/domain/judging.fake-spec';
+} from '@insights/judging.fake-spec';
 import {
   endedRecord,
   NOBODY_ELSE,
   RunRecordsInMemory,
-  TaskPullRequestsInMemory,
+  StationFactsInMemory,
   WORKSPACE,
-} from '@insights/domain/runs.fake-spec';
-import { Citation } from '@insights/domain/value-objects/citation.vo';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
-import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
-import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
-import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
-import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
+} from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -119,13 +119,10 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
       }),
     }),
     new RunScoresViews(
-      records,
-      scores,
+      new StationFactsInMemory(records, { scores }),
       new StationJudgeReports(
         evidence,
-        scores,
-        records,
-        new TaskPullRequestsInMemory(),
+        new StationFactsInMemory(records, { scores }),
       ),
       judgings,
     ),

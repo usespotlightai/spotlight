@@ -29,7 +29,7 @@ export class ImportWorkspaceRunnersHandler
       );
       const record =
         permissions && permissions.slug === query.address
-          ? await this.resources.declaredIn(permissions.workspaceId)
+          ? await this.resources.ofWorkspace(permissions.workspaceId)
           : null;
 
       return record && permissions

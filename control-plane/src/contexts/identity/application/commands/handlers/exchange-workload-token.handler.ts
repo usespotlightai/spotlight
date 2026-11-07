@@ -4,6 +4,8 @@ import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-worksp
 import { WorkloadNotMatchedError } from '@identity/domain/exceptions/workload-not-matched.error';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -12,9 +14,7 @@ import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
 import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
 export class ExchangeWorkloadTokenHandler
   implements
@@ -47,8 +47,8 @@ export class ExchangeWorkloadTokenHandler
 
       const workload = await this.scope.within(trust.workspaceId.value, () =>
         this.workloads.verify(command.workloadToken, {
-          issuer: trust.workload.issuer,
-          audience: trust.workload.audience,
+          issuer: trust.workload.issuer.value,
+          audience: trust.workload.audience.value,
         }),
       );
 

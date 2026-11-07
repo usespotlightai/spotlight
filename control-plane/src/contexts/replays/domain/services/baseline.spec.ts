@@ -14,6 +14,7 @@ import {
   replayedAs,
   runIds,
   STATION,
+  slots,
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
 import {
@@ -62,7 +63,7 @@ describe('baselineOf', () => {
 
   it('passes over a baseline that reached its ceiling', () => {
     const over = ranToEnd(
-      aBaseline('replay_over', 0, 2).reserving(1, runIds()),
+      aBaseline('replay_over', 0, 2).reserving(slots(1), runIds()),
       RunId.of('replay_run_0'),
       'completed',
       100,
@@ -175,7 +176,7 @@ describe('comparedAgainst', () => {
     const set = aSet(3);
     const replay = Replay.start({
       id: ReplayId.of('replay_answer'),
-      set,
+      set: set.snapshot,
       candidate: Candidate.oracleOf(live, {
         id: CandidateId.of('candidate_answer'),
         at: NOW,
@@ -186,7 +187,7 @@ describe('comparedAgainst', () => {
       by: BY,
       oracle: {
         answers: set.runs.map((run) => ({ run, answer: 'accepted' as const })),
-        against,
+        against: against.asOracleReference,
         live,
       },
     });

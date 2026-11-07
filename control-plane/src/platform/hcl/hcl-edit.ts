@@ -26,7 +26,7 @@ export interface HclReferenceRule {
   readonly type: string;
   readonly attribute: string;
   readonly storedAt: string;
-  readonly tool: boolean;
+  readonly suffixed: boolean;
 }
 
 export interface HclField {
@@ -47,9 +47,12 @@ export interface HclGuardedBlock {
 export interface HclBlockEdit {
   readonly file: HclFile;
   readonly owner: {
+    readonly noun: string;
     readonly attribute: string;
     readonly type: string;
     readonly key: string;
+    readonly label: string;
+    readonly labelOf: (key: string) => string;
   };
   readonly resource: { readonly type: string; readonly key: string };
   readonly block: { readonly type: string; readonly key: string };
@@ -127,12 +130,6 @@ const same = (one: HclLiteral, other: HclLiteral): boolean =>
   JSON.stringify(normalised(one)) === JSON.stringify(normalised(other));
 
 const quotedKey = (key: string): string => JSON.stringify(key);
-
-const nameOf = (...keys: readonly string[]): string => {
-  const joined = keys.join('_');
-
-  return /^[A-Za-z_]/.test(joined) ? joined : `_${joined}`;
-};
 
 const literalAt = (body: ParsedBody, path: string): string | null => {
   const [name, ...within] = path.split('.');
@@ -244,10 +241,10 @@ class Editing {
       existing.read.type === owner.type &&
       existing.read.suffix === null
     ) {
-      return existing.read.name === nameOf(owner.key);
+      return existing.read.name === owner.label;
     }
 
-    return block.labels[1] === nameOf(owner.key, key) ? true : null;
+    return block.labels[1] === owner.labelOf(key) ? true : null;
   }
 
   private ours(
@@ -273,16 +270,16 @@ class Editing {
 
   located(parsed = this.parsed): ParsedBlock {
     const { resource, block, owner } = this.edit;
-    const lines = parsed.blocks.filter(
+    const typed = parsed.blocks.filter(
       (each) => each.type === 'resource' && each.labels[0] === resource.type,
     );
-    const keyed = lines.filter(
+    const keyed = typed.filter(
       (each) => literalAt(each.body, 'key') === resource.key,
     );
-    const { found: line, unknown } = this.ours(keyed, () => resource.key);
+    const { found, unknown } = this.ours(keyed, () => resource.key);
 
-    if (!line) {
-      const counted = `${countOf(lines.length, `resource "${resource.type}"`, `resources "${resource.type}"`)} in the file, ${keyed.length} with key ${quotedKey(resource.key)}`;
+    if (!found) {
+      const counted = `${countOf(typed.length, `resource "${resource.type}"`, `resources "${resource.type}"`)} in the file, ${keyed.length} with key ${quotedKey(resource.key)}`;
 
       return keyed.length === 0
         ? fail(
@@ -292,21 +289,21 @@ class Editing {
         : unknown > 0
           ? fail(
               'blocks-ambiguous',
-              `More than one resource "${resource.type}" with key ${quotedKey(resource.key)} can belong to team ${owner.key}. Found: ${counted}`,
+              `More than one resource "${resource.type}" with key ${quotedKey(resource.key)} can belong to ${owner.noun} ${owner.key}. Found: ${counted}`,
             )
           : fail(
               'block-not-found',
-              `The file has no resource "${resource.type}" with key ${quotedKey(resource.key)} for team ${owner.key}. Found: ${counted}`,
+              `The file has no resource "${resource.type}" with key ${quotedKey(resource.key)} for ${owner.noun} ${owner.key}. Found: ${counted}`,
             );
     }
 
-    const stations = line.body.blocks.filter(
+    const nested = found.body.blocks.filter(
       (each) => each.type === block.type && each.labels.length === 0,
     );
-    const matching = stations.filter(
+    const matching = nested.filter(
       (each) => literalAt(each.body, 'key') === block.key,
     );
-    const dynamic = line.body.blocks.filter(
+    const dynamic = found.body.blocks.filter(
       (each) => each.type === 'dynamic' && each.labels[0] === block.type,
     ).length;
 
@@ -315,7 +312,7 @@ class Editing {
     }
 
     const counted = [
-      `${countOf(stations.length, `${block.type} block`)} in the resource with key ${quotedKey(resource.key)}`,
+      `${countOf(nested.length, `${block.type} block`)} in the resource with key ${quotedKey(resource.key)}`,
       `${matching.length} with key ${quotedKey(block.key)}`,
       ...(dynamic > 0 ? [countOf(dynamic, 'dynamic block')] : []),
     ].join(', ');
@@ -413,9 +410,9 @@ class Editing {
     }
 
     const dot = value.indexOf('.');
-    const key = rule.tool ? value.slice(0, Math.max(dot, 0)) : value;
+    const key = rule.suffixed ? value.slice(0, Math.max(dot, 0)) : value;
 
-    if (rule.tool && dot <= 0) {
+    if (rule.suffixed && dot <= 0) {
       return null;
     }
 
@@ -438,7 +435,7 @@ class Editing {
       rule.attribute,
     );
 
-    return rule.tool
+    return rule.suffixed
       ? HclExpression.template(traversal, value.slice(dot))
       : traversal;
   }
@@ -592,7 +589,7 @@ class Editing {
       if (!same(current.value, field.expected)) {
         fail(
           'base-changed',
-          `\`${field.name}\` changed in the repository after the search began. The file no longer has the value that the search started from.`,
+          `\`${field.name}\` changed in the repository. The file no longer has the value that the edit starts from.`,
           { attribute: field.name },
         );
       }
@@ -642,7 +639,7 @@ class Editing {
       if (existing.read.kind === 'file' && typeof field.desired === 'string') {
         fail(
           'edit-failed',
-          `\`${field.name}\` reads \`${existing.sourceText}\`. Spotlight writes only the station's own files. Please change it by hand.`,
+          `\`${field.name}\` reads \`${existing.sourceText}\`. Spotlight writes only the ${this.edit.block.type} block's own files. Please change it by hand.`,
           {
             attribute: field.name,
             expression: existing.sourceText,
@@ -717,7 +714,7 @@ class Editing {
     const baseChanged = () =>
       fail(
         'base-changed',
-        `\`${guarded.type}\` changed in the repository after the search began. The file no longer has the value that the search started from.`,
+        `\`${guarded.type}\` changed in the repository. The file no longer has the value that the edit starts from.`,
         { attribute: guarded.type },
       );
 

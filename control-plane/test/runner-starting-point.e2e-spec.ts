@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-start-${randomUUID().slice(0, 8)}`;
@@ -188,7 +189,7 @@ beforeAll(async () => {
     key: 'delivery',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,

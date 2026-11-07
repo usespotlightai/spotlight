@@ -8,8 +8,10 @@ import { ConfigPullRequestMerged } from '@replays/domain/events/config-pull-requ
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
 import { ConfigPullRequestReopened } from '@replays/domain/events/config-pull-request-reopened.event';
 import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
+import { ConfigPullRequestTransitionError } from '@replays/domain/exceptions/config-pull-request-transition.error';
 import { BY, later, NOW, STATION } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -47,7 +49,7 @@ const picked = (source: typeof SOURCE | null = SOURCE) =>
     candidateId: CandidateId.of('candidate_terse'),
     station: STATION,
     stationKey: 'build',
-    candidateName: 'terse',
+    candidateName: CandidateName.rehydrate('terse'),
     lineKey: 'delivery',
     source,
     at: NOW,
@@ -61,7 +63,7 @@ describe('ConfigPullRequest', () => {
 
     expect(pullRequest.current).toBe('opening');
     expect(pullRequest.branch).toBe('spotlight/search-5d1e2f3a-terse');
-    expect(pullRequest.repository).toBe('acme/platform');
+    expect(pullRequest.repository?.value).toBe('acme/platform');
     expect(pullRequest.isDue(NOW)).toBe(true);
     expect(wanted).toBeInstanceOf(ConfigPullRequestRequested);
     expect((wanted as ConfigPullRequestRequested).change).toMatchObject({
@@ -133,13 +135,13 @@ describe('ConfigPullRequest', () => {
     const opened = opening.open(OPENED, later(5));
     const [event] = opened.pullEvents();
 
-    expect(opened.url).toBe('https://github.com/acme/platform/pull/7');
+    expect(opened.url?.value).toBe('https://github.com/acme/platform/pull/7');
     expect(opened.gitHubPullRequest).toEqual({
       repository: Repository.of('Acme/Platform'),
       number: 7,
     });
+    expect(opened.repository?.value).toBe('Acme/Platform');
     expect(opened).toMatchObject({
-      repository: 'Acme/Platform',
       gitHubId: 707,
       basedOn: BASED_ON,
       checkedAt: later(5),
@@ -379,6 +381,9 @@ describe('ConfigPullRequest', () => {
     });
 
     it('cannot be closed by Spotlight unless it is closing', () => {
+      expect(() => opened().closed(later(9))).toThrow(
+        ConfigPullRequestTransitionError,
+      );
       expect(() => opened().closed(later(9))).toThrow(/opened, not closing/);
     });
   });

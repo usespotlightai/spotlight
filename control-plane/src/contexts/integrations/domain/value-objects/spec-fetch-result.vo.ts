@@ -84,6 +84,16 @@ export class SpecFetchResult {
     );
   }
 
+  readAgainAt(at: Date): SpecFetchResult {
+    return new SpecFetchResult(
+      this.fingerprint,
+      this.hash,
+      at,
+      this.problem,
+      this.skipped,
+    );
+  }
+
   isOf(spec: ApiSpec): boolean {
     return this.fingerprint === spec.fingerprint;
   }

@@ -87,6 +87,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
         userId: UserId.of(each.userId),
         role: WorkspaceRole.of(each.role),
       })),
+      firstTeamPending: found.firstTeamPending,
       version: found.version,
     });
   }
@@ -111,6 +112,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
           name: saved.name.value,
           slug: saved.slug.value,
           outboundHosts: [...saved.outboundHosts.entries],
+          firstTeamPending: saved.firstTeamPending,
           version: saved.version + 1,
         })
         .where(
@@ -194,6 +196,8 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
           name: added.name.value,
           slug: added.slug.value,
           outboundHosts: [...added.outboundHosts.entries],
+          firstTeamPending: added.firstTeamPending,
+          version: added.version,
         });
 
         await this.context.db.insert(workspaceMember).values(

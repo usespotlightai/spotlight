@@ -1,10 +1,7 @@
 import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
-import type {
-  SkillFolder,
-  SkillReaderPort,
-} from '@configuration/application/ports/skill-reader.port';
-import type { TeamSkillFilesPort } from '@configuration/application/ports/team-skill-files.port';
-import { Skill } from '@configuration/domain/entities/skill.entity';
+import type { ReadSkillFolder } from '@configuration/application/ports/skill-folders.port';
+import type { TeamSkillReading } from '@configuration/application/services/team-skill-reading.service';
+import { Skill } from '@configuration/domain/value-objects/skill.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 import { TeamSkills } from '@configuration/infrastructure/acl/team-skills.adapter';
@@ -15,7 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const TEAM = TeamId.of('team_1');
 
-const GRAFANA: SkillFolder = {
+const GRAFANA: ReadSkillFolder = {
   skill: Skill.define({
     key: SkillKey.of('grafana-dashboards'),
     description: 'Reading this team’s dashboards.',
@@ -31,7 +28,7 @@ const GRAFANA: SkillFolder = {
   files: [{ path: 'SKILL.md', text: '---\nname: grafana-dashboards\n---\n' }],
 };
 
-const MIGRATIONS: SkillFolder = {
+const MIGRATIONS: ReadSkillFolder = {
   skill: Skill.define({
     key: SkillKey.of('our-migrations'),
     description: 'Writing a migration here.',
@@ -45,7 +42,7 @@ const MIGRATIONS: SkillFolder = {
   ],
 };
 
-const FRONTEND: SkillFolder = {
+const FRONTEND: ReadSkillFolder = {
   skill: Skill.define({
     key: SkillKey.of('frontend'),
     description: 'Working on the web app.',
@@ -59,22 +56,14 @@ const FRONTEND: SkillFolder = {
 const naming = (...skills: string[]) => skills;
 
 const withSkills = (
-  folders: readonly SkillFolder[],
+  folders: readonly ReadSkillFolder[],
   existing: readonly string[] = [],
 ) => {
   const secrets = {
     ofTeam: vi.fn(async () => existing.map((each) => SecretName.of(each))),
   } satisfies SecretNamesPort;
-  const reader: SkillReaderPort = {
-    parse: () => ({ skills: folders, problems: [] }),
-    folder: vi.fn(),
-  };
-
   return new TeamSkills(
-    {
-      of: vi.fn(async () => ({ teamId: TEAM, skills: [] })),
-    } satisfies TeamSkillFilesPort,
-    reader,
+    { of: vi.fn(async () => folders) } as unknown as TeamSkillReading,
     secrets,
   );
 };

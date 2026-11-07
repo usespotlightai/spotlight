@@ -20,6 +20,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { endedAtFor } from './support/run-ended';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
@@ -51,6 +52,7 @@ const RETRIES = TraceReference.of({
 
 const started = () =>
   Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_1'),
@@ -92,7 +94,7 @@ const taskOfTeam = async (teamId: string) => {
     teamId,
     name: 'Delivery',
   });
-  await db.insert(schema.station).values({
+  await insertStations(db, {
     id: stationId,
     key: 'triage',
     workspaceId: 'ws_1',

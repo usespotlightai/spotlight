@@ -1,16 +1,11 @@
 import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
 import type { JudgePort } from '@insights/application/ports/judge.port';
 import type { EndedRun } from '@insights/application/ports/work.port';
+import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RequestJudging } from '@insights/application/services/request-judging.service';
-import {
-  JudgingsInMemory,
-  RUBRIC_VERSION,
-} from '@insights/domain/judging.fake-spec';
-import {
-  FIRST_CONFIG,
-  inTransaction,
-  SET_UP,
-} from '@insights/domain/runs.fake-spec';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { JudgingsInMemory, RUBRIC_VERSION } from '@insights/judging.fake-spec';
+import { FIRST_CONFIG, inTransaction, SET_UP } from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -55,13 +50,13 @@ const requesting = (
       traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
       endedRun: async () => ENDED,
       configsInOrder: async () => [],
-      teamRepositories: async () => [],
       teamSkillKeys: async () => [],
-      alertsAt: async () => null,
     },
     {
       hasTask: async () => change.hasEvidence ?? true,
       of: async () => null,
+    },
+    {
       judgesOnTeam: async () => new Map(),
       judgeAt: async () =>
         change.judged === false
@@ -79,7 +74,7 @@ const requesting = (
     },
     judge,
     judgings,
-    deletions,
+    new FactRecorder(deletions),
     inTransaction,
     { now: () => new Date('2026-09-30T10:05:00.000Z'), sleep: async () => {} },
   );
@@ -88,16 +83,22 @@ const requesting = (
     judgings,
     deletions,
     ended: (outcome = 'completed', stopped = false) =>
-      service.runEnded({ runId: 'run_1', outcome, stopped, failure: null }),
+      service.runEnded({
+        runId: 'run_1',
+        taskId: 'task_1',
+        stationId: 'station_1',
+        outcome,
+        stopped,
+        failure: null,
+      }),
   };
 };
 
 describe('RequestJudging', () => {
   it('requests no verdict on a run whose end is received after its task was deleted', async () => {
     const requested = requesting();
-    await requested.deletions.deleteTask(
-      WorkspaceId.of('ws_1'),
-      TaskId.of('task_1'),
+    await requested.deletions.markDeleted(
+      DeletionScope.ofTask(WorkspaceId.of('ws_1'), TaskId.of('task_1')),
     );
 
     await requested.ended();
@@ -107,7 +108,9 @@ describe('RequestJudging', () => {
 
   it('requests no verdict on a run whose end is received after its workspace was deleted', async () => {
     const requested = requesting();
-    await requested.deletions.deleteWorkspace(WorkspaceId.of('ws_1'));
+    await requested.deletions.markDeleted(
+      DeletionScope.ofWorkspace(WorkspaceId.of('ws_1')),
+    );
 
     await requested.ended();
 
@@ -121,7 +124,7 @@ describe('RequestJudging', () => {
 
     const judging = await requested.judgings.of(RunId.of('run_1'));
     expect(judging?.rubric.text).toBe('Did the run retry uploads?');
-    expect(judging?.location.stationId).toBe('station_1');
+    expect(judging?.location.stationId.value).toBe('station_1');
     expect(judging?.fingerprint).toBe(FIRST_CONFIG);
   });
 

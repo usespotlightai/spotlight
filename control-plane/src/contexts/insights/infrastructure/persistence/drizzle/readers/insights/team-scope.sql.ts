@@ -8,7 +8,7 @@ import {
   chatRecord,
   runFact,
   taskHumanAction,
-  taskPullRequest,
+  taskPullRequestFact,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { type SQL, sql } from 'drizzle-orm';
 
@@ -32,23 +32,23 @@ export const ofTeamHumanActions = (team: TeamInPeriod): SQL => {
 export const ofTeamTaskPullRequests = (team: TeamInPeriod): SQL => {
   const { lookback } = team.period;
 
-  return sql`${taskPullRequest.workspaceId} = ${team.workspaceId.value}
+  return sql`${taskPullRequestFact.workspaceId} = ${team.workspaceId.value}
     and (
       (
-        ${taskPullRequest.teamId} = ${team.teamId.value}
-        and ${taskPullRequest.openedAt} < ${iso(lookback.to)}::timestamptz
+        ${taskPullRequestFact.teamId} = ${team.teamId.value}
+        and ${taskPullRequestFact.openedAt} < ${iso(lookback.to)}::timestamptz
         and (
           (
-            ${taskPullRequest.closedAt} is null
+            ${taskPullRequestFact.closedAt} is null
             and (
-              ${taskPullRequest.openedAt} >= ${iso(lookback.from)}::timestamptz
-              or ${taskPullRequest.firstReviewAt} >= ${iso(lookback.from)}::timestamptz
+              ${taskPullRequestFact.openedAt} >= ${iso(lookback.from)}::timestamptz
+              or ${taskPullRequestFact.firstReviewAt} >= ${iso(lookback.from)}::timestamptz
             )
           )
-          or ${taskPullRequest.closedAt} >= ${iso(lookback.from)}::timestamptz
+          or ${taskPullRequestFact.closedAt} >= ${iso(lookback.from)}::timestamptz
         )
       )
-      or ${taskPullRequest.taskId} in (${endedInLookback(team)})
+      or ${taskPullRequestFact.taskId} in (${endedInLookback(team)})
     )`;
 };
 

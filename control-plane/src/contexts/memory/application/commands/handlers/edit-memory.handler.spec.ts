@@ -50,7 +50,7 @@ const editing = (member = true) => {
     notesOf: async () => null,
   } as unknown as WorkPort;
   const people = {
-    memberOf: async () => (member ? { workspaceId: WORKSPACE, by: ADA } : null),
+    viewerOf: async () => (member ? { workspaceId: WORKSPACE, by: ADA } : null),
     find: async () => ({ name: 'Ada', image: null }),
   } as unknown as PeoplePort;
   const repository = memories as unknown as MemoryRepository;

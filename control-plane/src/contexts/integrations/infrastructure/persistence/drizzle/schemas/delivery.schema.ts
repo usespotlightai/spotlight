@@ -1,3 +1,4 @@
+import { INBOUND_DELIVERY_STATES } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
 import {
@@ -12,16 +13,7 @@ import {
   unique,
 } from 'drizzle-orm/pg-core';
 
-export const DELIVERY_STATES = [
-  'pending',
-  'working',
-  'done',
-  'failed',
-] as const;
-
-export type DeliveryState = (typeof DELIVERY_STATES)[number];
-
-export const deliveryState = pgEnum('delivery_state', DELIVERY_STATES);
+export const deliveryState = pgEnum('delivery_state', INBOUND_DELIVERY_STATES);
 
 export const inboundDelivery = pgTable(
   'inbound_delivery',
@@ -36,13 +28,15 @@ export const inboundDelivery = pgTable(
     id: text('id').notNull(),
     headers: jsonb('headers').notNull(),
     body: jsonb('body').notNull(),
-    state: deliveryState('state').notNull().default('pending'),
-    attempts: integer('attempts').notNull().default(0),
-    dueAt: timestamptz('due_at').defaultNow().notNull(),
+    causeFiringId: text('cause_firing_id'),
+    state: deliveryState('state').notNull(),
+    attempts: integer('attempts').notNull(),
+    dueAt: timestamptz('due_at').notNull(),
     claimedAt: timestamptz('claimed_at'),
     failed: text('failed'),
-    receivedAt: timestamptz('received_at').defaultNow().notNull(),
+    receivedAt: timestamptz('received_at').notNull(),
     handledAt: timestamptz('handled_at'),
+    version: integer('version').notNull().default(1),
   },
   (table) => [
     check(

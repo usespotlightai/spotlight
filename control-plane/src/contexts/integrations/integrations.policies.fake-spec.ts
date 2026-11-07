@@ -51,12 +51,20 @@ export class InMemoryPersonToolPolicies implements PersonToolPolicyRepository {
     );
   }
 
-  async deleteForTeam(teamId: TeamId): Promise<void> {
-    for (const [key, each] of this.stored) {
-      if (each.teamId.equals(teamId)) {
-        this.stored.delete(key);
-      }
+  async ofTeam(teamId: TeamId): Promise<readonly PersonToolPolicy[]> {
+    return [...this.stored.values()].filter((each) =>
+      each.teamId.equals(teamId),
+    );
+  }
+
+  async remove(policy: PersonToolPolicy): Promise<void> {
+    const key = keyOf(policy.teamId, policy.personId, policy.integration);
+
+    if (this.stored.get(key)?.version !== policy.version) {
+      throw new PersonToolPolicyVersionConflictError(policy.integration.value);
     }
+
+    this.stored.delete(key);
   }
 }
 

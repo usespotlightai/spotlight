@@ -1,4 +1,5 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
+import { PLAIN_STATION_COLOR } from '@lines/application/contracts/line-view.contract';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -17,14 +18,13 @@ import {
   notesIn,
   pendingIn,
   reviewsIn,
+  TURNING_NOTE_KINDS,
 } from '@work/domain/services/conversations';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import {
   toApprovalSubject,
   toEditedCall,
 } from '@work/infrastructure/persistence/drizzle/repositories/approval-subject.rows';
-import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   type ApprovalRow,
@@ -33,6 +33,7 @@ import {
   taskAttachment,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import { and, asc, count, desc, eq, inArray, isNotNull, or } from 'drizzle-orm';
 
 export interface TaskAttachments {
@@ -157,8 +158,8 @@ const NOTE_COLUMNS = {
   position: taskNote.position,
   station: taskNote.station,
   stationId: taskNote.stationId,
-  stationColor: station.color,
-  stationPosition: station.position,
+  stationColor: workStation.color,
+  stationPosition: workStation.position,
   runId: taskNote.runId,
   kind: taskNote.kind,
   form: taskNote.form,
@@ -228,7 +229,7 @@ const inboxNotesOf = async (
       position: row.position,
       station: row.station,
       stationId: row.stationId,
-      stationColor: row.stationColor ?? StationColor.plain().value,
+      stationColor: row.stationColor ?? PLAIN_STATION_COLOR,
       stationPosition: row.stationPosition ?? 0,
       runId: row.runId,
       kind: row.kind,
@@ -282,7 +283,7 @@ export const trailsFor = async (
   const rows = await db
     .select(NOTE_COLUMNS)
     .from(taskNote)
-    .leftJoin(station, eq(station.id, taskNote.stationId))
+    .leftJoin(workStation, eq(workStation.stationId, taskNote.stationId))
     .where(inArray(taskNote.taskId, [...taskIds]))
     .orderBy(asc(taskNote.taskId), asc(taskNote.position));
 
@@ -303,7 +304,7 @@ export const newestNotesFor = async (
   const rows = await db
     .selectDistinctOn([taskNote.taskId], NOTE_COLUMNS)
     .from(taskNote)
-    .leftJoin(station, eq(station.id, taskNote.stationId))
+    .leftJoin(workStation, eq(workStation.stationId, taskNote.stationId))
     .where(inArray(taskNote.taskId, named))
     .orderBy(taskNote.taskId, desc(taskNote.position));
 
@@ -333,7 +334,7 @@ export const notesAt = async (
   const rows = await db
     .select(NOTE_COLUMNS)
     .from(taskNote)
-    .leftJoin(station, eq(station.id, taskNote.stationId))
+    .leftJoin(workStation, eq(workStation.stationId, taskNote.stationId))
     .where(
       or(
         ...at.map((each) =>
@@ -366,13 +367,6 @@ export type ConversationMark = Pick<
   | 'failure'
 >;
 
-const TURNING_KINDS: readonly TaskNoteKind[] = [
-  'asked',
-  'answered',
-  'passed',
-  'reopened',
-];
-
 export const marksFor = async (
   db: DrizzleDatabase,
   taskIds: readonly string[],
@@ -392,18 +386,18 @@ export const marksFor = async (
       readAt: taskNote.readAt,
       at: taskNote.at,
       station: taskNote.station,
-      stationColor: station.color,
-      stationPosition: station.position,
+      stationColor: workStation.color,
+      stationPosition: workStation.position,
       runId: taskNote.runId,
       failure: taskNote.failure,
     })
     .from(taskNote)
-    .leftJoin(station, eq(station.id, taskNote.stationId))
+    .leftJoin(workStation, eq(workStation.stationId, taskNote.stationId))
     .where(
       and(
         inArray(taskNote.taskId, named),
         or(
-          inArray(taskNote.kind, [...TURNING_KINDS]),
+          inArray(taskNote.kind, [...TURNING_NOTE_KINDS]),
           isNotNull(taskNote.failure),
         ),
       ),
@@ -415,7 +409,7 @@ export const marksFor = async (
       ...(marks.get(taskId) ?? []),
       {
         ...row,
-        stationColor: row.stationColor ?? StationColor.plain().value,
+        stationColor: row.stationColor ?? PLAIN_STATION_COLOR,
         stationPosition: row.stationPosition ?? 0,
         failure: failed(row.failure),
       },
@@ -463,10 +457,10 @@ export const stationsPerLine = async (
   }
 
   const rows = await db
-    .select({ lineId: station.lineId, stations: count() })
-    .from(station)
-    .where(inArray(station.lineId, named))
-    .groupBy(station.lineId);
+    .select({ lineId: workStation.lineId, stations: count() })
+    .from(workStation)
+    .where(inArray(workStation.lineId, named))
+    .groupBy(workStation.lineId);
 
   for (const row of rows) {
     counts.set(row.lineId, row.stations);
@@ -496,7 +490,7 @@ export const awaitedReviewsFor = async (
     .where(
       and(
         inArray(taskNote.taskId, named),
-        inArray(taskNote.kind, [...TURNING_KINDS]),
+        inArray(taskNote.kind, [...TURNING_NOTE_KINDS]),
       ),
     )
     .orderBy(asc(taskNote.taskId), asc(taskNote.position));
@@ -602,14 +596,3 @@ export const briefingsFor = async (
 
   return briefings;
 };
-
-export const threadAt = <T extends { runId: string | null; stationId: string }>(
-  notes: readonly T[],
-  stationId: string | null,
-  runId: string,
-): T[] =>
-  notes.filter(
-    (note) =>
-      note.runId === runId ||
-      (stationId !== null && note.stationId === stationId),
-  );

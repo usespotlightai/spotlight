@@ -3,14 +3,17 @@ import type {
   ChangeMarkerDto,
   InsightsAgentConfigsDto,
   InsightsChangesDto,
-  StationJudgeCalibrationDto,
 } from '@insights/application/dto/insights-changes.dto';
+import type { StationJudgeCalibrationDto } from '@insights/application/dto/judge-calibration.dto';
+import type {
+  JudgeRateDto,
+  SizeBoundDto,
+} from '@insights/application/dto/read-model.dto';
 import {
   JUDGE_OMITTED_REASONS,
   OUTCOME_MEASURES,
 } from '@insights/domain/services/agent-config-comparison';
-import type { JudgeRate } from '@insights/domain/services/judge-rates';
-import { RUN_SIZES, type SizeBound } from '@insights/domain/services/run-size';
+import { RUN_SIZES } from '@insights/domain/services/run-size';
 import {
   DeltaResponseDto,
   deltaResponseOf,
@@ -49,7 +52,7 @@ export class JudgeRateResponseDto {
   @ApiProperty({ example: 6, description: 'Runs the judge scored' })
   readonly judged: number;
 
-  constructor(rate: JudgeRate) {
+  constructor(rate: JudgeRateDto) {
     this.mean = rate.mean;
     this.judged = rate.judged;
   }
@@ -212,7 +215,7 @@ export class SizeBoundResponseDto {
   })
   readonly maxSteps: number | null;
 
-  constructor(bound: SizeBound) {
+  constructor(bound: SizeBoundDto) {
     this.size = bound.size;
     this.maxLines = bound.maxLines;
     this.maxSteps = bound.maxSteps;

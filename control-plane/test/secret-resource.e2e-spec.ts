@@ -123,19 +123,18 @@ describe('a secret, created through the resource API (e2e)', () => {
 
   const admin = () => as(fixture.admin);
 
-  const injected = async (url = 'https://api.linear.app/graphql') => {
-    const headers: Record<string, string> = {};
-
-    (
-      await app.get<SecretInjectionPort>(SECRET_INJECTION).forSpotlight({
-        workspaceId,
-        secrets: ['LINEAR_API_KEY'],
-        url,
-      })
-    ).applyTo({ url: new URL(url), headers });
-
-    return headers;
-  };
+  const injected = async (url = 'https://api.linear.app/graphql') =>
+    Object.fromEntries(
+      (
+        await app.get<SecretInjectionPort>(SECRET_INJECTION).forSpotlight({
+          workspaceId,
+          secrets: ['LINEAR_API_KEY'],
+          url,
+        })
+      ).injected
+        .filter((each) => each.location === 'header')
+        .map((each) => [each.name, each.value.revealed()]),
+    );
 
   beforeAll(async () => {
     app = await openApp();
@@ -230,6 +229,7 @@ describe('a secret, created through the resource API (e2e)', () => {
       ...LINEAR,
       valueWo: `${VALUE}_ignored`,
     });
+    expect(unchanged.body.version).toBe(made.body.version);
     expect(await injected()).toEqual({ authorization: `Bearer ${VALUE}` });
 
     const rotated = await admin().update(made.body.id, unchanged.body.version, {

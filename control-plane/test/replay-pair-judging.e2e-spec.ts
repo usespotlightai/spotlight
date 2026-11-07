@@ -14,24 +14,29 @@ import {
   type SideBySideJudgePort,
   type SideBySideJudgeRequest,
 } from '@insights/application/ports/side-by-side-judge.port';
-import { DeleteInsights } from '@insights/application/services/delete-insights.service';
-import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
-import { WorkSideBySideJudgings } from '@insights/application/services/work-side-by-side-judgings.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
+import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
+import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { DeleteSideBySideJudgings } from '@replays/application/services/delete-side-by-side-judgings.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
+import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
+import { WorkSideBySideJudgings } from '@replays/application/services/work-side-by-side-judgings.service';
 import {
   pairTallyOf,
   taskComparisons,
   totalsOf,
 } from '@replays/domain/services/replay-results';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import {
   ATTACHMENT_STORE,
@@ -48,7 +53,6 @@ import {
 } from '@work/application/ports/workspace-archive-store.port';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -58,6 +62,7 @@ import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
 import { plannedCandidate, replayOf, startedReplay } from './support/replays';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-pairing-${randomUUID().slice(0, 8)}`;
@@ -353,15 +358,36 @@ const anOriginal = async (title: string): Promise<Original> => {
       (each): JournalEntry => ({ ...each, at: new Date(each.at) }),
     ),
   );
-  await app
-    .get(DrizzleRunRecordRepository)
-    .add(
-      RunRecord.empty(
-        RunId.of(runId),
-        team.workspaceId,
-        TaskId.of(taskId),
-      ).recordAction(HumanAction.of('accepted', at)),
-    );
+  await app.get(DrizzleRunRecordRepository).add(
+    RunRecord.empty(RunId.of(runId), team.workspaceId, TaskId.of(taskId))
+      .recordEnd(
+        RunEnd.of({
+          location: RunLocation.of({
+            teamId: team.teamId,
+            lineId: LineId.of(DELIVERY),
+            stationId: StationId.of(BUILD),
+            taskId: TaskId.of(taskId),
+          }),
+          fingerprint: null,
+          agentConfig: RunAgentConfig.of({
+            harness: 'claude-code',
+            model: null,
+            effort: null,
+            profileKey: null,
+            repositories: [],
+            skills: [],
+          }),
+          queuedAt: null,
+          startedAt: null,
+          endedAt: at,
+          ending: 'completed',
+          failure: null,
+          visit: 1,
+          asked: false,
+        }),
+      )
+      .recordAction(HumanAction.of('accepted', at)),
+  );
 
   return { taskId, runId };
 };
@@ -468,7 +494,7 @@ beforeAll(async () => {
     repository: Repository.of('acme/api').value,
     setup: 'npm ci',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -761,9 +787,7 @@ describe('a replay at a station whose judge goes by claims', () => {
         .where(inArray(schema.sideBySideJudging.runId, runs)),
     ).toHaveLength(3);
 
-    await app
-      .get(DeleteInsights)
-      .judgingsAndScoresOfTeam(team.workspaceId, team.teamId);
+    await app.get(DeleteSideBySideJudgings).ofTeam(team.teamId);
     expect(
       await db
         .select()

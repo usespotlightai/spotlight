@@ -15,7 +15,6 @@ import { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
 import { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
-import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -31,13 +30,17 @@ import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { SearchRequest } from '@replays/domain/value-objects/search-request.vo';
+import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -50,8 +53,8 @@ export const later = (ms: number): Date => new Date(NOW.getTime() + ms);
 export const STATION: ReplayedStation = {
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
-  lineId: 'line_1',
-  stationId: 'station_build',
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_build'),
 };
 
 export const FINGERPRINT = StationFingerprint.of('a'.repeat(64));
@@ -191,7 +194,7 @@ export const aSet = (count = 0, id = 'set_1'): ReplaySet => {
           remove: [],
         },
         NOW,
-        false,
+        SetUsers.none(),
       );
 };
 
@@ -224,6 +227,9 @@ export const aCheck = (setId = ReplaySetId.of('set_1')): ReplayCheck =>
 
 let next = 0;
 
+export const slots = (count: number): readonly number[] =>
+  Array.from({ length: count }, (_, slot) => slot);
+
 export const runIds = (): (() => RunId) => {
   next = 0;
   return () => RunId.of(`replay_run_${next++}`);
@@ -246,7 +252,7 @@ export const aReplay = (
 ): Replay => {
   const started = Replay.start({
     id: ReplayId.of(input.id ?? 'replay_1'),
-    set: aSet(input.count ?? 3),
+    set: aSet(input.count ?? 3).snapshot,
     candidate: input.candidate ?? candidateOf('searched'),
     baseline: input.baseline ?? false,
     ceiling: Money.ceiling(input.ceiling ?? 10, 'USD'),
@@ -358,7 +364,7 @@ export const aSearch = (
   const id = input.id ? SearchId.of(input.id) : SEARCH_ID;
   const started = Search.start({
     id,
-    set,
+    set: set.snapshot,
     agent: AGENT,
     budget: input.budget ?? aBudget(),
     calibrates: input.calibrates ?? false,
@@ -420,7 +426,7 @@ export const replayFor = (
 ): Replay => {
   const started = Replay.start({
     id: ReplayId.of(id),
-    set,
+    set: set.snapshot,
     candidate: candidateOf(live ? 'live' : 'searched', candidateId),
     baseline: live,
     ceiling: Money.ceiling(100, 'USD'),
@@ -445,7 +451,7 @@ export const replayedAs = (
   cost: number | null = 1,
   currency = 'USD',
 ): Replay => {
-  const reserved = replay.reserving(replay.entries.length, runIds());
+  const reserved = replay.reserving(slots(replay.entries.length), runIds());
 
   return reserved.entries.reduce((built, entry) => {
     const run = entry.run as RunId;
@@ -492,7 +498,7 @@ export const concludedAll = (
   } = {},
 ): Replay => {
   let built = replay.reserving(
-    replay.entries.length,
+    slots(replay.entries.length),
     (() => {
       let at = 0;
       return () => {

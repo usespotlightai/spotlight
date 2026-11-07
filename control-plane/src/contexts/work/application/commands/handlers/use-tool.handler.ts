@@ -2,6 +2,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { UseToolCommand } from '@work/application/commands/use-tool.command';
 import type { ToolAnswerDto } from '@work/application/dto/tool-answer.dto';
 import { ToolActingAsMapper } from '@work/application/mappers/tool-acting-as.mapper';
@@ -28,7 +29,6 @@ import { ToolNeedsWorkError } from '@work/domain/exceptions/tool-needs-work.erro
 import { ToolNotEnabledError } from '@work/domain/exceptions/tool-not-enabled.error';
 import { UnknownToolError } from '@work/domain/exceptions/unknown-tool.error';
 import { StricterRule } from '@work/domain/services/stricter-rule';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import type { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { ToolOutput } from '@work/domain/value-objects/tool-output.vo';

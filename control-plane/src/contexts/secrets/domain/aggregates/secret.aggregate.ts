@@ -17,10 +17,11 @@ import type { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import type { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import type { SecretUses } from '@secrets/domain/value-objects/secret-uses.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
+import { ValueVersion } from '@secrets/domain/value-objects/value-version.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
+import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -31,7 +32,7 @@ export interface SecretDefinition {
   readonly source: SecretSource;
   readonly bindings: SecretBindings;
   readonly value: SecretValue | null;
-  readonly valueVersion: number | null;
+  readonly valueVersion: ValueVersion | null;
 }
 
 interface Props {
@@ -40,12 +41,13 @@ interface Props {
   readonly name: SecretName;
   readonly source: SecretSource;
   readonly bindings: SecretBindings;
-  readonly valueVersion: number | null;
+  readonly valueVersion: ValueVersion | null;
   readonly rotatedAt: Date;
   readonly version: number;
 }
 
 interface State extends Props {
+  readonly stored: boolean;
   readonly deleted: boolean;
   readonly valueToStore: SecretValue | null;
   readonly deletingValue: boolean;
@@ -101,6 +103,7 @@ export class Secret extends EventRecorder {
       valueVersion: definition.valueVersion,
       rotatedAt: input.at,
       version: 0,
+      stored: false,
       deleted: false,
       valueToStore,
       deletingValue: false,
@@ -115,7 +118,7 @@ export class Secret extends EventRecorder {
           created.whatChanged,
           input.by,
           SecretChangeDetail.created(
-            created.valueVersion,
+            created.valueVersion?.value ?? null,
             created.bindings.hosts,
           ),
         ),
@@ -126,15 +129,16 @@ export class Secret extends EventRecorder {
   }
 
   static rehydrate(input: Props): Secret {
-    if (input.version < 1) {
+    if (!Number.isInteger(input.version) || input.version < 0) {
       throw new InconsistentStateError(
         'secret',
-        'was stored without a version',
+        `has an impossible version (${input.version})`,
       );
     }
 
     return new Secret({
       ...input,
+      stored: true,
       deleted: false,
       valueToStore: null,
       deletingValue: false,
@@ -160,7 +164,10 @@ export class Secret extends EventRecorder {
       );
     }
 
-    const rotating = definition.valueVersion !== this.valueVersion;
+    const rotating = !ValueVersion.same(
+      definition.valueVersion,
+      this.valueVersion,
+    );
     const becomingBuiltIn =
       definition.source.isBuiltIn && !this.source.isBuiltIn;
 
@@ -182,6 +189,10 @@ export class Secret extends EventRecorder {
       !definition.source.equals(this.source) ||
       !definition.bindings.equals(this.bindings);
 
+    if (!rotating && !rebound) {
+      return this;
+    }
+
     const updated = this.with({
       source: definition.source,
       bindings: definition.bindings,
@@ -193,7 +204,7 @@ export class Secret extends EventRecorder {
 
     const moved = SecretChangeDetail.updated({
       valueMoved: valueToStore !== null || rotating,
-      valueVersion: definition.valueVersion,
+      valueVersion: definition.valueVersion?.value ?? null,
       rebound,
       targets: definition.bindings.hosts,
     });
@@ -217,12 +228,23 @@ export class Secret extends EventRecorder {
       throw new SecretInUseError(this.name.value, uses);
     }
 
-    return this.cascadeDelete(by);
+    return this.deleted(by);
   }
 
-  cascadeDelete(by: ChangeActor): Secret {
+  deleteWithWorkspace(deletedWorkspace: WorkspaceId): Secret {
     this.assertNotDeleted();
 
+    if (!deletedWorkspace.equals(this.workspaceId)) {
+      throw new InconsistentStateError(
+        'secret',
+        'was deleted with a workspace it is not in',
+      );
+    }
+
+    return this.deleted(ChangeActor.spotlight(this.workspaceId));
+  }
+
+  private deleted(by: ChangeActor): Secret {
     const deleted = this.removed();
 
     deleted.record(
@@ -287,7 +309,7 @@ export class Secret extends EventRecorder {
     const binding = this.bindings.on(grant.host);
 
     if (!binding) {
-      throw new SecretNotBoundError(this.name.value, grant.host);
+      throw new SecretNotBoundError(this.name.value, grant.host.value);
     }
 
     return binding;
@@ -334,7 +356,7 @@ export class Secret extends EventRecorder {
     return this.state.bindings;
   }
 
-  get valueVersion(): number | null {
+  get valueVersion(): ValueVersion | null {
     return this.state.valueVersion;
   }
 
@@ -347,7 +369,7 @@ export class Secret extends EventRecorder {
   }
 
   get isNew(): boolean {
-    return this.state.version === 0;
+    return !this.state.stored;
   }
 
   get isDeleted(): boolean {

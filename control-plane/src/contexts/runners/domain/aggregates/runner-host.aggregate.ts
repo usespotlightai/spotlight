@@ -1,13 +1,15 @@
-import { HostReady } from '@runners/domain/events/host-ready.event';
+import { HostBecameReady } from '@runners/domain/events/host-became-ready.event';
+import { HostStoppedReportingSandbox } from '@runners/domain/events/host-stopped-reporting-sandbox.event';
 import { HostInUseError } from '@runners/domain/exceptions/host-in-use.error';
 import type { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import type { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { HostImage } from '@runners/domain/value-objects/host-image.vo';
 import type { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import type { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
+import type { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { Release } from '@shared-kernel/domain/value-objects/release.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -21,6 +23,7 @@ interface State {
   readonly source: CredentialSource;
   readonly bootId: BootId;
   readonly report: HostReport;
+  readonly sandboxes: SandboxReport;
   readonly firstHeartbeatAt: Date;
   readonly onlineSince: Date;
   readonly lastHeartbeatAt: Date;
@@ -38,6 +41,7 @@ export class RunnerHost extends EventRecorder {
     source: CredentialSource;
     bootId: BootId;
     report: HostReport;
+    sandboxes: SandboxReport;
     at: Date;
   }): RunnerHost {
     return new RunnerHost({
@@ -46,6 +50,7 @@ export class RunnerHost extends EventRecorder {
       source: input.source,
       bootId: input.bootId,
       report: input.report,
+      sandboxes: input.sandboxes,
       firstHeartbeatAt: input.at,
       onlineSince: input.at,
       lastHeartbeatAt: input.at,
@@ -99,6 +104,18 @@ export class RunnerHost extends EventRecorder {
     return this.state.report;
   }
 
+  get sandboxes(): SandboxReport {
+    return this.state.sandboxes;
+  }
+
+  reportsSandbox(id: SandboxId): boolean {
+    return this.state.sandboxes.includes(id);
+  }
+
+  get isStopping(): boolean {
+    return this.state.sandboxes.stopping;
+  }
+
   get firstHeartbeatAt(): Date {
     return this.state.firstHeartbeatAt;
   }
@@ -115,15 +132,20 @@ export class RunnerHost extends EventRecorder {
     return this.state.report.supportedImage(image);
   }
 
-  isOlderThan(minimum: Release): boolean {
-    return (
-      Release.published(this.state.report.release)?.isOlderThan(minimum) ??
-      false
-    );
+  get isOutdated(): boolean {
+    return this.state.report.release.isOutdated;
   }
 
   hasSource(source: CredentialSource): boolean {
     return this.state.source.equals(source);
+  }
+
+  belongsTo(workspaceId: WorkspaceId): boolean {
+    return this.state.workspaceId.equals(workspaceId);
+  }
+
+  admits(source: CredentialSource, workspaceId: WorkspaceId): boolean {
+    return this.belongsTo(workspaceId) && this.hasSource(source);
   }
 
   isOnlineAt(now: Date): boolean {
@@ -142,6 +164,10 @@ export class RunnerHost extends EventRecorder {
     return new Date(now.getTime() - HOST_RETENTION_MS);
   }
 
+  isStaleAt(now: Date): boolean {
+    return this.state.lastHeartbeatAt <= RunnerHost.staleBefore(now);
+  }
+
   get version(): number {
     return this.state.version;
   }
@@ -151,6 +177,7 @@ export class RunnerHost extends EventRecorder {
     workspaceId: WorkspaceId;
     bootId: BootId;
     report: HostReport;
+    sandboxes: SandboxReport;
     at: Date;
   }): RunnerHost {
     if (this.hasSource(input.source)) {
@@ -162,11 +189,14 @@ export class RunnerHost extends EventRecorder {
         ...this.state,
         bootId: input.bootId,
         report: input.report,
+        sandboxes: input.sandboxes,
         onlineSince: this.cameOnlineAgain(input.bootId, input.at)
           ? input.at
           : this.state.onlineSince,
         lastHeartbeatAt: input.at,
-      }).recordReadyOnFirstHarness(this);
+      })
+        .recordReadyOnFirstHarness(this)
+        .recordSandboxesDroppedSince(this, input.at);
     }
 
     if (
@@ -182,10 +212,13 @@ export class RunnerHost extends EventRecorder {
       source: input.source,
       bootId: input.bootId,
       report: input.report,
+      sandboxes: input.sandboxes,
       firstHeartbeatAt: input.at,
       onlineSince: input.at,
       lastHeartbeatAt: input.at,
-    }).recordReadyOnFirstHarness(null);
+    })
+      .recordReadyOnFirstHarness(null)
+      .recordSandboxesDroppedSince(this, input.at);
   }
 
   private cameOnlineAgain(bootId: BootId, at: Date): boolean {
@@ -198,7 +231,25 @@ export class RunnerHost extends EventRecorder {
 
   private recordReadyOnFirstHarness(before: RunnerHost | null): RunnerHost {
     if (this.supportsAHarness && !before?.supportsAHarness) {
-      this.record(new HostReady(this.state.id, this.state.workspaceId));
+      this.record(new HostBecameReady(this.state.id, this.state.workspaceId));
+    }
+
+    return this;
+  }
+
+  private recordSandboxesDroppedSince(
+    before: RunnerHost,
+    at: Date,
+  ): RunnerHost {
+    for (const dropped of before.sandboxes.droppedIn(this.state.sandboxes)) {
+      this.record(
+        new HostStoppedReportingSandbox(
+          this.state.id,
+          before.workspaceId,
+          dropped,
+          at,
+        ),
+      );
     }
 
     return this;

@@ -1,0 +1,150 @@
+import type { LineDto, StationDto } from '@lines/application/dto/line.dto';
+import type {
+  LineDetail,
+  LineSearchSummary,
+  RepositorySummary,
+  SearchPolicySummary,
+  StationSummary,
+} from '@lines/application/ports/line-reader.port';
+import type { Line } from '@lines/domain/aggregates/line.aggregate';
+import type { Station } from '@lines/domain/entities/station.entity';
+import type {
+  LineSearchPolicy,
+  SearchPolicy,
+} from '@lines/domain/value-objects/search-policy.vo';
+import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+
+export const LineMapper = {
+  lineSearchToSummary(policy: LineSearchPolicy): LineSearchSummary {
+    return policy.toPrimitives();
+  },
+
+  searchToSummary(policy: SearchPolicy | null): SearchPolicySummary | null {
+    return (
+      policy && {
+        enabled: policy.enabled,
+        monthlyCeiling: policy.monthlyCeiling.amount,
+        currency: policy.monthlyCeiling.currency,
+        ceiling: policy.ceiling.amount,
+        period: policy.period.text,
+        onAlert: policy.onAlert,
+        cooldown: policy.cooldown.text,
+        agent: policy.agent?.toPrimitives() ?? null,
+        iterations: policy.iterations,
+        repeats: policy.repeats,
+        objective: policy.objective,
+      }
+    );
+  },
+
+  summaryToDto(summary: StationSummary): StationDto {
+    return {
+      id: summary.id,
+      key: summary.key,
+      name: summary.name,
+      position: summary.position,
+      color: summary.color,
+      description: summary.description,
+      harness: summary.harness,
+      model: summary.model,
+      effort: summary.effort,
+      agentPrompt: summary.agentPrompt,
+      judge: summary.judge
+        ? { ...summary.judge, claims: [...summary.judge.claims] }
+        : null,
+      alerts: summary.alerts.map((each) => ({ ...each })),
+      search: summary.search && {
+        ...summary.search,
+        agent: summary.search.agent && { ...summary.search.agent },
+      },
+      kind: summary.kind,
+      skills: summary.skills,
+    };
+  },
+
+  stationToDto(station: Station, line: LineSearchPolicy): StationDto {
+    return {
+      id: station.id.value,
+      key: station.key.value,
+      name: station.name.value,
+      position: station.position,
+      color: station.color.value,
+      description: station.description?.value ?? null,
+      harness: station.harness?.value ?? null,
+      model: station.model?.value ?? null,
+      effort: station.effort?.value ?? null,
+      agentPrompt: station.agentPrompt?.value ?? null,
+      judge: station.judge
+        ? {
+            rubric: station.judge.rubric,
+            claims: [...station.judge.claims],
+            passThreshold: station.judge.passThreshold,
+            sample: station.judge.sample,
+            minAgreement: station.judge.minAgreement,
+          }
+        : null,
+      alerts: station.alerts.map((each) => ({
+        measure: each.measure,
+        risesBy: each.risesBy,
+        above: each.above,
+        fallsBy: each.fallsBy,
+        below: each.below,
+        over: each.over,
+      })),
+      search: LineMapper.searchToSummary(line.resolvedFor(station)),
+      kind: station.kind,
+      skills: station.skills.map((each) => each.value),
+    };
+  },
+
+  repositoryToSummary(repository: Repository): RepositorySummary {
+    return {
+      fullName: repository.value,
+      host: repository.host,
+      url: repository.url,
+    };
+  },
+
+  lineToDto(line: Line): LineDto {
+    return {
+      id: line.id.value,
+      key: line.key.value,
+      name: line.name.value,
+      stations: line.stations.map((each) =>
+        LineMapper.stationToDto(each, line.searchPolicy),
+      ),
+      reactions: line.reactions.map((each) => ({
+        happening: each.happening.value,
+        from: each.from?.value ?? null,
+        to: each.to.value,
+      })),
+      repositories: line.repositories.all.map(LineMapper.repositoryToSummary),
+      source: line.source
+        ? { repository: line.source.repository.value, path: line.source.path }
+        : null,
+      replayCheck: line.replayCheck
+        ? {
+            maxRegressions: line.replayCheck.maxRegressions,
+            ceiling: line.replayCheck.ceiling,
+            currency: line.replayCheck.currency,
+            minGain: line.replayCheck.minGain,
+          }
+        : null,
+      search: LineMapper.lineSearchToSummary(line.searchPolicy),
+    };
+  },
+
+  detailToDto(detail: LineDetail): LineDto {
+    return {
+      id: detail.id,
+      key: detail.key,
+      name: detail.name,
+      stations: detail.stations.map(LineMapper.summaryToDto),
+      reactions: detail.reactions.map((each) => ({ ...each })),
+      repositories: detail.repositories.map((each) => ({ ...each })),
+      source: detail.source ? { ...detail.source } : null,
+      replayCheck: detail.replayCheck ? { ...detail.replayCheck } : null,
+      search: { ...detail.search },
+    };
+  },
+};

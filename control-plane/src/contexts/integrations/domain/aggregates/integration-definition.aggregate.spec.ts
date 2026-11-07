@@ -1,21 +1,23 @@
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
-import { Integration } from '@integrations/domain/entities/integration.entity';
 import { IntegrationCreated } from '@integrations/domain/events/integration-created.event';
 import { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
 import { IntegrationSpecRefreshed } from '@integrations/domain/events/integration-spec-refreshed.event';
 import { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
+import { actionNamed } from '@integrations/domain/value-objects/action.fake-spec';
 import { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
 import { SpecRefreshDetail } from '@integrations/domain/value-objects/spec-refresh-detail.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -66,7 +68,7 @@ const compiled = (
   return {
     integration: Integration.of({
       key,
-      actions: DefinedActions.of(['comment']),
+      actions: DefinedActions.of([actionNamed('comment')]),
       tools: [
         ...tools.map((name) => tool(name, ToolBacking.action('comment'))),
         ...generated.map((name) =>
@@ -89,8 +91,9 @@ const rehydrated = (
     teamId: TEAM,
     integration: IntegrationKey.of('linear'),
     document: DefinitionDocument.of({ integration: 'linear', name: 'Linear' }),
-    tools,
+    tools: tools.map((tool) => ToolName.of(tool)),
     reading,
+    relistsTools: false,
     version,
   });
 
@@ -103,7 +106,10 @@ const LINEAR = {
 };
 
 const ENABLED = ToolUses.of([
-  { tool: 'linear.comment', by: 'the station delivery/implementation' },
+  {
+    tool: ToolName.of('linear.comment'),
+    by: 'the station delivery/implementation',
+  },
 ]);
 
 describe('IntegrationDefinition', () => {
@@ -117,14 +123,14 @@ describe('IntegrationDefinition', () => {
     });
 
     expect(created.integration).toEqual(IntegrationKey.of('linear'));
-    expect(created.tools).toEqual(['linear.comment']);
+    expect(created.tools).toEqual([ToolName.of('linear.comment')]);
     expect(created.isNew).toBe(true);
     expect(created.pullEvents()).toEqual([
       new IntegrationCreated(
         ID,
         TEAM,
         IntegrationKey.of('linear'),
-        ['linear.comment'],
+        [ToolName.of('linear.comment')],
         ConfigurationChange.created(LINEAR, BY),
       ),
     ]);
@@ -152,14 +158,14 @@ describe('IntegrationDefinition', () => {
 
     expect(updated.id).toEqual(ID);
     expect(updated.version).toBe(3);
-    expect(updated.tools).toEqual(['linear.comment']);
+    expect(updated.tools).toEqual([ToolName.of('linear.comment')]);
     expect(updated.document.hasValue('name', 'Linear')).toBe(true);
     expect(updated.pullEvents()).toEqual([
       new IntegrationUpdated(
         ID,
         TEAM,
         IntegrationKey.of('linear'),
-        ['linear.comment'],
+        [ToolName.of('linear.comment')],
         ConfigurationChange.updated(LINEAR, BY),
       ),
     ]);
@@ -205,7 +211,7 @@ describe('IntegrationDefinition', () => {
         ID,
         TEAM,
         IntegrationKey.of('linear'),
-        ['linear.comment'],
+        [ToolName.of('linear.comment')],
         ConfigurationChange.deleted(LINEAR, BY),
       ),
     ]);
@@ -239,6 +245,7 @@ describe('IntegrationDefinition', () => {
         document: DefinitionDocument.of({ integration: 'slack' }),
         tools: [],
         reading: null,
+        relistsTools: false,
         version: 1,
       }),
     ).toThrow(/does not define/);
@@ -256,7 +263,10 @@ describe('IntegrationDefinition', () => {
       by: BY,
     });
 
-    expect(created.tools).toEqual(['linear.comment', 'linear.issue-create']);
+    expect(created.tools).toEqual([
+      ToolName.of('linear.comment'),
+      ToolName.of('linear.issue-create'),
+    ]);
     expect(created.reading?.hash).toEqual(HASH);
   });
 
@@ -332,14 +342,14 @@ describe('IntegrationDefinition', () => {
       BY,
     );
 
-    expect(refreshed.tools).toEqual(['linear.issue-create']);
+    expect(refreshed.tools).toEqual([ToolName.of('linear.issue-create')]);
     expect(refreshed.pullEvents()).toEqual([
       new IntegrationSpecRefreshed(
         ID,
         TEAM,
         IntegrationKey.of('linear'),
-        ['linear.issue-create'],
-        ['linear.issue-delete'],
+        [ToolName.of('linear.issue-create')],
+        [ToolName.of('linear.issue-delete')],
         ConfigurationChange.updated(
           LINEAR,
           BY,
@@ -367,7 +377,7 @@ describe('IntegrationDefinition', () => {
       BY,
     );
 
-    expect(refreshed.tools).toEqual(['linear.issue-create']);
+    expect(refreshed.tools).toEqual([ToolName.of('linear.issue-create')]);
     expect(refreshed.reading?.problem).toMatch(/ENOTFOUND/);
     expect(refreshed.pullEvents()).toEqual([
       expect.objectContaining({ orphanedTools: [] }),
@@ -403,9 +413,37 @@ describe('IntegrationDefinition', () => {
         ID,
         TEAM,
         IntegrationKey.of('linear'),
-        ['linear.comment'],
+        [ToolName.of('linear.comment')],
         ConfigurationChange.deleted(LINEAR, BY),
       ),
     ]);
+  });
+
+  it('lists the tools of an MCP server again once the interval has passed, and only then', () => {
+    const mcp = IntegrationDefinition.rehydrate({
+      id: ID,
+      teamId: TEAM,
+      integration: IntegrationKey.of('linear'),
+      document: DefinitionDocument.of({ integration: 'linear' }),
+      tools: [],
+      reading: readingOf(),
+      relistsTools: true,
+      version: 2,
+    });
+    const before = new Date(READ_AT.getTime() + 1);
+    const now = new Date(READ_AT.getTime() + 60_000);
+
+    expect(mcp.relistDue(READ_AT)).toBe(false);
+    expect(() => mcp.relistClaimed(now, READ_AT)).toThrow(
+      /is not due to list its tools again/,
+    );
+    expect(mcp.relistDue(before)).toBe(true);
+
+    const claimed = mcp.relistClaimed(now, before);
+
+    expect(claimed.reading?.readAt).toEqual(now);
+    expect(claimed.reading?.hash).toEqual(HASH);
+    expect(claimed.pullEvents()).toEqual([]);
+    expect(rehydrated([], 3, readingOf()).relistDue(before)).toBe(false);
   });
 });

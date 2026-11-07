@@ -2,8 +2,8 @@ import type {
   ExportableConfigurationDto,
   ExportableResourceDto,
 } from '@configuration/application/dto/exportable-configuration.dto';
+import type { LineDefinition } from '@lines/application/contracts/line-definition.contract';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
-import type { LineDefinition } from '@work/application/contracts/line-definition.contract';
 
 export const WORKSPACE_ID = '5b1e9d2c-7a43-4f8e-b6c0-3d9a8e1f2b57';
 

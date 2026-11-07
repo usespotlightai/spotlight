@@ -1,7 +1,6 @@
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { ContentHashPort } from '@work/application/ports/content-hash.port';
-import type { LineRenderingPort } from '@work/application/ports/line-rendering.port';
 import type {
   CandidateScoring,
   ConfigHashes,
@@ -16,10 +15,10 @@ import type {
   CandidateLines,
   StationInLine,
 } from '@work/application/services/candidate-lines.service';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
-import type { Station } from '@work/domain/entities/station.entity';
-import type { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
-import type { SearchPolicy } from '@work/domain/value-objects/search-policy.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { ReplayThreshold as LineReplayThreshold } from '@work/domain/value-objects/replay-threshold';
+import type { SearchSettings } from '@work/domain/value-objects/search-settings';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 const UNSTARTABLE: ValidatedCandidate = {
@@ -47,7 +46,7 @@ const scoringOf = (
 });
 
 const thresholdOf = (
-  policy: ReplayCheckPolicy | null,
+  policy: LineReplayThreshold | null,
 ): ReplayThreshold | null =>
   policy && {
     maxRegressions: policy.maxRegressions,
@@ -56,16 +55,16 @@ const thresholdOf = (
     minGain: policy.minGain,
   };
 
-const searchOf = (policy: SearchPolicy | null): StationSearchPolicy | null =>
+const searchOf = (policy: SearchSettings | null): StationSearchPolicy | null =>
   policy && {
     enabled: policy.enabled,
-    monthlyCeiling: policy.monthlyCeiling.amount,
-    currency: policy.monthlyCeiling.currency,
-    ceiling: policy.ceiling.amount,
-    periodMilliseconds: policy.period.milliseconds,
+    monthlyCeiling: policy.monthlyCeiling,
+    currency: policy.currency,
+    ceiling: policy.ceiling,
+    periodMilliseconds: policy.periodMilliseconds,
     onAlert: policy.onAlert,
-    cooldownMilliseconds: policy.cooldown.milliseconds,
-    agent: policy.agent?.toPrimitives() ?? null,
+    cooldownMilliseconds: policy.cooldownMilliseconds,
+    agent: policy.agent && { ...policy.agent },
     iterations: policy.iterations,
     repeats: policy.repeats,
     objective: policy.objective,
@@ -87,12 +86,11 @@ const stationOf = ({ line, station }: StationInLine): ReplayStation => ({
 export class ReplayCandidates implements ReplayCandidatesPort {
   constructor(
     private readonly candidates: CandidateLines,
-    private readonly rendering: LineRenderingPort,
     private readonly hash: ContentHashPort,
   ) {}
 
   private hashesOf(
-    line: Line,
+    line: LineMap,
     station: Station,
     config: StationConfig,
   ): ConfigHashes {
@@ -100,7 +98,7 @@ export class ReplayCandidates implements ReplayCandidatesPort {
       JSON.stringify({
         fingerprint: config.fingerprint,
         options: line.optionsFrom(station.id).map((each) => each.word),
-        ends: station.routes.ends,
+        ends: station.ends,
       }),
     );
 
@@ -109,7 +107,7 @@ export class ReplayCandidates implements ReplayCandidatesPort {
       scoring: this.hash.sha256(
         JSON.stringify({
           behaviour,
-          check: station.check?.value ?? null,
+          check: station.check,
           diffs: station.diffs,
           judge: config.parts.judge?.rubricHash ?? null,
         }),
@@ -162,11 +160,9 @@ export class ReplayCandidates implements ReplayCandidatesPort {
 
     const config = await this.candidates.configOf(built.line, built.station);
     const live = await this.candidates.configOf(current.line, current.station);
-    const normalised = this.rendering
-      .definitionOf(built.line)
-      .stations.find((each) => each.key === built.station.key.value);
+    const normalised = built.definition;
 
-    return config && live && normalised
+    return config && live
       ? {
           ok: true,
           fingerprint: config.fingerprint,
@@ -195,9 +191,7 @@ export class ReplayCandidates implements ReplayCandidatesPort {
           scoring: scoringOf(current.station, config),
           hashes: this.hashesOf(current.line, current.station, config),
           replayCheck: thresholdOf(current.line.replayCheck),
-          search: searchOf(
-            current.line.searchPolicy.resolvedFor(current.station),
-          ),
+          search: searchOf(current.station.search),
           agent: current.station.harness && {
             harness: current.station.harness.value,
             model: current.station.model?.value ?? null,

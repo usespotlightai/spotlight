@@ -6,6 +6,7 @@ import type { SkillRecord } from '@configuration/application/ports/skill-resourc
 import type { OidcTrustView } from '@identity/application/ports/oidc-trust-configuration.port';
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceProfile } from '@identity/application/ports/workspace-reader.port';
+import type { LineRecord } from '@lines/application/ports/line-resources.port';
 import type {
   EgressView,
   RunnerPoolView,
@@ -14,7 +15,6 @@ import type {
 } from '@runners/application/ports/runner-configuration.port';
 import type { SecretView } from '@secrets/application/ports/secret-configuration.port';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
-import type { LineRecord } from '@work/application/ports/line-resources.port';
 
 export const ExportableResourceMapper = {
   workspace(workspace: WorkspaceProfile): ExportableResourceDto {

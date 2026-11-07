@@ -12,16 +12,10 @@ import type {
 } from '@work/application/ports/runner-trace-reader.port';
 import type { SearchVisibilityPort } from '@work/application/ports/search-visibility.port';
 import type { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
-import {
-  connectionsOf,
-  type TracedRun,
-  traceOf,
-} from '@work/application/read-models/trace-of';
+import { tracedRunsOf, traceOf } from '@work/application/read-models/trace-of';
 import { VisibleHistory } from '@work/application/read-models/visible-history';
 import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
 import { TraceAccess } from '@work/domain/services/trace-access';
-import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 
 export class ReadRunnerTraceHandler
   implements QueryHandlerPort<ReadRunnerTraceQuery, TaskTraceDto | null>
@@ -70,26 +64,13 @@ export class ReadRunnerTraceHandler
         return null;
       }
 
-      const byRun = new Map(
-        journals.map((journal) => [journal.runId, journal]),
-      );
       const errors = await this.connections.errorsIn(
         found.map((run) => run.id),
       );
 
-      const traced: TracedRun[] = found.map((run) => ({
-        id: RunId.of(run.id),
-        station: StationName.maybe(run.station?.name),
-        harness: HarnessName.of(run.harness),
-        state: run.state,
-        attempt: run.attempt,
-        startedAt: run.startedAt,
-        endedAt: run.updatedAt,
-        journal: byRun.get(run.id) ?? null,
-        connections: connectionsOf(errors, run.id, run.attempt),
-      }));
-
-      return TaskTraceMapper.toDto(traceOf(traced));
+      return TaskTraceMapper.toDto(
+        traceOf(tracedRunsOf(found, journals, errors)),
+      );
     } catch (error) {
       rethrowAsApplicationError(error);
     }

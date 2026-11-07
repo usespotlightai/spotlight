@@ -38,7 +38,7 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 
 @ApiTags('emails')
 @ApiUnauthorizedResponse({ description: 'No valid session' })

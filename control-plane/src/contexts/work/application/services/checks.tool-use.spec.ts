@@ -1,6 +1,7 @@
 import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
@@ -9,7 +10,6 @@ import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { NoPullRequestError } from '@work/domain/exceptions/no-pull-request.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const CONTEXT: TaskToolContext = {

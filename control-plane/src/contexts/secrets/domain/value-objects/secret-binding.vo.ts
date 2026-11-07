@@ -1,12 +1,9 @@
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
+import { BoundHost } from '@secrets/domain/value-objects/bound-host.vo';
 import { SecretTarget } from '@secrets/domain/value-objects/secret-target.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import type { SecretLocation } from '@shared-kernel/domain/value-objects/secret-locations';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
-
-const LABEL = '[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?';
-
-const HOST = new RegExp(`^(?=.{1,253}$)${LABEL}(?:\\.${LABEL})+$`);
 
 const PREFIX = /^[\x20-\x7e]{0,64}$/;
 
@@ -19,7 +16,7 @@ export interface InjectedSecret {
 
 export class SecretBinding {
   private constructor(
-    readonly host: string,
+    readonly host: BoundHost,
     readonly target: SecretTarget,
     readonly prefix: string,
   ) {}
@@ -30,16 +27,8 @@ export class SecretBinding {
     name?: string | null;
     prefix?: string | null;
   }): SecretBinding {
-    const host = input.host.trim().toLowerCase();
+    const host = BoundHost.of(input.host);
     const prefix = input.prefix ?? '';
-
-    if (!HOST.test(host)) {
-      throw new InvalidSecretError(
-        'host',
-        'must be one host with no scheme, port or path, as in api.linear.app',
-      );
-    }
-
     const target = SecretTarget.of(input);
 
     if (!PREFIX.test(prefix)) {
@@ -53,7 +42,7 @@ export class SecretBinding {
   }
 
   matches(url: URL): boolean {
-    return url.protocol === 'https:' && url.hostname === this.host;
+    return this.host.serves(url);
   }
 
   inject(value: SecretValue): InjectedSecret {
@@ -75,7 +64,7 @@ export class SecretBinding {
 
   equals(other: SecretBinding): boolean {
     return (
-      this.host === other.host &&
+      this.host.equals(other.host) &&
       this.target.equals(other.target) &&
       this.prefix === other.prefix
     );

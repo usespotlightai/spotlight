@@ -9,7 +9,6 @@ import type {
 } from '@memory/application/ports/work.port';
 import type { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import type { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
-import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
@@ -23,6 +22,7 @@ import {
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import type { MemoryPredecessor } from '@memory/domain/value-objects/memory-predecessor.vo';
 import type { StationContext } from '@memory/domain/value-objects/run-context';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -38,7 +38,7 @@ interface Remembrance {
   readonly task: RememberedTask;
   readonly runContext: StationContext;
   readonly steps: readonly RememberedStep[];
-  readonly supersedes: Memory | null;
+  readonly supersedes: MemoryPredecessor | null;
   readonly input: MemoryRemembering;
   readonly id: MemoryId;
 }
@@ -114,7 +114,7 @@ export class RememberHandler
   private async superseded(
     teamId: TeamId,
     raw: string | null,
-  ): Promise<Memory | null> {
+  ): Promise<MemoryPredecessor | null> {
     if (!raw?.trim()) {
       return null;
     }
@@ -126,7 +126,7 @@ export class RememberHandler
       throw new UnknownMemoryError(handle.value);
     }
 
-    return memory;
+    return memory.asPredecessor;
   }
 
   private rememberedOnce(

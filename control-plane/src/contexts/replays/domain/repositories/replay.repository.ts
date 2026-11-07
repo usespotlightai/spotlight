@@ -8,6 +8,8 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 export interface ReplayRepository {
   find(id: ReplayId): Promise<Replay | null>;
 
+  findMany(ids: readonly ReplayId[]): Promise<readonly Replay[]>;
+
   ranAs(run: RunId): Promise<Replay | null>;
 
   ofSet(setId: ReplaySetId): Promise<readonly Replay[]>;
@@ -16,21 +18,9 @@ export interface ReplayRepository {
 
   ofSearch(searchId: SearchId): Promise<readonly Replay[]>;
 
-  ofSearches(searchIds: readonly SearchId[]): Promise<readonly Replay[]>;
-
-  baselinesOfSets(setIds: readonly ReplaySetId[]): Promise<readonly Replay[]>;
-
-  healthReadOfSets(setIds: readonly ReplaySetId[]): Promise<readonly Replay[]>;
-
-  ofTeamStartedSince(
-    teamId: TeamId,
-    since: Date,
-    max: number,
-  ): Promise<readonly Replay[]>;
-
   teamsDispatching(): Promise<readonly TeamId[]>;
 
-  inProgressOfTeamLocked(teamId: TeamId): Promise<readonly Replay[]>;
+  inProgressOfTeam(teamId: TeamId): Promise<readonly Replay[]>;
 
   unconfirmed(): Promise<readonly Replay[]>;
 

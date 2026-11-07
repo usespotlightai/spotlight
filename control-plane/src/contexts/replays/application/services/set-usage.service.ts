@@ -2,6 +2,7 @@ import type { ReplayRepository } from '@replays/domain/repositories/replay.repos
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 
 export class SetUsage {
   constructor(
@@ -10,11 +11,13 @@ export class SetUsage {
     private readonly checks: ReplayCheckRepository,
   ) {}
 
-  async inUse(setId: ReplaySetId): Promise<boolean> {
-    return (
-      (await this.searches.activeOfSet(setId)) !== null ||
-      (await this.replays.ofSet(setId)).some((each) => each.isInProgress) ||
-      (await this.checks.awaitingBaselineOfSet(setId)).length > 0
-    );
+  async of(setId: ReplaySetId): Promise<SetUsers> {
+    const search = await this.searches.activeOfSet(setId);
+
+    return SetUsers.of({
+      searches: search ? [search] : [],
+      replays: await this.replays.ofSet(setId),
+      checks: await this.checks.awaitingBaselineOfSet(setId),
+    });
   }
 }

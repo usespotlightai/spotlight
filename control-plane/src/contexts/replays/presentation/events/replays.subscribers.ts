@@ -1,9 +1,12 @@
 import type { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
 import type { CancelSearch } from '@replays/application/services/cancel-search.service';
+import type { DeleteChangeJudgings } from '@replays/application/services/delete-change-judgings.service';
 import type { DeleteConfigPullRequests } from '@replays/application/services/delete-config-pull-requests.service';
+import type { DeleteLineSearchBudgets } from '@replays/application/services/delete-line-search-budgets.service';
 import type { DeleteReplayChecks } from '@replays/application/services/delete-replay-checks.service';
 import type { DeleteReplays } from '@replays/application/services/delete-replays.service';
 import type { DeleteSearches } from '@replays/application/services/delete-searches.service';
+import type { DeleteSideBySideJudgings } from '@replays/application/services/delete-side-by-side-judgings.service';
 import type { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import type { FollowConfigPullRequests } from '@replays/application/services/follow-config-pull-requests.service';
 import type { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
@@ -24,55 +27,45 @@ import type { RequestReplayRecheck } from '@replays/application/services/request
 import type { RequestReplayRejudging } from '@replays/application/services/request-replay-rejudging.service';
 import type { RequestReplaySideBySideJudging } from '@replays/application/services/request-replay-side-by-side-judging.service';
 import type { SearchSchedules } from '@replays/application/services/search-schedules.service';
+import type { StartCheckReplays } from '@replays/application/services/start-check-replays.service';
 import type { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
+import type { StartSearchReplays } from '@replays/application/services/start-search-replays.service';
 import type { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import type { TurnOffSearches } from '@replays/application/services/turn-off-searches.service';
-import type { CandidateDeletionRequested } from '@replays/domain/events/candidate-deletion-requested.event';
+import type { ChangeJudged } from '@replays/domain/events/change-judged.event';
+import type { ChangeJudgingFailed } from '@replays/domain/events/change-judging-failed.event';
 import type { ConfigPullRequestClosed } from '@replays/domain/events/config-pull-request-closed.event';
-import type { ConfigPullRequestDeletionRequested } from '@replays/domain/events/config-pull-request-deletion-requested.event';
 import type { ConfigPullRequestFailed } from '@replays/domain/events/config-pull-request-failed.event';
 import type { ConfigPullRequestMerged } from '@replays/domain/events/config-pull-request-merged.event';
 import type { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
 import type { ConfigPullRequestReopened } from '@replays/domain/events/config-pull-request-reopened.event';
 import type { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import type { ReplayCeilingReached } from '@replays/domain/events/replay-ceiling-reached.event';
-import type { ReplayCheckDeletionRequested } from '@replays/domain/events/replay-check-deletion-requested.event';
-import type { ReplayDeletionRequested } from '@replays/domain/events/replay-deletion-requested.event';
+import type { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
 import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import type { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import type { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
-import type { ReplayPairingFailed } from '@replays/domain/events/replay-pairing-failed.event';
 import type { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
 import type { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
-import type { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
-import type { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
 import type { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
+import type { ReplaySetCreated } from '@replays/domain/events/replay-set-created.event';
 import type { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
-import type { ReplaySetDeletionRequested } from '@replays/domain/events/replay-set-deletion-requested.event';
 import type { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
-import type { ReplaySetStationCheckRequested } from '@replays/domain/events/replay-set-station-check-requested.event';
 import type { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
 import type { ReplaySideBySideJudgingRequested } from '@replays/domain/events/replay-side-by-side-judging-requested.event';
-import type { ReplayStackRecheckRequested } from '@replays/domain/events/replay-stack-recheck-requested.event';
 import type { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import type { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
-import type { SearchDeletionRequested } from '@replays/domain/events/search-deletion-requested.event';
+import type { SearchDeleted } from '@replays/domain/events/search-deleted.event';
 import type { SearchEnded } from '@replays/domain/events/search-ended.event';
 import type { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
 import type { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import type { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
-import type { StationSearchScheduleDeletionRequested } from '@replays/domain/events/station-search-schedule-deletion-requested.event';
+import type { SearchReplaysPlanned } from '@replays/domain/events/search-replays-planned.event';
+import type { SideBySideJudged } from '@replays/domain/events/side-by-side-judged.event';
+import type { SideBySideJudgingFailed } from '@replays/domain/events/side-by-side-judging-failed.event';
 import type { StationSearchSkipped } from '@replays/domain/events/station-search-skipped.event';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
-import {
-  CHANGE_JUDGED,
-  type ChangeJudgedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/change-judged.integration-event';
-import {
-  CHANGE_JUDGING_FAILED,
-  type ChangeJudgingFailedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/change-judging-failed.integration-event';
 import {
   LINE_CHANGED,
   type LineChangedIntegrationEvent,
@@ -118,14 +111,6 @@ import {
   type SearchRunUsageRecordedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/search-run-usage-recorded.integration-event';
 import {
-  SIDE_BY_SIDE_JUDGED,
-  type SideBySideJudgedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/side-by-side-judged.integration-event';
-import {
-  SIDE_BY_SIDE_JUDGING_FAILED,
-  type SideBySideJudgingFailedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/side-by-side-judging-failed.integration-event';
-import {
   STATION_ALERT_FIRED,
   type StationAlertFiredIntegrationEvent,
 } from '@shared-kernel/application/integration-events/station-alert-fired.integration-event';
@@ -137,8 +122,10 @@ import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -167,6 +154,11 @@ export interface ReplaysReactions {
   readonly deletingSearches: DeleteSearches;
   readonly deletingChecks: DeleteReplayChecks;
   readonly deletingPullRequests: DeleteConfigPullRequests;
+  readonly deletingChangeJudgings: DeleteChangeJudgings;
+  readonly deletingSideBySideJudgings: DeleteSideBySideJudgings;
+  readonly deletingBudgets: DeleteLineSearchBudgets;
+  readonly startingSearchReplays: StartSearchReplays;
+  readonly startingCheckReplays: StartCheckReplays;
   readonly noticingResults: NoticeSearchResults;
   readonly picking: PickSearchCandidates;
   readonly schedules: SearchSchedules;
@@ -227,137 +219,101 @@ export const replaysSubscribers = (
   ),
   subscribing<ReplayJudgingRequested>(
     'replays.request-replay-run-judging',
-    ['replay.judging-requested'],
+    ['replays.replay-judging-requested'],
     (event) => reactions.requestingJudging.requested(event),
+    { callsOut: true },
   ),
-  subscribing<ChangeJudgedIntegrationEvent>(
+  subscribing<ChangeJudged>(
     'replays.record-replay-run-judged',
-    [CHANGE_JUDGED],
+    ['replays.change-judging-judged'],
     (event) =>
       event.attempt !== 1
         ? Promise.resolve()
-        : reactions.judging.judged({
-            runId: event.runId,
-            scale: event.scale,
-            value: event.value,
-            claimResults: event.claimResults,
-            claims: event.claims,
-            passThreshold: event.passThreshold,
-            model: event.model,
-            referenced: event.referenced,
-            reasons: event.reasons,
-            guidance: event.guidance,
-            spent: spentOf(event),
-          }),
+        : reactions.judging.judged(event.runId, event.verdict, event.spent),
   ),
-  subscribing<ChangeJudgingFailedIntegrationEvent>(
+  subscribing<ChangeJudgingFailed>(
     'replays.record-replay-run-unjudged',
-    [CHANGE_JUDGING_FAILED],
+    ['replays.change-judging-failed'],
     (event) =>
       event.attempt !== 1
         ? Promise.resolve()
-        : reactions.judging.failed(event.runId, event.failure, spentOf(event)),
+        : reactions.judging.failed(
+            event.runId,
+            event.failure.code,
+            event.spent,
+          ),
   ),
   subscribing<ReplayEntryConcluded>(
     'replays.find-replays-to-pair',
-    ['replay.entry-concluded'],
+    ['replays.replay-entry-concluded'],
     (event) => reactions.pairing.concluded(event),
+    { callsOut: true },
   ),
   subscribing<ReplayPairingRequested>(
     'replays.pair-replay-entries',
-    ['replay.pairing-requested'],
-    (event) => reactions.pairing.requested(event.replayId),
+    ['replays.replay-pairing-requested'],
+    (event) => reactions.pairing.paired(event.replayId),
+    { callsOut: true },
   ),
   subscribing<ReplaySideBySideJudgingRequested>(
     'replays.request-side-by-side-judging',
-    ['replay.side-by-side-judging-requested'],
+    ['replays.replay-side-by-side-judging-requested'],
     (event) => reactions.requestingSideBySideJudging.requested(event),
+    { callsOut: true },
   ),
-  subscribing<SideBySideJudgedIntegrationEvent>(
+  subscribing<SideBySideJudged>(
     'replays.record-side-by-side-judged',
-    [SIDE_BY_SIDE_JUDGED],
+    ['replays.side-by-side-judging-judged'],
     (event) =>
-      reactions.paired.paired({
-        runId: event.runId,
-        otherRunId: event.otherRunId,
-        winner: event.winner,
-        model: event.model,
-        passes: event.passes,
-        spent: spentOf(event),
-      }),
+      reactions.paired.paired(
+        event.runId,
+        event.otherRunId,
+        event.verdict,
+        event.spent,
+      ),
   ),
-  subscribing<SideBySideJudgingFailedIntegrationEvent>(
+  subscribing<SideBySideJudgingFailed>(
     'replays.record-side-by-side-unjudged',
-    [SIDE_BY_SIDE_JUDGING_FAILED],
+    ['replays.side-by-side-judging-failed'],
     (event) =>
       reactions.paired.failed(
         event.runId,
         event.otherRunId,
-        event.failure,
-        spentOf(event),
+        event.failure.code,
+        event.spent,
       ),
-  ),
-  subscribing<ReplayPairingFailed>(
-    'replays.record-side-by-side-not-judged',
-    ['replay.pairing-failed'],
-    (event) => reactions.paired.requestFailed(event),
   ),
   subscribing<ReplayRejudgingRequested>(
     'replays.request-calibration-run-rejudging',
-    ['replay.rejudging-requested'],
+    ['replays.replay-rejudging-requested'],
     (event) => reactions.requestingRejudging.requested(event),
+    { callsOut: true },
   ),
-  subscribing<ChangeJudgedIntegrationEvent>(
+  subscribing<ChangeJudged>(
     'replays.record-calibration-run-judged-again',
-    [CHANGE_JUDGED],
+    ['replays.change-judging-judged'],
     (event) =>
       event.attempt !== 2
         ? Promise.resolve()
-        : reactions.judging.rejudged({
-            runId: event.runId,
-            scale: event.scale,
-            value: event.value,
-            claimResults: event.claimResults,
-            claims: event.claims,
-            passThreshold: event.passThreshold,
-            model: event.model,
-            referenced: event.referenced,
-            reasons: event.reasons,
-            guidance: event.guidance,
-            spent: spentOf(event),
-          }),
+        : reactions.judging.rejudged(event.runId, event.verdict, event.spent),
   ),
-  subscribing<ChangeJudgingFailedIntegrationEvent>(
+  subscribing<ChangeJudgingFailed>(
     'replays.record-calibration-run-unjudged-again',
-    [CHANGE_JUDGING_FAILED],
+    ['replays.change-judging-failed'],
     (event) =>
       event.attempt !== 2
         ? Promise.resolve()
         : reactions.judging.rejudgingFailed(
             event.runId,
-            event.failure,
-            spentOf(event),
+            event.failure.code,
+            event.spent,
           ),
-  ),
-  subscribing<ReplayRejudgingFailed>(
-    'replays.record-calibration-run-not-judged-again',
-    ['replay.rejudging-failed'],
-    (event) => reactions.judging.rejudgingRequestFailed(event),
   ),
   subscribing<ReplayRecheckRequested>(
     'replays.request-calibration-run-recheck',
-    ['replay.recheck-requested'],
+    ['replays.replay-recheck-requested'],
     (event) => reactions.requestingRecheck.requested(event),
-  ),
-  subscribing<ReplayStackRecheckRequested>(
-    'replays.request-calibration-stack-recheck',
-    ['replay.stack-recheck-requested'],
-    (event) => reactions.requestingRecheck.stack(event),
-  ),
-  subscribing<ReplayRecheckUnavailable>(
-    'replays.record-calibration-run-not-checked-again',
-    ['replay.recheck-unavailable'],
-    (event) => reactions.reviewing.recheckUnavailable(event),
+    { callsOut: true },
   ),
   subscribing<ReplayChangeRecheckedIntegrationEvent>(
     'replays.record-calibration-run-rechecked',
@@ -369,11 +325,12 @@ export const replaysSubscribers = (
   >(
     'replays.hold-starting-points-of-replay-set',
     [
-      'replay-set.entries-changed',
-      'replay-set.deleted',
-      'replay-set.station-gone',
+      'replays.replay-set-entries-changed',
+      'replays.replay-set-deleted',
+      'replays.replay-set-station-gone',
     ],
     (event) => reactions.startingPointHolds.changed(event.setId),
+    { callsOut: true },
   ),
   subscribing<RunEndedIntegrationEvent>(
     'replays.keep-replay-set-of-station',
@@ -384,64 +341,64 @@ export const replaysSubscribers = (
         WorkspaceId.of(event.workspaceId),
       ),
   ),
+  subscribing<ReplaySetCreated>(
+    'replays.schedule-searches-of-created-set',
+    ['replays.replay-set-created'],
+    (event) => reactions.keeping.onSetCreated(event.setId),
+  ),
   subscribing<ReplayStopped>(
     'replays.stop-runs-of-stopped-replay',
-    ['replay.stopped'],
+    ['replays.replay-stopped'],
     (event) => reactions.cancellingRuns.stopped(event.runs),
+    { callsOut: true },
   ),
   subscribing<ReplayCeilingReached>(
     'replays.cancel-runs-of-replay-that-reached-its-ceiling',
-    ['replay.ceiling-reached'],
+    ['replays.replay-ceiling-reached'],
     (event) => reactions.cancellingRuns.ceilingReached(event.runs),
+    { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(
-    'replays.delete-replays-of-deleted-team',
+    'replays.delete-replay-sets-of-deleted-team',
     [TEAM_DELETED],
-    (event) =>
-      reactions.deleting.deleteForTeam(
-        TeamId.of(event.teamId),
-        WorkspaceId.of(event.workspaceId),
-      ),
+    (event) => reactions.deleting.setsOfTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'replays.delete-candidates-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => reactions.deleting.candidatesOfTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
   subscribing<ReplaySetDeleted>(
     'replays.delete-replays-of-deleted-set',
-    ['replay-set.deleted'],
-    (event) => reactions.deleting.deleteForSet(event.setId, event.workspaceId),
-  ),
-  subscribing<ReplayDeletionRequested>(
-    'replays.delete-replay',
-    ['replays.replay-deletion-requested'],
-    (event) => reactions.deleting.replay(event.replayId),
-  ),
-  subscribing<ReplaySetDeletionRequested>(
-    'replays.delete-replay-set',
-    ['replays.replay-set-deletion-requested'],
-    (event) => reactions.deleting.set(event.setId),
-  ),
-  subscribing<CandidateDeletionRequested>(
-    'replays.delete-candidate',
-    ['replays.candidate-deletion-requested'],
-    (event) => reactions.deleting.candidate(event.candidateId),
-  ),
-  subscribing<ReplaySetStationCheckRequested>(
-    'replays.check-station-of-replay-set',
-    ['replays.replay-set-station-check-requested'],
-    (event) => reactions.lineChanges.check(event.setId),
+    ['replays.replay-set-deleted'],
+    (event) => reactions.deleting.replaysOfSet(event.setId),
+    { callsOut: true },
   ),
   subscribing<ReplayBaselineRequested>(
     'replays.start-wanted-baseline',
-    ['replay.baseline-requested'],
+    ['replays.replay-baseline-requested'],
     (event) => reactions.baselines.requested(event),
   ),
   subscribing<LineChangedIntegrationEvent>(
-    'replays.record-sets-of-changed-line',
+    'replays.record-sets-at-stations-gone-from-changed-line',
     [LINE_CHANGED],
-    (event) => reactions.lineChanges.changed(event.lineId),
+    (event) => reactions.lineChanges.stationsLeft(LineId.of(event.lineId)),
+    { callsOut: true },
+  ),
+  subscribing<LineChangedIntegrationEvent>(
+    'replays.stop-stale-oracles-of-changed-line',
+    [LINE_CHANGED],
+    (event) =>
+      reactions.lineChanges.staleOraclesStopped(LineId.of(event.lineId)),
+    { callsOut: true },
   ),
   subscribing<ReplayEnded>(
     'replays.start-oracle-after-baseline',
     ['replays.replay-ended'],
     (event) => reactions.oracles.baselineEnded(event),
+    { callsOut: true },
   ),
   subscribing<ReplayEnded>(
     'replays.record-search-replay-ended',
@@ -488,11 +445,13 @@ export const replaysSubscribers = (
     'replays.notice-config-pull-request-opened',
     ['replays.config-pull-request-opened'],
     (event) => reactions.noticingResults.pullRequestOpened(event),
+    { callsOut: true },
   ),
   subscribing<ConfigPullRequestFailed>(
     'replays.notice-config-pull-request-failed',
     ['replays.config-pull-request-failed'],
     (event) => reactions.noticingResults.pullRequestFailed(event),
+    { callsOut: true },
   ),
   subscribing<ConfigPullRequestOpened>(
     'replays.close-stale-config-pull-request-once-opened',
@@ -502,7 +461,7 @@ export const replaysSubscribers = (
   subscribing<LineChangedIntegrationEvent>(
     'replays.close-stale-config-pull-requests-of-changed-line',
     [LINE_CHANGED],
-    (event) => reactions.following.lineChanged(event.lineId),
+    (event) => reactions.following.lineChanged(LineId.of(event.lineId)),
   ),
   subscribing<PullRequestClosedIntegrationEvent>(
     'replays.record-config-pull-request-closed',
@@ -548,117 +507,128 @@ export const replaysSubscribers = (
     'replays.advise-on-search-stalled-outside-config',
     ['replays.search-pick-declined'],
     (event) => reactions.noticingResults.pickDeclined(event),
+    { callsOut: true },
   ),
   subscribing<SearchPickDeclined>(
     'replays.notice-requesters-of-declined-search',
     ['replays.search-pick-declined'],
     (event) => reactions.noticingResults.requestersOfDecline(event),
+    { callsOut: true },
   ),
   subscribing<SearchCandidatePicked>(
     'replays.notice-requesters-of-other-pick',
     ['replays.search-candidate-picked'],
     (event) => reactions.noticingResults.requestersOfOtherPick(event),
+    { callsOut: true },
   ),
   subscribing<SearchEnded>(
     'replays.notice-requesters-of-stopped-search',
     ['replays.search-ended'],
     (event) => reactions.noticingResults.requestersOfStop(event),
+    { callsOut: true },
   ),
   subscribing<StationSearchSkipped>(
     'replays.notice-skipped-station-search',
     ['replays.station-search-skipped'],
     (event) => reactions.noticingResults.skipped(event),
+    { callsOut: true },
   ),
   subscribing<StationAlertFiredIntegrationEvent>(
     'replays.search-station-after-alert',
     [STATION_ALERT_FIRED],
-    (event) => reactions.schedules.alerted(event.stationId),
+    (event) => reactions.schedules.alerted(StationId.of(event.stationId)),
   ),
   subscribing<LineChangedIntegrationEvent>(
     'replays.look-again-at-searches-of-changed-line',
     [LINE_CHANGED],
-    (event) => reactions.schedules.lineChanged(event.lineId),
+    (event) => reactions.schedules.lineChanged(LineId.of(event.lineId)),
   ),
   subscribing<LineChangedIntegrationEvent>(
     'replays.stop-searches-turned-off-in-changed-line',
     [LINE_CHANGED],
-    (event) => reactions.turningOff.lineChanged(event.lineId),
+    (event) => reactions.turningOff.lineChanged(LineId.of(event.lineId)),
   ),
   subscribing<ReplaySetDeleted | ReplaySetStationGone>(
     'replays.delete-search-schedule-of-gone-set',
-    ['replay-set.deleted', 'replay-set.station-gone'],
+    ['replays.replay-set-deleted', 'replays.replay-set-station-gone'],
     (event) => reactions.schedules.setGone(event.setId),
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'replays.delete-search-schedules-of-deleted-team',
     [TEAM_DELETED],
-    (event) =>
-      reactions.schedules.deleteForTeam(
-        TeamId.of(event.teamId),
-        WorkspaceId.of(event.workspaceId),
-      ),
-  ),
-  subscribing<StationSearchScheduleDeletionRequested>(
-    'replays.delete-search-schedule',
-    ['replays.station-search-schedule-deletion-requested'],
-    (event) => reactions.schedules.delete(event.stationId),
+    (event) => reactions.schedules.ofTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
   subscribing<SearchEnded>(
     'replays.cancel-ended-search',
     ['replays.search-ended'],
     (event) => reactions.cancellingSearches.ended(event),
+    { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'replays.delete-searches-of-deleted-team',
     [TEAM_DELETED],
-    (event) =>
-      reactions.deletingSearches.deleteForTeam(
-        TeamId.of(event.teamId),
-        WorkspaceId.of(event.workspaceId),
-      ),
+    (event) => reactions.deletingSearches.ofTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
-  subscribing<SearchDeletionRequested>(
-    'replays.delete-search',
-    ['replays.search-deletion-requested'],
-    (event) => reactions.deletingSearches.search(event.searchId),
+  subscribing<SearchDeleted>(
+    'replays.cancel-run-of-deleted-search',
+    ['replays.search-deleted'],
+    (event) => reactions.deletingSearches.cancelRunOf(event),
+    { callsOut: true },
   ),
   subscribing<ReplaySetStationGone>(
     'replays.end-search-of-gone-station',
-    ['replay-set.station-gone'],
+    ['replays.replay-set-station-gone'],
     (event) => reactions.deletingSearches.stationGone(event.setId),
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'replays.delete-replay-checks-of-deleted-team',
     [TEAM_DELETED],
-    (event) =>
-      reactions.deletingChecks.deleteForTeam(
-        TeamId.of(event.teamId),
-        WorkspaceId.of(event.workspaceId),
-      ),
+    (event) => reactions.deletingChecks.ofTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
   subscribing<ReplaySetDeleted>(
     'replays.delete-replay-checks-of-deleted-set',
-    ['replay-set.deleted'],
-    (event) =>
-      reactions.deletingChecks.deleteForSet(event.setId, event.workspaceId),
-  ),
-  subscribing<ReplayCheckDeletionRequested>(
-    'replays.delete-replay-check',
-    ['replays.replay-check-deletion-requested'],
-    (event) => reactions.deletingChecks.check(event.checkId),
+    ['replays.replay-set-deleted'],
+    (event) => reactions.deletingChecks.ofSet(event.setId),
+    { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'replays.delete-config-pull-requests-of-deleted-team',
     [TEAM_DELETED],
-    (event) =>
-      reactions.deletingPullRequests.deleteForTeam(
-        TeamId.of(event.teamId),
-        WorkspaceId.of(event.workspaceId),
-      ),
+    (event) => reactions.deletingPullRequests.ofTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
-  subscribing<ConfigPullRequestDeletionRequested>(
-    'replays.delete-config-pull-request',
-    ['replays.config-pull-request-deletion-requested'],
-    (event) => reactions.deletingPullRequests.pullRequest(event.pullRequestId),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'replays.delete-change-judgings-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => reactions.deletingChangeJudgings.ofTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'replays.delete-side-by-side-judgings-of-deleted-team',
+    [TEAM_DELETED],
+    (event) =>
+      reactions.deletingSideBySideJudgings.ofTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'replays.delete-line-search-budgets-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => reactions.deletingBudgets.ofTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
+  ),
+  subscribing<SearchReplaysPlanned>(
+    'replays.start-planned-search-replays',
+    ['replays.search-replays-planned'],
+    (event) => reactions.startingSearchReplays.planned(event),
+    { callsOut: true },
+  ),
+  subscribing<ReplayCheckStarted>(
+    'replays.start-replay-of-started-check',
+    ['replays.replay-check-started'],
+    (event) => reactions.startingCheckReplays.started(event),
+    { callsOut: true },
   ),
 ];

@@ -1,8 +1,4 @@
 import { SEED_HYPOTHESIS } from '@replays/application/rendering/search-briefing';
-import {
-  visibleGuidanceOf,
-  visibleReasonsOf,
-} from '@replays/application/rendering/visible-result';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
@@ -10,19 +6,42 @@ import { UnknownSearchRunError } from '@replays/domain/exceptions/unknown-search
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
+import {
+  visibleGuidanceOf,
+  visibleReasonsOf,
+} from '@replays/domain/services/visible-result';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type {
-  SearchVisibility,
-  SearchVisibilityPort,
-  VisibleBlock,
-} from '@work/application/ports/search-visibility.port';
 
-type VisibleCandidate = SearchVisibility['candidates'][number];
+export type VisibleBlock = Readonly<Record<string, unknown>>;
 
-type VisibleRun = VisibleCandidate['runs'][number];
+export interface VisibleRun {
+  readonly runId: string;
+  readonly original: string;
+  readonly repeat: number;
+  readonly succeeded: boolean | null;
+  readonly reasons: readonly string[];
+  readonly verdict: 'pass' | 'fail' | null;
+  readonly guidance: string | null;
+}
+
+export interface VisibleCandidate {
+  readonly name: string;
+  readonly fingerprint: string;
+  readonly hypothesis: string;
+  readonly block: VisibleBlock;
+  readonly runs: readonly VisibleRun[];
+}
+
+export interface SearchVisibility {
+  readonly stationId: string;
+  readonly heldOutTasks: readonly string[];
+  readonly shownOriginals: readonly string[];
+  readonly candidates: readonly VisibleCandidate[];
+  readonly seedBlock: VisibleBlock;
+}
 
 const runsOf = (
   replay: Replay | undefined,
@@ -50,7 +69,7 @@ const runsOf = (
 
 const blockOf = (candidate: Candidate): VisibleBlock => candidate.block.value;
 
-export class SearchVisibilities implements SearchVisibilityPort {
+export class SearchVisibilities {
   constructor(
     private readonly searches: SearchRepository,
     private readonly candidates: CandidateRepository,
@@ -76,7 +95,7 @@ export class SearchVisibilities implements SearchVisibilityPort {
       replays.find((each) => each.id.equals(id));
 
     return {
-      stationId: search.station.stationId,
+      stationId: search.station.stationId.value,
       heldOutTasks: [
         ...new Set(search.split.heldOut.map((each) => each.taskId.value)),
       ],

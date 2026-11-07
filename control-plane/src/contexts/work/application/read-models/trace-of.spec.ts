@@ -1,4 +1,5 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type {
   JournalStep,
   RunJournal,
@@ -11,7 +12,6 @@ import {
 } from '@work/application/read-models/trace-of';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { describe, expect, it } from 'vitest';
 
 const AT = Date.UTC(2026, 7, 29, 12, 0, 0);

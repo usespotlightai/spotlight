@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { placementMatches } from '@platform/persistence/drizzle/placement-matches';
+import { placementMatches } from '@work/infrastructure/persistence/drizzle/placement-matches';
 import {
   UNIQUE_VIOLATION,
   violates,
@@ -26,6 +26,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -33,15 +34,15 @@ import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunAlreadyExistsError } from '@work/domain/exceptions/run-already-exists.error';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
-import type {
-  Claimant,
-  RunExtras,
-  RunRepository,
-  SandboxRouting,
-} from '@work/domain/repositories/run.repository';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type {
+  Claimant,
+  SandboxRouting,
+} from '@work/domain/value-objects/claimant';
 import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
 import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
@@ -57,7 +58,6 @@ import { SearchId } from '@work/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
 import { StartingPoint } from '@work/domain/value-objects/starting-point.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
@@ -71,7 +71,6 @@ import {
   type SQL,
   sql,
 } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
 
 const injectsNoSecrets = sql`coalesce(jsonb_array_length(${run.spec} -> 'injectedSecrets'), 0) = 0
   AND coalesce((${run.spec} ->> 'spotlightApi')::boolean, false) = false`;
@@ -107,8 +106,6 @@ const routedBy = (routing: SandboxRouting | undefined): SQL => {
 
 type Row = typeof run.$inferSelect;
 
-const replayed = alias(run, 'replayed');
-
 const kindOf = (claimed: Run): string => {
   if (claimed.replayOf) {
     return 'replay';
@@ -124,7 +121,6 @@ const kindOf = (claimed: Run): string => {
 
 interface Selected {
   readonly run: Row;
-  readonly replayedTaskId: string | null;
 }
 
 @Injectable()
@@ -136,14 +132,14 @@ export class DrizzleRunRepository implements RunRepository {
     @Inject(TELEMETRY) private readonly telemetry: TelemetryPort,
   ) {}
 
-  async add(added: Run, extras: RunExtras = {}): Promise<void> {
+  async add(added: Run): Promise<void> {
     await this.context.inTransaction(async () => {
-      await this.inserted(added, extras);
+      await this.inserted(added);
       await this.events.dispatch(added.pullEvents());
     });
   }
 
-  private async inserted(added: Run, extras: RunExtras): Promise<void> {
+  private async inserted(added: Run): Promise<void> {
     await this.context
       .inSavepoint(() =>
         this.context.db.insert(run).values({
@@ -155,6 +151,7 @@ export class DrizzleRunRepository implements RunRepository {
           stationId: added.stationId?.value ?? null,
           chatId: added.chatId?.value ?? null,
           replayOfRunId: added.replayOf?.value ?? null,
+          replayedTaskId: added.subject?.replayedTaskId?.value ?? null,
           ranForTeamId: added.ranFor?.value ?? null,
           searchId: added.subject?.searchId?.value ?? null,
           searchIteration: added.subject?.iteration?.value ?? null,
@@ -171,7 +168,7 @@ export class DrizzleRunRepository implements RunRepository {
           endedAt: endedAtFor(added.state, sql`now()`),
           stationFingerprint: added.configuredAs?.fingerprint ?? null,
           stationConfig: added.configuredAs?.parts ?? null,
-          briefedTask: extras.briefed?.parts ?? null,
+          briefedTask: added.briefedTask?.parts ?? null,
           askedAPerson: added.askedAPerson,
           traceparent: activeTraceparent(),
           ...startOf(added),
@@ -242,10 +239,7 @@ export class DrizzleRunRepository implements RunRepository {
   }
 
   private selected() {
-    return this.context.db
-      .select({ run, replayedTaskId: replayed.taskId })
-      .from(run)
-      .leftJoin(replayed, eq(replayed.id, run.replayOfRunId));
+    return this.context.db.select({ run }).from(run);
   }
 
   async newestWithKey(
@@ -473,7 +467,7 @@ const reservationFrom = (row: Row): RunnerReservation | null =>
 const endedAtFor = (state: RunState, ended: SQL) =>
   (TERMINAL_RUN_STATES as readonly RunState[]).includes(state) ? ended : null;
 
-const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
+const toRun = ({ run: row }: Selected): Run =>
   Run.rehydrate({
     id: RunId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
@@ -486,7 +480,7 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
       revision:
         row.taskRevision === null ? null : TaskRevision.of(row.taskRevision),
       replayOf: row.replayOfRunId ? RunId.of(row.replayOfRunId) : null,
-      replayedTaskId: replayedTaskId ? TaskId.of(replayedTaskId) : null,
+      replayedTaskId: row.replayedTaskId ? TaskId.of(row.replayedTaskId) : null,
       ranFor: row.ranForTeamId ? TeamId.of(row.ranForTeamId) : null,
       searchId: row.searchId ? SearchId.of(row.searchId) : null,
       iteration:
@@ -529,4 +523,7 @@ const toRun = ({ run: row, replayedTaskId }: Selected): Run =>
     startedFrom: startFrom(row),
     askedAPerson: row.askedAPerson,
     version: row.version,
+    briefedTask: row.briefedTask
+      ? BriefedTask.rehydrate(row.briefedTask)
+      : null,
   });

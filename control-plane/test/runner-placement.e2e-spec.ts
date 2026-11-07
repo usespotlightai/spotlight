@@ -1,9 +1,9 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { placementMatches } from '@platform/persistence/drizzle/placement-matches';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunningImage } from '@shared-kernel/domain/value-objects/running-image.vo';
+import { placementMatches } from '@work/infrastructure/persistence/drizzle/placement-matches';
 import { sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';

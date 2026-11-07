@@ -1,4 +1,6 @@
-export class OutboundHostsUnreadError extends Error {
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+
+export class OutboundHostsUnreadError extends ApplicationError {
   readonly kind = 'upstream-error' as const;
 
   constructor(

@@ -9,17 +9,20 @@ import {
   type JudgePort,
   type JudgeRequest,
 } from '@insights/application/ports/judge.port';
-import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { RunAgentConfig } from '@insights/domain/value-objects/run-agent-config.vo';
+import { RunEnd } from '@insights/domain/value-objects/run-end.vo';
+import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { healthView } from '@replays/application/queries/views/replay-views';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
-import { healthView } from '@replays/application/services/replay-views';
 import { SetHealths } from '@replays/application/services/set-healths.service';
+import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
@@ -28,8 +31,10 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import {
   ATTACHMENT_STORE,
@@ -42,7 +47,6 @@ import {
 } from '@work/application/ports/workspace-archive-store.port';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -53,6 +57,7 @@ import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
 import { replayOf } from './support/replays';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-health-${randomUUID().slice(0, 8)}`;
@@ -315,15 +320,36 @@ const anOriginal = async (): Promise<Original> => {
       (each): JournalEntry => ({ ...each, at: new Date(each.at) }),
     ),
   );
-  await app
-    .get(DrizzleRunRecordRepository)
-    .add(
-      RunRecord.empty(
-        RunId.of(runId),
-        team.workspaceId,
-        TaskId.of(taskId),
-      ).recordAction(HumanAction.of('accepted', at)),
-    );
+  await app.get(DrizzleRunRecordRepository).add(
+    RunRecord.empty(RunId.of(runId), team.workspaceId, TaskId.of(taskId))
+      .recordEnd(
+        RunEnd.of({
+          location: RunLocation.of({
+            teamId: team.teamId,
+            lineId: LineId.of(DELIVERY),
+            stationId: StationId.of(BUILD),
+            taskId: TaskId.of(taskId),
+          }),
+          fingerprint: null,
+          agentConfig: RunAgentConfig.of({
+            harness: 'claude-code',
+            model: null,
+            effort: null,
+            profileKey: null,
+            repositories: [],
+            skills: [],
+          }),
+          queuedAt: null,
+          startedAt: null,
+          endedAt: at,
+          ending: 'completed',
+          failure: null,
+          visit: 1,
+          asked: false,
+        }),
+      )
+      .recordAction(HumanAction.of('accepted', at)),
+  );
 
   return { taskId, runId };
 };
@@ -585,7 +611,9 @@ const setOf = async (setId: string): Promise<SetRead> => {
   const [schedule] = await db
     .select()
     .from(schema.stationSearchSchedule)
-    .where(eq(schema.stationSearchSchedule.stationId, set.station.stationId));
+    .where(
+      eq(schema.stationSearchSchedule.stationId, set.station.stationId.value),
+    );
 
   return {
     id: setId,
@@ -637,7 +665,7 @@ beforeAll(async () => {
     repository: Repository.of('acme/api').value,
     setup: 'npm ci',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -730,8 +758,8 @@ afterAll(async () => {
   await app?.close();
 });
 
-const turnedOff = (id: string): Promise<void> =>
-  app.get<TransactionPort>(TRANSACTION).inTransaction(async () => {
+const turnedOff = async (id: string): Promise<void> => {
+  await app.get<TransactionPort>(TRANSACTION).inTransaction(async () => {
     const searches = app.get(DrizzleSearchRepository);
     const search = await searches.locked(SearchId.of(id));
 
@@ -739,6 +767,15 @@ const turnedOff = (id: string): Promise<void> =>
       await searches.save(search.turnOff(new Date()));
     }
   });
+  await eventually(async () => {
+    const queued = await db
+      .select({ id: schema.run.id })
+      .from(schema.run)
+      .where(and(eq(schema.run.searchId, id), eq(schema.run.state, 'queued')));
+
+    return queued.length === 0;
+  });
+};
 
 const searchSkipped = async (): Promise<string | null> => {
   const replays = await db.select({ id: schema.replay.id }).from(schema.replay);

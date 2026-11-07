@@ -70,8 +70,13 @@ const splitIn = (
     : null;
 };
 
-const shownQuestions = (cohort: ProposedCohort): Set<ProposedQuestion> =>
-  new Set(cohort.layers.flatMap((_, l) => keptQuestions(cohort, l)));
+const questionKey = (question: ProposedQuestion): string =>
+  JSON.stringify([question.question, question.answer, question.hunks]);
+
+const shownQuestions = (cohort: ProposedCohort): Set<string> =>
+  new Set(
+    cohort.layers.flatMap((_, l) => keptQuestions(cohort, l).map(questionKey)),
+  );
 
 const withGroupsMoved = (
   diff: Diff,

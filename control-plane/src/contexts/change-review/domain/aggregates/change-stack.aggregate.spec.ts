@@ -10,6 +10,7 @@ import {
 } from '@change-review/domain/value-objects/diff.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
+  DraftedCohort,
   ProposedCohort,
   ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
@@ -57,7 +58,7 @@ const DIFF = Diff.of([
 const NOW = new Date('2026-09-16T10:00:00Z');
 
 const generating = (
-  facts = StackFacts.none(),
+  facts = StackFacts.of({ hunks: [], links: [], imports: [] }),
   replay = false,
   isSearch = false,
 ) =>
@@ -100,7 +101,7 @@ const invitations = (layers: ProposedLayer[]): ProposedCohort => ({
 
 const LATER = new Date(NOW.getTime() + 60_000);
 
-const problemsOf = (cohorts: ProposedCohort[]): readonly string[] => {
+const problemsOf = (cohorts: DraftedCohort[]): readonly string[] => {
   try {
     generating().propose(cohorts, LATER);
   } catch (error) {
@@ -118,7 +119,10 @@ describe('ChangeStack', () => {
       stack.pullEvents().map((each) => each.kind);
 
     it('stays in Spotlight: it says it completed for its replay, and shapes no task’s outcome', () => {
-      const stack = generating(StackFacts.none(), true);
+      const stack = generating(
+        StackFacts.of({ hunks: [], links: [], imports: [] }),
+        true,
+      );
       stack.pullEvents();
 
       const ready = stack.propose(
@@ -126,7 +130,6 @@ describe('ChangeStack', () => {
         LATER,
       );
 
-      expect(ready.postsToGitHub).toBe(false);
       expect(kindsOf(ready)).toEqual([
         'change-stack.completed',
         'change-stack.replay-completed',
@@ -134,19 +137,25 @@ describe('ChangeStack', () => {
     });
 
     it('says it completed for its replay when it could not be generated', () => {
-      const stack = generating(StackFacts.none(), true);
+      const stack = generating(
+        StackFacts.of({ hunks: [], links: [], imports: [] }),
+        true,
+      );
       stack.pullEvents();
 
-      expect(kindsOf(stack.fail('No.', LATER))).toEqual([
-        'change-stack.failed',
+      expect(kindsOf(stack.deadLetter(LATER))).toEqual([
         'change-stack.replay-completed',
       ]);
     });
 
     it('is never generated for a search run, which changes no repository', () => {
-      expect(() => generating(StackFacts.none(), false, true)).toThrow(
-        NoStackForSearchesError,
-      );
+      expect(() =>
+        generating(
+          StackFacts.of({ hunks: [], links: [], imports: [] }),
+          false,
+          true,
+        ),
+      ).toThrow(NoStackForSearchesError);
     });
 
     it('belongs to no task', () => {
@@ -161,7 +170,7 @@ describe('ChangeStack', () => {
           repository: 'web',
           base: null,
           diff: DIFF,
-          facts: StackFacts.none(),
+          facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
           request: null,
           now: NOW,
         }),
@@ -177,10 +186,9 @@ describe('ChangeStack', () => {
         LATER,
       );
 
-      expect(ready.postsToGitHub).toBe(true);
       expect(kindsOf(ready)).toEqual([
         'change-stack.completed',
-        'change-stack.ready',
+        'change-stack.became-ready',
       ]);
     });
   });
@@ -189,9 +197,7 @@ describe('ChangeStack', () => {
     const stack = generating();
 
     expect(stack.state).toBe('generating');
-    expect(stack.pullEvents().map((each) => each.kind)).toEqual([
-      'change-stack.generation-started',
-    ]);
+    expect(stack.pullEvents()).toEqual([]);
     expect(stack.repository?.value).toBe('web');
     expect(stack.cohorts).toEqual([]);
     expect(stack.completedAt).toBeNull();
@@ -265,28 +271,44 @@ describe('ChangeStack', () => {
     ]);
   });
 
+  it('rejects a stack that places a hunk the diff does not have, so the model can mend it', () => {
+    expect(
+      problemsOf([
+        {
+          ...invitations([layer('Everything', ['h1', 'h2', 'h3'])]),
+          layers: [
+            {
+              ...layer('Everything', ['h1', 'h2', 'h3']),
+              hunks: [{ hunk: 'h1' }, { hunk: 'h2' }, { hunk: 'hx' }],
+            },
+          ],
+        },
+      ]),
+    ).toEqual(['cohort 1, layer 1 names hx, which is not in the diff']);
+  });
+
   it('rejects a stack with an empty cohort or no cohorts at all', () => {
     expect(problemsOf([])).toContain('has no cohorts');
     expect(problemsOf([invitations([])])).toContain('cohort 1 has no layers');
   });
 
-  it('fails with the reason it receives, and says so', () => {
-    const generated = generating();
-    generated.pullEvents();
-
-    const failed = generated.fail('The model returned no answer', LATER);
+  it('fails with why it stopped, as a code', () => {
+    const failed = generating().stopForBrokenRules(LATER);
 
     expect(failed.state).toBe('failed');
-    expect(failed.failure).toBe('The model returned no answer');
-    expect(failed.pullEvents().map((each) => each.kind)).toEqual([
-      'change-stack.failed',
-    ]);
+    expect(failed.failure).toBe('broke-rules');
+    expect(failed.pullEvents()).toEqual([]);
   });
 
   it('completes only once', () => {
-    const failed = generating().fail('No', LATER);
+    const failed = generating().deadLetter(LATER);
 
-    expect(() => failed.fail('Again', LATER)).toThrow(InvalidChangeStackError);
+    expect(() =>
+      failed.propose(
+        [invitations([layer('Everything', ['h1', 'h2', 'h3'])])],
+        LATER,
+      ),
+    ).toThrow(InvalidChangeStackError);
   });
 
   it('renews the lease of a worker still generating it, without counting another attempt', () => {
@@ -305,7 +327,7 @@ describe('ChangeStack', () => {
     const leased = generating().leaseJob(NOW);
 
     expect(leased.settleFailedCall({ truncated: true }, LATER).failure).toBe(
-      'The change is too large for one change stack.',
+      'too-large',
     );
     expect(leased.settleFailedCall({ truncated: false }, LATER).state).toBe(
       'generating',
@@ -345,10 +367,39 @@ describe('ChangeStack', () => {
     }
 
     expect(exhausted.state).toBe('failed');
-    expect(exhausted.failure).toBe(
-      'Spotlight couldn’t generate the change stack.',
-    );
+    expect(exhausted.failure).toBe('not-generated');
     expect(exhausted.hasPendingJob).toBe(false);
+  });
+
+  it('needs a model only for hunks it does not set aside as incidental', () => {
+    const facts = (incidental: boolean) =>
+      StackFacts.of({
+        hunks: DIFF.hunks.map((each) => ({
+          hunk: each.id,
+          path: DIFF.fileOf(each.id)?.path ?? '',
+          fileClass: incidental ? 'lockfile' : 'source',
+          incidental,
+          renamed: false,
+          moved: false,
+          linkable: !incidental,
+          defines: [],
+          outside: [],
+        })),
+        links: [],
+        imports: [],
+      });
+
+    expect(generating(facts(true)).needsModel).toBe(false);
+    expect(generating(facts(false)).needsModel).toBe(true);
+  });
+
+  it('asks for no redraft without a check', () => {
+    const ready = generating().propose(
+      [invitations([layer('Everything', ['h1', 'h2', 'h3'])])],
+      LATER,
+    );
+
+    expect(ready.requestRedraft().redraftFor(null)).toBeNull();
   });
 
   it('has no pending job once it completes', () => {
@@ -570,7 +621,7 @@ describe('ChangeStack read back from what was stored', () => {
       repository: RepositoryName.of('web'),
       base: null,
       diff: DIFF,
-      facts: StackFacts.none(),
+      facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
       cohorts: ready().cohorts,
       progress: ready().progress,
       job: ready().job,
@@ -619,7 +670,7 @@ describe('ChangeStack read back from what was stored', () => {
           completedAt: LATER,
         }),
       }),
-    ).toThrow('failed without saying why');
+    ).toThrow('has a failure that does not match its state');
   });
 
   it('rejects a stack that is still generating, yet has cohorts', () => {

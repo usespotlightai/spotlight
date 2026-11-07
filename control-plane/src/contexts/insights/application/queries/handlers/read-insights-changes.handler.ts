@@ -3,14 +3,15 @@ import type {
   ChangeMarkerDto,
   InsightsChangesDto,
 } from '@insights/application/dto/insights-changes.dto';
+import { stationJudgeCalibrationOf } from '@insights/application/dto/judge-calibration.dto';
 import type { InsightsReaderPort } from '@insights/application/ports/insights-reader.port';
 import type { WorkPort } from '@insights/application/ports/work.port';
-import type { ReadInsightsChangesQuery } from '@insights/application/queries/read-insights-changes.query';
 import {
   type ConfigPair,
   configChangesOf,
   fingerprintsToRead,
-} from '@insights/application/services/config-changes';
+} from '@insights/application/queries/config-changes';
+import type { ReadInsightsChangesQuery } from '@insights/application/queries/read-insights-changes.query';
 import type { QualifiedJudges } from '@insights/application/services/qualified-judges.service';
 import type { TeamScopes } from '@insights/application/services/team-scopes.service';
 import type { ChangeCounts } from '@insights/domain/services/before-after';
@@ -20,7 +21,7 @@ import {
   judgeRateFrom,
 } from '@insights/domain/services/judge-rates';
 import { tallyOf } from '@insights/domain/services/run-tally';
-import type { StationLocation } from '@insights/domain/services/team-history';
+import type { StationLocation } from '@insights/domain/services/station-ranking';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -100,9 +101,7 @@ export class ReadInsightsChangesHandler
       return {
         period: periodOf(period),
         markers,
-        judges: calibrations.judges.map(
-          ({ rubricVersion: _, ...each }) => each,
-        ),
+        judges: calibrations.judges.map(stationJudgeCalibrationOf),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

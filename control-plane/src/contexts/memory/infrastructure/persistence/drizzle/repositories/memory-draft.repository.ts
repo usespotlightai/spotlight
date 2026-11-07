@@ -22,9 +22,11 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -75,8 +77,8 @@ const toProposal = (row: ProposalRow): MemoryProposal =>
     body: MemoryBody.of(row.body),
     scope: MemoryScope.of({
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: row.lineId === null ? null : LineId.of(row.lineId),
+      stationId: row.stationId === null ? null : StationId.of(row.stationId),
       repository: row.repository ? Repository.of(row.repository) : null,
       paths: row.paths.map(MemoryPath.of),
     }),
@@ -139,8 +141,8 @@ const proposalRows = (draft: MemoryDraft) =>
         kind: each.kind,
         body: each.body.value,
         teamId: each.scope.teamId.value,
-        lineId: each.scope.lineId,
-        stationId: each.scope.stationId,
+        lineId: each.scope.lineId?.value ?? null,
+        stationId: each.scope.stationId?.value ?? null,
         repository: each.scope.repository?.value ?? null,
         paths: each.scope.paths.map((path) => path.value),
         taskId: each.provenance.taskId.value,
@@ -249,10 +251,20 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
     return row ? this.withProposals(row) : null;
   }
 
-  async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db
+  async remove(removed: MemoryDraft): Promise<void> {
+    const gone = await this.context.db
       .delete(memoryDraft)
-      .where(eq(memoryDraft.taskId, taskId.value));
+      .where(
+        and(
+          eq(memoryDraft.id, removed.id.value),
+          eq(memoryDraft.version, removed.version),
+        ),
+      )
+      .returning({ id: memoryDraft.id });
+
+    if (gone.length === 0) {
+      throw new MemoryDraftVersionConflictError(removed.id.value);
+    }
   }
 
   private async withProposals(row: DraftRow): Promise<MemoryDraft> {

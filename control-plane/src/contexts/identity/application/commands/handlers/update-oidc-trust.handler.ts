@@ -5,6 +5,7 @@ import { IdentityProblems } from '@identity/application/rendering/identity-probl
 import { OidcTrustVersionConflictError } from '@identity/domain/exceptions/oidc-trust-version-conflict.error';
 import { ScopesExceedCallerError } from '@identity/domain/exceptions/scopes-exceed-caller.error';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import {
   forbiddenTo,
@@ -15,7 +16,6 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 
 export class UpdateOidcTrustHandler
   implements CommandHandlerPort<UpdateOidcTrustCommand, ResourceUpdated | null>
@@ -45,7 +45,7 @@ export class UpdateOidcTrustHandler
         return null;
       }
 
-      if (!permissions.managesOidcTrusts) {
+      if (!permissions.allows('trusts')) {
         return forbiddenTo('trusts');
       }
 

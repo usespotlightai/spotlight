@@ -20,6 +20,7 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import { RedeemCallSecretsCommand } from '@work/application/commands/host-call.commands';
 import type { RedeemCallSecretsDto } from '@work/application/dto/host-call.dto';
 import { EgressSecretsResponseDto } from '@work/presentation/http/dto/egress.response.dto';
@@ -31,6 +32,7 @@ const WRONG_SECRETS_TOKEN =
 
 @ApiTags('runners')
 @AllowAnonymous()
+@InAudience('hosts')
 @Controller('hosts')
 export class HostCallSecretsController {
   constructor(private readonly commandBus: CommandBus) {}

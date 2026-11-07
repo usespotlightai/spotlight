@@ -1,7 +1,9 @@
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { TouchedContext } from '@memory/domain/value-objects/run-context';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -10,8 +12,8 @@ const API = Repository.of('acme/api');
 
 const touchedContext = (touched: string[] = []): TouchedContext => ({
   teamId: TEAM,
-  lineId: 'line_1',
-  stationId: 'station_1',
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
   repositories: [API],
   touched: touched.map((path) => ({
     repository: API,
@@ -57,10 +59,10 @@ describe('MemoryScope', () => {
       aboutPaths(['src']),
       MemoryScope.of({
         teamId: TEAM,
-        lineId: 'line_1',
-        stationId: 'station_1',
+        lineId: LineId.of('line_1'),
+        stationId: StationId.of('station_1'),
       }),
-      MemoryScope.of({ teamId: TEAM, lineId: 'line_1' }),
+      MemoryScope.of({ teamId: TEAM, lineId: LineId.of('line_1') }),
       MemoryScope.of({ teamId: TEAM, repository: API }),
       MemoryScope.of({ teamId: TEAM }),
     ].map((each) => each.specificity);

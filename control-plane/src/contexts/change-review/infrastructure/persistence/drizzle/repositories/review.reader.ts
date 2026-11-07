@@ -10,17 +10,13 @@ import {
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { and, asc, eq, ne, or } from 'drizzle-orm';
+import { and, asc, eq, ne } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleReviewReader implements ReviewReaderPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  async commentsVisibleTo(
-    taskId: TaskId,
-    viewer: UserId,
-  ): Promise<ReviewCommentView[]> {
+  async commentsOf(taskId: TaskId): Promise<ReviewCommentView[]> {
     return this.context.db
       .select({
         id: reviewComment.id,
@@ -39,18 +35,11 @@ export class DrizzleReviewReader implements ReviewReaderPort {
         url: reviewComment.githubUrl,
         createdAt: reviewComment.createdAt,
         editedAt: reviewComment.editedAt,
+        failureCode: reviewComment.failureCode,
+        failureDetail: reviewComment.failureDetail,
       })
       .from(reviewComment)
-      .where(
-        and(
-          eq(reviewComment.taskId, taskId.value),
-          ne(reviewComment.state, 'deleted'),
-          or(
-            ne(reviewComment.state, 'draft'),
-            eq(reviewComment.authorId, viewer.value),
-          ),
-        ),
-      )
+      .where(eq(reviewComment.taskId, taskId.value))
       .orderBy(asc(reviewComment.createdAt));
   }
 
@@ -65,6 +54,8 @@ export class DrizzleReviewReader implements ReviewReaderPort {
         body: review.body,
         state: review.state,
         submittedAt: review.submittedAt,
+        failureCode: review.failureCode,
+        failureDetail: review.failureDetail,
       })
       .from(review)
       .where(

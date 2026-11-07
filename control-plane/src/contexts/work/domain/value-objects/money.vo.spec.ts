@@ -1,7 +1,7 @@
+import { InvalidStationNameError } from '@shared-kernel/domain/exceptions/invalid-station-name.error';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { InvalidMoneyError } from '@work/domain/exceptions/invalid-money.error';
-import { InvalidStationNameError } from '@work/domain/exceptions/invalid-station-name.error';
 import { Money } from '@work/domain/value-objects/money.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('Money', () => {

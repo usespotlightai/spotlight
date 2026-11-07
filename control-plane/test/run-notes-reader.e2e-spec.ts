@@ -12,6 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { endedAtFor } from './support/run-ended';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
@@ -51,7 +52,8 @@ const taskOnLine = async (...names: string[]) => {
     teamId: 'team_1',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values(
+  await insertStations(
+    db,
     names.map((name, position) => ({
       id: stations[position],
       key: `station-${position}`,

@@ -1,9 +1,9 @@
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import {
   compileIntegration,
   type OAuth2Endpoints,
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';

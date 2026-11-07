@@ -5,15 +5,15 @@ import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-worksp
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { WorkloadTokensPort } from '@shared-kernel/application/ports/workload-tokens.port';
 import { scopeRecorder } from '@shared-kernel/application/ports/workspace-outbound-scope.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

@@ -13,7 +13,6 @@ const memory = (over: Partial<InsightsMemory>): InsightsMemory =>
     runsBriefed: 1,
     runsRecalled: 4,
     flagged: [],
-    benchmark: null,
     ...over,
   }) as InsightsMemory;
 
@@ -25,7 +24,6 @@ describe('memoryTiles', () => {
       ['3', 'Approved by the team'],
       ['2', 'In the briefs of 1 run'],
       ['1', 'Read in 4 runs'],
-      ['–', 'No benchmark yet'],
     ]);
   });
 });
@@ -38,31 +36,5 @@ describe('usedNoMemory', () => {
         memory({ activeCount: 0, memoriesBriefed: 0, memoriesRecalled: 0 }),
       ),
     ).toBe(true);
-  });
-});
-
-describe('the benchmark tile', () => {
-  it('says how the cases went with memories and without, or that none ran', () => {
-    expect(
-      memoryTiles(
-        memory({
-          benchmark: {
-            ranAt: '2026-09-30T00:00:00.000Z',
-            withMemories: 0.8,
-            withoutMemories: 0.65,
-            cases: 20,
-          },
-        }),
-      ).at(-1),
-    ).toMatchObject({
-      label: 'Solved with memories',
-      value: '80%',
-      detail: expect.stringMatching(/^65% without them, /),
-      tooltip: expect.stringMatching(/^A benchmark of 20 cases, run on /),
-    });
-    expect(memoryTiles(memory({ benchmark: null })).at(-1)).toMatchObject({
-      value: '–',
-      detail: 'No benchmark yet',
-    });
   });
 });

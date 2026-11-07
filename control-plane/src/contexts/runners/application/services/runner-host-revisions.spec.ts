@@ -2,6 +2,7 @@ import { reviseHost } from '@runners/application/services/runner-host-revisions'
 import {
   aHost,
   aHostReport,
+  aSandboxReport,
   HOST_ID,
   STARTED_AT,
   storedHosts,
@@ -17,6 +18,7 @@ const reported = (host: ReturnType<typeof aHost>) =>
     workspaceId: host.workspaceId,
     bootId: host.bootId,
     report: aHostReport(['runner_1']),
+    sandboxes: aSandboxReport(),
     at: LATER,
   });
 

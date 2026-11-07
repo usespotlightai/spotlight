@@ -1,9 +1,9 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { ChangeStackVersionConflictError } from '@change-review/domain/exceptions/change-stack-version-conflict.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
-import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import {
   cohortRows,
@@ -21,6 +21,7 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -40,6 +41,19 @@ const usageRow = (usage: ModelUsage) => ({
   unpriced: usage.unpriced,
 });
 
+const baseOf = (raw: string): CommitSha => {
+  const sha = CommitSha.parsed(raw);
+
+  if (!sha) {
+    throw new InconsistentStateError(
+      'change stack',
+      'has a base that is not a commit hash',
+    );
+  }
+
+  return sha;
+};
+
 const toChangeStack = (row: Row): ChangeStack =>
   ChangeStack.rehydrate({
     id: ChangeStackId.of(row.id),
@@ -48,7 +62,7 @@ const toChangeStack = (row: Row): ChangeStack =>
     replay: row.replay,
     workspaceId: WorkspaceId.of(row.workspaceId),
     repository: row.repository ? RepositoryName.of(row.repository) : null,
-    base: row.baseCommit ? BaseCommit.of(row.baseCommit) : null,
+    base: row.baseCommit ? baseOf(row.baseCommit) : null,
     diff: diffOf(row.files),
     facts: factsOf(row.facts),
     cohorts: cohortsOf(row.cohorts),
@@ -112,6 +126,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       checkPlacement: added.request?.placement.labelGroups ?? [],
       checkPlacementImage: added.request?.placement.image?.value ?? null,
       redrafting: added.redrafting,
+      pendingJob: added.hasPendingJob,
       usage: usageRow(added.usage),
       version: added.version,
     });
@@ -136,6 +151,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
         jobAttempts: saved.job.attempts,
         jobDueAt: saved.job.nextAttemptAt,
         redrafting: saved.redrafting,
+        pendingJob: saved.hasPendingJob,
         usage: usageRow(saved.usage),
       })
       .where(
@@ -177,10 +193,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       .from(changeStack)
       .where(
         and(
-          or(
-            eq(changeStack.state, 'generating'),
-            eq(changeStack.redrafting, true),
-          ),
+          eq(changeStack.pendingJob, true),
           or(isNull(changeStack.jobDueAt), lte(changeStack.jobDueAt, now)),
         ),
       )
@@ -191,9 +204,32 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
     return row ? toChangeStack(row) : null;
   }
 
-  async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db
-      .delete(changeStack)
+  async ofTask(taskId: TaskId): Promise<readonly ChangeStack[]> {
+    const rows = await this.context.db
+      .select()
+      .from(changeStack)
       .where(eq(changeStack.taskId, taskId.value));
+
+    return rows.map(toChangeStack);
+  }
+
+  async remove(removed: ChangeStack): Promise<void> {
+    await this.context.inTransaction(async () => {
+      const deleted = await this.context.db
+        .delete(changeStack)
+        .where(
+          and(
+            eq(changeStack.id, removed.id.value),
+            eq(changeStack.version, removed.version),
+          ),
+        )
+        .returning({ id: changeStack.id });
+
+      if (deleted.length === 0) {
+        throw new ChangeStackVersionConflictError(removed.id.value);
+      }
+
+      await this.events.dispatch(removed.pullEvents());
+    });
   }
 }

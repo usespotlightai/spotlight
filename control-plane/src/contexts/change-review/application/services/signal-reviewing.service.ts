@@ -1,10 +1,10 @@
-import type { GitHubConnectionsPort } from '@change-review/application/ports/github-connections.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type {
   PullRequestReaction,
   PullRequestReactionsPort,
   ReactedTo,
 } from '@github/application/ports/pull-request-reactions.port';
+import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
@@ -14,7 +14,7 @@ const REVIEWING_REACTION: PullRequestReaction = 'eyes';
 export class SignalReviewing {
   constructor(
     private readonly work: WorkPort,
-    private readonly connections: GitHubConnectionsPort,
+    private readonly connections: WorkspaceConnectionsPort,
     private readonly reactions: PullRequestReactionsPort,
   ) {}
 

@@ -2,9 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
+import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
@@ -14,7 +15,6 @@ import {
   type WorkspaceArchiveStorePort,
 } from '@work/application/ports/workspace-archive-store.port';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -23,6 +23,7 @@ import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-check-${randomUUID().slice(0, 8)}`;
@@ -228,12 +229,29 @@ const readCheck = async (id: string, token = readToken): Promise<CheckRead> =>
   (await bearing(token).get(`${teamPath()}/replay-checks/${id}`).expect(200))
     .body as CheckRead;
 
-const startCheck = async (station: unknown): Promise<CheckRead> =>
-  (
+const replayStarted = (replayId: string) =>
+  eventually(
+    async () =>
+      (
+        await db
+          .select({ id: schema.replay.id })
+          .from(schema.replay)
+          .where(eq(schema.replay.id, replayId))
+      ).length > 0,
+    60_000,
+  );
+
+const startCheck = async (station: unknown): Promise<CheckRead> => {
+  const started = (
     await bearing(planToken)
       .post(`${teamPath()}/replay-checks`, checkBody(station))
       .expect(201)
   ).body as CheckRead;
+
+  await replayStarted(started.replayId);
+
+  return started;
+};
 
 const baselineOf = (check: CheckRead) =>
   eventually(async () => (await readCheck(check.id)).baselineReplayId);
@@ -335,7 +353,7 @@ beforeAll(async () => {
     repository: Repository.of('acme/api').value,
     setup: 'npm ci',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -717,7 +735,7 @@ describe('a replay check', () => {
     expect(current.body.id).toBe(second.id);
 
     expect(
-      await app.get(RefreshKeptSets).refreshBefore(ReplaySetId.of(keptSetId)),
+      await app.get(RefreshReplaySets).refreshBefore(ReplaySetId.of(keptSetId)),
     ).toBe(false);
 
     await createSet(originals.filter((each) => each !== originals[1]));

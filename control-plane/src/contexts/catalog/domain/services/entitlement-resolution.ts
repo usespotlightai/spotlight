@@ -4,7 +4,7 @@ import type {
   CatalogSkill,
   CatalogTool,
 } from '@catalog/domain/entities/catalog-item.entity';
-import type { CatalogRepository } from '@catalog/domain/repositories/catalog.repository';
+import type { CatalogItems } from '@catalog/domain/services/catalog-items';
 import { entitlementTo } from '@catalog/domain/services/entitlement';
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import type { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
@@ -64,7 +64,7 @@ export const resolveEntitledItem = <T extends CatalogItem>(
 export const resolveEntitled = <K extends CatalogKind>(
   id: string,
   kind: K,
-  catalog: CatalogRepository,
+  catalog: CatalogItems,
   plan: WorkspacePlan,
   now: Date,
 ): EntitlementResult<ItemOf<K>> => {
@@ -99,7 +99,7 @@ export const resolveEntitled = <K extends CatalogKind>(
 
 export const resolveEntitledFor = (
   request: EntitlementRequest,
-  catalog: CatalogRepository,
+  catalog: CatalogItems,
   plan: WorkspacePlan,
   now: Date,
 ): EntitledItems => {

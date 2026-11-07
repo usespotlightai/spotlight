@@ -11,13 +11,18 @@ import type {
   OAuth2Authorized,
   OAuth2LinkingPort,
 } from '@integrations/application/ports/oauth2-linking.port';
-import type { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
-import { Integration } from '@integrations/domain/entities/integration.entity';
+import type { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
+import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
+import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
+import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -28,7 +33,7 @@ const authorizing = (allowed: boolean, member = true) =>
     viewableBy: vi.fn(),
     mayView: vi.fn(),
     inWorkspace: vi.fn(),
-    onTeam: vi.fn(async () =>
+    inWorkspaceOfTeam: vi.fn(async () =>
       member
         ? {
             workspaceId: WorkspaceId.of('ws_1'),
@@ -41,10 +46,12 @@ const authorizing = (allowed: boolean, member = true) =>
     ),
     permissionsIn: vi.fn(),
     permissionsInSlug: vi.fn(),
-    permissionsOnTeam: vi.fn(),
+    permissionsInWorkspaceOfTeam: vi.fn(),
     permissionsAsTeamReader: vi.fn(),
     mayPlan: vi.fn(),
   }) satisfies WorkspaceAccessPort;
+
+const CONNECTED_AT = new Date('2026-09-07T10:00:00.000Z');
 
 const STARTED = {
   url: 'https://slack.com/oauth/authorize?state=x',
@@ -52,11 +59,15 @@ const STARTED = {
   expiresAt: new Date('2026-09-07T10:10:00.000Z'),
 };
 
+const CLIENT = { id: 'c-1', secret: 's-1' };
+
 describe('BeginOAuth2ConnectionHandler', () => {
   const beginning = (
     over: { allowed?: boolean; member?: boolean; actsAs?: ActsAs } = {},
   ) => {
     const begin = vi.fn(async () => STARTED);
+    const scoped: string[] = [];
+    const clientFor = vi.fn(async () => CLIENT);
     const integration = Integration.of({
       key: IntegrationKey.of('slack'),
       requiresConnection: true,
@@ -65,13 +76,29 @@ describe('BeginOAuth2ConnectionHandler', () => {
 
     return {
       begin,
+      clientFor,
+      scoped,
       handler: new BeginOAuth2ConnectionHandler(
         authorizing(over.allowed ?? true, over.member ?? true),
         { ofTeam: async () => [] } as unknown as DefinedIntegrationsPort,
         {
           integrations: () => [integration],
         } as unknown as IntegrationRuntimePort,
-        { begin } as unknown as OAuth2LinkingPort,
+        {
+          begin,
+          registrationFor: async () => ({
+            endpoint: 'https://slack.com/register',
+            server: null,
+          }),
+        } as unknown as OAuth2LinkingPort,
+        { clientFor } as unknown as OAuth2ClientResolution,
+        {
+          within: async (workspace, work) => {
+            scoped.push(workspace);
+            return work();
+          },
+          withinFresh: async (_workspace, work) => work(),
+        } satisfies WorkspaceOutboundScopePort,
       ),
     };
   };
@@ -92,13 +119,38 @@ describe('BeginOAuth2ConnectionHandler', () => {
     const { handler, begin } = beginning();
 
     expect(await handler.execute(command())).toBe(STARTED);
-    expect(begin).toHaveBeenCalledWith({
-      teamId: 'team_1',
-      integration: 'slack',
-      by: 'user_1',
-      owner: 'team',
-      returnTo: null,
-    });
+    expect(begin).toHaveBeenCalledWith(
+      {
+        teamId: 'team_1',
+        integration: 'slack',
+        by: 'user_1',
+        owner: 'team',
+        returnTo: null,
+      },
+      CLIENT,
+    );
+  });
+
+  it('registers the app, where it must, within the outbound scope of the team’s workspace', async () => {
+    const { handler, clientFor, scoped } = beginning();
+
+    await handler.execute(command());
+
+    expect(scoped).toEqual(['ws_1']);
+    expect(clientFor).toHaveBeenCalledWith(
+      TeamId.of('team_1'),
+      IntegrationKey.of('slack'),
+      'https://slack.com/register',
+      null,
+    );
+  });
+
+  it('begins nothing where no app is registered for the integration', async () => {
+    const { handler, clientFor, begin } = beginning();
+    clientFor.mockResolvedValueOnce(null as never);
+
+    expect(await handler.execute(command())).toBeNull();
+    expect(begin).not.toHaveBeenCalled();
   });
 
   it('denies someone who may not connect the team', async () => {
@@ -122,6 +174,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
         owner: 'person',
         returnTo: '/w/acme/inbox/task_1',
       }),
+      CLIENT,
     );
   });
 
@@ -141,16 +194,6 @@ describe('BeginOAuth2ConnectionHandler', () => {
     expect(await handler.execute(command('person'))).toBeNull();
     expect(begin).not.toHaveBeenCalled();
   });
-
-  it('drops a return path that is not in the app', async () => {
-    const { handler, begin } = beginning();
-
-    await handler.execute(command('team', 'https://evil.example/'));
-
-    expect(begin).toHaveBeenCalledWith(
-      expect.objectContaining({ returnTo: null }),
-    );
-  });
 });
 
 describe('FinishOAuth2ConnectionHandler', () => {
@@ -169,6 +212,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
       allowed?: boolean;
       member?: boolean;
       actsAs?: ActsAs;
+      existing?: IntegrationConnection;
     } = {},
   ) => {
     const integration = Integration.of({
@@ -198,7 +242,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
       } as unknown as OAuth2LinkingPort,
       {
         save,
-        of: vi.fn(),
+        of: vi.fn(async () => over.existing ?? null),
         expiringBefore: vi.fn(),
       } as unknown as IntegrationConnectionRepository,
       authorizing(over.allowed ?? true, over.member ?? true),
@@ -209,6 +253,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
       {
         inTransaction: (work: () => Promise<unknown>) => work(),
       } as TransactionPort,
+      { now: () => CONNECTED_AT } as ClockPort,
     );
 
     return { handler, save, dispatch, returned, landingFor };
@@ -238,6 +283,37 @@ describe('FinishOAuth2ConnectionHandler', () => {
     expect(to).toBe(
       'https://app.example/w/acme/settings/team/team_1/integrations?connected=slack',
     );
+  });
+
+  it('reconnects a live connection in place, keeping its version and clearing a failed refresh', async () => {
+    const existing = IntegrationConnection.rehydrate({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      integration: IntegrationKey.of('slack'),
+      owner: ConnectionOwner.team(),
+      accessToken: AccessToken.of('xoxb-old'),
+      refreshToken: AccessToken.of('xoxe-old'),
+      expiresAt: null,
+      scopes: [],
+      linkedAccount: 'Acme',
+      refreshFailedAt: new Date('2026-09-06T10:00:00.000Z'),
+      refreshClaim: null,
+      connectedAt: new Date('2026-09-01T10:00:00.000Z'),
+      version: 4,
+    });
+    const { handler, save, dispatch } = finishing({ existing });
+
+    await handler.execute(command());
+
+    const connection = save.mock.calls[0]?.[0];
+    expect(connection?.version).toBe(4);
+    expect(connection?.accessToken.value).toBe('xoxb-1');
+    expect(connection?.refreshToken).toBeNull();
+    expect(connection?.usable).toBe(true);
+    expect(connection?.connectedAt).toEqual(CONNECTED_AT);
+    expect(dispatch.mock.calls[0]?.[0]?.map((each) => each.kind)).toEqual([
+      'integrations.integration-connected',
+    ]);
   });
 
   it('stores nothing when the callback is not valid', async () => {

@@ -4,6 +4,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ChatRunWork } from '@work/application/services/chat-run-work';
 import { ReplayRunWork } from '@work/application/services/replay-run-work';
 import type { RunWork } from '@work/application/services/run-work';
@@ -13,7 +14,6 @@ import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { repositoryForTaskNamed } from '@work/domain/services/task-checkouts';
@@ -34,7 +34,7 @@ export class RunWorks {
     private readonly runs: RunRepository,
     private readonly tasks: TaskRepository,
     private readonly chats: ChatRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly briefedTasks: BriefedTasksPort,
     private readonly clock: ClockPort,
   ) {}

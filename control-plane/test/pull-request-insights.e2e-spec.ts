@@ -6,7 +6,7 @@ import {
 import { DrizzlePullRequests } from '@github/infrastructure/persistence/drizzle/repositories/pull-request.repository';
 import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
-import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
+import { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
 import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
@@ -114,7 +114,7 @@ const pullRequestOf = (
 ) =>
   app
     .get(DrizzlePullRequests)
-    .at(workspaceId, PullRequestUrl.of(urlOf(number)));
+    .lockedAt(workspaceId, PullRequestUrl.of(urlOf(number)));
 
 const insights = (path: string, query = 'period=7d') =>
   `/api/teams/${team.teamId.value}/insights/${path}?${query}`;
@@ -250,14 +250,20 @@ describe('every pull request in an installed repository (e2e)', () => {
   it('records a pull request a task opened and one nobody’s task did, in the GitHub context', async () => {
     const pulls = app.get(DrizzlePullRequests);
 
-    const mine = await pulls.at(team.workspaceId, PullRequestUrl.of(urlOf(1)));
-    const theirs = await pulls.at(
+    const mine = await pulls.lockedAt(
+      team.workspaceId,
+      PullRequestUrl.of(urlOf(1)),
+    );
+    const theirs = await pulls.lockedAt(
       team.workspaceId,
       PullRequestUrl.of(urlOf(2)),
     );
 
     expect(mine?.state).toBe('merged');
-    expect(theirs).toMatchObject({ state: 'merged', reviewRounds: 1 });
+    expect(theirs?.state).toBe('merged');
+    expect(theirs?.reviews.map((each) => each.state)).toEqual([
+      'changes-requested',
+    ]);
     expect(theirs?.size).toEqual({
       additions: 10,
       deletions: 2,
@@ -407,7 +413,7 @@ describe('what GitHub said, stored in order and purged in time (e2e)', () => {
     expect((await pullRequestOf(91))?.title).toBe('Newer');
   });
 
-  it('leaves a dismissed review out of the rounds', async () => {
+  it('keeps a dismissed review as dismissed, and Insights leaves it out of the rounds', async () => {
     const review = randomInt(1, 1_000_000);
     await deliver('pull_request_review', {
       action: 'submitted',
@@ -425,10 +431,15 @@ describe('what GitHub said, stored in order and purged in time (e2e)', () => {
       review: { id: review, state: 'dismissed', user: { login: 'bob' } },
     });
 
-    expect(await pullRequestOf(92)).toMatchObject({
-      reviewRounds: 0,
-      firstReviewAt: null,
-    });
+    expect((await pullRequestOf(92))?.dismissedReviews).toEqual([review]);
+    expect(
+      (
+        await drained(async () => {
+          const record = await recordOf(92);
+          return record?.seen && record.seen.version >= 2 ? record : null;
+        })
+      ).seen,
+    ).toMatchObject({ reviews: 0, reviewRounds: 0, firstReviewAt: null });
   });
 
   it('does not count a deleted review comment again when its creation is delivered twice', async () => {
@@ -484,13 +495,9 @@ describe('what GitHub said, stored in order and purged in time (e2e)', () => {
     await drained(
       async () =>
         (await pullRequestOf(94, elsewhere.workspaceId)) === null &&
-        (await recordOf(94, elsewhere.workspaceId)) === null,
+        (await recordOf(94, elsewhere.workspaceId))?.isTombstone === true,
     );
-    expect(
-      await app
-        .get(DrizzleDeletions)
-        .tombstoneOf(elsewhere.workspaceId, PullRequestUrl.of(urlOf(94))),
-    ).not.toBeNull();
+    expect((await recordOf(94, elsewhere.workspaceId))?.seen).toBeNull();
   });
 
   it('records nothing received late through an installation its workspace removed', async () => {
@@ -503,25 +510,32 @@ describe('what GitHub said, stored in order and purged in time (e2e)', () => {
   });
 
   it('purges the tombstones of deleted pull requests stored longer than retention and its slack', async () => {
-    const deletions = app.get(DrizzleDeletions);
+    const recording = app.get(RecordPullRequests);
+    const records = app.get(DrizzlePullRequestRecordRepository);
     const old = PullRequestUrl.of(urlOf(96));
     const recent = PullRequestUrl.of(urlOf(97));
-    await deletions.deletePullRequest(elsewhere.workspaceId, old, {
+    await recording.purgedByGitHub({
+      workspaceId: elsewhere.workspaceId,
+      pullRequest: old,
       updatedAt: new Date(NOW - 400 * 24 * HOUR),
     });
-    await deletions.deletePullRequest(elsewhere.workspaceId, recent, {
+    await recording.purgedByGitHub({
+      workspaceId: elsewhere.workspaceId,
+      pullRequest: recent,
       updatedAt: new Date(NOW - 24 * HOUR),
     });
 
-    await deletions.purgeTombstonesBefore(
+    for (const expired of await records.tombstonesBefore(
       new Date(NOW - 210 * 24 * HOUR),
       1_000,
-    );
+    )) {
+      await records.remove(expired);
+    }
 
-    expect(await deletions.tombstoneOf(elsewhere.workspaceId, old)).toBeNull();
-    expect(await deletions.tombstoneOf(elsewhere.workspaceId, recent)).toEqual({
-      updatedAt: new Date(NOW - 24 * HOUR),
-    });
+    expect(await records.at(elsewhere.workspaceId, old)).toBeNull();
+    expect(
+      (await records.at(elsewhere.workspaceId, recent))?.githubPurgedAt,
+    ).toEqual(new Date(NOW - 24 * HOUR));
   });
 
   it('purges the pull requests of a deleted workspace', async () => {

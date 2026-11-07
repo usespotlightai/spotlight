@@ -1,11 +1,9 @@
+import type { SessionReaderPort } from '@identity/application/ports/session-reader.port';
 import type { AppAuth } from '@identity/infrastructure/auth/auth';
 import { AUTH } from '@identity/infrastructure/auth/auth.constants';
 import { Inject, Injectable } from '@nestjs/common';
-import type {
-  AuthenticatedUser,
-  RequestHeaders,
-  SessionReaderPort,
-} from '@shared-kernel/application/ports/session.port';
+import type { RequestHeaders } from '@platform/http/request-headers';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import { fromNodeHeaders } from 'better-auth/node';
 
 @Injectable()

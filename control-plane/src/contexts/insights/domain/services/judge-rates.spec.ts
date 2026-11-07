@@ -1,12 +1,7 @@
-import { judgeScore } from '@insights/domain/judging.fake-spec';
-import { endedRecord } from '@insights/domain/runs.fake-spec';
 import {
   judgeDeltaOf,
-  judgedByRun,
-  judgedRunsOf,
   judgeRateFrom,
   rateOf,
-  rubricsOf,
 } from '@insights/domain/services/judge-rates';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { describe, expect, it } from 'vitest';
@@ -21,15 +16,10 @@ describe('rateOf', () => {
 });
 
 describe('judgeRateFrom', () => {
-  const rubrics = rubricsOf(
-    [endedRecord('run_1'), endedRecord('run_2'), endedRecord('run_3')],
-    judgedByRun([
-      { runId: 'run_1', rubricVersion: 'rubric_2', rate: 1 },
-      { runId: 'run_2', rubricVersion: 'rubric_2', rate: 0.5 },
-      { runId: 'run_1', rubricVersion: 'rubric_1', rate: 0 },
-      { runId: 'run_9', rubricVersion: 'rubric_2', rate: 0 },
-    ]),
-  );
+  const rubrics = [
+    { rubricVersion: 'rubric_1', sum: 0, judged: 1 },
+    { rubricVersion: 'rubric_2', sum: 1.5, judged: 2 },
+  ];
 
   it('averages the rates of the qualified rubric over the runs it has', () => {
     expect(judgeRateFrom(rubrics, 'rubric_2')).toEqual({
@@ -67,19 +57,5 @@ describe('judgeDeltaOf', () => {
     expect(
       judgeDeltaOf({ mean: null, judged: 0 }, { mean: 0.75, judged: 3 }),
     ).toBeNull();
-  });
-});
-
-describe('judgedRunsOf', () => {
-  it('takes only the judge’s scores at the requested station', () => {
-    const at = (stationId: string, runId: string) =>
-      judgeScore(runId, ScoreScale.yesNo(), 1, { stationId });
-
-    expect(
-      judgedRunsOf(
-        [at('station_1', 'run_1'), at('station_2', 'run_2')],
-        'station_1',
-      ).map((each) => each.runId),
-    ).toEqual(['run_1']);
   });
 });

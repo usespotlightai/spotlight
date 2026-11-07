@@ -10,7 +10,12 @@ import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import {
+  type EgressAvailability,
+  egressAvailability,
+} from '@runners/domain/services/egress-naming';
 import { sameHash } from '@runners/domain/services/same-hash';
+import { authorizesSharedEgress } from '@runners/domain/services/shared-egress-authorization';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
@@ -62,8 +67,7 @@ export class RunnerEgress implements RunnerEgressPort {
 
     const egress = await this.egresses.findByTokenHash(hash);
 
-    return egress &&
-      !egress.isDeleted &&
+    return egress?.isServing &&
       (await this.workspaces.isOpen(egress.workspaceId.value))
       ? { egressId: egress.id.value }
       : null;
@@ -111,9 +115,12 @@ export class RunnerEgress implements RunnerEgressPort {
     if (
       !runner ||
       !active ||
-      !pool?.belongsTo(runner.workspaceId) ||
-      !pool.usesEgress(through) ||
-      !(await this.servesIn(through, runner.workspaceId))
+      !authorizesSharedEgress({
+        runner,
+        pool,
+        through,
+        availability: await this.availabilityIn(through, runner.workspaceId),
+      })
     ) {
       return null;
     }
@@ -128,16 +135,18 @@ export class RunnerEgress implements RunnerEgressPort {
     };
   }
 
-  private async servesIn(
+  private async availabilityIn(
     through: EgressReference,
     workspaceId: WorkspaceId,
-  ): Promise<boolean> {
-    if (!through.egressId) {
-      return this.platform !== null;
-    }
+  ): Promise<EgressAvailability> {
+    const named = through.egressId
+      ? await this.egresses.find(through.egressId)
+      : null;
 
-    const named = await this.egresses.find(through.egressId);
-
-    return named !== null && !named.isDeleted && named.belongsTo(workspaceId);
+    return egressAvailability(through, {
+      workspaceId,
+      named,
+      platformStored: this.platform !== null,
+    });
   }
 }

@@ -1,6 +1,9 @@
-import type { FireHooks } from '@integrations/application/services/fire-hooks.service';
+import type { HooksListening } from '@integrations/application/services/hooks-listening.service';
+import type { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
+import type { RunBeforeHooks } from '@integrations/application/services/run-before-hooks.service';
 import type { HookDecision as FiredDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import { TaskViewMapper } from '@integrations/infrastructure/acl/task-view.mapper';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
   BeforeHookEvent,
   HookDecision,
@@ -18,10 +21,14 @@ const decisionOf = (decision: FiredDecision): HookDecision =>
     : { kind: 'denied', reason: decision.denyReason };
 
 export class LifecycleHooks implements LifecycleHooksPort {
-  constructor(private readonly firings: FireHooks) {}
+  constructor(
+    private readonly listening: HooksListening,
+    private readonly beforeHooks: RunBeforeHooks,
+    private readonly triggers: LifecycleHookTriggers,
+  ) {}
 
   listens(teamId: string, on: BeforeHookEvent['on']): Promise<boolean> {
-    return this.firings.listens(teamId, on);
+    return this.listening.on(TeamId.of(teamId), on);
   }
 
   async before(
@@ -30,7 +37,7 @@ export class LifecycleHooks implements LifecycleHooksPort {
     until?: Date,
   ): Promise<HookDecision> {
     return decisionOf(
-      await this.firings.before(
+      await this.beforeHooks.decide(
         TaskViewMapper.toView(task),
         instance.on,
         eventOf(instance),
@@ -44,12 +51,10 @@ export class LifecycleHooks implements LifecycleHooksPort {
     instance: ToolUsedHookEvent,
     occurrence: string,
   ): Promise<void> {
-    await this.firings.happened({
-      on: instance.on,
+    await this.triggers.toolUsed(
+      TaskViewMapper.toView(task),
+      { tool: instance.tool, event: eventOf(instance) },
       occurrence,
-      change: `${instance.tool} ${occurrence}`,
-      task: TaskViewMapper.toView(task),
-      event: eventOf(instance),
-    });
+    );
   }
 }

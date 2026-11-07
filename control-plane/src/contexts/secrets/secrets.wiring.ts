@@ -12,6 +12,7 @@ import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { ApiConventions } from '@platform/http/api-conventions';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { CreateSecretCommand } from '@secrets/application/commands/create-secret.command';
 import { DeleteSecretCommand } from '@secrets/application/commands/delete-secret.command';
@@ -23,15 +24,15 @@ import { CALL_SECRET_FETCHES } from '@secrets/application/ports/call-secret-fetc
 import { CREDENTIAL_ENCRYPTION } from '@secrets/application/ports/credential-encryption.port';
 import { DEFINED_SECRETS } from '@secrets/application/ports/defined-secrets.port';
 import { RUN_GRANTS } from '@secrets/application/ports/run-grants.port';
-import {
-  RUN_SEALING,
-  type RunSealingPort,
-} from '@secrets/application/ports/run-sealing.port';
 import { RUN_SECRET_FETCHES } from '@secrets/application/ports/run-secret-fetches.port';
 import { SECRET_CONFIGURATION } from '@secrets/application/ports/secret-configuration.port';
 import { SECRET_DEFINITIONS } from '@secrets/application/ports/secret-definitions.port';
 import { SECRET_INJECTION } from '@secrets/application/ports/secret-injection.port';
 import { SECRET_RESOURCES } from '@secrets/application/ports/secret-resources.port';
+import {
+  SECRET_SEALING,
+  type SecretSealingPort,
+} from '@secrets/application/ports/secret-sealing.port';
 import {
   AWS_SECRETS_MANAGER,
   SECRET_STORE,
@@ -48,13 +49,12 @@ import { CallSecretFetches } from '@secrets/application/services/call-secret-fet
 import { DeleteWorkspaceSecrets } from '@secrets/application/services/delete-workspace-secrets.service';
 import { PurgeRunGrants } from '@secrets/application/services/purge-run-grants.service';
 import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
-import { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
+import { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
 import { RunSecretFetches } from '@secrets/application/services/run-secret-fetches.service';
 import { SecretConfiguration } from '@secrets/application/services/secret-configuration.service';
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { SecretUsesRegistry } from '@secrets/application/services/secret-uses-registry.service';
-import { SECRETS_PAYLOAD_TYPES } from '@secrets/domain/payload-types';
 import {
   RUN_GRANTS_REPOSITORY,
   type RunGrantsRepository,
@@ -66,6 +66,7 @@ import {
 import { WorkspaceCredentialEncryption } from '@secrets/infrastructure/crypto/workspace-credential-encryption';
 import { WorkspaceKeys } from '@secrets/infrastructure/crypto/workspace-keys';
 import { SecretDefinitions } from '@secrets/infrastructure/definitions/secret-definitions';
+import { SECRETS_PAYLOAD_TYPES } from '@secrets/infrastructure/events/secrets-payload-types';
 import { AwsKeyManagement } from '@secrets/infrastructure/kms/aws-key-management';
 import {
   KEY_MANAGEMENT,
@@ -75,10 +76,11 @@ import { LocalKeyManagement } from '@secrets/infrastructure/kms/local-key-manage
 import { DrizzleSecretResources } from '@secrets/infrastructure/persistence/drizzle/readers/secret-resources.reader';
 import { DrizzleRunGrants } from '@secrets/infrastructure/persistence/drizzle/repositories/run-grants.repository';
 import { DrizzleSecrets } from '@secrets/infrastructure/persistence/drizzle/repositories/secrets.repository';
-import { X25519RunSealing } from '@secrets/infrastructure/sealing/run-sealing';
+import { X25519SecretSealing } from '@secrets/infrastructure/sealing/secret-sealing';
 import { AwsSecretsManagerSource } from '@secrets/infrastructure/sources/aws-secrets-manager.source';
 import { BuiltInSecretStore } from '@secrets/infrastructure/sources/built-in-secret.store';
 import { secretsSubscribers } from '@secrets/presentation/events/secrets.subscribers';
+import { SECRETS_API_CONVENTIONS } from '@secrets/presentation/http/api-conventions';
 import { SecretResourceController } from '@secrets/presentation/http/controllers/secret-resource.controller';
 import { PurgeRunGrantsWorker } from '@secrets/presentation/workers/purge-run-grants.worker';
 import {
@@ -102,6 +104,8 @@ import {
 
 const SECRETS_EVENTS = Symbol('SECRETS_EVENTS');
 
+const SECRETS_API_DOCUMENTATION = Symbol('SECRETS_API_DOCUMENTATION');
+
 const SECRETS_DEPENDENTS = Symbol('SECRETS_DEPENDENTS');
 
 export const SECRETS_CONTROLLERS: readonly Type[] = [SecretResourceController];
@@ -113,26 +117,33 @@ const keyManagementFor = (env: Env): KeyManagement =>
 
 export const SECRETS_PROVIDERS: readonly Provider[] = [
   {
+    provide: SECRETS_API_DOCUMENTATION,
+    inject: [ApiConventions],
+    useFactory: (conventions: ApiConventions) => {
+      conventions.register(SECRETS_API_CONVENTIONS);
+      return true;
+    },
+  },
+  {
     provide: RUN_GRANTS_REPOSITORY,
     inject: [DrizzleContext, DOMAIN_EVENT_DISPATCHER],
     useFactory: (context: DrizzleContext, events: DomainEventDispatcher) =>
       new DrizzleRunGrants(context, events),
   },
   {
-    provide: RunGrantsUnitOfWork,
+    provide: RunGrantsChanges,
     inject: [RUN_GRANTS_REPOSITORY],
-    useFactory: (grants: RunGrantsRepository) =>
-      new RunGrantsUnitOfWork(grants),
+    useFactory: (grants: RunGrantsRepository) => new RunGrantsChanges(grants),
   },
   {
     provide: PurgeRunGrants,
-    inject: [RUN_GRANTS_REPOSITORY, RunGrantsUnitOfWork, CLOCK, LOGGER],
+    inject: [RUN_GRANTS_REPOSITORY, RunGrantsChanges, CLOCK, LOGGER],
     useFactory: (
       grants: RunGrantsRepository,
-      unitOfWork: RunGrantsUnitOfWork,
+      changes: RunGrantsChanges,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new PurgeRunGrants(grants, unitOfWork, clock, logger),
+    ) => new PurgeRunGrants(grants, changes, clock, logger),
   },
   {
     provide: PurgeRunGrantsWorker,
@@ -197,42 +208,37 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
     useFactory: (store: SecretSourcePort, aws: SecretSourcePort) =>
       new SecretSources(store, aws),
   },
-  { provide: RUN_SEALING, useClass: X25519RunSealing },
+  { provide: SECRET_SEALING, useClass: X25519SecretSealing },
   {
     provide: RUN_SECRET_FETCHES,
-    inject: [SECRETS, RunGrantsUnitOfWork, SecretSources, RUN_SEALING],
+    inject: [SECRETS, RunGrantsChanges, SecretSources, SECRET_SEALING],
     useFactory: (
       secrets: SecretRepository,
-      unitOfWork: RunGrantsUnitOfWork,
+      changes: RunGrantsChanges,
       sources: SecretSources,
-      sealing: RunSealingPort,
-    ) => new RunSecretFetches(secrets, unitOfWork, sources, sealing),
+      sealing: SecretSealingPort,
+    ) => new RunSecretFetches(secrets, changes, sources, sealing),
   },
   {
     provide: CALL_SECRET_FETCHES,
-    inject: [SECRETS, SecretSources, RUN_SEALING, LOGGER],
+    inject: [SECRETS, SecretSources, SECRET_SEALING, LOGGER],
     useFactory: (
       secrets: SecretRepository,
       sources: SecretSources,
-      sealing: RunSealingPort,
+      sealing: SecretSealingPort,
       logger: LoggerPort,
     ) => new CallSecretFetches(secrets, sources, sealing, logger),
   },
   { provide: SECRET_USES, useFactory: () => new SecretUsesRegistry() },
   {
     provide: SECRET_INJECTION,
-    inject: [
-      SECRETS,
-      RUN_GRANTS_REPOSITORY,
-      RunGrantsUnitOfWork,
-      SecretSources,
-    ],
+    inject: [SECRETS, RUN_GRANTS_REPOSITORY, RunGrantsChanges, SecretSources],
     useFactory: (
       secrets: SecretRepository,
       grants: RunGrantsRepository,
-      unitOfWork: RunGrantsUnitOfWork,
+      changes: RunGrantsChanges,
       sources: SecretSources,
-    ) => new SecretInjection(secrets, grants, unitOfWork, sources),
+    ) => new SecretInjection(secrets, grants, changes, sources),
   },
 
   {
@@ -277,9 +283,9 @@ export const SECRETS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: RUN_GRANTS,
-    inject: [RunGrantsUnitOfWork, CLOCK],
-    useFactory: (unitOfWork: RunGrantsUnitOfWork, clock: ClockPort) =>
-      new RunGrantEndings(unitOfWork, clock),
+    inject: [RunGrantsChanges, CLOCK],
+    useFactory: (changes: RunGrantsChanges, clock: ClockPort) =>
+      new RunGrantEndings(changes, clock),
   },
 
   ...bindCommandHandler(CreateSecretCommand, CreateSecretHandler, [

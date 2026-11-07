@@ -12,13 +12,13 @@ import type { OidcTrustConfigurationPort } from '@identity/application/ports/oid
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import type { LineResourcesPort } from '@lines/application/ports/line-resources.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { LineResourcesPort } from '@work/application/ports/line-resources.port';
 
 interface OnTeam {
   readonly teamId: TeamId;
@@ -107,7 +107,7 @@ export class ResourceConfigurationHandler
       case 'egress':
         return workspaceIdOf(await this.runners.egressWithId(id));
       case 'workspace-runners':
-        return workspaceIdOf(await this.runners.declaredWithId(id));
+        return workspaceIdOf(await this.runners.workspaceRunnersWithId(id));
     }
   }
 

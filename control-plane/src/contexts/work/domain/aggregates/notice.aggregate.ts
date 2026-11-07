@@ -2,14 +2,12 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { InvalidNoticeError } from '@work/domain/exceptions/invalid-notice.error';
 import type { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import type { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import type { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
+import type { NoticeSubject } from '@work/domain/value-objects/notice-subject.vo';
 import type { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
-
-const MAX_SUBJECT = 200;
 
 interface NoticeState {
   readonly id: NoticeId;
@@ -17,7 +15,7 @@ interface NoticeState {
   readonly teamId: TeamId;
   readonly addressee: UserId | null;
   readonly form: NoticeForm;
-  readonly subject: string;
+  readonly subject: NoticeSubject;
   readonly link: NoticeLink;
   readonly externalLink: NoticeExternalLink | null;
   readonly wording: NoticeWording;
@@ -35,23 +33,14 @@ export class Notice {
     teamId: TeamId;
     addressee: UserId | null;
     form: NoticeForm;
-    subject: string;
+    subject: NoticeSubject;
     link: NoticeLink;
     externalLink: NoticeExternalLink | null;
     wording: NoticeWording;
     at: Date;
   }): Notice {
-    const subject = input.subject.trim();
-
-    if (!subject || subject.length > MAX_SUBJECT) {
-      throw new InvalidNoticeError(
-        `subject must be 1 to ${MAX_SUBJECT} characters`,
-      );
-    }
-
     return new Notice({
       ...input,
-      subject,
       createdAt: input.at,
       resolvedAt: null,
       version: 0,
@@ -60,6 +49,10 @@ export class Notice {
 
   static reopenable(resolvedAt: Date | null): boolean {
     return resolvedAt !== null;
+  }
+
+  static unread(resolvedAt: Date | null): boolean {
+    return resolvedAt === null;
   }
 
   static rehydrate(state: NoticeState): Notice {
@@ -93,7 +86,7 @@ export class Notice {
     return this.state.form;
   }
 
-  get subject(): string {
+  get subject(): NoticeSubject {
     return this.state.subject;
   }
 
@@ -121,8 +114,12 @@ export class Notice {
     return this.state.version;
   }
 
+  static addressedTo(addressee: UserId | null, person: UserId): boolean {
+    return addressee?.equals(person) ?? true;
+  }
+
   isFor(person: UserId): boolean {
-    return this.state.addressee?.equals(person) ?? true;
+    return Notice.addressedTo(this.state.addressee, person);
   }
 
   resolve(at: Date): Notice {

@@ -1,6 +1,6 @@
 import type {
   MemberReaderPort,
-  TeamRoster,
+  TeamMemberSummary,
   WorkspaceMemberSummary,
 } from '@identity/application/ports/member-reader.port';
 import type { TeamRef } from '@identity/application/read-models/team-ref';
@@ -14,7 +14,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq } from 'drizzle-orm';
 
@@ -24,29 +23,9 @@ export class DrizzleMemberReader implements MemberReaderPort {
 
   async listForTeam(
     teamId: TeamId,
-    viewerId: UserId,
-  ): Promise<TeamRoster | null> {
-    const [visible] = await this.db
-      .select({
-        workspaceId: team.workspaceId,
-        viewer: workspaceMember.role,
-      })
-      .from(team)
-      .innerJoin(
-        workspaceMember,
-        and(
-          eq(workspaceMember.workspaceId, team.workspaceId),
-          eq(workspaceMember.userId, viewerId.value),
-        ),
-      )
-      .where(eq(team.id, teamId.value))
-      .limit(1);
-
-    if (!visible) {
-      return null;
-    }
-
-    const rows = await this.db
+    workspaceId: WorkspaceId,
+  ): Promise<readonly TeamMemberSummary[]> {
+    return this.db
       .select({
         id: user.id,
         name: user.name,
@@ -58,33 +37,12 @@ export class DrizzleMemberReader implements MemberReaderPort {
       .innerJoin(
         workspaceMember,
         and(
-          eq(workspaceMember.workspaceId, visible.workspaceId),
+          eq(workspaceMember.workspaceId, workspaceId.value),
           eq(workspaceMember.userId, teamMember.userId),
         ),
       )
       .where(eq(teamMember.teamId, teamId.value))
       .orderBy(asc(user.name));
-
-    const owners = await this.db
-      .select({ userId: workspaceMember.userId })
-      .from(workspaceMember)
-      .where(
-        and(
-          eq(workspaceMember.workspaceId, visible.workspaceId),
-          eq(workspaceMember.role, 'owner'),
-        ),
-      );
-
-    return {
-      members: rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        image: row.image,
-        role: row.role,
-      })),
-      viewer: visible.viewer,
-      owners: owners.length,
-    };
   }
 
   async listForWorkspace(

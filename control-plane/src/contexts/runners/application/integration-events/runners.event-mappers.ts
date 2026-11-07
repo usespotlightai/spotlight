@@ -1,35 +1,35 @@
-import type { HostReady } from '@runners/domain/events/host-ready.event';
+import type { HostBecameReady } from '@runners/domain/events/host-became-ready.event';
 import type { RunnerPoolCreated } from '@runners/domain/events/runner-pool-created.event';
 import type { RunnerTrustCreated } from '@runners/domain/events/runner-trust-created.event';
 import {
-  HOST_READY,
-  type HostReadyIntegrationEvent,
-} from '@shared-kernel/application/integration-events/host-ready.integration-event';
+  HOST_BECAME_READY,
+  type HostBecameReadyIntegrationEvent,
+} from '@shared-kernel/application/integration-events/host-became-ready.integration-event';
 import {
-  RUNNER_ACCESS_DEFINED,
-  type RunnerAccessDefinedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/runner-access-defined.integration-event';
+  RUNNER_ACCESS_CREATED,
+  type RunnerAccessCreatedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/runner-access-created.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 export const RUNNERS_EVENT_MAPPERS = [
   mapping<RunnerPoolCreated>(
     'runner-pool.created',
-    (event): RunnerAccessDefinedIntegrationEvent => ({
-      kind: RUNNER_ACCESS_DEFINED,
+    (event): RunnerAccessCreatedIntegrationEvent => ({
+      kind: RUNNER_ACCESS_CREATED,
       workspaceId: event.workspaceId.value,
     }),
   ),
   mapping<RunnerTrustCreated>(
     'runner-trust.created',
-    (event): RunnerAccessDefinedIntegrationEvent => ({
-      kind: RUNNER_ACCESS_DEFINED,
+    (event): RunnerAccessCreatedIntegrationEvent => ({
+      kind: RUNNER_ACCESS_CREATED,
       workspaceId: event.workspaceId.value,
     }),
   ),
-  mapping<HostReady>(
-    'runner-host.ready',
-    (event): HostReadyIntegrationEvent => ({
-      kind: HOST_READY,
+  mapping<HostBecameReady>(
+    'runner-host.became-ready',
+    (event): HostBecameReadyIntegrationEvent => ({
+      kind: HOST_BECAME_READY,
       workspaceId: event.workspaceId.value,
     }),
   ),

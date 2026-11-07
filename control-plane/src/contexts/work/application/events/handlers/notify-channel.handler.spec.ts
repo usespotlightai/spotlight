@@ -1,5 +1,9 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -10,6 +14,7 @@ import type {
   ChannelNoticeDto,
   ChannelNoticesPort,
 } from '@work/application/ports/channel-notices.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
@@ -20,19 +25,14 @@ import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -47,6 +47,7 @@ const MARKS = [
 
 const started = (marks: readonly ChatMark[] = MARKS) =>
   Chat.start({
+    lines: [],
     workspaceId: WORKSPACE,
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_ada'),
@@ -84,7 +85,7 @@ const notifying = (chat: Chat) => {
         name: LineName.of('Delivery'),
         stationAt: () => ({ name: StationName.of('Implementation') }),
       })),
-    } as unknown as LineRepository,
+    } as unknown as LineMapsPort,
     { notify } satisfies ChannelNoticesPort,
   );
 

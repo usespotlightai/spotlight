@@ -8,11 +8,16 @@ import {
   team,
   workspace,
 } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
+import { Line } from '@lines/domain/aggregates/line.aggregate';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
+import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -29,16 +34,13 @@ import {
   PULL_REQUEST_REVIEWING,
   type PullRequestReviewingPort,
 } from '@work/application/ports/pull-request-reviewing.port';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
-import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
-import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AppModule } from '@/app.module';
+import { mapOf, projectStations } from './support/stations';
 
 describe('a pull request reviewed from GitHub (e2e)', () => {
   let app: INestApplication;
@@ -60,7 +62,13 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
       .values({ id: workspaceId, name: workspaceId, slug: workspaceId });
     await db
       .insert(team)
-      .values({ id: workspaceId, workspaceId, key: 'team', name: workspaceId });
+      .values({
+        id: workspaceId,
+        workspaceId,
+        key: 'team',
+        name: workspaceId,
+        origin: 'configuration',
+      });
   });
 
   afterEach(async () => {
@@ -88,10 +96,15 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
       teamId: TeamId.of(workspaceId),
       // biome-ignore lint/style/noNonNullAssertion: Spotlight has a built-in review line
       line: opening!,
+      harness: HarnessId.of('claude-code'),
       newId: () => `${workspaceId}_${++next}`,
     });
 
     await lines.add(line);
+    await projectStations(
+      db,
+      line.stations.map((each) => each.id.value),
+    );
     const stored = await lines.find(line.id);
     // biome-ignore lint/style/noNonNullAssertion: the built-in review line has reviews
     expect(stored?.reviews?.equals(line.reviews!)).toBe(true);
@@ -132,7 +145,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
         `mentioned:${workspaceId}`,
       );
 
-    const task = await tasks.findByMarks(
+    const [task] = await tasks.findByCorrelation(
       WorkspaceId.of(workspaceId),
       // biome-ignore lint/style/noNonNullAssertion: correlation keys with a mark are not null
       CorrelationKeys.of({ marks: [Mark.review(PullRequestUrl.of(pull))] })!,
@@ -141,7 +154,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
     expect(task?.reviewing).toBe(true);
     expect(task?.fromOutside).toBe(true);
     expect(task?.pullRequest?.value).toBe(pull);
-    expect(task?.stationId.value).toBe(line.entry?.id.value);
+    expect(task?.stationId.value).toBe(mapOf(line).entry?.id.value);
     expect(task?.reviewedHead?.repository.value).toBe(`acme/${workspaceId}`);
 
     const reviewing = app.get<PullRequestReviewingPort>(PULL_REQUEST_REVIEWING);

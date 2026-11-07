@@ -2,13 +2,14 @@ import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggreg
 import type { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface ReplayCheckRepository {
   find(id: ReplayCheckId): Promise<ReplayCheck | null>;
 
   matching(
-    stationId: string,
+    stationId: StationId,
     candidate: StationHashes,
     live: StationHashes,
   ): Promise<readonly ReplayCheck[]>;

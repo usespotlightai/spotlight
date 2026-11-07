@@ -1,4 +1,5 @@
 import type { InsightsPort } from '@replays/application/ports/insights.port';
+import type { RequestChangeJudging } from '@replays/application/services/request-change-judging.service';
 import type { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -11,6 +12,7 @@ export class RequestReplayJudging {
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
     private readonly insights: InsightsPort,
+    private readonly judgings: RequestChangeJudging,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -20,11 +22,11 @@ export class RequestReplayJudging {
     const judge = candidate?.judge ?? null;
     const ordered =
       candidate && judge
-        ? await this.insights.judge({
+        ? await this.judgings.request({
             run: event.run,
             workspaceId: event.workspaceId,
             teamId: candidate.teamId,
-            judge,
+            criteria: judge,
             reference: referenceFor(
               event.original,
               await this.insights.acceptedAfter(event.original),

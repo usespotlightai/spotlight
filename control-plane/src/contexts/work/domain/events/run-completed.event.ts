@@ -25,6 +25,10 @@ export class RunCompleted implements DomainEvent {
     readonly lastWords: string | null = null,
   ) {}
 
+  get started(): boolean {
+    return true;
+  }
+
   get taskId(): TaskId | null {
     return this.subject?.taskId ?? null;
   }

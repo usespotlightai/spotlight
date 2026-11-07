@@ -1,4 +1,8 @@
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import {
+  isJsonValue,
+  sameJson,
+} from '@shared-kernel/domain/services/json-value';
 
 const isRecord = (body: unknown): body is Readonly<Record<string, unknown>> =>
   typeof body === 'object' && body !== null && !Array.isArray(body);
@@ -44,7 +48,9 @@ export class HookReply {
   equals(other: HookReply): boolean {
     return (
       this.status === other.status &&
-      JSON.stringify(this.body) === JSON.stringify(other.body)
+      (isJsonValue(this.body) && isJsonValue(other.body)
+        ? sameJson(this.body, other.body)
+        : this.body === other.body)
     );
   }
 }

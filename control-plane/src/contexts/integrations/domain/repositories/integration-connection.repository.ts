@@ -18,5 +18,5 @@ export interface IntegrationConnectionRepository {
 
   expiringBefore(horizon: Date): Promise<readonly IntegrationConnection[]>;
 
-  deleteForTeam(teamId: TeamId): Promise<void>;
+  ofTeam(teamId: TeamId): Promise<readonly IntegrationConnection[]>;
 }

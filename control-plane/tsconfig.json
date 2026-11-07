@@ -18,6 +18,7 @@
     "paths": {
       "@platform/*": ["./src/platform/*"],
       "@shared-kernel/*": ["./src/shared-kernel/*"],
+      "@lines/*": ["./src/contexts/lines/*"],
       "@work/*": ["./src/contexts/work/*"],
       "@runners/*": ["./src/contexts/runners/*"],
       "@change-review/*": ["./src/contexts/change-review/*"],

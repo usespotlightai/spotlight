@@ -77,8 +77,9 @@ export const evaluationOf = (
 ): CheckEvaluation => {
   if (!replay) {
     return {
-      result: 'undecided',
-      because: 'replay-gone',
+      ...(awaitingBaseline
+        ? { result: 'running', because: null }
+        : { result: 'undecided', because: 'replay-gone' }),
       entries: 0,
       compared: 0,
       tasks: [],

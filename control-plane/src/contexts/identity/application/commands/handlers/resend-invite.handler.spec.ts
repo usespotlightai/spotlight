@@ -53,6 +53,7 @@ const PLATFORM = Team.rehydrate({
   workspaceId: ACME,
   key: TeamKey.of('platform'),
   name: TeamName.of('Platform'),
+  origin: 'configuration',
   members: [LEON],
   version: 0,
 });

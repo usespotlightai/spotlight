@@ -1,8 +1,14 @@
-export const PULL_REQUEST_MARK = 'git.pull-request';
+import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
+import {
+  PULL_REQUEST_MARK_KIND,
+  REVIEW_MARK_KIND,
+} from '@work/domain/value-objects/mark.vo';
 
-export const REVIEW_MARK = 'github.review';
+export const PULL_REQUEST_MARK: string = PULL_REQUEST_MARK_KIND;
 
-export const REVIEW_ROLE = 'review';
+export const REVIEW_MARK: string = REVIEW_MARK_KIND;
+
+export const REVIEW_ROLE: string = LineRole.REVIEW.value;
 
 export type ReviewTrigger = 'opened' | 'mentioned' | 'labelled';
 
@@ -56,7 +62,7 @@ interface ChatMarkPayload extends TaskMark {
   readonly finds: boolean;
 }
 
-export interface Arriving {
+export interface InboundAttachment {
   readonly name: string;
   readonly contentType: string | null;
   readonly size: number | null;
@@ -74,5 +80,5 @@ export interface Happened {
   readonly ourOwn: boolean;
   readonly opens: OpensPayload | null;
   readonly chat?: StartsChatPayload | null;
-  readonly attachments?: readonly Arriving[];
+  readonly attachments?: readonly InboundAttachment[];
 }

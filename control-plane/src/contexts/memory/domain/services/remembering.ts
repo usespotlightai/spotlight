@@ -1,4 +1,3 @@
-import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { NotAllowedInReplayError } from '@memory/domain/exceptions/not-allowed-in-replay.error';
@@ -7,6 +6,7 @@ import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
+import type { MemoryPredecessor } from '@memory/domain/value-objects/memory-predecessor.vo';
 import { MemoryProvenance } from '@memory/domain/value-objects/memory-provenance.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import {
@@ -32,7 +32,7 @@ export interface Remembered {
   readonly body: string;
   readonly scope: string | null;
   readonly paths: readonly string[];
-  readonly supersedes: Memory | null;
+  readonly supersedes: MemoryPredecessor | null;
 }
 
 export interface RememberedAt {
@@ -153,11 +153,7 @@ export class Remembering {
     const { id, remembered, at, now } = input;
     const supersedes = remembered.supersedes;
 
-    if (
-      supersedes &&
-      (!supersedes.isActive ||
-        !supersedes.scope.teamId.equals(at.runContext.teamId))
-    ) {
+    if (supersedes && !supersedes.supersedableIn(at.runContext.teamId)) {
       throw new InvalidMemoryError(
         `supersedes only an active memory in the run's team, and ${supersedes.handle.value} is not one`,
       );

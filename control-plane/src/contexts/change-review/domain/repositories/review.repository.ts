@@ -9,5 +9,7 @@ export interface ReviewRepository {
 
   find(id: ReviewId): Promise<Review | null>;
 
-  removeForTask(taskId: TaskId): Promise<void>;
+  ofTask(taskId: TaskId): Promise<readonly Review[]>;
+
+  remove(review: Review): Promise<void>;
 }

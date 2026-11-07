@@ -1,13 +1,17 @@
-import type {
-  Hook,
-  HookOnFailure,
-} from '@integrations/domain/entities/hook.entity';
 import { HookCreated } from '@integrations/domain/events/hook-created.event';
 import { HookDeleted } from '@integrations/domain/events/hook-deleted.event';
 import { HookUpdated } from '@integrations/domain/events/hook-updated.event';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
+import {
+  type HookAllowances,
+  providesTool,
+} from '@integrations/domain/services/hook-allowances';
 import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
+import type {
+  Hook,
+  HookOnFailure,
+} from '@integrations/domain/value-objects/hook.vo';
 import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
@@ -63,15 +67,9 @@ export type SigningSecretChange =
   | { readonly kind: 'unchanged'; readonly version: number }
   | { readonly kind: 'none' };
 
-export interface HookAllowances {
-  readonly provided: readonly string[];
-  readonly signsTokens: boolean;
-  allowsHost(host: string): boolean;
-}
-
 const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
-  const missing = hook.matchedTools.filter(
-    (tool) => !allowances.provided.includes(tool.value),
+  const missing = hook.match.tools.filter(
+    (tool) => !providesTool(allowances, tool),
   );
 
   if (missing.length > 0) {
@@ -82,10 +80,7 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   }
 
   hook.steps.forEach((step, index) => {
-    if (
-      step.kind === 'call' &&
-      !allowances.provided.includes(step.tool.value)
-    ) {
+    if (step.kind === 'call' && !providesTool(allowances, step.tool)) {
       throw new InvalidHookError(
         FieldPath.of(['steps', index, 'call']),
         `names tool ${step.tool.value}, which no team integration offers`,
@@ -108,7 +103,7 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   if (hook.signing === 'oidc' && !allowances.signsTokens) {
     throw new InvalidHookError(
       FieldPath.of(['signing', 'oidc']),
-      'needs HOOK_SIGNING_KEY set to sign OIDC tokens',
+      'needs a signing key to sign OIDC tokens. This deployment has none',
     );
   }
 };
@@ -256,10 +251,6 @@ export class HookDefinition extends EventRecorder {
     deleted.record(this.deletedBy(by));
 
     return deleted;
-  }
-
-  cascadeDelete(by: ChangeActor): HookDefinition {
-    return this.delete(by);
   }
 
   get id(): HookDefinitionId {

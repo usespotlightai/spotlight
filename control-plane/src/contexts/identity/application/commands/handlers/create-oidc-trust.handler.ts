@@ -6,6 +6,7 @@ import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-worksp
 import { OidcTrustAlreadyExistsError } from '@identity/domain/exceptions/oidc-trust-already-exists.error';
 import { ScopesExceedCallerError } from '@identity/domain/exceptions/scopes-exceed-caller.error';
 import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
+import { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import {
   forbiddenTo,
@@ -23,7 +24,6 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
-import { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class CreateOidcTrustHandler
@@ -53,7 +53,7 @@ export class CreateOidcTrustHandler
         return null;
       }
 
-      if (!permissions.managesOidcTrusts) {
+      if (!permissions.allows('trusts')) {
         return forbiddenTo('trusts');
       }
 

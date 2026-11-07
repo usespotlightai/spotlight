@@ -9,5 +9,5 @@ export interface WorkspaceRunnersRepository {
 
   find(id: WorkspaceRunnersId): Promise<WorkspaceRunners | null>;
 
-  declaredIn(workspaceId: WorkspaceId): Promise<WorkspaceRunners | null>;
+  ofWorkspace(workspaceId: WorkspaceId): Promise<WorkspaceRunners | null>;
 }

@@ -1,7 +1,7 @@
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { TeamScopes } from '@insights/application/services/team-scopes.service';
-import { WORKSPACE } from '@insights/domain/runs.fake-spec';
 import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
+import { WORKSPACE } from '@insights/runs.fake-spec';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';

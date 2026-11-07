@@ -1,10 +1,10 @@
 import { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import type { ReviewOutboxPort } from '@change-review/application/ports/review-outbox.port';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
+import { IncludedCommentPosted } from '@change-review/domain/events/included-comment-posted.event';
+import { IncludedCommentReturned } from '@change-review/domain/events/included-comment-returned.event';
 import { ReviewCommentDeleted } from '@change-review/domain/events/review-comment-deleted.event';
 import { ReviewCommentEdited } from '@change-review/domain/events/review-comment-edited.event';
-import { ReviewCommentNotPosted } from '@change-review/domain/events/review-comment-not-posted.event';
-import { ReviewCommentPosted } from '@change-review/domain/events/review-comment-posted.event';
 import { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
 import { ReviewPosted } from '@change-review/domain/events/review-posted.event';
 import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.event';
@@ -87,13 +87,13 @@ describe('ReviewReactions', () => {
     const { reactions, comments } = reacting([submitted, elsewhere]);
 
     await reactions.onCommentPosted(
-      new ReviewCommentPosted(REVIEW, submitted.id, {
+      new IncludedCommentPosted(REVIEW, submitted.id, {
         id: 101,
         url: 'https://github.com/c/101',
       }),
     );
     await reactions.onCommentPosted(
-      new ReviewCommentPosted(REVIEW, elsewhere.id, {
+      new IncludedCommentPosted(REVIEW, elsewhere.id, {
         id: 102,
         url: 'https://github.com/c/102',
       }),
@@ -110,8 +110,8 @@ describe('ReviewReactions', () => {
     const { reactions, comments } = reacting([submitted, deleted, elsewhere]);
 
     for (const each of [submitted, deleted, elsewhere]) {
-      await reactions.onCommentNotPosted(
-        new ReviewCommentNotPosted(REVIEW, each.id),
+      await reactions.onCommentReturned(
+        new IncludedCommentReturned(REVIEW, each.id),
       );
     }
 
@@ -128,7 +128,7 @@ describe('ReviewReactions', () => {
     const { reactions, comments } = reacting([sending]);
 
     await reactions.onCommentPosted(
-      new ReviewCommentPosted(REVIEW, sending.id, {
+      new IncludedCommentPosted(REVIEW, sending.id, {
         id: 101,
         url: 'https://github.com/c/101',
       }),

@@ -25,11 +25,11 @@ import {
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { ApiExcludeController } from '@nestjs/swagger';
+import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
 import { AllowBasicCredentials } from '@platform/http/decorators/allow-basic-credentials.decorator';
 import { AllowWorkspaceTokens } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
-import { TERRAFORM_STATE_ROUTE } from '@platform/http/routes';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
@@ -85,7 +85,7 @@ const settle = (changed: StateChanged, answer: Answer): void => {
 };
 
 @ApiExcludeController()
-@Controller(TERRAFORM_STATE_ROUTE)
+@Controller('terraform/workspaces/:slug/states/:name')
 @AllowWorkspaceTokens()
 @AllowBasicCredentials()
 export class TerraformStateController {
@@ -124,6 +124,7 @@ export class TerraformStateController {
     }
   }
 
+  @AcceptsLargeBody()
   @Post()
   async write(
     @Param('slug') slug: string,
@@ -180,12 +181,7 @@ export class TerraformStateController {
   ): Promise<void> {
     settle(
       await this.commandBus.execute<UnlockTerraformStateCommand, StateChanged>(
-        new UnlockTerraformStateCommand(
-          slug,
-          name,
-          actor,
-          sent(info) ? info : null,
-        ),
+        new UnlockTerraformStateCommand(slug, name, actor, !sent(info), info),
       ),
       answer,
     );

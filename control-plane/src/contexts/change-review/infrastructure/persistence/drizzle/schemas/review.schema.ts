@@ -4,6 +4,7 @@ import {
   REVIEW_VERDICTS,
 } from '@change-review/domain/aggregates/review.aggregate';
 import { REVIEW_COMMENT_STATES } from '@change-review/domain/aggregates/review-comment.aggregate';
+import { DELIVERY_FAILURE_CODES } from '@change-review/domain/value-objects/delivery-failure.vo';
 import { REVIEW_SIDES } from '@change-review/domain/value-objects/review-anchor.vo';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
@@ -34,6 +35,10 @@ export const reviewOutboxKind = pgEnum(
   'review_outbox_kind',
   REVIEW_OUTBOX_KINDS,
 );
+export const deliveryFailureCode = pgEnum(
+  'delivery_failure_code',
+  DELIVERY_FAILURE_CODES,
+);
 export const reviewOutboxState = pgEnum('review_outbox_state', [
   'pending',
   'done',
@@ -56,9 +61,7 @@ export const reviewComment = pgTable(
     authorLogin: text('author_login'),
     authorName: text('author_name').notNull(),
     replyToId: text('reply_to_id'),
-    reviewId: text('review_id').references(() => review.id, {
-      onDelete: 'set null',
-    }),
+    reviewId: text('review_id'),
     state: reviewCommentState('state').notNull(),
     githubId: bigint('github_id', { mode: 'number' }),
     githubUrl: text('github_url'),
@@ -70,13 +73,11 @@ export const reviewComment = pgTable(
       .default([]),
     createdAt: timestamptz('created_at').notNull(),
     editedAt: timestamptz('edited_at'),
+    failureCode: deliveryFailureCode('failure_code'),
+    failureDetail: text('failure_detail'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
-    unique('review_comment_workspace_id_id_key').on(
-      table.workspaceId,
-      table.id,
-    ),
     index('review_comment_reply_to_idx').on(table.replyToId),
     index('review_comment_review_idx').on(table.reviewId),
     index('review_comment_task_idx').on(table.taskId, table.createdAt),
@@ -104,8 +105,11 @@ export const review = pgTable(
     body: text('body').notNull(),
     state: reviewState('state').notNull(),
     githubId: bigint('github_id', { mode: 'number' }),
+    verdictOnGitHub: reviewVerdict('verdict_on_github'),
     submittedAt: timestamptz('submitted_at').notNull(),
     postedAt: timestamptz('posted_at'),
+    failureCode: deliveryFailureCode('failure_code'),
+    failureDetail: text('failure_detail'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
@@ -137,11 +141,6 @@ export const reviewIncludedComment = pgTable(
       columns: [table.workspaceId, table.reviewId],
       foreignColumns: [review.workspaceId, review.id],
     }).onDelete('cascade'),
-    foreignKey({
-      name: 'review_included_comment_comment_fk',
-      columns: [table.workspaceId, table.commentId],
-      foreignColumns: [reviewComment.workspaceId, reviewComment.id],
-    }),
     index('review_included_comment_comment_idx').on(table.commentId),
   ],
 );
@@ -158,7 +157,6 @@ export const reviewOutbox = pgTable(
     state: reviewOutboxState('state').notNull().default('pending'),
     attempts: integer('attempts').notNull().default(0),
     dueAt: timestamptz('due_at').notNull(),
-    failure: text('failure'),
     createdAt: timestamptz('created_at').defaultNow().notNull(),
   },
   (table) => [
@@ -171,15 +169,5 @@ export const reviewOutbox = pgTable(
       'review_outbox_one_subject',
       sql`(${table.kind} = 'review') = (${table.reviewId} is not null) and num_nonnulls(${table.reviewId}, ${table.commentId}) = 1`,
     ),
-    foreignKey({
-      name: 'review_outbox_review_fk',
-      columns: [table.workspaceId, table.reviewId],
-      foreignColumns: [review.workspaceId, review.id],
-    }),
-    foreignKey({
-      name: 'review_outbox_comment_fk',
-      columns: [table.workspaceId, table.commentId],
-      foreignColumns: [reviewComment.workspaceId, reviewComment.id],
-    }),
   ],
 );

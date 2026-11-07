@@ -25,6 +25,7 @@ describe('FirstTeam', () => {
           { resource: 'workspace', id: 'ws_1', key: 'acme' },
           changeActorIn('ws_1'),
         ),
+        null,
       ),
     );
 

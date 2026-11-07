@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { EFFORTS } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type {
   HarnessNote,
@@ -68,8 +69,6 @@ const BRIEFED_SKILLS: SkillsHome = {
   directory: '.spotlight/skills',
   readByHarness: false,
 };
-
-const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 
 const CLAUDE_CLI_VERSION = [
   "const { createRequire } = require('node:module');",

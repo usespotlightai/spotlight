@@ -96,6 +96,13 @@ export class ChatMessage {
       );
     }
 
+    if ((input.kind === 'proposed') !== (input.proposal !== null)) {
+      throw new InconsistentStateError(
+        'chat message',
+        `is a ${input.kind} message ${input.proposal ? 'with' : 'without'} a proposal`,
+      );
+    }
+
     if (input.acknowledgedBy && !input.acknowledgedAt) {
       throw new InconsistentStateError(
         'chat message',

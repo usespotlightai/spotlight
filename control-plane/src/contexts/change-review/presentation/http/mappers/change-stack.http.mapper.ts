@@ -19,6 +19,7 @@ import {
   StackHunkResponseDto,
   StackLayerResponseDto,
 } from '@change-review/presentation/http/dto/change-stack.response.dto';
+import { changeStackFailureText } from '@change-review/presentation/http/mappers/change-stack-failure.text';
 
 const stepOf = (step: CheckedStepDto): CheckedStepResponseDto =>
   new CheckedStepResponseDto(
@@ -51,7 +52,7 @@ const toStack = (stack: ChangeStackDto): ChangeStackResponseDto =>
     stack.id,
     stack.repository,
     stack.state,
-    stack.failure,
+    changeStackFailureText(stack.failure),
     stack.files.map(
       (file) =>
         new DiffFileResponseDto(

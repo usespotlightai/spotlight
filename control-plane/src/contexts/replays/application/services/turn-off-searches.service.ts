@@ -2,6 +2,7 @@ import type { WorkPort } from '@replays/application/ports/work.port';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 
 export class TurnOffSearches {
   constructor(
@@ -11,7 +12,7 @@ export class TurnOffSearches {
     private readonly clock: ClockPort,
   ) {}
 
-  async lineChanged(lineId: string): Promise<void> {
+  async lineChanged(lineId: LineId): Promise<void> {
     for (const each of await this.searches.activeOfLine(lineId)) {
       const live = await this.work.live(lineId, each.station.stationId);
 

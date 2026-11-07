@@ -1,14 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import {
+  MEMORY_DRAFTS,
+  type MemoryDraftRepository,
+} from '@memory/domain/repositories/memory-draft.repository';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
-import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import {
   type BriefingContext,
@@ -27,6 +32,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 interface Written {
@@ -51,7 +57,7 @@ const lineWith = async (id: string, key: string, work: string) => {
     key,
     name: key,
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -257,7 +263,7 @@ describe('briefing runs with what the team remembers', () => {
 
   it('never briefs a memory still waiting on a person', async () => {
     const runId = RunId.of(randomUUID());
-    await app.get(DrizzleMemoryDraftRepository).add(
+    await app.get<MemoryDraftRepository>(MEMORY_DRAFTS).add(
       MemoryDraft.create({
         id: MemoryDraftId.of(randomUUID()),
         taskId: team.list.id,
@@ -283,8 +289,8 @@ describe('briefing runs with what the team remembers', () => {
             runId,
             runContext: {
               teamId: TeamId.of(team.teamId.value),
-              lineId: DELIVERY,
-              stationId: BUILD,
+              lineId: LineId.of(DELIVERY),
+              stationId: StationId.of(BUILD),
               repositories: [API],
             },
             steps: [{ index: 1, kind: 'message', text: 'Sent it.' }],
@@ -345,6 +351,12 @@ describe('briefing runs with what the team remembers', () => {
       workspaceId: team.workspaceId.value,
       key: `other-${otherTeam.slice(0, 6)}`,
       name: 'Other',
+      origin: 'configuration',
+    });
+    await db.insert(schema.teamMember).values({
+      workspaceId: team.workspaceId.value,
+      teamId: otherTeam,
+      userId: team.owner.value,
     });
 
     const byStranger = await served(app)

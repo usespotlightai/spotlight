@@ -4,6 +4,10 @@ import {
   type OpenAPIObject,
   SwaggerModule,
 } from '@nestjs/swagger';
+import {
+  type ApiConvention,
+  ApiConventions,
+} from '@platform/http/api-conventions';
 import { FORBIDDEN_ACTS } from '@platform/http/resources/problem.exception';
 import {
   API_VERSION,
@@ -14,12 +18,7 @@ import {
   PROBLEM_CONTENT_TYPE,
   RESOURCE_EXTENSION,
 } from '@platform/http/resources/resource-headers';
-import {
-  EXPRESSIONS,
-  RESOURCE_API,
-  RESOURCES,
-  WORKSPACE_TOKEN_EXCHANGE,
-} from '@platform/http/routes';
+import { RESOURCE_API, RESOURCES } from '@platform/http/routes';
 
 const RESOURCE_CONVENTIONS = `
 HTTP API for the Spotlight Control Plane.
@@ -34,26 +33,30 @@ Operations marked \`${RESOURCE_EXTENSION}\` manage configuration resources, the 
 - **Idempotent creates.** A create must carry an \`${IDEMPOTENCY_KEY_HEADER}\`. Retrying with the same key and body within 24 hours returns the resource that the first attempt created, marked \`${IDEMPOTENT_REPLAY_HEADER}: true\`, and creates nothing more; the same key with a different body fails with 422.
 - **Problems name fields.** Errors are \`${PROBLEM_CONTENT_TYPE}\` (RFC 9457). \`type\` is stable and safe to branch on. An invalid request lists \`errors\`, each with the \`path\` of the attribute it is about, as in \`stations[2].check\`; a key that is not a plain name is quoted, as Terraform addresses it: \`on["task.opened"][0].to.thread\`.
 - **API versions.** The path names the major version, as in \`/${RESOURCE_API}\`; a change that is not additive gets a new path. Within it, a client may send \`${API_VERSION_HEADER}\`; every response names the version that it uses, currently \`${API_VERSION}\`. Changes within a version are additive only: fields and operations are added, never removed, renamed or given a new meaning.
-- **Expression checks.** \`POST /${EXPRESSIONS}/check\` type-checks one CEL expression at the attribute that contains it, named within the resource's whole definition (\`integration.webhook.events[0].when\`), as \`terraform plan\` needs. What the expression may read is worked out from that definition exactly as applying it would, so a plan fails where an apply would; a definition that has an error fails with 422, each error under \`definition\`. It returns the type and any errors, each with the span it is about and a suggestion where a declared name is near, and warnings about the definition, such as a capture shadowing a built-in name. \`GET /${EXPRESSIONS}/positions\` lists every position, with \`[*]\` for any index or key, and the variables an expression there can read. They follow these headers and problems, but are not resources.
-- **Credentials.** A client calls with a person's session or with a workspace token. A script or Terraform sends a workspace token, or the login that \`spotlight login\` stores, as \`Authorization: Bearer <token>\`. A login acts as its person, with that person's role. A token acts only within its own workspace and only as its scopes allow. \`read\`, \`plan\` and \`configure\` are a ladder: \`read\` reads, \`plan\` also checks expressions, and \`configure\` also creates, updates and deletes configuration as a workspace admin may, except secrets, runners and OIDC trusts. \`secrets\` is granted beside one of them and lets the token create, rebind, rotate and delete secrets; Terraform that manages secrets uses \`["configure", "secrets"]\`. \`runners\` is granted the same way and lets the token create, rekey and delete runners and runner trusts and create, update and delete the workspace's runners, since a runner claims runs, checks out repositories and keeps git credentials; Terraform that manages runners uses \`["configure", "runners"]\`. \`trusts\` is granted the same way and lets the token create, update and delete OIDC trusts, since a trust hands out tokens; a token can only create a trust that grants scopes it has itself, so bootstrap the trusts once with a token that has \`trusts\` and every scope they grant, as in \`["configure", "secrets", "trusts"]\`, and revoke it. No token manages members or tokens, or reads the audit.
-- **CI without a stored token.** A workspace admin, or a token granted \`trusts\`, creates an OIDC trust naming an OIDC issuer, audience, subject and claims, and the scopes and lifetime (at most an hour) of the tokens it issues. A CI job exchanges the OIDC token its platform issues it at \`POST /${WORKSPACE_TOKEN_EXCHANGE}/exchange\` with \`{ "trust": <trust id>, "token": <OIDC token> }\`, and calls with the short-lived token it gets back. Deleting the trust stops every token that it issued at once, and the audit names the trust and the workload's subject beside each exchange and each change made with an issued token.
 - **Forbidden changes.** A change by someone who may read the resource but not change it, person or token, fails with 403 \`forbidden\`, whose \`permission\` names what the caller lacks, one of ${FORBIDDEN_ACTS.map((act) => `\`${act}\``).join(', ')}. Anything they may not see at all returns 404.
-- **Who changed what.** A client names itself in \`${CLIENT_HEADER}\` (\`terraform-provider/<version>\` or \`web\`), and every configuration change is recorded with who made it, person or token, and through which client. A secret's change also records the value version it moved to and the hosts it is bound to, never its value.
+- **Who changed what.** A client names itself in \`${CLIENT_HEADER}\` (\`terraform-provider/<version>\` or \`web\`), and every configuration change is recorded with who made it, person or token, and through which client.
 - **Import by address.** Each resource has an \`address\` that names it within its workspace, such as \`core/linear\`, and an import operation that returns the resource at that address, as \`terraform import\` needs. A workspace's address is its slug; a team's is its key; anything a team owns is the team's key and its own, as in \`core/delivery\`.
 `.trim();
 
-const openApiConfig = new DocumentBuilder()
-  .setTitle('Spotlight Control Plane')
-  .setDescription(RESOURCE_CONVENTIONS)
-  .setVersion(API_VERSION)
-  .addServer('/api')
-  .addBearerAuth({
-    type: 'http',
-    scheme: 'bearer',
-    bearerFormat: 'opaque',
-    description: 'A workspace token',
-  })
-  .build();
+const descriptionWith = (conventions: readonly ApiConvention[]): string =>
+  [
+    RESOURCE_CONVENTIONS,
+    ...conventions.map(({ title, text }) => `- **${title}.** ${text}`),
+  ].join('\n');
+
+const openApiConfig = (conventions: readonly ApiConvention[]) =>
+  new DocumentBuilder()
+    .setTitle('Spotlight Control Plane')
+    .setDescription(descriptionWith(conventions))
+    .setVersion(API_VERSION)
+    .addServer('/api')
+    .addBearerAuth({
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'opaque',
+      description: 'A workspace token',
+    })
+    .build();
 
 export const buildOpenApiDocument = (app: INestApplication): OpenAPIObject =>
-  SwaggerModule.createDocument(app, openApiConfig);
+  SwaggerModule.createDocument(app, openApiConfig(app.get(ApiConventions).all));

@@ -9,39 +9,52 @@ import { describe, expect, it } from 'vitest';
 const route = (
   path: string,
   credential: Route['credential'],
+  audience: Route['audience'] = null,
   method = 'get',
-): Route => ({ method, path, credential });
+): Route => ({ method, path, credential, audience });
 
 describe('audienceOf', () => {
   it.each([
     [route('/workspaces', 'session'), 'web'],
-    [route('/invites/{token}', 'anonymous'), 'web'],
-    [route('/v1/resources/lines/{id}', 'workspace-token'), 'resources'],
-    [route('/v1/expressions/check', 'workspace-token', 'post'), 'resources'],
-    [route('/v1/workspace-tokens/exchange', 'anonymous', 'post'), 'resources'],
-    [route('/teams/{teamId}/insights/cost', 'workspace-token'), 'insights'],
-    [route('/runs/{runId}/events', 'runner', 'post'), 'hosts'],
-    [route('/hosts/claim', 'anonymous', 'post'), 'hosts'],
-    [route('/hook-callbacks/task', 'anonymous'), 'public'],
+    [route('/invites/{token}', 'anonymous', 'web'), 'web'],
+    [
+      route('/v1/resources/lines/{id}', 'workspace-token', 'resources'),
+      'resources',
+    ],
+    [
+      route('/v1/workspace-tokens/exchange', 'anonymous', 'resources'),
+      'resources',
+    ],
+    [
+      route('/teams/{teamId}/insights/cost', 'workspace-token', 'insights'),
+      'insights',
+    ],
+    [route('/runs/{runId}/events', 'runner', null, 'post'), 'hosts'],
+    [route('/hosts/claim', 'anonymous', 'hosts', 'post'), 'hosts'],
+    [route('/hook-callbacks/task', 'anonymous', 'public'), 'public'],
   ])('puts %o in %s', (each, audience) => {
     expect(audienceOf(each)).toBe(audience);
   });
 
-  it('fails for an anonymous route under no listed path', () => {
+  it('fails for an anonymous route that names no audience', () => {
     expect(() => audienceOf(route('/somewhere', 'anonymous'))).toThrow(
-      'GET /somewhere (anonymous) must belong to exactly one audience, but belongs to none.',
+      'GET /somewhere (anonymous) must name its audience with @InAudience; anonymous routes have none by default.',
     );
   });
 
-  it('fails for a workspace-token route outside the versioned API and teams', () => {
+  it('fails for a workspace-token route that names no audience', () => {
     expect(() =>
       audienceOf(route('/resources/lines', 'workspace-token')),
-    ).toThrow('belongs to none');
+    ).toThrow('must name its audience');
   });
 
-  it('matches whole path segments only', () => {
-    expect(() => audienceOf(route('/hostsx', 'anonymous'))).toThrow(
-      'belongs to none',
+  it('fails for a route in an audience that does not take its credential', () => {
+    expect(() =>
+      audienceOf(
+        route('/teams/{teamId}/insights/cost', 'anonymous', 'insights'),
+      ),
+    ).toThrow(
+      'GET /teams/{teamId}/insights/cost (anonymous) is in the insights audience, which takes workspace-token routes only.',
     );
   });
 });
@@ -83,8 +96,8 @@ describe('documentsByAudience', () => {
   } as unknown as OpenAPIObject;
 
   const routes = [
-    route('/v1/resources/lines/{id}', 'workspace-token'),
-    route('/runs/{runId}/events', 'runner', 'post'),
+    route('/v1/resources/lines/{id}', 'workspace-token', 'resources'),
+    route('/runs/{runId}/events', 'runner', null, 'post'),
   ];
 
   it('keeps the operations, tags and schemas each audience reaches', () => {

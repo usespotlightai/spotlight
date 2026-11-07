@@ -68,4 +68,6 @@ export const QuestionId = {
   in: (layer: LayerId, place: number): QuestionId =>
     `${layer}.q${placed(place, 'questions')}` as QuestionId,
   of: (raw: string): QuestionId => named<QuestionId>(raw, QUESTION, 'question'),
+  parsed: (raw: string): QuestionId | null =>
+    QUESTION.test(raw) ? (raw as QuestionId) : null,
 };

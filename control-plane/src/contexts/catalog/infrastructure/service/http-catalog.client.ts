@@ -4,7 +4,7 @@ import type {
   CatalogServicePort,
 } from '@catalog/application/ports/catalog-service.port';
 import type { CatalogTool } from '@catalog/domain/entities/catalog-item.entity';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 
 type Fetch = typeof globalThis.fetch;
 

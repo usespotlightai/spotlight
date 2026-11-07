@@ -2,6 +2,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { SendChatMessageCommand } from '@work/application/commands/chat.commands';
@@ -11,7 +12,6 @@ import type { FilesLoader } from '@work/application/services/files-loader.servic
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { Effort } from '@work/domain/value-objects/effort.vo';
 
 export class SendChatMessageHandler
   implements CommandHandlerPort<SendChatMessageCommand, void>

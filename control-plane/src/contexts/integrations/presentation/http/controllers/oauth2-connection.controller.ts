@@ -1,12 +1,10 @@
 import { BeginOAuth2ConnectionCommand } from '@integrations/application/commands/begin-oauth2-connection.command';
 import { FinishOAuth2ConnectionCommand } from '@integrations/application/commands/finish-oauth2-connection.command';
-import {
-  OAUTH2_CALLBACK_ROUTE,
-  type OAuth2Start,
-} from '@integrations/application/ports/oauth2-linking.port';
+import type { OAuth2Start } from '@integrations/application/ports/oauth2-linking.port';
 import { ACTS_AS } from '@integrations/domain/value-objects/acts-as.vo';
 import { ConnectIntegrationRequestDto } from '@integrations/presentation/http/dto/connect-integration.request.dto';
 import { OAuth2StartResponseDto } from '@integrations/presentation/http/dto/oauth2-start.response.dto';
+import { OAUTH2_CALLBACK_ROUTE } from '@integrations/presentation/http/oauth2-callback-route';
 import {
   type CookieJar,
   OAuth2NonceCookie,
@@ -39,12 +37,9 @@ import {
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import { RateLimited } from '@platform/http/decorators/rate-limited.decorator';
-import {
-  type AuthenticatedUser,
-  type RequestHeaders,
-  SESSION_READER,
-  type SessionReaderPort,
-} from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
+import type { RequestHeaders } from '@platform/http/request-headers';
+import { SESSION_READER, type SessionReaderPort } from '@identity/application/ports/session-reader.port';
 
 export interface Redirectable extends CookieJar {
   redirect(url: string): void;

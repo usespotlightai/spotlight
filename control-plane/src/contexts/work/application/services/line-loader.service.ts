@@ -1,22 +1,23 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { UnknownLineError } from '@work/domain/exceptions/unknown-line.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 export class LineLoader {
   constructor(
     private readonly access: WorkspaceAccessPort,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
   ) {}
 
   async onTeam(
     teamId: string,
     lineId: string,
     viewerId: string,
-  ): Promise<Line> {
+  ): Promise<LineMap> {
     const line = await this.lines.find(LineId.of(lineId));
 
     if (!line || !(await this.visible(line, teamId, viewerId))) {
@@ -30,18 +31,21 @@ export class LineLoader {
     teamId: string,
     stationId: StationId,
     viewerId: string,
-  ): Promise<Line | null> {
+  ): Promise<LineMap | null> {
     const line = await this.lines.findByStation(stationId);
 
     return line && (await this.visible(line, teamId, viewerId)) ? line : null;
   }
 
   private async visible(
-    line: Line,
+    line: LineMap,
     teamId: string,
     viewerId: string,
   ): Promise<boolean> {
-    const team = await this.access.onTeam(teamId, UserId.of(viewerId));
+    const team = await this.access.inWorkspaceOfTeam(
+      TeamId.of(teamId),
+      UserId.of(viewerId),
+    );
 
     return team !== null && line.teamId.equals(team.teamId);
   }

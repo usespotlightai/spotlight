@@ -1,6 +1,6 @@
+import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
-import { Effort } from '@work/domain/value-objects/effort.vo';
 import { BuiltInHarnesses } from '@work/infrastructure/harnesses/built-in-harnesses';
 import { describe, expect, it } from 'vitest';
 

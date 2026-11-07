@@ -7,6 +7,7 @@ import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import {
+  cancelledUnclaimed,
   runsToSee,
   type SeenRun,
   unclaimedTooLong,
@@ -80,17 +81,7 @@ export class AdvanceSearches implements PendingJobsPort {
     const cancellation = await this.work.cancelUnclaimedSearchRun(unclaimed);
 
     return cancellation.outcome === 'cancelled'
-      ? runs.map((each) =>
-          each.run.equals(unclaimed)
-            ? {
-                ...each,
-                phase: 'ended' as const,
-                failed: true,
-                started: cancellation.started,
-                endedAt: at,
-              }
-            : each,
-        )
+      ? cancelledUnclaimed(runs, unclaimed, cancellation.started, at)
       : runs;
   }
 }

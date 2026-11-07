@@ -1,14 +1,16 @@
 import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
 import type { EndedRun, WorkPort } from '@insights/application/ports/work.port';
+import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordHumanAction } from '@insights/application/services/record-human-action.service';
 import { RecordRunUsageSummary } from '@insights/application/services/record-run-usage-summary.service';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import {
   endedRecord,
   inTransaction,
   RunRecordsInMemory,
   WORKSPACE,
-} from '@insights/domain/runs.fake-spec';
+} from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -34,9 +36,7 @@ const workOfTeam = (teamId: string): WorkPort => ({
       taskId: 'task_1',
     }) as EndedRun,
   configsInOrder: async () => [],
-  teamRepositories: async () => [],
   teamSkillKeys: async () => [],
-  alertsAt: async () => null,
 });
 
 const acting = async (...runs: Ended[]) => {
@@ -50,7 +50,7 @@ const acting = async (...runs: Ended[]) => {
   const service = new RecordHumanAction(
     workOfTeam('team_1'),
     records,
-    deletions,
+    new FactRecorder(deletions),
     inTransaction,
   );
 
@@ -220,7 +220,9 @@ describe('recording what a person did after a run', () => {
 
   it('keeps no act on a run of a team that was deleted', async () => {
     const recorder = await acting();
-    await recorder.deletions.deleteTeam(WORKSPACE, TeamId.of('team_1'));
+    await recorder.deletions.markDeleted(
+      DeletionScope.ofTeam(WORKSPACE, TeamId.of('team_1')),
+    );
 
     await recorder.acted('dismissed', 11, 'run_7', {
       tool: 'create_issue',
@@ -253,10 +255,15 @@ describe('recording how a run’s change was checked', () => {
     const records = new RunRecordsInMemory();
     await records.add(endedRecord('run_1'));
 
-    await new RecordChangeChecks(records, deletionsInMemory(), inTransaction, {
-      now: () => RECEIVED_AT,
-      sleep: async () => {},
-    }).checked(RunId.of('run_1'), WORKSPACE, null, false);
+    await new RecordChangeChecks(
+      records,
+      new FactRecorder(deletionsInMemory()),
+      inTransaction,
+      {
+        now: () => RECEIVED_AT,
+        sleep: async () => {},
+      },
+    ).checked(RunId.of('run_1'), WORKSPACE, TaskId.of('task_1'), false);
 
     expect((await records.of(RunId.of('run_1')))?.checks).toBe('failed');
   });
@@ -264,10 +271,15 @@ describe('recording how a run’s change was checked', () => {
   it('keeps a verdict received before the end of the run', async () => {
     const records = new RunRecordsInMemory();
 
-    await new RecordChangeChecks(records, deletionsInMemory(), inTransaction, {
-      now: () => RECEIVED_AT,
-      sleep: async () => {},
-    }).checked(RunId.of('run_1'), WORKSPACE, TaskId.of('task_1'), null);
+    await new RecordChangeChecks(
+      records,
+      new FactRecorder(deletionsInMemory()),
+      inTransaction,
+      {
+        now: () => RECEIVED_AT,
+        sleep: async () => {},
+      },
+    ).checked(RunId.of('run_1'), WORKSPACE, TaskId.of('task_1'), null);
 
     const record = await records.of(RunId.of('run_1'));
     expect(record?.checks).toBe('skipped');
@@ -300,12 +312,14 @@ describe('recording how a run used its tools', () => {
   it('keeps no tool use of a run of a team that was deleted', async () => {
     const records = new RunRecordsInMemory();
     const deletions = deletionsInMemory();
-    await deletions.deleteTeam(WORKSPACE, TeamId.of('team_1'));
+    await deletions.markDeleted(
+      DeletionScope.ofTeam(WORKSPACE, TeamId.of('team_1')),
+    );
 
     await new RecordRunUsageSummary(
       workOfTeam('team_1'),
       records,
-      deletions,
+      new FactRecorder(deletions),
       inTransaction,
     ).usageRecorded(usage('run_7'));
 
@@ -319,7 +333,7 @@ describe('recording how a run used its tools', () => {
     await new RecordRunUsageSummary(
       workOfTeam('team_1'),
       records,
-      deletionsInMemory(),
+      new FactRecorder(deletionsInMemory()),
       inTransaction,
     ).usageRecorded(usage('run_7'));
 

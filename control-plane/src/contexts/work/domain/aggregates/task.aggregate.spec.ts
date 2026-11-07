@@ -1,22 +1,29 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
-import type { RunDetached } from '@work/domain/events/run-detached.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskPassed } from '@work/domain/events/task-passed.event';
+import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
+import { DraftAlreadySentError } from '@work/domain/exceptions/draft-already-sent.error';
 import { InvalidTaskRevisionError } from '@work/domain/exceptions/invalid-task-revision.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
@@ -27,25 +34,23 @@ import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewab
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import { Happening } from '@work/domain/value-objects/happening.vo';
+import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  routesOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -103,18 +108,18 @@ const station = (
   id: string,
   name: string,
   position: number,
-  over: Partial<Parameters<typeof Station.of>[0]> = {},
+  over: Partial<Parameters<typeof stationOf>[0]> = {},
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(id.replace('_', '-')),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     ...over,
   });
 
-const LINE = Line.rehydrate({
+const LINE = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
@@ -124,7 +129,7 @@ const LINE = Line.rehydrate({
     station('station_0', 'Backlog', 0, { kind: 'backlog' }),
     station('station_1', 'Triage', 1, {
       harness: HarnessId.of('dev'),
-      routes: StationRoutes.of({
+      routes: routesOf({
         stations: [StationId.of('station_2')],
         ends: true,
       }),
@@ -139,11 +144,38 @@ const RUN = RunId.of('run_1');
 const HERE = StationId.of('station_1');
 
 const newNote = {
-  station: StationName.of('Triage'),
+  station: null,
   body: TaskNoteBody.of('Reproduced on restart.'),
   at: NOW,
   voice: Voice.station(),
 };
+
+const lastOf = (task: Task) => task.notes[task.notes.length - 1];
+
+describe('Task, the station a note is written at', () => {
+  it('names the station the task is at', () => {
+    const at = LINE.stationAt(StationId.of('station_1'));
+    const noted = added().addMessage({ ...newNote, station: at });
+
+    expect(lastOf(noted)?.station.value).toBe('Triage');
+    expect(lastOf(noted)?.stationId.value).toBe('station_1');
+  });
+
+  it('refuses a note at a station the task is not at', () => {
+    expect(() =>
+      added().addMessage({
+        ...newNote,
+        station: LINE.stationAt(StationId.of('station_2')),
+      }),
+    ).toThrow(InconsistentStateError);
+  });
+
+  it('names no station it was not told', () => {
+    expect(lastOf(added().addMessage(newNote))?.station).toEqual(
+      StationName.unknown(),
+    );
+  });
+});
 
 describe('Task', () => {
   it('is at the station it was added to', () => {
@@ -314,14 +346,63 @@ describe('Task', () => {
   });
 });
 
+describe('Task, sending a shared draft', () => {
+  it('moves the draft on once it is sent with the generation it was written in', () => {
+    const sent = added().sendDraft(DraftGeneration.of(0));
+
+    expect(sent.draftGeneration).toEqual(DraftGeneration.of(1));
+    expect(sent.sendDraft(null)).toBe(sent);
+  });
+
+  it('refuses a second send of the same generation', () => {
+    const sent = added().sendDraft(DraftGeneration.of(0));
+
+    expect(() => sent.sendDraft(DraftGeneration.of(0))).toThrow(
+      DraftAlreadySentError,
+    );
+  });
+});
+
+describe('Task, holding a mark', () => {
+  const THREAD = Mark.of('slack.thread', '170.9');
+
+  it('records that it was marked, once, and knows since when', () => {
+    const marked = added().markedBy(THREAD, NOW);
+    const again = marked.markedBy(THREAD, new Date('2026-12-01T00:00:00.000Z'));
+
+    expect(marked.holdsMark(THREAD)?.since).toEqual(NOW);
+    expect(again).toBe(marked);
+    expect(
+      marked.pullEvents().filter((each) => each.kind === 'task.marked'),
+    ).toHaveLength(1);
+  });
+
+  it('lets a mark go', () => {
+    expect(added().markedBy(THREAD, NOW).releaseMark(THREAD).marks).toEqual([]);
+  });
+});
+
 describe('Task, reopened by a word', () => {
+  const MENTIONED = Happening.of('slack.mention.received');
+  const SENT_TO_SPEC = Happening.of('github.issue.reopened');
+  const REACTING = lineMapOf({
+    id: LINE.id,
+    workspaceId: LINE.workspaceId,
+    teamId: LINE.teamId,
+    key: LINE.key,
+    name: LINE.name,
+    stations: LINE.stations,
+    reactions: [
+      Reaction.of({ happening: SENT_TO_SPEC, to: StationId.of('station_2') }),
+    ],
+  });
   const ADA = UserId.of('ada');
   const said = { ...newNote, voice: Voice.person(ADA) };
   const ended = () =>
     added().assignRun(RUN, LINE).finishHere(RUN, LINE, newNote);
 
   it('reopens a finished task where it is, with the word, as a send-back', () => {
-    const reopened = ended().reopen(LINE, HERE, TaskRank.of('m'), said);
+    const reopened = ended().reopen(LINE, MENTIONED, TaskRank.of('m'), said);
 
     expect(reopened.finished).toBe(false);
     expect(reopened.stationId).toEqual(HERE);
@@ -333,10 +414,17 @@ describe('Task, reopened by a word', () => {
     });
   });
 
+  it('reopens a finished task where the line reacts to what was said', () => {
+    expect(ended().reopensAt(REACTING, SENT_TO_SPEC)).toEqual(
+      StationId.of('station_2'),
+    );
+    expect(ended().reopensAt(REACTING, MENTIONED)).toEqual(HERE);
+  });
+
   it('reopens a finished task at another station', () => {
     const reopened = ended().reopen(
-      LINE,
-      StationId.of('station_2'),
+      REACTING,
+      SENT_TO_SPEC,
       TaskRank.of('m'),
       said,
     );
@@ -346,9 +434,9 @@ describe('Task, reopened by a word', () => {
   });
 
   it('does not reopen a task that is not finished', () => {
-    expect(() => added().reopen(LINE, HERE, TaskRank.of('m'), said)).toThrow(
-      InvalidTaskTransitionError,
-    );
+    expect(() =>
+      added().reopen(LINE, MENTIONED, TaskRank.of('m'), said),
+    ).toThrow(InvalidTaskTransitionError);
   });
 
   it('does not reopen a completed task', () => {
@@ -360,14 +448,14 @@ describe('Task, reopened by a word', () => {
     );
 
     expect(completed.reopenableOn(LINE)).toBe(false);
-    expect(() => completed.reopen(LINE, HERE, TaskRank.of('m'), said)).toThrow(
-      InvalidTaskTransitionError,
-    );
+    expect(() =>
+      completed.reopen(LINE, MENTIONED, TaskRank.of('m'), said),
+    ).toThrow(InvalidTaskTransitionError);
   });
 
   it('does not take a word from the world as a reopening', () => {
     expect(() =>
-      ended().reopen(LINE, HERE, TaskRank.of('m'), {
+      ended().reopen(LINE, MENTIONED, TaskRank.of('m'), {
         ...newNote,
         voice: Voice.world(),
       }),
@@ -413,7 +501,7 @@ describe('Task, what it is doing', () => {
   });
 
   it('is not idle while it waits on a person', () => {
-    const task = created().askedAbout(asked(), null);
+    const task = created().askedAbout({ ...asked(), station: null }, null);
 
     expect(task.running).toBe(false);
     expect(task.idle).toBe(false);
@@ -422,21 +510,35 @@ describe('Task, what it is doing', () => {
     const session = HarnessSession.of('session_1');
     const runner = RunnerId.of('runner_1');
 
+    const WORKING = RunId.of('run_working');
+    const workedBy = () =>
+      Task.rehydrate({ ...added(), currentRunId: WORKING });
+    const sessionRecorded = () =>
+      Task.rehydrate({
+        ...workedBy().recordSession(WORKING, session, runner),
+        currentRunId: null,
+      });
+
+    it('ignores a session reported by a run that no longer works it', () => {
+      expect(
+        workedBy().recordSession(RunId.of('run_gone'), session, runner)
+          .sessionId,
+      ).toBeNull();
+    });
+
     it('is not there until a run has worked it', () => {
       expect(added().sessionId).toBeNull();
     });
 
     it('is remembered once one has, with the runner that leases it', () => {
-      const recorded = added().recordSession(session, runner);
+      const recorded = workedBy().recordSession(WORKING, session, runner);
 
       expect(recorded.sessionId).toEqual(session);
       expect(recorded.runnerId).toEqual(runner);
     });
 
     it('survives being put to a person', () => {
-      const asked = added()
-        .recordSession(session, runner)
-        .askedAbout(newNote, null);
+      const asked = sessionRecorded().askedAbout(newNote, null);
 
       expect(asked.sessionId).toEqual(session);
       expect(asked.runnerId).toEqual(runner);
@@ -444,18 +546,24 @@ describe('Task, what it is doing', () => {
     });
 
     it('is left behind when the task is passed on', () => {
-      const passed = added()
-        .recordSession(session, runner)
-        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote);
+      const passed = sessionRecorded().react(
+        LINE,
+        StationId.of('station_2'),
+        TaskRank.of('m'),
+        newNote,
+      );
 
       expect(passed.sessionId).toBeNull();
       expect(passed.runnerId).toBeNull();
     });
 
     it('is left behind when the task is moved by hand', () => {
-      const moved = added()
-        .recordSession(session, runner)
-        .react(LINE, StationId.of('station_2'), TaskRank.of('m'), newNote);
+      const moved = sessionRecorded().react(
+        LINE,
+        StationId.of('station_2'),
+        TaskRank.of('m'),
+        newNote,
+      );
 
       expect(moved.sessionId).toBeNull();
       expect(moved.runnerId).toBeNull();
@@ -474,7 +582,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('hands the conversation to the next run', () => {
-      const carried = added().recordSession(session, runner).resume();
+      const carried = sessionRecorded().resume();
 
       expect(carried.sessionId).toEqual(session);
     });
@@ -484,8 +592,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('survives a person answering what it was waiting on', () => {
-      const answered = added()
-        .recordSession(session, runner)
+      const answered = sessionRecorded()
         .askedAbout(newNote, null)
         .answer(NotePosition.of(0), newNote);
 
@@ -496,9 +603,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('survives being reordered where it is', () => {
-      const reordered = added()
-        .recordSession(session, runner)
-        .reorderTo(TaskRank.of('m'));
+      const reordered = sessionRecorded().reorderTo(TaskRank.of('m'));
 
       expect(reordered.sessionId).toEqual(session);
       expect(reordered.runnerId).toEqual(runner);
@@ -1058,7 +1163,7 @@ describe('Task, what it is doing', () => {
       task
         .pullEvents()
         .filter((each) => each.kind === 'task.run-detached')
-        .map((each) => (each as RunDetached).runId);
+        .map((each) => (each as TaskRunDetached).runId);
 
     const assigned = () => {
       const task = added().assignRun(RUN, LINE);
@@ -1139,7 +1244,7 @@ describe('Task, what it is doing', () => {
     const url = PullRequestUrl.of('https://github.com/acme/widgets/pull/7');
 
     it('has the mark of the pull request, and reviews it rather than owning it', () => {
-      const reviewing = added().reviews(url, { outside: false });
+      const reviewing = added().reviews(url, { outside: false }, new Date(0));
 
       expect(reviewing.pullRequest).toEqual(url);
       expect(reviewing.reviewing).toBe(true);
@@ -1153,7 +1258,7 @@ describe('Task, what it is doing', () => {
     });
 
     it('says which pull request it reviews, so Insights can tell people’s pull requests Spotlight touched', () => {
-      const reviewing = added().reviews(url, { outside: false });
+      const reviewing = added().reviews(url, { outside: false }, new Date(0));
 
       expect(reviewing.pullEvents()).toContainEqual(
         expect.objectContaining({
@@ -1166,9 +1271,13 @@ describe('Task, what it is doing', () => {
 
     it('reviews only a pull request whose head it can check out', () => {
       expect(() =>
-        added().reviews(PullRequestUrl.of('https://gitlab.example/acme/7'), {
-          outside: false,
-        }),
+        added().reviews(
+          PullRequestUrl.of('https://gitlab.example/acme/7'),
+          {
+            outside: false,
+          },
+          new Date(0),
+        ),
       ).toThrow(UnreviewablePullRequestError);
     });
 
@@ -1179,7 +1288,7 @@ describe('Task, what it is doing', () => {
 
       expect(own.reviewing).toBe(false);
       expect(own.reviewedHead).toBeNull();
-      expect(() => own.reviews(url, { outside: false })).toThrow(
+      expect(() => own.reviews(url, { outside: false }, new Date(0))).toThrow(
         InvalidTaskTransitionError,
       );
     });
@@ -1262,7 +1371,7 @@ describe('Task, what it is doing', () => {
   });
 
   describe('moving along its line', () => {
-    const ELSEWHERE = Line.rehydrate({
+    const ELSEWHERE = lineMapOf({
       id: LineId.of('line_2'),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
@@ -1495,6 +1604,7 @@ describe('Task, what it is doing', () => {
           notes: [
             TaskNote.of({
               ...newNote,
+              station: StationName.unknown(),
               stationId: HERE,
               kind: 'message',
               position: NotePosition.of(1),
@@ -1822,7 +1932,7 @@ describe('Task and the happenings received while it has a current run', () => {
     task
       .pullEvents()
       .filter((each) => each.kind === 'task.run-detached')
-      .map((each) => (each as RunDetached).runId);
+      .map((each) => (each as TaskRunDetached).runId);
 
   it('cannot be moved by a happening while it has a current run', () => {
     expect(() => assigned().react(LINE, SPEC, TaskRank.of('m'), world)).toThrow(

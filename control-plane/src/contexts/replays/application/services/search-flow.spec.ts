@@ -7,7 +7,6 @@ import type {
   SearchNotice,
   StationNotice,
 } from '@replays/application/ports/search-notices.port';
-import { DEFAULT_GUIDANCE } from '@replays/application/rendering/visible-result';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { CancelSearch } from '@replays/application/services/cancel-search.service';
 import { DeleteSearches } from '@replays/application/services/delete-searches.service';
@@ -31,15 +30,17 @@ import { SearchFindings } from '@replays/application/services/search-findings.se
 import { SearchVisibilities } from '@replays/application/services/search-visibilities.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import { StartSearch } from '@replays/application/services/start-search.service';
+import { StartSearchReplays } from '@replays/application/services/start-search-replays.service';
 import { TurnOffSearches } from '@replays/application/services/turn-off-searches.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
-import { SearchDeletionRequested } from '@replays/domain/events/search-deletion-requested.event';
+import { SearchDeleted } from '@replays/domain/events/search-deleted.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
 import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
+import { SearchReplaysPlanned } from '@replays/domain/events/search-replays-planned.event';
 import { UnknownSearchRunError } from '@replays/domain/exceptions/unknown-search-run.error';
 import {
   aSet,
@@ -55,16 +56,18 @@ import {
   runIds,
   STATION,
   sha256,
+  slots,
   UNSCORED,
 } from '@replays/domain/replays.fake-spec';
 import { tasksWithTaskCause } from '@replays/domain/services/reflected-tasks';
 import { scoresOf } from '@replays/domain/services/search-scores';
+import { DEFAULT_GUIDANCE } from '@replays/domain/services/visible-result';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
-import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
+import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchBudget } from '@replays/domain/value-objects/search-budget.vo';
@@ -72,6 +75,7 @@ import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
+import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -82,7 +86,12 @@ let work: FakeWork;
 const HASH = { sha256 };
 
 const healthsFor = () =>
-  new SetHealths(work, memory.replayRepository, memory.candidateRepository);
+  new SetHealths(
+    work,
+    memory.replayRepository,
+    memory.replaysReader,
+    memory.candidateRepository,
+  );
 
 interface BudgetTerms {
   readonly iterations: number;
@@ -108,10 +117,9 @@ const starting = () =>
   new StartSearch(
     snapshotsFor(memory, work),
     memory.setRepository,
-    memory.replayRepository,
-    memory.candidateRepository,
     memory.searchRepository,
     memory.scheduleRepository,
+    memory.budgetRepository,
     HASH,
     IDS,
     CLOCK,
@@ -202,7 +210,6 @@ const iterating = () =>
     memory.searchRepository,
     memory.candidateRepository,
     memory.replayRepository,
-    memory.setRepository,
     healthsFor(),
     work,
     IDS,
@@ -214,8 +221,6 @@ const holdingOut = () =>
   new HoldOutSearch(
     memory.searchRepository,
     memory.replayRepository,
-    memory.candidateRepository,
-    memory.setRepository,
     IDS,
     CLOCK,
     TRANSACTION,
@@ -312,8 +317,7 @@ const proposing = () =>
     work,
     memory.searchRepository,
     memory.candidateRepository,
-    memory.replayRepository,
-    memory.setRepository,
+    snapshotsFor(memory, work),
     IDS,
     CLOCK,
     TRANSACTION,
@@ -423,6 +427,7 @@ beforeEach(async () => {
   noticed = [];
   advised = [];
   memory = new InMemoryReplays();
+  memory.startsPlannedReplays = true;
   work = new FakeWork();
   work.live = async () => ({
     lineKey: 'delivery',
@@ -931,7 +936,7 @@ describe('SearchVisibilities', () => {
     ).of(run);
     const heldOut = search.split.heldOutRuns.map((each) => each.value);
 
-    expect(visibility.stationId).toBe(STATION.stationId);
+    expect(visibility.stationId).toBe(STATION.stationId.value);
     expect([...visibility.heldOutTasks].sort()).toEqual(
       search.split.heldOut.map((each) => each.taskId.value).sort(),
     );
@@ -991,7 +996,7 @@ describe('SearchVisibilities', () => {
         spent: ModelSpent.of([], 0),
       },
     ]);
-    const reserved = seed.reserving(seed.entries.length, runIds());
+    const reserved = seed.reserving(slots(seed.entries.length), runIds());
     await memory.replayRepository.save(
       reserved.entries.reduce((held, entry, at) => {
         const run = entry.run as RunId;
@@ -1070,21 +1075,20 @@ describe('DeleteSearches', () => {
     await seeded();
     const run = activeRun();
 
-    const due = await deleting().deleteForTeam(
-      STATION.teamId,
-      STATION.workspaceId,
+    memory.events.length = 0;
+
+    await deleting().ofTeam(TeamId.of('team_2'));
+    expect(memory.searches.size).toBe(1);
+
+    await deleting().ofTeam(STATION.teamId);
+    expect(memory.searches.size).toBe(0);
+
+    const [deleted] = memory.events.filter(
+      (each): each is SearchDeleted => each instanceof SearchDeleted,
     );
 
-    expect(due).toEqual([
-      new SearchDeletionRequested(theSearch().id, STATION.workspaceId),
-    ]);
-    expect(
-      await deleting().deleteForTeam(TeamId.of('team_2'), STATION.workspaceId),
-    ).toEqual([]);
-
-    await deleting().search((due[0] as SearchDeletionRequested).searchId);
-
-    expect(memory.searches.size).toBe(0);
+    expect(deleted?.runToCancel?.value).toBe(run);
+    await deleting().cancelRunOf(deleted as SearchDeleted);
     expect(work.cancelledSearchRuns).toEqual([run]);
   });
 
@@ -1224,31 +1228,43 @@ describe('AdvanceSearches', () => {
     expect(theSearch().iterations).toHaveLength(2);
   });
 
-  it('never ends a replay accepted after it last looked, though its row is not there yet', async () => {
+  it('waits for a planned replay to start, however often it looks before, and ends it only once its started row is gone', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
-    const run = activeRun();
-    const seen = theSearch();
-    const proposed = await propose(run, 'firmer');
+    memory.startsPlannedReplays = false;
+    const proposed = await propose(activeRun(), 'firmer');
 
     if (proposed.outcome !== 'proposed') {
       throw new Error('the proposal was rejected');
     }
 
-    await progress().reconcile(seen, []);
+    await advancing().processDue();
+    await progress().reconcile(theSearch(), []);
+
+    expect(theSearch().proposals[0]?.replay.hasEnded).toBe(false);
+
+    await new StartSearchReplays(
+      memory.searchRepository,
+      memory.replayRepository,
+      memory.candidateRepository,
+      memory.setRepository,
+      CLOCK,
+      TRANSACTION,
+    ).planned(
+      new SearchReplaysPlanned(theSearch().id, theSearch().workspaceId, [
+        ReplayId.of(proposed.replayId),
+      ]),
+    );
+    await advancing().processDue();
 
     expect(theSearch().proposals[0]?.replay.hasEnded).toBe(false);
 
     memory.replays.delete(proposed.replayId);
-    await progress().reconcile(seen, []);
-
-    expect(theSearch().proposals[0]?.replay.hasEnded).toBe(false);
-
-    await progress().reconcile(theSearch(), []);
+    await advancing().processDue();
 
     expect(theSearch().proposals[0]?.replay.end).toBe('deleted');
   });
 
-  it('counts a search replay whose row is gone as ended with nothing spent', async () => {
+  it('counts a started search replay whose row is gone as ended with nothing spent', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
     const proposed = await propose(activeRun(), 'firmer');
 
@@ -1256,8 +1272,8 @@ describe('AdvanceSearches', () => {
       throw new Error('the proposal was rejected');
     }
 
+    await advancing().processDue();
     memory.replays.delete(proposed.replayId);
-
     await advancing().processDue();
 
     expect(theSearch().proposals[0]?.replay.end).toBe('deleted');

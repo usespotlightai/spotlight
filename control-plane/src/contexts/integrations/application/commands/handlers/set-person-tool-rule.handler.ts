@@ -26,7 +26,12 @@ export class SetPersonToolRuleHandler
     try {
       const viewer = UserId.of(command.viewerId);
 
-      if (!(await this.access.onTeam(command.teamId, viewer))) {
+      if (
+        !(await this.access.inWorkspaceOfTeam(
+          TeamId.of(command.teamId),
+          viewer,
+        ))
+      ) {
         return false;
       }
 
@@ -34,19 +39,11 @@ export class SetPersonToolRuleHandler
       const integration = IntegrationKey.of(command.integration);
       const tool = ToolName.of(command.tool);
       const rule = PersonToolRule.of(command.rule);
-      const definitions = await this.defined.ofTeam(teamId);
-      const provided = definitions.some(
-        (each) =>
-          each.integration === integration.value &&
-          each.tools.includes(tool.value),
-      );
-      const actsAsEachPerson = this.runtime
-        .integrations(definitions)
-        .some(
-          (each) => each.key.equals(integration) && each.actsAs.byRequester,
-        );
+      const offering = this.runtime
+        .integrations(await this.defined.ofTeam(teamId))
+        .find((each) => each.key.equals(integration));
 
-      if (!provided || !actsAsEachPerson) {
+      if (!offering?.takesPersonRuleFor(tool)) {
         return false;
       }
 

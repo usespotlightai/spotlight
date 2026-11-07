@@ -1,18 +1,19 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type {
-  TeamMembership,
+  TeamWorkspaceMembership,
   WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
 import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
-import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
+import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -50,6 +51,7 @@ const connected = (token: string, owner: ConnectionOwner) =>
     refreshFailedAt: null,
     refreshClaim: null,
     version: 1,
+    connectedAt: new Date('2026-09-01T00:00:00.000Z'),
   });
 
 const resolving = (
@@ -62,7 +64,7 @@ const resolving = (
       token ? connected(token, owner) : null,
   );
   const onTeam = vi.fn(async () =>
-    over.member === false ? null : ({} as TeamMembership),
+    over.member === false ? null : ({} as TeamWorkspaceMembership),
   );
   const afterUnauthorized = vi.fn(async () => AccessToken.of('xoxp-refreshed'));
   const find = vi.fn(async () =>
@@ -82,7 +84,7 @@ const resolving = (
     resolver: new CallAuthResolver(
       { of } as unknown as IntegrationConnectionRepository,
       { find, inWorkspace: vi.fn() } satisfies TeamDirectoryPort,
-      { onTeam } as unknown as WorkspaceAccessPort,
+      { inWorkspaceOfTeam: onTeam } as unknown as WorkspaceAccessPort,
       secrets.injection,
       { afterUnauthorized } as unknown as ConnectionRefresh,
     ),
@@ -94,19 +96,12 @@ const resolving = (
   };
 };
 
-const injectedHeaders = async (
-  injected: Promise<{
-    applyTo(request: { url: URL; headers: Record<string, string> }): void;
-  }>,
-) => {
-  const headers: Record<string, string> = {};
-  (await injected).applyTo({
-    url: new URL('https://slack.com/api/x'),
-    headers,
-  });
-
-  return headers;
-};
+const injectedHeaders = async (injected: Promise<InjectedSecrets>) =>
+  Object.fromEntries(
+    (await injected).injected
+      .filter((each) => each.location === 'header')
+      .map((each) => [each.name, each.value.revealed()]),
+  );
 
 describe('CallAuthResolver', () => {
   it('hands over no connection where the integration makes none', async () => {
@@ -173,7 +168,7 @@ describe('CallAuthResolver', () => {
       expect(found.kind === 'chosen' && found.connection?.linkedAccount).toBe(
         '@alice',
       );
-      expect(onTeam).toHaveBeenCalledWith('team_1', ALICE);
+      expect(onTeam).toHaveBeenCalledWith(TEAM, ALICE);
       expect(of).toHaveBeenCalledWith(
         TEAM,
         IntegrationKey.of('slack'),

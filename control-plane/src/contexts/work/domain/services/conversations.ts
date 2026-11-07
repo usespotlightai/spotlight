@@ -10,6 +10,15 @@ export const CLOSES_A_CONVERSATION = 'passed' satisfies TaskNoteKind;
 
 export const REOPENS_A_CONVERSATION = 'reopened' satisfies TaskNoteKind;
 
+export const ANSWERS_A_QUESTION = 'answered' satisfies TaskNoteKind;
+
+export const TURNING_NOTE_KINDS: readonly TaskNoteKind[] = [
+  OPENS_A_CONVERSATION,
+  ANSWERS_A_QUESTION,
+  CLOSES_A_CONVERSATION,
+  REOPENS_A_CONVERSATION,
+];
+
 export interface Conversation {
   readonly from: number;
   readonly to: number | null;
@@ -95,7 +104,9 @@ export interface Review {
 const sinceReopened = <T extends { kind: TaskNoteKind }>(
   notes: readonly T[],
 ): readonly T[] => {
-  const reopened = notes.map((each) => each.kind).lastIndexOf('reopened');
+  const reopened = notes
+    .map((each) => each.kind)
+    .lastIndexOf(REOPENS_A_CONVERSATION);
 
   return notes.slice(reopened + 1);
 };
@@ -105,7 +116,8 @@ const answeredAfter = <T extends { kind: TaskNoteKind }>(
   at: number,
 ): boolean =>
   sinceReopened(notes.slice(at + 1)).some(
-    (later) => later.kind === 'answered' || later.kind === 'passed',
+    (later) =>
+      later.kind === ANSWERS_A_QUESTION || later.kind === CLOSES_A_CONVERSATION,
   );
 
 const containing = (cut: readonly Conversation[], at: number) =>
@@ -120,7 +132,7 @@ export const reviewsIn = <
   const cut = conversationsOf(notes.map((each) => each.kind));
 
   notes.forEach((note, at) => {
-    if (note.kind !== 'asked' || !note.runId) {
+    if (note.kind !== OPENS_A_CONVERSATION || !note.runId) {
       return;
     }
 
@@ -143,7 +155,7 @@ export const awaitsAPerson = <T extends { kind: TaskNoteKind }>(
   let asked = -1;
 
   notes.forEach((note, at) => {
-    if (note.kind === 'asked') {
+    if (note.kind === OPENS_A_CONVERSATION) {
       asked = at;
     }
   });

@@ -4,35 +4,42 @@ import { CreateWorkspaceHandler } from '@identity/application/commands/handlers/
 import { DeleteWorkspaceHandler } from '@identity/application/commands/handlers/delete-workspace.handler';
 import { UpdateWorkspaceHandler } from '@identity/application/commands/handlers/update-workspace.handler';
 import { UpdateWorkspaceCommand } from '@identity/application/commands/update-workspace.command';
+import type { Dependent } from '@identity/application/ports/dependents.port';
 import type { WorkspaceOutboundHostsPort } from '@identity/application/ports/workspace-outbound-hosts.port';
 import { DependentsRegistry } from '@identity/application/services/dependents-registry.service';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
+import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
+import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
+import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
+import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
 import {
   creates,
+  handIssued,
+  issuedBy,
   MEMBER,
   OWNER,
-  teamKeys,
+  oidcTrustKeyed,
+  teamAt,
+  teams,
   transaction,
   workspaceAt,
   workspaces,
-} from '@identity/identity.resources.fake-spec';
-import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
+} from '@identity/testing/identity.resources.fake-spec';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
-import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const ACME = { name: 'Acme', slug: 'acme' };
 
 const CONFIGURE_TOKEN = Actor.of(
-  TokenPrincipal.of({
+  IssuedTokenGrant.principal({
     tokenId: WorkspaceTokenId.of('token_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     scopes: TokenScopes.named(['configure']),
@@ -216,20 +223,25 @@ describe('DeleteWorkspaceHandler', () => {
       issued?: boolean;
       trusted?: boolean;
       issuing?: boolean;
-      dependents?: readonly string[];
+      dependents?: readonly Dependent[];
     } = {},
   ) => {
     const stored = workspaces({ existing: workspaceAt(3) });
     const registry = new DependentsRegistry<WorkspaceId>();
     registry.register({ dependentsOf: async () => over.dependents ?? [] });
+    const trust = oidcTrustKeyed('github-main');
     const handler = new DeleteWorkspaceHandler(
       stored,
-      teamKeys(
-        over.hasTeam ? ['core'] : [],
-        over.issued ? ['ci'] : [],
-        over.trusted ? ['github-main'] : [],
-        over.issuing ? ['github-main'] : [],
-      ),
+      teams({ inWorkspace: over.hasTeam ? [teamAt(0)] : [] }),
+      {
+        ofWorkspace: async () => [
+          ...(over.issued ? [handIssued('ci')] : []),
+          ...(over.issuing ? [issuedBy(trust)] : []),
+        ],
+      } as unknown as WorkspaceTokenRepository,
+      {
+        ofWorkspace: async () => (over.trusted ? [trust] : []),
+      } as unknown as OidcTrustRepository,
       registry,
       transaction,
     );
@@ -283,14 +295,14 @@ describe('DeleteWorkspaceHandler', () => {
 
     expect(await remove()).toMatchObject({
       outcome: 'in-use',
-      reason: expect.stringContaining('tokens issued by github-main'),
+      reason: expect.stringContaining('tokens issued by a deleted OIDC trust'),
     });
     expect(stored.save).not.toHaveBeenCalled();
   });
 
   it('will not delete a workspace in which another context still has something', async () => {
     const { remove, stored } = deleting({
-      dependents: ['secret LINEAR_API_KEY'],
+      dependents: [{ kind: 'secret', key: 'LINEAR_API_KEY' }],
     });
 
     expect(await remove()).toMatchObject({

@@ -1,12 +1,12 @@
 import type { BuiltInSkillsPort } from '@configuration/application/ports/built-in-skills.port';
-import type { SkillFolder } from '@configuration/application/ports/skill-reader.port';
-import { Skill } from '@configuration/domain/entities/skill.entity';
+import type { ReadSkillFolder } from '@configuration/application/ports/skill-folders.port';
+import { Skill } from '@configuration/domain/value-objects/skill.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 import { BuiltInSkills } from '@configuration/infrastructure/acl/built-in-skills.adapter';
 import { describe, expect, it } from 'vitest';
 
-const HANDOVER: SkillFolder = {
+const HANDOVER: ReadSkillFolder = {
   skill: Skill.builtIn({
     key: SkillKey.of('spotlight-handover'),
     description: 'Passing a task on.',

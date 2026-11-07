@@ -6,7 +6,10 @@ import type {
   AttachmentRecord,
 } from '@work/application/ports/attachment-reader.port';
 import { attachmentClaim } from '@work/infrastructure/persistence/drizzle/schemas/attachment.schema';
-import { chatAttachment } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
+import {
+  chat,
+  chatAttachment,
+} from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 import { taskAttachment } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { eq } from 'drizzle-orm';
 
@@ -20,8 +23,10 @@ export class DrizzleAttachmentReader implements AttachmentReaderPort {
         workspaceId: attachmentClaim.workspaceId,
         tasked: taskAttachment,
         chatted: chatAttachment,
+        chatStartedById: chat.startedById,
       })
       .from(attachmentClaim)
+      .leftJoin(chat, eq(chat.id, attachmentClaim.chatId))
       .leftJoin(taskAttachment, eq(taskAttachment.id, attachmentClaim.id))
       .leftJoin(chatAttachment, eq(chatAttachment.id, attachmentClaim.id))
       .where(eq(attachmentClaim.id, id))
@@ -36,6 +41,9 @@ export class DrizzleAttachmentReader implements AttachmentReaderPort {
           contentType: attachment.contentType,
           size: attachment.size,
           workspaceId: found.workspaceId,
+          holder: found.chatStartedById
+            ? { kind: 'chat', startedById: found.chatStartedById }
+            : { kind: 'task' },
         }
       : null;
   }

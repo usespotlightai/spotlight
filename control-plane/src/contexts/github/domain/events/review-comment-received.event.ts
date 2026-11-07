@@ -1,7 +1,8 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-type CommentPlace =
+export type CommentPlace =
   | { readonly subject: 'file' }
   | {
       readonly subject: 'line';
@@ -20,13 +21,15 @@ export type ReceivedComment = {
   readonly writtenAt: Date | null;
 } & CommentPlace;
 
+export type CommentAction = 'created' | 'edited' | 'deleted';
+
 export class ReviewCommentReceived implements DomainEvent {
   readonly kind = 'pull-request.review-comment-received';
 
   constructor(
     readonly workspaceId: WorkspaceId,
-    readonly action: 'created' | 'edited' | 'deleted',
-    readonly pullRequest: string,
+    readonly action: CommentAction,
+    readonly pullRequest: PullRequestUrl,
     readonly comment: ReceivedComment,
   ) {}
 }

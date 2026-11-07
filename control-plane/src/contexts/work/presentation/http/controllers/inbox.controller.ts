@@ -24,14 +24,14 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
-import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
-import { MarkInboxItemReadCommand } from '@work/application/commands/mark-inbox-item-read.command';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
+import { AnswerConversationCommand } from '@work/application/commands/answer-conversation.command';
+import { MarkConversationReadCommand } from '@work/application/commands/mark-conversation-read.command';
 import { MarkInboxRequestReadCommand } from '@work/application/commands/mark-inbox-request-read.command';
-import { ReopenInboxItemCommand } from '@work/application/commands/reopen-inbox-item.command';
+import { ReopenConversationCommand } from '@work/application/commands/reopen-conversation.command';
 import { ReopenInboxRequestCommand } from '@work/application/commands/reopen-inbox-request.command';
 import { ReopenNoticeCommand } from '@work/application/commands/reopen-notice.command';
-import { ResolveInboxItemCommand } from '@work/application/commands/resolve-inbox-item.command';
+import { ResolveConversationCommand } from '@work/application/commands/resolve-conversation.command';
 import { ResolveInboxRequestCommand } from '@work/application/commands/resolve-inbox-request.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import type {
@@ -294,7 +294,7 @@ export class InboxController {
     @Body() body: AnswerInboxItemRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new AnswerInboxItemCommand(
+      new AnswerConversationCommand(
         itemId,
         user.id,
         body.body ?? '',
@@ -326,7 +326,7 @@ export class InboxController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(
-      new MarkInboxItemReadCommand(itemId, user.id),
+      new MarkConversationReadCommand(itemId, user.id),
     );
   }
 
@@ -346,7 +346,9 @@ export class InboxController {
     @Param('itemId') itemId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new ResolveInboxItemCommand(itemId, user.id));
+    await this.commandBus.execute(
+      new ResolveConversationCommand(itemId, user.id),
+    );
   }
 
   @Post('requests/:requestId/resolve')
@@ -386,7 +388,9 @@ export class InboxController {
     @Param('itemId') itemId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new ReopenInboxItemCommand(itemId, user.id));
+    await this.commandBus.execute(
+      new ReopenConversationCommand(itemId, user.id),
+    );
   }
 
   @Post('requests/:requestId/reopen')

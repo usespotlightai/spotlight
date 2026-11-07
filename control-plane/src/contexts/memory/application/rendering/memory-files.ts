@@ -20,8 +20,10 @@ const day = (at: Date): string => at.toISOString().slice(0, 10);
 
 const whereOf = (memory: Memory, lines: readonly TeamLine[]): string => {
   const { lineId, stationId, repository, paths } = memory.scope;
-  const line = lines.find((each) => each.id === lineId);
-  const station = line?.stations.find((each) => each.id === stationId);
+  const line = lines.find((each) => lineId !== null && each.id.equals(lineId));
+  const station = line?.stations.find(
+    (each) => stationId !== null && each.id.equals(stationId),
+  );
   const at = station
     ? `${line?.name} › ${station.name}`
     : line

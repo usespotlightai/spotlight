@@ -5,23 +5,18 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import {
-  LIVE_SANDBOX_STATES,
-  OPEN_SANDBOX_STATES,
   SANDBOX_STATES,
   Sandbox,
 } from '@runners/domain/aggregates/sandbox.aggregate';
 import { SandboxVersionConflictError } from '@runners/domain/exceptions/sandbox-version-conflict.error';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
-import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
+import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
+import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
 import {
-  SANDBOX_LEASE_KINDS,
-  SandboxLease,
-} from '@runners/domain/value-objects/sandbox-lease.vo';
-import {
-  runnerHost,
   type SandboxLeaseRecord,
   sandbox,
 } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
@@ -30,21 +25,10 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  and,
-  count,
-  eq,
-  gt,
-  inArray,
-  isNotNull,
-  isNull,
-  lte,
-  ne,
-  or,
-  sql,
-} from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, lte, ne, sql } from 'drizzle-orm';
 
 type Row = typeof sandbox.$inferSelect;
 
@@ -61,17 +45,20 @@ const stateOf = (row: Row) => {
   return state;
 };
 
-const leaseOf = (record: SandboxLeaseRecord): SandboxLease => {
-  const kind = SANDBOX_LEASE_KINDS.find((each) => each === record.kind);
+const leaseOf = (record: SandboxLeaseRecord): SandboxLease =>
+  SandboxLease.of(
+    LeaseHolder.of(record.kind, record.holder),
+    new Date(record.renewedAt),
+  );
 
-  if (!kind) {
-    throw new InconsistentStateError(
-      'sandbox',
-      `has a lease of an unknown kind (${record.kind})`,
-    );
+const sourceOf = (row: Row): CredentialSource | null => {
+  if (row.poolId !== null) {
+    return CredentialSource.of('pool', row.poolId);
   }
 
-  return SandboxLease.of(kind, record.holder, new Date(record.renewedAt));
+  return row.trustId === null
+    ? null
+    : CredentialSource.of('trust', row.trustId);
 };
 
 const toSandbox = (row: Row): Sandbox =>
@@ -80,6 +67,7 @@ const toSandbox = (row: Row): Sandbox =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     key: row.key === null ? null : SandboxKey.of(row.key),
     hostId: row.hostId === null ? null : HostId.of(row.hostId),
+    source: sourceOf(row),
     tokenHash: row.tokenHash === null ? null : TokenHash.of(row.tokenHash),
     state: stateOf(row),
     leases: row.leases.map(leaseOf),
@@ -91,13 +79,15 @@ const toSandbox = (row: Row): Sandbox =>
 
 const columnsOf = (saved: Sandbox) => ({
   hostId: saved.hostId?.value ?? null,
+  poolId: saved.source?.poolId?.value ?? null,
+  trustId: saved.source?.trustId?.value ?? null,
   tokenHash: saved.tokenHash?.value ?? null,
   startedAt: saved.startedAt,
   state: saved.current,
   leases: saved.leases.map(
     (each): SandboxLeaseRecord => ({
-      kind: each.kind,
-      holder: each.holder,
+      kind: each.holder.kind,
+      holder: each.holder.id,
       renewedAt: each.renewedAt.toISOString(),
     }),
   ),
@@ -180,7 +170,7 @@ export class DrizzleSandboxRepository implements SandboxRepository {
         and(
           eq(sandbox.workspaceId, workspaceId.value),
           eq(sandbox.key, key.value),
-          inArray(sandbox.state, [...OPEN_SANDBOX_STATES]),
+          eq(sandbox.state, 'open'),
         ),
       )
       .limit(1);
@@ -209,7 +199,7 @@ export class DrizzleSandboxRepository implements SandboxRepository {
         and(
           eq(sandbox.workspaceId, workspaceId.value),
           isNull(sandbox.hostId),
-          eq(sandbox.state, 'starting'),
+          eq(sandbox.state, 'open'),
         ),
       )
       .orderBy(sandbox.startedAt, sandbox.id)
@@ -227,50 +217,14 @@ export class DrizzleSandboxRepository implements SandboxRepository {
     return rows.map(toSandbox);
   }
 
-  async liveKeysIn(
-    workspaceId: WorkspaceId,
-    heardSince: Date,
-  ): Promise<readonly SandboxKey[]> {
-    const rows = await this.context.db
-      .select({ key: sandbox.key })
-      .from(sandbox)
-      .innerJoin(runnerHost, eq(runnerHost.id, sandbox.hostId))
-      .where(
-        and(
-          eq(sandbox.workspaceId, workspaceId.value),
-          ne(sandbox.state, 'gone'),
-          isNotNull(sandbox.key),
-          gt(runnerHost.lastHeartbeatAt, heardSince),
-        ),
-      );
-
-    return rows.flatMap((row) => (row.key ? [SandboxKey.of(row.key)] : []));
-  }
-
-  async idleInPool(poolId: RunnerPoolId): Promise<number> {
-    const [row] = await this.context.db
-      .select({ idle: count() })
-      .from(sandbox)
-      .innerJoin(runnerHost, eq(runnerHost.id, sandbox.hostId))
-      .where(
-        and(
-          eq(runnerHost.poolId, poolId.value),
-          ne(sandbox.state, 'gone'),
-          isNotNull(sandbox.idleSince),
-        ),
-      );
-
-    return row?.idle ?? 0;
-  }
-
-  async holdingRun(runId: string): Promise<readonly Sandbox[]> {
+  async holdingRun(runId: RunId): Promise<readonly Sandbox[]> {
     const rows = await this.context.db
       .select()
       .from(sandbox)
       .where(
         and(
           ne(sandbox.state, 'gone'),
-          sql`${sandbox.leases} @> ${JSON.stringify([{ kind: 'run', holder: runId }])}::jsonb`,
+          sql`${sandbox.leases} @> ${JSON.stringify([{ kind: 'run', holder: runId.value }])}::jsonb`,
         ),
       );
 
@@ -283,7 +237,7 @@ export class DrizzleSandboxRepository implements SandboxRepository {
       .from(sandbox)
       .where(
         and(
-          inArray(sandbox.state, [...OPEN_SANDBOX_STATES]),
+          eq(sandbox.state, 'open'),
           isNotNull(sandbox.idleSince),
           lte(sandbox.idleSince, cutoff),
         ),
@@ -292,31 +246,32 @@ export class DrizzleSandboxRepository implements SandboxRepository {
     return rows.map(toSandbox);
   }
 
-  async liveOnHostsSilentSince(cutoff: Date): Promise<readonly Sandbox[]> {
+  async goneBefore(cutoff: Date): Promise<readonly Sandbox[]> {
     const rows = await this.context.db
-      .select({ sandbox })
+      .select()
       .from(sandbox)
-      .leftJoin(runnerHost, eq(runnerHost.id, sandbox.hostId))
-      .where(
-        and(
-          inArray(sandbox.state, [...LIVE_SANDBOX_STATES]),
-          isNotNull(sandbox.hostId),
-          or(
-            sql`${runnerHost.id} is null`,
-            lte(runnerHost.lastHeartbeatAt, cutoff),
-          ),
-        ),
-      );
+      .where(and(eq(sandbox.state, 'gone'), lte(sandbox.goneAt, cutoff)));
 
-    return rows.map((row) => toSandbox(row.sandbox));
+    return rows.map(toSandbox);
   }
 
-  async removeGoneBefore(cutoff: Date): Promise<number> {
-    const removed = await this.context.db
-      .delete(sandbox)
-      .where(and(eq(sandbox.state, 'gone'), lte(sandbox.goneAt, cutoff)))
-      .returning({ id: sandbox.id });
+  async remove(removed: Sandbox): Promise<void> {
+    await this.context.inTransaction(async () => {
+      const gone = await this.context.db
+        .delete(sandbox)
+        .where(
+          and(
+            eq(sandbox.id, removed.id.value),
+            eq(sandbox.version, removed.version),
+          ),
+        )
+        .returning({ id: sandbox.id });
 
-    return removed.length;
+      if (gone.length === 0) {
+        throw new SandboxVersionConflictError(removed.id.value);
+      }
+
+      await this.events.dispatch(removed.pullEvents());
+    });
   }
 }

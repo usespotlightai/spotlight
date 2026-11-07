@@ -1,4 +1,6 @@
-export class UnknownMemoryError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class UnknownMemoryError extends DomainError {
   readonly kind = 'not-found' as const;
 
   constructor(id: string) {

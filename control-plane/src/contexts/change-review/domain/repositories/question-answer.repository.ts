@@ -15,5 +15,7 @@ export interface QuestionAnswerRepository {
     personId: UserId,
   ): Promise<QuestionAnswer | null>;
 
-  removeForTask(taskId: TaskId): Promise<void>;
+  ofTask(taskId: TaskId): Promise<readonly QuestionAnswer[]>;
+
+  remove(answer: QuestionAnswer): Promise<void>;
 }

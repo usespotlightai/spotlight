@@ -1,6 +1,6 @@
 import type { RepositoryAccessPort } from '@github/application/ports/repository-access.port';
 import { GitHubPullRequestReviews } from '@github/infrastructure/github/github-pull-request-reviews';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -181,6 +181,7 @@ describe('GitHubPullRequestReviews', () => {
     });
     expect(submitted).toEqual({
       githubId: 900,
+      postedAs: 'request-changes',
       comments: [
         { id: 11, url: 'c11' },
         { id: 12, url: 'c12' },
@@ -213,7 +214,11 @@ describe('GitHubPullRequestReviews', () => {
     expect(folded?.body?.body).toContain('`src/a.ts` lines 1–3');
     expect(folded?.body?.body).toContain('`src/b.ts` line 8');
     expect(folded?.body?.body).toContain('Why remove?');
-    expect(submitted).toEqual({ githubId: 901, comments: [null, null] });
+    expect(submitted).toEqual({
+      githubId: 901,
+      postedAs: 'comment',
+      comments: [null, null],
+    });
   });
 
   it('matches a comment GitHub lists without its line, as the review’s own listing does', async () => {
@@ -301,7 +306,7 @@ describe('GitHubPullRequestReviews', () => {
     expect(posted[0]?.body?.body).toContain('Two things');
     expect(posted[0]?.body?.body).toContain('`src/tests/a.test.ts` line 14');
     expect(posted[0]?.body?.body).not.toContain('`src/a.ts`');
-    expect(submitted).toEqual({
+    expect(submitted).toMatchObject({
       githubId: 902,
       comments: [{ id: 21, url: 'c21' }, null],
     });
@@ -347,7 +352,7 @@ describe('GitHubPullRequestReviews', () => {
     expect(posted[1]?.body?.body).toBe(
       '**Requests changes.**\n\nThe rename is backwards.',
     );
-    expect(submitted.githubId).toBe(904);
+    expect(submitted).toMatchObject({ githubId: 904, postedAs: 'comment' });
   });
 
   it('acts as Spotlight, naming the person, where their own token is not accepted', async () => {

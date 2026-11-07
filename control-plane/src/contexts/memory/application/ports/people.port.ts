@@ -1,4 +1,4 @@
-import type { Membership } from '@memory/domain/services/team-access';
+import type { TeamViewer } from '@memory/domain/services/team-access';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export const PEOPLE = Symbol('PEOPLE');
@@ -9,7 +9,7 @@ export interface Person {
 }
 
 export interface PeoplePort {
-  memberOf(teamId: string, userId: string): Promise<Membership | null>;
+  viewerOf(teamId: string, userId: string): Promise<TeamViewer | null>;
 
   find(userId: UserId): Promise<Person | null>;
 }

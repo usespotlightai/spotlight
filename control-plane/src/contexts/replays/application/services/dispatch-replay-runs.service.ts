@@ -1,11 +1,11 @@
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import type { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { dispatchedInTurn } from '@replays/domain/services/replay-dispatch';
-import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -47,24 +47,33 @@ export class DispatchReplayRuns implements PendingJobsPort {
     }
   }
 
-  private reserveFor(team: TeamId): Promise<void> {
-    return this.transaction.inTransaction(async () => {
-      const inProgress = await this.replays.inProgressOfTeamLocked(team);
-      const searches = await this.searches.findMany(
-        inProgress.flatMap((each) => (each.searchId ? [each.searchId] : [])),
-      );
-      const changed = dispatchedInTurn(
-        inProgress,
-        () => RunId.of(this.ids.generate()),
-        (searchId) =>
-          searches.find((each) => each.id.equals(searchId) && each.isActive)
-            ?.concurrency ?? 0,
-      );
+  private async reserveFor(team: TeamId): Promise<void> {
+    const inProgress = await this.replays.inProgressOfTeam(team);
+    const searches = await this.searches.findMany(
+      inProgress.flatMap((each) => (each.searchId ? [each.searchId] : [])),
+    );
+    const changed = dispatchedInTurn(
+      inProgress,
+      () => RunId.of(this.ids.generate()),
+      (searchId) =>
+        searches.find((each) => each.id.equals(searchId) && each.isActive)
+          ?.concurrency ?? 0,
+    );
 
-      for (const replay of changed) {
-        await this.replays.save(replay);
+    for (const replay of changed) {
+      try {
+        await this.transaction.inTransaction(() => this.replays.save(replay));
+      } catch (error) {
+        if (!(error instanceof ReplayVersionConflictError)) {
+          throw error;
+        }
+
+        this.logger.info(
+          { replayId: replay.id.value, teamId: team.value },
+          'A replay or its dispatch pool changed before its runs were reserved; the next turn tries again',
+        );
       }
-    });
+    }
   }
 
   private resolve(replay: Replay, entry: ReplayEntry): Promise<void> {

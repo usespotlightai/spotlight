@@ -47,6 +47,7 @@ interface State {
   readonly scoringPinnedToLive: readonly ScoringField[];
   readonly baseline: BaselineStatus;
   readonly createdAt: Date;
+  readonly version: number;
 }
 
 const REUSABLE: readonly CheckResult[] = ['running', 'passed', 'failed'];
@@ -63,10 +64,10 @@ export class ReplayCheck extends EventRecorder {
   }
 
   static start(
-    input: Omit<State, 'baseline'> & { by: ChangeActor },
+    input: Omit<State, 'baseline' | 'version'> & { by: ChangeActor },
   ): ReplayCheck {
     const { by, ...rest } = input;
-    const state: State = { ...rest, baseline: 'awaiting' };
+    const state: State = { ...rest, baseline: 'awaiting', version: 0 };
 
     if (state.candidateHashes.runsAs(state.liveHashes)) {
       throw new InvalidReplayCheckError(
@@ -82,7 +83,7 @@ export class ReplayCheck extends EventRecorder {
       );
     }
 
-    const started = ReplayCheck.rehydrate(state);
+    const started = new ReplayCheck(ReplayCheck.ordered(state));
 
     started.record(
       new ReplayCheckStarted(
@@ -102,11 +103,19 @@ export class ReplayCheck extends EventRecorder {
     return started;
   }
 
+  static nextAttemptAfter(earlier: readonly ReplayCheck[]): number {
+    return Math.max(0, ...earlier.map((each) => each.attempt)) + 1;
+  }
+
   static rehydrate(state: State): ReplayCheck {
-    return new ReplayCheck({
+    return new ReplayCheck(ReplayCheck.ordered(state));
+  }
+
+  private static ordered(state: State): State {
+    return {
       ...state,
       scoringPinnedToLive: inScoringOrder(state.scoringPinnedToLive),
-    });
+    };
   }
 
   get id(): ReplayCheckId {
@@ -185,12 +194,20 @@ export class ReplayCheck extends EventRecorder {
     return this.state.createdAt;
   }
 
+  get version(): number {
+    return this.state.version;
+  }
+
   get baseline(): BaselineStatus {
     return this.state.baseline;
   }
 
   get awaitsBaseline(): boolean {
     return this.state.baseline === 'awaiting';
+  }
+
+  measuresAgainst(live: StationHashes | null): boolean {
+    return live?.scoresAs(this.state.liveHashes) ?? false;
   }
 
   recordBaseline(): ReplayCheck {
@@ -202,9 +219,7 @@ export class ReplayCheck extends EventRecorder {
   }
 
   private withBaseline(baseline: BaselineStatus): ReplayCheck {
-    return this.state.baseline === 'awaiting'
-      ? new ReplayCheck({ ...this.state, baseline }, this.isDeleted)
-      : this;
+    return this.state.baseline === 'awaiting' ? this.with({ baseline }) : this;
   }
 
   reusableFor(
@@ -224,6 +239,18 @@ export class ReplayCheck extends EventRecorder {
   }
 
   delete(): ReplayCheck {
-    return new ReplayCheck(this.state, true);
+    return this.copied(this.state, true);
+  }
+
+  private with(part: Partial<State>): ReplayCheck {
+    return this.copied({ ...this.state, ...part }, this.isDeleted);
+  }
+
+  private copied(state: State, isDeleted: boolean): ReplayCheck {
+    const next = new ReplayCheck(state, isDeleted);
+
+    next.inheritEvents(this);
+
+    return next;
   }
 }

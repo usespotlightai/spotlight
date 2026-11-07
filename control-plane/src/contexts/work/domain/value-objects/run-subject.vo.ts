@@ -1,12 +1,12 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { SearchId } from '@work/domain/value-objects/search-id.vo';
 import type { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 
 export type RunSubjectKind = keyof RunSubjectCases<unknown>;

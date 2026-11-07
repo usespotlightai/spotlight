@@ -1,4 +1,6 @@
-export class UnknownSearchError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class UnknownSearchError extends DomainError {
   readonly kind = 'not-found' as const;
 
   constructor(searchId: string) {

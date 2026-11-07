@@ -205,7 +205,7 @@ describe('sandboxes (e2e)', () => {
       workspaceId,
       key: 'task-task_1',
       hostId: HOST,
-      state: 'starting',
+      state: 'open',
       leases: [{ kind: 'run', holder: runId, renewedAt: expect.any(String) }],
       idleSince: null,
     });
@@ -219,7 +219,7 @@ describe('sandboxes (e2e)', () => {
     await expect(
       heartbeat([sandboxId, 'sandbox-unknown']).expect(200),
     ).resolves.toMatchObject({ body: { drain: ['sandbox-unknown'] } });
-    expect((await sandboxRow(sandboxId))?.state).toBe('ready');
+    expect((await sandboxRow(sandboxId))?.state).toBe('open');
 
     await complete(runId, claimed.body.token);
     const released = await eventually(async () => {
@@ -241,10 +241,12 @@ describe('sandboxes (e2e)', () => {
 
     await heartbeat([]).expect(200);
 
-    expect(await sandboxRow(sandboxId)).toMatchObject({
-      state: 'gone',
-      goneAt: expect.any(Date),
-    });
+    expect(
+      await eventually(async () => {
+        const row = await sandboxRow(sandboxId);
+        return row?.state === 'gone' ? row : null;
+      }),
+    ).toMatchObject({ state: 'gone', goneAt: expect.any(Date) });
   });
 
   it('runs the next run of a key in its ready sandbox, claimed only by that sandbox’s host for it', async () => {
@@ -260,7 +262,7 @@ describe('sandboxes (e2e)', () => {
       work: { kind: 'run', run: { id: next } },
     });
     expect(await sandboxRow(sandboxId)).toMatchObject({
-      state: 'ready',
+      state: 'open',
       leases: [{ kind: 'run', holder: next, renewedAt: expect.any(String) }],
       idleSince: null,
     });
@@ -291,7 +293,9 @@ describe('sandboxes (e2e)', () => {
 
     await claim().expect(204);
     await heartbeat([]).expect(200);
-    expect((await sandboxRow(sandboxId))?.state).toBe('gone');
+    await eventually(async () =>
+      (await sandboxRow(sandboxId))?.state === 'gone' ? true : null,
+    );
 
     const fresh = await claim().expect(200);
 
@@ -310,7 +314,7 @@ describe('sandboxes (e2e)', () => {
 
     await claim().expect(204);
 
-    expect((await sandboxRow(earlier.body.sandboxId))?.state).toBe('starting');
+    expect((await sandboxRow(earlier.body.sandboxId))?.state).toBe('open');
   });
 
   it('hands out no second run of a chat while an earlier run of it holds its lease', async () => {
@@ -353,7 +357,7 @@ describe('sandboxes (e2e)', () => {
       });
       expect(await sandboxRow(opened.id)).toMatchObject({
         hostId: HOST,
-        state: 'starting',
+        state: 'open',
         tokenHash: expect.any(String),
         idleSince: expect.any(Date),
       });
@@ -439,7 +443,7 @@ describe('sandboxes (e2e)', () => {
       const row = await sandboxRow(sandboxId);
       return row?.idleSince ? row : null;
     });
-    expect(released).toMatchObject({ state: 'ready', leases: [] });
+    expect(released).toMatchObject({ state: 'open', leases: [] });
   });
 
   it('drains a ready sandbox whose image lacks the harness of the next run of its key, and the run starts afresh', async () => {

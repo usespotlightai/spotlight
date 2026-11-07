@@ -1,5 +1,4 @@
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { HandoverFor } from '@work/domain/services/handover-for';
@@ -10,8 +9,8 @@ import {
 import { runCheckoutsFor } from '@work/domain/services/task-checkouts';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 export interface TurnEnd {
@@ -22,7 +21,7 @@ export interface TurnEnd {
 interface Turn {
   readonly run: Run;
   readonly task: Task | null;
-  readonly line: Line | null;
+  readonly line: LineMap | null;
   readonly outcome: RunOutcome;
   readonly handover: Handover | null;
   readonly lastWords?: string | null;
@@ -53,7 +52,7 @@ export const turnEnded = (turn: {
   run: Run;
   by: RunnerId;
   task: Task | null;
-  line: Line | null;
+  line: LineMap | null;
   outcome: RunOutcome;
   report: HandoverReport;
   now: Date;
@@ -85,7 +84,7 @@ export const turnEnded = (turn: {
   const suspended = run.suspend(by, outcome, report, now);
 
   const recorded = report.session
-    ? task.recordSession(report.session, by)
+    ? task.recordSession(run.id, report.session, by)
     : task;
 
   const resolved = handoverOf(task, ending);
@@ -95,8 +94,7 @@ export const turnEnded = (turn: {
     task: recorded.awaitingReview
       ? recorded
       : recorded.putToAPerson(run.id, {
-          station:
-            line?.stationAt(task.stationId)?.name ?? StationName.unknown(),
+          station: line?.stationAt(task.stationId) ?? null,
           body: resolved.body,
           at: now,
           voice: Voice.station(run.id),

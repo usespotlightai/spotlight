@@ -1,15 +1,15 @@
 import {
-  endedRecord,
-  FIRST_CONFIG,
-  SECOND_CONFIG,
-} from '@insights/domain/runs.fake-spec';
-import { configChangesAlong } from '@insights/domain/services/config-intervals';
-import {
   configInForce,
   daySpanOf,
   fingerprintGroupsNewestFirst,
 } from '@insights/domain/services/fingerprint-groups';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
+import {
+  endedRecord,
+  FIRST_CONFIG,
+  factOf,
+  SECOND_CONFIG,
+} from '@insights/runs.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 const at = (hour: number) =>
@@ -21,12 +21,14 @@ const ranAt = (
   startedAt: number | null,
   change: { endedAt?: number; ending?: RunEnding } = {},
 ) =>
-  endedRecord(runId, {
-    fingerprint,
-    startedAt: startedAt === null ? null : at(startedAt),
-    endedAt: at(change.endedAt ?? (startedAt ?? 0) + 1),
-    ending: change.ending,
-  });
+  factOf(
+    endedRecord(runId, {
+      fingerprint,
+      startedAt: startedAt === null ? null : at(startedAt),
+      endedAt: at(change.endedAt ?? (startedAt ?? 0) + 1),
+      ending: change.ending,
+    }),
+  );
 
 const nameOf = (fingerprint: string | null) =>
   fingerprint === FIRST_CONFIG
@@ -217,16 +219,6 @@ describe('fingerprintGroupsNewestFirst', () => {
       ['run_x_unstarted', 'A>B', false, ['run_x_unstarted']],
       ['run_1', 'null>A', true, ['run_1']],
     ]);
-    expect(
-      configChangesAlong(records).map(({ run, previous }) => [
-        run.runId.value,
-        nameOf(previous),
-        nameOf(run.fingerprint),
-      ]),
-    ).toEqual([
-      ['run_1', null, 'A'],
-      ['run_x', 'A', 'B'],
-    ]);
   });
 
   it('has no groups without runs', () => {
@@ -243,12 +235,14 @@ describe('configInForce', () => {
     at: number,
     unstarted?: RunEnding,
   ) =>
-    endedRecord(runId, {
-      fingerprint,
-      startedAt: unstarted ? null : new Date(minute(at)),
-      endedAt: new Date(minute(unstarted ? at : at + 1)),
-      ending: unstarted,
-    });
+    factOf(
+      endedRecord(runId, {
+        fingerprint,
+        startedAt: unstarted ? null : new Date(minute(at)),
+        endedAt: new Date(minute(unstarted ? at : at + 1)),
+        ending: unstarted,
+      }),
+    );
   const inForceOf = (
     records: Parameters<typeof fingerprintGroupsNewestFirst>[0],
     before: Parameters<typeof fingerprintGroupsNewestFirst>[1] = [],
@@ -328,9 +322,15 @@ describe('daySpanOf', () => {
   it('spans the days its runs ended on, whatever order they come in', () => {
     expect(
       daySpanOf([
-        endedRecord('run_2', { endedAt: new Date('2026-09-30T08:00:00Z') }),
-        endedRecord('run_1', { endedAt: new Date('2026-09-28T23:00:00Z') }),
-        endedRecord('run_3', { endedAt: new Date('2026-09-29T10:00:00Z') }),
+        factOf(
+          endedRecord('run_2', { endedAt: new Date('2026-09-30T08:00:00Z') }),
+        ),
+        factOf(
+          endedRecord('run_1', { endedAt: new Date('2026-09-28T23:00:00Z') }),
+        ),
+        factOf(
+          endedRecord('run_3', { endedAt: new Date('2026-09-29T10:00:00Z') }),
+        ),
       ]),
     ).toEqual({ firstDay: '2026-09-28', lastDay: '2026-09-30' });
   });

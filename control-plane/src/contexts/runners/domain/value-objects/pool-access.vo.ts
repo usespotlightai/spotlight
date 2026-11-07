@@ -2,6 +2,7 @@ import type { EgressReference } from '@runners/domain/value-objects/egress-refer
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import type { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
+import type { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 
 export type PoolMode = 'pull' | 'push';
@@ -11,15 +12,15 @@ export class PullAccess {
 
   private constructor(
     readonly tokenHash: TokenHash,
-    readonly tokenVersion: number | null,
+    readonly tokenVersion: RotationVersion,
   ) {}
 
-  static of(tokenHash: TokenHash, tokenVersion: number | null): PullAccess {
+  static of(tokenHash: TokenHash, tokenVersion: RotationVersion): PullAccess {
     return new PullAccess(tokenHash, tokenVersion);
   }
 
-  rotatesOn(tokenVersion: number | null): boolean {
-    return tokenVersion !== this.tokenVersion;
+  rotatesOn(tokenVersion: RotationVersion): boolean {
+    return this.tokenVersion.rotatesOn(tokenVersion);
   }
 }
 
@@ -29,7 +30,7 @@ export class PushAccess {
   private constructor(
     readonly url: ProvisionUrl,
     readonly secret: EncryptedProvisionSecret,
-    readonly secretVersion: number | null,
+    readonly secretVersion: RotationVersion,
     readonly egress: EgressReference | null,
     readonly egressTraffic: EgressTraffic,
   ) {}
@@ -37,7 +38,7 @@ export class PushAccess {
   static of(
     url: ProvisionUrl,
     secret: EncryptedProvisionSecret,
-    secretVersion: number | null,
+    secretVersion: RotationVersion,
     egress: EgressReference | null,
     egressTraffic: EgressTraffic = EgressTraffic.all(),
   ): PushAccess {
@@ -50,8 +51,8 @@ export class PushAccess {
     );
   }
 
-  rotatesOn(secretVersion: number | null): boolean {
-    return secretVersion !== this.secretVersion;
+  rotatesOn(secretVersion: RotationVersion): boolean {
+    return this.secretVersion.rotatesOn(secretVersion);
   }
 
   usesEgress(egress: EgressReference): boolean {

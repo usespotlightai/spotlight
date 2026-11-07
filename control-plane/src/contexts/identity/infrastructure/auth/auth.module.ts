@@ -1,4 +1,5 @@
 import { LINKED_ACCOUNTS } from '@identity/application/ports/linked-accounts.port';
+import { SESSION_READER } from '@identity/application/ports/session-reader.port';
 import type { AppAuth } from '@identity/infrastructure/auth/auth';
 import { createAuth } from '@identity/infrastructure/auth/auth';
 import { AUTH } from '@identity/infrastructure/auth/auth.constants';
@@ -20,7 +21,6 @@ import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
-import { SESSION_READER } from '@shared-kernel/application/ports/session.port';
 
 const REQUEST_LIMIT = '4mb';
 

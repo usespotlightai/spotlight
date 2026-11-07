@@ -1,4 +1,4 @@
-import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
+import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 
 export const HANDING_OVER = SkillKey.of('spotlight-handover');
 

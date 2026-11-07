@@ -1,5 +1,5 @@
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import type { Claimant } from '@work/domain/repositories/run.repository';
+import type { Claimant } from '@work/domain/value-objects/claimant';
 
 export interface WaitingRun {
   readonly run: Run;

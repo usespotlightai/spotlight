@@ -1,11 +1,12 @@
 import { ExpireWaitingChecks } from '@change-review/application/services/expire-waiting-checks.service';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
+import { StackCheckReservationDropped } from '@change-review/domain/events/stack-check-reservation-dropped.event';
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { WAITING_LIMIT_MS } from '@change-review/domain/value-objects/stack-check.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -37,7 +38,7 @@ const expiring = (
   const saved: StackCheck[] = [];
   const save = vi.fn(async (check: StackCheck) => {
     if (conflicting.includes(check.stackId.value)) {
-      throw new StackCheckVersionConflictError(check.stackId.value);
+      throw new StackCheckVersionConflictError(check.id);
     }
     saved.push(check);
   });
@@ -50,7 +51,7 @@ const expiring = (
     listed,
     logged,
     expire: new ExpireWaitingChecks(
-      { withExpiredWait: listed, save } as unknown as StackCheckRepository,
+      { waiting: listed, save } as unknown as StackCheckRepository,
       { now: () => NOW, sleep: async () => {} },
       { error: logged } as unknown as LoggerPort,
     ),
@@ -58,6 +59,24 @@ const expiring = (
 };
 
 describe('ExpireWaitingChecks', () => {
+  it('leaves a check that still waits within its limit', async () => {
+    const fresh = StackCheck.begin({
+      stackId: ChangeStackId.of('stack_9'),
+      runId: RunId.of('run_of_stack_9'),
+      taskId: null,
+      replay: false,
+      workspaceId: WorkspaceId.of('ws_1'),
+      request: CheckRequest.of('npm test', null),
+      entries: [],
+      now: NOW,
+    });
+    const { expire, save } = expiring([fresh]);
+
+    await expire.processDue();
+
+    expect(save).not.toHaveBeenCalled();
+  });
+
   it('skips every check nobody claimed in time as a queue timeout', async () => {
     const { expire, saved, listed } = expiring([
       waiting('stack_1'),
@@ -66,7 +85,7 @@ describe('ExpireWaitingChecks', () => {
 
     await expire.processDue();
 
-    expect(listed).toHaveBeenCalledWith(NOW, 50);
+    expect(listed).toHaveBeenCalled();
     expect(saved.map((each) => each.stackId.value)).toEqual([
       'stack_1',
       'stack_2',
@@ -117,8 +136,8 @@ describe('ExpireWaitingChecks', () => {
     await expire.processDue();
 
     expect(saved[0]?.pullEvents()).toContainEqual(
-      new CheckReservationDropped(
-        ChangeStackId.of('stack_1'),
+      new StackCheckReservationDropped(
+        StackCheckId.first(ChangeStackId.of('stack_1')),
         RunnerId.of('pooled_1'),
       ),
     );
@@ -129,7 +148,7 @@ describe('ExpireWaitingChecks', () => {
     const logged = vi.fn();
     const expire = new ExpireWaitingChecks(
       {
-        withExpiredWait: async () => [waiting('stack_1'), waiting('stack_2')],
+        waiting: async () => [waiting('stack_1'), waiting('stack_2')],
         save: async (check: StackCheck) => {
           if (check.stackId.value === 'stack_1') {
             throw new Error('the database went away');

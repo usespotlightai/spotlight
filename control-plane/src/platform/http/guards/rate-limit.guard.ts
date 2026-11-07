@@ -12,13 +12,13 @@ import {
   RATE_LIMIT,
   type RateLimit,
 } from '@platform/http/decorators/rate-limited.decorator';
+import type { RequestHeaders } from '@platform/http/request-headers';
 import { consumeFixedWindow } from '@platform/redis/fixed-window';
 import { RedisConnection } from '@platform/redis/redis-connection';
 import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
-import type { RequestHeaders } from '@shared-kernel/application/ports/session.port';
 
 const PREFIX = 'spotlight:rate-limit:route:';
 

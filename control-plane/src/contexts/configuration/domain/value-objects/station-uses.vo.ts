@@ -1,6 +1,10 @@
+import type { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
+import type { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
+
 export interface StationUse {
   readonly name: string;
-  readonly by: string;
+  readonly line: string;
+  readonly station: string;
 }
 
 export class StationUses {
@@ -16,7 +20,7 @@ export class StationUses {
     return new StationUses([]);
   }
 
-  of(key: { readonly value: string }): StationUses {
+  of(key: SkillKey | ProfileKey): StationUses {
     return new StationUses(this.uses.filter((each) => each.name === key.value));
   }
 
@@ -25,7 +29,7 @@ export class StationUses {
   }
 
   get stations(): string {
-    return this.uses.map((each) => each.by).join(', ');
+    return this.uses.map((each) => `${each.line}/${each.station}`).join(', ');
   }
 
   equals(other: StationUses): boolean {

@@ -18,6 +18,7 @@ import type {
   SpotlightRequest,
   VerifyingRequest,
 } from '@secrets/application/ports/secret-injection.port';
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { vi } from 'vitest';
 
@@ -29,8 +30,11 @@ interface Bound {
   readonly value: string;
 }
 
-const denied = (message: string) =>
-  Object.assign(new Error(message), { kind: 'not-allowed' as const });
+class SecretDenied extends DomainError {
+  readonly kind = 'not-allowed' as const;
+}
+
+const denied = (message: string) => new SecretDenied(message);
 
 export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
   const granted = new Set<string>();
@@ -164,7 +168,7 @@ export const callAuthFor = (
       }),
       inWorkspace: async () => [],
     } satisfies TeamDirectoryPort,
-    { onTeam: async () => null } as unknown as WorkspaceAccessPort,
+    { inWorkspaceOfTeam: async () => null } as unknown as WorkspaceAccessPort,
     injection,
     { afterUnauthorized: async () => null } as unknown as ConnectionRefresh,
   );

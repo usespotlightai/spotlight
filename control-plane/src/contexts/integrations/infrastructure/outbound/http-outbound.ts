@@ -1,5 +1,4 @@
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import type {
   AuthIR,
   RequestIR,
@@ -14,16 +13,22 @@ import {
   cappedReply,
   cappedText,
 } from '@integrations/infrastructure/outbound/capped-body';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import {
   type Dressed,
   followed,
   sameHost,
 } from '@integrations/infrastructure/outbound/followed-redirects';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import {
+  applyInjected,
+  redactInjected,
+  redactInjectedIn,
+} from '@integrations/infrastructure/outbound/secret-injection';
 import type { CelVariables } from '@platform/expressions/cel-variables';
 import { isTrue, value } from '@platform/expressions/readings';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 
 export interface OutboundResult {
   readonly ok: boolean;
@@ -93,7 +98,7 @@ export class HttpOutbound {
       request,
       against,
       reply.status,
-      injected.redactedIn(await parse(reply)),
+      redactInjectedIn(injected, await parse(reply)),
     );
   }
 
@@ -126,7 +131,7 @@ export class HttpOutbound {
       request,
       against,
       reply.status,
-      injected.redactedIn(await parse(reply)),
+      redactInjectedIn(injected, await parse(reply)),
     );
   }
 
@@ -190,7 +195,8 @@ export class HttpOutbound {
     return {
       ok: status >= 200 && status < 300,
       status,
-      response: injected.redactedIn(
+      response: redactInjectedIn(
+        injected,
         parsed(
           await cappedText(
             reply,
@@ -271,7 +277,7 @@ export class HttpOutbound {
         async (hop): Promise<Dressed> => {
           if (!sameHost(hop.url, request.url)) {
             return {
-              url: injected.redact(hop.url),
+              url: redactInjected(injected, hop.url),
               headers: Object.fromEntries(
                 Object.entries(request.headers).filter(
                   ([name]) => name.toLowerCase() !== 'authorization',
@@ -302,7 +308,10 @@ export class HttpOutbound {
 
       throw new UpstreamError(
         `reaching ${new URL(request.url).host}`,
-        injected.redact(error instanceof Error ? error.message : String(error)),
+        redactInjected(
+          injected,
+          error instanceof Error ? error.message : String(error),
+        ),
       );
     }
   }
@@ -347,7 +356,7 @@ export class HttpOutbound {
     }
 
     const injected = await credentials.injectedFor(url.href, auth.secrets);
-    injected.applyTo({ url, headers });
+    applyInjected(injected, { url, headers });
 
     return injected;
   }

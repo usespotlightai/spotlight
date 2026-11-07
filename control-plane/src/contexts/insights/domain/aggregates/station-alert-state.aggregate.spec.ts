@@ -5,10 +5,12 @@ import {
 import { StationAlertFired } from '@insights/domain/events/station-alert-fired.event';
 import { StationAlertReopened } from '@insights/domain/events/station-alert-reopened.event';
 import { StationAlertResolved } from '@insights/domain/events/station-alert-resolved.event';
-import { TEAM, WORKSPACE } from '@insights/domain/runs.fake-spec';
 import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
+import { TEAM, WORKSPACE } from '@insights/runs.fake-spec';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -24,8 +26,8 @@ const begun = () =>
   StationAlertState.start({
     workspaceId: WORKSPACE,
     teamId: TEAM,
-    lineId: 'line_1',
-    stationId: 'station_1',
+    lineId: LineId.of('line_1'),
+    stationId: StationId.of('station_1'),
   });
 
 const ids = () => {

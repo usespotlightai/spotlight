@@ -8,7 +8,10 @@ import type {
   AlertRule,
   FinalReading,
 } from '@insights/domain/value-objects/alert-rule.vo';
+import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -16,8 +19,8 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface WatchedStation {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
-  readonly lineId: string;
-  readonly stationId: string;
+  readonly lineId: LineId;
+  readonly stationId: StationId;
 }
 
 export interface RuleReading {
@@ -89,7 +92,8 @@ export class StationAlertState extends EventRecorder {
       .filter((each) => !each.open && each.rule.equals(rule))
       .sort(
         (a, b) =>
-          (b.resolvedAt?.getTime() ?? 0) - (a.resolvedAt?.getTime() ?? 0),
+          (b.resolvedAt?.getTime() ?? 0) - (a.resolvedAt?.getTime() ?? 0) ||
+          b.id.value.localeCompare(a.id.value),
       );
 
     return last?.cooling ? last : undefined;
@@ -219,6 +223,10 @@ export class StationAlertState extends EventRecorder {
     }
 
     return next;
+  }
+
+  erasing(scope: DeletionScope): StationAlertState | null {
+    return scope.kind === 'task' ? this.withoutTask(scope.taskId) : null;
   }
 
   withoutTask(taskId: TaskId): StationAlertState {

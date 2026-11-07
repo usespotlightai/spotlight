@@ -53,6 +53,7 @@ describe('setting a team up as code (e2e)', () => {
 
   const settingUp = (runId: string) =>
     Chat.start({
+      lines: [],
       workspaceId: WorkspaceId.of(workspaceId),
       teamId: TeamId.of(workspaceId),
       startedBy: UserId.of(owner),
@@ -193,9 +194,7 @@ describe('setting a team up as code (e2e)', () => {
     });
     const expired = async (by: Date) =>
       (
-        await app
-          .get(DrizzleWorkspaceTokenRepository)
-          .issuedAndExpiredBy(by, 10_000)
+        await app.get(DrizzleWorkspaceTokenRepository).dueToExpireBy(by, 10_000)
       ).map((each) => each.id.value);
 
     expect(await expired(new Date(expiresAt.getTime() - 1))).not.toContain(

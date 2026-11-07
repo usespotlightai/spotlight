@@ -1,5 +1,5 @@
 import type { PeoplePort } from '@insights/application/ports/people.port';
-import { TeamAccess } from '@insights/domain/services/team-access';
+import { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
 import {
   PersonPrincipal,
   type Principal,

@@ -1,7 +1,7 @@
 import {
   HOOK_ON_FAILURES,
   Hook,
-} from '@integrations/domain/entities/hook.entity';
+} from '@integrations/domain/value-objects/hook.vo';
 import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import { SLUG_SHAPE } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { z } from 'zod';
@@ -55,7 +55,7 @@ const requestSchema = z
     url: z.string().min(1, 'is the address to send the request to'),
     headers: z.record(header, z.string()).default({}),
     body: json.optional(),
-    from: z.enum(['spotlight', 'network']).default('spotlight'),
+    from: z.enum(['spotlight', 'network']).optional(),
   })
   .strict();
 

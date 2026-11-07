@@ -43,7 +43,7 @@ export const noiseReadingOf = (
   noisyInOneRepeat: isNoisyAt(noise.spread, minGain, ONE_REPEAT),
 });
 
-export interface ReplayedConfig {
+export interface ScoredCandidate {
   readonly id: CandidateId;
   readonly isLive: boolean;
   readonly fingerprint: StationFingerprint;
@@ -116,22 +116,24 @@ const noiseIn = (
 
 export const setNoiseOf = (
   replays: readonly Replay[],
-  configs: readonly ReplayedConfig[],
+  candidates: readonly ScoredCandidate[],
   liveFingerprint: StationFingerprint,
 ): SetNoise | null => {
   for (const replay of [...replays].sort(newestFirst)) {
-    const config = configs.find((each) => each.id.equals(replay.candidateId));
+    const candidate = candidates.find((each) =>
+      each.id.equals(replay.candidateId),
+    );
 
     if (
       replay.current !== 'finished' ||
       replay.repeats < 2 ||
-      !config?.isLive ||
-      !config.fingerprint.equals(liveFingerprint)
+      !candidate?.isLive ||
+      !candidate.fingerprint.equals(liveFingerprint)
     ) {
       continue;
     }
 
-    const noise = noiseIn(replay, config.fingerprint);
+    const noise = noiseIn(replay, candidate.fingerprint);
 
     if (noise) {
       return noise;

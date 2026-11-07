@@ -10,6 +10,8 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -22,8 +24,8 @@ const toSchedule = (row: ScheduleRow): StationSearchSchedule =>
     station: {
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: LineId.of(row.lineId),
+      stationId: StationId.of(row.stationId),
     },
     setId: ReplaySetId.of(row.setId),
     lastStartedAt: row.lastStartedAt,
@@ -51,7 +53,7 @@ const toSchedule = (row: ScheduleRow): StationSearchSchedule =>
 const columnsOf = (schedule: StationSearchSchedule) => ({
   workspaceId: schedule.workspaceId.value,
   teamId: schedule.teamId.value,
-  lineId: schedule.station.lineId,
+  lineId: schedule.station.lineId.value,
   setId: schedule.setId.value,
   lastStartedAt: schedule.lastStartedAt,
   lastSkipReason: schedule.lastSkip?.reason ?? null,
@@ -77,17 +79,17 @@ export class DrizzleStationSearchScheduleRepository
     private readonly events: DomainEventDispatcher,
   ) {}
 
-  async ofStation(stationId: string): Promise<StationSearchSchedule | null> {
+  async ofStation(stationId: StationId): Promise<StationSearchSchedule | null> {
     const [found] = await this.where(
-      eq(stationSearchSchedule.stationId, stationId),
+      eq(stationSearchSchedule.stationId, stationId.value),
     );
 
     return found ?? null;
   }
 
-  async locked(stationId: string): Promise<StationSearchSchedule | null> {
+  async locked(stationId: StationId): Promise<StationSearchSchedule | null> {
     const [found] = await this.where(
-      eq(stationSearchSchedule.stationId, stationId),
+      eq(stationSearchSchedule.stationId, stationId.value),
       true,
     );
 
@@ -102,7 +104,7 @@ export class DrizzleStationSearchScheduleRepository
     return found ?? null;
   }
 
-  async dueStations(now: Date, limit: number): Promise<readonly string[]> {
+  async dueStations(now: Date, limit: number): Promise<readonly StationId[]> {
     return (
       await this.context.db
         .select({ stationId: stationSearchSchedule.stationId })
@@ -113,11 +115,11 @@ export class DrizzleStationSearchScheduleRepository
           asc(stationSearchSchedule.stationId),
         )
         .limit(limit)
-    ).map((each) => each.stationId);
+    ).map((each) => StationId.of(each.stationId));
   }
 
-  ofLine(lineId: string): Promise<readonly StationSearchSchedule[]> {
-    return this.where(eq(stationSearchSchedule.lineId, lineId));
+  ofLine(lineId: LineId): Promise<readonly StationSearchSchedule[]> {
+    return this.where(eq(stationSearchSchedule.lineId, lineId.value));
   }
 
   ofTeam(teamId: TeamId): Promise<readonly StationSearchSchedule[]> {
@@ -129,7 +131,7 @@ export class DrizzleStationSearchScheduleRepository
       await this.context.db
         .insert(stationSearchSchedule)
         .values({
-          stationId: added.stationId,
+          stationId: added.stationId.value,
           ...columnsOf(added),
           version: added.version,
         })
@@ -141,7 +143,7 @@ export class DrizzleStationSearchScheduleRepository
   async save(saved: StationSearchSchedule): Promise<void> {
     await this.context.inTransaction(async () => {
       const at = and(
-        eq(stationSearchSchedule.stationId, saved.stationId),
+        eq(stationSearchSchedule.stationId, saved.stationId.value),
         eq(stationSearchSchedule.version, saved.version),
       );
       const written = saved.isDeleted

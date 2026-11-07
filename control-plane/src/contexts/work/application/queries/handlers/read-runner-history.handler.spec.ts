@@ -148,7 +148,6 @@ const reading = ({
     endedAmong: async (_station, runIds) =>
       among.filter((each) => runIds.includes(each.runId)),
     journalsOf: async (ids) => ids.map(journal),
-    alertsAt: async () => null,
   };
   const traces = {
     leasedRunFacts: vi

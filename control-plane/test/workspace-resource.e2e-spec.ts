@@ -231,6 +231,7 @@ describe('a workspace, created through the resource API (e2e)', () => {
       workspaceId: made.body.id,
       key: 'core',
       name: 'Core',
+      origin: 'configuration',
     });
     await db
       .insert(schema.teamMember)
@@ -260,15 +261,13 @@ describe('a workspace, created through the resource API (e2e)', () => {
       workspaceId: made.body.id,
       key: 'core',
       name: 'Core',
+      origin: 'configuration',
     });
 
     await expect(
       workspaces.save(
         existing?.delete(
-          [],
-          [],
-          [],
-          [],
+          { teams: [], tokens: [], trusts: [] },
           Dependents.none(),
           changeActorIn(made.body.id),
         ) as Workspace,

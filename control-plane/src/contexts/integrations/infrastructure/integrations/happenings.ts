@@ -1,4 +1,5 @@
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
+import type { RaisedMark } from '@integrations/domain/value-objects/raised-happening.vo';
 import type {
   AttachmentsIR,
   EventIR,
@@ -10,10 +11,9 @@ import {
   sanitizedForCel,
 } from '@platform/expressions/cel-variables';
 import { evaluateText, isTrue, value } from '@platform/expressions/readings';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type {
-  Arriving,
   Happened,
+  InboundAttachment,
   TaskMark,
 } from '@work/application/contracts/happenings.contract';
 
@@ -87,7 +87,7 @@ const arriving = (
   attachments: AttachmentsIR,
   against: CelVariables,
   fetching: Fetching,
-): Arriving[] => {
+): InboundAttachment[] => {
   const files = value(attachments.each, against);
 
   if (!Array.isArray(files)) {
@@ -123,34 +123,29 @@ const raiseFrom = (
   ourOwn: boolean,
   fetching: Fetching | null,
 ): Happened => {
-  const marked = raise.marks
-    .map((mark) => {
-      const read = evaluateText(mark.value, against);
-
-      return read
-        ? { mark: { kind: mark.kind.value, value: read }, finds: mark.finds }
-        : null;
-    })
-    .filter(
-      (each): each is { mark: TaskMark; finds: boolean } => each !== null,
-    );
-
-  const marks = marked.map((each) => each.mark);
-  const chatMarks = marked.map((each) => ({ ...each.mark, finds: each.finds }));
-
-  const branch = raise.branch
-    ? evaluateText(raise.branch, against) || null
-    : null;
-  const finding = marked.filter((each) => each.finds).map((each) => each.mark);
-
-  if (!branch && finding.length === 0) {
-    throw new UpstreamError(
-      `reading a ${declared.happening.value}`,
-      'it names neither a branch nor anything this line knows a task by',
-    );
-  }
-
-  const title = raise.opens ? evaluateText(raise.opens.title, against) : null;
+  const raised = declared.raised({
+    branch: raise.branch ? evaluateText(raise.branch, against) : null,
+    marks: raise.marks.map((mark) => ({
+      kind: mark.kind,
+      value: evaluateText(mark.value, against) ?? '',
+      finds: mark.finds,
+    })),
+    opening: raise.opens
+      ? {
+          title: evaluateText(raise.opens.title, against),
+          description: raise.opens.description
+            ? evaluateText(raise.opens.description, against)
+            : null,
+          assignEmail: raise.opens.assignBy
+            ? evaluateText(raise.opens.assignBy.email, against)
+            : null,
+        }
+      : null,
+  });
+  const markOf = (each: RaisedMark): TaskMark => ({
+    kind: each.kind.value,
+    value: each.value,
+  });
   const messageText = raise.message
     ? (evaluateText(raise.message, against) ?? '').trim()
     : '';
@@ -160,32 +155,33 @@ const raiseFrom = (
     summary: declared.summary,
     answers: declared.answers,
     state: 'raised',
-    correlationKeys: { branch, marks: finding },
+    correlationKeys: {
+      branch: raised.branch,
+      marks: raised.finding.map(markOf),
+    },
     message: messageText ? { body: messageText } : null,
     authorEmail: raise.author
       ? evaluateText(raise.author.email, against) || null
       : null,
     ourOwn,
-    opens:
-      declared.opens && raise.opens && title
-        ? {
-            lineRole: declared.opens.lineRole,
-            station: declared.opens.station,
-            title,
-            description: raise.opens.description
-              ? evaluateText(raise.opens.description, against)
-              : null,
-            assignEmail: raise.opens.assignBy
-              ? evaluateText(raise.opens.assignBy.email, against)
-              : null,
-            marks,
-          }
-        : null,
+    opens: raised.opens
+      ? {
+          lineRole: raised.opens.opening.lineRole,
+          station: raised.opens.opening.station,
+          title: raised.opens.title,
+          description: raised.opens.description,
+          assignEmail: raised.opens.assignEmail,
+          marks: raised.marks.map(markOf),
+        }
+      : null,
     chat: raise.chat
       ? {
           email: evaluateText(raise.chat.by.email, against) || null,
           harness: raise.chat.harness,
-          marks: chatMarks,
+          marks: raised.marks.map((each) => ({
+            ...markOf(each),
+            finds: each.finds,
+          })),
         }
       : null,
     attachments:

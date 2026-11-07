@@ -7,7 +7,6 @@ import type { RunStreamPort } from '@work/application/ports/run-stream.port';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 
 const ATTEMPTS = 3;
 
@@ -33,17 +32,17 @@ export class ProvisionFailures {
     }
 
     const entry = {
-      seq: -failed.provisioning.attempts,
       type: PROVISION_FAILED,
       message: `Provisioning failed · ${failure.kind}`,
       data: Buffer.from(failure.detail, 'utf8').toString('base64'),
     };
 
-    await this.journal.append(RunAttempt.of(failed.id, failed.attempt), [
+    const seq = await this.journal.appendControlPlaneEntry(
+      failed.currentAttempt,
       { ...entry, at },
-    ]);
+    );
     this.stream.publish(failed.id.value, [
-      { ...entry, attempt: failed.attempt, at: at.toISOString() },
+      { ...entry, seq, attempt: failed.attempt, at: at.toISOString() },
     ]);
 
     return failed;

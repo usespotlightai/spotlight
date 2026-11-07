@@ -9,8 +9,8 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { JournalEntry } from '@work/application/ports/run-journal.port';
 import { TouchedFiles } from '@work/application/services/touched-files';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleRunJournalReader } from '@work/infrastructure/persistence/drizzle/readers/run-journal.reader';
@@ -272,7 +272,7 @@ describe('reading what a task’s runs changed', () => {
         reviewedHead: null,
         pullRequest: null,
       } as unknown as Task,
-      { repositories: { all: [API, WEB] } } as unknown as Line,
+      { repositories: { all: [API, WEB] } } as unknown as LineMap,
     );
 
     expect(

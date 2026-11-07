@@ -3,7 +3,6 @@ import type {
   StationRunReaderPort,
   UnfinishedRunRow,
 } from '@work/application/ports/station-run-reader.port';
-import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
 import { StationRuns } from '@work/application/services/station-runs.service';
 import { describe, expect, it } from 'vitest';
 
@@ -32,11 +31,6 @@ const row = (change: Partial<EndedRunRow> = {}): EndedRunRow => ({
 const readingOnly = (found: EndedRunRow): StationRunReaderPort =>
   ({ endedRun: async () => found }) as unknown as StationRunReaderPort;
 
-const NO_SKILLS: TeamSkillsPort = {
-  definedFor: async () => [],
-  readyFor: async () => [],
-};
-
 describe('StationRuns.ended', () => {
   it('names the harness, model, effort, profile, repositories and skills the run was configured with', async () => {
     const stations = new StationRuns(
@@ -63,7 +57,6 @@ describe('StationRuns.ended', () => {
           },
         }),
       ),
-      NO_SKILLS,
     );
 
     expect(await stations.ended('run_1')).toEqual({
@@ -88,7 +81,7 @@ describe('StationRuns.ended', () => {
   });
 
   it('falls back on the harness the run ran on when it recorded no config', async () => {
-    const stations = new StationRuns(readingOnly(row()), NO_SKILLS);
+    const stations = new StationRuns(readingOnly(row()));
 
     expect(await stations.ended('run_1')).toMatchObject({
       harness: 'claude-code',
@@ -123,7 +116,6 @@ describe('StationRuns.ended', () => {
           },
         }),
       ),
-      NO_SKILLS,
     );
 
     expect(await stations.ended('run_1')).toMatchObject({
@@ -134,50 +126,11 @@ describe('StationRuns.ended', () => {
   it('names the repository under review on a line that declares none', async () => {
     const stations = new StationRuns(
       readingOnly(row({ reviewing: 'acme/web' })),
-      NO_SKILLS,
     );
 
     expect(await stations.ended('run_1')).toMatchObject({
       repositories: ['acme/web'],
     });
-  });
-});
-
-describe('StationRuns.alertsAt', () => {
-  it('names the thresholds a station watches, and nothing for a station it does not know', async () => {
-    const alert = {
-      measure: 'sent_back_rate',
-      risesBy: 0.15,
-      above: null,
-      fallsBy: null,
-      below: null,
-      over: 10,
-    };
-    const stations = new StationRuns(
-      {
-        alertsAt: async (stationId: string) =>
-          stationId === 'station_1' ? [alert] : null,
-      } as unknown as StationRunReaderPort,
-      NO_SKILLS,
-    );
-
-    expect(await stations.alertsAt('station_1')).toEqual([alert]);
-    expect(await stations.alertsAt('station_9')).toBeNull();
-  });
-});
-
-describe('StationRuns.teamSkillKeys', () => {
-  it('names every skill the team defines', async () => {
-    const stations = new StationRuns(readingOnly(row()), {
-      ...NO_SKILLS,
-      definedFor: async (teamId) =>
-        teamId.value === 'team_1' ? ['grafana', 'our-migrations'] : [],
-    });
-
-    expect(await stations.teamSkillKeys('team_1')).toEqual([
-      'grafana',
-      'our-migrations',
-    ]);
   });
 });
 
@@ -201,36 +154,33 @@ const unfinishedRow = (
 
 describe('StationRuns.unfinished', () => {
   it('gives each unfinished run its progress, and leaves out runs that wait for a person', async () => {
-    const stations = new StationRuns(
-      {
-        unfinishedOfTeam: async () => [
-          unfinishedRow('run_queued'),
-          unfinishedRow('run_claimed', {
-            state: 'claimed',
-            startedAt: STARTED,
-            config: {
-              prompt: null,
-              harness: 'codex',
-              model: 'gpt-5',
-              effort: null,
-              profile: null,
-              image: null,
-              repositories: [],
-              skills: [],
-              tools: [],
-              decisions: false,
-              memories: false,
-            },
-          }),
-          unfinishedRow('run_stopping', {
-            state: 'claimed',
-            stopRequested: true,
-          }),
-          unfinishedRow('run_suspended', { state: 'suspended' }),
-        ],
-      } as unknown as StationRunReaderPort,
-      NO_SKILLS,
-    );
+    const stations = new StationRuns({
+      unfinishedOfTeam: async () => [
+        unfinishedRow('run_queued'),
+        unfinishedRow('run_claimed', {
+          state: 'claimed',
+          startedAt: STARTED,
+          config: {
+            prompt: null,
+            harness: 'codex',
+            model: 'gpt-5',
+            effort: null,
+            profile: null,
+            image: null,
+            repositories: [],
+            skills: [],
+            tools: [],
+            decisions: false,
+            memories: false,
+          },
+        }),
+        unfinishedRow('run_stopping', {
+          state: 'claimed',
+          stopRequested: true,
+        }),
+        unfinishedRow('run_suspended', { state: 'suspended' }),
+      ],
+    } as unknown as StationRunReaderPort);
 
     expect(
       (await stations.unfinished('team_1')).map((each) => [
@@ -249,40 +199,37 @@ describe('StationRuns.unfinished', () => {
 
 describe('StationRuns.traced', () => {
   it('shortens what a task asks and what a run wrote, and leaves out empty notes', async () => {
-    const stations = new StationRuns(
-      {
-        traced: async () => ({
-          tasks: [
-            {
-              taskId: 'task_1',
-              title: 'Fix the queue',
-              description: `  ${'a'.repeat(400)}  `,
-              stationId: 'station_1',
-            },
-            {
-              taskId: 'task_2',
-              title: 'Tidy up',
-              description: '   ',
-              stationId: 'station_1',
-            },
-          ],
-          stations: [
-            {
-              stationId: 'station_1',
-              name: 'Implementation',
-              color: '#edc12b',
-              position: 0,
-              stations: 3,
-            },
-          ],
-          notes: new Map([
-            ['run_1', ' Done '],
-            ['run_2', '  '],
-          ]),
-        }),
-      } as unknown as StationRunReaderPort,
-      NO_SKILLS,
-    );
+    const stations = new StationRuns({
+      traced: async () => ({
+        tasks: [
+          {
+            taskId: 'task_1',
+            title: 'Fix the queue',
+            description: `  ${'a'.repeat(400)}  `,
+            stationId: 'station_1',
+          },
+          {
+            taskId: 'task_2',
+            title: 'Tidy up',
+            description: '   ',
+            stationId: 'station_1',
+          },
+        ],
+        stations: [
+          {
+            stationId: 'station_1',
+            name: 'Implementation',
+            color: '#edc12b',
+            position: 0,
+            stations: 3,
+          },
+        ],
+        notes: new Map([
+          ['run_1', ' Done '],
+          ['run_2', '  '],
+        ]),
+      }),
+    } as unknown as StationRunReaderPort);
 
     const traced = await stations.traced({
       taskIds: ['task_1', 'task_2'],

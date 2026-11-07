@@ -12,10 +12,9 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
+import { OPEN_RUN_STATES } from '@work/domain/value-objects/run-state';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { and, count, eq, inArray, isNull, lte, min, or } from 'drizzle-orm';
-
-const OPEN_STATES = ['queued', 'claimed', 'suspended'] as const;
 
 @Injectable()
 export class RunGauges implements OnModuleInit, OnModuleDestroy {
@@ -52,7 +51,7 @@ export class RunGauges implements OnModuleInit, OnModuleDestroy {
       this.db
         .select({ state: run.state, runs: count() })
         .from(run)
-        .where(inArray(run.state, [...OPEN_STATES]))
+        .where(inArray(run.state, [...OPEN_RUN_STATES]))
         .groupBy(run.state),
       this.db
         .select({ queuedAt: min(run.queuedAt) })
@@ -67,7 +66,7 @@ export class RunGauges implements OnModuleInit, OnModuleDestroy {
     const counted = new Map(byState.map((each) => [each.state, each.runs]));
 
     return {
-      'spotlight.runs': OPEN_STATES.map((state) => ({
+      'spotlight.runs': OPEN_RUN_STATES.map((state) => ({
         value: counted.get(state) ?? 0,
         attributes: { 'spotlight.run.state': state },
       })),

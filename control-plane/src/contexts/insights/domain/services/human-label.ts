@@ -1,6 +1,5 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import type { Score } from '@insights/domain/aggregates/score.aggregate';
-import type { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
+import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
+import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
 import type { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 
 type LabelSource = 'grade' | 'accepted' | 'sent-back' | 'merged' | 'closed';
@@ -11,7 +10,7 @@ export interface HumanLabel {
   readonly from: LabelSource;
 }
 
-const gradedBy = (grade: Score, rubricVersion: string | null): boolean =>
+const gradedBy = (grade: Scored, rubricVersion: string | null): boolean =>
   grade.rubricVersion === null ||
   rubricVersion === null ||
   grade.rubricVersion === rubricVersion;
@@ -19,8 +18,8 @@ const gradedBy = (grade: Score, rubricVersion: string | null): boolean =>
 const latestGrade = (
   scale: ScoreScale,
   rubricVersion: string | null,
-  grades: readonly Score[],
-): Score | null =>
+  grades: readonly Scored[],
+): Scored | null =>
   grades
     .filter(
       (each) =>
@@ -33,9 +32,8 @@ const latestGrade = (
 export const humanLabelOf = (input: {
   scale: ScoreScale;
   rubricVersion: string | null;
-  record: RunRecord | null;
-  taskPullRequest: TaskPullRequest | null;
-  grades: readonly Score[];
+  fact: RunFact | null;
+  grades: readonly Scored[];
 }): HumanLabel | null => {
   const grade = latestGrade(input.scale, input.rubricVersion, input.grades);
 
@@ -51,7 +49,8 @@ export const humanLabelOf = (input: {
     return null;
   }
 
-  const action = input.record?.firstHumanAction;
+  const action = input.fact?.firstHumanAction;
+  const pullRequest = input.fact?.pullRequest ?? null;
 
   if (action?.accepts) {
     return { value: input.scale.yes, claimResults: null, from: 'accepted' };
@@ -59,10 +58,10 @@ export const humanLabelOf = (input: {
   if (action?.sendsBack) {
     return { value: input.scale.no, claimResults: null, from: 'sent-back' };
   }
-  if (input.taskPullRequest?.state === 'merged') {
+  if (pullRequest?.state === 'merged') {
     return { value: input.scale.yes, claimResults: null, from: 'merged' };
   }
-  if (input.taskPullRequest?.state === 'closed') {
+  if (pullRequest?.state === 'closed') {
     return { value: input.scale.no, claimResults: null, from: 'closed' };
   }
 

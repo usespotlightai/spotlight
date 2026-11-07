@@ -3,30 +3,32 @@ import { ApplicationError } from '@shared-kernel/application/errors/application-
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { taskReaderOver } from '@work/application/ports/task-reader.fake-spec';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { LineLoader } from '@work/application/services/line-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
-import type { RunDetached } from '@work/domain/events/run-detached.event';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
+import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -34,19 +36,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 const at = (id: string, name: string, position: number, harness?: HarnessId) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     harness,
     kind:
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
 
 const line = () =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -61,7 +63,7 @@ const line = () =>
   });
 
 const elsewhere = () =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_2'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -120,31 +122,30 @@ const tasks = (found: Task | null = taskAt()) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    findByMarks: vi.fn(async () => null),
+    findByCorrelation: vi.fn(async () => []),
+    holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
     awaitingConnection: vi.fn(async () => []),
   }) satisfies TaskRepository & TaskPlacementsPort;
 
-const lines = (found: Line | null = line()) =>
+const lines = (found: LineMap | null = line()) =>
   ({
-    add: vi.fn(),
-    save: vi.fn(),
     find: vi.fn(async () => found),
     findByStation: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
-  }) satisfies LineRepository;
+    candidate: vi.fn(),
+  }) satisfies LineMapsPort;
 
 const access = (teamId = 'team_1') =>
   ({
-    onTeam: vi.fn(async (requested: string) =>
-      requested === teamId
+    inWorkspaceOfTeam: vi.fn(async (requested: TeamId) =>
+      requested.value === teamId
         ? {
-            teamId: TeamId.of(teamId),
+            teamId: requested,
             workspaceId: WorkspaceId.of('ws_1'),
             slug: 'acme',
             viewer: UserId.of('user_1'),
@@ -161,7 +162,7 @@ const clock: ClockPort = {
 
 const move = (
   stationId: string,
-  board: LineRepository = lines(),
+  board: LineMapsPort = lines(),
   stored: TaskRepository & TaskPlacementsPort = tasks(),
   teamId = 'team_1',
   revision = 0,
@@ -253,7 +254,7 @@ describe('MoveTaskHandler', () => {
         ?.pullEvents()
         .map((each) =>
           each.kind === 'task.run-detached' || each.kind === 'task.dispatched'
-            ? [each.kind, (each as RunDetached).runId.value]
+            ? [each.kind, (each as TaskRunDetached).runId.value]
             : [each.kind],
         ),
     ).toEqual([

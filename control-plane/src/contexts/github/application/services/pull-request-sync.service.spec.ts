@@ -10,6 +10,8 @@ import { PullRequestVersionConflictError } from '@github/domain/exceptions/pull-
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
+import { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
+import { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -53,7 +55,7 @@ class PullRequestsInMemory implements PullRequestRepository {
   readonly dispatched: DomainEvent[] = [];
   collisions = 0;
 
-  async at(_: WorkspaceId, url: PullRequestUrl) {
+  private at(_: WorkspaceId, url: PullRequestUrl) {
     return this.rows.get(url.value) ?? null;
   }
 
@@ -63,12 +65,8 @@ class PullRequestsInMemory implements PullRequestRepository {
     );
   }
 
-  async lastMergedTitled(_: WorkspaceId, __: Repository, title: string) {
-    return (
-      [...this.rows.values()].find(
-        (each) => each.merged && each.title === title,
-      ) ?? null
-    );
+  async titled(_: WorkspaceId, __: Repository, title: string) {
+    return [...this.rows.values()].filter((each) => each.title === title);
   }
 
   async lastUpdatedBefore(
@@ -106,14 +104,6 @@ class PullRequestsInMemory implements PullRequestRepository {
       .sort((a, b) => a.url.value.localeCompare(b.url.value))
       .filter((each) => !after || each.url.value > after.value)
       .slice(0, max);
-  }
-
-  async removeForWorkspace(workspaceId: WorkspaceId) {
-    for (const [url, each] of this.rows) {
-      if (each.workspaceId.equals(workspaceId)) {
-        this.rows.delete(url);
-      }
-    }
   }
 
   async lockedAt(workspaceId: WorkspaceId, url: PullRequestUrl) {
@@ -253,15 +243,22 @@ describe('PullRequestSync', () => {
   it('records a pull request first received through a review on it', async () => {
     const { service, pullRequests } = sync();
 
-    await service.reviewed(FROM, urlOf(7).value, snapshotOf(7), {
-      id: 1,
-      state: 'approved',
-      login: 'grace',
-      byBot: false,
-      at: new Date('2026-09-20T09:00:00Z'),
-    });
+    await service.reviewed(
+      FROM,
+      urlOf(7).value,
+      snapshotOf(7),
+      PullRequestReview.of({
+        id: 1,
+        state: 'approved',
+        login: 'grace',
+        byBot: false,
+        at: new Date('2026-09-20T09:00:00Z'),
+      }),
+    );
 
-    expect(pullRequests.rows.get(urlOf(7).value)?.reviewRounds).toBe(1);
+    expect(
+      pullRequests.rows.get(urlOf(7).value)?.reviews.map((each) => each.id),
+    ).toEqual([1]);
   });
 
   it('waits to learn what a pull request is before it syncs a review comment on it', async () => {
@@ -274,6 +271,7 @@ describe('PullRequestSync', () => {
       login: 'grace',
       inReplyToId: null,
       byBot: false,
+      details: null,
     });
 
     expect(pullRequests.rows.size).toBe(0);
@@ -291,6 +289,7 @@ describe('PullRequestSync', () => {
       login: 'grace',
       inReplyToId: null,
       byBot: false,
+      details: null,
     });
 
     expect(pullRequests.rows.get(urlOf(7).value)?.comments).toEqual([1]);
@@ -300,13 +299,18 @@ describe('PullRequestSync', () => {
     const { service, pullRequests } = sync();
     await service.updateDetails(FROM, snapshotOf(7));
 
-    await service.threadResolved(FROM, urlOf(7).value, snapshotOf(7), {
-      id: 'PRRT_1',
-      firstCommentId: 10,
-      login: 'coderabbitai[bot]',
-      byBot: true,
-      resolved: true,
-    });
+    await service.threadResolved(
+      FROM,
+      urlOf(7).value,
+      snapshotOf(7),
+      PullRequestThread.of({
+        id: 'PRRT_1',
+        firstCommentId: 10,
+        login: 'coderabbitai[bot]',
+        byBot: true,
+        resolved: true,
+      }),
+    );
 
     expect(pullRequests.rows.get(urlOf(7).value)?.threads).toEqual([
       {
@@ -329,8 +333,8 @@ describe('PullRequestSync', () => {
     await service.revertMerged(
       new PullRequestRevertMerged(
         WORKSPACE,
-        urlOf(9).value,
-        'acme/api',
+        urlOf(9),
+        Repository.of('acme/api'),
         { kind: 'number', number: 7 },
         null,
       ),
@@ -349,8 +353,8 @@ describe('PullRequestSync', () => {
     await service.revertMerged(
       new PullRequestRevertMerged(
         WORKSPACE,
-        urlOf(9).value,
-        'acme/api',
+        urlOf(9),
+        Repository.of('acme/api'),
         { kind: 'title', title: 'Change 7' },
         null,
       ),
@@ -390,7 +394,7 @@ describe('PullRequestSync', () => {
       pullRequests.dispatched[pullRequests.dispatched.length - 1],
     ).toMatchObject({
       kind: 'pull-request.purged',
-      pullRequest: urlOf(7).value,
+      pullRequest: urlOf(7),
     });
   });
 
@@ -459,28 +463,41 @@ describe('PullRequestSync', () => {
       FROM,
       urlOf(7).value,
       snapshotOf(7, { title: 'Renamed', updatedAt: NOW }),
-      { id: 1, state: 'approved', login: 'grace', byBot: false, at: NOW },
+      PullRequestReview.of({
+        id: 1,
+        state: 'approved',
+        login: 'grace',
+        byBot: false,
+        at: NOW,
+      }),
     );
 
     expect(pullRequests.rows.get(urlOf(7).value)).toMatchObject({
       title: 'Renamed',
-      reviewRounds: 1,
     });
+    expect(pullRequests.rows.get(urlOf(7).value)?.reviews).toHaveLength(1);
   });
 
-  it('leaves a dismissed review out of the rounds', async () => {
+  it('records a dismissed review as dismissed', async () => {
     const { service, pullRequests } = sync();
-    await service.reviewed(FROM, urlOf(7).value, snapshotOf(7), {
-      id: 1,
-      state: 'changes-requested',
-      login: 'grace',
-      byBot: false,
-      at: NOW,
-    });
+    await service.reviewed(
+      FROM,
+      urlOf(7).value,
+      snapshotOf(7),
+      PullRequestReview.of({
+        id: 1,
+        state: 'changes-requested',
+        login: 'grace',
+        byBot: false,
+        at: NOW,
+      }),
+    );
 
     await service.reviewDismissed(FROM, urlOf(7).value, snapshotOf(7), 1);
 
-    expect(pullRequests.rows.get(urlOf(7).value)?.reviewRounds).toBe(0);
+    expect(pullRequests.rows.get(urlOf(7).value)?.dismissedReviews).toEqual([
+      1,
+    ]);
   });
   it("fails purging a removed installation's pull requests where one could not be purged, after purging the rest", async () => {
     const { service, pullRequests } = sync();
@@ -536,19 +553,6 @@ describe('PullRequestSync', () => {
 
     await service.updateDetails(FROM, snapshotOf(7));
 
-    expect(pullRequests.rows.size).toBe(0);
-  });
-
-  it("lets go of a deleted workspace's installation before deleting its pull requests", async () => {
-    const { service, pullRequests, connections } = sync();
-    await service.updateDetails(FROM, snapshotOf(7));
-
-    await service.workspaceDeleted(WORKSPACE);
-
-    expect(connections.connection.isConnected).toBe(false);
-    expect(connections.dispatched.map((each) => each.kind)).toEqual([
-      'workspace.disconnected',
-    ]);
     expect(pullRequests.rows.size).toBe(0);
   });
 });

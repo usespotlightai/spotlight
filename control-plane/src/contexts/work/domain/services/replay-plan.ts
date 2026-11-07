@@ -1,6 +1,7 @@
+import { DONE } from '@shared-kernel/domain/value-objects/handover-word';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
 import { HandoverFor } from '@work/domain/services/handover-for';
@@ -15,13 +16,12 @@ import {
 } from '@work/domain/services/task-checkouts';
 import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
-import { DONE } from '@work/domain/value-objects/handover-word';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { RunReplay } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import type { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 export interface ReplayPlan {
@@ -46,7 +46,7 @@ const checkoutsAt = (
   original: Run,
   started: readonly StartedCheckout[],
   briefed: BriefedTask,
-  candidate: Line,
+  candidate: LineMap,
 ): TaskCheckout[] => {
   const repositories = repositoriesReviewedOrAll(briefed.reviewing, candidate);
 
@@ -71,7 +71,7 @@ const checkoutsAt = (
 
 const NOT_DEFERRED = { awaitingReview: false, deferredMoveTo: null } as const;
 
-const movesOnAfter = (candidate: Line, stationId: StationId): string[] =>
+const movesOnAfter = (candidate: LineMap, stationId: StationId): string[] =>
   [
     ...new Set([
       ...candidate.optionsFrom(stationId).map((each) => each.word),
@@ -97,7 +97,7 @@ export const replayPlanFor = ({
 }: {
   original: Run;
   briefed: BriefedTask | null;
-  candidate: Line;
+  candidate: LineMap;
   id: RunId;
 }): ReplayPlan => {
   const taskId =
@@ -142,7 +142,7 @@ export const replayPlanFor = ({
     briefed: task,
     at: {
       stationId,
-      resume: Resume.of({ key: ResumeKey.forReplay(id.value) }),
+      resume: Resume.of({ key: ResumeKey.forReplay(id) }),
       checkouts,
     },
     archive: started.archive,

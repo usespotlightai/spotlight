@@ -8,13 +8,9 @@ import type {
 } from '@github/application/ports/webhook-parser.port';
 import type { WebhookSignaturePort } from '@github/application/ports/webhook-signature.port';
 import type { PullRequestSync } from '@github/application/services/pull-request-sync.service';
-import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
-import { PullRequestReopened } from '@github/domain/events/pull-request-reopened.event';
-import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
-import { ReviewCommentReceived } from '@github/domain/events/review-comment-received.event';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
-import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -24,7 +20,6 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     private readonly parser: WebhookParserPort,
     private readonly signature: WebhookSignaturePort,
     private readonly connections: GitHubConnectionRepository,
-    private readonly events: DomainEventDispatcher,
     private readonly sync: PullRequestSync,
     private readonly logger: LoggerPort,
     private readonly checkRuns: CheckRunsPort,
@@ -161,21 +156,16 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     }
 
     if (event.kind === 'review-comment') {
-      await this.events.dispatch([
-        new ReviewCommentReceived(
-          workspaceId,
-          event.action,
-          event.pullRequest,
-          event.comment,
-        ),
-      ]);
+      const { id, inReplyToId, login, byBot, ...details } = event.comment;
+
       await this.sync.commented(from, event.pullRequest, event.snapshot, {
-        id: event.comment.id,
+        id,
         on: 'line',
         action: event.action,
-        login: event.comment.login,
-        inReplyToId: event.comment.inReplyToId,
-        byBot: event.comment.byBot,
+        login,
+        inReplyToId,
+        byBot,
+        details,
       });
     }
 
@@ -187,6 +177,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
         login: event.comment.login,
         inReplyToId: null,
         byBot: event.comment.byBot,
+        details: null,
       });
     }
 
@@ -199,27 +190,19 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
       );
     }
 
-    if (event.kind === 'pull-request-reviewed') {
-      await this.events.dispatch([
-        new PullRequestReviewed(
-          workspaceId,
-          event.pullRequest,
-          event.state,
-          event.login,
-          event.byBot,
-          event.submittedAt,
-        ),
-      ]);
-
-      if (event.id !== null) {
-        await this.sync.reviewed(from, event.pullRequest, event.snapshot, {
+    if (event.kind === 'pull-request-reviewed' && event.id !== null) {
+      await this.sync.reviewed(
+        from,
+        event.pullRequest,
+        event.snapshot,
+        PullRequestReview.of({
           id: event.id,
           state: event.state,
           login: event.login,
           byBot: event.byBot,
           at: event.submittedAt,
-        });
-      }
+        }),
+      );
     }
 
     if (event.kind === 'pull-request-review-dismissed') {
@@ -232,28 +215,20 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
     }
 
     if (event.kind === 'pull-request-closed') {
-      await this.events.dispatch([
-        new PullRequestClosed(
-          workspaceId,
-          event.pullRequest,
-          event.repository,
-          event.gitHubId,
-          event.merge,
-          event.closedAt,
-        ),
-      ]);
+      await this.sync.closed(from, event.pullRequest, {
+        repository: Repository.of(event.repository),
+        gitHubId: event.gitHubId,
+        merge: event.merge,
+        closedAt: event.closedAt,
+      });
     }
 
     if (event.kind === 'pull-request-reopened') {
-      await this.events.dispatch([
-        new PullRequestReopened(
-          workspaceId,
-          event.pullRequest,
-          event.repository,
-          event.gitHubId,
-          event.reopenedAt,
-        ),
-      ]);
+      await this.sync.reopened(from, event.pullRequest, {
+        repository: Repository.of(event.repository),
+        gitHubId: event.gitHubId,
+        reopenedAt: event.reopenedAt,
+      });
     }
   }
 

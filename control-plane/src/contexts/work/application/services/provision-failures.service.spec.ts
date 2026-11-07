@@ -4,6 +4,7 @@ import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { CONTROL_PLANE_SEQ } from '@work/application/contracts/run-journal.contract';
 import type { RunJournalPort } from '@work/application/ports/run-journal.port';
 import type { RunStreamPort } from '@work/application/ports/run-stream.port';
 import { ProvisionFailures } from '@work/application/services/provision-failures.service';
@@ -47,7 +48,12 @@ const failing = (stored: Run, conflicts = 0) => {
       current = run;
     }),
   };
-  const append = vi.fn(async () => {});
+  const written: number[] = [];
+  const append = vi.fn(async () => {
+    const seq = CONTROL_PLANE_SEQ - written.length;
+    written.push(seq);
+    return seq;
+  });
   const publish = vi.fn();
 
   return {
@@ -57,7 +63,7 @@ const failing = (stored: Run, conflicts = 0) => {
     current: () => current,
     failures: new ProvisionFailures(
       runs as unknown as RunRepository,
-      { append } as unknown as RunJournalPort,
+      { appendControlPlaneEntry: append } as unknown as RunJournalPort,
       { publish } as unknown as RunStreamPort,
     ),
   };
@@ -79,38 +85,17 @@ describe('ProvisionFailures', () => {
     expect(current().state).toBe('queued');
   });
 
-  it('journals the failure under the run’s current attempt, before anything the runner says', async () => {
+  it('journals the failure as a control-plane entry of the run’s current attempt', async () => {
     const { failures, append } = failing(reserved());
 
     await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON);
 
-    expect(append).toHaveBeenCalledWith(RunAttempt.of(RunId.of('run_1'), 1), [
-      {
-        seq: -1,
-        type: 'provision.failed',
-        message: 'Provisioning failed · http-error',
-        data: Buffer.from('the pool is draining', 'utf8').toString('base64'),
-        at: NOON,
-      },
-    ]);
-  });
-
-  it('numbers each further failure further back', async () => {
-    const { failures, append } = failing(
-      reserved()
-        .provisionFailed(POOLED, HTTP_ERROR, NOON)
-        .reservedFor(
-          POOLED,
-          PoolId.of('pool_1'),
-          new Date(NOON.getTime() + 5_000),
-        ),
-    );
-
-    await failures.failed(RunId.of('run_1'), POOLED, HTTP_ERROR, NOON);
-
-    expect(append).toHaveBeenCalledWith(expect.anything(), [
-      expect.objectContaining({ seq: -2 }),
-    ]);
+    expect(append).toHaveBeenCalledWith(RunAttempt.of(RunId.of('run_1'), 1), {
+      type: 'provision.failed',
+      message: 'Provisioning failed · http-error',
+      data: Buffer.from('the pool is draining', 'utf8').toString('base64'),
+      at: NOON,
+    });
   });
 
   it('shows the failure to anyone watching the run', async () => {
@@ -121,7 +106,7 @@ describe('ProvisionFailures', () => {
     expect(publish).toHaveBeenCalledWith('run_1', [
       expect.objectContaining({
         attempt: 1,
-        seq: -1,
+        seq: CONTROL_PLANE_SEQ,
         type: 'provision.failed',
         at: NOON.toISOString(),
       }),

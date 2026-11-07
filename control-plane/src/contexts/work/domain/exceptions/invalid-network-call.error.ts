@@ -1,4 +1,6 @@
-export class InvalidNetworkCallError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidNetworkCallError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(reason: string) {

@@ -10,7 +10,7 @@ export interface OpenedPullRequestDto {
 }
 
 export interface PullRequestStatusDto {
-  readonly state: 'open' | 'closed' | 'merged';
+  readonly state: 'open' | 'merged' | 'closed';
   readonly closedAt: Date | null;
 }
 

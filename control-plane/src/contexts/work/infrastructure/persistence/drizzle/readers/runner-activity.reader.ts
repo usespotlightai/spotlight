@@ -9,12 +9,9 @@ import type {
 } from '@work/application/ports/runner-activity-reader.port';
 import { LEASED_RUN_STATES } from '@work/domain/value-objects/run-state';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
-import {
-  line,
-  station,
-} from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 
 const kindOf = (row: {
@@ -51,7 +48,7 @@ export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
         searchId: run.searchId,
         replayOfRunId: run.replayOfRunId,
         ranForTeamId: run.ranForTeamId,
-        lineTeamId: line.teamId,
+        lineTeamId: workStation.teamId,
         chatTeamId: chat.teamId,
         taskTitle: task.title,
         chatTitle: chat.title,
@@ -59,10 +56,12 @@ export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
       .from(run)
       .leftJoin(task, eq(task.id, run.taskId))
       .leftJoin(
-        station,
-        eq(station.id, sql`coalesce(${run.stationId}, ${task.stationId})`),
+        workStation,
+        eq(
+          workStation.stationId,
+          sql`coalesce(${run.stationId}, ${task.stationId})`,
+        ),
       )
-      .leftJoin(line, eq(line.id, station.lineId))
       .leftJoin(chat, eq(chat.id, run.chatId))
       .where(
         and(

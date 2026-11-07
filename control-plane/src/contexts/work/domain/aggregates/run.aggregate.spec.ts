@@ -1,3 +1,4 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
@@ -7,7 +8,9 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
@@ -27,9 +30,8 @@ import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { describe, expect, it } from 'vitest';
 
 const aSpec = (executable = 'sh') =>
@@ -74,6 +76,46 @@ const onAttempt = (attempt: number, leaseUntil: Date) =>
     reservation: null,
     provisioning: Provisioning.none(),
   });
+
+describe('Run, read back', () => {
+  it('refuses a station config without the station it was configured at', () => {
+    const config = StationConfig.rehydrate(
+      {
+        prompt: null,
+        harness: 'dev',
+        model: null,
+        effort: null,
+        profile: null,
+        image: null,
+        repositories: [],
+        skills: [],
+        tools: [],
+        decisions: false,
+        memories: false,
+      },
+      'a'.repeat(64),
+    );
+
+    expect(() =>
+      Run.rehydrate({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        priority: RunPriority.normal,
+        subject: null,
+        spec: aSpec(),
+        state: 'queued',
+        claimedBy: null,
+        leaseExpiresAt: null,
+        outcome: null,
+        attempt: 1,
+        reservation: null,
+        provisioning: Provisioning.none(),
+        configuredAs: config,
+      }),
+    ).toThrow(InconsistentStateError);
+  });
+});
 
 describe('Run', () => {
   it('is exhausted rather than requeued for ever', () => {
@@ -1258,6 +1300,53 @@ describe('Run', () => {
     it('ends failed, not superseded, when it exits badly while its task still has it as its current run', () => {
       expect(failedRun().state).toBe('failed');
       expect(failedRun().outcome?.failure?.code).toBe('exited');
+    });
+  });
+
+  describe('resuming a workspace', () => {
+    const resuming = (key: string, subject: RunSubject | null) =>
+      Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        subject,
+        spec: RunSpec.of({
+          command: { executable: 'sh', args: [] },
+          briefing: 'do the thing',
+          handover: { options: [], noteLimit: 4_000 },
+          resume: { key, sessionId: 'session_1' },
+        }),
+      });
+    const ofTask = (id: string) =>
+      RunSubject.task(TaskId.of(id), null, TaskRevision.of(0));
+
+    it('resumes the workspace of its own task or chat', () => {
+      expect(
+        resuming('task-task_1', ofTask('task_1')).restoresFrom?.value,
+      ).toBe('task-task_1');
+      expect(
+        resuming('chat-chat_1', RunSubject.chat(ChatId.of('chat_1')))
+          .restoresFrom?.value,
+      ).toBe('chat-chat_1');
+    });
+
+    it('refuses to resume the workspace of another task or chat', () => {
+      expect(() => resuming('task-task_2', ofTask('task_1'))).toThrow(
+        InvalidRunTransitionError,
+      );
+      expect(() =>
+        resuming('chat-chat_2', RunSubject.chat(ChatId.of('chat_1'))),
+      ).toThrow(InvalidRunTransitionError);
+    });
+
+    it('refuses a run of no task or chat that names one’s workspace', () => {
+      expect(() => resuming('task-task_1', null)).toThrow(
+        InvalidRunTransitionError,
+      );
+      expect(() => resuming('chat-chat_1', null)).toThrow(
+        InvalidRunTransitionError,
+      );
+      expect(resuming('scratch', null).restoresFrom?.value).toBe('scratch');
     });
   });
 });

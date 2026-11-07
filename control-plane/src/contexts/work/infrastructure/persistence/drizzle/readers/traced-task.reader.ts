@@ -6,11 +6,8 @@ import type {
   TracedTask,
   TracedTaskReaderPort,
 } from '@work/application/ports/traced-task-reader.port';
-import {
-  line,
-  station,
-} from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import { eq, inArray } from 'drizzle-orm';
 
 @Injectable()
@@ -23,10 +20,13 @@ export class DrizzleTracedTaskReader implements TracedTaskReaderPort {
     }
 
     return this.db
-      .select({ taskId: task.id, title: task.title, teamId: line.teamId })
+      .select({
+        taskId: task.id,
+        title: task.title,
+        teamId: workStation.teamId,
+      })
       .from(task)
-      .innerJoin(station, eq(station.id, task.stationId))
-      .innerJoin(line, eq(line.id, station.lineId))
+      .innerJoin(workStation, eq(workStation.stationId, task.stationId))
       .where(
         inArray(
           task.id,

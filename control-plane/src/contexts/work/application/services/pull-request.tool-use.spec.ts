@@ -1,4 +1,5 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
@@ -9,7 +10,6 @@ import {
   builtInTool,
   PULL_REQUEST,
 } from '@work/domain/services/built-in-tools';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it } from 'vitest';
 

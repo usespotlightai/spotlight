@@ -9,7 +9,6 @@ import type { BuiltInToolUse } from '@work/application/services/built-in-tools.s
 import { UnknownChatError } from '@work/domain/exceptions/unknown-chat.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { TEST_STATION_CHANGE } from '@work/domain/services/built-in-tools';
-import type { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
 const isMode = (raw: string): raw is StationChangeTestMode =>
@@ -24,16 +23,6 @@ const blockOf = (text: string): unknown => {
   } catch {
     return text;
   }
-};
-
-const isOther = (inputs: ToolInputs, target: TargetStation): boolean => {
-  const line = named(inputs, 'line');
-  const station = named(inputs, 'station');
-
-  return (
-    (line !== null && line !== target.lineKey.value) ||
-    (station !== null && station !== target.stationKey.value)
-  );
 };
 
 export class TestStationChangeToolUse
@@ -64,7 +53,12 @@ export class TestStationChangeToolUse
         'This chat does not improve a station.',
       );
     }
-    if (isOther(inputs, target)) {
+    if (
+      !target.isOnly({
+        line: named(inputs, 'line'),
+        station: named(inputs, 'station'),
+      })
+    ) {
       return StationChangeTestAnswer.refused(
         'other-station',
         `This chat improves only the ${target.stationName.value} station (${target.stationKey.value}) on the ${target.lineName.value} line (${target.lineKey.value}).`,

@@ -3,10 +3,7 @@ import type {
   ConfigurationChangeDto,
 } from '@identity/application/dto/configuration-change.dto';
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  CONFIGURED_RESOURCES,
-  type RecordedDetail,
-} from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import type { RecordedDetail } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 
 export class ChangedByResponseDto {
   @ApiProperty({
@@ -49,7 +46,11 @@ export class ConfigurationChangeResponseDto {
   })
   readonly seq: number;
 
-  @ApiProperty({ enum: CONFIGURED_RESOURCES })
+  @ApiProperty({
+    example: 'runner-pool',
+    description:
+      'The kind of resource changed, as the resource API names it: line, skill, secret, runner-pool and so on',
+  })
   readonly resource: string;
 
   @ApiProperty() readonly resourceId: string;

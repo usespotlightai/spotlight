@@ -1,5 +1,5 @@
 import { createParamDecorator, type ExecutionContext } from '@nestjs/common';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 
 export const REQUEST_USER = Symbol('REQUEST_USER');
 

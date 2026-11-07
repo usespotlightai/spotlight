@@ -33,6 +33,7 @@ import { openApp, served } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-search-${randomUUID().slice(0, 8)}`;
@@ -188,11 +189,16 @@ const changed = (sessionUpdate: Record<string, unknown>) =>
 
 const aCandidateRun = async (original: string, at: string): Promise<string> => {
   const runId = randomUUID();
+  const [replayed] = await db
+    .select({ taskId: schema.run.taskId })
+    .from(schema.run)
+    .where(eq(schema.run.id, original));
 
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
     replayOfRunId: original,
+    replayedTaskId: replayed?.taskId ?? null,
     ranForTeamId: team.teamId.value,
     stationId: BUILD,
     harness: 'claude-code',
@@ -331,7 +337,7 @@ beforeAll(async () => {
     lineId: DELIVERY,
     repository: Repository.of('acme/api').value,
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,

@@ -1,15 +1,20 @@
 import { randomUUID } from 'node:crypto';
 import { JUDGE, type JudgePort } from '@insights/application/ports/judge.port';
-import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import {
+  REPLAYS_READER,
+  type ReplaysReaderPort,
+} from '@replays/application/ports/replays-reader.port';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
+import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
 import { baselineOf } from '@replays/domain/services/baseline';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { DrizzleReplayRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay.repository';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
@@ -23,9 +28,8 @@ import {
   type WorkspaceArchiveStorePort,
 } from '@work/application/ports/workspace-archive-store.port';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { type SearchPolicyTerms, searchStarted } from './support/auto-searches';
@@ -33,6 +37,7 @@ import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
 import * as schema from './support/schema';
 import { searchReadOf } from './support/search-read';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-replay-insights-${randomUUID().slice(0, 8)}`;
@@ -337,13 +342,56 @@ const entryOf = async (runId: string) => {
 
 type Plan = (replayId: string) => { score: number; cost: number };
 
+const REPLAY_STARTS = [
+  'replays.start-planned-search-replays',
+  'replays.start-replay-of-started-check',
+];
+
+const replaysStarted = async (): Promise<boolean> =>
+  (
+    await db
+      .select({ deliveredAt: schema.eventDelivery.deliveredAt })
+      .from(schema.eventDelivery)
+      .where(inArray(schema.eventDelivery.subscriber, REPLAY_STARTS))
+  ).every((each) => each.deliveredAt !== null);
+
+const unsettledReplayEntries = async () =>
+  db
+    .select({ runId: schema.replayEntry.runId })
+    .from(schema.replayEntry)
+    .innerJoin(schema.replay, eq(schema.replay.id, schema.replayEntry.replayId))
+    .where(
+      and(
+        eq(schema.replay.workspaceId, team.workspaceId.value),
+        inArray(schema.replay.state, ['queued', 'running']),
+        or(
+          eq(schema.replayEntry.waiting, true),
+          and(
+            isNotNull(schema.replayEntry.runId),
+            isNull(schema.replayEntry.succeeded),
+            eq(schema.replayEntry.notRun, false),
+          ),
+        ),
+      ),
+    );
+
+const SETTLE_PAUSE_MS = 200;
+
 const drained = async (plan: Plan): Promise<void> => {
+  await eventually(replaysStarted, WITHIN);
+
   for (let turn = 0; turn < 200; turn += 1) {
     await app.get(DispatchReplayRuns).processDue();
 
     if ((await queuedReplayRuns()).length === 0) {
       await judged();
-      return;
+
+      if ((await unsettledReplayEntries()).length === 0) {
+        return;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, SETTLE_PAUSE_MS));
+      continue;
     }
 
     const assignment = await claimed();
@@ -497,7 +545,7 @@ beforeAll(async () => {
     sample: 0.1,
     minAgreement: 0.6,
   };
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -710,28 +758,44 @@ describe('replayed candidates beside live runs', () => {
 
   it('reads each set’s current baseline as the baseline rule picks it, past newer stopped ones', async () => {
     const replays = app.get(DrizzleReplayRepository);
+    const reader = app.get<ReplaysReaderPort>(REPLAYS_READER);
     const sets = await db
       .selectDistinct({ setId: schema.replay.setId })
       .from(schema.replay)
       .where(eq(schema.replay.teamId, team.teamId.value));
     const setIds = sets.map((each) => ReplaySetId.of(each.setId));
 
-    for (const each of await replays.baselinesOfSets(setIds)) {
+    for (const each of await reader.baselinesOfSets(setIds)) {
       const [row] = await db
         .select()
         .from(schema.replay)
         .where(eq(schema.replay.id, each.id.value));
 
+      const stoppedId = randomUUID();
+      const entries = await db
+        .select()
+        .from(schema.replayEntry)
+        .where(eq(schema.replayEntry.replayId, each.id.value));
+
       await db.insert(schema.replay).values({
         ...(row as typeof schema.replay.$inferInsert),
-        id: randomUUID(),
+        id: stoppedId,
         state: 'stopped',
+        servesAsBaseline: false,
+        healthSample: false,
         startedAt: new Date(Date.now() + 60_000),
         version: 0,
       });
+      await db.insert(schema.replayEntry).values(
+        entries.map((entry) => ({
+          ...entry,
+          replayId: stoppedId,
+          runId: entry.runId === null ? null : randomUUID(),
+        })),
+      );
     }
 
-    const read = await replays.baselinesOfSets(setIds);
+    const read = await reader.baselinesOfSets(setIds);
 
     expect(read).toHaveLength(setIds.length);
     for (const setId of setIds) {

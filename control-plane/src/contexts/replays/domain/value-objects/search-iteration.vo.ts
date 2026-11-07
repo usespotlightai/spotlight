@@ -269,8 +269,7 @@ export class SearchIteration {
 
     return this.with({
       state: failed ? 'failed' : 'ended',
-      agentSpent:
-        this.state.agentSpent ?? (started ? null : ModelSpent.of([], 0)),
+      agentSpent: this.state.agentSpent ?? (started ? null : ModelSpent.none()),
     });
   }
 
@@ -290,7 +289,7 @@ export class SearchIteration {
       state: 'ended',
       proposals: [...proposals],
       attempts: proposals.length,
-      agentSpent: ModelSpent.of([], 0),
+      agentSpent: ModelSpent.none(),
     });
   }
 
@@ -311,7 +310,7 @@ export class SearchIteration {
       : this.with({
           incumbent,
           state: 'ended',
-          agentSpent: ModelSpent.of([], 0),
+          agentSpent: ModelSpent.none(),
           result: 'no-failures',
         });
   }
@@ -359,6 +358,16 @@ export class SearchIteration {
   replaySpent(replayId: ReplayId, charge: ReplayCharge): SearchIteration {
     const proposals = this.state.proposals.map((each) =>
       each.replaySpent(replayId, charge),
+    );
+
+    return proposals.every((each, at) => each === this.state.proposals[at])
+      ? this
+      : this.with({ proposals });
+  }
+
+  replayStarted(replayId: ReplayId): SearchIteration {
+    const proposals = this.state.proposals.map((each) =>
+      each.replayStarted(replayId),
     );
 
     return proposals.every((each, at) => each === this.state.proposals[at])

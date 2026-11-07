@@ -1,14 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
 import { connect } from 'node:net';
+import {
+  SESSION_READER,
+  type SessionReaderPort,
+} from '@identity/application/ports/session-reader.port';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import {
-  type AuthenticatedUser,
-  SESSION_READER,
-  type SessionReaderPort,
-} from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -228,7 +228,7 @@ describe('sandbox editors (e2e)', () => {
       const found = await sandboxOf(`task-${taskId()}`);
       return found?.leases.length === 2 ? found : null;
     });
-    expect(held).toMatchObject({ hostId: null, state: 'starting' });
+    expect(held).toMatchObject({ hostId: null, state: 'open' });
     expect(held.leases.map((each) => each.kind)).toEqual(['editor', 'editor']);
 
     cookie.close();

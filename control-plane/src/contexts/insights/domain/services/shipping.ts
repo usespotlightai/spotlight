@@ -1,48 +1,19 @@
-import type { BotActivity } from '@insights/domain/aggregates/pull-request-record.aggregate';
-import { inboxWaitsWithin } from '@insights/domain/services/flow';
 import {
   type ByPercentile,
   between,
   byPercentile,
-  byText,
-  known,
   type Percentile,
   type Percentiles,
-  percentilesOf,
   rateOf,
 } from '@insights/domain/services/measures';
-import {
-  comparedRepositoriesOf,
-  inRepositories,
-  mergedWithin,
-  weeksOf,
-  weekWindowOf,
-} from '@insights/domain/services/pull-request-insights';
-import {
-  openingsOf,
-  type StationLocation,
-  stationsOf,
-  type TeamHistory,
-} from '@insights/domain/services/team-history';
+import type { StationLocation } from '@insights/domain/services/station-ranking';
 import {
   ROUND_BUCKETS,
   type RoundBucket,
-  roundBucketOf,
-  type TeamPullRequest,
-  toMergeMs,
 } from '@insights/domain/services/team-pull-requests';
 import { type Delta, deltaOf } from '@insights/domain/value-objects/delta.vo';
-import {
-  type InsightsPeriod,
-  type Window,
-  within,
-} from '@insights/domain/value-objects/insights-period.vo';
-import {
-  PULL_REQUEST_TYPES,
-  type PullRequestType,
-} from '@insights/domain/value-objects/pull-request-type';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { type PullRequestType } from '@insights/domain/value-objects/pull-request-type';
+import type { BotActivity } from '@insights/domain/value-objects/seen-pull-request.vo';
 
 export const ROLLING_DAYS = 7;
 
@@ -160,25 +131,6 @@ const FLOW_LAYOUTS = ['stations', 'stages'] as const;
 
 export type FlowLayout = (typeof FLOW_LAYOUTS)[number];
 
-interface PipelineOpening {
-  readonly taskId: string;
-  readonly openedAt: Date;
-}
-
-interface PipelineStationVisit {
-  readonly taskId: string;
-  readonly stationId: string;
-  readonly queued: number;
-  readonly running: number;
-  readonly inbox: number;
-}
-
-export interface PipelineCounts {
-  readonly openings: readonly PipelineOpening[];
-  readonly stations: readonly StationLocation[];
-  readonly stationVisits: readonly PipelineStationVisit[];
-}
-
 interface TypeCount {
   readonly type: PullRequestType;
   readonly merged: number;
@@ -223,38 +175,6 @@ export interface Shipping {
   readonly shippedAny: boolean;
 }
 
-const dayWindowOf = (day: string): Window => {
-  const from = new Date(`${day}T00:00:00.000Z`);
-
-  return { from, to: new Date(from.getTime() + DAY_MS) };
-};
-
-const rollingWindowOf = (day: string): Window => {
-  const { to } = dayWindowOf(day);
-
-  return { from: new Date(to.getTime() - ROLLING_DAYS * DAY_MS), to };
-};
-
-const comparedOf = (
-  pullRequests: readonly TeamPullRequest[],
-  repositories: readonly string[],
-): readonly TeamPullRequest[] => [
-  ...pullRequests.filter((each) => each.by === 'spotlight'),
-  ...inRepositories(
-    pullRequests.filter((each) => each.by === 'people'),
-    repositories,
-  ),
-];
-
-const byAuthorOf = (merged: readonly TeamPullRequest[]): ByAuthor => ({
-  spotlight: percentilesOf(
-    known(merged.filter((each) => each.by === 'spotlight').map(toMergeMs)),
-  ),
-  people: percentilesOf(
-    known(merged.filter((each) => each.by === 'people').map(toMergeMs)),
-  ),
-});
-
 const fallingIsBetter = { better: 'down', unit: 'percent' } as const;
 
 const percentileChangesOf = (
@@ -275,79 +195,8 @@ const byAuthorChangesOf = (
   people: percentileChangesOf(now.people, before.people),
 });
 
-const lasted = (from: Date | null, to: Date | null): number | null =>
+const _lasted = (from: Date | null, to: Date | null): number | null =>
   from && to ? Math.max(0, between(from, to)) : null;
-
-const earliest = (one: Date | null, other: Date | null): Date | null =>
-  one && other
-    ? one.getTime() <= other.getTime()
-      ? one
-      : other
-    : (one ?? other);
-
-const draftedMs = (each: TeamPullRequest, from: Date, to: Date): number =>
-  each.seen.draftPeriods.reduce(
-    (sum, period) =>
-      sum +
-      Math.max(
-        0,
-        Math.min(to.getTime(), period.to?.getTime() ?? to.getTime()) -
-          Math.max(from.getTime(), period.from.getTime()),
-      ),
-    0,
-  );
-
-const toFirstReviewMs = (each: TeamPullRequest): number | null => {
-  const ready = each.seen.readyForReviewAt;
-  const reviewed = each.seen.firstUnblockingReviewAt;
-  const waited = lasted(ready, reviewed);
-
-  return ready && reviewed && waited !== null
-    ? Math.max(0, waited - draftedMs(each, ready, reviewed))
-    : null;
-};
-
-const draftAt = (each: TeamPullRequest, at: Date): boolean =>
-  each.seen.draftPeriods.some(
-    (period) =>
-      period.from.getTime() <= at.getTime() &&
-      (period.to === null || period.to.getTime() > at.getTime()),
-  );
-
-const awaitingAt = (each: TeamPullRequest, at: Date): boolean => {
-  const ready = each.seen.readyForReviewAt;
-  const reviewed = each.seen.firstUnblockingReviewAt;
-  const closed = each.seen.closedAt;
-
-  return (
-    ready !== null &&
-    ready.getTime() <= at.getTime() &&
-    !draftAt(each, at) &&
-    (!reviewed || reviewed.getTime() > at.getTime()) &&
-    (!closed || closed.getTime() > at.getTime())
-  );
-};
-
-const mergeDaysOf = (
-  compared: readonly TeamPullRequest[],
-  days: readonly string[],
-): readonly MergeDay[] =>
-  days.map((day) => ({
-    day,
-    daily: byAuthorOf(mergedWithin(compared, dayWindowOf(day))),
-    rolling: byAuthorOf(mergedWithin(compared, rollingWindowOf(day))),
-  }));
-
-const typeMergesOf = (
-  merged: readonly TeamPullRequest[],
-): readonly TypeMerge[] =>
-  PULL_REQUEST_TYPES.flatMap((type) => {
-    const typed = merged.filter((each) => each.type === type);
-
-    return typed.length > 0
-      ? [{ type, merged: typed.length, toMerge: byAuthorOf(typed) }]
-      : [];
-  });
 
 const slowerFirst = (one: number | null, other: number | null): number =>
   one === null || other === null
@@ -381,33 +230,6 @@ const roundsCountsOf = (
   }));
 };
 
-const overlapOf = (one: Window, other: Window): Window => ({
-  from: new Date(Math.max(one.from.getTime(), other.from.getTime())),
-  to: new Date(Math.min(one.to.getTime(), other.to.getTime())),
-});
-
-const depthWeeksOf = (
-  compared: readonly TeamPullRequest[],
-  window: Window,
-): readonly DepthWeekCounts[] =>
-  weeksOf(window).map((week) => {
-    const merged = mergedWithin(
-      compared,
-      overlapOf(weekWindowOf(week), window),
-    );
-
-    return {
-      week,
-      merged: merged.length,
-      rounds: ROUND_BUCKETS.map((rounds) => ({
-        rounds,
-        merged: merged.filter(
-          (each) => roundBucketOf(each.seen.reviewRounds) === rounds,
-        ).length,
-      })),
-    };
-  });
-
 const mergedIn = (rounds: RoundBucket, week: DepthWeekCounts): number =>
   week.rounds.find((each) => each.rounds === rounds)?.merged ?? 0;
 
@@ -424,73 +246,6 @@ const depthTotalsOf = (
     weeks.reduce((sum, week) => sum + mergedIn(rounds, week), 0),
   );
 
-const firstReviewedWithin = (
-  reviewed: readonly TeamPullRequest[],
-  window: Window,
-): Percentiles =>
-  percentilesOf(
-    known(
-      reviewed
-        .filter((each) => within(window, each.seen.firstUnblockingReviewAt))
-        .map(toFirstReviewMs),
-    ),
-  );
-
-const reviewDaysOf = (
-  reviewed: readonly TeamPullRequest[],
-  days: readonly string[],
-): readonly ReviewDay[] =>
-  days.map((day) => {
-    const window = dayWindowOf(day);
-
-    return {
-      day,
-      toFirstReview: {
-        daily: firstReviewedWithin(reviewed, window),
-        rolling: firstReviewedWithin(reviewed, rollingWindowOf(day)),
-      },
-      awaiting: reviewed.filter((each) => awaitingAt(each, window.to)).length,
-      humanReviews: reviewed.reduce(
-        (sum, each) =>
-          sum +
-          each.seen.humanReviewedAt.filter((at) => within(window, at)).length,
-        0,
-      ),
-    };
-  });
-
-const activeWithin = (each: TeamPullRequest, window: Window): boolean =>
-  each.seen.openedAt.getTime() < window.to.getTime() &&
-  (!each.seen.closedAt ||
-    each.seen.closedAt.getTime() >= window.from.getTime());
-
-const botSumsOf = (
-  pullRequests: readonly TeamPullRequest[],
-  window: Window,
-): readonly BotActivity[] => {
-  const summed = new Map<string, BotActivity>();
-
-  for (const activity of pullRequests
-    .filter((each) => activeWithin(each, window))
-    .flatMap((each) => each.seen.botActivity)) {
-    const was = summed.get(activity.login);
-    summed.set(
-      activity.login,
-      was
-        ? {
-            login: activity.login,
-            reviews: was.reviews + activity.reviews,
-            comments: was.comments + activity.comments,
-            threads: was.threads + activity.threads,
-            resolvedThreads: was.resolvedThreads + activity.resolvedThreads,
-          }
-        : activity,
-    );
-  }
-
-  return [...summed.values()];
-};
-
 const botsFrom = (sums: readonly BotActivity[]): readonly ReviewBot[] =>
   [...sums]
     .map((each) => ({
@@ -501,55 +256,6 @@ const botsFrom = (sums: readonly BotActivity[]): readonly ReviewBot[] =>
         each.threads > 0 ? each.resolvedThreads / each.threads : null,
     }))
     .sort((one, other) => other.comments - one.comments);
-
-interface StationVisit {
-  readonly type: PullRequestType;
-  readonly total: number | null;
-  readonly parts: {
-    readonly queued: number;
-    readonly running: number;
-    readonly inbox: number;
-  } | null;
-}
-
-const timesOf = (
-  stationVisits: readonly StationVisit[],
-  parted: boolean,
-): Timed => ({
-  total: percentilesOf(known(stationVisits.map((each) => each.total))),
-  parts: parted
-    ? {
-        queued: percentilesOf(
-          stationVisits.map((each) => each.parts?.queued ?? 0),
-        ),
-        running: percentilesOf(
-          stationVisits.map((each) => each.parts?.running ?? 0),
-        ),
-        inbox: percentilesOf(
-          stationVisits.map((each) => each.parts?.inbox ?? 0),
-        ),
-      }
-    : null,
-});
-
-const byTypeOf = (
-  stationVisits: readonly StationVisit[],
-  parted = false,
-): Typed<Timed> => {
-  const timed = stationVisits.filter((each) => each.total !== null);
-
-  return {
-    all: timesOf(timed, parted),
-    types: PULL_REQUEST_TYPES.flatMap((type) => {
-      const typed = timed.filter((each) => each.type === type);
-
-      return typed.length > 0 ? [{ type, times: timesOf(typed, parted) }] : [];
-    }),
-  };
-};
-
-const sumOf = (values: readonly number[]): number =>
-  values.reduce((sum, each) => sum + each, 0);
 
 const timedFor = (
   stage: Stage<Timed>,
@@ -619,188 +325,6 @@ const withBottleneckRatios = (
   }));
 };
 
-export const shippedTaskIdsOf = (
-  pullRequests: readonly TeamPullRequest[],
-  period: InsightsPeriod,
-): readonly string[] =>
-  [
-    ...new Set(
-      mergedWithin(pullRequests, period.current).flatMap((each) =>
-        each.by === 'spotlight' && each.taskId !== null ? [each.taskId] : [],
-      ),
-    ),
-  ].sort(byText);
-
-export const pipelineCountsOf = (
-  history: TeamHistory,
-  taskIds: readonly string[],
-  period: InsightsPeriod,
-): PipelineCounts => {
-  const lookback = period.lookback;
-  const actedOn = openingsOf(history.taskHumanActions);
-  const openings = [...new Set(taskIds)].sort(byText).flatMap((taskId) => {
-    const openedAt = actedOn.get(taskId)?.opening?.at ?? null;
-
-    return openedAt !== null && openedAt.getTime() >= lookback.from.getTime()
-      ? [{ taskId, openedAt }]
-      : [];
-  });
-  const tasks = new Set(openings.map((each) => each.taskId));
-  const runs = history.records.filter(
-    (each) => each.taskId && tasks.has(each.taskId.value) && each.end,
-  );
-  const waits = inboxWaitsWithin(history, lookback);
-  const stations = stationsOf(runs);
-  const stationIds = stations.map((each) => each.stationId).sort(byText);
-
-  return {
-    openings,
-    stations,
-    stationVisits: openings.flatMap(({ taskId }) =>
-      stationIds.flatMap((stationId) => {
-        const here = runs.filter(
-          (run) =>
-            run.taskId?.value === taskId &&
-            run.end?.location.stationId === stationId,
-        );
-
-        return here.length > 0
-          ? [
-              {
-                taskId,
-                stationId,
-                queued: sumOf(
-                  known(here.map((run) => run.end?.queuedMs ?? null)),
-                ),
-                running: sumOf(
-                  known(here.map((run) => run.end?.runningMs ?? null)),
-                ),
-                inbox: sumOf(
-                  known(
-                    waits
-                      .filter(
-                        (wait) =>
-                          wait.taskId === taskId &&
-                          wait.stationId === stationId,
-                      )
-                      .map((wait) => lasted(wait.askedAt, wait.answeredAt)),
-                  ),
-                ),
-              },
-            ]
-          : [];
-      }),
-    ),
-  };
-};
-
-const shippedPipelineOf = (
-  merged: readonly TeamPullRequest[],
-  counts: PipelineCounts,
-): ShippedPipeline => {
-  const openings = new Map(
-    counts.openings.map((each) => [each.taskId, each.openedAt]),
-  );
-  const openedAt = (each: TeamPullRequest): Date | null =>
-    openings.get(each.taskId ?? '') ?? null;
-  const stationVisits = new Map(
-    counts.stationVisits.map((each) => [
-      JSON.stringify([each.taskId, each.stationId]),
-      each,
-    ]),
-  );
-  const made = merged.filter(
-    (each) => each.by === 'spotlight' && openedAt(each) !== null,
-  );
-  const step = (
-    each: TeamPullRequest,
-    from: Date | null,
-    to: Date | null,
-  ): StationVisit => ({
-    type: each.type,
-    total: lasted(from, to),
-    parts: null,
-  });
-  const stage = (
-    kind: FlowStageKind,
-    stationVisits: readonly StationVisit[],
-  ): Stage<Timed> => ({ kind, location: null, times: byTypeOf(stationVisits) });
-
-  const coding = stage(
-    'coding',
-    made.map((each) => step(each, openedAt(each), each.seen.openedAt)),
-  );
-  const stations = counts.stations.map(
-    (location): Stage<Timed> => ({
-      kind: 'station',
-      location,
-      times: byTypeOf(
-        made.flatMap((each) => {
-          const visit = stationVisits.get(
-            JSON.stringify([each.taskId, location.stationId]),
-          );
-
-          return visit
-            ? [
-                {
-                  type: each.type,
-                  total: visit.queued + visit.running + visit.inbox,
-                  parts: {
-                    queued: visit.queued,
-                    running: visit.running,
-                    inbox: visit.inbox,
-                  },
-                },
-              ]
-            : [];
-        }),
-        true,
-      ),
-    }),
-  );
-  const review = [
-    stage(
-      'awaitingReview',
-      made.map((each) => ({
-        type: each.type,
-        total: toFirstReviewMs(each),
-        parts: null,
-      })),
-    ),
-    stage(
-      'inReview',
-      made.map((each) =>
-        step(
-          each,
-          each.seen.firstUnblockingReviewAt,
-          earliest(each.seen.firstApprovedAt, each.seen.closedAt),
-        ),
-      ),
-    ),
-    stage(
-      'awaitingMerge',
-      made.map((each) =>
-        step(
-          each,
-          earliest(each.seen.firstApprovedAt, each.seen.closedAt),
-          each.seen.closedAt,
-        ),
-      ),
-    ),
-  ];
-
-  return {
-    merged: made.length,
-    types: PULL_REQUEST_TYPES.flatMap((type) => {
-      const count = made.filter((each) => each.type === type).length;
-      return count > 0 ? [{ type, merged: count }] : [];
-    }),
-    coding,
-    stations,
-    review,
-  };
-};
-
 const pipelineFrom = (shipped: ShippedPipeline): PipelineFlow => ({
   merged: shipped.merged,
   types: shipped.types,
@@ -809,41 +333,6 @@ const pipelineFrom = (shipped: ShippedPipeline): PipelineFlow => ({
     stages: withBottleneckRatios([shipped.coding, ...shipped.review]),
   },
 });
-
-export const shippingCountsOf = (
-  pullRequests: readonly TeamPullRequest[],
-  counts: PipelineCounts,
-  period: InsightsPeriod,
-): ShippingCounts => {
-  const repositories = comparedRepositoriesOf(pullRequests, period.current);
-  const compared = comparedOf(pullRequests, repositories);
-  const merged = mergedWithin(compared, period.current);
-
-  return {
-    toMerge: byAuthorOf(merged),
-    toMergeBefore: byAuthorOf(
-      mergedWithin(
-        comparedOf(
-          pullRequests,
-          comparedRepositoriesOf(pullRequests, period.previous),
-        ),
-        period.previous,
-      ),
-    ),
-    mergeDays: mergeDaysOf(compared, period.days),
-    types: typeMergesOf(merged),
-    depth: depthWeeksOf(compared, period.current),
-    reviewDays: reviewDaysOf(
-      pullRequests.filter((each) => each.by !== 'bots'),
-      period.days,
-    ),
-    bots: botSumsOf(pullRequests, period.current),
-    pipeline: shippedPipelineOf(
-      mergedWithin(pullRequests, period.current),
-      counts,
-    ),
-  };
-};
 
 export const shippingFrom = (counts: ShippingCounts): Shipping => {
   const pipeline = pipelineFrom(counts.pipeline);

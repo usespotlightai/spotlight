@@ -1,4 +1,6 @@
 import { Work } from '@replays/infrastructure/acl/work.adapter';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type {
   LiveStation,
   ReplayCandidatesPort,
@@ -54,7 +56,10 @@ const workWith = (live: LiveStation | null) =>
 
 describe('Work.live', () => {
   it('reads the station’s resolved search policy as its search policy', async () => {
-    const live = await workWith(liveWith(SEARCH)).live('line_1', 'station_1');
+    const live = await workWith(liveWith(SEARCH)).live(
+      LineId.of('line_1'),
+      StationId.of('station_1'),
+    );
 
     expect(live?.search).toMatchObject({
       enabled: true,
@@ -72,7 +77,10 @@ describe('Work.live', () => {
   });
 
   it('has no search policy when work answers none', async () => {
-    const live = await workWith(liveWith(null)).live('line_1', 'station_1');
+    const live = await workWith(liveWith(null)).live(
+      LineId.of('line_1'),
+      StationId.of('station_1'),
+    );
 
     expect(live?.search).toBeNull();
   });
@@ -80,7 +88,7 @@ describe('Work.live', () => {
   it('carries the policy as work answers it, leaving work’s limits to work', async () => {
     const live = await workWith(
       liveWith({ ...SEARCH, ceiling: 60, iterations: 11 }),
-    ).live('line_1', 'station_1');
+    ).live(LineId.of('line_1'), StationId.of('station_1'));
 
     expect(live?.search?.ceiling.amount).toBe(60);
     expect(live?.search?.iterations).toBe(11);

@@ -195,8 +195,7 @@ describe('scoresOf', () => {
     let heldOutCount = 0;
 
     search = search.heldOutFrom(
-      [seed, terse, wordy],
-      0.05,
+      scoresOf(search, [seed, terse, wordy], 0.05),
       () => ReplayId.of(`held_out_${++heldOutCount}`),
       later(4),
     );

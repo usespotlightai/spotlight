@@ -1,9 +1,9 @@
 import type { Judging } from '@insights/domain/aggregates/judging.aggregate';
 import type { RunJudged } from '@insights/domain/events/run-judged.event';
-import { InvalidScoreError } from '@insights/domain/exceptions/invalid-score.error';
-import { queuedJudging, rubricOf } from '@insights/domain/judging.fake-spec';
+import { InvalidJudgingError } from '@insights/domain/exceptions/invalid-judging.error';
 import { JudgeEvidence } from '@insights/domain/services/judge-evidence';
-import { JudgingFailure } from '@insights/domain/value-objects/judging-failure.vo';
+import { queuedJudging, rubricOf } from '@insights/judging.fake-spec';
+import { JudgingFailure } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -155,7 +155,7 @@ describe('Judging', () => {
         model: 'some/model',
         now: NOW,
       }),
-    ).toThrow(InvalidScoreError);
+    ).toThrow(InvalidJudgingError);
   });
 
   it('fails where there is nothing to judge', () => {

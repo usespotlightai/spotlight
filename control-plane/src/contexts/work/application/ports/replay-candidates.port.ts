@@ -1,5 +1,5 @@
+import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import type { LineDefinitionStation } from '@work/application/contracts/line-definition.contract';
 import type { ConfigChangeShape } from '@work/application/contracts/station-config.contract';
 
 export const REPLAY_CANDIDATES = Symbol('REPLAY_CANDIDATES');

@@ -31,8 +31,10 @@ import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -47,9 +49,9 @@ const TEAM = TeamId.of('team_1');
 
 const RUN_CONTEXT: NamedStationContext = {
   teamId: TEAM,
-  lineId: 'line_1',
+  lineId: LineId.of('line_1'),
   lineName: 'Delivery',
-  stationId: 'station_1',
+  stationId: StationId.of('station_1'),
   stationName: 'Implementation',
   repositories: [API],
 };
@@ -81,10 +83,13 @@ const approved = (id: string, scope: MemoryScope, at = NOW) =>
   });
 
 const CANDIDATES: readonly Memory[] = [
-  approved('memory_old', MemoryScope.of({ teamId: TEAM, lineId: 'line_1' })),
+  approved(
+    'memory_old',
+    MemoryScope.of({ teamId: TEAM, lineId: LineId.of('line_1') }),
+  ),
   approved(
     'memory_elsewhere',
-    MemoryScope.of({ teamId: TEAM, lineId: 'line_2' }),
+    MemoryScope.of({ teamId: TEAM, lineId: LineId.of('line_2') }),
   ),
 ];
 
@@ -108,7 +113,11 @@ const REJECTIONS: readonly RejectedMemory[] = [
   rejection('memory_no', MemoryScope.of({ teamId: TEAM })),
   rejection(
     'memory_other_station',
-    MemoryScope.of({ teamId: TEAM, lineId: 'line_1', stationId: 'station_9' }),
+    MemoryScope.of({
+      teamId: TEAM,
+      lineId: LineId.of('line_1'),
+      stationId: StationId.of('station_9'),
+    }),
   ),
 ];
 
@@ -166,7 +175,7 @@ const working = (input: {
       run: async () => null,
       leasedBy: async () => null,
       contextOfRun: async () => null,
-      referencedUnder: async () => null,
+      memoryFilesRead: async () => null,
       linesOf: async () => [],
       stationContextOf: async () =>
         input.runContext === undefined ? RUN_CONTEXT : input.runContext,
@@ -229,7 +238,7 @@ describe('drafting what a run should leave the team remembering', () => {
     );
     expect(proposal?.source).toBe('person');
     expect(proposal?.supersedes?.value).toBe('memory_old');
-    expect(proposal?.scope.stationId).toBe('station_1');
+    expect(proposal?.scope.stationId?.value).toBe('station_1');
   });
 
   it('requests a draft with the agent’s own words, the notes people wrote, and what the team approved or turned down where the run worked', async () => {

@@ -1,15 +1,20 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { UpdateEgressCommand } from '@runners/application/commands/runner-resource.commands';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
+import type { UsedTokensPort } from '@runners/application/ports/used-tokens.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
-import { recordEgressTokenUse } from '@runners/application/services/record-egress-token-use';
+import {
+  egressTokenHolders,
+  takeToken,
+} from '@runners/application/services/take-token';
 import { EgressTokenAlreadyUsedError } from '@runners/domain/exceptions/egress-token-already-used.error';
 import { EgressTokenInUseError } from '@runners/domain/exceptions/egress-token-in-use.error';
 import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
-import type { UsedEgressTokensRepository } from '@runners/domain/repositories/used-egress-tokens.repository';
+import { tokenTakenBy } from '@runners/domain/services/token-reuse';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
+import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
 import {
   forbiddenTo,
   type ResourceUpdated,
@@ -29,7 +34,7 @@ export class UpdateEgressHandler
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,
     private readonly egresses: EgressRepository,
-    private readonly usedTokens: UsedEgressTokensRepository,
+    private readonly usedTokens: UsedTokensPort,
     private readonly tokens: TokenIssuer,
     private readonly transaction: TransactionPort,
   ) {}
@@ -50,7 +55,7 @@ export class UpdateEgressHandler
         return null;
       }
 
-      if (!permissions.managesRunners) {
+      if (!permissions.allows('runners')) {
         return forbiddenTo('runners');
       }
 
@@ -74,13 +79,13 @@ export class UpdateEgressHandler
       );
 
       await this.transaction.inTransaction(async () => {
-        await this.egresses.save(updated);
-        await recordEgressTokenUse(
+        await takeToken(
           this.usedTokens,
-          this.egresses,
-          updated,
-          existing,
+          egressTokenHolders(this.egresses),
+          TokenHolder.egress(updated.id),
+          tokenTakenBy(updated, existing),
         );
+        await this.egresses.save(updated);
       });
 
       return { outcome: 'updated', id: id.value };

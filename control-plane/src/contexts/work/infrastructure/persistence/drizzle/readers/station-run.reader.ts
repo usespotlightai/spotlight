@@ -7,7 +7,6 @@ import type {
   EndedRunRow,
   KeyedStation,
   RanConfig,
-  StationAlertRowShape,
   StationRunReaderPort,
   StationRunRow,
   StationRunsWanted,
@@ -21,15 +20,12 @@ import {
 } from '@work/domain/value-objects/run-state';
 import { journalsOfRuns } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
-import {
-  line,
-  station,
-} from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   task,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import {
   and,
   desc,
@@ -57,9 +53,9 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       .select({
         runId: run.id,
         workspaceId: run.workspaceId,
-        teamId: line.teamId,
-        lineId: line.id,
-        stationId: station.id,
+        teamId: workStation.teamId,
+        lineId: workStation.lineId,
+        stationId: workStation.stationId,
         taskId: run.taskId,
         fingerprint: run.stationFingerprint,
         earlier: sql<RunState[]>`array(
@@ -76,8 +72,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
         endedAt: run.endedAt,
       })
       .from(run)
-      .innerJoin(station, eq(station.id, run.stationId))
-      .innerJoin(line, eq(line.id, station.lineId))
+      .innerJoin(workStation, eq(workStation.stationId, run.stationId))
       .where(
         and(
           eq(run.id, runId),
@@ -97,8 +92,8 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
     const rows = await this.db
       .select({
         runId: run.id,
-        lineId: line.id,
-        stationId: station.id,
+        lineId: workStation.lineId,
+        stationId: workStation.stationId,
         taskId: task.id,
         openedBy: task.createdById,
         harness: run.harness,
@@ -110,11 +105,10 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       })
       .from(run)
       .innerJoin(task, eq(task.id, run.taskId))
-      .innerJoin(station, eq(station.id, run.stationId))
-      .innerJoin(line, eq(line.id, station.lineId))
+      .innerJoin(workStation, eq(workStation.stationId, run.stationId))
       .where(
         and(
-          eq(line.teamId, teamId.value),
+          eq(workStation.teamId, teamId.value),
           notInArray(run.state, [...TERMINAL_RUN_STATES]),
           or(
             inArray(run.state, ['queued', 'claimed']),
@@ -129,18 +123,6 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
       ...row,
       stopRequested: stopRequestedAt !== null,
     }));
-  }
-
-  async alertsAt(
-    stationId: string,
-  ): Promise<readonly StationAlertRowShape[] | null> {
-    const [row] = await this.db
-      .select({ alerts: station.alerts })
-      .from(station)
-      .where(eq(station.id, stationId))
-      .limit(1);
-
-    return row ? row.alerts : null;
   }
 
   async configsNamed(
@@ -172,19 +154,18 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
   ): Promise<readonly KeyedStation[]> {
     return this.db
       .select({
-        stationId: station.id,
-        stationKey: station.key,
-        stationName: station.name,
-        lineKey: line.key,
-        lineName: line.name,
+        stationId: workStation.stationId,
+        stationKey: workStation.key,
+        stationName: workStation.name,
+        lineKey: workStation.lineKey,
+        lineName: workStation.lineName,
       })
-      .from(station)
-      .innerJoin(line, eq(line.id, station.lineId))
+      .from(workStation)
       .where(
         and(
-          eq(line.teamId, teamId.value),
-          eq(station.key, stationKey),
-          lineKey === null ? undefined : eq(line.key, lineKey),
+          eq(workStation.teamId, teamId.value),
+          eq(workStation.key, stationKey),
+          lineKey === null ? undefined : eq(workStation.lineKey, lineKey),
         ),
       );
   }
@@ -302,14 +283,14 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
         ? []
         : await this.db
             .select({
-              stationId: station.id,
-              name: station.name,
-              color: station.color,
-              position: station.position,
-              lineId: station.lineId,
+              stationId: workStation.stationId,
+              name: workStation.name,
+              color: workStation.color,
+              position: workStation.position,
+              lineId: workStation.lineId,
             })
-            .from(station)
-            .where(inArray(station.id, stationIds));
+            .from(workStation)
+            .where(inArray(workStation.stationId, stationIds));
     const counts = await stationsPerLine(
       this.db,
       found.map((each) => each.lineId),

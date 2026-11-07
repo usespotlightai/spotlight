@@ -24,7 +24,7 @@ const access = (input: {
 }) =>
   new MemoryAccess(
     {
-      memberOf: async () =>
+      viewerOf: async () =>
         (input.member ?? true)
           ? { workspaceId: WorkspaceId.of('ws_1'), by: UserId.of('user_ada') }
           : null,

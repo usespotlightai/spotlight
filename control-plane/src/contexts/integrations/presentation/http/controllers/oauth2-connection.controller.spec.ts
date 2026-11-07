@@ -10,10 +10,8 @@ import {
   OAuth2NonceCookie,
 } from '@integrations/presentation/http/oauth2-nonce-cookie';
 import type { CommandBus } from '@nestjs/cqrs';
-import type {
-  AuthenticatedUser,
-  SessionReaderPort,
-} from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
+import type { SessionReaderPort } from '@identity/application/ports/session-reader.port';
 import { describe, expect, it, vi } from 'vitest';
 
 const ADMIN: AuthenticatedUser = {

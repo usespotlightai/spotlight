@@ -1,12 +1,13 @@
+import { InvalidFingerprintError } from '@insights/domain/exceptions/invalid-fingerprint.error';
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
-import { endOf } from '@insights/domain/runs.fake-spec';
+import { endOf } from '@insights/runs.fake-spec';
 import { describe, expect, it } from 'vitest';
 
 describe('RunEnd', () => {
   it('names its config by a 64-character hex fingerprint, or none', () => {
     expect(endOf({ fingerprint: null }).fingerprint).toBeNull();
     expect(() => endOf({ fingerprint: 'not-a-fingerprint' })).toThrow(
-      InvalidOutcomeError,
+      InvalidFingerprintError,
     );
   });
 

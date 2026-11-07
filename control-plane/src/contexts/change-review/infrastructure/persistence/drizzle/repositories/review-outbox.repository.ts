@@ -1,4 +1,5 @@
 import type {
+  ReviewDelivery,
   ReviewOutboxEntry,
   ReviewOutboxKind,
   ReviewOutboxPort,
@@ -6,18 +7,10 @@ import type {
 import { reviewOutbox } from '@change-review/infrastructure/persistence/drizzle/schemas/review.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import {
-  FOREIGN_KEY_VIOLATION,
-  violates,
-} from '@platform/persistence/drizzle/violations';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, lte, sql } from 'drizzle-orm';
-
-const FAILURE_LIMIT = 1_000;
-
-const SUBJECT_GONE = ['review_outbox_review_fk', 'review_outbox_comment_fk'];
 
 const subjectColumns = (kind: ReviewOutboxKind, subjectId: string) =>
   kind === 'review'
@@ -37,36 +30,26 @@ const subjectOf = (row: {
   return subject;
 };
 
+const leasedBy = (entry: ReviewOutboxEntry) =>
+  and(
+    eq(reviewOutbox.id, entry.id),
+    eq(reviewOutbox.state, 'pending'),
+    eq(reviewOutbox.dueAt, entry.leaseUntil),
+  );
+
 @Injectable()
 export class DrizzleReviewOutbox implements ReviewOutboxPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  async enqueue(
-    sync: Omit<ReviewOutboxEntry, 'attempts'>,
-    dueAt: Date,
-  ): Promise<void> {
-    try {
-      await this.context.inSavepoint(async () => {
-        await this.context.db.insert(reviewOutbox).values({
-          id: sync.id,
-          workspaceId: sync.workspaceId.value,
-          taskId: sync.taskId.value,
-          kind: sync.kind,
-          ...subjectColumns(sync.kind, sync.subjectId),
-          dueAt,
-        });
-      });
-    } catch (error) {
-      if (
-        SUBJECT_GONE.some((constraint) =>
-          violates(error, FOREIGN_KEY_VIOLATION, constraint),
-        )
-      ) {
-        return;
-      }
-
-      throw error;
-    }
+  async enqueue(delivery: ReviewDelivery, dueAt: Date): Promise<void> {
+    await this.context.db.insert(reviewOutbox).values({
+      id: delivery.id,
+      workspaceId: delivery.workspaceId.value,
+      taskId: delivery.taskId.value,
+      kind: delivery.kind,
+      ...subjectColumns(delivery.kind, delivery.subjectId),
+      dueAt,
+    });
   }
 
   async claimDue(
@@ -102,70 +85,45 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
           kind: found.kind,
           subjectId: subjectOf(found),
           attempts: found.attempts,
+          leaseUntil,
         }
       : null;
   }
 
-  async done(id: string): Promise<void> {
+  async done(entry: ReviewOutboxEntry): Promise<void> {
     await this.context.db
       .update(reviewOutbox)
-      .set({ state: 'done', failure: null })
-      .where(eq(reviewOutbox.id, id));
+      .set({ state: 'done' })
+      .where(leasedBy(entry));
   }
 
   async later(
-    id: string,
+    entry: ReviewOutboxEntry,
     dueAt: Date,
-    failure: string | null,
     attempted: boolean,
   ): Promise<void> {
     await this.context.db
       .update(reviewOutbox)
       .set({
         dueAt,
-        failure: failure?.slice(0, FAILURE_LIMIT) ?? null,
         attempts: attempted
           ? sql`${reviewOutbox.attempts} + 1`
           : reviewOutbox.attempts,
       })
-      .where(eq(reviewOutbox.id, id));
+      .where(leasedBy(entry));
   }
 
-  async failed(id: string, failure: string): Promise<void> {
+  async failed(entry: ReviewOutboxEntry): Promise<void> {
     await this.context.db
       .update(reviewOutbox)
       .set({
         state: 'failed',
-        failure: failure.slice(0, FAILURE_LIMIT),
         attempts: sql`${reviewOutbox.attempts} + 1`,
       })
-      .where(eq(reviewOutbox.id, id));
+      .where(leasedBy(entry));
   }
 
-  async failuresFor(taskId: TaskId): Promise<ReadonlyMap<string, string>> {
-    const rows = await this.context.db
-      .select({
-        reviewId: reviewOutbox.reviewId,
-        commentId: reviewOutbox.commentId,
-        failure: reviewOutbox.failure,
-      })
-      .from(reviewOutbox)
-      .where(
-        and(
-          eq(reviewOutbox.taskId, taskId.value),
-          eq(reviewOutbox.state, 'failed'),
-        ),
-      );
-
-    return new Map(
-      rows.map((row) => [
-        subjectOf(row),
-        row.failure ?? 'Spotlight couldn’t reach GitHub.',
-      ]),
-    );
-  }
-
-  async deleteTask(taskId: TaskId): Promise<void> {
+  async dropTask(taskId: TaskId): Promise<void> {
     await this.context.db
       .delete(reviewOutbox)
       .where(eq(reviewOutbox.taskId, taskId.value));

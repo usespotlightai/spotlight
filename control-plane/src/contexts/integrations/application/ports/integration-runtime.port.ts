@@ -1,7 +1,8 @@
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
-import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import type { CallFailureFact } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
@@ -145,6 +146,11 @@ export type RefreshResult =
   | { readonly kind: 'failed' }
   | { readonly kind: 'not-refreshable' };
 
+export type CallAttempt =
+  | { readonly kind: 'answered'; readonly output: ToolOutput }
+  | { readonly kind: 'timed-out' }
+  | { readonly kind: 'failed'; readonly fact: CallFailureFact };
+
 export interface ResolvedTool {
   readonly integration: Integration;
   readonly provided: ProvidedTool;
@@ -152,6 +158,11 @@ export interface ResolvedTool {
   readonly injectedSecrets: readonly string[];
   defaultFor(input: string): unknown;
   call(inputs: ToolInputValues, callAuth: CallAuth): Promise<ToolOutput>;
+  attempt(
+    inputs: ToolInputValues,
+    callAuth: CallAuth,
+    withinMs: number,
+  ): Promise<CallAttempt>;
 }
 
 export interface IntegrationRuntimePort {

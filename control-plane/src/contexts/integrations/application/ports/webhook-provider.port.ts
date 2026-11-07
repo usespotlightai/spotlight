@@ -2,8 +2,6 @@ import type { HappeningName } from '@integrations/domain/value-objects/happening
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 
-const _WEBHOOK_PROVIDERS = Symbol('WEBHOOK_PROVIDERS');
-
 export type WebhookHeaders = Readonly<
   Record<string, string | string[] | undefined>
 >;
@@ -22,7 +20,7 @@ export interface HappeningDeclaration {
   readonly answers: boolean;
 }
 
-// Throw UpstreamError for a recognised delivery that cannot be placed yet, so the service sends it again.
+// Throw a retryable UpstreamError for a recognised delivery that cannot be placed yet; any other failure ends the delivery.
 export interface WebhookProviderPort {
   readonly key: string;
 

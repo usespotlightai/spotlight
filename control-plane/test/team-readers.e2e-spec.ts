@@ -7,6 +7,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 let app: INestApplication;
@@ -117,6 +118,7 @@ beforeAll(async () => {
     workspaceId,
     key: `payments-${otherTeam.slice(0, 8)}`,
     name: 'Payments',
+    origin: 'configuration',
   });
   await db.insert(schema.teamMember).values({
     workspaceId,
@@ -227,6 +229,7 @@ describe('who is told which memories a run used on a deleted team’s line', () 
       workspaceId: team.workspaceId.value,
       key: `gone-${teamId.slice(0, 8)}`,
       name: 'Gone',
+      origin: 'configuration',
     });
     await db.insert(schema.line).values({
       id: lineId,
@@ -235,7 +238,7 @@ describe('who is told which memories a run used on a deleted team’s line', () 
       key: 'default',
       name: 'Default',
     });
-    await db.insert(schema.station).values([
+    await insertStations(db, [
       {
         id: stationId,
         workspaceId: team.workspaceId.value,

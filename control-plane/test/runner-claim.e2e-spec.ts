@@ -4,6 +4,7 @@ import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggrega
 import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -92,6 +93,26 @@ const reserve = async (runId: string, runner: RunnerId, until: Date) => {
     })
     .where(eq(schema.run.id, runId));
 };
+
+const dueForCheck = async (
+  by: {
+    readonly workspaceId: WorkspaceId;
+    readonly runner: RunnerId;
+    readonly offer: RunnerOffer;
+  },
+  now: Date,
+): Promise<StackCheck | null> =>
+  (await checks.waitingIn(by.workspaceId)).find((each) =>
+    each.claimableBy(by.runner, by.offer, now),
+  ) ?? null;
+
+const reservedTo = async (
+  runner: RunnerId,
+  now: Date,
+): Promise<StackCheck | null> =>
+  (await checks.reservedFor(runner)).find((each) =>
+    each.reservation?.isActiveAt(now),
+  ) ?? null;
 
 const awaitingCheck = async (workspaceId: string, placement: string[][]) => {
   const stackId = randomUUID();
@@ -223,9 +244,9 @@ describe('claiming placed work', () => {
       offer: RunnerOffer.of(labels),
     });
 
-    await expect(checks.dueForCheck(by(['laptop']), NOW)).resolves.toBeNull();
+    await expect(dueForCheck(by(['laptop']), NOW)).resolves.toBeNull();
 
-    const due = await checks.dueForCheck(by(['laptop', 'vpc-internal']), NOW);
+    const due = await dueForCheck(by(['laptop', 'vpc-internal']), NOW);
 
     expect(due?.stackId.value).toBe(placed);
     expect(due?.request.placement.labelGroups).toEqual([['vpc-internal']]);
@@ -303,13 +324,10 @@ describe('claiming a check reserved for a provisioned runner', () => {
     const stackId = await awaitingCheck(workspaceId, []);
     await reserveCheck(stackId, provisioned, LATER);
 
-    await expect(checks.dueForCheck(by(workspaceId), NOW)).resolves.toBeNull();
-    expect((await checks.reservedTo(provisioned, NOW))?.stackId.value).toBe(
-      stackId,
-    );
+    await expect(dueForCheck(by(workspaceId), NOW)).resolves.toBeNull();
+    expect((await reservedTo(provisioned, NOW))?.stackId.value).toBe(stackId);
     expect(
-      (await checks.dueForCheck(by(workspaceId, provisioned), NOW))?.stackId
-        .value,
+      (await dueForCheck(by(workspaceId, provisioned), NOW))?.stackId.value,
     ).toBe(stackId);
   });
 
@@ -318,9 +336,9 @@ describe('claiming a check reserved for a provisioned runner', () => {
     const stackId = await awaitingCheck(workspaceId, []);
     await reserveCheck(stackId, RunnerId.of(randomUUID()), NOW);
 
-    expect(
-      (await checks.dueForCheck(by(workspaceId), LATER))?.stackId.value,
-    ).toBe(stackId);
+    expect((await dueForCheck(by(workspaceId), LATER))?.stackId.value).toBe(
+      stackId,
+    );
   });
 });
 const withStack = async (check: StackCheck): Promise<StackCheck> => {
@@ -387,9 +405,11 @@ describe('deleting the checks of a deleted task', () => {
     await repository.remove(check.delete(NOW));
 
     await expect(repository.ofTask(task)).resolves.toEqual([]);
-    await expect(repository.find(other.stackId, false)).resolves.not.toBeNull();
+    await expect(
+      repository.find(StackCheckId.first(other.stackId)),
+    ).resolves.not.toBeNull();
     expect(dispatched.map((each) => each.kind)).toContain(
-      'change-stack.check-reservation-dropped',
+      'stack-check.reservation-dropped',
     );
   });
 

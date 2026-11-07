@@ -11,8 +11,10 @@ import {
   later,
   measuresOf,
   NOW,
+  slots,
 } from '@replays/domain/replays.fake-spec';
 import { chargeOf } from '@replays/domain/services/replay-charge';
+import { scoresOf } from '@replays/domain/services/search-scores';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
@@ -52,7 +54,7 @@ const replayed = (
   let place = 0;
 
   while (current.hasWaiting) {
-    current = current.reserving(concurrency, ids('replay_run'));
+    current = current.reserving(slots(concurrency), ids('replay_run'));
 
     for (const entry of current.occupying) {
       const run = entry.run as RunId;
@@ -78,7 +80,7 @@ const started = (
 ): Replay =>
   Replay.start({
     id: ReplayId.of(id),
-    set: SET,
+    set: SET.snapshot,
     candidate: candidateOf(id === SEED ? 'live' : 'searched', candidate),
     baseline: id === SEED,
     ceiling,
@@ -163,8 +165,7 @@ const searched = (
 
   if (search.wantsHoldingOut) {
     search = search.heldOutFrom(
-      replays,
-      0.05,
+      scoresOf(search, replays, 0.05),
       () => ReplayId.of(`held_out_${next++}`),
       later(6),
     );

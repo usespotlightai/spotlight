@@ -7,6 +7,7 @@ import type {
 import type { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -58,7 +59,7 @@ export class FollowConfigPullRequests {
     );
   }
 
-  async lineChanged(lineId: string): Promise<void> {
+  async lineChanged(lineId: LineId): Promise<void> {
     for (const each of await this.pullRequests.openedOnLine(lineId)) {
       await this.check(each.id);
     }

@@ -1,8 +1,11 @@
 import {
-  CALL_METER,
-  type CallMeterPort,
-} from '@catalog/application/ports/call-meter.port';
-import { CATALOG } from '@catalog/application/ports/catalog.port';
+  CATALOG,
+  type CatalogPort,
+} from '@catalog/application/ports/catalog.port';
+import {
+  CATALOG_CALL_LEDGER,
+  type CatalogCallLedgerPort,
+} from '@catalog/application/ports/catalog-call-ledger.port';
 import {
   CATALOG_SERVICE,
   type CatalogServicePort,
@@ -17,10 +20,11 @@ import {
 } from '@catalog/application/ports/workspace-plans.port';
 import { ResolveCatalogItemHandler } from '@catalog/application/queries/handlers/resolve-catalog-item.handler';
 import { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-catalog-item.query';
+import { CatalogCalls } from '@catalog/application/services/catalog-calls.service';
 import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
-import { DrizzleMeteredCalls } from '@catalog/infrastructure/persistence/drizzle/ledgers/metered-calls.ledger';
+import { DrizzleCatalogCallLedger } from '@catalog/infrastructure/persistence/drizzle/ledgers/catalog-call.ledger';
 import { DrizzleWorkspacePlans } from '@catalog/infrastructure/persistence/drizzle/readers/workspace-plans.reader';
 import { DrizzleWorkspacePlanDeletion } from '@catalog/infrastructure/persistence/drizzle/workspace-plan-deletion';
 import { HttpCatalogClient } from '@catalog/infrastructure/service/http-catalog.client';
@@ -51,7 +55,7 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
     useClass: DrizzleWorkspacePlanDeletion,
   },
 
-  { provide: CALL_METER, useClass: DrizzleMeteredCalls },
+  { provide: CATALOG_CALL_LEDGER, useClass: DrizzleCatalogCallLedger },
 
   {
     provide: CATALOG_SERVICE,
@@ -64,32 +68,55 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: CATALOG,
+    provide: CatalogEntitlements,
+    inject: [StaticCatalog, WORKSPACE_PLANS, CLOCK],
+    useFactory: (
+      catalog: StaticCatalog,
+      plans: WorkspacePlansPort,
+      clock: ClockPort,
+    ) => new CatalogEntitlements(catalog, plans, clock),
+  },
+
+  {
+    provide: CatalogCalls,
     inject: [
       StaticCatalog,
       WORKSPACE_PLANS,
-      CALL_METER,
+      CATALOG_CALL_LEDGER,
       CATALOG_SERVICE,
       CLOCK,
     ],
     useFactory: (
       catalog: StaticCatalog,
       plans: WorkspacePlansPort,
-      meter: CallMeterPort,
+      ledger: CatalogCallLedgerPort,
       service: CatalogServicePort,
       clock: ClockPort,
-    ) => new CatalogEntitlements(catalog, plans, meter, service, clock),
+    ) => new CatalogCalls(catalog, plans, ledger, service, clock),
+  },
+
+  {
+    provide: CATALOG,
+    inject: [CatalogEntitlements, CatalogCalls],
+    useFactory: (
+      entitlements: CatalogEntitlements,
+      calls: CatalogCalls,
+    ): CatalogPort => ({
+      entitledTo: (workspaceId, request) =>
+        entitlements.entitledTo(workspaceId, request),
+      call: (request) => calls.call(request),
+    }),
   },
 
   {
     provide: CATALOG_EVENTS,
-    inject: [EventSubscribers, WORKSPACE_PLAN_DELETION, CALL_METER],
+    inject: [EventSubscribers, WORKSPACE_PLAN_DELETION, CATALOG_CALL_LEDGER],
     useFactory: (
       subscribers: EventSubscribers,
       plans: WorkspacePlanDeletionPort,
-      meter: CallMeterPort,
+      calls: CatalogCallLedgerPort,
     ) => {
-      subscribers.register(catalogSubscribers({ plans, meter }));
+      subscribers.register(catalogSubscribers({ plans, calls }));
       return true;
     },
   },

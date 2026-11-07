@@ -4,8 +4,6 @@ import type {
 } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
-import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
-import { MemoryDraftingRequested } from '@memory/domain/events/memory-drafting-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
@@ -137,11 +135,7 @@ export class MemoryDraft
       return this;
     }
 
-    const requested = this.with({
-      drafting: MemoryDrafting.requested(runId, now),
-    });
-    requested.record(new MemoryDraftingRequested(this.id, this.taskId, runId));
-    return requested;
+    return this.with({ drafting: MemoryDrafting.requested(runId, now) });
   }
 
   leaseJob(now: Date): MemoryDraft {
@@ -222,7 +216,7 @@ export class MemoryDraft
     );
     const replaced = input.evidence.isEmpty
       ? []
-      : this.proposals.filter((each) => each.proposed && !each.remembered);
+      : this.proposals.filter((each) => each.proposed && !each.proposedByAgent);
     const through = input.evidence.notesThrough;
 
     const drafted = this.with({
@@ -257,7 +251,7 @@ export class MemoryDraft
   }
 
   remember(proposal: MemoryProposal): MemoryDraft {
-    if (!proposal.remembered || !proposal.proposed) {
+    if (!proposal.proposedByAgent || !proposal.proposed) {
       throw InvalidMemoryError.ofDraft(
         'takes in only a memory a run proposed itself',
       );
@@ -297,12 +291,16 @@ export class MemoryDraft
   }
 
   get stillRemembered(): readonly MemoryProposal[] {
-    return this.proposals.filter((each) => each.proposed && each.remembered);
+    return this.proposals.filter(
+      (each) => each.proposed && each.proposedByAgent,
+    );
   }
 
   stepsRemembered(runId: RunId): readonly number[] {
     return this.proposals
-      .filter((each) => each.remembered && each.provenance.runId.equals(runId))
+      .filter(
+        (each) => each.proposedByAgent && each.provenance.runId.equals(runId),
+      )
       .flatMap((each) => each.provenance.steps);
   }
 
@@ -310,7 +308,7 @@ export class MemoryDraft
     return (
       this.proposals.find(
         (each) =>
-          each.remembered &&
+          each.proposedByAgent &&
           each.proposedIn(proposal.provenance.runId) &&
           each.matches(proposal),
       ) ?? null
@@ -417,16 +415,7 @@ export class MemoryDraft
       return this;
     }
 
-    const ended = this.with({ drafting: null, failure });
-    ended.record(
-      new MemoryDraftingFailed(
-        this.id,
-        this.taskId,
-        this.drafting.runId,
-        failure,
-      ),
-    );
-    return ended;
+    return this.with({ drafting: null, failure });
   }
 
   private with(change: {

@@ -74,9 +74,9 @@ export interface RunnerResourcesPort {
 
   egressesIn(workspaceId: WorkspaceId): Promise<readonly EgressRecord[]>;
 
-  declaredWithId(id: string): Promise<WorkspaceRunnersRecord | null>;
+  workspaceRunnersWithId(id: string): Promise<WorkspaceRunnersRecord | null>;
 
-  declaredIn(workspaceId: WorkspaceId): Promise<WorkspaceRunnersRecord | null>;
+  ofWorkspace(workspaceId: WorkspaceId): Promise<WorkspaceRunnersRecord | null>;
 
   credentialSourceKeysIn(
     workspaceId: WorkspaceId,

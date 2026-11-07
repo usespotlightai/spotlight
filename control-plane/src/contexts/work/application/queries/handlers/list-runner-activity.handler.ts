@@ -2,6 +2,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { RunnerActivityDto } from '@work/application/dto/runner-activity.dto';
 import type { RunnerActivityReaderPort } from '@work/application/ports/runner-activity-reader.port';
@@ -39,7 +40,7 @@ export class ListRunnerActivityHandler
           await Promise.all(
             teams.map(async (teamId) =>
               (await this.access.permissionsAsTeamReader(
-                teamId,
+                TeamId.of(teamId),
                 PersonPrincipal.of(viewer),
               ))
                 ? [teamId]

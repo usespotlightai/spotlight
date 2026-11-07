@@ -26,6 +26,7 @@ import {
 } from '@nestjs/swagger';
 import { bearerIn, TRUST_HEADER } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import {
   ClaimHostCallCommand,
   RecordHostCallResponseCommand,
@@ -71,6 +72,7 @@ const UNAUTHORIZED =
 })
 @ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @AllowAnonymous()
+@InAudience('hosts')
 @Controller('hosts')
 export class HostWorkController {
   constructor(

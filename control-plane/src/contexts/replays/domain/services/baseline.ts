@@ -23,9 +23,8 @@ const covers = (
   runs.every((run) => baseline.originals.some((each) => each.equals(run)));
 
 export const baselineOf = (replays: readonly Replay[]): Replay | null =>
-  [...replays]
-    .filter((each) => each.baseline && VALID.includes(each.current))
-    .sort(newestFirst)[0] ?? null;
+  [...replays].filter((each) => each.servesAsBaseline).sort(newestFirst)[0] ??
+  null;
 
 export const comparedAgainst = (
   replay: Replay,

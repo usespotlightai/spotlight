@@ -1,10 +1,10 @@
+import { ChangeStacksUnavailableError } from '@change-review/application/errors/change-stacks-unavailable.error';
 import { GenerationError } from '@change-review/application/errors/generation.error';
 import type {
   ChangeStackGenerationRequest,
   ChangeStackGeneratorPort,
   CohortLayersRequest,
 } from '@change-review/application/ports/change-stack-generator.port';
-import type { CodeReadingPort } from '@change-review/application/ports/code-reading.port';
 import type {
   DiffReaderPort,
   DiffSource,
@@ -14,14 +14,10 @@ import { GenerateChangeStack } from '@change-review/application/services/generat
 import { RedraftChangeStack } from '@change-review/application/services/redraft-change-stack.service';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import { ChangeStacksUnavailableError } from '@change-review/domain/exceptions/change-stacks-unavailable.error';
 import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.error';
 import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
-import {
-  NO_INDEX,
-  type SymbolIndex,
-} from '@change-review/domain/services/symbol-index';
+import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
   Diff,
@@ -34,6 +30,10 @@ import type {
   ProposedLayer,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
+import {
+  NO_INDEX,
+  type SymbolIndex,
+} from '@change-review/domain/value-objects/symbol-index.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -97,7 +97,7 @@ const READER: DiffReaderPort = {
   },
 };
 
-const READING: CodeReadingPort = {
+const READING: CodeReading = {
   classOf: (path) => (path === 'package-lock.json' ? 'lockfile' : 'source'),
   reads: (path) => path.endsWith('.ts'),
   definitionsIn: (_, added) =>
@@ -241,8 +241,9 @@ const generating = (
     find: async (id) =>
       [...saved].reverse().find((each) => each.id.equals(id)) ?? null,
     nextDueJob: async () => null,
-    removeForTask: async () => undefined,
     ofRun: async () => [],
+    ofTask: async () => [],
+    remove: async () => undefined,
   };
 
   const generator: ChangeStackGeneratorPort = {
@@ -338,17 +339,14 @@ describe('GenerateChangeStack', () => {
     expect(stack.state).toBe('generating');
     expect(stack.diff.hunks).toHaveLength(2);
     expect(requests).toEqual([]);
-    expect(dispatched.map((each) => each.kind)).toEqual([
-      'change-stack.generation-started',
-    ]);
+    expect(dispatched).toEqual([]);
 
     await service.generated(stack).then((ready) => stacks.save(ready));
 
     expect(saved.map((each) => each.state)).toEqual(['generating', 'ready']);
     expect(dispatched.map((each) => each.kind)).toEqual([
-      'change-stack.generation-started',
       'change-stack.completed',
-      'change-stack.ready',
+      'change-stack.became-ready',
     ]);
     expect(saved[1]?.cohorts[0]?.layers[0]?.hunks).toHaveLength(2);
   });
@@ -389,9 +387,7 @@ describe('GenerateChangeStack', () => {
     });
 
     expect(saved[saved.length - 1]?.state).toBe('failed');
-    expect(saved[saved.length - 1]?.failure).toBe(
-      'The generated stack did not assign every hunk in order.',
-    );
+    expect(saved[saved.length - 1]?.failure).toBe('broke-rules');
     expect(saved[saved.length - 1]?.usage.calls).toBe(2);
   });
 
@@ -462,7 +458,7 @@ describe('GenerateChangeStack', () => {
     const left = await service.generated(stack);
 
     expect(left.state).toBe('failed');
-    expect(left.failure).toBe('The change is too large for one change stack.');
+    expect(left.failure).toBe('too-large');
     expect(left.hasPendingJob).toBe(false);
     expect(left.usage).toMatchObject({ calls: 1, outputTokens: 65_536 });
   });
@@ -582,9 +578,7 @@ describe('GenerateChangeStack', () => {
       const left = await service.generated(stack);
 
       expect(left.state).toBe('failed');
-      expect(left.failure).toBe(
-        'The change is too large for one change stack.',
-      );
+      expect(left.failure).toBe('too-large');
     });
 
     it('leaves the generation to be retried where a cohort’s layers get no answer', async () => {
@@ -614,9 +608,7 @@ describe('GenerateChangeStack', () => {
       const left = await service.generated(stack);
 
       expect(left.state).toBe('failed');
-      expect(left.failure).toBe(
-        'The generated stack did not assign every hunk in order.',
-      );
+      expect(left.failure).toBe('broke-rules');
     });
   });
 

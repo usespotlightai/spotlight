@@ -87,3 +87,21 @@ export interface OutlinedCohort {
   readonly joinedBecause: string | null;
   readonly hunks: readonly HunkId[];
 }
+
+export interface DraftedLayer
+  extends Omit<ProposedLayer, 'hunks' | 'questions'> {
+  readonly hunks: readonly { readonly hunk: string }[];
+  readonly questions: readonly {
+    readonly question: string;
+    readonly answer: string;
+    readonly hunks: readonly string[];
+  }[];
+}
+
+export interface DraftedCohort extends Omit<ProposedCohort, 'layers'> {
+  readonly layers: readonly DraftedLayer[];
+}
+
+export interface DraftedOutline extends Omit<OutlinedCohort, 'hunks'> {
+  readonly hunks: readonly string[];
+}

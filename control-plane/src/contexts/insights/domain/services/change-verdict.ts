@@ -1,13 +1,5 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import type { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
 import { rateOf } from '@insights/domain/services/measures';
-import {
-  NO_RUNS,
-  runTally,
-  type TallyCounts,
-} from '@insights/domain/services/run-tally';
-import { measuredFor } from '@insights/domain/services/station-measures';
-import { tasksOf } from '@insights/domain/services/team-history';
+import { NO_RUNS, type TallyCounts } from '@insights/domain/services/run-tally';
 import {
   ALERT_MEASURES,
   type AlertMeasure,
@@ -58,25 +50,6 @@ export interface GroupCounts {
 export const NO_GROUP: GroupCounts = {
   tally: NO_RUNS,
   measured: { acted: 0, finished: 0, finishedTasks: 0, usageRecorded: 0 },
-};
-
-export const groupCountsOf = (
-  records: readonly RunRecord[],
-  taskPullRequests: readonly TaskPullRequest[],
-): GroupCounts => {
-  const { failedRate: _, ...tally } = runTally(records, taskPullRequests);
-  const ran = records.filter((each) => each.ran);
-  const finished = ran.filter(measuredFor('merged_rate', taskPullRequests));
-
-  return {
-    tally,
-    measured: {
-      acted: ran.filter((each) => each.firstHumanAction !== null).length,
-      finished: finished.length,
-      finishedTasks: tasksOf(finished).length,
-      usageRecorded: ran.filter((each) => each.usage !== null).length,
-    },
-  };
 };
 
 export interface MeasureReading {

@@ -13,6 +13,7 @@ import {
   replayedAs,
   replayFor,
   runIds,
+  slots,
 } from '@replays/domain/replays.fake-spec';
 import {
   taskComparisons,
@@ -83,7 +84,7 @@ const ran = (
         `candidate_${id}`,
         rubric,
       ),
-    }).reserving(runs.length, runIds()),
+    }).reserving(slots(runs.length), runIds()),
   );
 
 const scoredAs = (score: number) =>
@@ -104,7 +105,7 @@ const scoredAs = (score: number) =>
 describe('totalsOf', () => {
   it('counts what it spent in other currencies and the calls nobody priced, beside what counts against the ceiling', () => {
     const replay = aReplay({ count: 3, ceiling: 100 })
-      .reserving(3, runIds())
+      .reserving(slots(3), runIds())
       .confirm(run(0), FINGERPRINT, NOW)
       .confirm(run(1), FINGERPRINT, NOW)
       .confirm(run(2), FINGERPRINT, NOW)
@@ -179,7 +180,7 @@ describe('totalsOf', () => {
 
   it('counts runs whose cost was not reported as unpriced', () => {
     const replay = aReplay({ count: 1 })
-      .reserving(1, runIds())
+      .reserving(slots(1), runIds())
       .measure(run(0), measuresOf(null), NOW);
 
     expect(totalsOf(replay).ended).toBe(0);
@@ -306,7 +307,7 @@ describe('taskComparisons', () => {
       ceiling: 100,
       candidate: candidateOf('searched', 'candidate_candidate'),
     })
-      .reserving(1, runIds())
+      .reserving(slots(1), runIds())
       .unreplayable(run(0), 'candidate-unfit', NOW);
     const compared = taskComparisons(
       unreplayable,
@@ -441,7 +442,7 @@ describe('results with repeats', () => {
       null,
       false,
       3,
-    ).reserving(12, runIds());
+    ).reserving(slots(12), runIds());
     const firstOnly = reserved.entries
       .filter((each) => each.repeat === 1)
       .reduce(

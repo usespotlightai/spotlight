@@ -2,7 +2,9 @@ import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { WORK, type WorkPort } from '@replays/application/ports/work.port';
+import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import { DrizzleReplaySetRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-set.repository';
+import { DrizzleStationSearchScheduleRepository } from '@replays/infrastructure/persistence/drizzle/repositories/station-search-schedule.repository';
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
@@ -13,7 +15,9 @@ import {
 } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { eventually } from './eventually';
 
 interface KeptAt {
   readonly workspaceId: string;
@@ -56,11 +60,17 @@ const keptSetOf = async (
 ): Promise<string> => {
   await runEnded(app, at);
 
-  const set = await app.get(DrizzleReplaySetRepository).ofStation(at.stationId);
+  const set = await app
+    .get(DrizzleReplaySetRepository)
+    .ofStation(StationId.of(at.stationId));
 
   if (!set) {
     throw new Error(`Station ${at.stationId} has no kept replay set.`);
   }
+
+  await eventually(() =>
+    app.get(DrizzleStationSearchScheduleRepository).ofSet(set.id),
+  );
 
   return set.id.value;
 };
@@ -79,7 +89,7 @@ const excludedIn = (app: INestApplication): Map<string, Set<string>> => {
   const recentAt = work.recentAt.bind(work);
 
   work.recentAt = async (workspaceId, stationId, max) => {
-    const left = stations.get(stationId);
+    const left = stations.get(stationId.value);
     const recent = await recentAt(workspaceId, stationId, max);
 
     return left ? recent.filter((each) => !left.has(each.runId.value)) : recent;
@@ -101,7 +111,7 @@ export const keptSet = async (
   const work = app.get<WorkPort>(WORK);
   const atStation = await work.recentAt(
     WorkspaceId.of(at.workspaceId),
-    at.stationId,
+    StationId.of(at.stationId),
     MOST_RECENT,
   );
 
@@ -119,7 +129,7 @@ export const keptSet = async (
   const wanted = runs.map((each) => RunId.of(each));
 
   await app.get<TransactionPort>(TRANSACTION).inTransaction(async () => {
-    const set = await sets.ofStation(at.stationId);
+    const set = await sets.ofStation(StationId.of(at.stationId));
     const locked = set && (await sets.locked(set.id));
 
     if (!locked) {
@@ -128,7 +138,7 @@ export const keptSet = async (
 
     const recent = await work.recentAt(
       locked.workspaceId,
-      at.stationId,
+      StationId.of(at.stationId),
       MOST_RECENT,
     );
     const replayable = recent.filter((each) =>
@@ -144,7 +154,7 @@ export const keptSet = async (
         set.refresh(
           { add: [each], remove: [] },
           new Date(start + index + 1),
-          false,
+          SetUsers.none(),
         ),
       locked.refresh(
         {
@@ -154,7 +164,7 @@ export const keptSet = async (
           ),
         },
         new Date(start),
-        false,
+        SetUsers.none(),
       ),
     );
 

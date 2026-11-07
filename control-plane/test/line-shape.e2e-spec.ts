@@ -1,4 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { CreateLineCommand } from '@lines/application/commands/create-line.command';
+import { Line } from '@lines/domain/aggregates/line.aggregate';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@lines/domain/services/built-in-lines';
+import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -9,16 +16,10 @@ import {
   actorFor,
   changeActorIn,
 } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { CreateLineCommand } from '@work/application/commands/create-line.command';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { AppModule } from '@/app.module';
 import { definitionOf } from './support/line-definition';
@@ -99,6 +100,7 @@ describe('a line, created and read back (e2e)', () => {
       workspaceId: WorkspaceId.of(workspaceId),
       teamId: TeamId.of(workspaceId),
       line: BUILT_IN,
+      harness: HarnessId.of('claude-code'),
       newId: () => `${workspaceId}_${++next}`,
     });
 

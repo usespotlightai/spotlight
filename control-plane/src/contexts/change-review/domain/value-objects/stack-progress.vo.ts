@@ -4,12 +4,18 @@ export const CHANGE_STACK_STATES = ['generating', 'ready', 'failed'] as const;
 
 export type ChangeStackState = (typeof CHANGE_STACK_STATES)[number];
 
-export const INTERRUPTED = 'Generation was interrupted before it finished.';
+export const STACK_FAILURES = [
+  'not-generated',
+  'too-large',
+  'broke-rules',
+] as const;
+
+export type StackFailure = (typeof STACK_FAILURES)[number];
 
 export class StackProgress {
   private constructor(
     readonly state: ChangeStackState,
-    readonly failure: string | null,
+    readonly failure: StackFailure | null,
     readonly startedAt: Date,
     readonly completedAt: Date | null,
   ) {}
@@ -20,7 +26,7 @@ export class StackProgress {
 
   static rehydrate(input: {
     state: ChangeStackState;
-    failure: string | null;
+    failure: StackFailure | null;
     startedAt: Date;
     completedAt: Date | null;
   }): StackProgress {
@@ -28,6 +34,13 @@ export class StackProgress {
       throw new InconsistentStateError(
         'change stack',
         'is completed and generating at once',
+      );
+    }
+
+    if ((input.state === 'failed') !== (input.failure !== null)) {
+      throw new InconsistentStateError(
+        'change stack',
+        'has a failure that does not match its state',
       );
     }
 
@@ -42,7 +55,7 @@ export class StackProgress {
   complete(
     state: Exclude<ChangeStackState, 'generating'>,
     now: Date,
-    change: { failure?: string } = {},
+    change: { failure?: StackFailure } = {},
   ): StackProgress {
     return new StackProgress(
       state,

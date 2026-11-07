@@ -1,6 +1,12 @@
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
+export type MissingConnection =
+  | 'not-connected'
+  | 'refresh-failed'
+  | 'no-requester'
+  | 'not-a-member';
+
 export class ConnectionAsk {
   private constructor(
     readonly teamId: TeamId,
@@ -24,6 +30,10 @@ export class ConnectionAsk {
       input.personId,
       input.met ?? false,
     );
+  }
+
+  static askableWhen(because: MissingConnection): boolean {
+    return because === 'not-connected' || because === 'refresh-failed';
   }
 
   answeredBy(teamId: TeamId, integration: string, personId: UserId): boolean {

@@ -1,8 +1,6 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { INBOX_REQUEST_FORMS } from '@work/domain/value-objects/inbox-request-form';
-import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import {
-  foreignKey,
   index,
   integer,
   pgEnum,
@@ -30,11 +28,6 @@ export const inboxRequest = pgTable(
     version: integer('version').notNull().default(0),
   },
   (table) => [
-    foreignKey({
-      name: 'inbox_request_task_fk',
-      columns: [table.workspaceId, table.taskId],
-      foreignColumns: [task.workspaceId, task.id],
-    }).onDelete('cascade'),
     uniqueIndex('inbox_request_about_idx').on(
       table.taskId,
       table.form,

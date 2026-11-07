@@ -4,11 +4,11 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const TEAMS = Symbol('CONFIGURATION_TEAMS');
 
-export interface TeamProfile {
+export interface ViewedTeam {
   readonly teamId: TeamId;
   readonly workspaceId: WorkspaceId;
 }
 
 export interface TeamsPort {
-  viewedBy(teamId: string, viewer: UserId): Promise<TeamProfile | null>;
+  viewedBy(teamId: string, viewer: UserId): Promise<ViewedTeam | null>;
 }

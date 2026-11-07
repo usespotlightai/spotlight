@@ -1,8 +1,9 @@
 import { TaskHumanActions } from '@insights/domain/aggregates/task-human-actions.aggregate';
-import { day, humanActionsOf } from '@insights/domain/insights.fake-spec';
-import { WORKSPACE } from '@insights/domain/runs.fake-spec';
 import { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
 import { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
+import { day, humanActionsOf } from '@insights/insights.fake-spec';
+import { WORKSPACE } from '@insights/runs.fake-spec';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -22,13 +23,13 @@ describe('TaskHumanActions', () => {
 
     expect(humanActions.waits()).toEqual([
       {
-        stationId: 'station_1',
+        stationId: StationId.of('station_1'),
         askedAt: day('2026-09-29', 9),
         answeredAt: day('2026-09-29', 10),
         answeredBy: 'user_bob',
       },
       {
-        stationId: 'station_2',
+        stationId: StationId.of('station_2'),
         askedAt: day('2026-09-29', 14),
         answeredAt: null,
         answeredBy: null,
@@ -76,25 +77,25 @@ describe('TaskHumanActions', () => {
     const answer = TaskHumanAction.of({
       kind: 'answered',
       by: UserId.of('user_bob'),
-      stationId: 'station_1',
+      stationId: StationId.of('station_1'),
       at: day('2026-09-29', 10),
     });
     const humanActions = TaskHumanActions.empty(TaskId.of('task_1'), WORKSPACE)
       .recordAction(answer)
-      .asked(InboxAsk.of('station_1', day('2026-09-29', 9)));
+      .asked(InboxAsk.of(StationId.of('station_1'), day('2026-09-29', 9)));
 
     expect(humanActions.waits()[0]?.answeredBy).toBe('user_bob');
   });
 
   it('keeps each ask and act once, however often it is received', () => {
-    const ask = InboxAsk.of('station_1', day('2026-09-29', 9));
+    const ask = InboxAsk.of(StationId.of('station_1'), day('2026-09-29', 9));
     const asked = TaskHumanActions.empty(TaskId.of('task_1'), WORKSPACE).asked(
       ask,
     );
 
-    expect(asked.asked(InboxAsk.of('station_1', day('2026-09-29', 9)))).toBe(
-      asked,
-    );
+    expect(
+      asked.asked(InboxAsk.of(StationId.of('station_1'), day('2026-09-29', 9))),
+    ).toBe(asked);
   });
 
   it('keeps its first opening', () => {

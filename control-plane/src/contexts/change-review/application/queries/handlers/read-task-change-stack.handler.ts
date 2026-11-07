@@ -1,7 +1,7 @@
 import type { LatestChangeStackDto } from '@change-review/application/dto/change-stack.dto';
 import type { ChangeStackReaderPort } from '@change-review/application/ports/change-stack-reader.port';
 import type { ReadTaskChangeStackQuery } from '@change-review/application/queries/read-task-change-stack.query';
-import type { ChangeStackAccess } from '@change-review/application/services/change-stack-access.service';
+import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -11,7 +11,7 @@ export class ReadTaskChangeStackHandler
     QueryHandlerPort<ReadTaskChangeStackQuery, LatestChangeStackDto | null>
 {
   constructor(
-    private readonly access: ChangeStackAccess,
+    private readonly access: TeamWorkAccess,
     private readonly stacks: ChangeStackReaderPort,
     private readonly clock: ClockPort,
   ) {}
@@ -20,17 +20,20 @@ export class ReadTaskChangeStackHandler
     query: ReadTaskChangeStackQuery,
   ): Promise<LatestChangeStackDto | null> {
     try {
-      const task = await this.access.ofTask(
+      const access = await this.access.task(
         query.teamId,
         query.taskId,
         query.viewerId,
       );
 
-      if (!task) {
+      if (!access) {
         return null;
       }
 
-      const latest = await this.stacks.latestForTask(task.id, this.clock.now());
+      const latest = await this.stacks.latestForTask(
+        access.task.id,
+        this.clock.now(),
+      );
 
       return latest
         ? {

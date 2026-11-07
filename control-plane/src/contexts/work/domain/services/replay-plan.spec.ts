@@ -1,34 +1,34 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
 import { replayPlanFor } from '@work/domain/services/replay-plan';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
-import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
+import {
+  lineMapOf,
+  repositoryOf,
+  routesOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
 import { StartingPoint } from '@work/domain/value-objects/starting-point.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -56,29 +56,29 @@ const API = 'a'.repeat(40);
 const REPLAY_ID = RunId.of('run_2');
 
 const laidOut = (stationId: StationId, key: string, ends = false) => [
-  Station.of({
+  stationOf({
     id: StationId.of(`${key}_backlog`),
     key: StationKey.of('backlog'),
     name: StationName.of('Backlog'),
     position: 0,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     kind: 'backlog',
   }),
-  Station.of({
+  stationOf({
     id: stationId,
     key: StationKey.of(key),
     name: StationName.of(key),
     position: 1,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     harness: HarnessId.of('dev'),
-    routes: StationRoutes.of({ ends }),
+    routes: routesOf({ ends }),
   }),
-  Station.of({
+  stationOf({
     id: StationId.of(`${key}_completed`),
     key: StationKey.of('completed'),
     name: StationName.of('Completed'),
     position: 2,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     kind: 'completed',
   }),
 ];
@@ -87,15 +87,15 @@ const line = (
   repositories: readonly string[] = ['acme/api', 'acme/web'],
   ends = false,
 ) =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     key: LineKey.of('delivery'),
     name: LineName.of('Delivery'),
     repositories: repositories.map((each) =>
-      LineRepositoryConfig.of(Repository.of(each), {
-        setup: each === 'acme/api' ? RepositorySetup.of('npm ci') : null,
+      repositoryOf(Repository.of(each), {
+        setup: each === 'acme/api' ? 'npm ci' : null,
       }),
     ),
     stations: laidOut(BUILD, 'build', ends),
@@ -207,7 +207,7 @@ describe('planning a replay', () => {
         branch: null,
         ref: API,
         diffOf: 'worktree',
-        setup: RepositorySetup.of('npm ci'),
+        setup: 'npm ci',
       },
     ]);
   });
@@ -298,7 +298,7 @@ describe('planning a replay', () => {
   });
 
   it('rejects a candidate line without the station the run worked at', () => {
-    const elsewhere = Line.rehydrate({
+    const elsewhere = lineMapOf({
       id: LineId.of('line_2'),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),

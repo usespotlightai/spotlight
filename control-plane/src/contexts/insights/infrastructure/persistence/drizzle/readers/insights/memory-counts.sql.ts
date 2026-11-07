@@ -9,7 +9,7 @@ import {
   counted,
   endedIn,
   type GroupColumns,
-  groupCountsOf,
+  groupCountsOfRow,
   measuredColumns,
   onTeam,
   ran,
@@ -90,7 +90,7 @@ const usesIn = async (
 };
 
 const groupOf = (row: GroupRow | undefined): GroupCounts =>
-  row ? groupCountsOf(row) : NO_GROUP;
+  row ? groupCountsOfRow(row) : NO_GROUP;
 
 export const memoryCountsIn = async (
   db: DrizzleDatabase,

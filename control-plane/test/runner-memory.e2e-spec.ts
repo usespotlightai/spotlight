@@ -1,13 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
+import {
+  MEMORY_DRAFTS,
+  type MemoryDraftRepository,
+} from '@memory/domain/repositories/memory-draft.repository';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
-import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence/drizzle/repositories/memory-draft.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { sql } from 'drizzle-orm';
@@ -16,6 +21,7 @@ import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 interface Recalled {
@@ -155,7 +161,7 @@ beforeAll(async () => {
     key: 'delivery',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -266,7 +272,7 @@ describe('recalling what the team remembers from inside a run', () => {
     });
 
     const proposedIn = RunId.of(randomUUID());
-    await app.get(DrizzleMemoryDraftRepository).add(
+    await app.get<MemoryDraftRepository>(MEMORY_DRAFTS).add(
       MemoryDraft.create({
         id: MemoryDraftId.of(randomUUID()),
         taskId: team.list.id,
@@ -292,8 +298,8 @@ describe('recalling what the team remembers from inside a run', () => {
             runId: proposedIn,
             runContext: {
               teamId: TeamId.of(team.teamId.value),
-              lineId: DELIVERY,
-              stationId: BUILD,
+              lineId: LineId.of(DELIVERY),
+              stationId: StationId.of(BUILD),
               repositories: [Repository.of('acme/api')],
             },
             steps: [{ index: 1, kind: 'message', text: 'It timed out.' }],

@@ -13,14 +13,14 @@ import {
   type RepositoryContentsPort,
 } from '@github/application/ports/repository-contents.port';
 import { JUDGE, type JudgePort } from '@insights/application/ports/judge.port';
-import { WorkChangeJudgings } from '@insights/application/services/work-change-judgings.service';
 import type { INestApplication } from '@nestjs/common';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
-import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
+import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
+import { WorkChangeJudgings } from '@replays/application/services/work-change-judgings.service';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { DrizzleSearchRepository } from '@replays/infrastructure/persistence/drizzle/repositories/search.repository';
@@ -30,6 +30,7 @@ import {
 } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
@@ -43,9 +44,8 @@ import {
   type WorkspaceArchiveStorePort,
 } from '@work/application/ports/workspace-archive-store.port';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, expect } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './app';
 import {
@@ -57,6 +57,7 @@ import { eventually } from './eventually';
 import { keptSet } from './kept-sets';
 import * as schema from './schema';
 import { searchReadOf } from './search-read';
+import { insertStations } from './stations';
 import { createTeam } from './team';
 
 const HOST = `host-search-flow-${randomUUID().slice(0, 8)}`;
@@ -355,7 +356,7 @@ export const createSet = async (
   );
 
 export const refreshedBefore = (setId: string): Promise<boolean> =>
-  app.get(RefreshKeptSets).refreshBefore(ReplaySetId.of(setId));
+  app.get(RefreshReplaySets).refreshBefore(ReplaySetId.of(setId));
 
 export const setRunsOf = async (setId: string): Promise<string[]> =>
   (
@@ -450,8 +451,8 @@ export const deliveredTo = async (
 export const searchOf = (id: string): Promise<SearchRead> =>
   searchReadOf(app, id);
 
-export const turnedOff = (id: string): Promise<void> =>
-  app.get<TransactionPort>(TRANSACTION).inTransaction(async () => {
+export const turnedOff = async (id: string): Promise<void> => {
+  await app.get<TransactionPort>(TRANSACTION).inTransaction(async () => {
     const searches = app.get(DrizzleSearchRepository);
     const search = await searches.locked(SearchId.of(id));
 
@@ -459,6 +460,10 @@ export const turnedOff = (id: string): Promise<void> =>
       await searches.save(search.turnOff(new Date()));
     }
   });
+  await eventually(async () =>
+    (await searchRunsOf(id)).every((each) => each.state !== 'queued'),
+  );
+};
 
 export const searchRow = async (id: string) => {
   const [row] = await db
@@ -599,7 +604,7 @@ const SETTLE_CHECKS = 50;
 
 const SETTLE_PAUSE_MS = 200;
 
-const inFlightReplayRuns = async () =>
+const unsettledReplayEntries = async () =>
   db
     .select({ runId: schema.replayEntry.runId })
     .from(schema.replayEntry)
@@ -607,10 +612,15 @@ const inFlightReplayRuns = async () =>
     .where(
       and(
         eq(schema.replay.workspaceId, team.workspaceId.value),
-        isNotNull(schema.replayEntry.runId),
-        isNull(schema.replayEntry.succeeded),
-        eq(schema.replayEntry.notRun, false),
         inArray(schema.replay.state, ['queued', 'running']),
+        or(
+          eq(schema.replayEntry.waiting, true),
+          and(
+            isNotNull(schema.replayEntry.runId),
+            isNull(schema.replayEntry.succeeded),
+            eq(schema.replayEntry.notRun, false),
+          ),
+        ),
       ),
     );
 
@@ -622,7 +632,7 @@ const settled = async (): Promise<boolean> => {
     if ((await queuedReplayRuns()).length > 0) {
       return false;
     }
-    if ((await inFlightReplayRuns()).length === 0) {
+    if ((await unsettledReplayEntries()).length === 0) {
       return true;
     }
 
@@ -632,7 +642,23 @@ const settled = async (): Promise<boolean> => {
   return true;
 };
 
+const REPLAY_STARTS = [
+  'replays.start-planned-search-replays',
+  'replays.start-replay-of-started-check',
+];
+
+const replaysStarted = async (): Promise<boolean> => {
+  const rows = await db
+    .select({ deliveredAt: schema.eventDelivery.deliveredAt })
+    .from(schema.eventDelivery)
+    .where(inArray(schema.eventDelivery.subscriber, REPLAY_STARTS));
+
+  return rows.every((each) => each.deliveredAt !== null);
+};
+
 export const drained = async (plan: Plan): Promise<void> => {
+  await eventually(replaysStarted, WITHIN);
+
   for (let turn = 0; turn < 200; turn += 1) {
     await app.get(DispatchReplayRuns).processDue();
 
@@ -828,7 +854,7 @@ export const openSearchFlow = (): void => {
       sample: 0.1,
       minAgreement: 0.6,
     };
-    await db.insert(schema.station).values([
+    await insertStations(db, [
       {
         id: randomUUID(),
         workspaceId: team.workspaceId.value,

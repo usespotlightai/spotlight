@@ -1,11 +1,11 @@
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
+import type { InboxSection } from '@work/application/read-models/inbox-section';
 import type {
   TaskNoteForm,
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
-import type { InboxSection } from '@work/domain/services/inbox-section';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
@@ -163,27 +163,25 @@ export type InboxEntrySummary =
 
 export const INBOX_READER = Symbol('INBOX_READER');
 
+export interface InboxScope {
+  readonly workspaceId: string;
+  readonly viewer: UserId;
+  readonly teamsSeen: ReadonlySet<string>;
+  readonly teamsRead: ReadonlySet<string>;
+}
+
 export interface InboxReaderPort {
-  openForWorkspaceMember(
-    slug: string,
-    userId: UserId,
-  ): Promise<InboxEntrySummary[] | null>;
+  open(scope: InboxScope): Promise<InboxEntrySummary[]>;
 
-  resolvedForWorkspaceMember(
-    slug: string,
-    userId: UserId,
+  resolved(
+    scope: InboxScope,
     page: PageRequest,
-  ): Promise<Page<InboxEntrySummary> | null>;
+  ): Promise<Page<InboxEntrySummary>>;
 
-  itemForWorkspaceMember(
-    slug: string,
-    userId: UserId,
-    itemId: string,
-  ): Promise<InboxItemView | null>;
+  item(scope: InboxScope, itemId: string): Promise<InboxItemView | null>;
 
-  noticeForWorkspaceMember(
-    slug: string,
-    userId: UserId,
+  notice(
+    scope: InboxScope,
     noticeId: string,
   ): Promise<InboxNoticeSummary | null>;
 }

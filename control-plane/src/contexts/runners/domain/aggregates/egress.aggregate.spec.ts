@@ -59,7 +59,7 @@ describe('Egress', () => {
 
     expect(rotated.id.equals(egress.id)).toBe(true);
     expect(rotated.tokenHash.equals(hashOf('8'))).toBe(true);
-    expect(rotated.tokenVersion).toBe(2);
+    expect(rotated.tokenVersion.value).toBe(2);
     expect((event as EgressUpdated).change.detail?.recorded()).toEqual({
       tokenRotated: true,
     });

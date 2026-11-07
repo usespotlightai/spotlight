@@ -8,11 +8,24 @@ import type { HttpAdapterHost } from '@nestjs/core';
 import { ProblemException } from '@platform/http/resources/problem.exception';
 import { ProblemFilter } from '@platform/http/resources/problem.filter';
 import { API_VERSION } from '@platform/http/resources/resource-headers';
-import { ApplicationError } from '@shared-kernel/application/errors/application-error';
+import {
+  ApplicationError,
+  type ApplicationErrorKind,
+} from '@shared-kernel/application/errors/application-error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { describe, expect, it, vi } from 'vitest';
+
+class Refused extends ApplicationError {
+  constructor(
+    readonly kind: ApplicationErrorKind,
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
 const responseTo = (exception: unknown) => {
   const headers = new Map<string, string>();
@@ -84,15 +97,16 @@ describe('ProblemFilter', () => {
       status: 401,
     });
     expect(responseTo(new NotFoundException()).status).toBe(404);
-    expect(
-      responseTo(new ApplicationError('conflict', 'it moved')).body,
-    ).toMatchObject({ status: 409, detail: 'it moved' });
+    expect(responseTo(new Refused('conflict', 'it moved')).body).toMatchObject({
+      status: 409,
+      detail: 'it moved',
+    });
   });
 
   it('returns a forbidden problem for a guard or use case that denies', () => {
     for (const denial of [
       new ForbiddenException(),
-      new ApplicationError('not-allowed', 'not yours'),
+      new Refused('not-allowed', 'not yours'),
     ]) {
       const { body, status, headers } = responseTo(denial);
 
@@ -122,7 +136,7 @@ describe('ProblemFilter', () => {
 
   it('reports no fault of a service upstream, which ApplicationErrorFilter does not report either', () => {
     const { status, report } = responseTo(
-      new ApplicationError('upstream-error', 'GitHub failed'),
+      new UpstreamError('Open a pull request', 'GitHub failed'),
     );
 
     expect(status).toBe(502);

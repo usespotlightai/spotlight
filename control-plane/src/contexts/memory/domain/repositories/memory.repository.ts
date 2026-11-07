@@ -1,28 +1,23 @@
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
-import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
-import type { MemoryStatus } from '@memory/domain/value-objects/memory-status';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export interface MemoryCriteria {
-  readonly status: MemoryStatus;
-  readonly kind: MemoryKind | null;
-  readonly lineId: string | null;
-  readonly stationId: string | null;
-  readonly repository: string | null;
-  readonly path: string | null;
-}
+export const MEMORIES = Symbol('MEMORIES');
 
 export interface MemoryRepository {
   add(memory: Memory): Promise<void>;
 
   save(memory: Memory): Promise<void>;
 
+  remove(memory: Memory): Promise<void>;
+
   find(id: MemoryId): Promise<Memory | null>;
 
   findAll(ids: readonly MemoryId[]): Promise<readonly Memory[]>;
+
+  ofTeam(teamId: TeamId): Promise<readonly Memory[]>;
 
   withHandle(teamId: TeamId, handle: MemoryHandle): Promise<Memory | null>;
 
@@ -39,6 +34,4 @@ export interface MemoryRepository {
     runContext: RunContext,
     asOf?: Date | null,
   ): Promise<readonly Memory[]>;
-
-  ofTeam(teamId: TeamId, criteria: MemoryCriteria): Promise<readonly Memory[]>;
 }

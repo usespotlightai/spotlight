@@ -12,6 +12,7 @@ import {
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
 import type { ControlPlaneReleasePort } from '@work/application/ports/control-plane-release.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import {
   type BriefedMemory,
   type MemoryFolder,
@@ -25,7 +26,6 @@ import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import { chatWords } from '@work/application/services/remembering-words';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { builtInToolsForChat } from '@work/domain/services/built-in-tools';
 import {
@@ -48,7 +48,7 @@ export class DispatchChat implements ChatDispatching {
     private readonly launch: HarnessLaunchPort,
     private readonly tracing: TraceParentPort,
     private readonly teams: TeamDirectoryPort,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly clock: ClockPort,
     private readonly memories: TeamMemoriesPort,
     private readonly logger: LoggerPort,
@@ -136,7 +136,7 @@ export class DispatchChat implements ChatDispatching {
           return {
             remote: REMOTE_VIA_GIT_PROXY,
             path: repository.name,
-            ...(setup ? { setup: setup.value } : {}),
+            ...(setup ? { setup } : {}),
           };
         }),
         command: command.started({

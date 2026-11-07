@@ -11,6 +11,7 @@ import { Body, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { QueryBus } from '@nestjs/cqrs';
 import { ApiBody, ApiOkResponse, ApiOperation } from '@nestjs/swagger';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import {
   ApiProblemResponse,
   ConventionalApiController,
@@ -59,6 +60,7 @@ const problemsOf = (
   }
 };
 
+@InAudience('resources')
 @ConventionalApiController(EXPRESSIONS, 'expressions')
 export class ExpressionCheckController {
   constructor(private readonly queryBus: QueryBus) {}

@@ -1,9 +1,9 @@
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { TEST_STATION_CHANGE } from '@work/domain/services/built-in-tools';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { TargetStation } from '@work/domain/value-objects/target-station.vo';
 
 export const ImproveStation = {
-  section(targetStation: TargetStation, lines: readonly Line[]): string {
+  section(targetStation: TargetStation, lines: readonly LineMap[]): string {
     const improved = lines.find((each) => each.id.equals(targetStation.lineId));
     const station = improved?.stationAt(targetStation.stationId);
 

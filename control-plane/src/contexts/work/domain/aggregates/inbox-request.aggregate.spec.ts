@@ -6,9 +6,8 @@ import {
   InboxRequest,
   type InboxRequestVisibility,
 } from '@work/domain/aggregates/inbox-request.aggregate';
-import { InboxRequestCreated } from '@work/domain/events/inbox-request-created.event';
-import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
 import { InvalidInboxRequestError } from '@work/domain/exceptions/invalid-inbox-request.error';
+import { inboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
@@ -24,7 +23,7 @@ const created = (change: { form?: string; about?: string } = {}) =>
     id: InboxRequestId.of('request_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     taskId: TaskId.of('task_1'),
-    form: change.form ?? 'memories',
+    form: inboxRequestForm(change.form ?? 'memories'),
     about: InboxRequestSubject.of(change.about ?? ' run_1 '),
     now: NOW,
   });
@@ -36,14 +35,6 @@ describe('InboxRequest', () => {
     expect(inboxRequest.open).toBe(true);
     expect(inboxRequest.unreadBy(ADA)).toBe(true);
     expect(inboxRequest.about.value).toBe('run_1');
-    expect(inboxRequest.pullEvents()).toEqual([
-      new InboxRequestCreated(
-        inboxRequest.id,
-        inboxRequest.taskId,
-        'memories',
-        InboxRequestSubject.of('run_1'),
-      ),
-    ]);
   });
 
   it('rejects a form it does not know, or nothing to be about', () => {
@@ -60,7 +51,7 @@ describe('InboxRequest', () => {
     expect(resolved.resolve(NOW)).toBe(resolved);
   });
 
-  it('reopens unread once resolved, says it was created again, and leaves an open inbox request as it is', () => {
+  it('reopens unread once resolved, created again, and leaves an open inbox request as it is', () => {
     const resolved = created().readBy(ADA, NOW).resolve(NOW);
     resolved.pullEvents();
 
@@ -69,24 +60,7 @@ describe('InboxRequest', () => {
     expect(reopened.open).toBe(true);
     expect(reopened.createdAt).toEqual(LATER);
     expect(reopened.unreadBy(ADA)).toBe(true);
-    expect(reopened.pullEvents()).toEqual([
-      new InboxRequestCreated(
-        reopened.id,
-        reopened.taskId,
-        'memories',
-        InboxRequestSubject.of('run_1'),
-      ),
-    ]);
     expect(reopened.reopen(LATER)).toBe(reopened);
-  });
-
-  it('says it is resolved', () => {
-    const inboxRequest = created();
-    inboxRequest.pullEvents();
-
-    expect(inboxRequest.resolve(LATER).pullEvents()).toEqual([
-      new InboxRequestResolved(inboxRequest.id, inboxRequest.taskId),
-    ]);
   });
 
   it('is read by each person for themselves, once', () => {
@@ -99,6 +73,16 @@ describe('InboxRequest', () => {
       'user_ada',
       'user_bea',
     ]);
+  });
+
+  it('counts as read for everyone once resolved, as the inbox shows it', () => {
+    const resolved = created().resolve(NOW);
+
+    expect(resolved.unreadBy(BEA)).toBe(false);
+    expect(
+      InboxRequest.unread({ readAt: null, resolvedAt: resolved.resolvedAt }),
+    ).toBe(false);
+    expect(InboxRequest.unread({ readAt: null, resolvedAt: null })).toBe(true);
   });
 
   describe('rehydrating', () => {

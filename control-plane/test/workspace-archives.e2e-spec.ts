@@ -22,6 +22,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { aRunOf } from './support/run-ended';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 
 const HOUR = 60 * 60_000;
 const DAY = 24 * HOUR;
@@ -60,7 +61,7 @@ beforeAll(async () => {
     teamId: 'team_1',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: stationId,
       key: 'build',
@@ -140,8 +141,8 @@ const archived = async (
 ): Promise<WorkspaceArchive> => {
   const key =
     holder.kind === 'task'
-      ? ResumeKey.forTask(holder.taskId.value)
-      : ResumeKey.forChat(holder.chatId.value);
+      ? ResumeKey.forTask(TaskId.of(holder.taskId.value))
+      : ResumeKey.forChat(ChatId.of(holder.chatId.value));
   const grantee = await aRunOf(db, { id: randomUUID(), workspaceId: 'ws_1' });
   const granted = WorkspaceArchive.grant({
     id: WorkspaceArchiveId.of(randomUUID()),
@@ -187,7 +188,7 @@ describe('storing workspace archives', () => {
 
     const found = await archives.newestCompleted(
       WorkspaceId.of('ws_1'),
-      ResumeKey.forTask(taskId),
+      ResumeKey.forTask(TaskId.of(taskId)),
     );
 
     expect(found?.id.value).toBe(newer.id.value);

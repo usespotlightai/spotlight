@@ -59,7 +59,7 @@ describe('RunTokens', () => {
     });
     expect(stored[0]?.hash.value).toBe('b'.repeat(64));
     expect(stored[0]?.runId?.value).toBe('run_1');
-    expect(stored[0]?.runAttempt).toBe(2);
+    expect(stored[0]?.runAttempt?.value).toBe(2);
     expect(stored[0]?.name.value).toBe('run-token-1');
     expect(stored[0]?.expiresAt).toEqual(HOUR_LATER);
     expect(stored[0]?.scopes.all.map((each) => each.value)).toEqual(['plan']);

@@ -3,16 +3,19 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { PageRequest } from '@work/application/dto/page.dto';
 import { InvalidPageCursorError } from '@work/application/errors/invalid-page-cursor.error';
 import type { InboxItemSummary } from '@work/application/ports/inbox-reader.port';
+import { conversationsOf } from '@work/domain/services/conversations';
+import { anyUnread } from '@work/domain/services/unread';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleRunReader } from '@work/infrastructure/persistence/drizzle/readers/run.reader';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
@@ -48,7 +51,7 @@ const aLine = async () => {
     teamId,
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: work,
       key: 'implementation',
@@ -90,7 +93,7 @@ const aLine = async () => {
     return taskId;
   };
 
-  const addNotes = (
+  const addNotes = async (
     taskId: string,
     kinds: readonly {
       kind: 'asked' | 'answered' | 'passed' | 'reopened';
@@ -98,8 +101,25 @@ const aLine = async () => {
       unseen?: boolean;
       form?: 'words' | 'resolved';
     }[],
-  ) =>
-    db.insert(schema.taskNote).values(
+  ) => {
+    const closing = new Set(
+      conversationsOf(kinds.map((each) => each.kind)).flatMap((each) =>
+        each.to === null ? [] : [each.to],
+      ),
+    );
+
+    await db
+      .update(schema.task)
+      .set({
+        unreadAsk: anyUnread(
+          kinds.map((each) => ({
+            kind: each.kind,
+            readAt: each.unseen ? null : each.at,
+          })),
+        ),
+      })
+      .where(eq(schema.task.id, taskId));
+    await db.insert(schema.taskNote).values(
       kinds.map((each, position) => ({
         taskId,
         position,
@@ -112,8 +132,10 @@ const aLine = async () => {
         kind: each.kind,
         form: each.form ?? ('words' as const),
         readAt: each.unseen ? null : each.at,
+        closesConversation: closing.has(position),
       })),
     );
+  };
 
   return {
     workspaceId,
@@ -126,23 +148,43 @@ const aLine = async () => {
   };
 };
 
-const inboxOf = (workspaceId: string) =>
-  new DrizzleInboxReader(
-    db,
-    { mayView: async () => true, onTeam: async () => null } as never,
-    { idForSlug: async () => workspaceId } as never,
-    { findMany: async () => new Map() } as never,
-  );
+const inboxOf = (workspaceId: string) => {
+  const reader = new DrizzleInboxReader(db, {
+    findMany: async () => new Map(),
+  } as never);
+  const scope = (viewer: UserId) => ({
+    workspaceId,
+    viewer,
+    teamsSeen: new Set<string>(),
+    teamsRead: new Set<string>(),
+  });
 
-const boardOf = (workspaceId: string) =>
-  new DrizzleTaskReader(
-    db,
-    { mayView: async () => true } as never,
-    {
-      find: async () => ({ workspaceId: WorkspaceId.of(workspaceId) }),
-    } as never,
-    { findMany: async () => new Map() } as never,
-  );
+  return {
+    openForWorkspaceMember: (_slug: string, viewer: UserId) =>
+      reader.open(scope(viewer)),
+    resolvedForWorkspaceMember: (
+      _slug: string,
+      viewer: UserId,
+      page: PageRequest,
+    ) => reader.resolved(scope(viewer), page),
+    itemForWorkspaceMember: (_slug: string, viewer: UserId, itemId: string) =>
+      reader.item(scope(viewer), itemId),
+  };
+};
+
+const boardOf = (_workspaceId: string) => {
+  const reader = new DrizzleTaskReader(db, {
+    findMany: async () => new Map(),
+  } as never);
+
+  return {
+    listForTeamMember: (
+      team: TeamId,
+      _viewer: UserId,
+      listing: Parameters<DrizzleTaskReader['listForTeam']>[1],
+    ) => reader.listForTeam(team, listing),
+  };
+};
 
 describe('the inbox, open and resolved', () => {
   it('lists open conversations with their newest note, and pages the resolved ones', async () => {
@@ -334,6 +376,21 @@ describe('the inbox, open and resolved', () => {
       'answered 1',
       'passed 2',
     ]);
+  });
+
+  it('opens a conversation only for the person the task is assigned to, as the lists do', async () => {
+    const line = await aLine();
+    const taskId = await line.addTask({ stationId: line.work });
+
+    await line.addNotes(taskId, [{ kind: 'asked', at: at(0) }]);
+
+    expect(
+      await inboxOf(line.workspaceId).itemForWorkspaceMember(
+        'acme',
+        UserId.of(`someone-else-${randomUUID()}`),
+        `${taskId}:0`,
+      ),
+    ).toBeNull();
   });
 });
 

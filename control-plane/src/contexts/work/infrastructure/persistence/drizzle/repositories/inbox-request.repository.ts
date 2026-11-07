@@ -134,6 +134,31 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
     return row ? this.withReads(row) : null;
   }
 
+  async ofTask(taskId: TaskId): Promise<InboxRequest[]> {
+    const rows = await this.context.db
+      .select()
+      .from(inboxRequest)
+      .where(eq(inboxRequest.taskId, taskId.value));
+
+    return Promise.all(rows.map((row) => this.withReads(row)));
+  }
+
+  async remove(removed: InboxRequest): Promise<void> {
+    const gone = await this.context.db
+      .delete(inboxRequest)
+      .where(
+        and(
+          eq(inboxRequest.id, removed.id.value),
+          eq(inboxRequest.version, removed.version),
+        ),
+      )
+      .returning({ id: inboxRequest.id });
+
+    if (gone.length === 0) {
+      throw new InboxRequestVersionConflictError(removed.id.value);
+    }
+  }
+
   async about(
     taskId: TaskId,
     form: InboxRequestForm,

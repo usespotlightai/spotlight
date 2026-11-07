@@ -28,6 +28,7 @@ import {
 } from '@nestjs/swagger';
 import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import { HOOK_CALLBACKS } from '@platform/http/routes';
 
 const UNAUTHORIZED =
@@ -37,6 +38,7 @@ const UNAUTHORIZED =
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @AllowAnonymous()
+@InAudience('public')
 @Controller(HOOK_CALLBACKS)
 export class HookCallbackController {
   constructor(

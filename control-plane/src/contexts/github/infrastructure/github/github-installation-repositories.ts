@@ -7,7 +7,7 @@ import {
   type RepositoryAccessPort,
 } from '@github/application/ports/repository-access.port';
 import { Inject, Injectable } from '@nestjs/common';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const API = 'https://api.github.com';

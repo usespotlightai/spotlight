@@ -19,6 +19,7 @@ import {
 } from '@change-review/domain/value-objects/stack-ids';
 import {
   type ChangeStackState,
+  type StackFailure,
   StackProgress,
 } from '@change-review/domain/value-objects/stack-progress.vo';
 import type {
@@ -101,7 +102,7 @@ export const cohortsOf = (
 
 export const progressOf = (row: {
   state: ChangeStackState;
-  failure: string | null;
+  failure: StackFailure | null;
   startedAt: Date;
   completedAt: Date | null;
 }): StackProgress =>

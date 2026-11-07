@@ -7,15 +7,20 @@ import {
   type DiffFacts,
   placedHunks,
 } from '@change-review/domain/services/diff-facts';
+import { DraftedStack } from '@change-review/domain/services/drafted-stack';
 import { factProblems } from '@change-review/domain/services/fact-rules';
-import { cohortHeaderProblems } from '@change-review/domain/services/stack-checks';
+import {
+  changeLayerCount,
+  cohortHeaderProblems,
+} from '@change-review/domain/services/stack-checks';
 import { type StackPart } from '@change-review/domain/services/stack-part';
 import { StackProposal } from '@change-review/domain/services/stack-proposal';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import type {
+  DraftedLayer,
+  DraftedOutline,
   OutlinedCohort,
   ProposedCohort,
-  ProposedLayer,
   StackCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 
@@ -33,7 +38,7 @@ const asOneLayer = (cohort: OutlinedCohort): ProposedCohort => ({
   ],
 });
 
-const shapeProblems = (
+const outlineShapeProblems = (
   diff: Diff,
   facts: DiffFacts,
   cohorts: readonly OutlinedCohort[],
@@ -99,11 +104,14 @@ export const StackOutline = {
   validate(input: {
     diff: Diff;
     facts: DiffFacts;
-    cohorts: readonly OutlinedCohort[];
+    cohorts: readonly DraftedOutline[];
   }): OutlinedCohort[] {
-    const cohorts = withoutIncidental(input.facts, input.cohorts);
+    const cohorts = withoutIncidental(
+      input.facts,
+      DraftedStack.outline(input.cohorts),
+    );
     const problems = [
-      ...shapeProblems(input.diff, input.facts, cohorts),
+      ...outlineShapeProblems(input.diff, input.facts, cohorts),
       ...factProblems(cohorts.map(asOneLayer), input.facts),
     ];
 
@@ -157,23 +165,23 @@ export const StackOutline = {
 
   proposed(
     cohort: OutlinedCohort,
-    layers: readonly ProposedLayer[],
+    layers: readonly DraftedLayer[],
   ): ProposedCohort {
     const { hunks: _, ...outlined } = cohort;
-    return { ...outlined, layers };
+    return { ...outlined, layers: DraftedStack.layers(layers) };
   },
 
   layered(
     part: StackPart,
     cohort: OutlinedCohort,
-    layers: readonly ProposedLayer[],
-    changeLayersBefore?: number,
+    layers: readonly DraftedLayer[],
+    redrafting?: StackCohort,
   ): ProposedCohort {
     return StackProposal.checkedCohort({
       diff: part.diff,
       facts: part.facts,
       cohort: StackOutline.proposed(cohort, layers),
-      changeLayersBefore,
+      changeLayersAtLeast: redrafting && changeLayerCount([redrafting]),
     });
   },
 };

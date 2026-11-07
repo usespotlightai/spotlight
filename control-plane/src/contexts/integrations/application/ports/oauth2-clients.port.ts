@@ -10,13 +10,6 @@ export interface OAuth2Client {
 }
 
 export interface OAuth2ClientsPort {
-  clientFor(
-    teamId: TeamId,
-    integration: IntegrationKey,
-    registration: string | null,
-    server: AuthorizationServer | null,
-  ): Promise<OAuth2Client | null>;
-
   existingFor(
     teamId: TeamId,
     integration: IntegrationKey,

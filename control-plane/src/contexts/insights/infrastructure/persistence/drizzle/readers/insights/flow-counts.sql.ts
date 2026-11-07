@@ -26,7 +26,7 @@ import { ofTeamTaskPullRequests } from '@insights/infrastructure/persistence/dri
 import {
   runFact,
   taskHumanAction,
-  taskPullRequest,
+  taskPullRequestFact,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { type SQL, sql } from 'drizzle-orm';
@@ -137,21 +137,21 @@ const deliveriesIn = async (
     sql`${column} >= ${iso(previous.from)}::timestamptz and ${column} < ${iso(current.to)}::timestamptz`;
   const result = await db.execute<DeliveryRow>(sql`
     select
-      ${taskPullRequest.taskId} as task_id,
-      ${msOf(sql`${taskPullRequest.openedAt}`)} as opened_ms,
-      ${msOf(sql`${taskPullRequest.firstReviewAt}`)} as first_review_ms,
-      ${msOf(sql`${taskPullRequest.closedAt}`)} as closed_ms,
-      ${taskPullRequest.state} = 'merged' as merged,
+      ${taskPullRequestFact.taskId} as task_id,
+      ${msOf(sql`${taskPullRequestFact.openedAt}`)} as opened_ms,
+      ${msOf(sql`${taskPullRequestFact.firstReviewAt}`)} as first_review_ms,
+      ${msOf(sql`${taskPullRequestFact.closedAt}`)} as closed_ms,
+      ${taskPullRequestFact.state} = 'merged' as merged,
       ${msOf(sql`${taskHumanAction.openedAt}`)} as task_opened_ms
-    from ${taskPullRequest}
-    left join ${taskHumanAction} on ${taskHumanAction.taskId} = ${taskPullRequest.taskId}
+    from ${taskPullRequestFact}
+    left join ${taskHumanAction} on ${taskHumanAction.taskId} = ${taskPullRequestFact.taskId}
     where ${ofTeamTaskPullRequests(team)}
       and (
-        ${between(sql`${taskPullRequest.openedAt}`)}
-        or ${between(sql`${taskPullRequest.firstReviewAt}`)}
-        or (${taskPullRequest.state} = 'merged' and ${between(sql`${taskPullRequest.closedAt}`)})
+        ${between(sql`${taskPullRequestFact.openedAt}`)}
+        or ${between(sql`${taskPullRequestFact.firstReviewAt}`)}
+        or (${taskPullRequestFact.state} = 'merged' and ${between(sql`${taskPullRequestFact.closedAt}`)})
       )
-    order by ${taskPullRequest.openedAt} desc, ${taskPullRequest.taskId} desc
+    order by ${taskPullRequestFact.openedAt} desc, ${taskPullRequestFact.taskId} desc
   `);
 
   return result.rows.map((row) => ({

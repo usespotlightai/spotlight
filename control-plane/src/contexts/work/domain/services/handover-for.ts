@@ -1,10 +1,10 @@
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { PassDenial } from '@work/domain/value-objects/line-denial';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 
@@ -27,7 +27,7 @@ export const HandoverFor = {
   after(input: {
     outcome: RunOutcome;
     handover: Handover | null;
-    line: Line | null;
+    line: LineMap | null;
     currentStation: StationId;
     lastWords?: string | null;
   }): ResolvedHandover {
@@ -48,7 +48,7 @@ export const HandoverFor = {
 
   resolve(
     handover: Handover,
-    line: Line | null,
+    line: LineMap | null,
     currentStation: StationId,
   ): ResolvedHandover {
     if (handover.requestsReview()) {

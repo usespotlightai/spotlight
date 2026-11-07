@@ -8,6 +8,7 @@ import type { SearchTrigger } from '@replays/domain/value-objects/search-trigger
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -126,7 +127,7 @@ export class StationSearchSchedule extends EventRecorder {
     return this.state.station;
   }
 
-  get stationId(): string {
+  get stationId(): StationId {
     return this.state.station.stationId;
   }
 
@@ -340,6 +341,24 @@ export class StationSearchSchedule extends EventRecorder {
       searchedTasks,
       checkAfter: new Date(input.at.getTime() + input.cooldownMilliseconds),
     });
+  }
+
+  startWithdrawn(before: StationSearchSchedule): StationSearchSchedule {
+    const { lastStartedAt, lastSkip, alertPendingSince, searchedTasks } =
+      before.state;
+
+    return this.with({
+      lastStartedAt,
+      lastSkip,
+      alertPendingSince,
+      searchedTasks,
+      checkAfter: before.state.checkAfter,
+      requests: before.state.requests,
+    });
+  }
+
+  requestWithdrawn(before: StationSearchSchedule): StationSearchSchedule {
+    return this.with({ requests: before.state.requests });
   }
 
   delete(): StationSearchSchedule {

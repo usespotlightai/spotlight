@@ -3,6 +3,7 @@ import type { ChangeStackCompleted } from '@change-review/domain/events/change-s
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 
 export class StackCheckReactions {
@@ -14,23 +15,13 @@ export class StackCheckReactions {
 
   async onCompleted(event: ChangeStackCompleted): Promise<void> {
     const stack = await this.stacks.find(event.stackId);
+    const begun = stack ? StackCheck.beginFor(stack, this.clock.now()) : null;
 
-    if (!stack?.request || stack.state !== 'ready') {
+    if (!begun || (await this.checks.find(begun.id))) {
       return;
     }
 
-    await this.checks.add(
-      StackCheck.begin({
-        stackId: stack.id,
-        runId: stack.runId,
-        taskId: stack.taskId,
-        replay: stack.replay,
-        workspaceId: stack.workspaceId,
-        request: stack.request,
-        entries: stack.entries(),
-        now: this.clock.now(),
-      }),
-    );
+    await this.checks.add(begun);
   }
 
   async onLayersFailed(stackId: ChangeStackId): Promise<void> {
@@ -43,7 +34,7 @@ export class StackCheckReactions {
 
   async onRedrafted(stackId: ChangeStackId): Promise<void> {
     const stack = await this.stacks.find(stackId);
-    const check = await this.checks.find(stackId, false);
+    const check = await this.checks.find(StackCheckId.first(stackId));
 
     if (stack && check?.redrafting) {
       await this.checks.save(
@@ -53,7 +44,7 @@ export class StackCheckReactions {
   }
 
   async onRedraftingEnded(stackId: ChangeStackId): Promise<void> {
-    const check = await this.checks.find(stackId, false);
+    const check = await this.checks.find(StackCheckId.first(stackId));
 
     if (check?.redrafting) {
       await this.checks.save(check.retainCheckedLayers());

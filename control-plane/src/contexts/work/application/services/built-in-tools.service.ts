@@ -1,3 +1,4 @@
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type {
   ResolvedTool,
   ToolContext,
@@ -6,7 +7,6 @@ import {
   BUILT_IN_TOOLS,
   builtInTool,
 } from '@work/domain/services/built-in-tools';
-import type { Tool } from '@work/domain/value-objects/tool.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
 export const BUILT_IN_TOOL_USES = Symbol('BUILT_IN_TOOL_USES');

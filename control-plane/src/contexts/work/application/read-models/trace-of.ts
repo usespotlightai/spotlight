@@ -1,4 +1,5 @@
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type {
   EgressEnforcement,
   JournalStep,
@@ -6,11 +7,10 @@ import type {
   RunSpan,
 } from '@work/application/contracts/run-journal.contract';
 import type { ConnectionOfRun } from '@work/application/ports/run-connections.port';
-import type { HarnessName } from '@work/domain/value-objects/harness-name.vo';
+import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import type { Money } from '@work/domain/value-objects/money.vo';
 import type { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 import type { RunState } from '@work/domain/value-objects/run-state';
-import type { StationName } from '@work/domain/value-objects/station-name.vo';
 import { faulted } from '@work/domain/value-objects/step-status';
 
 export type NodeKind = 'run' | 'phase' | 'step' | 'span' | 'connection';
@@ -28,6 +28,36 @@ export interface TracedRun {
   readonly journal: RunJournal | null;
   readonly connections: readonly RunConnection[];
 }
+
+export interface RunToTrace {
+  readonly id: string;
+  readonly station: { readonly name: string } | null;
+  readonly harness: string;
+  readonly state: RunState;
+  readonly attempt: number;
+  readonly startedAt: Date;
+  readonly updatedAt: Date;
+}
+
+export const tracedRunsOf = (
+  runs: readonly RunToTrace[],
+  journals: readonly RunJournal[],
+  errors: readonly ConnectionOfRun[],
+): TracedRun[] => {
+  const byRun = new Map(journals.map((journal) => [journal.runId, journal]));
+
+  return runs.map((run) => ({
+    id: RunId.of(run.id),
+    station: StationName.maybe(run.station?.name),
+    harness: HarnessName.of(run.harness),
+    state: run.state,
+    attempt: run.attempt,
+    startedAt: run.startedAt,
+    endedAt: run.updatedAt,
+    journal: byRun.get(run.id) ?? null,
+    connections: connectionsOf(errors, run.id, run.attempt),
+  }));
+};
 
 export const connectionsOf = (
   recorded: readonly ConnectionOfRun[],
@@ -251,13 +281,13 @@ const hostOf = (connection: RunConnection): string =>
     ? connection.host
     : `${connection.host}:${connection.port}`;
 
-interface Arriving {
+interface ArrivingConnection {
   readonly id: string;
   readonly connection: RunConnection;
 }
 
 interface Group {
-  readonly first: Arriving;
+  readonly first: ArrivingConnection;
   readonly all: RunConnection[];
 }
 
@@ -293,7 +323,10 @@ const keyOf = (connection: RunConnection): string =>
     connection.reason,
   ].join(' ');
 
-const grouped = (arriving: readonly Arriving[], until: Date): TraceNode[] => {
+const grouped = (
+  arriving: readonly ArrivingConnection[],
+  until: Date,
+): TraceNode[] => {
   const groups = new Map<string, Group>();
 
   for (const each of arriving) {
@@ -315,14 +348,14 @@ const covers = (node: TraceNode, when: Date): boolean =>
 
 const withConnections = (
   node: TraceNode,
-  arriving: readonly Arriving[],
+  arriving: readonly ArrivingConnection[],
 ): TraceNode => {
   if (arriving.length === 0) {
     return node;
   }
 
-  const below = new Map<TraceNode, Arriving[]>();
-  const own: Arriving[] = [];
+  const below = new Map<TraceNode, ArrivingConnection[]>();
+  const own: ArrivingConnection[] = [];
 
   for (const each of arriving) {
     const child = [...node.children]

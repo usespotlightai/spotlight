@@ -261,3 +261,21 @@ const searchGainsOf = (
     }),
   );
 };
+
+export const heldOutPendingFor = (
+  scores: SearchScores,
+  candidateId: CandidateId,
+  replays: readonly Replay[],
+): boolean => {
+  const picked = scores.candidates.find((each) =>
+    each.candidateId.equals(candidateId),
+  );
+  const unended = (id: ReplayId | null): boolean =>
+    id !== null && !replays.find((each) => each.id.equals(id))?.endedAt;
+
+  return (
+    !picked?.heldOutGain &&
+    picked?.heldOutReplayId != null &&
+    [picked.heldOutReplayId, scores.seed.heldOutReplayId].some(unended)
+  );
+};

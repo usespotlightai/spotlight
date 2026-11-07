@@ -8,6 +8,7 @@ import { improvedOnBestBefore } from '@replays/domain/services/search-improvemen
 import {
   reconciled,
   type SeenRun,
+  searchRunEnding,
 } from '@replays/domain/services/search-reconciliation';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -23,8 +24,6 @@ export interface SearchRunEnded {
   readonly asked: boolean;
   readonly started: boolean;
 }
-
-const COMPLETED = 'completed';
 
 export class RecordSearchProgress {
   constructor(
@@ -69,10 +68,7 @@ export class RecordSearchProgress {
       await this.changing(search.id, async (fresh) =>
         fresh.recordRunEnd(
           run,
-          {
-            failed: event.outcome !== COMPLETED || event.asked,
-            started: event.started,
-          },
+          searchRunEnding(event),
           this.clock.now(),
           this.runIds,
         ),
@@ -96,7 +92,6 @@ export class RecordSearchProgress {
       reconciled(
         fresh,
         await this.replays.ofSearch(fresh.id),
-        seen.replayIds,
         runs,
         (await this.healths.standardAt(fresh.station)).minGain,
         this.clock.now(),

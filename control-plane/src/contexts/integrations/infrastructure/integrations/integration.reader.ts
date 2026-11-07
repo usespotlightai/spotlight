@@ -1,10 +1,13 @@
-import type { ReadIntegrations } from '@configuration/application/ports/integration-reader.port';
 import { ToolDeclarationMapper } from '@integrations/application/mappers/tool-declaration.mapper';
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
+import type { ToolDeclarationsPort } from '@integrations/application/ports/tool-declarations.port';
 import { generatedTools } from '@integrations/domain/services/generated-tools';
+import type { ActsAsKind } from '@integrations/domain/value-objects/acts-as.vo';
+import type { ApiSpecKind } from '@integrations/domain/value-objects/api-spec.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import {
   type Compiled,
   compileIntegration,
@@ -13,12 +16,25 @@ import {
 import type { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
 import type { ExpressionEnginePort } from '@platform/expressions/expression-engine.port';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { ToolDeclaration } from '@work/application/contracts/tools.contract';
 
-type ReadIntegration = Omit<
-  ReadIntegrations['integrations'][number],
-  'connected' | 'linkedAccount'
->;
+export interface ReadSpec {
+  readonly kind: ApiSpecKind;
+  readonly tools: number;
+  readonly readAt: Date;
+  readonly problem: string | null;
+}
+
+export interface ReadIntegration {
+  readonly integration: string;
+  readonly path: string;
+  readonly name: string;
+  readonly requiresConnection: boolean;
+  readonly actsAs: ActsAsKind;
+  readonly credentials: readonly SecretName[];
+  readonly spec: ReadSpec | null;
+}
 
 export interface ReadDefinitions {
   readonly integrations: readonly ReadIntegration[];
@@ -33,7 +49,7 @@ export interface FoundTool {
 
 const MAX_COMPILED = 500;
 
-export class IntegrationReader {
+export class IntegrationReader implements ToolDeclarationsPort {
   readonly #compiled = new Map<string, Compiled>();
 
   constructor(
@@ -50,7 +66,6 @@ export class IntegrationReader {
           const defined = definitions.find(
             (each) => each.integration === integration.key.value,
           );
-          const handWritten = integration.tools.map((each) => each.tool);
 
           return {
             integration: integration.key.value,
@@ -63,9 +78,7 @@ export class IntegrationReader {
               apiSpec && defined?.reading
                 ? {
                     kind: apiSpec.spec.kind,
-                    tools: defined.tools.filter(
-                      (each) => !handWritten.includes(each),
-                    ).length,
+                    tools: integration.generatedToolCount(defined.tools),
                     readAt: defined.reading.readAt,
                     problem: defined.reading.problem,
                   }
@@ -102,11 +115,11 @@ export class IntegrationReader {
     definitions: readonly DefinedIntegration[],
     tool: string,
   ): Promise<FoundTool | null> {
-    const integration = tool.slice(0, tool.indexOf('.'));
-    const name = tool.slice(tool.indexOf('.') + 1);
-    const defined = definitions.find(
-      (each) => each.integration === integration,
-    );
+    const named = ToolName.parsed(tool);
+    const name = named?.name ?? '';
+    const defined = named
+      ? definitions.find((each) => each.integration === named.integration.value)
+      : undefined;
     const compiled = defined?.tools.includes(tool)
       ? this.compiledOf(defined)
       : null;

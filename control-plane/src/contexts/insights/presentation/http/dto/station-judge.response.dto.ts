@@ -1,3 +1,11 @@
+import type { JudgeCalibrationDto } from '@insights/application/dto/judge-calibration.dto';
+import type {
+  AgreementReadingsDto,
+  CorrelationReadingDto,
+  CoverageDto,
+  KappaReadingDto,
+  TrendPointDto,
+} from '@insights/application/dto/read-model.dto';
 import type {
   AgreementDto,
   ClaimAgreementDto,
@@ -9,23 +17,11 @@ import type {
 } from '@insights/application/dto/station-judge.dto';
 import {
   CORRELATION_READINGS,
-  type CorrelationReading,
-  correlationReadingOf,
   KAPPA_READINGS,
-  type KappaReading,
-  kappaReadingOf,
 } from '@insights/domain/services/agreement-reading';
-import type {
-  AgreementReadings,
-  Coverage,
-  TrendPoint,
-} from '@insights/domain/services/judge-agreement';
 import {
   AGREEMENT_MEASURES,
-  failingOf,
   HIDDEN_REASONS,
-  type JudgeCalibration,
-  MIN_PAIRS,
 } from '@insights/domain/services/judge-calibration';
 import { SCORE_KINDS } from '@insights/domain/value-objects/score-scale.vo';
 import { ApiProperty } from '@nestjs/swagger';
@@ -54,7 +50,7 @@ export class JudgeCalibrationResponseDto {
     description:
       'How the agreement reads on its measure’s scale: kappa readings for kappa, correlation readings for Spearman’s',
   })
-  readonly reading: KappaReading | CorrelationReading | null;
+  readonly reading: KappaReadingDto | CorrelationReadingDto | null;
 
   @ApiProperty({
     example: 24,
@@ -86,21 +82,16 @@ export class JudgeCalibrationResponseDto {
   })
   readonly failing: boolean;
 
-  constructor(calibration: JudgeCalibration) {
+  constructor(calibration: JudgeCalibrationDto) {
     this.qualified = calibration.qualified;
     this.measure = calibration.measure;
     this.agreement = calibration.agreement;
-    this.reading =
-      calibration.measure === 'kappa'
-        ? kappaReadingOf(calibration.agreement)
-        : calibration.measure === 'spearman'
-          ? correlationReadingOf(calibration.agreement)
-          : null;
+    this.reading = calibration.reading;
     this.pairs = calibration.pairs;
-    this.minPairs = MIN_PAIRS;
+    this.minPairs = calibration.minPairs;
     this.minAgreement = calibration.minAgreement;
     this.hiddenReason = calibration.hiddenReason;
-    this.failing = failingOf(calibration);
+    this.failing = calibration.failing;
   }
 }
 
@@ -210,7 +201,7 @@ export class AgreementReadingsResponseDto {
   })
   readonly spearman: string | null;
 
-  constructor(readings: AgreementReadings) {
+  constructor(readings: AgreementReadingsDto) {
     this.kappa = readings.kappa;
     this.pearson = readings.pearson;
     this.spearman = readings.spearman;
@@ -407,7 +398,7 @@ export class TrendPointResponseDto {
   })
   readonly people: number | null;
 
-  constructor(point: TrendPoint) {
+  constructor(point: TrendPointDto) {
     this.day = point.day;
     this.judged = point.judged;
     this.judge = point.judge;
@@ -499,7 +490,7 @@ export class JudgeCoverageRatesResponseDto {
   @ApiProperty({ nullable: true, type: Number, example: 0.24 })
   readonly neither: number | null;
 
-  constructor(rates: Coverage['rates']) {
+  constructor(rates: CoverageDto['rates']) {
     this.both = rates.both;
     this.judgeOnly = rates.judgeOnly;
     this.peopleOnly = rates.peopleOnly;
@@ -532,7 +523,7 @@ export class JudgeCoverageResponseDto {
   })
   readonly rates: JudgeCoverageRatesResponseDto;
 
-  constructor(coverage: Coverage) {
+  constructor(coverage: CoverageDto) {
     this.runs = coverage.runs;
     this.both = coverage.both;
     this.judgeOnly = coverage.judgeOnly;

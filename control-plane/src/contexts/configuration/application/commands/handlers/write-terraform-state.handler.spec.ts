@@ -4,13 +4,13 @@ import type { TerraformStateBodiesPort } from '@configuration/application/ports/
 import type { TerraformStates } from '@configuration/application/services/terraform-states.service';
 import { TerraformState } from '@configuration/domain/aggregates/terraform-state.aggregate';
 import type { TerraformStateRepository } from '@configuration/domain/repositories/terraform-state.repository';
+import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
 import { StateVersion } from '@configuration/domain/value-objects/state-version.vo';
 import { StateVersionId } from '@configuration/domain/value-objects/state-version-id.vo';
 import { TerraformStateId } from '@configuration/domain/value-objects/terraform-state-id.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -35,7 +35,7 @@ const at = (number: number) =>
       md5: MD5,
       size: 10,
     }),
-    writtenBy: 'person:u1',
+    writtenBy: PrincipalRef.rehydrate('person:u1'),
     writtenAt: AT,
   });
 
@@ -45,34 +45,18 @@ const stored = (latest: number) =>
     workspaceId: WORKSPACE,
     name: StateName.of('default'),
     lock: null,
-    latest: at(latest),
+    versions: [at(latest)],
     version: 1,
   });
 
-const writing = (input: {
-  latest: number;
-  save?: () => Promise<void>;
-  removeBody?: () => Promise<void>;
-  old?: readonly StateVersion[];
-}) => {
-  const calls: string[] = [];
+const writing = (input: { latest: number; save?: () => Promise<void> }) => {
   const states = {
     save: vi.fn(input.save ?? (async () => undefined)),
-    versionsBefore: vi.fn(async () => input.old ?? []),
-    removeVersions: vi.fn(async () => {
-      calls.push('rows');
-    }),
   } as unknown as TerraformStateRepository;
   const bodies = {
     put: vi.fn(async () => undefined),
-    remove: vi.fn(
-      input.removeBody ??
-        (async () => {
-          calls.push('body');
-        }),
-    ),
+    remove: vi.fn(async () => undefined),
   } as unknown as TerraformStateBodiesPort;
-  const logger = { warn: vi.fn() } as unknown as LoggerPort;
   let next = 0;
   const handler = new WriteTerraformStateHandler(
     {
@@ -81,9 +65,7 @@ const writing = (input: {
         slug: 'acme',
         plans: true,
         configures: true,
-        managesSecrets: false,
-        managesRunners: false,
-        managesOidcTrusts: false,
+        allows: () => false,
         isAdmin: false,
       }),
     } as unknown as WorkspaceAccessPort,
@@ -92,10 +74,9 @@ const writing = (input: {
     bodies,
     { generate: () => `id_${++next}` },
     { now: () => AT, sleep: async () => undefined },
-    logger,
   );
 
-  return { handler, states, bodies, logger, calls };
+  return { handler, states, bodies };
 };
 
 const command = new WriteTerraformStateCommand(
@@ -117,36 +98,28 @@ describe('WriteTerraformStateHandler', () => {
     });
 
     await expect(handler.execute(command)).rejects.toThrow('database down');
-    expect(bodies.remove).toHaveBeenCalledTimes(1);
-  });
-
-  it('removes the bodies of versions older than the kept 100, then their rows', async () => {
-    const { handler, states, calls } = writing({ latest: 100, old: [at(1)] });
-
-    expect(await handler.execute(command)).toEqual({ outcome: 'done' });
-    expect(states.versionsBefore).toHaveBeenCalledWith(expect.anything(), 2);
-    expect(calls).toEqual(['body', 'rows']);
-  });
-
-  it('keeps the rows and still answers done when a body cannot be removed', async () => {
-    const { handler, states, logger } = writing({
-      latest: 100,
-      old: [at(1)],
-      removeBody: async () => {
-        throw new Error('storage down');
+    expect(bodies.remove).toHaveBeenCalledWith([
+      {
+        workspaceId: WORKSPACE,
+        stateId: TerraformStateId.of('state_1'),
+        versionId: StateVersionId.of('id_1'),
       },
-    });
-
-    expect(await handler.execute(command)).toEqual({ outcome: 'done' });
-    expect(states.removeVersions).not.toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalled();
+    ]);
   });
 
-  it('prunes nothing while a state has 100 versions or fewer', async () => {
-    const { handler, states } = writing({ latest: 50 });
+  it('stores the body under the new version, then saves the state', async () => {
+    const { handler, states, bodies } = writing({ latest: 50 });
 
-    await handler.execute(command);
-
-    expect(states.versionsBefore).not.toHaveBeenCalled();
+    expect(await handler.execute(command)).toEqual({ outcome: 'done' });
+    expect(bodies.put).toHaveBeenCalledWith(
+      {
+        workspaceId: WORKSPACE,
+        stateId: TerraformStateId.of('state_1'),
+        versionId: StateVersionId.of('id_1'),
+      },
+      BODY,
+      expect.any(String),
+    );
+    expect(states.save).toHaveBeenCalledTimes(1);
   });
 });

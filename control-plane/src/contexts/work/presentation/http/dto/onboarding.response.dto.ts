@@ -6,7 +6,7 @@ import {
 import {
   PROVISIONINGS,
   type Provisioning,
-} from '@work/application/ports/team-provisioning.port';
+} from '@work/domain/services/team-provisioning';
 
 export class SetupStepResponseDto {
   @ApiProperty({
@@ -124,7 +124,7 @@ export class SetupChatResponseDto {
 export class OnboardingResponseDto {
   @ApiProperty({
     description:
-      'Whether Spotlight has created the first lines and opened the setup task of the team. The value is failed after Spotlight stopped its attempts.',
+      'Whether Spotlight has created the first lines and opened the setup task of a team made at sign-up. A team made otherwise is done at once.',
     enum: PROVISIONINGS,
     example: 'done',
   })

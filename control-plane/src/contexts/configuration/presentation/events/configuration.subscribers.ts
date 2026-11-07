@@ -1,6 +1,8 @@
 import type { DeleteTeamProfiles } from '@configuration/application/services/delete-team-profiles.service';
 import type { DeleteTeamSkills } from '@configuration/application/services/delete-team-skills.service';
 import type { DeleteWorkspaceStates } from '@configuration/application/services/delete-workspace-states.service';
+import type { PruneStateBodies } from '@configuration/application/services/prune-state-bodies.service';
+import type { TerraformStateWritten } from '@configuration/domain/events/terraform-state-written.event';
 import {
   TEAM_DELETED,
   type TeamDeletedIntegrationEvent,
@@ -20,6 +22,7 @@ export const configurationSubscribers = (
   deletingSkills: DeleteTeamSkills,
   deletingProfiles: DeleteTeamProfiles,
   deletingStates: DeleteWorkspaceStates,
+  pruning: PruneStateBodies,
 ): readonly DomainEventSubscriber[] => [
   subscribing<TeamDeletedIntegrationEvent>(
     'configuration.delete-skills-of-deleted-team',
@@ -44,6 +47,12 @@ export const configurationSubscribers = (
     [WORKSPACE_DELETED],
     (event) =>
       deletingStates.deleteForWorkspace(WorkspaceId.of(event.workspaceId)),
+    { callsOut: true },
+  ),
+  subscribing<TerraformStateWritten>(
+    'configuration.remove-dropped-terraform-state-bodies',
+    ['terraform-state.written'],
+    (event) => pruning.onWritten(event),
     { callsOut: true },
   ),
 ];

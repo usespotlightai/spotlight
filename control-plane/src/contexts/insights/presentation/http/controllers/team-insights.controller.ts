@@ -46,9 +46,9 @@ import {
 } from '@insights/domain/services/team-pull-requests';
 import { TASK_ACTIONS } from '@insights/domain/value-objects/human-action.vo';
 import { INSIGHTS_PERIODS } from '@insights/domain/value-objects/insights-period.vo';
+import { PULL_REQUEST_STATES } from '@insights/domain/value-objects/pull-request-state';
 import { PULL_REQUEST_TYPES } from '@insights/domain/value-objects/pull-request-type';
 import { RUN_ENDINGS } from '@insights/domain/value-objects/run-ending';
-import { TASK_PULL_REQUEST_STATES } from '@insights/domain/value-objects/task-pull-request-state';
 import {
   DEFAULT_TRACE_RANGE,
   TRACE_RANGES,
@@ -86,6 +86,7 @@ import {
 } from '@nestjs/swagger';
 import { AllowWorkspaceTokens } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 const DEFAULT_PERIOD = '30d';
@@ -151,6 +152,7 @@ const FilterQuery = (name: string, description: string) =>
     'No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last',
 })
 @ApiParam({ name: 'teamId', type: String })
+@InAudience('insights')
 @Controller('teams/:teamId/insights')
 export class TeamInsightsController {
   constructor(private readonly queryBus: QueryBus) {}
@@ -443,7 +445,7 @@ export class TeamInsightsController {
   @ApiQuery({
     name: 'state',
     required: false,
-    enum: TASK_PULL_REQUEST_STATES,
+    enum: PULL_REQUEST_STATES,
     description:
       'merged or closed for those that closed so in the period, open for those still open',
   })
@@ -582,7 +584,7 @@ export class TeamInsightsController {
   @ApiQuery({
     name: 'pullRequestState',
     required: false,
-    enum: TASK_PULL_REQUEST_STATES,
+    enum: PULL_REQUEST_STATES,
     description: 'Only runs of tasks whose pull request has this status',
   })
   @ApiQuery({

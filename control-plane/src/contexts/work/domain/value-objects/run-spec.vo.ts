@@ -1,9 +1,9 @@
 import type { JsonObject } from '@shared-kernel/domain/services/json-value';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 
 // Do not send a host address to a runner. Name each remote as Spotlight serves it.
 export const REMOTE_VIA_GIT_PROXY = 'spotlight:repository';

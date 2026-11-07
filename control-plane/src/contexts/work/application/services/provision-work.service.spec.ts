@@ -282,9 +282,9 @@ describe('ProvisionWork', () => {
 
     await provisioner.due();
 
-    expect(provision.mock.calls.map(([request]) => request.runId)).toEqual([
-      'run_1',
-    ]);
+    expect(
+      provision.mock.calls.map(([request]) => request.runId.value),
+    ).toEqual(['run_1']);
   });
 
   it('reserves nothing for a pool already at maxRuns', async () => {
@@ -363,9 +363,9 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(awaitingProvision).toHaveBeenCalledTimes(2);
-    expect(provision.mock.calls.map(([request]) => request.runId)).toEqual([
-      'run_1',
-    ]);
+    expect(
+      provision.mock.calls.map(([request]) => request.runId.value),
+    ).toEqual(['run_1']);
   });
 
   it('reserves a waiting run for a new runner and requests a fitting pool to start it', async () => {
@@ -381,8 +381,8 @@ describe('ProvisionWork', () => {
         poolId: 'pool_burst',
         runnerId: RunnerId.of('pooled_1'),
         work: { kind: 'run', id: 'run_1' },
-        runId: 'run_1',
-        taskId: 'task_1',
+        runId: RunId.of('run_1'),
+        taskId: TaskId.of('task_1'),
         labels: ['gpu'],
         image: null,
         needsEgress: false,
@@ -403,7 +403,10 @@ describe('ProvisionWork', () => {
     await provisioner.due();
 
     expect(provision).toHaveBeenCalledWith(
-      expect.objectContaining({ runId: 'run_1', image: WIDGETS.value }),
+      expect.objectContaining({
+        runId: RunId.of('run_1'),
+        image: WIDGETS.value,
+      }),
       NOON,
     );
   });
@@ -701,7 +704,7 @@ describe('ProvisionWork', () => {
           poolId: 'pool_burst',
           runnerId: RunnerId.of('pooled_1'),
           work: { kind: 'check', id: 'stack_1' },
-          runId: 'run_of_stack_1',
+          runId: RunId.of('run_of_stack_1'),
           taskId: null,
           labels: ['gpu'],
           image: null,

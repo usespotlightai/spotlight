@@ -1,7 +1,16 @@
 import { PullRequest } from '@github/domain/aggregates/pull-request.aggregate';
 import { PullRequestVersionConflictError } from '@github/domain/exceptions/pull-request-version-conflict.error';
 import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
-import { githubPullRequest } from '@github/infrastructure/persistence/drizzle/schemas/pull-request.schema';
+import { BotComment } from '@github/domain/value-objects/bot-comment.vo';
+import { DraftPeriod } from '@github/domain/value-objects/draft-period.vo';
+import { PullRequestReview } from '@github/domain/value-objects/pull-request-review.vo';
+import { PullRequestThread } from '@github/domain/value-objects/pull-request-thread.vo';
+import {
+  githubPullRequest,
+  type StoredBotComment,
+  type StoredReview,
+  type StoredThread,
+} from '@github/infrastructure/persistence/drizzle/schemas/pull-request.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -11,7 +20,7 @@ import {
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, desc, eq, gt, lt, ne, or } from 'drizzle-orm';
+import { and, asc, eq, gt, lt, ne, or } from 'drizzle-orm';
 
 type PullRequestRow = typeof githubPullRequest.$inferSelect;
 
@@ -38,23 +47,27 @@ const toPullRequest = (row: PullRequestRow): PullRequest =>
     openedAt: row.openedAt,
     draft: row.draft,
     readyForReviewAt: row.readyForReviewAt,
-    draftPeriods: row.draftPeriods.map((each) => ({
-      from: new Date(each.from),
-      to: each.to ? new Date(each.to) : null,
-    })),
+    draftPeriods: row.draftPeriods.map((each) =>
+      DraftPeriod.of({
+        from: new Date(each.from),
+        to: each.to ? new Date(each.to) : null,
+      }),
+    ),
     state: row.state,
     closedAt: row.closedAt,
     updatedAt: row.updatedAt,
     reverts: row.reverts,
-    reviews: row.reviews.map((each) => ({
-      ...each,
-      at: each.at ? new Date(each.at) : null,
-    })),
+    reviews: row.reviews.map((each) =>
+      PullRequestReview.of({
+        ...each,
+        at: each.at ? new Date(each.at) : null,
+      }),
+    ),
     dismissedReviews: row.dismissedReviews,
     comments: row.comments,
     deletedComments: row.deletedComments,
-    botComments: row.botComments,
-    threads: row.threads,
+    botComments: row.botComments.map((each) => BotComment.of(each)),
+    threads: row.threads.map((each) => PullRequestThread.of(each)),
     revertedBy: row.revertedBy ? PullRequestUrl.of(row.revertedBy) : null,
     version: row.version,
   });
@@ -80,15 +93,36 @@ const columnsOf = (pullRequest: PullRequest) => ({
   closedAt: pullRequest.closedAt,
   updatedAt: pullRequest.updatedAt,
   reverts: pullRequest.reverts,
-  reviews: pullRequest.reviews.map((each) => ({
-    ...each,
-    at: each.at?.toISOString() ?? null,
-  })),
+  reviews: pullRequest.reviews.map(
+    (each): StoredReview => ({
+      id: each.id,
+      state: each.state,
+      login: each.login,
+      byBot: each.byBot,
+      at: each.at?.toISOString() ?? null,
+    }),
+  ),
   dismissedReviews: [...pullRequest.dismissedReviews],
   comments: [...pullRequest.comments],
   deletedComments: [...pullRequest.deletedComments],
-  botComments: [...pullRequest.botComments],
-  threads: [...pullRequest.threads],
+  botComments: pullRequest.botComments.map(
+    (each): StoredBotComment => ({
+      id: each.id,
+      on: each.on,
+      login: each.login,
+      opensThread: each.opensThread,
+      deleted: each.deleted,
+    }),
+  ),
+  threads: pullRequest.threads.map(
+    (each): StoredThread => ({
+      id: each.id,
+      firstCommentId: each.firstCommentId,
+      login: each.login,
+      byBot: each.byBot,
+      resolved: each.resolved,
+    }),
+  ),
   revertedBy: pullRequest.revertedBy?.value ?? null,
 });
 
@@ -120,19 +154,6 @@ export class DrizzlePullRequests implements PullRequestRepository {
     private readonly events: DomainEventDispatcher,
   ) {}
 
-  async at(
-    workspaceId: WorkspaceId,
-    url: PullRequestUrl,
-  ): Promise<PullRequest | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(githubPullRequest)
-      .where(at(workspaceId, url))
-      .limit(1);
-
-    return row ? toPullRequest(row) : null;
-  }
-
   async numbered(
     workspaceId: WorkspaceId,
     repository: Repository,
@@ -153,12 +174,12 @@ export class DrizzlePullRequests implements PullRequestRepository {
     return row ? toPullRequest(row) : null;
   }
 
-  async lastMergedTitled(
+  async titled(
     workspaceId: WorkspaceId,
     repository: Repository,
     title: string,
-  ): Promise<PullRequest | null> {
-    const [row] = await this.context.db
+  ): Promise<readonly PullRequest[]> {
+    const rows = await this.context.db
       .select()
       .from(githubPullRequest)
       .where(
@@ -166,13 +187,10 @@ export class DrizzlePullRequests implements PullRequestRepository {
           eq(githubPullRequest.workspaceId, workspaceId.value),
           eq(githubPullRequest.repository, repository.value),
           eq(githubPullRequest.title, title),
-          eq(githubPullRequest.state, 'merged'),
         ),
-      )
-      .orderBy(desc(githubPullRequest.closedAt))
-      .limit(1);
+      );
 
-    return row ? toPullRequest(row) : null;
+    return rows.map(toPullRequest);
   }
 
   async lastUpdatedBefore(
@@ -316,11 +334,5 @@ export class DrizzlePullRequests implements PullRequestRepository {
 
       await this.events.dispatch(removed.pullEvents());
     });
-  }
-
-  async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.db
-      .delete(githubPullRequest)
-      .where(eq(githubPullRequest.workspaceId, workspaceId.value));
   }
 }

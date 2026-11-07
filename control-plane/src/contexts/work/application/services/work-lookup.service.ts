@@ -11,6 +11,7 @@ import type {
   RunChanges,
   RunJournal,
 } from '@work/application/contracts/run-journal.contract';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type {
   ChangedFile,
@@ -25,14 +26,13 @@ import type {
   TeamLine,
   WorkLookupPort,
 } from '@work/application/ports/work-lookup.port';
+import { correlatedTask } from '@work/application/services/correlated-task';
 import { referencesUnder } from '@work/application/services/journal-references';
 import { distinctFiles } from '@work/application/services/touched-files';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { reasoningIn } from '@work/domain/services/run-reasoning';
@@ -42,6 +42,7 @@ import {
   workspacePathsIn,
 } from '@work/domain/services/workspace-path';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 
 const noteViewsOf = (note: TaskNote): TaskNoteView[] => {
@@ -81,7 +82,7 @@ export class WorkLookup implements WorkLookupPort {
   constructor(
     private readonly runs: RunRepository,
     private readonly tasks: TaskRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly chats: ChatRepository,
     private readonly journals: RunJournalReaderPort,
   ) {}
@@ -136,19 +137,17 @@ export class WorkLookup implements WorkLookupPort {
   }
 
   async linesOf(teamId: TeamId): Promise<readonly TeamLine[]> {
-    return (await this.lines.ofTeam(teamId))
-      .filter((line) => !line.isDeleted)
-      .map((line) => ({
-        id: line.id.value,
-        name: line.name.value,
-        stations: line.stations
-          .filter((station) => station.isAgentStation)
-          .map((station) => ({
-            id: station.id.value,
-            name: station.name.value,
-          })),
-        repositories: line.repositories.all,
-      }));
+    return (await this.lines.ofTeam(teamId)).map((line) => ({
+      id: line.id.value,
+      name: line.name.value,
+      stations: line.stations
+        .filter((station) => station.isAgentStation)
+        .map((station) => ({
+          id: station.id.value,
+          name: station.name.value,
+        })),
+      repositories: line.repositories.all,
+    }));
   }
 
   async reasoning(runId: RunId): Promise<RunReasoning | null> {
@@ -193,7 +192,7 @@ export class WorkLookup implements WorkLookupPort {
 
   private async repositoriesOf(
     run: Run,
-    line: Line,
+    line: LineMap,
   ): Promise<readonly Repository[]> {
     const task = run.taskId ? await this.tasks.find(run.taskId) : null;
 
@@ -322,7 +321,7 @@ export class WorkLookup implements WorkLookupPort {
     const correlationKeys = CorrelationKeys.of({ marks: [mark] });
 
     return correlationKeys
-      ? this.tasks.findByMarks(workspaceId, correlationKeys)
+      ? correlatedTask(this.tasks, workspaceId, correlationKeys)
       : null;
   }
 

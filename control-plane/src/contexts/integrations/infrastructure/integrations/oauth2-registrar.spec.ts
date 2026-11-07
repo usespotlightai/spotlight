@@ -1,5 +1,5 @@
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { OAuth2Registrar } from '@integrations/infrastructure/integrations/oauth2-registrar';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 

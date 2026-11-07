@@ -5,7 +5,6 @@ import type { CandidateKind } from '@replays/domain/value-objects/candidate-kind
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
-import type { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -16,6 +15,8 @@ import type { StationHashes } from '@replays/domain/value-objects/station-hashes
 import type { StationPath } from '@replays/domain/value-objects/station-path.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -238,6 +239,10 @@ export class Candidate extends EventRecorder {
     return this.state.changedFrom.from;
   }
 
+  isStaleAgainst(live: StationFingerprint | null): boolean {
+    return live === null || !this.basedOn.equals(live);
+  }
+
   get search(): CandidateSearch | null {
     return this.state.search;
   }
@@ -299,10 +304,14 @@ export class Candidate extends EventRecorder {
   }
 
   cascadeDelete(): Candidate {
-    return new Candidate(this.state, true);
+    const deleted = new Candidate(this.state, true);
+
+    deleted.inheritEvents(this);
+
+    return deleted;
   }
 
-  isFor(stationId: string): boolean {
-    return this.state.station.stationId === stationId;
+  isFor(stationId: StationId): boolean {
+    return this.state.station.stationId.equals(stationId);
   }
 }

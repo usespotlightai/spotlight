@@ -3,7 +3,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ReplaySetDeleted implements DomainEvent {
-  readonly kind = 'replay-set.deleted';
+  readonly kind = 'replays.replay-set-deleted';
 
   constructor(
     readonly setId: ReplaySetId,

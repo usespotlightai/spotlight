@@ -33,7 +33,7 @@ export const secret = pgTable(
     bindings: jsonb('bindings').$type<SecretBindingRow[]>().notNull(),
     valueVersion: integer('value_version'),
     rotatedAt: timestamptz('rotated_at').notNull(),
-    version: integer('version').notNull().default(1),
+    version: integer('version').notNull().default(0),
     updatedAt: timestamptz('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
@@ -67,7 +67,7 @@ export const runGrants = pgTable(
     fetchedByEgressId: text('fetched_by_egress_id'),
     leaseLost: boolean('lease_lost').notNull().default(false),
     endedAt: timestamptz('ended_at'),
-    version: integer('version').notNull().default(1),
+    version: integer('version').notNull().default(0),
   },
   (table) => [
     index('run_grants_workspace_idx').on(table.workspaceId),

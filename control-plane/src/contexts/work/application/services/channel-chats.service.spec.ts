@@ -3,17 +3,21 @@ import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ReceivedHappening } from '@work/application/mappers/happened.mapper';
 import type { ChannelNoticesPort } from '@work/application/ports/channel-notices.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import {
   type ChannelAnswer,
@@ -22,16 +26,12 @@ import {
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
-import { Happening } from '@work/domain/value-objects/happening.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -66,6 +66,7 @@ const mentioned = (
 
 const startedChat = () =>
   Chat.start({
+    lines: [],
     workspaceId: WORKSPACE,
     teamId: TEAM,
     startedBy: ADA,
@@ -106,7 +107,7 @@ const channels = ({
   const warn = vi.fn();
   const service = new ChannelChats(
     {
-      findByMarks: vi.fn(async () => existing),
+      findByCorrelation: vi.fn(async () => existing),
       add: vi.fn(async (chat: Chat) => {
         added.push(chat);
       }),
@@ -123,7 +124,7 @@ const channels = ({
           runsIn: RunnerPlacement.anywhere(),
         })),
       ),
-    } as unknown as LineRepository,
+    } as unknown as LineMapsPort,
     {
       byEmail: vi.fn(async (_, email: string) =>
         email === 'ada@example.com'

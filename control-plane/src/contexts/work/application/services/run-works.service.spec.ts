@@ -2,9 +2,9 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { RunWorks } from '@work/application/services/run-works.service';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { describe, expect, it } from 'vitest';
@@ -21,7 +21,7 @@ const works = (run: object | null) =>
       findByStation: async () => {
         throw new Error('a replay names its repositories itself');
       },
-    } as unknown as LineRepository,
+    } as unknown as LineMapsPort,
     {} as BriefedTasksPort,
     { now: () => new Date(), sleep: async () => {} },
   );

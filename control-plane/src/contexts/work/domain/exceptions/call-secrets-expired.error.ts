@@ -1,4 +1,6 @@
-export class CallSecretsExpiredError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class CallSecretsExpiredError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(id: string, state: string) {

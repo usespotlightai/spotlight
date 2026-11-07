@@ -1,11 +1,19 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { HarnessProfileShape } from '@work/application/contracts/harness-profile.contract';
@@ -21,12 +29,10 @@ import type { BriefedContext } from '@work/application/ports/team-memories.port'
 import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
 import { ReplayAnswers } from '@work/application/services/replay-answers.service';
 import { candidateOf } from '@work/application/services/replay-candidates.fake-spec';
-import { StationCatalog } from '@work/application/services/station-catalog.service';
+import { RunCatalog } from '@work/application/services/run-catalog.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
@@ -44,27 +50,20 @@ import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { Harness } from '@work/domain/value-objects/harness.vo';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
+import {
+  lineMapOf,
+  repositoryOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
-import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
 import { StartingPoint } from '@work/domain/value-objects/starting-point.vo';
-import { StationCheck } from '@work/domain/value-objects/station-check.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
@@ -159,26 +158,26 @@ const station = (
   id: StationId,
   key: string,
   position: number,
-  extra: Partial<Parameters<typeof Station.of>[0]> = {},
+  extra: Partial<Parameters<typeof stationOf>[0]> = {},
 ) =>
-  Station.of({
+  stationOf({
     id,
     key: StationKey.of(key),
     name: StationName.of(key),
     position,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     ...extra,
   });
 
-const LINE = Line.rehydrate({
+const LINE = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
   key: LineKey.of('delivery'),
   name: LineName.of('Delivery'),
   repositories: [
-    LineRepositoryConfig.of(Repository.of('acme/api'), {
-      setup: RepositorySetup.of('npm ci'),
+    repositoryOf(Repository.of('acme/api'), {
+      setup: 'npm ci',
     }),
   ],
   stations: [
@@ -186,7 +185,7 @@ const LINE = Line.rehydrate({
     station(BUILD, 'build', 1, {
       harness: HarnessId.of('dev'),
       diffs: true,
-      check: StationCheck.of('npm test'),
+      check: 'npm test',
       profile: ProfileKey.of('linear'),
       tools: [Tool.of('linear.comment'), Tool.of('catalog.web-search@1.1.0')],
     }),
@@ -264,7 +263,7 @@ const completed = (workspace = 'ws_1') =>
   WorkspaceArchive.grant({
     id: ARCHIVE,
     workspaceId: WorkspaceId.of(workspace),
-    resumeKey: ResumeKey.forTask('task_1'),
+    resumeKey: ResumeKey.forTask(TaskId.of('task_1')),
     holder: { kind: 'task', taskId: TaskId.of('task_1') },
     grantee: ArchiveGrantee.run(ORIGINAL),
     size: SIZE,
@@ -315,7 +314,7 @@ const dispatching = () =>
       },
     },
     { readyAt: async () => [] } as unknown as StationSkills,
-    new StationCatalog({
+    new RunCatalog({
       entitledTo: async () => ({
         tools: [],
         skills: [],

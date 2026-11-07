@@ -42,7 +42,7 @@ import { GitHubWebhooks } from '@github/application/services/github-webhooks.ser
 import { Installations } from '@github/application/services/installations.service';
 import { PullRequestSync } from '@github/application/services/pull-request-sync.service';
 import { WorkspaceConnections } from '@github/application/services/workspace-connections.service';
-import { GITHUB_PAYLOAD_TYPES } from '@github/domain/payload-types';
+import { GITHUB_PAYLOAD_TYPES } from '@github/infrastructure/events/github-payload-types';
 import { GitHubAppAccess } from '@github/infrastructure/github/github-app.access';
 import { GitHubAppIdentity } from '@github/infrastructure/github/github-app.identity';
 import { GitHubCheckRuns } from '@github/infrastructure/github/github-check-runs';
@@ -57,6 +57,7 @@ import { GitHubRepositoryContents } from '@github/infrastructure/github/github-r
 import { GitHubRepositorySettings } from '@github/infrastructure/github/github-repository-settings';
 import { GitHubReviewComments } from '@github/infrastructure/github/github-review-comments';
 import { GitHubWebhookSignature } from '@github/infrastructure/github/github-webhook.signature';
+import { DrizzleGitHubConnectionReader } from '@github/infrastructure/persistence/drizzle/readers/github-connection.reader';
 import { DrizzleGitHubConnections } from '@github/infrastructure/persistence/drizzle/repositories/github-connection.repository';
 import { DrizzlePullRequests } from '@github/infrastructure/persistence/drizzle/repositories/pull-request.repository';
 import { GitHubWebhookParser } from '@github/infrastructure/webhooks/github-webhook.parser';
@@ -83,10 +84,6 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import {
-  DOMAIN_EVENT_DISPATCHER,
-  type DomainEventDispatcher,
-} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
-import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
@@ -110,16 +107,18 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       IntegrationEventMappers,
       EventSubscribers,
       PullRequestSync,
+      WorkspaceConnections,
     ],
     useFactory: (
       types: PayloadTypes,
       mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
       sync: PullRequestSync,
+      connections: WorkspaceConnections,
     ) => {
       types.register('github', GITHUB_PAYLOAD_TYPES);
       mappers.register(GITHUB_EVENT_MAPPERS);
-      subscribers.register(githubSubscribers(sync));
+      subscribers.register(githubSubscribers(sync, connections));
       return true;
     },
   },
@@ -178,11 +177,15 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: WORKSPACE_CONNECTIONS,
-    inject: [DrizzleGitHubConnections],
-    useFactory: (connections: DrizzleGitHubConnections) =>
-      new WorkspaceConnections(connections),
+    provide: WorkspaceConnections,
+    inject: [DrizzleGitHubConnections, DrizzleGitHubConnectionReader],
+    useFactory: (
+      connections: DrizzleGitHubConnections,
+      reader: DrizzleGitHubConnectionReader,
+    ) => new WorkspaceConnections(connections, reader),
   },
+
+  { provide: WORKSPACE_CONNECTIONS, useExisting: WorkspaceConnections },
 
   {
     provide: WEBHOOK_SIGNATURE,
@@ -191,6 +194,7 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
   },
 
   DrizzleGitHubConnections,
+  DrizzleGitHubConnectionReader,
 
   {
     provide: WEBHOOK_PARSER,
@@ -203,7 +207,6 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       WEBHOOK_PARSER,
       WEBHOOK_SIGNATURE,
       DrizzleGitHubConnections,
-      DOMAIN_EVENT_DISPATCHER,
       PullRequestSync,
       LOGGER,
       CHECK_RUNS,
@@ -212,7 +215,6 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
       parser: WebhookParserPort,
       signature: WebhookSignaturePort,
       connections: DrizzleGitHubConnections,
-      events: DomainEventDispatcher,
       sync: PullRequestSync,
       logger: LoggerPort,
       checkRuns: CheckRunsPort,
@@ -221,7 +223,6 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
         parser,
         signature,
         connections,
-        events,
         sync,
         logger,
         checkRuns,
@@ -230,9 +231,9 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
 
   {
     provide: INSTALLATIONS,
-    inject: [DrizzleGitHubConnections],
-    useFactory: (connections: DrizzleGitHubConnections) =>
-      new Installations(connections),
+    inject: [DrizzleGitHubConnectionReader],
+    useFactory: (reader: DrizzleGitHubConnectionReader) =>
+      new Installations(reader),
   },
 
   {

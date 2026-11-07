@@ -1,30 +1,31 @@
+import { judgeCalibrationOf } from '@insights/application/dto/judge-calibration.dto';
 import type {
   CitationDto,
   GradeDto,
   JudgeScoreDto,
   RunScoresDto,
 } from '@insights/application/dto/run-scores.dto';
+import type { StationFactsPort } from '@insights/application/ports/station-facts.port';
 import type { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import type { Score } from '@insights/domain/aggregates/score.aggregate';
 import { UnknownRunError } from '@insights/domain/exceptions/unknown-run.error';
 import type { JudgingRepository } from '@insights/domain/repositories/judging.repository';
-import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
-import type { ScoreRepository } from '@insights/domain/repositories/score.repository';
 import {
   type GradingTerms,
   gradingTermsOf,
   latestJudgeOf,
   visibleJudgeOf,
 } from '@insights/domain/services/grading-terms';
-import type { TeamAccess } from '@insights/domain/services/team-access';
 import type { Citation } from '@insights/domain/value-objects/citation.vo';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
+import type { Scored } from '@insights/domain/value-objects/score-fact.vo';
 import type { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
+import type { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface ScoredRun {
-  readonly record: RunRecord;
+export interface RunOnTeam {
+  readonly runId: RunId;
+  readonly workspaceId: WorkspaceId;
   readonly end: RunEnd;
 }
 
@@ -60,7 +61,7 @@ const citationOf = (citation: Citation, seen: SeenEvidence): CitationDto => {
   };
 };
 
-const judgeOf = (score: Score): JudgeScoreDto => ({
+const judgeOf = (score: Scored): JudgeScoreDto => ({
   kind: score.scale.kind,
   value: score.value,
   label: score.scale.labelOf(score.value),
@@ -75,7 +76,7 @@ const judgeOf = (score: Score): JudgeScoreDto => ({
   })),
 });
 
-const gradeOf = (score: Score, viewer: string): GradeDto => ({
+const gradeOf = (score: Scored, viewer: string): GradeDto => ({
   by: score.by?.value ?? '',
   mine: score.by?.value === viewer,
   kind: score.scale.kind,
@@ -87,31 +88,24 @@ const gradeOf = (score: Score, viewer: string): GradeDto => ({
 
 export class RunScoresViews {
   constructor(
-    private readonly records: RunRecordRepository,
-    private readonly scores: ScoreRepository,
+    private readonly facts: StationFactsPort,
     private readonly reports: StationJudgeReports,
     private readonly judgings: JudgingRepository,
   ) {}
 
-  async onTeam(access: TeamAccess, runId: string): Promise<ScoredRun> {
-    const record = await this.records.of(RunId.of(runId));
-    const end = record?.end;
+  async onTeam(access: TeamAccess, runId: string): Promise<RunOnTeam> {
+    const [fact] = await this.facts.ofRuns([RunId.of(runId)]);
 
-    if (
-      !record ||
-      !end ||
-      !record.workspaceId.equals(access.workspaceId) ||
-      !end.location.teamId.equals(access.teamId)
-    ) {
+    if (!fact || !access.covers(fact.workspaceId, fact.end.location.teamId)) {
       throw new UnknownRunError(runId);
     }
 
-    return { record, end };
+    return { runId: fact.runId, workspaceId: fact.workspaceId, end: fact.end };
   }
 
   async gradingTerms(
-    run: ScoredRun,
-    scores: readonly Score[],
+    run: RunOnTeam,
+    scores: readonly Scored[],
   ): Promise<GradingTerms> {
     return gradingTermsOf(
       scores,
@@ -120,12 +114,12 @@ export class RunScoresViews {
         lineId: run.end.location.lineId,
         stationId: run.end.location.stationId,
       }),
-      (await this.judgings.of(run.record.runId))?.rubric ?? null,
+      (await this.judgings.of(run.runId))?.rubric ?? null,
     );
   }
 
-  async of(access: TeamAccess, run: ScoredRun): Promise<RunScoresDto> {
-    const scores = await this.scores.ofRuns([run.record.runId]);
+  async of(access: TeamAccess, run: RunOnTeam): Promise<RunScoresDto> {
+    const scores = await this.facts.scoresOfRuns([run.runId]);
     const { rubricVersion, calibration } = await this.reports.calibrationAt({
       workspaceId: access.workspaceId,
       teamId: access.teamId,
@@ -136,15 +130,15 @@ export class RunScoresViews {
     const terms = await this.gradingTerms(run, scores);
 
     return {
-      runId: run.record.runId.value,
+      runId: run.runId.value,
       taskId: run.end.location.taskId.value,
-      stationId: run.end.location.stationId,
+      stationId: run.end.location.stationId.value,
       kind: terms.scale.kind,
       rubricBody: terms.rubricBody,
       claims: [...terms.claims],
       judged: latestJudgeOf(scores) !== null,
       judge: judge ? judgeOf(judge) : null,
-      calibration,
+      calibration: judgeCalibrationOf(calibration),
       grades: scores
         .filter((each) => !each.fromJudge)
         .sort((one, other) => other.at.getTime() - one.at.getTime())

@@ -1,4 +1,6 @@
-export class TooManyEmailsError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class TooManyEmailsError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(most: number) {

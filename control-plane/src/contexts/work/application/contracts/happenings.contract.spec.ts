@@ -1,10 +1,10 @@
+import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import {
   PULL_REQUEST_MARK,
   REVIEW_MARK,
   REVIEW_ROLE,
 } from '@work/application/contracts/happenings.contract';
-import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { describe, expect, it } from 'vitest';
 

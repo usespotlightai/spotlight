@@ -1,7 +1,7 @@
 import { distinct } from '@shared-kernel/domain/services/distinct';
+import type { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { injectedByEgress } from '@work/domain/services/injected-by-egress';
-import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 
 export const PERMISSION_KINDS = ['read', 'edit', 'execute'] as const;
 

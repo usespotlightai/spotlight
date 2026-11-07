@@ -1,4 +1,5 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   type ArchiveFacts,
@@ -82,7 +83,7 @@ describe('WorkspaceArchive', () => {
       WorkspaceArchive.grant({
         id: WorkspaceArchiveId.of('archive_1'),
         workspaceId: WorkspaceId.of('ws_1'),
-        resumeKey: ResumeKey.forChat('chat_1'),
+        resumeKey: ResumeKey.forChat(ChatId.of('chat_1')),
         holder: { kind: 'chat', chatId: ChatId.of('chat_1') },
         grantee: ArchiveGrantee.run(RunId.of('run_1')),
         size: ArchiveSize.of(1_024),
@@ -305,7 +306,7 @@ describe('WorkspaceArchive', () => {
   });
 
   it('vouches for itself as restored into a run of the same workspace and work, once completed', () => {
-    const work = ResumeKey.forTask('task_1');
+    const work = ResumeKey.forTask(TaskId.of('task_1'));
     const restored = aCompletedArchive().restoreInto(
       WorkspaceId.of('ws_1'),
       work,
@@ -316,7 +317,7 @@ describe('WorkspaceArchive', () => {
   });
 
   it('does not vouch for a restore it could not have been', () => {
-    const work = ResumeKey.forTask('task_1');
+    const work = ResumeKey.forTask(TaskId.of('task_1'));
 
     for (const attempt of [
       () => anArchive().restoreInto(WorkspaceId.of('ws_1'), work),
@@ -324,7 +325,7 @@ describe('WorkspaceArchive', () => {
       () =>
         aCompletedArchive().restoreInto(
           WorkspaceId.of('ws_1'),
-          ResumeKey.forTask('task_2'),
+          ResumeKey.forTask(TaskId.of('task_2')),
         ),
       () => aCompletedArchive().restoreInto(WorkspaceId.of('ws_1'), null),
     ]) {

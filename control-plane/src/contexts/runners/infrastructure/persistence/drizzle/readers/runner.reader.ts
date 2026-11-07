@@ -9,6 +9,7 @@ import type {
 } from '@runners/application/ports/runner-reader.port';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
+import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import {
   runner,
@@ -31,8 +32,6 @@ const sourceOf = (row: {
   row.poolId !== null
     ? { kind: 'pool', key: row.poolKey }
     : { kind: 'trust', key: row.trustKey };
-
-const PLATFORM = 'spotlight';
 
 @Injectable()
 export class DrizzleRunnerReader implements RunnerReaderPort {
@@ -70,7 +69,9 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
           eq(runnerPool.workspaceId, workspaceId.value),
           isNotNull(runnerPool.provisionUrl),
           isNotNull(runnerPool.provisionEgress),
-          this.platform ? undefined : ne(runnerPool.provisionEgress, PLATFORM),
+          this.platform
+            ? undefined
+            : ne(runnerPool.provisionEgress, EgressReference.PLATFORM),
         ),
       )
       .limit(1);

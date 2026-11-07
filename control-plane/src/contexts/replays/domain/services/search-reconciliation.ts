@@ -1,12 +1,16 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { Search } from '@replays/domain/aggregates/search.aggregate';
+import type {
+  RunEnding,
+  Search,
+} from '@replays/domain/aggregates/search.aggregate';
 import { chargeOf } from '@replays/domain/services/replay-charge';
 import { improvedOnBestBefore } from '@replays/domain/services/search-improvement';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
-import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayStopReason } from '@replays/domain/value-objects/replay-state';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+
+const COMPLETED = 'completed';
 
 const USAGE_WAIT_MS = 15 * 60_000;
 
@@ -29,7 +33,6 @@ const endOf = (replay: Replay): ReplayStopReason | null =>
 const withReplays = (
   search: Search,
   replays: readonly Replay[],
-  known: readonly ReplayId[],
   minGain: number,
   at: Date,
   runIds: () => RunId,
@@ -41,7 +44,11 @@ const withReplays = (
     );
 
     if (!replay) {
-      return unended && known.some((each) => each.equals(replayId))
+      const awaitsStart = reconciled.replaysAwaitingStart.some((each) =>
+        each.equals(replayId),
+      );
+
+      return unended && !awaitsStart
         ? reconciled.recordReplayStopReason(
             replayId,
             'deleted',
@@ -58,21 +65,43 @@ const withReplays = (
 
     const charge = chargeOf(replay);
     const end = endOf(replay);
+    const started = reconciled.replayStarted(replayId);
 
     return end && unended
-      ? reconciled.recordReplayStopReason(
+      ? started.recordReplayStopReason(
           replayId,
           end,
           charge,
           at,
           runIds,
-          improvedOnBestBefore(reconciled, replayId, replays, minGain),
+          improvedOnBestBefore(started, replayId, replays, minGain),
         )
-      : reconciled.replaySpent(replayId, charge);
+      : started.replaySpent(replayId, charge);
   }, search);
 
 const past = (since: Date | null, wait: number, at: Date): boolean =>
   since !== null && at.getTime() - since.getTime() >= wait;
+
+export const searchRunEnding = (ended: {
+  readonly outcome: string;
+  readonly asked: boolean;
+  readonly started: boolean;
+}): RunEnding => ({
+  failed: ended.outcome !== COMPLETED || ended.asked,
+  started: ended.started,
+});
+
+export const cancelledUnclaimed = (
+  runs: readonly SeenRun[],
+  unclaimed: RunId,
+  started: boolean,
+  at: Date,
+): readonly SeenRun[] =>
+  runs.map((each) =>
+    each.run.equals(unclaimed)
+      ? { ...each, phase: 'ended', failed: true, started, endedAt: at }
+      : each,
+  );
 
 export const runsToSee = (search: Search): readonly RunId[] => [
   ...(search.activeRun ? [search.activeRun] : []),
@@ -101,13 +130,12 @@ export const unclaimedTooLong = (
 export const reconciled = (
   search: Search,
   replays: readonly Replay[],
-  known: readonly ReplayId[],
   runs: readonly SeenRun[],
   minGain: number,
   at: Date,
   runIds: () => RunId,
 ): Search => {
-  let reconciled = withReplays(search, replays, known, minGain, at, runIds);
+  let reconciled = withReplays(search, replays, minGain, at, runIds);
   const activeRun = reconciled.activeRun;
   const running = activeRun
     ? runs.find((each) => each.run.equals(activeRun))

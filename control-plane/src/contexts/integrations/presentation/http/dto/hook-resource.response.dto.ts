@@ -2,7 +2,7 @@ import type { HookResourceDto } from '@integrations/application/dto/hook-resourc
 import {
   HOOK_ON_FAILURES,
   Hook,
-} from '@integrations/domain/entities/hook.entity';
+} from '@integrations/domain/value-objects/hook.vo';
 import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';

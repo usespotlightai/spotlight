@@ -1,7 +1,7 @@
+import type { TeamWindow } from '@insights/application/ports/insights-reader.port';
 import type { InsightsAccess } from '@insights/application/services/insights-access.service';
-import type { TeamWindow } from '@insights/domain/repositories/run-record.repository';
-import type { TeamAccess } from '@insights/domain/services/team-access';
 import { InsightsPeriod } from '@insights/domain/value-objects/insights-period.vo';
+import type { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 

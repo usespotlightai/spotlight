@@ -1,5 +1,6 @@
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -19,7 +20,6 @@ import { Money } from '@work/domain/value-objects/money.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { SearchId } from '@work/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { describe, expect, it } from 'vitest';

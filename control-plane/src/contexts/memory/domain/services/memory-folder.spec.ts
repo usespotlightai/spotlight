@@ -1,16 +1,14 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
-import {
-  filesOf,
-  handlesRead,
-  layoutAt,
-} from '@memory/domain/services/memory-folder';
+import { filesOf, handlesRead } from '@memory/domain/services/memory-folder';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryDecision } from '@memory/domain/value-objects/memory-decision.vo';
 import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -39,16 +37,26 @@ describe('the memory folder', () => {
     expect(filesOf(approved({ teamId: TEAM }))).toEqual([
       '.spotlight/memory/team/M-18.md',
     ]);
-    expect(filesOf(approved({ teamId: TEAM, lineId: 'line_1' }))).toEqual([
-      '.spotlight/memory/line/M-18.md',
-    ]);
+    expect(
+      filesOf(approved({ teamId: TEAM, lineId: LineId.of('line_1') })),
+    ).toEqual(['.spotlight/memory/line/M-18.md']);
     expect(
       filesOf(
-        approved({ teamId: TEAM, lineId: 'line_1', stationId: 'station_1' }),
+        approved({
+          teamId: TEAM,
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_1'),
+        }),
       ),
     ).toEqual(['.spotlight/memory/station/M-18.md']);
     expect(
-      filesOf(approved({ teamId: TEAM, lineId: 'line_1', repository: API })),
+      filesOf(
+        approved({
+          teamId: TEAM,
+          lineId: LineId.of('line_1'),
+          repository: API,
+        }),
+      ),
     ).toEqual(['.spotlight/memory/repositories/acme/api/M-18.md']);
   });
 
@@ -78,24 +86,5 @@ describe('the memory folder', () => {
     ]);
 
     expect(read.map((each) => each.value)).toEqual(['M-3', 'M-18']);
-  });
-
-  it('lays out a folder for each place a run works, and repositories only where it checked some out', () => {
-    const runContext = {
-      teamId: TEAM,
-      lineId: null,
-      stationId: null,
-      repositories: [],
-    };
-
-    expect(layoutAt(runContext).map((each) => each.level)).toEqual(['team']);
-    expect(
-      layoutAt({
-        ...runContext,
-        lineId: 'line_1',
-        stationId: 'station_1',
-        repositories: [API],
-      }).map((each) => each.level),
-    ).toEqual(['team', 'line', 'station', 'repository']);
   });
 });

@@ -1,38 +1,21 @@
 import { periodOf } from '@insights/application/dto/insights.dto';
 import type { InsightsAgentConfigsDto } from '@insights/application/dto/insights-changes.dto';
+import { stationJudgeCalibrationOf } from '@insights/application/dto/judge-calibration.dto';
 import type { InsightsReaderPort } from '@insights/application/ports/insights-reader.port';
 import type { ReadInsightsAgentConfigsQuery } from '@insights/application/queries/read-insights-agent-configs.query';
 import type { QualifiedJudges } from '@insights/application/services/qualified-judges.service';
 import type { TeamScopes } from '@insights/application/services/team-scopes.service';
-import { InvalidAgentConfigFilterError } from '@insights/domain/exceptions/invalid-agent-config-filter.error';
 import {
   agentConfigsFrom,
   judgeOmittedFor,
   MIN_AGENT_CONFIG_RUNS,
 } from '@insights/domain/services/agent-config-comparison';
 import {
-  RUN_SIZES,
-  runSizeOf,
+  requestedRunSizeOf,
   SIZE_BOUNDS,
 } from '@insights/domain/services/run-size';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-
-const requestedSizeOf = (raw: string | null) => {
-  if (raw === null) {
-    return null;
-  }
-
-  const size = runSizeOf(raw);
-
-  if (!size) {
-    throw new InvalidAgentConfigFilterError(
-      `size must be one of ${RUN_SIZES.join(', ')}, not ${raw}`,
-    );
-  }
-
-  return size;
-};
 
 export class ReadInsightsAgentConfigsHandler
   implements
@@ -48,7 +31,7 @@ export class ReadInsightsAgentConfigsHandler
     query: ReadInsightsAgentConfigsQuery,
   ): Promise<InsightsAgentConfigsDto> {
     try {
-      const size = requestedSizeOf(query.size);
+      const size = requestedRunSizeOf(query.size);
       const { access, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
@@ -90,9 +73,7 @@ export class ReadInsightsAgentConfigsHandler
         currency: compared.currency,
         agentConfigs: compared.agentConfigs,
         judgeOmitted,
-        judges: (calibrations?.judges ?? []).map(
-          ({ rubricVersion: _, ...each }) => each,
-        ),
+        judges: (calibrations?.judges ?? []).map(stationJudgeCalibrationOf),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

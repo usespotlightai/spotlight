@@ -1,5 +1,5 @@
-import type { Happening } from '@work/domain/value-objects/happening.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
+import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 export class Reaction {
   private constructor(

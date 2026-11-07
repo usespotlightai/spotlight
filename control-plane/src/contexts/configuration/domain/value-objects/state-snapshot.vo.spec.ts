@@ -1,4 +1,5 @@
 import { InvalidTerraformStateError } from '@configuration/domain/exceptions/invalid-terraform-state.error';
+import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
 import { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import { StateSnapshot } from '@configuration/domain/value-objects/state-snapshot.vo';
 import { describe, expect, it } from 'vitest';
@@ -43,7 +44,11 @@ describe('StateLock', () => {
     const info = { ID: 'a', Operation: 'OperationTypePlan', Who: 'me@laptop' };
 
     expect(
-      StateLock.of({ info, lockedBy: 'person:u1', lockedAt: at }).info,
+      StateLock.of({
+        info,
+        lockedBy: PrincipalRef.rehydrate('person:u1'),
+        lockedAt: at,
+      }).info,
     ).toEqual(info);
   });
 
@@ -53,7 +58,11 @@ describe('StateLock', () => {
     ['an empty ID', { ID: ' ' }],
   ])('refuses lock info with %s', (_, info) => {
     expect(() =>
-      StateLock.of({ info, lockedBy: 'person:u1', lockedAt: at }),
+      StateLock.of({
+        info,
+        lockedBy: PrincipalRef.rehydrate('person:u1'),
+        lockedAt: at,
+      }),
     ).toThrow(InvalidTerraformStateError);
   });
 });

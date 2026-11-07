@@ -4,13 +4,20 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { taskReaderOver } from '@work/application/ports/task-reader.fake-spec';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
@@ -18,21 +25,15 @@ import { CreateTask } from '@work/application/services/create-task';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const ids: IdGeneratorPort = { generate: () => 'task_1' };
@@ -41,36 +42,36 @@ const created = new Date('2026-08-27T09:15:00.000Z');
 const clock: ClockPort = { now: () => created, sleep: async () => {} };
 
 const line = () =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     key: LineKey.of('default'),
     name: LineName.of('Default'),
     stations: [
-      Station.of({
+      stationOf({
         id: StationId.of('station_0'),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'backlog',
       }),
-      Station.of({
+      stationOf({
         id: StationId.of('station_1'),
         key: StationKey.of('triage'),
         name: StationName.of('Triage'),
         position: 1,
-        color: StationColor.of('#93a1b5'),
+        color: '#93a1b5',
         harness: HarnessId.of('dev'),
-        agentPrompt: AgentPrompt.of('## Role'),
+        agentPrompt: '## Role',
       }),
-      Station.of({
+      stationOf({
         id: StationId.of('station_2'),
         key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 2,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'completed',
       }),
     ],
@@ -112,9 +113,9 @@ const tasks = () =>
     save: vi.fn(),
     find: vi.fn(async () => null),
     remove: vi.fn(),
-    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    findByMarks: vi.fn(async () => null),
+    findByCorrelation: vi.fn(async () => []),
+    holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -123,10 +124,10 @@ const tasks = () =>
 
 const access = (teamId = 'team_1') =>
   ({
-    onTeam: vi.fn(async (requested: string) =>
-      requested === teamId
+    inWorkspaceOfTeam: vi.fn(async (requested: TeamId) =>
+      requested.value === teamId
         ? {
-            teamId: TeamId.of(teamId),
+            teamId: requested,
             workspaceId: WorkspaceId.of('ws_1'),
             slug: 'acme',
             viewer: UserId.of('user_1'),
@@ -138,15 +139,14 @@ const access = (teamId = 'team_1') =>
 
 const transaction: TransactionPort = { inTransaction: (work) => work() };
 
-const lines = (found: Line | null = line()) =>
+const lines = (found: LineMap | null = line()) =>
   ({
-    add: vi.fn(),
-    save: vi.fn(),
     find: vi.fn(async () => found),
     findByStation: vi.fn(async () => found),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
-  }) satisfies LineRepository;
+    candidate: vi.fn(),
+  }) satisfies LineMapsPort;
 
 const store = {
   grant: vi.fn(),
@@ -169,7 +169,7 @@ const store = {
 
 const files = new FilesLoader(store);
 
-const addTask = (command: AddTaskCommand, board: LineRepository = lines()) =>
+const addTask = (command: AddTaskCommand, board: LineMapsPort = lines()) =>
   new AddTaskHandler(
     tasks(),
     new LineLoader(access(), board),

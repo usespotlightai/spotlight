@@ -2,17 +2,20 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunDetached } from '@work/domain/events/run-detached.event';
+import { ChatDeleted } from '@work/domain/events/chat-deleted.event';
+import { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -47,7 +50,7 @@ const suspended = () =>
     NOW,
   );
 
-const detached = new RunDetached(
+const detached = new TaskRunDetached(
   TaskId.of('task_1'),
   WorkspaceId.of('ws_1'),
   RunId.of('run_1'),
@@ -109,5 +112,22 @@ describe('CancelDetachedRun', () => {
     await handler.on(detached);
 
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it('stops the run of a chat that was deleted, and nothing for a chat with no run', async () => {
+    const { handler, save } = stopping(claimed());
+    const deletedChat = (runId: RunId | null) =>
+      new ChatDeleted(
+        ChatId.of('chat_1'),
+        WorkspaceId.of('ws_1'),
+        TeamId.of('team_1'),
+        runId,
+      );
+
+    await handler.onChatDeleted(deletedChat(null));
+    expect(save).not.toHaveBeenCalled();
+
+    await handler.onChatDeleted(deletedChat(RunId.of('run_1')));
+    expect(save.mock.calls[0]?.[0].stopRequestedAt).toEqual(NOW);
   });
 });

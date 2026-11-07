@@ -22,8 +22,9 @@ export class ProvisionChangeStackChecks implements CheckProvisioningPort {
     now: Date,
     page: { readonly skip: number; readonly max: number },
   ): Promise<readonly WaitingCheck[]> {
-    return (await this.checks.awaitingProvision(workspaceId, now, page))
+    return (await this.checks.waitingIn(workspaceId))
       .filter((each) => each.provisionableAt(now))
+      .slice(page.skip, page.skip + page.max)
       .map((each) => ({
         stackId: each.stackId.value,
         runId: each.runId.value,
@@ -70,7 +71,7 @@ export class ProvisionChangeStackChecks implements CheckProvisioningPort {
   }
 
   async expired(now: Date): Promise<readonly ExpiredCheck[]> {
-    return (await this.checks.withExpiredReservations(now)).flatMap((each) =>
+    return (await this.checks.reserved()).flatMap((each) =>
       each.reservation && each.reservationExpiredAt(now)
         ? [
             {
@@ -88,7 +89,7 @@ export class ProvisionChangeStackChecks implements CheckProvisioningPort {
     change: (check: StackCheck) => StackCheck,
   ): Promise<StackCheck | null> {
     for (let attempt = 1; ; attempt++) {
-      const found = await this.checks.open(ChangeStackId.of(stackId));
+      const found = await this.checks.latestOf(ChangeStackId.of(stackId));
       const changed = found ? change(found) : null;
 
       if (!changed || changed === found) {

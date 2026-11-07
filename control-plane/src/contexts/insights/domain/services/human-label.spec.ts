@@ -1,44 +1,48 @@
-import { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
-import {
-  NEXT_RUBRIC_VERSION,
-  personGrade,
-  RUBRIC_VERSION,
-} from '@insights/domain/judging.fake-spec';
-import { endedRecord, TEAM, WORKSPACE } from '@insights/domain/runs.fake-spec';
+import type { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
+import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { humanLabelOf } from '@insights/domain/services/human-label';
 import {
   HumanAction,
   type HumanActionKind,
 } from '@insights/domain/value-objects/human-action.vo';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
-import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { taskPullRequestOf } from '@insights/insights.fake-spec';
+import {
+  NEXT_RUBRIC_VERSION,
+  personGrade,
+  RUBRIC_VERSION,
+} from '@insights/judging.fake-spec';
+import { endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { describe, expect, it } from 'vitest';
 
-const PULL = PullRequestUrl.of('https://github.com/acme/api/pull/3');
 const AT = new Date('2026-09-30T11:00:00.000Z');
 
 const actedOn = (act: HumanActionKind) =>
   endedRecord('run_1').recordAction(HumanAction.of(act, AT));
 
 const pullRequestOf = (merged: boolean) =>
-  TaskPullRequest.open({
-    taskId: TaskId.of('task_1'),
-    workspaceId: WORKSPACE,
-    teamId: TEAM,
-    pullRequest: PULL,
-    at: AT,
-  }).close({ pullRequest: PULL, merged, at: AT });
+  taskPullRequestOf('task_1', { openedAt: AT, closedAt: AT, merged });
 
-const labelled = (change: Partial<Parameters<typeof humanLabelOf>[0]>) =>
-  humanLabelOf({
+const labelled = (
+  change: Partial<Omit<Parameters<typeof humanLabelOf>[0], 'fact'>> & {
+    record?: RunRecord;
+    taskPullRequest?: PullRequestRecord | null;
+  },
+) => {
+  const { record, taskPullRequest, ...rest } = change;
+  const [fact] = factsWith(
+    [record ?? endedRecord('run_1')],
+    taskPullRequest ? [taskPullRequest] : [],
+  );
+
+  return humanLabelOf({
     scale: ScoreScale.yesNo(),
     rubricVersion: RUBRIC_VERSION,
-    record: endedRecord('run_1'),
-    taskPullRequest: null,
+    fact: fact ?? null,
     grades: [],
-    ...change,
+    ...rest,
   });
+};
 
 describe('humanLabelOf', () => {
   it.each([

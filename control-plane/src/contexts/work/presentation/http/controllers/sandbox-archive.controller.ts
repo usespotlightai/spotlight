@@ -24,6 +24,7 @@ import {
 } from '@nestjs/swagger';
 import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import {
   CompleteSandboxArchiveCommand,
   GrantSandboxArchiveCommand,
@@ -50,6 +51,7 @@ const UNKNOWN =
 @ApiBearerAuth()
 @ApiNotFoundResponse({ description: UNKNOWN })
 @AllowAnonymous()
+@InAudience('hosts')
 @Controller('sandboxes/:sandboxId/workspace-archive')
 export class SandboxArchiveController {
   constructor(

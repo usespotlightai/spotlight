@@ -1,4 +1,4 @@
-import type { TokenScopeName } from '@shared-kernel/domain/value-objects/token-scope.vo';
+import type { TokenScopeName } from '@identity/domain/value-objects/token-scope.vo';
 
 export interface OidcTrustSummaryDto {
   readonly id: string;

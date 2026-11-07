@@ -135,7 +135,7 @@ export class DraftEvidence {
     });
 
     const active = input.known
-      .filter((each) => each.appliesAt(input.runContext))
+      .filter((each) => each.appliesAt(input.runContext, null))
       .sort(
         (one, other) => other.approval.at.getTime() - one.approval.at.getTime(),
       )

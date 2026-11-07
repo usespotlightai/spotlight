@@ -7,6 +7,7 @@ import {
   storedHosts,
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
+import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -37,7 +38,7 @@ describe('PurgeStaleHosts', () => {
 
     await purge.deleteHostsOf(POOL_ID);
 
-    expect(hosts.removeThrough).toHaveBeenCalledWith(
+    expect(hosts.servingThrough).toHaveBeenCalledWith(
       CredentialSource.ofId(POOL_ID),
     );
     expect([...stored.keys()]).toEqual([THROUGH_TRUST.value]);
@@ -61,5 +62,25 @@ describe('PurgeStaleHosts', () => {
       new PurgeStaleHosts(hosts, { now: () => NOW } as ClockPort).purgeStale(),
     ).resolves.toBe(1);
     expect([...stored.keys()]).toEqual([THROUGH_TRUST.value]);
+  });
+
+  it('leaves a host that sent a heartbeat while it was being purged', async () => {
+    const stale = aHost({
+      id: THROUGH_POOL,
+      at: new Date(NOW.getTime() - 25 * 3_600_000),
+    });
+    const { stored, hosts } = storedHosts(stale);
+    hosts.remove.mockImplementationOnce(async (host) => {
+      stored.set(
+        host.id.value,
+        aHost({ id: THROUGH_POOL, at: new Date(NOW.getTime() - 1_000) }),
+      );
+      throw new RunnerHostVersionConflictError(host.id.value);
+    });
+
+    await expect(
+      new PurgeStaleHosts(hosts, { now: () => NOW } as ClockPort).purgeStale(),
+    ).resolves.toBe(0);
+    expect([...stored.keys()]).toEqual([THROUGH_POOL.value]);
   });
 });

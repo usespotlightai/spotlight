@@ -9,11 +9,17 @@ import {
   HOOK_FIRINGS,
   type HookFiringRepository,
 } from '@integrations/domain/repositories/hook-firing.repository';
+import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { eq } from 'drizzle-orm';
 import {
   afterAll,
@@ -46,13 +52,13 @@ describe('hook firings, stored in the database (e2e)', () => {
 
   const firing = (occurrence: string, firedAt: Date = NOW): HookFiring =>
     HookFiring.fire({
-      id: randomUUID(),
-      hookId,
-      workspaceId: 'workspace_1',
-      teamId: 'team_1',
-      taskId: 'task_1',
+      id: HookFiringId.of(randomUUID()),
+      hookId: HookDefinitionId.of(hookId),
+      workspaceId: WorkspaceId.of('workspace_1'),
+      teamId: TeamId.of('team_1'),
+      taskId: TaskId.of('task_1'),
       runId: null,
-      stationKey: 'triage',
+      stationKey: StationKey.of('triage'),
       on: 'task.opened',
       occurrence,
       firedAt,
@@ -76,11 +82,11 @@ describe('hook firings, stored in the database (e2e)', () => {
     return next;
   };
 
-  const stateOf = async (id: string) => {
+  const stateOf = async (id: HookFiringId) => {
     const [row] = await db
       .select()
       .from(schema.hookFiring)
-      .where(eq(schema.hookFiring.id, id));
+      .where(eq(schema.hookFiring.id, id.value));
 
     return row?.state;
   };
@@ -111,6 +117,9 @@ describe('hook firings, stored in the database (e2e)', () => {
 
   afterEach(async () => {
     await db
+      .delete(schema.hookFiring)
+      .where(eq(schema.hookFiring.hookId, hookId));
+    await db
       .delete(schema.hookDefinition)
       .where(eq(schema.hookDefinition.id, hookId));
   });
@@ -126,7 +135,7 @@ describe('hook firings, stored in the database (e2e)', () => {
     const later = at(11 * 60);
     const second = await claimed(later);
 
-    expect(first.id).toBe(second.id);
+    expect(first.id).toEqual(second.id);
 
     await expect(firings.save(first.worked(later))).rejects.toBeInstanceOf(
       HookFiringVersionConflictError,
@@ -150,7 +159,7 @@ describe('hook firings, stored in the database (e2e)', () => {
     await firings.save(finished.worked(NOW));
 
     const old = (await firings.finishedBefore(at(1), 1_000)).filter(
-      (each) => each.hookId === hookId,
+      (each) => each.hookId.value === hookId,
     );
 
     expect(old.map((each) => each.id)).toEqual([finished.id]);
@@ -177,10 +186,12 @@ describe('hook firings, stored in the database (e2e)', () => {
     expect(next.link.key).toBe(`hook:${hookId}:${OPENED.key}`);
     await expect(
       history
-        .chainOf('workspace_1', fired.id)
+        .chainOf(WorkspaceId.of('workspace_1'), fired.id)
         .then((chain) => chain?.description),
     ).resolves.toBe(`${OPENED.description} → the hook opened`);
-    await expect(history.chainOf('workspace_2', fired.id)).resolves.toBeNull();
+    await expect(
+      history.chainOf(WorkspaceId.of('workspace_2'), fired.id),
+    ).resolves.toBeNull();
   });
 
   it('counts the earlier firings of a hook for the same change in the last ten minutes, never later ones', async () => {
@@ -196,8 +207,8 @@ describe('hook firings, stored in the database (e2e)', () => {
 
     expect(oldest.occurrence).toBe('occurrence_6a');
     expect(second.occurrence).toBe('occurrence_7');
-    await expect(history.recentRepeats(third)).resolves.toBe(2);
-    await expect(history.recentRepeats(first)).resolves.toBe(0);
+    await expect(history.recentRepeats(third.repeatsOf)).resolves.toBe(2);
+    await expect(history.recentRepeats(first.repeatsOf)).resolves.toBe(0);
   });
 
   it('stores what kind of failure ended a firing, and a superseded one apart from a failed one', async () => {
@@ -236,7 +247,7 @@ describe('hook firings, stored in the database (e2e)', () => {
     await firings.add(firing('occurrence_11'));
     const working = await claimed();
 
-    await firings.save(working.waitUntil(at(2)));
+    await firings.save(working.waitedOn(NOW));
 
     await expect(firings.claimNext(at(1))).resolves.toBeNull();
     await expect(claimed(at(2))).resolves.toMatchObject({ id: working.id });

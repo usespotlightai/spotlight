@@ -17,11 +17,10 @@ import type {
 import type { NoticeFileReaderPort } from '@integrations/application/ports/notice-file-reader.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
-import type { Integration } from '@integrations/domain/entities/integration.entity';
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
-import { ToolAskedMidCallError } from '@integrations/domain/exceptions/tool-asked-mid-call.error';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { attempted } from '@integrations/infrastructure/integrations/call-attempts';
 import { readEvents } from '@integrations/infrastructure/integrations/happenings';
 import type {
   OnBindingIR,
@@ -51,6 +50,8 @@ import {
 import { mcpOutput } from '@integrations/infrastructure/mcp/mcp-output';
 import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
 import { refreshingOnce } from '@integrations/infrastructure/mcp/refreshing-once';
+import { ToolAskedMidCallError } from '@integrations/infrastructure/mcp/tool-asked-mid-call.error';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type {
   HttpOutbound,
   OutboundResult,
@@ -63,7 +64,7 @@ import { sanitizedForCel } from '@platform/expressions/cel-variables';
 import { evaluateText, value } from '@platform/expressions/readings';
 import { type Sleep, sleeping } from '@platform/time/sleep';
 import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { TaskMark } from '@work/application/contracts/happenings.contract';
@@ -89,6 +90,7 @@ const upstreamErrorUsing = (
   new UpstreamError(
     `using ${tool}`,
     `the integration answered ${status}: ${asJson(response ?? null).slice(0, MAX_OUTPUT_CHARS)}`,
+    status,
   );
 
 const fieldOf = (value: unknown, field: string): unknown =>
@@ -523,20 +525,27 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return null;
     }
 
-    if (!provided.tool.backing.spec) {
-      return this.written(provided, tool, task);
-    }
+    const resolved = !provided.tool.backing.spec
+      ? this.written(provided, tool, task)
+      : provided.operation?.call.kind === 'mcp'
+        ? this.served(provided, tool, task)
+        : this.generated(provided, tool);
 
-    return provided.operation?.call.kind === 'mcp'
-      ? this.served(provided, tool, task)
-      : this.generated(provided, tool);
+    return resolved && { ...resolved, attempt: this.attempting(resolved) };
+  }
+
+  private attempting(
+    resolved: Omit<ResolvedTool, 'attempt'>,
+  ): ResolvedTool['attempt'] {
+    return (inputs, callAuth, withinMs) =>
+      attempted(() => resolved.call(inputs, callAuth), withinMs);
   }
 
   private written(
     { readable, tool: provided }: FoundTool,
     tool: string,
     task: IntegrationTaskView,
-  ): ResolvedTool | null {
+  ): Omit<ResolvedTool, 'attempt'> | null {
     const compiled = readable.tools.get(provided.name);
     const action = provided.backing.action
       ? readable.actions.get(provided.backing.action)
@@ -591,7 +600,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   private generated(
     { readable, tool: provided, operation }: FoundTool,
     tool: string,
-  ): ResolvedTool | null {
+  ): Omit<ResolvedTool, 'attempt'> | null {
     const auth = readable.apiSpec?.auth ?? null;
 
     if (!operation) {
@@ -652,7 +661,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     { readable, tool: provided, operation }: FoundTool,
     tool: string,
     task: IntegrationTaskView,
-  ): ResolvedTool | null {
+  ): Omit<ResolvedTool, 'attempt'> | null {
     const apiSpec = readable.apiSpec;
     const call = operation?.call;
 

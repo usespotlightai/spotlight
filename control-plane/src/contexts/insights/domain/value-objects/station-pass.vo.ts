@@ -1,10 +1,12 @@
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+
 export class StationPass {
   private constructor(
-    readonly to: string,
+    readonly to: StationId,
     readonly at: Date,
   ) {}
 
-  static of(to: string, at: Date): StationPass {
+  static of(to: StationId, at: Date): StationPass {
     return new StationPass(to, at);
   }
 }

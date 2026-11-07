@@ -14,6 +14,12 @@ import {
 } from '@integrations/infrastructure/outbound/guarded-fetch';
 import { MAX_ANSWER_BYTES } from '@integrations/infrastructure/outbound/http-outbound';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import {
+  applyInjected,
+  type InjectionRequest,
+  redactInjected,
+  redactInjectedIn,
+} from '@integrations/infrastructure/outbound/secret-injection';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
@@ -23,11 +29,8 @@ import {
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js';
 import type { OnModuleDestroy } from '@nestjs/common';
-import {
-  InjectedSecrets,
-  type InjectionRequest,
-} from '@secrets/application/contracts/injected-secrets.contract';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 
 type Fetch = typeof globalThis.fetch;
 
@@ -66,12 +69,12 @@ const unechoedIn = (error: unknown, injected: InjectedSecrets): void => {
     return;
   }
 
-  error.message = injected.redact(error.message);
+  error.message = redactInjected(injected, error.message);
 
   const { cause } = error as { cause?: unknown };
 
   if (cause instanceof Error) {
-    cause.message = injected.redact(cause.message);
+    cause.message = redactInjected(injected, cause.message);
   }
 };
 
@@ -214,7 +217,7 @@ export class McpSessions implements OnModuleDestroy {
     try {
       const answer = await answering();
 
-      return injected.seen.redactedIn(answer) as T;
+      return redactInjectedIn(injected.seen, answer) as T;
     } catch (error) {
       if (!injected.seen.isEmpty) {
         unechoedIn(error, injected.seen);
@@ -382,7 +385,7 @@ export class McpSessions implements OnModuleDestroy {
       url,
       injected.secrets,
     );
-    secrets.applyTo(request);
+    applyInjected(secrets, request);
     injected.seen = secrets;
 
     return secrets;

@@ -1,13 +1,5 @@
-import {
-  type InviteToWorkspaceCommand,
-  MAX_INVITED_AT_ONCE,
-} from '@identity/application/commands/invite-to-workspace.command';
-import type {
-  InviteOutcome,
-  InviteOutcomeDto,
-  InviteOutcomesDto,
-} from '@identity/application/dto/invite.dto';
-import { InviteeCountError } from '@identity/application/errors/invitee-count.error';
+import type { InviteToWorkspaceCommand } from '@identity/application/commands/invite-to-workspace.command';
+import type { InviteOutcomeDto } from '@identity/application/dto/invite.dto';
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
 import type {
   InviteSending,
@@ -15,7 +7,10 @@ import type {
 } from '@identity/application/services/invite-sending.service';
 import type { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
-import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
+import {
+  type InviteOffer,
+  WorkspaceInvite,
+} from '@identity/domain/aggregates/workspace-invite.aggregate';
 import { AlreadyInvitedError } from '@identity/domain/exceptions/already-invited.error';
 import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
@@ -29,26 +24,27 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 interface InviteInput {
   readonly workspace: Workspace;
   readonly email: EmailAddress;
+  readonly holder: UserId | null;
   readonly spec: InviteSpec;
   readonly by: UserId;
 }
 
-interface Written {
-  readonly invite: WorkspaceInvite;
+interface Offered {
+  readonly offer: InviteOffer;
   readonly token: string;
-  readonly outcome: InviteOutcome;
 }
 
 export class InviteToWorkspaceHandler
   implements
-    CommandHandlerPort<InviteToWorkspaceCommand, InviteOutcomesDto | null>
+    CommandHandlerPort<InviteToWorkspaceCommand, InviteOutcomeDto | null>
 {
   constructor(
     private readonly administration: WorkspaceAdministration,
@@ -63,11 +59,11 @@ export class InviteToWorkspaceHandler
 
   async execute(
     command: InviteToWorkspaceCommand,
-  ): Promise<InviteOutcomesDto | null> {
+  ): Promise<InviteOutcomeDto | null> {
     try {
       const administered = await this.administration.administeredBy(
         command.slug,
-        command.viewerId,
+        PersonPrincipal.of(UserId.of(command.viewerId)),
       );
 
       if (!administered) {
@@ -87,25 +83,22 @@ export class InviteToWorkspaceHandler
         teams: command.teamIds.map((teamId) => TeamId.of(teamId)),
         among: workspaceTeams,
       });
-      const joining = workspaceTeams.filter((team) => spec.joins(team.id));
-      const emails = distinct(command.emails.map(EmailAddress.of));
+      const email = EmailAddress.of(command.email);
 
-      if (emails.length === 0 || emails.length > MAX_INVITED_AT_ONCE) {
-        throw new InviteeCountError(emails.length);
-      }
-
-      const outcomes: InviteOutcomeDto[] = [];
-
-      for (const email of emails) {
-        outcomes.push(
-          await this.invited(
-            { workspace, email, spec, by },
-            { workspace, teams: joining, by: sender },
-          ),
-        );
-      }
-
-      return { outcomes };
+      return await this.invited(
+        {
+          workspace,
+          email,
+          holder: await this.members.byEmail(workspace.id, email.value),
+          spec,
+          by,
+        },
+        {
+          workspace,
+          teams: workspaceTeams.filter((team) => spec.joins(team.id)),
+          by: sender,
+        },
+      );
     } catch (error) {
       rethrowAsApplicationError(error);
     }
@@ -116,36 +109,38 @@ export class InviteToWorkspaceHandler
     into: InviteSent,
   ): Promise<InviteOutcomeDto> {
     const email = input.email.value;
+    const { offer, token } = await this.offered(input).catch(
+      (error: unknown) => {
+        if (
+          error instanceof InviteVersionConflictError ||
+          error instanceof AlreadyInvitedError
+        ) {
+          return this.offered(input);
+        }
+        throw error;
+      },
+    );
 
-    if (await this.members.byEmail(input.workspace.id, email)) {
-      return { email, outcome: 'already-a-member' };
+    if (offer.outcome === 'already-a-member') {
+      return { email, outcome: offer.outcome };
     }
 
-    const written = await this.written(input).catch((error: unknown) => {
-      if (
-        error instanceof InviteVersionConflictError ||
-        error instanceof AlreadyInvitedError
-      ) {
-        return this.written(input);
-      }
-      throw error;
-    });
-
-    if (!(await this.sending.sent(written.invite, written.token, into))) {
+    if (!(await this.sending.sent(offer.invite, token, into))) {
       return { email, outcome: 'not-sent' };
     }
 
-    return { email, outcome: written.outcome };
+    return { email, outcome: offer.outcome };
   }
 
-  private async written(input: InviteInput): Promise<Written> {
+  private async offered(input: InviteInput): Promise<Offered> {
     const newToken = this.tokens.issue();
-    const { invite, resent } = WorkspaceInvite.createOrResend(
-      await this.invites.notEndedTo(input.workspace.id, input.email),
+    const offer = WorkspaceInvite.offer(
+      await this.invites.latestTo(input.workspace.id, input.email),
       {
         id: InviteId.of(this.ids.generate()),
-        workspaceId: input.workspace.id,
+        workspace: input.workspace,
         email: input.email,
+        holder: input.holder,
         spec: input.spec,
         tokenHash: TokenHash.of(newToken.hash),
         invitedBy: input.by,
@@ -153,21 +148,14 @@ export class InviteToWorkspaceHandler
       },
     );
 
-    if (resent) {
-      await this.invites.save(invite);
-    } else {
-      await this.invites.add(invite);
+    if (offer.outcome === 'resent') {
+      await this.invites.save(offer.invite);
     }
 
-    return {
-      invite,
-      token: newToken.token,
-      outcome: resent ? 'resent' : 'invited',
-    };
+    if (offer.outcome === 'invited') {
+      await this.invites.add(offer.invite);
+    }
+
+    return { offer, token: newToken.token };
   }
 }
-
-const distinct = (emails: readonly EmailAddress[]): readonly EmailAddress[] =>
-  emails.filter(
-    (email, at) => emails.findIndex((each) => each.equals(email)) === at,
-  );

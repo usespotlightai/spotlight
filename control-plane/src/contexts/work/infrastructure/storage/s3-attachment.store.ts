@@ -15,6 +15,7 @@ import {
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { StorageNotConfiguredError } from '@work/application/errors/storage-not-configured.error';
 import type {
   AttachmentContent,
   AttachmentStorePort,
@@ -276,9 +277,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
 
   private assertBucket(): void {
     if (!this.bucket) {
-      throw new InvalidAttachmentError(
-        'storage is not configured on this deployment',
-      );
+      throw new StorageNotConfiguredError('Attachment');
     }
   }
 }

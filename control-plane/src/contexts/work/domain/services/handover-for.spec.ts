@@ -1,24 +1,23 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import {
-  Station,
-  type StationInput,
-} from '@work/domain/entities/station.entity';
 import { HandoverFor } from '@work/domain/services/handover-for';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  routesOf,
+  type StationSpec,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { describe, expect, it } from 'vitest';
 
 const station = (
@@ -26,18 +25,18 @@ const station = (
   key: string,
   name: string,
   position: number,
-  over: Partial<StationInput> = {},
+  over: Partial<StationSpec> = {},
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(key),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     ...over,
   });
 
-const LINE = Line.rehydrate({
+const LINE = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
@@ -47,11 +46,11 @@ const LINE = Line.rehydrate({
     station('station_0', 'backlog', 'Backlog', 0, { kind: 'backlog' }),
     station('station_1', 'triage', 'Triage', 1, {
       harness: HarnessId.of('dev'),
-      routes: StationRoutes.of({ stations: [StationId.of('station_2')] }),
+      routes: routesOf({ stations: [StationId.of('station_2')] }),
     }),
     station('station_2', 'spec', 'Spec', 2, {
       harness: HarnessId.of('dev'),
-      routes: StationRoutes.of({
+      routes: routesOf({
         stations: [StationId.of('station_1')],
         ends: true,
       }),

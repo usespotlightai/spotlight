@@ -6,24 +6,24 @@ import { OidcTrustVersionConflictError } from '@identity/domain/exceptions/oidc-
 import { ScopesExceedCallerError } from '@identity/domain/exceptions/scopes-exceed-caller.error';
 import { WorkloadNotMatchedError } from '@identity/domain/exceptions/workload-not-matched.error';
 import type { OidcTrustDescription } from '@identity/domain/value-objects/oidc-trust-description.vo';
+import type { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import type { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
 import type { ScopeCeiling } from '@identity/domain/value-objects/scope-ceiling.vo';
 import type { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
+import type { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import type { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
+import type { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
-import type { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import type { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
 export interface OidcTrustSpec {
   readonly key: OidcTrustKey;
@@ -209,7 +209,7 @@ export class OidcTrust extends EventRecorder {
       issuedBy: this.createdBy,
       issuedByTrustId: this.id,
       trustVersion: this.grantVersion,
-      subject: workload.subject,
+      workload,
       now: issued.now,
       client: issued.client,
     });

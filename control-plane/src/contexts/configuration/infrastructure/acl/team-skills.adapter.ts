@@ -1,6 +1,5 @@
 import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
-import type { SkillReaderPort } from '@configuration/application/ports/skill-reader.port';
-import type { TeamSkillFilesPort } from '@configuration/application/ports/team-skill-files.port';
+import type { TeamSkillReading } from '@configuration/application/services/team-skill-reading.service';
 import { ReadySkillMapper } from '@configuration/infrastructure/acl/ready-skill.mapper';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
@@ -8,17 +7,14 @@ import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
 
 export class TeamSkills implements TeamSkillsPort {
   constructor(
-    private readonly teamSkillFiles: TeamSkillFilesPort,
-    private readonly reader: SkillReaderPort,
+    private readonly skills: TeamSkillReading,
     private readonly secrets: SecretNamesPort,
   ) {}
 
   async definedFor(teamId: TeamId): Promise<readonly string[]> {
-    const configuration = await this.teamSkillFiles.of(teamId);
-
-    return this.reader
-      .parse(configuration.skills)
-      .skills.map((folder) => folder.skill.key.value);
+    return (await this.skills.of(teamId)).map(
+      (folder) => folder.skill.key.value,
+    );
   }
 
   async readyFor(
@@ -29,12 +25,10 @@ export class TeamSkills implements TeamSkillsPort {
       return [];
     }
 
-    const configuration = await this.teamSkillFiles.of(teamId);
     const existing = await this.secrets.ofTeam(teamId);
 
-    return this.reader
-      .parse(configuration.skills)
-      .skills.filter(
+    return (await this.skills.of(teamId))
+      .filter(
         (folder) =>
           named.includes(folder.skill.key.value) &&
           folder.skill.isReadyWith(existing),

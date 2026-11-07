@@ -11,8 +11,10 @@ import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-ima
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCancelled } from '@work/domain/events/run-cancelled.event';
@@ -60,8 +62,6 @@ import {
   StartingPoint,
 } from '@work/domain/value-objects/starting-point.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
-import type { Tool } from '@work/domain/value-objects/tool.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 const LEASE_DURATION_MS = 60_000;
@@ -113,6 +113,7 @@ export class Run extends EventRecorder {
     readonly startedFrom: StartingPoint | null = null,
     readonly askedAPerson: boolean = false,
     readonly version: number = 0,
+    readonly briefedTask: BriefedTask | null = null,
   ) {
     super();
   }
@@ -150,6 +151,11 @@ export class Run extends EventRecorder {
       input.briefedWith ?? BriefedMemories.none(),
       [],
       input.configuredAs ?? null,
+      null,
+      null,
+      false,
+      0,
+      input.briefedTask ?? null,
     );
 
     if (run.isReplay !== run.spec.isReplay) {
@@ -161,6 +167,14 @@ export class Run extends EventRecorder {
     if (run.isSearch !== run.spec.isSearch) {
       throw new InvalidRunTransitionError(
         `Run ${run.id.value} and its spec disagree on whether it searches.`,
+      );
+    }
+
+    const resumeKey = run.spec.resumeKey;
+
+    if (resumeKey && !resumeKey.belongsTo(run.subject)) {
+      throw new InvalidRunTransitionError(
+        `Run ${run.id.value} cannot resume ${resumeKey.value}. That workspace belongs to another task, chat, replay or search.`,
       );
     }
 
@@ -176,7 +190,7 @@ export class Run extends EventRecorder {
       );
     }
 
-    const briefed = input.briefedTask ?? null;
+    const briefed = run.briefedTask;
 
     if (briefed && !run.taskId) {
       throw new InvalidRunTransitionError(
@@ -230,6 +244,7 @@ export class Run extends EventRecorder {
     startedFrom?: StartingPoint | null;
     askedAPerson?: boolean;
     version?: number;
+    briefedTask?: BriefedTask | null;
   }): Run {
     Run.guardReconstituted(input);
 
@@ -258,6 +273,7 @@ export class Run extends EventRecorder {
       input.startedFrom ?? null,
       input.askedAPerson ?? false,
       input.version ?? 0,
+      input.briefedTask ?? null,
     );
   }
 
@@ -285,6 +301,12 @@ export class Run extends EventRecorder {
       throw new InconsistentStateError(
         'run',
         'replays a run without the station config it replays with',
+      );
+    }
+    if (input.configuredAs && !input.subject?.stationId) {
+      throw new InconsistentStateError(
+        'run',
+        'records a station config but works at no station',
       );
     }
     if ((input.subject?.isSearch ?? false) !== input.spec.isSearch) {
@@ -1108,7 +1130,9 @@ export class Run extends EventRecorder {
 
     const stopping = this.with({ stopRequestedAt: now });
 
-    stopping.record(new RunStopRequested(this.id, this.subject, now));
+    stopping.record(
+      new RunStopRequested(this.id, this.workspaceId, this.subject, now),
+    );
 
     return stopping;
   }
@@ -1233,6 +1257,7 @@ export class Run extends EventRecorder {
       part.startedFrom !== undefined ? part.startedFrom : this.startedFrom,
       part.askedAPerson ?? this.askedAPerson,
       this.version,
+      this.briefedTask,
     );
 
     next.inheritEvents(this);

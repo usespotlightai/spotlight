@@ -24,6 +24,7 @@ import {
 } from '@nestjs/swagger';
 import { bearerIn, TRUST_HEADER } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import {
   DeregisterHostCommand,
   HostHeartbeatCommand,
@@ -49,6 +50,7 @@ const UNAUTHORIZED =
 @ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @ApiParam({ name: 'hostId', example: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P' })
 @AllowAnonymous()
+@InAudience('hosts')
 @Controller('hosts/:hostId')
 export class HostController {
   constructor(private readonly commandBus: CommandBus) {}

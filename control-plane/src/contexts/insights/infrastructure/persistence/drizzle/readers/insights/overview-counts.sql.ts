@@ -31,7 +31,7 @@ import {
 import {
   runFact,
   taskHumanAction,
-  taskPullRequest,
+  taskPullRequestFact,
 } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { sql } from 'drizzle-orm';
@@ -130,17 +130,17 @@ const resolvedIn = async (
   const { current, previous } = team.period;
   const result = await db.execute<ResolvedRow>(sql`
     select
-      ${taskPullRequest.taskId} as task_id,
-      ${taskPullRequest.state} = 'merged' as merged,
-      ${msOf(sql`${taskPullRequest.closedAt}`)} as closed_ms,
+      ${taskPullRequestFact.taskId} as task_id,
+      ${taskPullRequestFact.state} = 'merged' as merged,
+      ${msOf(sql`${taskPullRequestFact.closedAt}`)} as closed_ms,
       ${msOf(sql`${taskHumanAction.openedAt}`)} as task_opened_ms
-    from ${taskPullRequest}
-    left join ${taskHumanAction} on ${taskHumanAction.taskId} = ${taskPullRequest.taskId}
+    from ${taskPullRequestFact}
+    left join ${taskHumanAction} on ${taskHumanAction.taskId} = ${taskPullRequestFact.taskId}
     where ${ofTeamTaskPullRequests(team)}
-      and ${taskPullRequest.state} <> 'open'
-      and ${taskPullRequest.closedAt} >= ${iso(previous.from)}::timestamptz
-      and ${taskPullRequest.closedAt} < ${iso(current.to)}::timestamptz
-    order by ${taskPullRequest.openedAt} desc, ${taskPullRequest.taskId} desc
+      and ${taskPullRequestFact.state} <> 'open'
+      and ${taskPullRequestFact.closedAt} >= ${iso(previous.from)}::timestamptz
+      and ${taskPullRequestFact.closedAt} < ${iso(current.to)}::timestamptz
+    order by ${taskPullRequestFact.openedAt} desc, ${taskPullRequestFact.taskId} desc
   `);
 
   return result.rows.map((row) => ({

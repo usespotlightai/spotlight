@@ -1,15 +1,18 @@
+import { StationAlertStatesInMemory } from '@insights/alerts.fake-spec';
 import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
 import {
   DeleteInsights,
   type InsightsRepositories,
 } from '@insights/application/services/delete-insights.service';
 import { StationAlertState } from '@insights/domain/aggregates/station-alert-state.aggregate';
-import { StationAlertStatesInMemory } from '@insights/domain/alerts.fake-spec';
 import { StationAlertStateVersionConflictError } from '@insights/domain/exceptions/station-alert-state-version-conflict.error';
-import { TEAM, WORKSPACE } from '@insights/domain/runs.fake-spec';
 import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { TEAM, WORKSPACE } from '@insights/runs.fake-spec';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -21,8 +24,8 @@ const firedAt = (stationId: string): StationAlertState =>
   StationAlertState.start({
     workspaceId: WORKSPACE,
     teamId: TEAM,
-    lineId: 'line_1',
-    stationId,
+    lineId: LineId.of('line_1'),
+    stationId: StationId.of(stationId),
   }).check(
     [
       {
@@ -45,9 +48,9 @@ class AlertStatesMovingOn extends StationAlertStatesInMemory {
   }
 
   override async save(alertState: StationAlertState): Promise<void> {
-    if (alertState.station.stationId === this.movingOn) {
+    if (alertState.station.stationId.value === this.movingOn) {
       throw new StationAlertStateVersionConflictError(
-        alertState.station.stationId,
+        alertState.station.stationId.value,
       );
     }
     await super.save(alertState);
@@ -62,7 +65,8 @@ const deleting = async (alertStates: StationAlertStatesInMemory) => {
   await alertStates.add(firedAt('station_2'));
 
   const insights = new DeleteInsights(
-    { alertStates, deletions } as unknown as InsightsRepositories,
+    { alertStates } as unknown as InsightsRepositories,
+    deletions,
     {
       inTransaction: <T>(work: () => Promise<T>) => {
         transactions += 1;
@@ -74,36 +78,38 @@ const deleting = async (alertStates: StationAlertStatesInMemory) => {
   return { insights, deletions, transactions: () => transactions };
 };
 
+const withTask = (alertStates: StationAlertStatesInMemory) =>
+  alertStates.ofScope(DeletionScope.ofTask(WORKSPACE, TASK), 10);
+
 describe('DeleteInsights', () => {
-  it('deletes a task’s alerts one station alert state at a time, after marking the task deleted', async () => {
+  it('marks the task deleted and drops its firings from each station alert state in one transaction', async () => {
     const alertStates = new StationAlertStatesInMemory();
     const { insights, deletions, transactions } = await deleting(alertStates);
 
-    await insights.alertsOfTask(WORKSPACE, TASK);
+    await insights.alertStates(DeletionScope.ofTask(WORKSPACE, TASK));
 
-    expect(await deletions.isDeleted(WORKSPACE, TASK)).toBe(true);
-    expect(transactions()).toBe(3);
-    expect(await alertStates.stationsWithTask(TASK)).toEqual([]);
+    expect(deletions.deleted(DeletionScope.ofTask(WORKSPACE, TASK))).toBe(true);
+    expect(transactions()).toBe(1);
+    expect(await withTask(alertStates)).toEqual([]);
+    expect(alertStates.stored.size).toBe(2);
   });
 
-  it('keeps the task deleted and lets an alert state that changed be retried', async () => {
+  it('fails the whole deletion when an alert state changed meanwhile, so it is retried', async () => {
     const alertStates = new AlertStatesMovingOn('station_2');
-    const { insights, deletions } = await deleting(alertStates);
+    const { insights } = await deleting(alertStates);
 
-    await expect(insights.alertsOfTask(WORKSPACE, TASK)).rejects.toBeInstanceOf(
-      StationAlertStateVersionConflictError,
-    );
-    expect(await deletions.isDeleted(WORKSPACE, TASK)).toBe(true);
-    expect(await alertStates.stationsWithTask(TASK)).toEqual(['station_2']);
+    await expect(
+      insights.alertStates(DeletionScope.ofTask(WORKSPACE, TASK)),
+    ).rejects.toBeInstanceOf(StationAlertStateVersionConflictError);
   });
 
   it('marks the team as deleted as it removes its alert states', async () => {
     const alertStates = new StationAlertStatesInMemory();
     const { insights, deletions } = await deleting(alertStates);
 
-    await insights.alertsOfTeam(WORKSPACE, TEAM);
+    await insights.alertStates(DeletionScope.ofTeam(WORKSPACE, TEAM));
 
-    expect(await deletions.isDeleted(WORKSPACE, null, TEAM)).toBe(true);
+    expect(deletions.deleted(DeletionScope.ofTeam(WORKSPACE, TEAM))).toBe(true);
     expect(alertStates.stored.size).toBe(0);
   });
 });

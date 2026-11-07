@@ -29,13 +29,9 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
 import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
-import {
-  RUN_COMPLETION,
-  RUN_EVENTS,
-  RUN_TOOL_CALL,
-} from '@platform/http/routes';
 import { AckMessagesCommand } from '@work/application/commands/ack-messages.command';
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { ReplyToReviewCommentCommand } from '@work/application/commands/reply-to-review-comment.command';
@@ -508,7 +504,8 @@ export class RunnerController {
     );
   }
 
-  @Post(RUN_EVENTS)
+  @AcceptsLargeBody()
+  @Post('runs/:runId/events')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'appendRunEvents',
@@ -526,7 +523,8 @@ export class RunnerController {
     );
   }
 
-  @Post(RUN_TOOL_CALL)
+  @AcceptsLargeBody()
+  @Post('runs/:runId/tools/:tool')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'useTool',
@@ -631,7 +629,8 @@ export class RunnerController {
     );
   }
 
-  @Post(RUN_COMPLETION)
+  @AcceptsLargeBody()
+  @Post('runs/:runId/completion')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'completeRun',

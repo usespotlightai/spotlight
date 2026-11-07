@@ -2,12 +2,13 @@ import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
-import { StationHasReplaySetError } from '@replays/domain/exceptions/station-has-replay-set.error';
+import { ReplaySetVersionConflictError } from '@replays/domain/exceptions/replay-set-version-conflict.error';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class KeepReplaySets {
@@ -21,13 +22,14 @@ export class KeepReplaySets {
   ) {}
 
   async onRunEnded(
-    stationId: string | null,
+    ranAt: string | null,
     workspaceId: WorkspaceId,
   ): Promise<void> {
-    if (!stationId) {
+    if (!ranAt) {
       return;
     }
 
+    const stationId = StationId.of(ranAt);
     const kept = await this.sets.ofStation(stationId);
 
     if (kept) {
@@ -58,13 +60,21 @@ export class KeepReplaySets {
     try {
       await this.sets.add(created);
     } catch (error) {
-      if (!(error instanceof StationHasReplaySetError)) {
+      if (
+        !(error instanceof ReplaySetVersionConflictError) ||
+        !(await this.sets.ofStation(stationId))
+      ) {
         throw error;
       }
-      return;
     }
+  }
 
-    await this.scheduled(created);
+  async onSetCreated(setId: ReplaySetId): Promise<void> {
+    const set = await this.sets.find(setId);
+
+    if (set) {
+      await this.scheduled(set);
+    }
   }
 
   private async scheduled(set: ReplaySet): Promise<void> {

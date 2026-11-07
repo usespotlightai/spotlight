@@ -3,6 +3,7 @@ import type {
   ToolInputValues,
 } from '@work/application/contracts/tools.contract';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
+import type { MissingConnection } from '@work/domain/value-objects/connection-ask.vo';
 
 export const INTEGRATION_TOOL_CALLS = Symbol('INTEGRATION_TOOL_CALLS');
 
@@ -21,11 +22,7 @@ export interface ConnectionMissingDto {
   readonly integration: string;
   readonly integrationName: string;
   readonly personId: string | null;
-  readonly because:
-    | 'not-connected'
-    | 'refresh-failed'
-    | 'no-requester'
-    | 'not-a-member';
+  readonly because: MissingConnection;
 }
 
 export interface PersonRuleDto {

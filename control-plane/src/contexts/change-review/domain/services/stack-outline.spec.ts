@@ -98,6 +98,23 @@ const cohort = (
   hunks: hunks.map((each) => HunkId.of(each)),
 });
 
+const storedWith = (layers: number): StackCohort => ({
+  id: CohortId.at(1),
+  kind: 'change',
+  title: 'Team invitations',
+  intent: 'Let admins invite people',
+  joinedBecause: null,
+  layers: Array.from({ length: layers }, (_, at) => ({
+    id: LayerId.in(CohortId.at(1), at + 1),
+    title: `Layer ${at + 1}`,
+    summary: `Layer ${at + 1}`,
+    dependsOn: [],
+    hunks: [],
+    notes: [],
+    questions: [],
+  })),
+});
+
 const problemsOf = (cohorts: OutlinedCohort[]): string[] => {
   try {
     StackOutline.validate({ diff: DIFF, facts: FACTS, cohorts });
@@ -249,7 +266,7 @@ describe('StackOutline', () => {
         part,
         outlined,
         [layerOf('h1', 'src/invite.ts'), layerOf('h3', 'src/routes.ts')],
-        2,
+        storedWith(2),
       ),
     ).toThrow('h3 is code moved from h1, so they belong in the same layer');
   });
@@ -269,9 +286,9 @@ describe('StackOutline', () => {
       questions: [],
     };
 
-    expect(StackOutline.layered(part, outlined, [layer], 3).layers).toEqual([
-      layer,
-    ]);
+    expect(
+      StackOutline.layered(part, outlined, [layer], storedWith(3)).layers,
+    ).toEqual([layer]);
   });
 
   it('keeps a stored cohort as the proposal it came from', () => {

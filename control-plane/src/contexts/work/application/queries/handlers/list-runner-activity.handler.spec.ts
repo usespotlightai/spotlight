@@ -1,4 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { RunnerActivityReaderPort } from '@work/application/ports/runner-activity-reader.port';
@@ -48,8 +49,10 @@ const listing = (member: boolean) => {
             }
           : null,
       ),
-      permissionsAsTeamReader: vi.fn(async (teamId: string) =>
-        teamId === 'team_read' ? { workspaceId: WORKSPACE, teamId } : null,
+      permissionsAsTeamReader: vi.fn(async (teamId: TeamId) =>
+        teamId.value === 'team_read'
+          ? { workspaceId: WORKSPACE, teamId }
+          : null,
       ),
     } as unknown as WorkspaceAccessPort,
     { leasedIn } as RunnerActivityReaderPort,

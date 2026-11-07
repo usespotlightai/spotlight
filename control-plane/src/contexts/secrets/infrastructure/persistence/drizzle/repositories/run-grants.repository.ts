@@ -2,6 +2,8 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-grants-version-conflict.error';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
+import { BoundHost } from '@secrets/domain/value-objects/bound-host.vo';
+import { EgressId } from '@secrets/domain/value-objects/egress-id.vo';
 import { Recipient } from '@secrets/domain/value-objects/recipient.vo';
 import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import { SecretFetcher } from '@secrets/domain/value-objects/secret-fetcher.vo';
@@ -126,7 +128,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
     const fields = {
       attempt: grants.lease.attempt,
       recipient: grants.recipient?.key ?? null,
-      fetchedByEgressId: grants.fetcher?.sharedEgress ?? null,
+      fetchedByEgressId: grants.fetcher?.sharedEgress?.value ?? null,
       leaseLost: grants.isLeaseLost,
       endedAt: grants.endedAt,
     };
@@ -137,6 +139,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
           .values({
             runId: grants.runId.value,
             workspaceId: grants.workspaceId.value,
+            version: grants.version,
             ...fields,
           })
           .onConflictDoNothing({ target: runGrants.runId })
@@ -160,7 +163,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
   private async grantsStored(grants: RunGrants): Promise<void> {
     const wanted = grants.grants.map((each) => ({
       secretId: each.secretId.value,
-      host: each.host,
+      host: each.host.value,
     }));
     const existing = await this.context.db
       .select({ secretId: secretGrant.secretId, host: secretGrant.host })
@@ -216,13 +219,18 @@ const toGrants = (
         runId,
         workspaceId,
         secretId: SecretId.of(each.secretId),
-        host: each.host,
+        host: BoundHost.of(each.host),
       }),
     ),
     fetcher:
       row.recipient === null
         ? null
-        : SecretFetcher.of(Recipient.of(row.recipient), row.fetchedByEgressId),
+        : SecretFetcher.of(
+            Recipient.of(row.recipient),
+            row.fetchedByEgressId === null
+              ? null
+              : EgressId.of(row.fetchedByEgressId),
+          ),
     leaseLost: row.leaseLost,
     endedAt: row.endedAt,
     version: row.version,

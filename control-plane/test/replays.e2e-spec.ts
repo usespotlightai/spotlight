@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
@@ -14,12 +16,9 @@ import {
 } from '@work/application/ports/workspace-archive-store.port';
 import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
 import { candidateOf } from '@work/application/services/replay-candidates.fake-spec';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
-import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, sql } from 'drizzle-orm';
@@ -28,6 +27,7 @@ import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
+import { insertStations, mapOf } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-replay-${randomUUID().slice(0, 8)}`;
@@ -184,7 +184,7 @@ const anOriginal = async (): Promise<Original> => {
   return { taskId, runId, archiveId, briefedFile, laterFile };
 };
 
-const candidate = async (): Promise<Line> => {
+const candidate = async (): Promise<LineMap> => {
   const line = await app
     .get(DrizzleLineRepository)
     .findByStation(StationId.of(BUILD));
@@ -193,8 +193,8 @@ const candidate = async (): Promise<Line> => {
     throw new Error('the delivery line is not there');
   }
 
-  return candidateOf(line, StationId.of(BUILD), {
-    agentPrompt: AgentPrompt.of('Replay this, and say what you would change.'),
+  return candidateOf(mapOf(line), StationId.of(BUILD), {
+    agentPrompt: 'Replay this, and say what you would change.',
   });
 };
 
@@ -359,7 +359,7 @@ beforeAll(async () => {
     lineId: DELIVERY,
     repository: Repository.of('acme/api').value,
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,

@@ -1,5 +1,9 @@
 import { GenerateRunChangeStackCommand } from '@change-review/application/commands/generate-run-change-stack.command';
 import { RecordChangeStackCheckCommand } from '@change-review/application/commands/record-change-stack-check.command';
+import {
+  RUN_CHANGE_STACK_CHECK,
+  RUN_CHANGE_STACKS,
+} from '@change-review/presentation/http/change-stack-routes';
 import { RecordChangeStackCheckRequestDto } from '@change-review/presentation/http/dto/change-stack-check.dto';
 import { GenerateChangeStackRequestDto } from '@change-review/presentation/http/dto/generate-change-stack.dto';
 import {
@@ -22,12 +26,9 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
+import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
 import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
-import {
-  RUN_CHANGE_STACK_CHECK,
-  RUN_CHANGE_STACKS,
-} from '@platform/http/routes';
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
@@ -38,6 +39,7 @@ import {
 export class RunnerChangeStackController {
   constructor(private readonly commandBus: CommandBus) {}
 
+  @AcceptsLargeBody()
   @Post(RUN_CHANGE_STACKS)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
@@ -69,6 +71,7 @@ export class RunnerChangeStackController {
     );
   }
 
+  @AcceptsLargeBody()
   @Post(RUN_CHANGE_STACK_CHECK)
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({

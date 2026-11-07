@@ -1,5 +1,6 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -14,13 +15,13 @@ import type { TracesLoader } from '@work/application/services/traces-loader.serv
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { Effort } from '@work/domain/value-objects/effort.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-10-03T09:00:00.000Z');
 
 const chatOnOpus = () =>
   Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_1'),

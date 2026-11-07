@@ -1,52 +1,48 @@
-import { runOutcomeOf } from '@insights/application/dto/run-outcome.dto';
-import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
-import type { TaskPullRequestRepository } from '@insights/domain/repositories/task-pull-request.repository';
+import {
+  type RunOutcomeDto,
+  runOutcomeOf,
+} from '@insights/application/dto/run-outcome.dto';
+import type { StationFactsPort } from '@insights/application/ports/station-facts.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
   RunOutcomeShape,
   RunOutcomesPort,
 } from '@work/application/ports/run-outcomes.port';
 
+const shapeOf = (outcome: RunOutcomeDto): RunOutcomeShape => ({
+  runId: outcome.runId,
+  fingerprint: outcome.fingerprint,
+  endedAt: outcome.endedAt,
+  ending: outcome.ending,
+  failure: outcome.failure,
+  visit: outcome.visit,
+  checks: outcome.checks,
+  firstHumanAction: outcome.firstHumanAction,
+  pullRequestState: outcome.pullRequestState,
+});
+
 export class RunOutcomes implements RunOutcomesPort {
-  constructor(
-    private readonly records: RunRecordRepository,
-    private readonly taskPullRequests: TaskPullRequestRepository,
-  ) {}
+  constructor(private readonly facts: StationFactsPort) {}
 
   async of(
     runIds: readonly string[],
     asOf: Date | null,
   ): Promise<ReadonlyMap<string, RunOutcomeShape>> {
-    const records = (
-      await this.records.ofRuns(
-        runIds.filter((each) => each.trim()).map(RunId.of),
-      )
-    ).map((each) => (asOf ? each.asOf(asOf) : each));
-    const ended = records.filter((each) => each.hasEnded);
-    const taskPullRequests = (
-      await this.taskPullRequests.forTasks(
-        ended.flatMap((each) => (each.taskId ? [each.taskId] : [])),
-      )
-    ).flatMap((each) => {
-      const known = asOf ? each.asOf(asOf) : each;
-      return known ? [known] : [];
-    });
-    return new Map(
-      ended.flatMap((record) => {
-        const outcome = runOutcomeOf(record, taskPullRequests);
+    const facts = await this.facts.ofRuns(
+      runIds.filter((each) => each.trim()).map(RunId.of),
+    );
 
-        if (!outcome) {
+    return new Map(
+      facts.flatMap((fact) => {
+        const known = asOf ? fact.asOf(asOf) : fact;
+
+        if (!known) {
           return [];
         }
 
-        const {
-          taskId: _taskId,
-          usage: _usage,
-          passed: _passed,
-          ...shape
-        } = outcome;
+        const outcome = shapeOf(runOutcomeOf(known));
 
-        return [[outcome.runId, shape] as const];
+        return [[outcome.runId, outcome] as const];
       }),
     );
   }

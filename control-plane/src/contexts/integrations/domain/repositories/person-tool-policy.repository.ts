@@ -17,7 +17,9 @@ export interface PersonToolPolicyRepository {
     personId: UserId,
   ): Promise<readonly PersonToolPolicy[]>;
 
+  ofTeam(teamId: TeamId): Promise<readonly PersonToolPolicy[]>;
+
   save(policy: PersonToolPolicy): Promise<void>;
 
-  deleteForTeam(teamId: TeamId): Promise<void>;
+  remove(policy: PersonToolPolicy): Promise<void>;
 }

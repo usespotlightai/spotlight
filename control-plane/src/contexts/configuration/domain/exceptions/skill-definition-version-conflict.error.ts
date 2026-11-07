@@ -1,4 +1,6 @@
-export class SkillDefinitionVersionConflictError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class SkillDefinitionVersionConflictError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(key: string) {

@@ -1,12 +1,14 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export interface LaidOutLine {
-  readonly id: string;
-  readonly stations: readonly string[];
+  readonly id: LineId;
+  readonly stations: readonly StationId[];
   readonly repositories: readonly Repository[];
 }
 
@@ -31,15 +33,21 @@ export class TeamLayout {
   }
 
   scopeOf(written: WrittenScope): MemoryScope {
-    const lineId = written.lineId?.trim() || null;
-    const stationId = written.stationId?.trim() || null;
-    const line = lineId ? this.lines.find((each) => each.id === lineId) : null;
+    const lineNamed = written.lineId?.trim() || null;
+    const stationNamed = written.stationId?.trim() || null;
+    const line = lineNamed
+      ? this.lines.find((each) => each.id.value === lineNamed)
+      : null;
 
-    if (lineId && !line) {
+    if (lineNamed && !line) {
       throw new InvalidMemoryError('must be at a line of its team');
     }
 
-    if (stationId && !line?.stations.includes(stationId)) {
+    const station = stationNamed
+      ? line?.stations.find((each) => each.value === stationNamed)
+      : null;
+
+    if (stationNamed && !station) {
       throw new InvalidMemoryError('must be at a station of its line');
     }
 
@@ -58,8 +66,8 @@ export class TeamLayout {
 
     return MemoryScope.of({
       teamId: this.teamId,
-      lineId,
-      stationId,
+      lineId: line?.id ?? null,
+      stationId: station ?? null,
       repository,
       paths: (written.paths ?? [])
         .filter((each) => each.trim())

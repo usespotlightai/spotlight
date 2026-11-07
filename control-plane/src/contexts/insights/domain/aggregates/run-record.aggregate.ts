@@ -1,12 +1,27 @@
+import { RunDismissalRecorded } from '@insights/domain/events/run-dismissal-recorded.event';
+import { RunMemoriesRecorded } from '@insights/domain/events/run-memories-recorded.event';
+import { RunOutcomeChanged } from '@insights/domain/events/run-outcome-changed.event';
 import { RunRecordEnded } from '@insights/domain/events/run-record-ended.event';
-import { RunRecordEnriched } from '@insights/domain/events/run-record-enriched.event';
+import { RunRecordErased } from '@insights/domain/events/run-record-erased.event';
 import { InvalidOutcomeError } from '@insights/domain/exceptions/invalid-outcome.error';
+import {
+  dispositionOf,
+  effectiveEndingOf,
+} from '@insights/domain/services/run-classification';
 import type { CheckVerdict } from '@insights/domain/value-objects/check-verdict';
 import type { Dismissal } from '@insights/domain/value-objects/dismissal.vo';
-import type { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import type {
+  ActedOnTool,
+  HumanAction,
+} from '@insights/domain/value-objects/human-action.vo';
 import type { RunDisposition } from '@insights/domain/value-objects/run-disposition';
 import type { RunEnd } from '@insights/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@insights/domain/value-objects/run-ending';
+import {
+  RunFact,
+  type RunPullRequest,
+  type TaskOpeningFact,
+} from '@insights/domain/value-objects/run-fact.vo';
 import {
   type MemoryVia,
   RunMemories,
@@ -124,30 +139,6 @@ export class RunRecord extends EventRecorder {
     return this.supersededAt !== null;
   }
 
-  asOf(at: Date): RunRecord {
-    const known = (when: Date | null | undefined): boolean =>
-      when !== null && when !== undefined && when.getTime() <= at.getTime();
-    const checked = known(this.checkedAt);
-
-    return new RunRecord(
-      this.runId,
-      this.workspaceId,
-      this.taskId,
-      this.end && known(this.end.endedAt) ? this.end : null,
-      known(this.supersededAt) ? this.supersededAt : null,
-      checked ? this.checks : null,
-      checked ? this.checkedAt : null,
-      known(this.firstHumanAction?.at) ? this.firstHumanAction : null,
-      known(this.approvalAnsweredAt) ? this.approvalAnsweredAt : null,
-      this.usage,
-      known(this.passed?.at) ? this.passed : null,
-      this.tools,
-      this.dismissals,
-      this.memories,
-      this.version,
-    );
-  }
-
   get hasEnded(): boolean {
     return this.end !== null;
   }
@@ -157,34 +148,49 @@ export class RunRecord extends EventRecorder {
   }
 
   get ending(): RunEnding | null {
-    if (!this.end) {
-      return null;
-    }
-
-    return this.superseded && this.end.ending !== 'cancelled'
-      ? 'superseded'
-      : this.end.ending;
+    return this.end ? effectiveEndingOf(this.end, this.supersededAt) : null;
   }
 
   get disposition(): RunDisposition {
-    if (this.firstHumanAction?.accepts) {
-      return 'accepted';
-    }
-    if (this.firstHumanAction?.sendsBack) {
-      return 'sent-back';
-    }
-    if (this.ending === 'failed') {
-      return 'failed';
-    }
-    if (
-      this.firstHumanAction?.kind === 'answered' ||
-      this.end?.asked ||
-      this.approvalAnsweredAt !== null
-    ) {
-      return 'asked';
-    }
+    return dispositionOf({
+      ending: this.ending,
+      asked: this.end?.asked ?? false,
+      firstHumanAction: this.firstHumanAction,
+      approvalAnsweredAt: this.approvalAnsweredAt,
+    });
+  }
 
-    return 'other';
+  factWith(
+    opening: TaskOpeningFact | null,
+    pullRequest: RunPullRequest | null,
+  ): RunFact | null {
+    return this.end
+      ? RunFact.of({
+          runId: this.runId,
+          workspaceId: this.workspaceId,
+          end: this.end,
+          supersededAt: this.supersededAt,
+          checks: this.checks,
+          checkedAt: this.checkedAt,
+          firstHumanAction: this.firstHumanAction,
+          approvalAnsweredAt: this.approvalAnsweredAt,
+          usage: this.usage,
+          passed: this.passed,
+          tools: this.tools,
+          dismissals: this.dismissals,
+          memories: this.memories,
+          opening,
+          pullRequest,
+        })
+      : null;
+  }
+
+  erased(): RunRecord {
+    const erased = this.with({});
+
+    erased.record(new RunRecordErased(this.runId, this.workspaceId));
+
+    return erased;
   }
 
   recordEnd(end: RunEnd): RunRecord {
@@ -202,7 +208,7 @@ export class RunRecord extends EventRecorder {
   }
 
   supersededByItsTask(at: Date): RunRecord {
-    return this.superseded ? this : this.with({ supersededAt: at });
+    return this.superseded ? this : this.withOutcome({ supersededAt: at });
   }
 
   recordCheck(verdict: CheckVerdict, at: Date): RunRecord {
@@ -210,50 +216,73 @@ export class RunRecord extends EventRecorder {
       this.checks === null ||
       (this.checks === 'skipped' && verdict !== 'skipped')
     ) {
-      return this.enrichWith({ checks: verdict, checkedAt: at });
+      return this.withOutcome({ checks: verdict, checkedAt: at });
     }
 
     return this;
   }
 
-  recordAction(action: HumanAction): RunRecord {
+  recordAction(
+    action: HumanAction,
+    acted: ActedOnTool | null = null,
+  ): RunRecord {
+    const recorded = this.recordedAction(action);
+    const dismissal = acted ? action.dismissalOf(acted) : null;
+
+    return dismissal ? recorded.dismissed(dismissal) : recorded;
+  }
+
+  private recordedAction(action: HumanAction): RunRecord {
     if (action.answersApproval) {
       return this.approvalAnsweredAt &&
         this.approvalAnsweredAt.getTime() <= action.at.getTime()
         ? this
-        : this.enrichWith({ approvalAnsweredAt: action.at });
+        : this.withOutcome({ approvalAnsweredAt: action.at });
     }
 
     return this.firstHumanAction && !action.before(this.firstHumanAction)
       ? this
-      : this.enrichWith({ firstHumanAction: action });
+      : this.withOutcome({ firstHumanAction: action });
   }
 
   recordUsage(usage: RunUsage, tools: RunTools): RunRecord {
-    return this.usage ? this : this.enrichWith({ usage, tools });
+    return this.usage ? this : this.withOutcome({ usage, tools });
   }
 
   dismissed(dismissal: Dismissal): RunRecord {
-    return this.dismissals.some((each) => each.sameAs(dismissal))
-      ? this
-      : this.with({ dismissals: [...this.dismissals, dismissal] });
+    if (this.dismissals.some((each) => each.sameAs(dismissal))) {
+      return this;
+    }
+
+    const dismissed = this.with({
+      dismissals: [...this.dismissals, dismissal],
+    });
+
+    if (this.end) {
+      dismissed.record(new RunDismissalRecorded(this.runId, this.workspaceId));
+    }
+
+    return dismissed;
   }
 
   recordMemories(via: MemoryVia, memories: readonly string[]): RunRecord {
     const used = this.memories.with(via, memories);
 
-    return used === this.memories ? this : this.with({ memories: used });
-  }
+    if (used === this.memories) {
+      return this;
+    }
 
-  failedAfterCallingTo(server: string): boolean {
-    return (
-      this.ending === 'failed' &&
-      this.tools?.callsTo(server)?.lastCallFailed === true
-    );
+    const remembered = this.with({ memories: used });
+
+    if (this.end) {
+      remembered.record(new RunMemoriesRecorded(this.runId, this.workspaceId));
+    }
+
+    return remembered;
   }
 
   passTo(pass: StationPass): RunRecord {
-    return this.passed ? this : this.with({ passed: pass });
+    return this.passed ? this : this.withOutcome({ passed: pass });
   }
 
   private assertSameTask(taskId: TaskId): void {
@@ -262,7 +291,9 @@ export class RunRecord extends EventRecorder {
     }
   }
 
-  private enrichWith(change: {
+  private withOutcome(change: {
+    supersededAt?: Date;
+    passed?: StationPass;
     checks?: CheckVerdict;
     checkedAt?: Date;
     firstHumanAction?: HumanAction;
@@ -270,15 +301,15 @@ export class RunRecord extends EventRecorder {
     usage?: RunUsage;
     tools?: RunTools;
   }): RunRecord {
-    const enriched = this.with(change);
+    const changed = this.with(change);
 
     if (this.end) {
-      enriched.record(
-        new RunRecordEnriched(this.runId, this.workspaceId, this.end.location),
+      changed.record(
+        new RunOutcomeChanged(this.runId, this.workspaceId, this.end.location),
       );
     }
 
-    return enriched;
+    return changed;
   }
 
   private with(change: {

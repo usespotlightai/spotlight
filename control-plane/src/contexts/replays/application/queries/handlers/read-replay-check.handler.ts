@@ -4,13 +4,13 @@ import type {
 } from '@replays/application/dto/replay-checks.dto';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ReadReplayCheckQuery } from '@replays/application/queries/read-replay-check.query';
-import { taskRowsOf } from '@replays/application/rendering/task-rows';
-import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import {
   gainView,
   intervalView,
   moneyView,
-} from '@replays/application/services/replay-views';
+} from '@replays/application/queries/views/replay-views';
+import { taskRowsOf } from '@replays/application/rendering/task-rows';
+import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { UnknownReplayCheckError } from '@replays/domain/exceptions/unknown-replay-check.error';
@@ -66,8 +66,8 @@ export class ReadReplayCheckHandler
       return {
         id: check.id.value,
         teamId: check.teamId.value,
-        lineId: check.station.lineId,
-        stationId: check.station.stationId,
+        lineId: check.station.lineId.value,
+        stationId: check.station.stationId.value,
         stationKey: check.stationKey,
         setId: check.setId.value,
         candidateId: check.candidateId.value,

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { IssuedTokens } from '@identity/application/services/issued-tokens.service';
+import { TOKEN_SCOPES } from '@identity/domain/value-objects/token-scope.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -7,7 +8,6 @@ import {
   openWorkloadIssuer,
   type WorkloadIssuer,
 } from '@platform/workload/workload-issuer.fake-spec';
-import { TOKEN_SCOPES } from '@shared-kernel/domain/value-objects/token-scope.vo';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,

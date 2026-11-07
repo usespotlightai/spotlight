@@ -19,7 +19,9 @@ const policies = new InMemoryPersonToolPolicies();
 
 const listing = (membership: { isAdmin: boolean } | null) =>
   new ListIntegrationConnectionsHandler(
-    { onTeam: vi.fn(async () => membership) } as unknown as WorkspaceAccessPort,
+    {
+      inWorkspaceOfTeam: vi.fn(async () => membership),
+    } as unknown as WorkspaceAccessPort,
     {
       ofTeam: async () => [
         {

@@ -1,7 +1,5 @@
-import type {
-  ReplayedStation,
-  ReplaySet,
-} from '@replays/domain/aggregates/replay-set.aggregate';
+import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
+import { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
 import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayCeilingReached } from '@replays/domain/events/replay-ceiling-reached.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
@@ -16,6 +14,7 @@ import { ReplayStopRequested } from '@replays/domain/events/replay-stop-requeste
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import { ReplayEndedError } from '@replays/domain/exceptions/replay-ended.error';
+import { VALID_BASELINE_STATES } from '@replays/domain/services/baseline';
 import type { Scoring } from '@replays/domain/services/entry-result';
 import type {
   OracleAnswer,
@@ -28,7 +27,8 @@ import type { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
-import { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
+import { OracleReference } from '@replays/domain/value-objects/oracle-reference.vo';
+import { PairingReference } from '@replays/domain/value-objects/pairing-reference.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import {
   isValidRepeatCount,
@@ -44,12 +44,15 @@ import {
 } from '@replays/domain/value-objects/replay-state';
 import type { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import type { SetSnapshot } from '@replays/domain/value-objects/set-snapshot.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -62,7 +65,7 @@ export interface ReplayedCandidate {
   readonly rubricVersion: string | null;
   readonly scoringHash: string;
   readonly basedOn: StationFingerprint;
-  isFor(stationId: string): boolean;
+  isFor(stationId: StationId): boolean;
 }
 
 interface State {
@@ -70,6 +73,7 @@ interface State {
   readonly station: ReplayedStation;
   readonly setId: ReplaySetId;
   readonly candidateId: CandidateId;
+  readonly liveCandidate: boolean;
   readonly baseline: boolean;
   readonly judges: boolean;
   readonly checked: boolean;
@@ -93,6 +97,11 @@ interface State {
 }
 
 const STOPPED_BEFORE_JUDGING = 'stopped-before-judging';
+
+const ENDED_EARLY = [
+  'stopped',
+  'ceiling-reached',
+] as const satisfies readonly ReplayState[];
 
 export const PAIRING_STATE = 'finished' satisfies ReplayState;
 
@@ -128,7 +137,7 @@ export interface WantedBaseline {
 
 export interface OracleTerms {
   readonly answers: readonly OracleAnswered[];
-  readonly against: Replay;
+  readonly against: OracleReference;
   readonly live: ReplayedCandidate;
 }
 
@@ -142,7 +151,7 @@ export class Replay extends EventRecorder {
 
   static start(input: {
     id: ReplayId;
-    set: ReplaySet;
+    set: SetSnapshot;
     candidate: ReplayedCandidate;
     baseline: boolean;
     ceiling: Money;
@@ -260,6 +269,7 @@ export class Replay extends EventRecorder {
       station: set.station,
       setId: set.id,
       candidateId: input.candidate.id,
+      liveCandidate: input.candidate.isLive,
       baseline: input.baseline,
       judges: input.candidate.judges,
       checked: input.candidate.checksChanges,
@@ -329,7 +339,7 @@ export class Replay extends EventRecorder {
   private static comparesOracles(
     { against, live }: OracleTerms,
     oracle: {
-      set: ReplaySet;
+      set: SetSnapshot;
       id: ReplayId;
       candidate: ReplayedCandidate;
       ceiling: Money;
@@ -347,13 +357,31 @@ export class Replay extends EventRecorder {
       against.ceiling.equals(oracle.ceiling) &&
       against.setId.equals(set.id) &&
       !against.id.equals(id) &&
-      against.runSubset === null &&
-      (against.searchId === null || against.calibration) &&
-      against.current === 'finished'
+      against.wholeSetOutsideSearch &&
+      against.finished
     );
   }
 
   static rehydrate(state: State): Replay {
+    const ended = !DISPATCHING_REPLAY_STATES.includes(state.state);
+    const consistent =
+      state.entries.length > 0 &&
+      isValidRepeatCount(state.repeats) &&
+      ended === (state.endedAt !== null) &&
+      (state.stoppedAt === null || state.endedAt !== null) &&
+      (state.answers === null) === (state.referenceReplayId === null) &&
+      (state.answers === null || state.runSubset !== null) &&
+      (!state.baseline || state.runSubset === null) &&
+      (!(state.baseline || state.calibration) || state.liveCandidate) &&
+      !(state.liveCandidate && state.answers !== null);
+
+    if (!consistent) {
+      throw new InconsistentStateError(
+        'replay',
+        'breaks a rule of how a replay starts or ends',
+      );
+    }
+
     return new Replay(state);
   }
 
@@ -383,6 +411,54 @@ export class Replay extends EventRecorder {
 
   get baseline(): boolean {
     return this.state.baseline;
+  }
+
+  get liveCandidate(): boolean {
+    return this.state.liveCandidate;
+  }
+
+  get servesAsBaseline(): boolean {
+    return (
+      this.state.baseline &&
+      (VALID_BASELINE_STATES as readonly ReplayState[]).includes(
+        this.state.state,
+      )
+    );
+  }
+
+  get isHealthSample(): boolean {
+    const outsideSearch =
+      this.state.searchId === null || this.state.calibration;
+
+    return (
+      outsideSearch &&
+      (this.isOracle ||
+        (this.state.liveCandidate &&
+          this.state.state === 'finished' &&
+          this.state.runSubset === null))
+    );
+  }
+
+  get asPairingReference(): PairingReference {
+    return PairingReference.of({
+      id: this.state.id,
+      rubricVersion: this.state.rubricVersion,
+      scoring: this.scoring,
+      entries: this.state.entries,
+    });
+  }
+
+  get asOracleReference(): OracleReference {
+    return OracleReference.of({
+      id: this.state.id,
+      setId: this.state.setId,
+      candidateId: this.state.candidateId,
+      scoringHash: this.state.scoringHash,
+      repeats: this.state.repeats,
+      ceiling: this.state.ceiling,
+      wholeSetOutsideSearch: this.isOracleReference,
+      finished: this.state.state === 'finished',
+    });
   }
 
   get judges(): boolean {
@@ -430,23 +506,8 @@ export class Replay extends EventRecorder {
     );
   }
 
-  private referenceEntryOf(
-    reference: Replay,
-    entry: ReplayEntry,
-  ): ReplayEntry | null {
-    const repeats = reference.entries.filter((each) =>
-      each.original.equals(entry.original),
-    );
-
-    return (
-      repeats.find((each) => each.repeat === entry.repeat) ??
-      repeats.find((each) => each.repeat === 1) ??
-      null
-    );
-  }
-
   pairAgainst(
-    reference: Replay,
+    reference: PairingReference,
     accepted: (original: RunId) => boolean,
   ): Replay {
     if (
@@ -468,7 +529,7 @@ export class Replay extends EventRecorder {
     const wanted: { run: RunId; other: RunId; original: RunId }[] = [];
     const ceilingReached: ReplayEntry[] = [];
     const entries = this.state.entries.map((entry) => {
-      const theirs = this.referenceEntryOf(reference, entry);
+      const theirs = reference.entryMatching(entry);
       const run = entry.run;
       const other = theirs?.run;
 
@@ -499,7 +560,7 @@ export class Replay extends EventRecorder {
     const resulting =
       outstanding.length === 0 && wanted.length === 0
         ? entries.map((entry) => {
-            const other = this.referenceEntryOf(reference, entry)?.run;
+            const other = reference.entryMatching(entry)?.run;
 
             return other && ceilingReached.includes(entry)
               ? entry.pairingLeft(other, CEILING_REACHED)
@@ -579,6 +640,17 @@ export class Replay extends EventRecorder {
 
   get calibration(): boolean {
     return this.state.calibration;
+  }
+
+  get isOracleReference(): boolean {
+    return (
+      this.state.runSubset === null &&
+      (this.state.searchId === null || this.state.calibration)
+    );
+  }
+
+  get endedEarly(): boolean {
+    return (ENDED_EARLY as readonly ReplayState[]).includes(this.state.state);
   }
 
   get isOracle(): boolean {
@@ -749,7 +821,7 @@ export class Replay extends EventRecorder {
             ModelSpent.of(each.measures?.cost ? [each.measures.cost] : [], 0),
           ),
         ),
-      ModelSpent.of([], 0),
+      ModelSpent.none(),
     );
   }
 
@@ -762,9 +834,7 @@ export class Replay extends EventRecorder {
   }
 
   get unconfirmed(): readonly ReplayEntry[] {
-    return this.state.entries.filter(
-      (each) => each.occupiesARunner && !each.queued,
-    );
+    return this.state.entries.filter((each) => each.isUnconfirmed);
   }
 
   get isDispatching(): boolean {
@@ -785,22 +855,27 @@ export class Replay extends EventRecorder {
     return this.state.entries.some((each) => each.ranAs(run));
   }
 
-  reserving(room: number, runIds: () => RunId): Replay {
-    if (!this.isDispatching || room <= 0) {
+  get dispatchPool(): string {
+    return this.state.searchId
+      ? `search:${this.state.searchId.value}`
+      : `team:${this.state.station.teamId.value}`;
+  }
+
+  reserving(slots: readonly number[], runIds: () => RunId): Replay {
+    if (!this.isDispatching || slots.length === 0) {
       return this;
     }
 
-    let left = room;
+    const free = [...slots];
     const entries = this.state.entries.map((each) => {
-      if (left === 0 || !each.isWaiting) {
-        return each;
-      }
+      const slot = each.isWaiting ? free.shift() : undefined;
 
-      left -= 1;
-      return each.reserved(runIds());
+      return slot === undefined ? each : each.reserved(runIds(), slot);
     });
 
-    return left === room ? this : this.with({ entries, state: 'running' });
+    return free.length === slots.length
+      ? this
+      : this.with({ entries, state: 'running' });
   }
 
   confirm(

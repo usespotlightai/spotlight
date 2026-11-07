@@ -1,3 +1,7 @@
+import {
+  SEARCH_OBJECTIVES,
+  type SearchObjectiveView,
+} from '@lines/application/contracts/line-view.contract';
 import type {
   AgentProblem,
   CancelledRun,
@@ -19,21 +23,26 @@ import type {
 } from '@replays/application/ports/work.port';
 import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
-import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import type { SearchObjective } from '@replays/domain/value-objects/search-objective';
 import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
+import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
+import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { UnreplayableReasonCode } from '@work/application/contracts/unreplayable-reason.contract';
 import type {
   ReplayCandidatesPort,
   ReplayStation,
@@ -51,12 +60,23 @@ import type { SearchDispatchPort } from '@work/application/ports/search-dispatch
 import type { SearchRunsPort } from '@work/application/ports/search-runs.port';
 import type { StartingPointHoldsPort } from '@work/application/ports/starting-point-holds.port';
 
+const OBJECTIVE: Readonly<Record<SearchObjectiveView, SearchObjective>> = {
+  success: 'success',
+  cost: 'cost',
+};
+
+const objectiveOf = (written: string | null): SearchObjective | null => {
+  const published = SEARCH_OBJECTIVES.find((each) => each === written);
+
+  return published ? OBJECTIVE[published] : null;
+};
+
 const stationOf = (station: ReplayStation): StationView => ({
   workspaceId: WorkspaceId.of(station.workspaceId),
   teamId: TeamId.of(station.teamId),
-  lineId: station.lineId,
+  lineId: LineId.of(station.lineId),
   lineKey: station.lineKey,
-  stationId: station.stationId,
+  stationId: StationId.of(station.stationId),
   key: station.key,
   name: station.name,
   source: station.source
@@ -67,11 +87,33 @@ const stationOf = (station: ReplayStation): StationView => ({
     : null,
 });
 
+const UNREPLAYABLE: Record<UnreplayableReasonCode, UnreplayableReason> = {
+  'unknown-run': 'unknown-run',
+  'not-a-task-run': 'not-a-task-run',
+  'task-gone': 'task-gone',
+  'still-running': 'still-running',
+  'no-starting-point': 'no-starting-point',
+  'no-briefing': 'no-briefing',
+  'archive-gone': 'archive-gone',
+  'attachments-gone': 'attachments-gone',
+  'answer-gone': 'answer-gone',
+  'repository-gone': 'repository-gone',
+  'not-at-the-station': 'not-at-the-station',
+  'candidate-unfit': 'candidate-unfit',
+  'cannot-start': 'cannot-start',
+  unchecked: 'unchecked',
+  cancelled: 'cancelled',
+};
+
+const unreplayableOf = (code: UnreplayableReasonCode): UnreplayableReason =>
+  UNREPLAYABLE[code] ?? 'cannot-start';
+
 const replayabilityOf = (each: Replayability): RunReplayability => ({
   runId: RunId.of(each.runId),
   taskId: each.taskId ? TaskId.of(each.taskId) : null,
-  stationId: each.stationId,
-  unreplayableReason: each.unreplayableReason,
+  stationId: each.stationId === null ? null : StationId.of(each.stationId),
+  unreplayableReason:
+    each.unreplayableReason && unreplayableOf(each.unreplayableReason),
   reason: each.reason,
 });
 
@@ -98,22 +140,25 @@ export class Work implements WorkPort {
   ) {}
 
   async station(
-    lineId: string,
-    stationId: string,
+    lineId: LineId,
+    stationId: StationId,
   ): Promise<StationView | null> {
-    const station = await this.candidates.station(lineId, stationId);
+    const station = await this.candidates.station(
+      lineId.value,
+      stationId.value,
+    );
 
     return station ? stationOf(station) : null;
   }
 
-  async findStation(stationId: string): Promise<StationView | null> {
-    const station = await this.candidates.findStation(stationId);
+  async findStation(stationId: StationId): Promise<StationView | null> {
+    const station = await this.candidates.findStation(stationId.value);
 
     return station ? stationOf(station) : null;
   }
 
-  async keyed(lineId: string, key: string): Promise<StationView | null> {
-    const station = await this.candidates.keyed(lineId, key);
+  async keyed(lineId: LineId, key: string): Promise<StationView | null> {
+    const station = await this.candidates.keyed(lineId.value, key);
 
     return station ? stationOf(station) : null;
   }
@@ -142,29 +187,29 @@ export class Work implements WorkPort {
 
   async recentAt(
     workspaceId: WorkspaceId,
-    stationId: string,
+    stationId: StationId,
     max: number,
   ): Promise<readonly PickableRun[]> {
-    return (await this.runs.recentAt(workspaceId.value, stationId, max)).map(
-      (each) => ({
-        ...replayabilityOf(each),
-        title: each.title,
-        state: each.state,
-        endedAt: each.endedAt,
-        origin: each.origin,
-      }),
-    );
+    return (
+      await this.runs.recentAt(workspaceId.value, stationId.value, max)
+    ).map((each) => ({
+      ...replayabilityOf(each),
+      title: each.title,
+      state: each.state,
+      endedAt: each.endedAt,
+      origin: each.origin,
+    }));
   }
 
   async validate(
-    lineId: string,
-    stationId: string,
+    lineId: LineId,
+    stationId: StationId,
     block: unknown,
     line: PlannedLine | null = null,
   ): Promise<ValidatedCandidate | null> {
     const validated = await this.candidates.validate(
-      lineId,
-      stationId,
+      lineId.value,
+      stationId.value,
       block,
       line ? line.repositories : undefined,
     );
@@ -189,8 +234,8 @@ export class Work implements WorkPort {
       : validated;
   }
 
-  async live(lineId: string, stationId: string): Promise<LiveConfig | null> {
-    const live = await this.candidates.live(lineId, stationId);
+  async live(lineId: LineId, stationId: StationId): Promise<LiveConfig | null> {
+    const live = await this.candidates.live(lineId.value, stationId.value);
 
     return live
       ? {
@@ -200,7 +245,12 @@ export class Work implements WorkPort {
           scoring: scoringOf(live.scoring),
           hashes: StationHashes.of(live.hashes),
           threshold: live.replayCheck && ReplayThreshold.of(live.replayCheck),
-          search: live.search && SearchPolicy.of(live.search),
+          search:
+            live.search &&
+            SearchPolicy.of({
+              ...live.search,
+              objective: objectiveOf(live.search.objective),
+            }),
           agent: live.agent && SearchAgent.of(live.agent),
         }
       : null;
@@ -224,8 +274,8 @@ export class Work implements WorkPort {
       id: order.run.value,
       original: order.original.value,
       workspaceId: order.workspaceId.value,
-      lineId: order.lineId,
-      stationId: order.stationId,
+      lineId: order.lineId.value,
+      stationId: order.stationId.value,
       station: order.block.value,
       ...(order.line ? { repositories: order.line.repositories } : {}),
       answer: order.answer && ANSWERS[order.answer],
@@ -240,7 +290,7 @@ export class Work implements WorkPort {
         }
       : {
           queued: false,
-          unreplayableReason: dispatched.unreplayableReason,
+          unreplayableReason: unreplayableOf(dispatched.unreplayableReason),
         };
   }
 
@@ -274,8 +324,8 @@ export class Work implements WorkPort {
       id: order.run.value,
       searchId: order.searchId.value,
       iteration: order.iteration,
-      lineId: order.lineId,
-      stationId: order.stationId,
+      lineId: order.lineId.value,
+      stationId: order.stationId.value,
       agent: {
         harness: order.agent.harness,
         model: order.agent.model,
@@ -316,7 +366,14 @@ export class Work implements WorkPort {
     }
 
     return (await this.searchRuns.statuses(runs.map((each) => each.value))).map(
-      ({ runId, ...status }) => ({ ...status, run: RunId.of(runId) }),
+      (status) => ({
+        run: RunId.of(status.runId),
+        phase: status.phase,
+        failed: status.failed,
+        started: status.started,
+        queuedAt: status.queuedAt,
+        endedAt: status.endedAt,
+      }),
     );
   }
 

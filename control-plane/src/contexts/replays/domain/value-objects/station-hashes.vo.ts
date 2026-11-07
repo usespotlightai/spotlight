@@ -19,4 +19,8 @@ export class StationHashes {
   runsAs(other: StationHashes): boolean {
     return this.behaviour === other.behaviour;
   }
+
+  scoresAs(other: StationHashes): boolean {
+    return this.scoring === other.scoring;
+  }
 }

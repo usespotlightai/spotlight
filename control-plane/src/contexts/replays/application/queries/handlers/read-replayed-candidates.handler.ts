@@ -1,12 +1,11 @@
 import type { ReplayedCandidatesDto } from '@replays/application/dto/replayed-candidates.dto';
+import type { ReplaysReaderPort } from '@replays/application/ports/replays-reader.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
-import { replayedCandidatesView } from '@replays/application/services/replayed-candidate-views';
+import { replayedCandidatesView } from '@replays/application/queries/views/replayed-candidate-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
-import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-estimate';
@@ -31,11 +30,10 @@ export class ReadReplayedCandidatesHandler
 {
   constructor(
     private readonly access: ReplaysAccess,
-    private readonly replays: ReplayRepository,
+    private readonly reader: ReplaysReaderPort,
     private readonly searches: SearchRepository,
     private readonly sets: ReplaySetRepository,
     private readonly candidates: CandidateRepository,
-    private readonly pullRequests: ConfigPullRequestRepository,
     private readonly work: WorkPort,
     private readonly clock: ClockPort,
     private readonly healths: SetHealths,
@@ -47,7 +45,7 @@ export class ReadReplayedCandidatesHandler
     try {
       const access = await this.access.forTeam(query.teamId, query.principal);
       const period = ReplayedPeriod.of(query.period, this.clock.now());
-      const found = await this.replays.ofTeamStartedSince(
+      const found = await this.reader.startedOfTeamSince(
         access.teamId,
         period.from,
         MAX_REPLAYED + 1,
@@ -67,7 +65,7 @@ export class ReadReplayedCandidatesHandler
             ),
           ).map((each) => SearchId.of(each)),
         ),
-        this.searches.ofSetsStartedSince(setIds, period.from),
+        this.reader.searchesOfSetsStartedSince(setIds, period.from),
       ]);
       const searches = [
         ...new Map(
@@ -78,9 +76,11 @@ export class ReadReplayedCandidatesHandler
       ];
       const seen = sets.filter((each) => access.sees(each.station));
       const [searchReplays, baselines, pullRequests] = await Promise.all([
-        this.replays.ofSearches(searches.map((each) => each.id)),
-        this.replays.baselinesOfSets(seen.map((each) => each.id)),
-        this.pullRequests.ofSearches(searches.map((each) => each.id)),
+        this.reader.ofSearches(searches.map((each) => each.id)),
+        this.reader.baselinesOfSets(seen.map((each) => each.id)),
+        this.reader.configPullRequestsOfSearches(
+          searches.map((each) => each.id),
+        ),
       ]);
       const [candidates, summaries] = await Promise.all([
         this.candidates.findMany(
@@ -108,7 +108,8 @@ export class ReadReplayedCandidatesHandler
           {
             health: healths.get(set.id.value) ?? UNREAD_HEALTH,
             minGain:
-              live.get(set.station.stationId)?.minGain ?? DEFAULT_MIN_GAIN,
+              live.get(set.station.stationId.value)?.minGain ??
+              DEFAULT_MIN_GAIN,
           },
         ]),
       );

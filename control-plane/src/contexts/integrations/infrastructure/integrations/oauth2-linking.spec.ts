@@ -2,9 +2,10 @@ import { createHash } from 'node:crypto';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
-import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
+import type { OAuth2Client } from '@integrations/application/ports/oauth2-clients.port';
 import type { OAuth2LinkInput } from '@integrations/application/ports/oauth2-linking.port';
 import type { OAuth2NoncesPort } from '@integrations/application/ports/oauth2-nonces.port';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -75,15 +76,14 @@ const linking = (
     over.clients ?? '{"slack":{"id":"c-1","secret":"s-1"}}',
   );
   const allowedWhileRegistering: boolean[] = [];
-  const clients: OAuth2ClientsPort = {
-    ...configured,
-    clientFor: async (...args) => {
-      allowedWhileRegistering.push(
-        OutboundScope.allows('slack.com'),
-        OutboundScope.allows('elsewhere.example'),
-      );
-      return configured.clientFor(...args);
-    },
+  const discovery = discoveringNothing();
+  const discovering = discovery.endpoints.bind(discovery);
+  discovery.endpoints = async (oauth2) => {
+    allowedWhileRegistering.push(
+      OutboundScope.allows('slack.com'),
+      OutboundScope.allows('elsewhere.example'),
+    );
+    return discovering(oauth2);
   };
   const exchanged = 'exchanged' in over ? over.exchanged : TOKENS;
   const allowedWhileExchanging: boolean[] = [];
@@ -105,11 +105,11 @@ const linking = (
     },
   };
 
-  const it = new OAuth2Linking(
+  const linked = new OAuth2Linking(
     { ofTeam: async () => config() } as unknown as DefinedIntegrationsPort,
     new IntegrationReader(expressions, operationsContaining()),
-    discoveringNothing(),
-    clients,
+    discovery,
+    configured,
     { exchange } as unknown as OAuth2Exchange,
     {
       find: async () =>
@@ -130,6 +130,22 @@ const linking = (
     `${BASE}/api/integrations/oauth/callback`,
     over.hosts ?? unscoped,
   );
+
+  const registered = (integration: string): Promise<OAuth2Client | null> =>
+    configured.existingFor(TEAM, IntegrationKey.of(integration), null);
+  const it = {
+    authorized: linked.authorized.bind(linked),
+    landingFor: linked.landingFor.bind(linked),
+    begin: async (input: OAuth2LinkInput) => {
+      const registration = await linked.registrationFor(
+        TeamId.of(input.teamId),
+        IntegrationKey.of(input.integration),
+      );
+      const client = registration ? await registered(input.integration) : null;
+
+      return client ? linked.begin(input, client) : null;
+    },
+  };
 
   return { it, exchange, allowedWhileExchanging, allowedWhileRegistering };
 };
@@ -230,13 +246,16 @@ describe('OAuth2Linking', () => {
     expect(allowedWhileExchanging).toEqual([true, false]);
   });
 
-  it('begins, discovering and registering the app, within the outbound scope of the team’s workspace', async () => {
+  it('reads how to register the app within the outbound scope of the team’s workspace', async () => {
     const { it, allowedWhileRegistering } = linking({
       hosts: scopedTo('slack.com'),
     });
 
     expect(await it.begin(linkInput())).not.toBeNull();
-    expect(allowedWhileRegistering).toEqual([true, false]);
+    expect(new Set(allowedWhileRegistering)).toEqual(new Set([true, false]));
+    expect(allowedWhileRegistering).toEqual(
+      allowedWhileRegistering.map((_, at) => at % 2 === 0),
+    );
   });
 
   it('calls nothing for a team it cannot find', async () => {
@@ -389,7 +408,10 @@ describe('OAuth2Linking', () => {
     );
 
     const plain = new URL((await it.begin(linkInput()))?.url ?? '');
-    const named = new URL((await withResource.begin(linkInput()))?.url ?? '');
+    const named = new URL(
+      (await withResource.begin(linkInput(), { id: 'c-1', secret: 's-1' }))
+        ?.url ?? '',
+    );
 
     expect(plain.searchParams.has('resource')).toBe(false);
     expect(named.searchParams.get('resource')).toBe('https://mcp.slack.com/');

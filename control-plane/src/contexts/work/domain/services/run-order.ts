@@ -1,6 +1,7 @@
+import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import {
   type EnabledForRun,
@@ -12,16 +13,14 @@ import {
   type TaskCheckout,
 } from '@work/domain/services/task-checkouts';
 import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
-import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import type { Harness } from '@work/domain/value-objects/harness.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
 import type { Resume } from '@work/domain/value-objects/resume.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
-import type { StationCheck } from '@work/domain/value-objects/station-check.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
 export interface RunOrder {
   readonly harness: Harness;
@@ -36,7 +35,7 @@ export interface RunOrder {
   readonly checkouts: readonly TaskCheckout[];
   readonly enabled: EnabledForRun;
   readonly diffs: boolean;
-  readonly check: StationCheck | null;
+  readonly check: string | null;
   readonly refusal: RunOutcome | null;
 }
 
@@ -47,7 +46,7 @@ export interface OrderedAt {
 }
 
 interface Ordering {
-  line: Line;
+  line: LineMap;
   harnesses: HarnessCatalog;
   ready: readonly ReadySkill[];
   profiles: readonly ReadyProfile[];
@@ -95,7 +94,7 @@ export const orderAt = ({
   };
 };
 
-export const taskOrderedAt = (task: Task, line: Line): OrderedAt => ({
+export const taskOrderedAt = (task: Task, line: LineMap): OrderedAt => ({
   stationId: task.stationId,
   resume: task.resume(),
   checkouts: checkoutsOf(task, line),

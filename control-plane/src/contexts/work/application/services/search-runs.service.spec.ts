@@ -1,6 +1,7 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -12,7 +13,6 @@ import type { RunState } from '@work/domain/value-objects/run-state';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { SearchId } from '@work/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -29,7 +29,7 @@ const queued = (subject: RunSubject, search: boolean) =>
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Search.',
       handover: { options: [], noteLimit: 0 },
-      resume: { key: 'search-run_9' },
+      resume: { key: search ? 'search-run_9' : 'task-task_1' },
       ...(search ? { search: {} } : {}),
     }),
   });

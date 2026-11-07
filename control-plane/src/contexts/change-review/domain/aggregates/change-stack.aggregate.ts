@@ -1,7 +1,6 @@
+import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
+import { ChangeStackBecameReady } from '@change-review/domain/events/change-stack-became-ready.event';
 import { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
-import { ChangeStackFailed } from '@change-review/domain/events/change-stack-failed.event';
-import { ChangeStackGenerationStarted } from '@change-review/domain/events/change-stack-generation-started.event';
-import { ChangeStackReady } from '@change-review/domain/events/change-stack-ready.event';
 import { ChangeStackRedrafted } from '@change-review/domain/events/change-stack-redrafted.event';
 import { ChangeStackRedraftingEnded } from '@change-review/domain/events/change-stack-redrafting-ended.event';
 import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
@@ -10,13 +9,19 @@ import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-sta
 import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
+import { placedHunks } from '@change-review/domain/services/diff-facts';
+import { DraftedStack } from '@change-review/domain/services/drafted-stack';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
+import {
+  type RedraftRequest,
+  redraftRequestOf,
+} from '@change-review/domain/services/redraft-request';
 import { actsOutsideSpotlight } from '@change-review/domain/services/replay-isolation';
 import { changeLayerCount } from '@change-review/domain/services/stack-checks';
 import { StackProposal } from '@change-review/domain/services/stack-proposal';
-import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
@@ -24,6 +29,7 @@ import type {
   CheckStep,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import type {
+  DraftedCohort,
   LayerQuestion,
   ProposedCohort,
   StackCohort,
@@ -35,7 +41,7 @@ import type {
 } from '@change-review/domain/value-objects/stack-ids';
 import {
   type ChangeStackState,
-  INTERRUPTED,
+  type StackFailure,
   StackProgress,
 } from '@change-review/domain/value-objects/stack-progress.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -55,11 +61,17 @@ export interface CitedHunk {
   readonly patch: string;
 }
 
-const NOT_GENERATED = 'Spotlight couldn’t generate the change stack.';
+const baseOf = (raw: string): CommitSha => {
+  const sha = CommitSha.parsed(raw);
 
-const TOO_LARGE = 'The change is too large for one change stack.';
+  if (!sha) {
+    throw InvalidChangeStackError.because(
+      'base must be a full 40-character commit hash',
+    );
+  }
 
-const BROKE_RULES = 'The generated stack did not assign every hunk in order.';
+  return sha;
+};
 
 const assignedHunks = (cohorts: readonly StackCohort[]): string[] =>
   cohorts.flatMap((cohort) =>
@@ -77,10 +89,6 @@ const assertComplete = (
 
   if (progress.state === 'generating' && cohorts.length > 0) {
     wrong('is still generating, yet already has cohorts');
-  }
-
-  if (progress.state === 'failed' && !progress.failure) {
-    wrong('failed without saying why');
   }
 
   if (progress.state !== 'ready') {
@@ -140,7 +148,7 @@ export class ChangeStack
     readonly replay: boolean,
     readonly workspaceId: WorkspaceId,
     readonly repository: RepositoryName | null,
-    readonly base: BaseCommit | null,
+    readonly base: CommitSha | null,
     readonly diff: Diff,
     readonly facts: StackFacts,
     readonly cohorts: readonly StackCohort[],
@@ -174,14 +182,14 @@ export class ChangeStack
 
     assertOneOwner(input);
 
-    const stack = new ChangeStack(
+    return new ChangeStack(
       input.id,
       input.runId,
       input.taskId,
       input.replay,
       input.workspaceId,
       input.repository?.trim() ? RepositoryName.of(input.repository) : null,
-      input.base?.trim() ? BaseCommit.of(input.base) : null,
+      input.base?.trim() ? baseOf(input.base) : null,
       input.diff,
       input.facts,
       [],
@@ -192,10 +200,6 @@ export class ChangeStack
       ModelUsage.none(),
       0,
     );
-
-    stack.record(new ChangeStackGenerationStarted(stack.id, stack.runId));
-
-    return stack;
   }
 
   static rehydrate(input: {
@@ -205,7 +209,7 @@ export class ChangeStack
     replay: boolean;
     workspaceId: WorkspaceId;
     repository: RepositoryName | null;
-    base: BaseCommit | null;
+    base: CommitSha | null;
     diff: Diff;
     facts: StackFacts;
     cohorts: readonly StackCohort[];
@@ -243,7 +247,7 @@ export class ChangeStack
     return this.progress.state;
   }
 
-  get failure(): string | null {
+  get failure(): StackFailure | null {
     return this.progress.failure;
   }
 
@@ -255,8 +259,8 @@ export class ChangeStack
     return this.progress.completedAt;
   }
 
-  get postsToGitHub(): boolean {
-    return actsOutsideSpotlight(this);
+  get needsModel(): boolean {
+    return placedHunks(this.facts).length > 0;
   }
 
   get hasPendingJob(): boolean {
@@ -348,7 +352,7 @@ export class ChangeStack
   }
 
   deadLetter(now: Date): ChangeStack {
-    return this.stopWith(NOT_GENERATED, now);
+    return this.stopWith('not-generated', now);
   }
 
   renewJobLease(now: Date): ChangeStack {
@@ -366,21 +370,29 @@ export class ChangeStack
     now: Date,
   ): ChangeStack {
     return failure.truncated
-      ? this.stopWith(TOO_LARGE, now)
+      ? this.stopWith('too-large', now)
       : this.scheduleRetry(now);
   }
 
   stopForBrokenRules(now: Date): ChangeStack {
-    return this.stopWith(BROKE_RULES, now);
+    return this.stopWith('broke-rules', now);
   }
 
-  private stopWith(failure: string, now: Date): ChangeStack {
+  redraftFor(check: StackCheck | null): RedraftRequest | null {
+    return this.redrafting && check ? redraftRequestOf(this, check) : null;
+  }
+
+  private stopWith(failure: StackFailure, now: Date): ChangeStack {
     return this.state === 'generating'
       ? this.fail(failure, now)
       : this.stopRedrafting();
   }
 
-  redrafted(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {
+  redrafted(
+    cohorts: readonly DraftedCohort[],
+    now: Date,
+    modelProposal?: readonly DraftedCohort[],
+  ): ChangeStack {
     if (!this.redrafting) {
       throw InvalidChangeStackError.because('is not being redrafted');
     }
@@ -388,7 +400,8 @@ export class ChangeStack
     const ready = StackProposal.accepted({
       diff: this.diff,
       facts: this.facts,
-      cohorts: arranged(this.diff, this.facts, cohorts),
+      cohorts: this.arranged(cohorts),
+      modelProposal: modelProposal && this.arranged(modelProposal),
       changeLayersAtLeast: changeLayerCount(this.cohorts),
     });
 
@@ -414,13 +427,18 @@ export class ChangeStack
     return ended;
   }
 
-  propose(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {
+  propose(
+    cohorts: readonly DraftedCohort[],
+    now: Date,
+    modelProposal?: readonly DraftedCohort[],
+  ): ChangeStack {
     this.assertGenerating();
 
     const ready = StackProposal.accepted({
       diff: this.diff,
       facts: this.facts,
-      cohorts: arranged(this.diff, this.facts, cohorts),
+      cohorts: this.arranged(cohorts),
+      modelProposal: modelProposal && this.arranged(modelProposal),
     });
 
     const completed = this.with({
@@ -437,6 +455,10 @@ export class ChangeStack
     return completed;
   }
 
+  private arranged(cohorts: readonly DraftedCohort[]): ProposedCohort[] {
+    return arranged(this.diff, this.facts, DraftedStack.cohorts(cohorts));
+  }
+
   private recordReplayCompleted(): void {
     if (this.replay) {
       this.record(
@@ -451,7 +473,7 @@ export class ChangeStack
     }
 
     this.record(
-      new ChangeStackReady(
+      new ChangeStackBecameReady(
         this.id,
         this.runId,
         this.taskId,
@@ -466,17 +488,14 @@ export class ChangeStack
     );
   }
 
-  fail(reason: string, now: Date): ChangeStack {
+  private fail(failure: StackFailure, now: Date): ChangeStack {
     this.assertGenerating();
-
-    const failure = reason.trim() || INTERRUPTED;
 
     const failed = this.with({
       progress: this.progress.complete('failed', now, { failure }),
       job: PendingJob.fresh(),
     });
 
-    failed.record(new ChangeStackFailed(this.id, this.runId, failure));
     failed.recordReplayCompleted();
 
     return failed;

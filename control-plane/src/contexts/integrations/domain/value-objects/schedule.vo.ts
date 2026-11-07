@@ -1,3 +1,4 @@
+import type { CronCalendar } from '@integrations/domain/services/cron-calendar';
 import type { CronExpression } from '@integrations/domain/value-objects/cron-expression.vo';
 
 export type ScheduleTurn = 'starts' | 'due' | 'waits';
@@ -12,12 +13,16 @@ export class Schedule {
     return new Schedule(input.cron, input.action);
   }
 
-  turn(lastRan: Date | null, now: Date): ScheduleTurn {
+  equals(other: Schedule): boolean {
+    return this.cron.equals(other.cron) && this.action === other.action;
+  }
+
+  turn(lastRan: Date | null, now: Date, calendar: CronCalendar): ScheduleTurn {
     if (lastRan === null) {
       return 'starts';
     }
 
-    return this.cron.nextAfter(lastRan).getTime() <= now.getTime()
+    return this.cron.nextAfter(lastRan, calendar).getTime() <= now.getTime()
       ? 'due'
       : 'waits';
   }

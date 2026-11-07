@@ -15,6 +15,7 @@ import {
   ApiQuery,
   ApiResponse,
 } from '@nestjs/swagger';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import type { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 import { resourceListOf } from '@platform/http/dto/resource-list.response.dto';
 import {
@@ -106,7 +107,11 @@ export const resourceApi = (resource: ResourceKind) => {
   );
 
   return {
-    Controller: () => ConventionalApiController(RESOURCES, resource.tag),
+    Controller: () =>
+      applyDecorators(
+        ConventionalApiController(RESOURCES, resource.tag),
+        InAudience('resources'),
+      ),
 
     Create: (path: string, summary: string) =>
       applyDecorators(

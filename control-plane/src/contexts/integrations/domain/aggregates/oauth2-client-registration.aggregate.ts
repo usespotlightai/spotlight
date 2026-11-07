@@ -15,6 +15,7 @@ interface State {
   readonly clientId: string;
   readonly clientSecret: AccessToken | null;
   readonly secretExpiresAt: Date | null;
+  readonly registeredAt: Date;
   readonly version: number;
 }
 
@@ -79,6 +80,10 @@ export class OAuth2ClientRegistration {
 
   get secretExpiresAt(): Date | null {
     return this.state.secretExpiresAt;
+  }
+
+  get registeredAt(): Date {
+    return this.state.registeredAt;
   }
 
   get version(): number {

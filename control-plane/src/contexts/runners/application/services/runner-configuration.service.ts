@@ -22,7 +22,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export class RunnerConfiguration implements RunnerConfigurationPort {
   constructor(
     private readonly trusts: RunnerTrustRepository,
-    private readonly declarations: WorkspaceRunnersRepository,
+    private readonly workspaceRunners: WorkspaceRunnersRepository,
     private readonly workspaces: WorkspaceReaderPort,
     private readonly pools: RunnerPoolRepository,
     private readonly egresses: EgressRepository,
@@ -31,7 +31,7 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
   async in(workspaceId: WorkspaceId): Promise<RunnersView> {
     const [trusts, declared, pools, egresses] = await Promise.all([
       this.trusts.inWorkspace(workspaceId),
-      this.declarations.declaredIn(workspaceId),
+      this.workspaceRunners.ofWorkspace(workspaceId),
       this.pools.inWorkspace(workspaceId),
       this.egresses.inWorkspace(workspaceId),
     ]);
@@ -62,8 +62,12 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
     return egress ? RunnerResourceMapper.configuredEgress(egress) : null;
   }
 
-  async declaredWithId(id: string): Promise<WorkspaceRunnersView | null> {
-    const declared = await this.declarations.find(WorkspaceRunnersId.of(id));
+  async workspaceRunnersWithId(
+    id: string,
+  ): Promise<WorkspaceRunnersView | null> {
+    const declared = await this.workspaceRunners.find(
+      WorkspaceRunnersId.of(id),
+    );
 
     return declared ? this.declaration(declared) : null;
   }
@@ -74,7 +78,7 @@ export class RunnerConfiguration implements RunnerConfigurationPort {
     const slug = await this.workspaces.slugOf(declared.workspaceId.value);
 
     return slug
-      ? RunnerResourceMapper.configuredDeclaration(declared, slug)
+      ? RunnerResourceMapper.configuredWorkspaceRunners(declared, slug)
       : null;
   }
 }

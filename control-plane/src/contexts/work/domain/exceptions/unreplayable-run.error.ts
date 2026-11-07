@@ -1,3 +1,5 @@
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
 const UNREPLAYABLE_REASONS = [
   'unknown-run',
   'not-a-task-run',
@@ -23,7 +25,7 @@ export const isUnreplayableReason = (
 ): value is UnreplayableReason =>
   (UNREPLAYABLE_REASONS as readonly string[]).includes(value);
 
-export class UnreplayableRunError extends Error {
+export class UnreplayableRunError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(

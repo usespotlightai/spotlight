@@ -1,17 +1,16 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
-import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
-import { LineDeleted } from '@work/domain/events/line-deleted.event';
-import { LineUpdated } from '@work/domain/events/line-updated.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import { ReplayRunUsageRecorded } from '@work/domain/events/replay-run-usage-recorded.event';
@@ -32,15 +31,11 @@ import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo'
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { SearchId } from '@work/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
@@ -64,46 +59,6 @@ const SUBJECT = RunSubject.task(
 );
 
 describe('WORK_EVENT_MAPPERS', () => {
-  it('publishes which stations an updated or deleted line had and has', () => {
-    const change = ConfigurationChange.updated(
-      { resource: 'line', id: 'line_1', key: 'default' },
-      changeActorIn(),
-    );
-    const stations = [StationId.of('station_1'), StationId.of('station_2')];
-    const lineChanged = {
-      kind: 'work.line-changed.v1',
-      lineId: 'line_1',
-      workspaceId: 'ws_1',
-      teamId: 'team_1',
-      stationIds: ['station_1', 'station_2'],
-    };
-
-    expect(
-      published(
-        new LineUpdated(
-          LineId.of('line_1'),
-          WORKSPACE,
-          TeamId.of('team_1'),
-          LineKey.of('default'),
-          change,
-          stations,
-        ),
-      ),
-    ).toEqual([lineChanged]);
-    expect(
-      published(
-        new LineDeleted(
-          LineId.of('line_1'),
-          WORKSPACE,
-          TeamId.of('team_1'),
-          LineKey.of('default'),
-          change,
-          stations,
-        ),
-      ),
-    ).toEqual([lineChanged]);
-  });
-
   it('publishes a task opening, on which team and line, by whom and when', () => {
     expect(
       published(

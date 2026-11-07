@@ -69,15 +69,6 @@ export interface StationRunRow {
   readonly endedAt: Date;
 }
 
-export interface StationAlertRowShape {
-  readonly measure: string;
-  readonly risesBy: number | null;
-  readonly above: number | null;
-  readonly fallsBy: number | null;
-  readonly below: number | null;
-  readonly over: number;
-}
-
 interface TracedStationRow {
   readonly stationId: string;
   readonly name: string;
@@ -109,8 +100,6 @@ export interface StationRunReaderPort {
   endedRun(runId: string): Promise<EndedRunRow | null>;
 
   unfinishedOfTeam(teamId: TeamId): Promise<readonly UnfinishedRunRow[]>;
-
-  alertsAt(stationId: string): Promise<readonly StationAlertRowShape[] | null>;
 
   configsNamed(fingerprints: readonly string[]): Promise<readonly RanConfig[]>;
 

@@ -30,8 +30,8 @@ export class ListIntegrationConnectionsHandler
     query: ListIntegrationConnectionsQuery,
   ): Promise<IntegrationConnectionsDto | null> {
     try {
-      const membership = await this.access.onTeam(
-        query.teamId,
+      const membership = await this.access.inWorkspaceOfTeam(
+        TeamId.of(query.teamId),
         UserId.of(query.viewerId),
       );
 

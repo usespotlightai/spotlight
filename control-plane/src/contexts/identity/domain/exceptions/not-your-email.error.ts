@@ -1,4 +1,6 @@
-export class NotYourEmailError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class NotYourEmailError extends DomainError {
   readonly kind = 'not-allowed' as const;
 
   constructor(email: string) {

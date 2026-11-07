@@ -1,4 +1,5 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
+import { InvalidAgentConfigFilterError } from '@insights/domain/exceptions/invalid-agent-config-filter.error';
+import type { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 
 export const RUN_SIZES = ['small', 'medium', 'large'] as const;
 
@@ -22,9 +23,23 @@ const within = (count: number, max: number | null): boolean =>
 export const runSizeOf = (raw: string): RunSize | null =>
   RUN_SIZES.find((each) => each === raw.trim()) ?? null;
 
-export const sizeOf = (record: RunRecord): RunSize | null => {
-  const usage = record.usage;
+export const requestedRunSizeOf = (raw: string | null): RunSize | null => {
+  if (raw === null) {
+    return null;
+  }
 
+  const size = runSizeOf(raw);
+
+  if (!size) {
+    throw new InvalidAgentConfigFilterError(
+      `size must be one of ${RUN_SIZES.join(', ')}, not ${raw}`,
+    );
+  }
+
+  return size;
+};
+
+export const sizeOf = (usage: RunUsage | null): RunSize | null => {
   if (!usage) {
     return null;
   }

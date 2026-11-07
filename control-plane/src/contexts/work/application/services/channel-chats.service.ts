@@ -7,7 +7,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { BindableChatEvent } from '@work/application/contracts/bindable-chat-events.contract';
+import type { ChatNoticeKind } from '@work/application/contracts/bindable-chat-events.contract';
 import type {
   ReceivedHappening,
   StartsChat,
@@ -17,12 +17,14 @@ import type {
   ChannelNoticesPort,
 } from '@work/application/ports/channel-notices.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
+import { EmptyChatMessageError } from '@work/domain/exceptions/empty-chat-message.error';
+import { MixedRunnerImagesError } from '@work/domain/exceptions/mixed-runner-images.error';
+import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
-import { chatPlacement } from '@work/domain/services/chat-placement';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatReply } from '@work/domain/value-objects/chat-reply.vo';
@@ -31,10 +33,7 @@ export interface ChannelAnswer {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
   readonly happened: ReceivedHappening;
-  readonly event: Extract<
-    BindableChatEvent,
-    'chat.refused' | 'chat.acknowledged'
-  >;
+  readonly event: Exclude<ChatNoticeKind, 'chat.replied'>;
   readonly body: string;
 }
 
@@ -43,7 +42,7 @@ type Reached = ReceivedHappening & { readonly chat: StartsChat };
 export class ChannelChats {
   constructor(
     private readonly chats: ChatRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly members: MemberDirectoryPort,
     private readonly workspaces: WorkspaceReaderPort,
     private readonly launch: HarnessLaunchPort,
@@ -69,7 +68,7 @@ export class ChannelChats {
       ? await this.members.byEmail(workspaceId, happened.chat.email)
       : null;
     const said = happened.anchor?.body.trim() ?? '';
-    const chat = await this.chats.findByMarks(
+    const chat = await this.chats.findByCorrelation(
       workspaceId,
       happened.correlationKeys,
     );
@@ -150,10 +149,28 @@ export class ChannelChats {
       return refused(ChannelReplies.unknownPerson);
     }
 
-    if (!chat.isStartedBy(speaker)) {
-      return refused(ChannelReplies.notTheStarter);
-    }
+    try {
+      return await this.continuedBy(chat, speaker, said, attachments, refused);
+    } catch (error) {
+      if (error instanceof NotTheChatStarterError) {
+        return refused(ChannelReplies.notTheStarter);
+      }
 
+      if (error instanceof EmptyChatMessageError) {
+        return refused(ChannelReplies.nothingSaid);
+      }
+
+      throw error;
+    }
+  }
+
+  private async continuedBy(
+    chat: Chat,
+    speaker: UserId,
+    said: string,
+    attachments: readonly Attachment[],
+    refused: (body: string) => ChannelAnswer,
+  ): Promise<ChannelAnswer | null> {
     const reply = ChatReply.read(said);
 
     if (reply.decision) {
@@ -180,10 +197,6 @@ export class ChannelChats {
       );
 
       return null;
-    }
-
-    if (!said && attachments.length === 0) {
-      return refused(ChannelReplies.nothingSaid);
     }
 
     const withMessage = chat.addMessage({
@@ -226,38 +239,42 @@ export class ChannelChats {
       return refused(ChannelReplies.notInTeam);
     }
 
-    if (!said && attachments.length === 0) {
-      return refused(ChannelReplies.nothingSaid);
+    try {
+      const body = ChatMessageBody.fromInput(said, attachments);
+      const harness = happened.chat.harness ?? this.defaultHarness.value;
+
+      if (!this.launch.catalogue().some((each) => each.id === harness)) {
+        return refused(ChannelReplies.unknownHarness(harness));
+      }
+
+      const lines = await this.lines.ofTeam(teamId);
+      const chat = Chat.start({
+        workspaceId,
+        teamId,
+        startedBy: speaker,
+        harness: HarnessId.of(harness),
+        repositories: lines.flatMap((line) => line.repositories.all),
+        lines,
+        body,
+        attachments,
+        marks: happened.chat.marks,
+        now: this.clock.now(),
+        newId: () => this.ids.generate(),
+      });
+
+      await this.chats.add(await this.dispatch.takenUp(chat));
+
+      return null;
+    } catch (error) {
+      if (error instanceof EmptyChatMessageError) {
+        return refused(ChannelReplies.nothingSaid);
+      }
+
+      if (error instanceof MixedRunnerImagesError) {
+        return refused(ChannelReplies.mixedImages);
+      }
+
+      throw error;
     }
-
-    const harness = happened.chat.harness ?? this.defaultHarness.value;
-
-    if (!this.launch.catalogue().some((each) => each.id === harness)) {
-      return refused(ChannelReplies.unknownHarness(harness));
-    }
-
-    const lines = await this.lines.ofTeam(teamId);
-    const repositories = lines.flatMap((line) => line.repositories.all);
-
-    if (!chatPlacement(repositories, lines)) {
-      return refused(ChannelReplies.mixedImages);
-    }
-
-    const chat = Chat.start({
-      workspaceId,
-      teamId,
-      startedBy: speaker,
-      harness: HarnessId.of(harness),
-      repositories,
-      body: ChatMessageBody.fromInput(said, attachments),
-      attachments,
-      marks: happened.chat.marks,
-      now: this.clock.now(),
-      newId: () => this.ids.generate(),
-    });
-
-    await this.chats.add(await this.dispatch.takenUp(chat));
-
-    return null;
   }
 }

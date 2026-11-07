@@ -1,6 +1,7 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
@@ -19,7 +20,6 @@ import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { ResumeKey as Key } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
@@ -59,7 +59,10 @@ export const aLeasedRun = (
       briefing: 'keep the workspace',
       handover: { options: [], noteLimit: 4_000 },
       resume: {
-        key: Key.forTask('task_1').value,
+        key:
+          over.restoresWorkspace === false
+            ? 'scratch'
+            : Key.forTask(TaskId.of('task_1')).value,
         ...(over.session === null
           ? {}
           : { sessionId: over.session ?? 'session_1' }),

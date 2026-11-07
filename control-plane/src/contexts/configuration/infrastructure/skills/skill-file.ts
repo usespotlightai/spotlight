@@ -1,13 +1,13 @@
 import type {
+  ReadSkillFolder,
   SkillFile,
-  SkillFolder,
   SkillOrigin,
-} from '@configuration/application/ports/skill-reader.port';
+} from '@configuration/application/ports/skill-folders.port';
+import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
 import {
   Skill,
   type SkillSecret,
-} from '@configuration/domain/entities/skill.entity';
-import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
+} from '@configuration/domain/value-objects/skill.vo';
 import { SkillKey } from '@configuration/domain/value-objects/skill-key.vo';
 import { ToolName } from '@configuration/domain/value-objects/tool-name.vo';
 import { splitFrontmatter } from '@platform/markdown/frontmatter';
@@ -121,7 +121,7 @@ export const readSkillFolder = (
   folder: string,
   files: readonly SkillFile[],
   origin: SkillOrigin,
-): SkillFolder => {
+): ReadSkillFolder => {
   const key = SkillKey.of(folder);
   const main = files.find((each) => each.path === SKILL_FILE);
 

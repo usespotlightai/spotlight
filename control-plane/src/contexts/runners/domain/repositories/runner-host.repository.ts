@@ -11,7 +11,7 @@ export interface RunnerHostRepository {
 
   remove(host: RunnerHost): Promise<void>;
 
-  removeThrough(source: CredentialSource): Promise<void>;
+  servingThrough(source: CredentialSource): Promise<readonly RunnerHost[]>;
 
-  removeStaleBefore(cutoff: Date): Promise<number>;
+  silentSince(cutoff: Date): Promise<readonly RunnerHost[]>;
 }

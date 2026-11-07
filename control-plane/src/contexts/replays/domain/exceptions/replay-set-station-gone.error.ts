@@ -1,4 +1,6 @@
-export class ReplaySetStationGoneError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class ReplaySetStationGoneError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(setId: string) {

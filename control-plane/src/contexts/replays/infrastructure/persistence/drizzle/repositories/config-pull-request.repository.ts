@@ -1,19 +1,20 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  codeOf,
+  UNIQUE_VIOLATION,
+} from '@platform/persistence/drizzle/violations';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
-import { ConfigPullRequestOpenAtStationError } from '@replays/domain/exceptions/config-pull-request-open-at-station.error';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import type {
   ConfigPullRequestRepository,
   GitHubPullRequestKey,
 } from '@replays/domain/repositories/config-pull-request.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
-import {
-  type ConfigPullRequestState,
-  OPEN_CONFIG_PULL_REQUEST_STATES,
-} from '@replays/domain/value-objects/config-pull-request-state';
+import type { ConfigPullRequestState } from '@replays/domain/value-objects/config-pull-request-state';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { configPullRequest } from '@replays/infrastructure/persistence/drizzle/schemas/replays.schema';
@@ -22,19 +23,13 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  inArray,
-  lt,
-  lte,
-  type SQL,
-  sql,
-} from 'drizzle-orm';
+import { and, asc, eq, inArray, lt, lte, type SQL, sql } from 'drizzle-orm';
 
 type PullRequestRow = typeof configPullRequest.$inferSelect;
 
@@ -77,16 +72,16 @@ const toPullRequest = (row: PullRequestRow): ConfigPullRequest =>
     station: {
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: LineId.of(row.lineId),
+      stationId: StationId.of(row.stationId),
     },
     stationKey: row.stationKey,
-    candidateName: row.candidateName,
-    repository: row.repository,
+    candidateName: CandidateName.rehydrate(row.candidateName),
+    repository: row.repository === null ? null : Repository.of(row.repository),
     path: row.path,
     branch: row.branch,
     state: row.state,
-    url: row.url,
+    url: row.url === null ? null : PullRequestUrl.of(row.url),
     number: row.number,
     gitHubId: row.gitHubId,
     basedOn: fingerprintOf(row.basedOn),
@@ -108,15 +103,16 @@ const columnsOf = (aggregate: ConfigPullRequest) => ({
   teamId: aggregate.teamId.value,
   searchId: aggregate.searchId.value,
   candidateId: aggregate.candidateId.value,
-  lineId: aggregate.station.lineId,
-  stationId: aggregate.station.stationId,
+  lineId: aggregate.station.lineId.value,
+  stationId: aggregate.station.stationId.value,
   stationKey: aggregate.stationKey,
-  candidateName: aggregate.candidateName,
-  repository: aggregate.repository,
+  candidateName: aggregate.candidateName.value,
+  repository: aggregate.repository?.value ?? null,
   path: aggregate.path,
   branch: aggregate.branch,
   state: aggregate.current,
-  url: aggregate.url,
+  open: aggregate.isOpen,
+  url: aggregate.url?.value ?? null,
   number: aggregate.number,
   gitHubId: aggregate.gitHubId,
   basedOn: aggregate.basedOn?.value ?? null,
@@ -171,16 +167,16 @@ export class DrizzleConfigPullRequestRepository
     return this.where(eq(configPullRequest.searchId, searchId.value));
   }
 
-  ofSearches(
-    searchIds: readonly SearchId[],
+  findMany(
+    ids: readonly ConfigPullRequestId[],
   ): Promise<readonly ConfigPullRequest[]> {
-    if (searchIds.length === 0) {
+    if (ids.length === 0) {
       return Promise.resolve([]);
     }
 
     return this.where(
-      inArray(configPullRequest.searchId, [
-        ...new Set(searchIds.map((each) => each.value)),
+      inArray(configPullRequest.id, [
+        ...new Set(ids.map((each) => each.value)),
       ]),
     );
   }
@@ -189,35 +185,14 @@ export class DrizzleConfigPullRequestRepository
     return this.where(eq(configPullRequest.teamId, teamId.value));
   }
 
-  async newestAtStation(
-    stationId: string,
-    states: readonly ConfigPullRequestState[],
-  ): Promise<ConfigPullRequest | null> {
-    const [found] = await this.context.db
-      .select()
-      .from(configPullRequest)
-      .where(
-        and(
-          eq(configPullRequest.stationId, stationId),
-          inArray(configPullRequest.state, [...states]),
-        ),
-      )
-      .orderBy(desc(configPullRequest.updatedAt), desc(configPullRequest.id))
-      .limit(1);
-
-    return found ? toPullRequest(found) : null;
-  }
-
-  async openAtStation(stationId: string): Promise<boolean> {
+  async openAtStation(stationId: StationId): Promise<boolean> {
     const [found] = await this.context.db
       .select({ id: configPullRequest.id })
       .from(configPullRequest)
       .where(
         and(
-          eq(configPullRequest.stationId, stationId),
-          inArray(configPullRequest.state, [
-            ...OPEN_CONFIG_PULL_REQUEST_STATES,
-          ]),
+          eq(configPullRequest.stationId, stationId.value),
+          eq(configPullRequest.open, true),
         ),
       )
       .limit(1);
@@ -278,48 +253,31 @@ export class DrizzleConfigPullRequestRepository
     ).map(toPullRequest);
   }
 
-  openedOnLine(lineId: string): Promise<readonly ConfigPullRequest[]> {
+  openedOnLine(lineId: LineId): Promise<readonly ConfigPullRequest[]> {
     return this.where(
       and(
-        eq(configPullRequest.lineId, lineId),
+        eq(configPullRequest.lineId, lineId.value),
         eq(configPullRequest.state, 'opened'),
       ) as SQL,
     );
   }
 
-  add(added: ConfigPullRequest): Promise<ConfigPullRequest> {
-    return this.context.inTransaction(async () => {
-      const written = await this.context.db
+  async add(added: ConfigPullRequest): Promise<void> {
+    await this.context.inTransaction(async () => {
+      await this.context.db
         .insert(configPullRequest)
         .values({
           id: added.id.value,
           ...columnsOf(added),
           version: added.version,
         })
-        .onConflictDoNothing()
-        .returning({ id: configPullRequest.id });
-
-      if (written.length === 0) {
-        const existing = await this.forCandidate(
-          added.searchId,
-          added.candidateId,
-        );
-
-        if (!existing && added.isOpen) {
-          throw new ConfigPullRequestOpenAtStationError(
-            added.station.stationId,
-          );
-        }
-        if (!existing) {
-          throw new ConfigPullRequestVersionConflictError(added.id.value);
-        }
-
-        return existing;
-      }
-
+        .catch((error: unknown) => {
+          if (codeOf(error) === UNIQUE_VIOLATION) {
+            throw new ConfigPullRequestVersionConflictError(added.id.value);
+          }
+          throw error;
+        });
       await this.events.dispatch(added.pullEvents());
-
-      return added;
     });
   }
 
@@ -338,7 +296,13 @@ export class DrizzleConfigPullRequestRepository
             .update(configPullRequest)
             .set({ ...columnsOf(saved), version: saved.version + 1 })
             .where(at)
-            .returning({ id: configPullRequest.id });
+            .returning({ id: configPullRequest.id })
+            .catch((error: unknown) => {
+              if (codeOf(error) === UNIQUE_VIOLATION) {
+                return [];
+              }
+              throw error;
+            });
 
       if (written.length === 0) {
         throw new ConfigPullRequestVersionConflictError(saved.id.value);

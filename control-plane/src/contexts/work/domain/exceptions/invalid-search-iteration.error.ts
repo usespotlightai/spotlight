@@ -1,4 +1,6 @@
-export class InvalidSearchIterationError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidSearchIterationError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(iteration: unknown) {

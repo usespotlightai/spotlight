@@ -1,13 +1,12 @@
 import type { DeleteWorkspaceCommand } from '@identity/application/commands/delete-workspace.command';
-import type { IdentityResourcesPort } from '@identity/application/ports/identity-resources.port';
 import type { WorkspaceDependentsPort } from '@identity/application/ports/workspace-dependents.port';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
+import type { OidcTrustRepository } from '@identity/domain/repositories/oidc-trust.repository';
+import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
+import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
-import { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
-import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
-import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import {
   forbiddenTo,
   type ResourceDeleted,
@@ -23,7 +22,9 @@ export class DeleteWorkspaceHandler
 {
   constructor(
     private readonly workspaces: WorkspaceRepository,
-    private readonly resources: IdentityResourcesPort,
+    private readonly teams: TeamRepository,
+    private readonly tokens: WorkspaceTokenRepository,
+    private readonly trusts: OidcTrustRepository,
     private readonly dependents: WorkspaceDependentsPort,
     private readonly transaction: TransactionPort,
   ) {}
@@ -50,23 +51,19 @@ export class DeleteWorkspaceHandler
 
       const remaining = Dependents.of(await this.dependents.of(id));
 
-      await this.transaction.inTransaction(async () => {
-        const teams = await this.resources.teamKeysIn(id);
-        const tokens = await this.resources.tokenNamesIn(id);
-        const trusts = await this.resources.oidcTrustKeysIn(id);
-        const issuing = await this.resources.issuingTrustKeysIn(id);
-
-        await this.workspaces.save(
+      await this.transaction.inTransaction(async () =>
+        this.workspaces.save(
           existing.delete(
-            teams.map((each) => TeamKey.of(each)),
-            tokens.map((each) => TokenName.of(each)),
-            trusts.map((each) => OidcTrustKey.of(each)),
-            issuing.map((each) => OidcTrustKey.of(each)),
+            {
+              teams: await this.teams.ofWorkspace(id),
+              tokens: await this.tokens.ofWorkspace(id),
+              trusts: await this.trusts.ofWorkspace(id),
+            },
             remaining,
             ChangeActor.of(command.actor, id),
           ),
-        );
-      });
+        ),
+      );
 
       return { outcome: 'deleted' };
     } catch (error) {

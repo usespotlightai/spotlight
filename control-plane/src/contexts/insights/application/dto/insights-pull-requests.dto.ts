@@ -17,9 +17,9 @@ import {
   type TeamPullRequest,
   toMergeMs,
 } from '@insights/domain/services/team-pull-requests';
+import type { PullRequestState } from '@insights/domain/value-objects/pull-request-state';
 import type { PullRequestType } from '@insights/domain/value-objects/pull-request-type';
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
-import type { TaskPullRequestState } from '@insights/domain/value-objects/task-pull-request-state';
 
 type ShareDto = Share;
 
@@ -74,7 +74,7 @@ export interface InsightsPullRequestDto {
   readonly taskId: string | null;
   readonly reviewTaskIds: readonly string[];
   readonly type: PullRequestType;
-  readonly state: TaskPullRequestState;
+  readonly state: PullRequestState;
   readonly openedAt: string;
   readonly closedAt: string | null;
   readonly firstReviewAt: string | null;

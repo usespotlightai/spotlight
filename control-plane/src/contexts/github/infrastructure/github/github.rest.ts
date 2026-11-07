@@ -1,4 +1,4 @@
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 
 const API = 'https://api.github.com';
 

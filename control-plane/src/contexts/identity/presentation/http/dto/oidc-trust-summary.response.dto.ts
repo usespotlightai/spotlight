@@ -1,9 +1,9 @@
 import type { OidcTrustSummaryDto } from '@identity/application/dto/oidc-trust-summary.dto';
-import { ApiProperty } from '@nestjs/swagger';
 import {
   TOKEN_SCOPES,
   type TokenScopeName,
-} from '@shared-kernel/domain/value-objects/token-scope.vo';
+} from '@identity/domain/value-objects/token-scope.vo';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class OidcTrustCreatorResponseDto {
   @ApiProperty({ example: 'user_1' })

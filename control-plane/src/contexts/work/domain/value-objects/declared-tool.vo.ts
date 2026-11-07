@@ -9,11 +9,11 @@ import {
   WHOLE_CALL_INPUT,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { InvalidToolError } from '@work/domain/exceptions/invalid-tool.error';
 import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
-import type { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 

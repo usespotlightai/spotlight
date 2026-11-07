@@ -1,4 +1,6 @@
-export class UnknownCoAuthorError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class UnknownCoAuthorError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(userId: string) {

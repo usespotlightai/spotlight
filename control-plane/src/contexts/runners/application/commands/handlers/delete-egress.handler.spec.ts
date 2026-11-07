@@ -22,7 +22,7 @@ const deleting = (pools: readonly RunnerPool[]) => {
     {
       permissionsIn: vi.fn(async () => ({
         workspaceId: egress.workspaceId,
-        managesRunners: true,
+        allows: () => true,
       })),
     } as unknown as WorkspaceAccessPort,
     {

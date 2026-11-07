@@ -7,6 +7,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import {
   ApiProblemResponse,
   ConventionalApiController,
@@ -28,6 +29,7 @@ const periodOf = (raw: unknown): string => {
   return typeof raw === 'string' ? raw : '';
 };
 
+@InAudience('insights')
 @ConventionalApiController('teams/:teamId', 'replays')
 @ApiParam({ name: 'teamId', type: String })
 @ApiProblemResponse(HttpStatus.NOT_FOUND, 'No such team for this caller')

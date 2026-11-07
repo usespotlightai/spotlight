@@ -1,49 +1,35 @@
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-
-export type SandboxLeaseKind = 'run' | 'editor';
-
-export const SANDBOX_LEASE_KINDS: readonly SandboxLeaseKind[] = [
-  'run',
-  'editor',
-];
+import type { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 
 export const EDITOR_LEASE_MS = 2 * 60_000;
 
+const EDITOR_RENEWALS_PER_LEASE = 4;
+
 export class SandboxLease {
   private constructor(
-    readonly kind: SandboxLeaseKind,
-    readonly holder: string,
+    readonly holder: LeaseHolder,
     readonly renewedAt: Date,
   ) {}
 
-  static of(
-    kind: SandboxLeaseKind,
-    holder: string,
-    renewedAt: Date,
-  ): SandboxLease {
-    if (holder.trim().length === 0) {
-      throw new InconsistentStateError('sandbox lease', 'has no holder');
-    }
-
-    return new SandboxLease(kind, holder, renewedAt);
+  static of(holder: LeaseHolder, renewedAt: Date): SandboxLease {
+    return new SandboxLease(holder, renewedAt);
   }
 
-  static forRun(runId: string, at: Date): SandboxLease {
-    return SandboxLease.of('run', runId, at);
+  static editorRenewalMs(): number {
+    return EDITOR_LEASE_MS / EDITOR_RENEWALS_PER_LEASE;
   }
 
-  static forEditor(holder: string, at: Date): SandboxLease {
-    return SandboxLease.of('editor', holder, at);
+  get isForRun(): boolean {
+    return this.holder.isRun;
   }
 
   expiredAt(now: Date): boolean {
     return (
-      this.kind === 'editor' &&
+      this.holder.isEditor &&
       now.getTime() - this.renewedAt.getTime() >= EDITOR_LEASE_MS
     );
   }
 
-  isHeldBy(kind: SandboxLeaseKind, holder: string): boolean {
-    return this.kind === kind && this.holder === holder;
+  isHeldBy(holder: LeaseHolder): boolean {
+    return this.holder.equals(holder);
   }
 }

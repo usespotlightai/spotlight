@@ -7,16 +7,13 @@ import { ReflectionBriefing } from '@replays/application/rendering/reflection-br
 import { SearchBriefing } from '@replays/application/rendering/search-briefing';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import { failingSearchedTasksOf } from '@replays/domain/services/reflected-tasks';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
-import { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReflectedTask } from '@replays/domain/value-objects/reflected-task.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -24,8 +21,6 @@ import type { SearchIteration } from '@replays/domain/value-objects/search-itera
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const UNBRIEFED: SearchRunQueued = {
@@ -49,7 +44,6 @@ export class DispatchSearchIteration {
     private readonly searches: SearchRepository,
     private readonly candidates: CandidateRepository,
     private readonly replays: ReplayRepository,
-    private readonly sets: ReplaySetRepository,
     private readonly healths: SetHealths,
     private readonly work: WorkPort,
     private readonly ids: IdGeneratorPort,
@@ -125,56 +119,18 @@ export class DispatchSearchIteration {
   private takeRequests(searchId: SearchId): Promise<void> {
     return this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(searchId);
-      const set = search ? await this.sets.find(search.setId) : null;
 
-      if (!search?.wantedIteration?.awaitsRequests || !set) {
+      if (!search?.wantedIteration?.awaitsRequests) {
         return;
       }
 
-      const at = this.clock.now();
-      const taking = search.requests;
-      const taken = search.requestsTaken(
-        () => ReplayId.of(this.ids.generate()),
-        at,
-        () => RunId.of(this.ids.generate()),
+      await this.searches.save(
+        search.requestsTaken(
+          () => ReplayId.of(this.ids.generate()),
+          this.clock.now(),
+          () => RunId.of(this.ids.generate()),
+        ),
       );
-      const candidates = await this.candidates.findMany(
-        taking.map((each) => each.candidateId),
-      );
-
-      for (const proposal of taken.proposals.filter((each) =>
-        taking.some((one) => one.candidateId.equals(each.candidateId)),
-      )) {
-        const candidate = candidates.find((each) =>
-          each.id.equals(proposal.candidateId),
-        );
-
-        if (!candidate) {
-          throw new InconsistentStateError(
-            'search',
-            `${search.id.value} takes candidate ${proposal.candidateId.value}, which is gone`,
-          );
-        }
-
-        await this.replays.add(
-          Replay.start({
-            id: proposal.replay.replayId,
-            set,
-            candidate,
-            baseline: false,
-            ceiling: search.ceilingSplit.searchReplay,
-            unpricedRate: search.ceilingSplit.perRun,
-            at,
-            by: ChangeActor.spotlight(search.workspaceId),
-            runSubset: search.split.searchedRuns,
-            repeats: search.budget.repeats,
-            searchId: search.id,
-            pairwiseReferenceId: search.seed.replay.replayId,
-          }),
-        );
-      }
-
-      await this.searches.save(taken);
     });
   }
 
@@ -204,7 +160,6 @@ export class DispatchSearchIteration {
     { station, seed }: IterationContext,
   ): string {
     const ceiling = search.budget.ceiling;
-    const left = ceiling.amount - search.spent.amount;
     const reflection = [...search.iterations]
       .reverse()
       .find((each) => each.reflects);
@@ -217,7 +172,7 @@ export class DispatchSearchIteration {
       iteration: iteration.number,
       iterations: search.budget.iterations,
       perIteration: search.budget.perIteration,
-      left: Money.of(Math.max(0, left), ceiling.currency),
+      left: search.budgetLeft,
       ceiling,
       searchedTasks: search.split.searchedTasks,
       heldOutTasks: search.split.heldOutTasks,

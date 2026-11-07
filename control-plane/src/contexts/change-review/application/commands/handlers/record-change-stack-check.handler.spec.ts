@@ -72,7 +72,7 @@ const ready = () =>
     repository: null,
     base: null,
     diff: DIFF,
-    facts: StackFacts.none(),
+    facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
     request: CheckRequest.of('npm test', null),
     now: NOW,
   }).propose([cohort(['h1', 'h2'])], LATER);
@@ -97,8 +97,9 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
     save: async () => undefined,
     find: async () => stack,
     nextDueJob: async () => null,
-    removeForTask: async () => undefined,
     ofRun: async () => [],
+    ofTask: async () => [],
+    remove: async () => undefined,
   };
 
   const checks: StackCheckRepository = {
@@ -107,16 +108,14 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
       saved.push(each);
     },
     find: async () => check,
-    open: async () => check,
+    latestOf: async () => check,
     ofRun: async () => [],
     ofTask: async () => [],
     remove: async () => undefined,
-    dueForCheck: async () => null,
-    reservedTo: async () => null,
-    withExpiredWait: async () => [],
-    awaitingProvision: async () => [],
-    withExpiredReservations: async () => [],
+    waiting: async () => [],
     waitingIn: async () => [],
+    reserved: async () => [],
+    reservedFor: async () => [],
   };
 
   return {

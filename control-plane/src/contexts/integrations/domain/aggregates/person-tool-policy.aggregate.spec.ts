@@ -27,8 +27,8 @@ describe('PersonToolPolicy', () => {
     const blocked = none().set(COMMENT, PersonToolRule.of('blocked'));
 
     expect(blocked.ruleFor(COMMENT).name).toBe('blocked');
-    expect(blocked.set(COMMENT, PersonToolRule.of('allowed')).rules.size).toBe(
-      0,
+    expect(blocked.set(COMMENT, PersonToolRule.of('allowed')).rules).toEqual(
+      [],
     );
   });
 
@@ -54,12 +54,12 @@ describe('PersonToolPolicy', () => {
     expect(() =>
       PersonToolPolicy.rehydrate({
         ...stored,
-        rules: new Map([[COMMENT.value, PersonToolRule.allowed()]]),
+        rules: [{ tool: COMMENT, rule: PersonToolRule.allowed() }],
         version: 1,
       }),
     ).toThrow(InconsistentStateError);
     expect(() =>
-      PersonToolPolicy.rehydrate({ ...stored, rules: new Map(), version: 0 }),
+      PersonToolPolicy.rehydrate({ ...stored, rules: [], version: 0 }),
     ).toThrow(InconsistentStateError);
   });
 });

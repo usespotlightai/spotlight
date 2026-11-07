@@ -1,5 +1,6 @@
 import type {
   NamedSecret,
+  SecretUse,
   SecretUser,
   SecretUsesPort,
 } from '@secrets/application/ports/secret-uses.port';
@@ -11,8 +12,8 @@ export class SecretUsesRegistry implements SecretUsesPort {
     this.users.push(user);
   }
 
-  async of(secret: NamedSecret): Promise<readonly string[]> {
-    const uses: string[] = [];
+  async of(secret: NamedSecret): Promise<readonly SecretUse[]> {
+    const uses: SecretUse[] = [];
 
     for (const user of this.users) {
       uses.push(...(await user.usesOf(secret)));

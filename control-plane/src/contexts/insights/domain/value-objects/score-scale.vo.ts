@@ -1,8 +1,15 @@
 import { InvalidScoreError } from '@insights/domain/exceptions/invalid-score.error';
+import {
+  claimShareOf,
+  isJudgeScaleKind,
+  JUDGE_SCALE_KINDS,
+  JudgeScale,
+  type JudgeScaleKind,
+} from '@shared-kernel/domain/value-objects/judge-scale.vo';
 
-export const SCORE_KINDS = ['yes-no', 'number', 'claims'] as const;
+export const SCORE_KINDS = JUDGE_SCALE_KINDS;
 
-export type ScoreKind = (typeof SCORE_KINDS)[number];
+export type ScoreKind = JudgeScaleKind;
 
 const YES = 1;
 
@@ -20,17 +27,9 @@ const VALUES: Record<ScoreKind, readonly number[]> = {
   claims: [NO, YES],
 };
 
-const isKind = (raw: string): raw is ScoreKind =>
-  SCORE_KINDS.some((each) => each === raw);
-
-export const metRate = (claimResults: readonly boolean[]): number =>
-  claimResults.filter(Boolean).length / claimResults.length;
-
-export class ScoreScale {
-  private constructor(readonly kind: ScoreKind) {}
-
-  static of(kind: string): ScoreScale {
-    if (!isKind(kind)) {
+export class ScoreScale extends JudgeScale {
+  static override of(kind: string): ScoreScale {
+    if (!isJudgeScaleKind(kind)) {
       throw new InvalidScoreError(
         `scale must be one of ${SCORE_KINDS.join(', ')}, not ${kind}`,
       );
@@ -57,16 +56,6 @@ export class ScoreScale {
 
   get categorical(): boolean {
     return this.kind === 'yes-no';
-  }
-
-  get byClaims(): boolean {
-    return this.kind === 'claims';
-  }
-
-  includes(value: number): boolean {
-    return this.byClaims
-      ? Number.isFinite(value) && value >= NO && value <= YES
-      : this.values.includes(value);
   }
 
   valueOf(raw: boolean | number): number {
@@ -104,7 +93,7 @@ export class ScoreScale {
       );
     }
 
-    return metRate(claimResults);
+    return claimShareOf(claimResults);
   }
 
   labelOf(value: number): string {
@@ -124,9 +113,5 @@ export class ScoreScale {
 
   get no(): number {
     return NO;
-  }
-
-  equals(other: ScoreScale): boolean {
-    return this.kind === other.kind;
   }
 }

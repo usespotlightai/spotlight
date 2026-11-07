@@ -8,6 +8,7 @@ import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -32,6 +33,7 @@ const platform = Team.rehydrate({
   workspaceId: WorkspaceId.of('ws_1'),
   key: TeamKey.of('platform'),
   name: TeamName.of('Platform'),
+  origin: 'configuration',
   members: [UserId.of('owner_1')],
   version: 0,
 });
@@ -63,7 +65,7 @@ describe('TeamAdministration', () => {
     const { administration, workspaces } = administering();
     const administered = await administration.administeredBy(
       'team_1',
-      'user_1',
+      PersonPrincipal.of(UserId.of('user_1')),
     );
 
     expect(administered?.workspace.slug.value).toBe('acme');
@@ -75,7 +77,10 @@ describe('TeamAdministration', () => {
     expect(
       await administering({
         workspace: acme(WorkspaceRole.admin),
-      }).administration.administeredBy('team_1', 'user_1'),
+      }).administration.administeredBy(
+        'team_1',
+        PersonPrincipal.of(UserId.of('user_1')),
+      ),
     ).not.toBeNull();
   });
 
@@ -83,13 +88,19 @@ describe('TeamAdministration', () => {
     expect(
       await administering({
         workspace: acme(WorkspaceRole.member),
-      }).administration.administeredBy('team_1', 'user_1'),
+      }).administration.administeredBy(
+        'team_1',
+        PersonPrincipal.of(UserId.of('user_1')),
+      ),
     ).toBeNull();
   });
 
   it('denies someone who is not of the workspace at all', async () => {
     expect(
-      await administering().administration.administeredBy('team_1', 'stranger'),
+      await administering().administration.administeredBy(
+        'team_1',
+        PersonPrincipal.of(UserId.of('stranger')),
+      ),
     ).toBeNull();
   });
 
@@ -97,7 +108,7 @@ describe('TeamAdministration', () => {
     expect(
       await administering({ team: null }).administration.administeredBy(
         'team_1',
-        'user_1',
+        PersonPrincipal.of(UserId.of('user_1')),
       ),
     ).toBeNull();
   });
@@ -106,7 +117,7 @@ describe('TeamAdministration', () => {
     expect(
       await administering({ workspace: null }).administration.administeredBy(
         'team_1',
-        'user_1',
+        PersonPrincipal.of(UserId.of('user_1')),
       ),
     ).toBeNull();
   });

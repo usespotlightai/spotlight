@@ -9,7 +9,7 @@ export interface StationSourceEdit {
   readonly stationKey: string;
   readonly seed: StationBlock;
   readonly candidate: StationBlock;
-  readonly module: readonly string[];
+  readonly besideFile: readonly string[];
   readonly read: (path: string) => Promise<string | null>;
 }
 

@@ -6,7 +6,6 @@ import {
   type RequestedResult,
   SearchResultWording,
 } from '@replays/application/rendering/search-result-notice';
-import { isAdvised } from '@replays/application/rendering/skip-advice';
 import type { SearchFindings } from '@replays/application/services/search-findings.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
@@ -25,19 +24,11 @@ import { scoresOf } from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import type { SearchCutShort } from '@replays/domain/value-objects/search-stop-reason';
+import { isLastingSkip } from '@replays/domain/value-objects/search-skip-reason';
+import { isCutShort } from '@replays/domain/value-objects/search-stop-reason';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 const RESULT = 'result';
-
-const CUT_SHORT: readonly SearchCutShort[] = [
-  'turned-off',
-  'station-gone',
-  'seed-failed',
-];
-
-const isCutShort = (reason: string): reason is SearchCutShort =>
-  (CUT_SHORT as readonly string[]).includes(reason);
 
 export class NoticeSearchResults {
   constructor(
@@ -130,7 +121,7 @@ export class NoticeSearchResults {
   }
 
   async skipped(event: StationSearchSkipped): Promise<void> {
-    if (!isAdvised(event.reason)) {
+    if (!isLastingSkip(event.reason)) {
       return;
     }
 
@@ -175,7 +166,7 @@ export class NoticeSearchResults {
     return {
       objective: search.objective,
       stationName,
-      candidateName: pullRequest.candidateName,
+      candidateName: pullRequest.candidateName.value,
       changes: [
         ...new Set(
           candidate?.changedFrom.changes.map((each) => each.part) ?? [],

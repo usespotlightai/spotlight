@@ -66,7 +66,7 @@ export class ReplayRunWork implements RunWork {
 
   async clearPermission(): Promise<PermissionCleared> {
     const current = await this.runs.findById(this.run.id);
-    const by = current?.claimedBy;
+    const by = this.run.claimedBy;
 
     if (!current || !by) {
       throw new UnknownRunError(`Run ${this.run.id.value} is not leased.`);

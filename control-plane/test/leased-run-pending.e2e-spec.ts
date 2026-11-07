@@ -10,6 +10,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
@@ -40,7 +41,7 @@ const taskRun = async () => {
     teamId: 'team_1',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values({
+  await insertStations(db, {
     id: stationId,
     key: 'triage',
     workspaceId: 'ws_1',

@@ -1,4 +1,4 @@
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 
 type Fetch = typeof globalThis.fetch;

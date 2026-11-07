@@ -1,4 +1,4 @@
-import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import { InvalidStackCheckError } from '@change-review/domain/exceptions/invalid-stack-check.error';
 import {
   type CheckLease,
   isLeaseActiveAt,
@@ -97,7 +97,7 @@ export interface StackSkip {
 
 export const skipOf = (code: string, detail: string | null): StackSkip => {
   if (!REPORTED_SKIPS.includes(code as ReportedSkip)) {
-    throw InvalidChangeStackError.because(
+    throw new InvalidStackCheckError(
       `was skipped for ${code}, which is not a reason a runner can report`,
     );
   }

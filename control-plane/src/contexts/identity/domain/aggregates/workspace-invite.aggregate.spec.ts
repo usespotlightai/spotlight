@@ -1,9 +1,12 @@
+import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
 import { InviteNotPendingError } from '@identity/domain/exceptions/invite-not-pending.error';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteSpec } from '@identity/domain/value-objects/invite-spec.vo';
+import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
+import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -17,6 +20,13 @@ const AFTER_IT_RUNS_OUT = new Date('2026-10-12T09:00:00.000Z');
 const ada = UserId.of('user_ada');
 const inviter = UserId.of('user_leon');
 const acme = WorkspaceId.of('ws_1');
+const ACME = Workspace.rehydrate({
+  id: acme,
+  name: WorkspaceName.of('Acme'),
+  slug: WorkspaceSlug.of('acme'),
+  members: [{ userId: inviter, role: WorkspaceRole.owner }],
+  version: 0,
+});
 const hash = (of: string) => TokenHash.of(of.repeat(64).slice(0, 64));
 
 const spec = (role = WorkspaceRole.member, teams = ['team_1']) =>
@@ -209,8 +219,8 @@ describe('WorkspaceInvite', () => {
     );
   });
 
-  it('does not rehydrate as stored without ever being written', () => {
-    expect(() => stored({ version: 0 })).toThrow(/without ever being written/);
+  it('does not rehydrate at a version it could never have been written at', () => {
+    expect(() => stored({ version: -1 })).toThrow(/impossible version/);
   });
 
   it('carries the version it was read at through every change, so a stale write is caught', () => {
@@ -221,39 +231,50 @@ describe('WorkspaceInvite', () => {
     expect(resent(read).version).toBe(4);
   });
 
-  it('creates a new invite where there is no pending one', () => {
-    const { invite, resent } = WorkspaceInvite.createOrResend(null, {
+  const offered = (
+    existing: WorkspaceInvite | null,
+    over: { holder?: UserId; role?: WorkspaceRole } = {},
+  ) =>
+    WorkspaceInvite.offer(existing, {
       id: InviteId.of('invite_2'),
-      workspaceId: acme,
+      workspace: ACME,
       email: EmailAddress.of('ada@example.com'),
-      spec: spec(),
+      holder: over.holder ?? null,
+      spec: spec(over.role),
       tokenHash: hash('c'),
-      invitedBy: inviter,
+      invitedBy: over.role ? ada : inviter,
       now: LATER,
     });
 
-    expect(resent).toBe(false);
-    expect(invite.id.value).toBe('invite_2');
-    expect(invite.invitedAt).toBe(LATER);
+  it('creates a new invite where there is no pending one', () => {
+    const offer = offered(null);
+
+    expect(offer.outcome).toBe('invited');
+    if (offer.outcome === 'invited') {
+      expect(offer.invite.id.value).toBe('invite_2');
+      expect(offer.invite.invitedAt).toBe(LATER);
+    }
   });
 
   it('resends the pending invite, with the settings requested now, rather than creating a second', () => {
-    const pending = stored({ expiresAt: NOW });
-    const { invite, resent } = WorkspaceInvite.createOrResend(pending, {
-      id: InviteId.of('invite_2'),
-      workspaceId: acme,
-      email: EmailAddress.of('ada@example.com'),
-      spec: spec(WorkspaceRole.admin),
-      tokenHash: hash('c'),
-      invitedBy: ada,
-      now: LATER,
+    const offer = offered(stored({ expiresAt: NOW }), {
+      role: WorkspaceRole.admin,
     });
 
-    expect(resent).toBe(true);
-    expect(invite.id.value).toBe('invite_1');
-    expect(invite.spec.invitedAs).toBe('admin');
-    expect(invite.invitedBy).toBe(ada);
-    expect(invite.statusAt(LATER)).toBe('pending');
+    expect(offer.outcome).toBe('resent');
+    if (offer.outcome === 'resent') {
+      expect(offer.invite.id.value).toBe('invite_1');
+      expect(offer.invite.spec.invitedAs).toBe('admin');
+      expect(offer.invite.invitedBy).toBe(ada);
+      expect(offer.invite.statusAt(LATER)).toBe('pending');
+    }
+  });
+
+  it('invites nobody whose address belongs to somebody already in the workspace', () => {
+    expect(offered(null, { holder: inviter }).outcome).toBe('already-a-member');
+    expect(offered(null, { holder: UserId.of('user_elsewhere') }).outcome).toBe(
+      'invited',
+    );
   });
 
   it('tells its status from when it was accepted, revoked and runs out', () => {

@@ -1,7 +1,8 @@
-import type { DeletionsPort } from '@insights/application/ports/deletions.port';
 import type { WorkPort } from '@insights/application/ports/work.port';
+import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
+import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import { RunTools } from '@insights/domain/value-objects/run-tools.vo';
 import { RunUsage } from '@insights/domain/value-objects/run-usage.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -43,11 +44,15 @@ export class RecordRunUsageSummary {
   constructor(
     private readonly work: WorkPort,
     private readonly records: RunRecordRepository,
-    private readonly deletions: DeletionsPort,
+    private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
   ) {}
 
   async usageRecorded(event: RunUsageReceived): Promise<void> {
+    if (!event.taskId) {
+      return;
+    }
+
     const usage = RunUsage.of({
       ms: event.ms,
       steps: event.steps,
@@ -78,30 +83,16 @@ export class RecordRunUsageSummary {
     const run = await this.work.endedRun(event.runId);
     const teamId = run ? TeamId.of(run.teamId) : null;
 
-    await this.transaction.inTransaction(async () => {
-      await this.deletions.lockDeletion(workspaceId, taskId, teamId);
-      const runId = RunId.of(event.runId);
-      const existing = await this.records.of(runId);
+    const runId = RunId.of(event.runId);
 
-      if (await this.deletions.isDeleted(workspaceId, taskId, teamId)) {
-        if (existing && taskId) {
-          await this.records.removeForTask(taskId);
-        }
-        return;
-      }
-
-      if (!existing) {
-        await this.records.add(
-          RunRecord.empty(runId, workspaceId, taskId).recordUsage(usage, tools),
-        );
-        return;
-      }
-
-      const recorded = existing.recordUsage(usage, tools);
-
-      if (recorded !== existing) {
-        await this.records.save(recorded);
-      }
-    });
+    await this.transaction.inTransaction(() =>
+      this.recorder.record(this.records, {
+        owner: FactOwner.of(workspaceId, { teamId, taskId }),
+        erased: (existing) => existing.erased(),
+        load: () => this.records.of(runId),
+        fresh: () => RunRecord.empty(runId, workspaceId, taskId),
+        change: (record) => record.recordUsage(usage, tools),
+      }),
+    );
   }
 }

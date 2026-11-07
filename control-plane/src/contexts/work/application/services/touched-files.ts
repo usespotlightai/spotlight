@@ -4,10 +4,10 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TouchedFile } from '@work/application/ports/team-memories.port';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import { filesChangedIn } from '@work/domain/services/workspace-path';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 const MAX_WAIT_MS = 5_000;
 
@@ -25,7 +25,7 @@ export class TouchedFiles {
     private readonly clock: ClockPort,
   ) {}
 
-  async onTask(task: Task, line: Line): Promise<readonly TouchedFile[]> {
+  async onTask(task: Task, line: LineMap): Promise<readonly TouchedFile[]> {
     const repositories = repositoriesForTask(task, line);
     const earlier = await this.earlierRuns(task, repositories);
     const pulled = await this.pullRequestFiles(task);

@@ -1,10 +1,5 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import type { TaskFailures } from '@insights/domain/aggregates/task-failures.aggregate';
 import type { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
-import {
-  type Window,
-  within,
-} from '@insights/domain/value-objects/insights-period.vo';
+import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 
 export interface TaskFailureSummary {
   readonly source: string;
@@ -24,34 +19,6 @@ export interface LocatedFailure {
   readonly taskId: string;
   readonly occurrence: FailureOccurrence;
 }
-
-export const failuresWithin = (
-  failures: readonly TaskFailures[],
-  window: Window,
-  stationId: string | null = null,
-): readonly LocatedFailure[] =>
-  failures.flatMap((each) =>
-    each.occurrences
-      .filter(
-        (occurrence) =>
-          within(window, occurrence.at) &&
-          (stationId === null || occurrence.stationId === stationId),
-      )
-      .map((occurrence) => ({ taskId: each.taskId.value, occurrence })),
-  );
-
-export const failuresInRuns = (
-  failures: readonly TaskFailures[],
-  runIds: ReadonlySet<string>,
-): readonly LocatedFailure[] =>
-  failures.flatMap((each) =>
-    each.occurrences
-      .filter(
-        (occurrence) =>
-          occurrence.runId !== null && runIds.has(occurrence.runId),
-      )
-      .map((occurrence) => ({ taskId: each.taskId.value, occurrence })),
-  );
 
 export const taskFailureSummaries = (
   located: readonly LocatedFailure[],
@@ -81,13 +48,13 @@ export const taskFailureSummaries = (
 };
 
 export const runFailureSummaries = (
-  records: readonly RunRecord[],
+  facts: readonly RunFact[],
 ): readonly RunFailureSummary[] => {
   const grouped = new Map<string | null, string[]>();
 
-  for (const record of records) {
+  for (const record of facts) {
     if (record.ending === 'failed') {
-      const failure = record.end?.failure ?? null;
+      const failure = record.end.failure;
       grouped.set(failure, [
         ...(grouped.get(failure) ?? []),
         record.runId.value,

@@ -1,6 +1,11 @@
 import type { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
 import type { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import type { Opening } from '@integrations/domain/value-objects/opening.vo';
+import {
+  RaisedHappening,
+  type RaisedMark,
+  type RaisedOpening,
+} from '@integrations/domain/value-objects/raised-happening.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
 export class DeclaredHappening {
@@ -59,5 +64,13 @@ export class DeclaredHappening {
       findsByBranch,
       input.opens ?? null,
     );
+  }
+
+  raised(raised: {
+    readonly branch: string | null;
+    readonly marks: readonly RaisedMark[];
+    readonly opening: RaisedOpening | null;
+  }): RaisedHappening {
+    return RaisedHappening.of(this, raised);
   }
 }

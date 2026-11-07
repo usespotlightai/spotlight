@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
+  codeOf,
   UNIQUE_VIOLATION,
-  violates,
 } from '@platform/persistence/drizzle/violations';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
-import { ReplayCheckRaceError } from '@replays/domain/exceptions/replay-check-race.error';
+import { ReplayCheckVersionConflictError } from '@replays/domain/exceptions/replay-check-version-conflict.error';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import {
   SCORING_FIELDS,
@@ -25,13 +25,13 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
 
 type CheckRow = typeof replayCheck.$inferSelect;
-
-const ATTEMPT_INDEX = 'replay_check_attempt_idx';
 
 const scoringFieldOf = (raw: string): ScoringField => {
   const field = SCORING_FIELDS.find((each) => each === raw);
@@ -52,8 +52,8 @@ const toCheck = (row: CheckRow): ReplayCheck =>
     station: {
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: LineId.of(row.lineId),
+      stationId: StationId.of(row.stationId),
     },
     stationKey: row.stationKey,
     setId: ReplaySetId.of(row.setId),
@@ -85,6 +85,7 @@ const toCheck = (row: CheckRow): ReplayCheck =>
     scoringPinnedToLive: row.scoringPinnedToLive.map(scoringFieldOf),
     baseline: row.baseline,
     createdAt: row.createdAt,
+    version: row.version,
   });
 
 @Injectable()
@@ -102,13 +103,13 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
   }
 
   matching(
-    stationId: string,
+    stationId: StationId,
     candidate: StationHashes,
     live: StationHashes,
   ): Promise<readonly ReplayCheck[]> {
     return this.where(
       and(
-        eq(replayCheck.stationId, stationId),
+        eq(replayCheck.stationId, stationId.value),
         eq(replayCheck.candidateBehaviour, candidate.behaviour),
         eq(replayCheck.liveScoring, live.scoring),
       ) as SQL,
@@ -144,8 +145,8 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           id: added.id.value,
           workspaceId: added.workspaceId.value,
           teamId: added.teamId.value,
-          lineId: added.station.lineId,
-          stationId: added.station.stationId,
+          lineId: added.station.lineId.value,
+          stationId: added.station.stationId.value,
           stationKey: added.stationKey,
           setId: added.setId.value,
           setEntries: added.setEntries,
@@ -168,10 +169,11 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           scoringPinnedToLive: [...added.scoringPinnedToLive],
           baseline: added.baseline,
           createdAt: added.createdAt,
+          version: added.version,
         })
         .catch((error: unknown) => {
-          if (violates(error, UNIQUE_VIOLATION, ATTEMPT_INDEX)) {
-            throw new ReplayCheckRaceError(added.stationKey);
+          if (codeOf(error) === UNIQUE_VIOLATION) {
+            throw new ReplayCheckVersionConflictError(added.id.value);
           }
           throw error;
         });
@@ -181,16 +183,25 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
 
   async save(saved: ReplayCheck): Promise<void> {
     await this.context.inTransaction(async () => {
-      if (saved.isDeleted) {
-        await this.context.db
-          .delete(replayCheck)
-          .where(eq(replayCheck.id, saved.id.value));
-      } else {
-        await this.context.db
-          .update(replayCheck)
-          .set({ baseline: saved.baseline })
-          .where(eq(replayCheck.id, saved.id.value));
+      const at = and(
+        eq(replayCheck.id, saved.id.value),
+        eq(replayCheck.version, saved.version),
+      );
+      const written = saved.isDeleted
+        ? await this.context.db
+            .delete(replayCheck)
+            .where(at)
+            .returning({ id: replayCheck.id })
+        : await this.context.db
+            .update(replayCheck)
+            .set({ baseline: saved.baseline, version: saved.version + 1 })
+            .where(at)
+            .returning({ id: replayCheck.id });
+
+      if (written.length === 0) {
+        throw new ReplayCheckVersionConflictError(saved.id.value);
       }
+
       await this.events.dispatch(saved.pullEvents());
     });
   }

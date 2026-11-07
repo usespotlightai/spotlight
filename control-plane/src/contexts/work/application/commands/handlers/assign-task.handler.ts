@@ -1,6 +1,6 @@
-import {
-  hasMember,
-  type TeamDirectoryPort,
+import type {
+  TeamDirectoryPort,
+  TeamProfile,
 } from '@identity/application/ports/team-directory.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -10,12 +10,15 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import type { TaskDto } from '@work/application/dto/task.dto';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskReaderPort } from '@work/application/ports/task-reader.port';
 import { taskAsRead } from '@work/application/services/task-as-read';
 import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+
+const isOn = (team: TeamProfile, userId: UserId): boolean =>
+  team.members.some((each) => each.equals(userId));
 
 export class AssignTaskHandler
   implements CommandHandlerPort<AssignTaskCommand, TaskDto>
@@ -25,7 +28,7 @@ export class AssignTaskHandler
     private readonly teams: TeamDirectoryPort,
     private readonly transaction: TransactionPort,
     private readonly reader: TaskReaderPort,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
   ) {}
 
   async execute(command: AssignTaskCommand): Promise<TaskDto> {
@@ -40,7 +43,7 @@ export class AssignTaskHandler
     const assigned = await this.transaction.inTransaction(async () => {
       const team = await this.teams.find(TeamId.of(command.teamId));
 
-      if (!team || !hasMember(team, UserId.of(command.viewerId))) {
+      if (!team || !isOn(team, UserId.of(command.viewerId))) {
         throw new UnknownTaskError(command.taskId);
       }
 
@@ -48,7 +51,7 @@ export class AssignTaskHandler
         ? UserId.of(command.assigneeId)
         : null;
 
-      if (assignee && !hasMember(team, assignee)) {
+      if (assignee && !isOn(team, assignee)) {
         throw new NotATeamMemberError();
       }
 

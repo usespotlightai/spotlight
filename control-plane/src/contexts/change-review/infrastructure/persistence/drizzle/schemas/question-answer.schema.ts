@@ -2,13 +2,10 @@ import {
   ANSWER_VERDICTS,
   type AnswerVerdict,
 } from '@change-review/domain/aggregates/question-answer.aggregate';
-import {
-  changeStack,
-  type StoredModelUsage,
-} from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
+import type { StoredModelUsage } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import {
-  foreignKey,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -24,6 +21,7 @@ export const questionAnswer = pgTable(
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
+    taskId: text('task_id'),
     stackId: text('stack_id').notNull(),
     questionId: text('question_id').notNull(),
     personId: text('person_id').notNull(),
@@ -42,10 +40,6 @@ export const questionAnswer = pgTable(
       table.personId,
       table.questionId,
     ),
-    foreignKey({
-      name: 'question_answer_stack_fk',
-      columns: [table.workspaceId, table.stackId],
-      foreignColumns: [changeStack.workspaceId, changeStack.id],
-    }),
+    index('question_answer_task_idx').on(table.taskId),
   ],
 );

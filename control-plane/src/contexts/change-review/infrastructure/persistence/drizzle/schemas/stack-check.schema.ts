@@ -3,13 +3,11 @@ import type {
   StoredCheckEntry,
   StoredCheckOutcome,
 } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.rows';
-import { changeStack } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
   check,
-  foreignKey,
   index,
   integer,
   jsonb,
@@ -67,11 +65,6 @@ export const stackCheck = pgTable(
       sql`${table.provisionAttempts} >= 0`,
     ),
     primaryKey({ columns: [table.stackId, table.recheck] }),
-    foreignKey({
-      name: 'stack_check_stack_fk',
-      columns: [table.workspaceId, table.stackId],
-      foreignColumns: [changeStack.workspaceId, changeStack.id],
-    }),
     index('stack_check_run_idx').on(table.runId),
     index('stack_check_task_idx').on(table.taskId),
     index('stack_check_waiting_idx').on(table.workspaceId, table.status),

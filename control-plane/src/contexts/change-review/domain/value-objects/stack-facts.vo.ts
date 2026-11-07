@@ -17,10 +17,6 @@ export class StackFacts implements DiffFacts {
     return new StackFacts(facts.hunks, facts.links, facts.imports);
   }
 
-  static none(): StackFacts {
-    return new StackFacts([], [], []);
-  }
-
   classOf(hunk: string): FileClass | null {
     return this.hunks.find((each) => each.hunk === hunk)?.fileClass ?? null;
   }

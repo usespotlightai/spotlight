@@ -1,6 +1,7 @@
 import type { BindableChatEvent } from '@work/application/contracts/bindable-chat-events.contract';
 import type { ListedProposal } from '@work/application/contracts/listed-proposal.contract';
 import type { ChannelNoticesPort } from '@work/application/ports/channel-notices.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type {
@@ -15,13 +16,12 @@ import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
 export class NotifyChannel implements RunOutcomes {
   constructor(
     private readonly chats: ChatRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly notices: ChannelNoticesPort,
   ) {}
 

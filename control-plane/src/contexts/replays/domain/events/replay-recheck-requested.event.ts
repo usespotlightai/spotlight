@@ -4,7 +4,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ReplayRecheckRequested implements DomainEvent {
-  readonly kind = 'replay.recheck-requested';
+  readonly kind = 'replays.replay-recheck-requested';
 
   constructor(
     readonly replayId: ReplayId,

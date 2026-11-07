@@ -5,6 +5,7 @@ import type { PeoplePort } from '@change-review/application/ports/people.port';
 import type { WorkspacesPort } from '@change-review/application/ports/workspaces.port';
 import type { ListMergedDecisionsQuery } from '@change-review/application/queries/list-merged-decisions.query';
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
+import { WorkspacePath } from '@change-review/domain/value-objects/workspace-path.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -35,8 +36,8 @@ const timeOf = (raw: string | null): Date | null => {
 const withinOf = (
   paths: readonly string[],
   repository: Repository | null,
-): string[] => {
-  const requested = paths.map((each) => each.trim()).filter(Boolean);
+): WorkspacePath[] => {
+  const requested = paths.filter((each) => each.trim());
 
   if (requested.length === 0) {
     return [];
@@ -46,18 +47,7 @@ const withinOf = (
     throw invalid('decision lookup by path', 'must name its repository');
   }
 
-  return requested.map((each) => {
-    const parts = each.split('/').filter((part) => part && part !== '.');
-
-    if (parts.length === 0 || parts.includes('..')) {
-      throw invalid(
-        'decision lookup path',
-        `must be inside the repository, not ${each}`,
-      );
-    }
-
-    return [repository.name, ...parts].join('/');
-  });
+  return requested.map((each) => WorkspacePath.inRepository(repository, each));
 };
 
 export class ListMergedDecisionsHandler

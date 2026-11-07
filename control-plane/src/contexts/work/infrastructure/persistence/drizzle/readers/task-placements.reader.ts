@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type {
   TaskPlacement,
   TaskPlacementsPort,
 } from '@work/application/ports/task-placements.port';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 import { asc, eq } from 'drizzle-orm';

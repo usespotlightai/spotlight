@@ -11,8 +11,10 @@ import { DrizzleMemoryDraftRepository } from '@memory/infrastructure/persistence
 import { DrizzleRejectedMemories } from '@memory/infrastructure/persistence/drizzle/repositories/rejected-memories.reader';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -29,8 +31,8 @@ const API = Repository.of('acme/api');
 
 const STATION_CONTEXT: StationContext = {
   teamId: TEAM,
-  lineId: 'line_1',
-  stationId: 'station_1',
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
   repositories: [API],
 };
 
@@ -126,10 +128,10 @@ describe('storing a task’s memory draft', () => {
     expect(proposal?.kind).toBe('correction');
     expect(proposal?.source).toBe('run');
     expect(proposal?.scope.teamId.equals(TEAM)).toBe(true);
-    expect([proposal?.scope.lineId, proposal?.scope.stationId]).toEqual([
-      'line_1',
-      'station_1',
-    ]);
+    expect([
+      proposal?.scope.lineId?.value,
+      proposal?.scope.stationId?.value,
+    ]).toEqual(['line_1', 'station_1']);
     expect(proposal?.scope.repository?.equals(API)).toBe(true);
     expect(proposal?.scope.paths.map((each) => each.value)).toEqual([
       'src/uploads.ts',
@@ -222,7 +224,7 @@ describe('storing a task’s memory draft', () => {
     await drafts.add(draft);
     await drafts.save(drafting(await stored(draft), FIRST, [remembered()]));
 
-    await drafts.removeForTask(draft.taskId);
+    await drafts.remove(await stored(draft));
 
     expect(await drafts.forTask(draft.taskId)).toBeNull();
     const [{ n }] = (
@@ -273,7 +275,7 @@ describe('reading what the team already knows', () => {
     await approvedMemory('retired', { status: 'retired' });
 
     const active = (await memories.mayApplyAt(STATION_CONTEXT)).filter((each) =>
-      each.appliesAt(STATION_CONTEXT),
+      each.appliesAt(STATION_CONTEXT, null),
     );
 
     expect(active.map((each) => each.id.value).sort()).toEqual([

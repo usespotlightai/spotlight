@@ -1,6 +1,7 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { SearchRunWork } from '@work/application/services/search-run-work';
@@ -11,7 +12,6 @@ import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { SearchId } from '@work/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-10-02T09:00:00.000Z');
@@ -37,10 +37,10 @@ const search = () =>
     }),
   }).claim(RUNNER, NOW);
 
-const working = () => {
+const working = (leasedNow: (run: Run) => Run = (run) => run) => {
   const saved: Run[] = [];
   const searched = search();
-  let current: Run = searched.renewLease(RUNNER, NOW);
+  let current: Run = leasedNow(searched.renewLease(RUNNER, NOW));
   const work = new SearchRunWork(searched, {
     findById: async () => current,
     save: async (run: Run) => {
@@ -86,5 +86,16 @@ describe('the work of a search', () => {
 
     expect(await work.clearPermission()).toBe('pending');
     expect(saved[0]?.askedAPerson).toBe(true);
+  });
+
+  it('asks nothing on a run another runner leases by now', async () => {
+    const { work, saved } = working((run) =>
+      run
+        .expireLease(run.leaseExpiresAt as Date)
+        .claim(RunnerId.of('runner_2'), NOW),
+    );
+
+    await expect(work.clearPermission()).rejects.toThrow();
+    expect(saved).toEqual([]);
   });
 });

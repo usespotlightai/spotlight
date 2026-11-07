@@ -1,5 +1,9 @@
 import { InviteToWorkspaceHandler } from '@identity/application/commands/handlers/invite-to-workspace.handler';
-import { InviteToWorkspaceCommand } from '@identity/application/commands/invite-to-workspace.command';
+import {
+  InviteToWorkspaceCommand,
+  inviteesOf,
+} from '@identity/application/commands/invite-to-workspace.command';
+import type { InviteOutcomeDto } from '@identity/application/dto/invite.dto';
 import type {
   InviteMailPort,
   InviteToSend,
@@ -58,6 +62,7 @@ const team = (id: string, name: string) =>
     workspaceId: ACME,
     key: TeamKey.of(name.toLowerCase()),
     name: TeamName.of(name),
+    origin: 'configuration',
     members: [LEON],
     version: 0,
   });
@@ -108,13 +113,13 @@ const inviting = (
     {
       add,
       save,
-      notEndedTo: async (_: WorkspaceId, email: EmailAddress) =>
+      latestTo: async (_: WorkspaceId, email: EmailAddress) =>
         over.previous?.(email.value) ?? null,
     } as unknown as WorkspaceInviteRepository,
     { ofWorkspace: async () => TEAMS } as unknown as TeamRepository,
     {
       byEmail: async (_: WorkspaceId, email: string) =>
-        over.members?.includes(email) ? UserId.of('user_x') : null,
+        over.members?.includes(email) ? LEON : null,
     } as MemberDirectoryPort,
     new InviteSending(
       {
@@ -149,14 +154,42 @@ const invite = (
   role = 'admin',
   teamIds = ['team_1', 'team_2'],
   viewer = 'user_leon',
-) => new InviteToWorkspaceCommand('acme', emails, role, teamIds, viewer);
+) => ({ emails, role, teamIds, viewer });
+
+const asked = async (
+  handler: InviteToWorkspaceHandler,
+  request: ReturnType<typeof invite>,
+) => {
+  const outcomes: InviteOutcomeDto[] = [];
+
+  for (const email of inviteesOf(request.emails)) {
+    const outcome = await handler.execute(
+      new InviteToWorkspaceCommand(
+        'acme',
+        email,
+        request.role,
+        request.teamIds,
+        request.viewer,
+      ),
+    );
+
+    if (!outcome) {
+      return null;
+    }
+
+    outcomes.push(outcome);
+  }
+
+  return { outcomes };
+};
 
 describe('InviteToWorkspaceHandler', () => {
-  it('invites every address in the request, as one invite each, with one email each', async () => {
+  it('invites every address in the request, one command and one invite each, with one email each', async () => {
     const { handler, add, send } = inviting();
 
     await expect(
-      handler.execute(
+      asked(
+        handler,
         invite(['ada@example.com', 'grace@example.com', 'alan@example.com']),
       ),
     ).resolves.toEqual({
@@ -192,7 +225,8 @@ describe('InviteToWorkspaceHandler', () => {
     });
 
     await expect(
-      handler.execute(
+      asked(
+        handler,
         invite(['ada@example.com', 'grace@example.com', 'alan@example.com']),
       ),
     ).resolves.toEqual({
@@ -211,7 +245,7 @@ describe('InviteToWorkspaceHandler', () => {
     const { handler, add, send } = inviting({ sender: null });
 
     await expect(
-      handler.execute(invite(['ada@example.com'])),
+      asked(handler, invite(['ada@example.com'])),
     ).resolves.toBeNull();
     expect(add).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
@@ -220,7 +254,7 @@ describe('InviteToWorkspaceHandler', () => {
   it('stores only the hash of the token it sent', async () => {
     const { handler, add } = inviting();
 
-    await handler.execute(invite(['ada@example.com']));
+    await asked(handler, invite(['ada@example.com']));
 
     expect(add.mock.calls[0]?.[0].tokenHash.value).toBe('1'.repeat(64));
   });
@@ -229,9 +263,8 @@ describe('InviteToWorkspaceHandler', () => {
     const { handler, add } = inviting();
 
     const { outcomes } =
-      (await handler.execute(
-        invite(['Ada@Example.com', 'ada@example.com ']),
-      )) ?? {};
+      (await asked(handler, invite(['Ada@Example.com', 'ada@example.com ']))) ??
+      {};
 
     expect(outcomes).toEqual([
       { email: 'ada@example.com', outcome: 'invited' },
@@ -243,7 +276,7 @@ describe('InviteToWorkspaceHandler', () => {
     const { handler, add, send } = inviting({ members: ['ada@example.com'] });
 
     await expect(
-      handler.execute(invite(['ada@example.com', 'grace@example.com'])),
+      asked(handler, invite(['ada@example.com', 'grace@example.com'])),
     ).resolves.toEqual({
       outcomes: [
         { email: 'ada@example.com', outcome: 'already-a-member' },
@@ -259,11 +292,9 @@ describe('InviteToWorkspaceHandler', () => {
       previous: () => pendingInvite(),
     });
 
-    await expect(handler.execute(invite(['ada@example.com']))).resolves.toEqual(
-      {
-        outcomes: [{ email: 'ada@example.com', outcome: 'resent' }],
-      },
-    );
+    await expect(asked(handler, invite(['ada@example.com']))).resolves.toEqual({
+      outcomes: [{ email: 'ada@example.com', outcome: 'resent' }],
+    });
     expect(add).not.toHaveBeenCalled();
     expect(save.mock.calls[0]?.[0]).toMatchObject({
       id: { value: 'invite_ada@example.com' },
@@ -278,7 +309,7 @@ describe('InviteToWorkspaceHandler', () => {
       previous: () => pendingInvite('ada@example.com', new Date('2026-08-01')),
     });
 
-    await handler.execute(invite(['ada@example.com']));
+    await asked(handler, invite(['ada@example.com']));
 
     expect(save.mock.calls[0]?.[0].statusAt(NOW)).toBe('pending');
   });
@@ -296,7 +327,7 @@ describe('InviteToWorkspaceHandler', () => {
     });
 
     await expect(
-      handler.execute(invite(['ada@example.com', 'grace@example.com'])),
+      asked(handler, invite(['ada@example.com', 'grace@example.com'])),
     ).resolves.toEqual({
       outcomes: [
         { email: 'ada@example.com', outcome: 'resent' },
@@ -320,7 +351,7 @@ describe('InviteToWorkspaceHandler', () => {
       },
     });
 
-    await handler.execute(invite(['ada@example.com']));
+    await asked(handler, invite(['ada@example.com']));
 
     expect(save).toHaveBeenCalledTimes(2);
     expect(send).toHaveBeenCalledTimes(1);
@@ -330,7 +361,7 @@ describe('InviteToWorkspaceHandler', () => {
     const { handler, add, send } = inviting({ role: WorkspaceRole.member });
 
     await expect(
-      handler.execute(invite(['ada@example.com'], 'member')),
+      asked(handler, invite(['ada@example.com'], 'member')),
     ).resolves.toBeNull();
     expect(add).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
@@ -339,7 +370,7 @@ describe('InviteToWorkspaceHandler', () => {
   it('lets an admin invite admins', async () => {
     const { handler, add } = inviting({ role: WorkspaceRole.admin });
 
-    await handler.execute(invite(['ada@example.com'], 'admin'));
+    await asked(handler, invite(['ada@example.com'], 'admin'));
 
     expect(add).toHaveBeenCalledTimes(1);
   });
@@ -348,7 +379,7 @@ describe('InviteToWorkspaceHandler', () => {
     const { handler, add, send } = inviting();
 
     await expect(
-      handler.execute(invite(['ada@example.com'], 'owner')),
+      asked(handler, invite(['ada@example.com'], 'owner')),
     ).rejects.toMatchObject({ kind: 'not-allowed' });
     expect(add).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
@@ -358,7 +389,7 @@ describe('InviteToWorkspaceHandler', () => {
     const { handler, send } = inviting();
 
     await expect(
-      handler.execute(invite(['ada@example.com'], 'member', ['team_9'])),
+      asked(handler, invite(['ada@example.com'], 'member', ['team_9'])),
     ).rejects.toThrow(/Team team_9 is not in this workspace/);
     expect(send).not.toHaveBeenCalled();
   });
@@ -367,7 +398,7 @@ describe('InviteToWorkspaceHandler', () => {
     const { handler, send } = inviting();
 
     await expect(
-      handler.execute(invite(['ada@example.com', 'grace'])),
+      asked(handler, invite(['ada@example.com', 'grace'])),
     ).rejects.toThrow(/Email address is not valid/);
     expect(send).not.toHaveBeenCalled();
   });
@@ -375,7 +406,7 @@ describe('InviteToWorkspaceHandler', () => {
   it('rejects an invite to nobody', async () => {
     const { handler } = inviting();
 
-    await expect(handler.execute(invite([]))).rejects.toMatchObject({
+    await expect(asked(handler, invite([]))).rejects.toMatchObject({
       kind: 'invalid',
     });
   });
@@ -383,7 +414,7 @@ describe('InviteToWorkspaceHandler', () => {
   it('may invite onto no team at all', async () => {
     const { handler, send } = inviting();
 
-    await handler.execute(invite(['ada@example.com'], 'member', []));
+    await asked(handler, invite(['ada@example.com'], 'member', []));
 
     expect(send.mock.calls[0]?.[0].teamNames).toEqual([]);
   });

@@ -48,7 +48,7 @@ export class CreateRunnerTrustHandler
         return null;
       }
 
-      if (!permissions.managesRunners) {
+      if (!permissions.allows('runners')) {
         return forbiddenTo('runners');
       }
 

@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { PullRequestClosed } from '@github/domain/events/pull-request-closed.event';
-import { PullRequestReviewed } from '@github/domain/events/pull-request-reviewed.event';
+import { PullRequestUpdated } from '@github/domain/events/pull-request-updated.event';
+import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleTaskFailuresRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-failures.repository';
 import { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
-import { DrizzleTaskPullRequestRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-pull-request.repository';
 import type { INestApplication } from '@nestjs/common';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
@@ -22,6 +21,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
@@ -34,7 +34,6 @@ import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import {
@@ -159,8 +158,47 @@ beforeAll(async () => {
   };
 
   const record = () => app.get(DrizzleRunRecordRepository).of(RUN);
-  const taskPullRequest = () =>
-    app.get(DrizzleTaskPullRequestRepository).forTask(TASK);
+  const taskPullRequest = async () =>
+    (
+      await app
+        .get(DrizzlePullRequestRecordRepository)
+        .at(workspaceId, PullRequestUrl.of(PULL))
+    )?.forTask ?? null;
+  const updated = (version: number, merged: boolean) =>
+    new PullRequestUpdated(workspaceId, {
+      pullRequest: PullRequestUrl.of(PULL),
+      repository: { value: 'acme/api' },
+      number: 7,
+      title: 'Retry failed uploads',
+      author: 'grace',
+      authorIsBot: false,
+      branch: null,
+      additions: 1,
+      deletions: 1,
+      changedFiles: 1,
+      openedAt: ago(180),
+      state: merged ? 'merged' : 'open',
+      closedAt: merged ? ago(60) : null,
+      updatedAt: merged ? ago(60) : ago(120),
+      readyForReviewAt: ago(180),
+      draftPeriods: [],
+      reviews: [
+        {
+          id: 1,
+          state: 'approved',
+          login: 'ada',
+          byBot: false,
+          at: ago(120),
+        },
+      ],
+      dismissedReviews: [],
+      reviewComments: 0,
+      botComments: [],
+      threads: [],
+      isRevert: false,
+      revertedBy: null,
+      version,
+    } as never);
   const humanActions = () =>
     app.get(DrizzleTaskHumanActionsRepository).of(TASK);
   const failures = () => app.get(DrizzleTaskFailuresRepository).of(TASK);
@@ -310,30 +348,12 @@ beforeAll(async () => {
     taskPullRequest,
   );
   await delivered(
-    [
-      new PullRequestReviewed(
-        workspaceId,
-        PULL,
-        'approved',
-        'ada',
-        false,
-        ago(120),
-      ),
-    ],
+    [updated(1, false)],
     async () => (await taskPullRequest())?.firstReviewAt,
   );
   await delivered(
-    [
-      new PullRequestClosed(
-        workspaceId,
-        PULL,
-        'acme/api',
-        null,
-        { commit: 'c'.repeat(40) },
-        ago(60),
-      ),
-    ],
-    async () => (await taskPullRequest())?.merged,
+    [updated(2, true)],
+    async () => (await taskPullRequest())?.state === 'merged',
   );
   await delivered(
     [
@@ -371,7 +391,7 @@ describe('what the insights context receives for a team (e2e)', () => {
       cacheRead: 90_000,
       cacheWrite: null,
     });
-    expect(record?.passed?.to).toBe(NEXT);
+    expect(record?.passed?.to.value).toBe(NEXT);
     expect(record?.firstHumanAction?.kind).toBe('answered');
     expect(record?.end?.agentConfig).toMatchObject({
       harness: 'claude-code',
@@ -399,9 +419,11 @@ describe('what the insights context receives for a team (e2e)', () => {
   });
 
   it('dates the task’s pull request from opening to first review to merge', async () => {
-    const taskPullRequest = await app
-      .get(DrizzleTaskPullRequestRepository)
-      .forTask(TASK);
+    const taskPullRequest = (
+      await app
+        .get(DrizzlePullRequestRecordRepository)
+        .at(team.workspaceId, PullRequestUrl.of(PULL))
+    )?.forTask;
 
     expect(taskPullRequest?.state).toBe('merged');
     expect(taskPullRequest?.firstReviewAt).not.toBeNull();
@@ -597,7 +619,7 @@ describe('the team’s insights (e2e)', () => {
     expect(answer.body.judges).toEqual([]);
   });
 
-  it('sets runs with memories against runs without, with no benchmark yet', async () => {
+  it('sets runs with memories against runs without', async () => {
     const answer = await asOwner(insights('memory'));
 
     expect(answer.status).toBe(200);
@@ -605,8 +627,8 @@ describe('the team’s insights (e2e)', () => {
       activeCount: 0,
       memoriesBriefed: 0,
       flagged: [],
-      benchmark: null,
     });
+    expect(answer.body).not.toHaveProperty('benchmark');
     expect(answer.body.withMemories.runs).toBe(0);
     expect(answer.body.withoutMemories.runs).toBe(1);
   });

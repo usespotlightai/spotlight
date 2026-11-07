@@ -4,6 +4,7 @@ import {
   conversationsOf,
   stillOpen,
 } from '@work/domain/services/conversations';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -22,6 +23,15 @@ export const TAKEN: Record<SetupStepKey, (state: SetupState) => boolean> = {
   harness: (state) => state.hasHarness,
   configuration: (state) => state.configured,
 };
+
+export const mayStartSetup = (
+  state: SetupState,
+  hasEgressCapableRunner: boolean,
+): boolean => state.connectedToGitHub && hasEgressCapableRunner;
+
+export const configuredBy = (
+  setupChat: { readonly pullRequest: unknown } | null,
+): boolean => setupChat?.pullRequest != null;
 
 const setUp = (state: SetupState): boolean =>
   SETUP_STEPS.every((step) => TAKEN[step](state));
@@ -42,6 +52,7 @@ export const setupDoneNote = (
   notes: readonly TaskNote[],
   state: SetupState,
   at: Date,
+  station: Station | null,
 ): NewNote | null => {
   const opened = openSetupList(notes);
 
@@ -50,7 +61,7 @@ export const setupDoneNote = (
   }
 
   return {
-    station: opened.station,
+    station,
     body: TaskNoteBody.of(ALL_DONE),
     form: 'resolved',
     at,

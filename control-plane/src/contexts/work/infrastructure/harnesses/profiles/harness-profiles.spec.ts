@@ -1,12 +1,12 @@
+import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import type {
   HarnessProfileShape,
   PermissionDecisionShape,
   PermissionKindShape,
 } from '@work/application/contracts/harness-profile.contract';
-import { Effort } from '@work/domain/value-objects/effort.vo';
-import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { BuiltInHarnesses } from '@work/infrastructure/harnesses/built-in-harnesses';
 import { describe, expect, it } from 'vitest';
 

@@ -19,7 +19,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import type { RunWatchDto } from '@work/application/dto/run-watch.dto';
 import {
   RUN_STREAM,
@@ -95,7 +95,7 @@ export class RunStreamController {
 
       this.queryBus
         .execute<ReadRunEventsQuery, RunEventView[]>(
-          new ReadRunEventsQuery(runId, cursor.attempt, cursor.seq),
+          new ReadRunEventsQuery(runId, user.id, cursor.attempt, cursor.seq),
         )
         .then((backlog) => {
           for (const event of backlog) {

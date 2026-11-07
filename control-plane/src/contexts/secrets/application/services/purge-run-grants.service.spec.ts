@@ -1,5 +1,5 @@
 import { PurgeRunGrants } from '@secrets/application/services/purge-run-grants.service';
-import { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
+import { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import {
@@ -7,7 +7,7 @@ import {
   InMemoryGrants,
   NOW,
   RecordingLogger,
-} from '@secrets/secrets.fakes.fake-spec';
+} from '@secrets/testing/secrets.fakes.fake-spec';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -31,7 +31,7 @@ const storedGrants = async () => {
 const purgingBy = (grants: InMemoryGrants, logger = new RecordingLogger()) =>
   new PurgeRunGrants(
     grants,
-    new RunGrantsUnitOfWork(grants),
+    new RunGrantsChanges(grants),
     clockAt(() => new Date(NOW.getTime() + WEEK)),
     logger,
   );
@@ -42,7 +42,7 @@ describe('PurgeRunGrants', () => {
     let now = new Date(NOW.getTime() + WEEK - 1);
     const purging = new PurgeRunGrants(
       grants,
-      new RunGrantsUnitOfWork(grants),
+      new RunGrantsChanges(grants),
       clockAt(() => now),
       new RecordingLogger(),
     );

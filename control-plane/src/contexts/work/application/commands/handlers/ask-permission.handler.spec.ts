@@ -1,38 +1,39 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { AskPermissionHandler } from '@work/application/commands/handlers/ask-permission.handler';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { RunWorks } from '@work/application/services/run-works.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { ApprovalDecision } from '@work/domain/value-objects/approval.vo';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  routesOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -44,37 +45,37 @@ const NOW = new Date('2026-09-23T09:00:00.000Z');
 
 const IMPLEMENTING = StationId.of('station_1');
 
-const LINE = Line.rehydrate({
+const LINE = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
   key: LineKey.of('delivery'),
   name: LineName.of('Delivery'),
   stations: [
-    Station.of({
+    stationOf({
       id: StationId.of('station_0'),
       key: StationKey.of('backlog'),
       name: StationName.of('Backlog'),
       position: 0,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       kind: 'backlog',
-      routes: StationRoutes.of({ stations: [IMPLEMENTING] }),
+      routes: routesOf({ stations: [IMPLEMENTING] }),
     }),
-    Station.of({
+    stationOf({
       id: IMPLEMENTING,
       key: StationKey.of('implementation'),
       name: StationName.of('Implementation'),
       position: 1,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       harness: HarnessId.of('claude-code'),
       profile: ProfileKey.of('careful'),
     }),
-    Station.of({
+    stationOf({
       id: StationId.of('station_2'),
       key: StationKey.of('completed'),
       name: StationName.of('Completed'),
       position: 2,
-      color: StationColor.of('#a3a8b0'),
+      color: '#a3a8b0',
       kind: 'completed',
     }),
   ],
@@ -138,6 +139,7 @@ const asking = (start: Task, subject?: RunSubject) => {
       {
         find: async () =>
           Chat.start({
+            lines: [],
             workspaceId: WorkspaceId.of('ws_1'),
             teamId: TeamId.of('team_1'),
             startedBy: UserId.of('user_1'),
@@ -147,7 +149,7 @@ const asking = (start: Task, subject?: RunSubject) => {
             newId: () => 'chat_1',
           }).assignRun(RunId.of('run_1'), NOW),
       } as unknown as ChatRepository,
-      { findByStation: async () => LINE } as unknown as LineRepository,
+      { findByStation: async () => LINE } as unknown as LineMapsPort,
       { of: async () => null },
       { now: () => NOW, sleep: async () => {} },
     ),
@@ -172,7 +174,7 @@ const asking = (start: Task, subject?: RunSubject) => {
       current = current.answer(
         at,
         {
-          station: StationName.of('Implementation'),
+          station: null,
           body: TaskNoteBody.of(
             decision === 'approved' ? 'Go ahead.' : 'Not today.',
           ),

@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -13,10 +17,6 @@ import {
   STATION_PROFILES,
   type StationProfilesPort,
 } from '@work/application/ports/station-profiles.port';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
 import { eq, inArray } from 'drizzle-orm';
 import {
   afterAll,

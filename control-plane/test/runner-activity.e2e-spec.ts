@@ -5,6 +5,7 @@ import { DrizzleRunnerActivityReader } from '@work/infrastructure/persistence/dr
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
@@ -43,7 +44,7 @@ describe('which run each busy runner is working on', () => {
       teamId: 'team_line',
       name: 'Delivery',
     });
-    await db.insert(schema.station).values({
+    await insertStations(db, {
       id: stationId,
       key: 'triage',
       workspaceId: 'ws_1',

@@ -11,23 +11,32 @@ import type {
   ListTasksQuery,
   ReadTaskQuery,
 } from '@work/application/queries/list-tasks.query';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 
 export class ListTasksHandler
   implements QueryHandlerPort<ListTasksQuery, Page<TaskDto> | null>
 {
-  constructor(private readonly tasks: TaskReaderPort) {}
+  constructor(
+    private readonly tasks: TaskReaderPort,
+    private readonly access: WorkAccess,
+  ) {}
 
   async execute(query: ListTasksQuery): Promise<Page<TaskDto> | null> {
     try {
-      const found = await this.tasks.listForTeamMember(
-        TeamId.of(query.teamId),
-        UserId.of(query.viewerId),
+      const teamId = TeamId.of(query.teamId);
+
+      if (!(await this.access.seesTeam(teamId, UserId.of(query.viewerId)))) {
+        return null;
+      }
+
+      const found = await this.tasks.listForTeam(
+        teamId,
         query.state === 'open'
           ? { state: 'open' }
           : { state: 'completed', lineId: query.lineId, page: query.page },
       );
 
-      return found ? mapPage(found, TaskMapper.summaryToDto) : null;
+      return mapPage(found, TaskMapper.summaryToDto);
     } catch (error) {
       rethrowAsApplicationError(error);
     }
@@ -37,15 +46,17 @@ export class ListTasksHandler
 export class ReadTaskHandler
   implements QueryHandlerPort<ReadTaskQuery, TaskDto | null>
 {
-  constructor(private readonly tasks: TaskReaderPort) {}
+  constructor(
+    private readonly tasks: TaskReaderPort,
+    private readonly access: WorkAccess,
+  ) {}
 
   async execute(query: ReadTaskQuery): Promise<TaskDto | null> {
     try {
-      const found = await this.tasks.findForTeamMember(
-        TeamId.of(query.teamId),
-        UserId.of(query.viewerId),
-        TaskId.of(query.taskId),
-      );
+      const teamId = TeamId.of(query.teamId);
+      const found =
+        (await this.access.seesTeam(teamId, UserId.of(query.viewerId))) &&
+        (await this.tasks.findInTeam(teamId, TaskId.of(query.taskId)));
 
       return found ? TaskMapper.summaryToDto(found) : null;
     } catch (error) {

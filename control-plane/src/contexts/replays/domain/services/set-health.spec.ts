@@ -13,6 +13,7 @@ import {
   RUBRIC,
   replayedAs,
   runIds,
+  slots,
 } from '@replays/domain/replays.fake-spec';
 import {
   setHealthOf,
@@ -69,7 +70,7 @@ const started = (
 ) => {
   const replay = Replay.start({
     id: ReplayId.of(id),
-    set: SET,
+    set: SET.snapshot,
     candidate,
     baseline: false,
     ceiling: Money.ceiling(100, 'USD'),
@@ -84,7 +85,7 @@ const started = (
               run,
               answer: 'accepted' as const,
             })),
-            against,
+            against: against.asOracleReference,
             live: PLAIN,
           },
         }
@@ -95,7 +96,7 @@ const started = (
 
   replay.pullEvents();
 
-  return replay.reserving(replay.entries.length, runIds());
+  return replay.reserving(slots(replay.entries.length), runIds());
 };
 
 const calibrated = (

@@ -1,4 +1,6 @@
-export class ToolBlockedByPersonError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class ToolBlockedByPersonError extends DomainError {
   readonly kind = 'not-allowed' as const;
 
   constructor(tool: string, person: string) {

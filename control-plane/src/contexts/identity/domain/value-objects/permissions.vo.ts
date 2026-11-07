@@ -1,8 +1,9 @@
+import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
+import { TokenScope } from '@identity/domain/value-objects/token-scope.vo';
+import type { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import type { Permission } from '@shared-kernel/domain/value-objects/permission';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
-import { TokenScope } from '@shared-kernel/domain/value-objects/token-scope.vo';
-import type { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 
 const SCOPED: readonly (readonly [TokenScope, Permission])[] = [
   [TokenScope.read, 'read'],
@@ -53,7 +54,9 @@ export class Permissions {
     return principal.kind === 'person'
       ? new Permissions(['plan', 'create-workspaces'])
       : new Permissions(
-          principal.scopes.allow(TokenScope.plan) ? ['plan'] : [],
+          IssuedTokenGrant.of(principal).scopes.allow(TokenScope.plan)
+            ? ['plan']
+            : [],
         );
   }
 
@@ -69,16 +72,8 @@ export class Permissions {
     return this.granted.has('configure');
   }
 
-  get managesSecrets(): boolean {
-    return this.granted.has('secrets');
-  }
-
-  get managesRunners(): boolean {
-    return this.granted.has('runners');
-  }
-
-  get managesOidcTrusts(): boolean {
-    return this.granted.has('trusts');
+  allows(scope: TokenScope): boolean {
+    return this.granted.has(scope.value);
   }
 
   get isAdmin(): boolean {

@@ -31,6 +31,7 @@ const INPUTS = ToolInputs.of({
 
 const using = (options: { setup?: boolean } = {}) => {
   let chat = Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_1'),

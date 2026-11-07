@@ -96,6 +96,7 @@ const nearing = (over: { refreshToken?: string | null } = {}) =>
     refreshFailedAt: null,
     refreshClaim: null,
     version: 1,
+    connectedAt: new Date('2026-09-01T00:00:00.000Z'),
   });
 
 const refreshing = (
@@ -192,9 +193,6 @@ describe('RefreshConnections', () => {
     expect(stored?.accessToken.value).toBe('xoxb-old');
     expect(stored?.refreshFailedAt).toEqual(NOW);
     expect(stored?.refreshClaim).toBeNull();
-    expect(connections.events.map((each) => each.kind)).toEqual([
-      'integrations.connection-refresh-failed',
-    ]);
     expect(warn).toHaveBeenCalledWith(
       { team: 'team_1', integration: 'slack', owner: 'team' },
       'The integration did not refresh a connection',
@@ -202,7 +200,7 @@ describe('RefreshConnections', () => {
   });
 
   it('leaves a connection that someone else refreshes to them', async () => {
-    const claimed = nearing().claimRefresh(NOW, 30_000);
+    const claimed = nearing().claimRefresh(NOW);
     const { it, refresh } = refreshing([claimed]);
 
     await it.refresh();

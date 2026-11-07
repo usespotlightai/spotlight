@@ -113,6 +113,7 @@ describe('each person’s own connections (e2e)', () => {
           accessToken: `lin-${personId}`,
           linkedAccount,
         }),
+        at: new Date('2026-09-01T00:00:00.000Z'),
       }),
     );
 

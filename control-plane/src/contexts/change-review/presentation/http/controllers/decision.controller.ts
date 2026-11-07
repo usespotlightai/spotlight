@@ -26,7 +26,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 
 @ApiTags('decisions')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -85,10 +85,7 @@ export class DecisionController {
     @Body() body: DisputeDecisionRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TaskDecisionsResponseDto> {
-    const found = await this.commandBus.execute<
-      DisputeDecisionCommand,
-      TaskDecisionsDto
-    >(
+    await this.commandBus.execute<DisputeDecisionCommand, void>(
       new DisputeDecisionCommand(
         teamId,
         taskId,
@@ -99,6 +96,6 @@ export class DecisionController {
       ),
     );
 
-    return new TaskDecisionsResponseDto(found);
+    return this.taskDecisions(teamId, taskId, user);
   }
 }

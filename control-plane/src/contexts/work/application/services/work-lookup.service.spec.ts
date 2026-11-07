@@ -1,10 +1,11 @@
-import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -14,23 +15,20 @@ import type {
   RunChanges,
   RunJournal,
 } from '@work/application/contracts/run-journal.contract';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { WorkLookup } from '@work/application/services/work-lookup.service';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
+import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -46,14 +44,9 @@ const fresh = () => {
   return `id_${next}`;
 };
 
-const [opening] = BUILT_IN_LINES;
-
-const line = Line.create({
-  by: changeActorIn(),
+const line = deliveryLineOf({
   workspaceId: WORKSPACE,
   teamId: TeamId.of('team_1'),
-  // biome-ignore lint/style/noNonNullAssertion: Spotlight has built-in lines
-  line: opening!,
   newId: fresh,
 });
 
@@ -72,22 +65,25 @@ const lookingUp = (markedTasks: readonly Task[]) =>
   new WorkLookup(
     {} as RunRepository,
     {
-      findByMarks: async (_at: WorkspaceId, correlationKeys: CorrelationKeys) =>
-        markedTasks.find((each) =>
+      findByCorrelation: async (
+        _at: WorkspaceId,
+        correlationKeys: CorrelationKeys,
+      ) =>
+        markedTasks.filter((each) =>
           correlationKeys.marks.some((mark) =>
             each.marks.some((marked) => marked.equals(mark)),
           ),
-        ) ?? null,
+        ),
     } as unknown as TaskRepository,
-    { findByStation: async () => line } as unknown as LineRepository,
+    { findByStation: async () => line } as unknown as LineMapsPort,
     {} as ChatRepository,
     {} as RunJournalReaderPort,
   );
 
 describe('WorkLookup, finding the task a pull request belongs to', () => {
   it('finds the task that opened it before one that reviews it', async () => {
-    const reviewing = task().reviews(PULL, { outside: false });
-    const opened = task().markedBy(Mark.pullRequest(PULL));
+    const reviewing = task().reviews(PULL, { outside: false }, new Date(0));
+    const opened = task().markedBy(Mark.pullRequest(PULL), new Date(0));
 
     const found = await lookingUp([reviewing, opened]).taskWithPullRequest(
       WORKSPACE,
@@ -98,7 +94,7 @@ describe('WorkLookup, finding the task a pull request belongs to', () => {
   });
 
   it('finds the task reviewing it where no task of Spotlight’s opened it', async () => {
-    const reviewing = task().reviews(PULL, { outside: false });
+    const reviewing = task().reviews(PULL, { outside: false }, new Date(0));
 
     const found = await lookingUp([reviewing]).taskWithPullRequest(
       WORKSPACE,
@@ -110,7 +106,7 @@ describe('WorkLookup, finding the task a pull request belongs to', () => {
   });
 
   it('says whether the pull request a task reviews came from outside the team', async () => {
-    const outside = task().reviews(PULL, { outside: true });
+    const outside = task().reviews(PULL, { outside: true }, new Date(0));
 
     const found = await lookingUp([outside]).taskWithPullRequest(
       WORKSPACE,
@@ -154,7 +150,7 @@ describe('WorkLookup, looking up a run', () => {
         }),
       } as unknown as RunRepository,
       {} as TaskRepository,
-      { findByStation: async () => line } as unknown as LineRepository,
+      { findByStation: async () => line } as unknown as LineMapsPort,
       {} as ChatRepository,
       {} as RunJournalReaderPort,
     );
@@ -281,7 +277,7 @@ describe('WorkLookup, reading how a run reasoned', () => {
         }),
       } as unknown as RunRepository,
       {} as TaskRepository,
-      {} as LineRepository,
+      {} as LineMapsPort,
       {} as ChatRepository,
       {
         ofRun: async () => ({ runId: 'run_1', steps }) as unknown as RunJournal,
@@ -392,7 +388,7 @@ describe('WorkLookup, reading what a run changed', () => {
       {} as TaskRepository,
       {
         findByStation: async () => ({ repositories: { all: [API, WEB] } }),
-      } as unknown as LineRepository,
+      } as unknown as LineMapsPort,
       {} as ChatRepository,
       {
         ofRun: async () =>
@@ -449,7 +445,7 @@ describe('WorkLookup, reading the notes of people on a task', () => {
           ],
         }),
       } as unknown as TaskRepository,
-      {} as LineRepository,
+      {} as LineMapsPort,
       {} as ChatRepository,
       {} as RunJournalReaderPort,
     ).notesOf(TaskId.of('task_1'));
@@ -467,13 +463,11 @@ describe('WorkLookup, reading the notes of people on a task', () => {
 });
 
 describe('WorkLookup, reading a team’s lines', () => {
-  it('names each line still in use, with the stations that work and its repositories', async () => {
-    const deleted = { ...line, isDeleted: true, id: { value: 'line_old' } };
-
+  it('names each line, with the stations that work and its repositories', async () => {
     const lines = await new WorkLookup(
       {} as RunRepository,
       {} as TaskRepository,
-      { ofTeam: async () => [line, deleted] } as unknown as LineRepository,
+      { ofTeam: async () => [line] } as unknown as LineMapsPort,
       {} as ChatRepository,
       {} as RunJournalReaderPort,
     ).linesOf(TeamId.of('team_1'));
@@ -529,7 +523,7 @@ describe('WorkLookup, finding the run a runner leases', () => {
                 id: { value: 'line_1' },
                 repositories: { all: [API] },
               },
-      } as unknown as LineRepository,
+      } as unknown as LineMapsPort,
       {
         find: async () => ({
           teamId: TeamId.of('team_chat'),

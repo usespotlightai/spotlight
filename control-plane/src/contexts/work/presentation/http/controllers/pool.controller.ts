@@ -16,6 +16,7 @@ import {
 } from '@nestjs/swagger';
 import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import type { PoolQueueDto } from '@work/application/dto/pool.dto';
 import { PoolQueueQuery } from '@work/application/queries/pool.queries';
 import { PoolQueueResponseDto } from '@work/presentation/http/dto/pool.response.dto';
@@ -26,6 +27,7 @@ const UNAUTHORIZED = 'Missing, rotated or unknown pool token';
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @AllowAnonymous()
+@InAudience('hosts')
 @Controller('pools')
 export class PoolController {
   constructor(private readonly queryBus: QueryBus) {}

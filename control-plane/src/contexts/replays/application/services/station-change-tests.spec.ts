@@ -27,6 +27,7 @@ import {
   searchRunIds,
 } from '@replays/domain/replays.fake-spec';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
@@ -81,6 +82,7 @@ const tests = () => {
   const healths = new SetHealths(
     work,
     memory.replayRepository,
+    memory.replaysReader,
     memory.candidateRepository,
   );
 
@@ -92,8 +94,8 @@ const tests = () => {
     memory.searchRepository,
     memory.candidateRepository,
     pullRequests,
+    refreshingFor(memory, work),
     new CheckSearchReadiness(
-      refreshingFor(memory, work),
       memory.setRepository,
       healths,
       work,
@@ -104,15 +106,15 @@ const tests = () => {
     new StartSearch(
       snapshotsFor(memory, work),
       memory.setRepository,
-      memory.replayRepository,
-      memory.candidateRepository,
       memory.searchRepository,
       memory.scheduleRepository,
+      memory.budgetRepository,
       { sha256: (text: string) => text },
       IDS,
       clock,
       TRANSACTION,
     ),
+    snapshotsFor(memory, work),
     IDS,
     clock,
     TRANSACTION,
@@ -125,8 +127,8 @@ const asked = (
   tests().request({
     workspaceId: STATION.workspaceId,
     teamId: STATION.teamId,
-    lineId: STATION.lineId,
-    stationId: STATION.stationId,
+    lineId: STATION.lineId.value,
+    stationId: STATION.stationId.value,
     requester: UserId.of('user_asking'),
     mode: 'test',
     name: 'shorter-prompt',
@@ -154,6 +156,7 @@ const withSet = async (set: ReplaySet) => {
 
 beforeEach(async () => {
   memory = new InMemoryReplays();
+  memory.startsPlannedReplays = true;
   work = new FakeWork();
   pullRequests = new InMemoryConfigPullRequests();
   now = NOW;
@@ -274,7 +277,7 @@ describe('StationChangeTests', () => {
         candidateId: CandidateId.of('candidate_one'),
         station: STATION,
         stationKey: 'build',
-        candidateName: 'one',
+        candidateName: CandidateName.rehydrate('one'),
         lineKey: 'delivery',
         source: {
           repository: Repository.of('acme/platform'),
@@ -307,7 +310,7 @@ describe('StationChangeTests', () => {
     memory.searches.clear();
     policy = policyOf();
 
-    const schedule = memory.schedules.get(STATION.stationId);
+    const schedule = memory.schedules.get(STATION.stationId.value);
 
     await memory.scheduleRepository.save(
       (schedule as StationSearchSchedule)
@@ -323,7 +326,7 @@ describe('StationChangeTests', () => {
   });
 
   it('ignores the cooldown of the station', async () => {
-    const schedule = memory.schedules.get(STATION.stationId);
+    const schedule = memory.schedules.get(STATION.stationId.value);
 
     await memory.scheduleRepository.save(
       (schedule as StationSearchSchedule).started({

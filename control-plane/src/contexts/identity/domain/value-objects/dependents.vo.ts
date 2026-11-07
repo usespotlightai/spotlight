@@ -1,10 +1,36 @@
+import type { ResourceType } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+
+export type DependentKind = ResourceType | 'issued-tokens';
+
+export interface Dependent {
+  readonly kind: DependentKind;
+  readonly key: string | null;
+}
+
+const OWN_LABELS: Readonly<Record<string, string>> = {
+  'workspace-token': 'token',
+  'oidc-trust': 'OIDC trust',
+  'issued-tokens': 'tokens issued by',
+};
+
+const labelOf = (kind: DependentKind): string =>
+  OWN_LABELS[kind] ?? kind.replaceAll('-', ' ');
+
+const described = (dependent: Dependent): string =>
+  dependent.key === null
+    ? labelOf(dependent.kind)
+    : `${labelOf(dependent.kind)} ${dependent.key}`;
+
+const inOrder = (one: string, other: string): number =>
+  one === other ? 0 : one < other ? -1 : 1;
+
 export class Dependents {
-  private readonly kind = 'dependents';
+  private constructor(readonly all: readonly Dependent[]) {}
 
-  private constructor(readonly names: readonly string[]) {}
-
-  static of(names: readonly string[]): Dependents {
-    return new Dependents([...names].sort());
+  static of(all: readonly Dependent[]): Dependents {
+    return new Dependents(
+      [...all].sort((one, other) => inOrder(described(one), described(other))),
+    );
   }
 
   static none(): Dependents {
@@ -12,18 +38,14 @@ export class Dependents {
   }
 
   and(other: Dependents): Dependents {
-    return Dependents.of([...this.names, ...other.names]);
+    return Dependents.of([...this.all, ...other.all]);
   }
 
   get isEmpty(): boolean {
-    return this.names.length === 0;
+    return this.all.length === 0;
   }
 
-  equals(other: Dependents): boolean {
-    return (
-      this.kind === other.kind &&
-      this.names.length === other.names.length &&
-      this.names.every((each, at) => each === other.names[at])
-    );
+  get described(): readonly string[] {
+    return this.all.map(described);
   }
 }

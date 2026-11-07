@@ -47,7 +47,7 @@ export class StartWantedBaseline {
       await this.replays.add(
         Replay.start({
           id: event.baselineId,
-          set,
+          set: set.snapshot,
           candidate,
           baseline: true,
           ceiling: event.ceiling,

@@ -4,6 +4,7 @@ import type { TerraformStates } from '@configuration/application/services/terraf
 import { TerraformStateLockedError } from '@configuration/domain/exceptions/terraform-state-locked.error';
 import { TerraformStateVersionConflictError } from '@configuration/domain/exceptions/terraform-state-version-conflict.error';
 import type { TerraformStateRepository } from '@configuration/domain/repositories/terraform-state.repository';
+import { PrincipalRef } from '@configuration/domain/value-objects/principal-ref.vo';
 import { StateLock } from '@configuration/domain/value-objects/state-lock.vo';
 import { StateName } from '@configuration/domain/value-objects/state-name.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
@@ -40,7 +41,7 @@ export class LockTerraformStateHandler
 
       const lock = StateLock.of({
         info: command.info,
-        lockedBy: command.actor.principal.toString(),
+        lockedBy: PrincipalRef.of(command.actor.principal),
         lockedAt: this.clock.now(),
       });
       const name = StateName.of(command.name);

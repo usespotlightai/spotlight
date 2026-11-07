@@ -20,7 +20,7 @@ export class MemoryAccess {
   async forTeam(teamId: string, viewerId: string): Promise<TeamAccess> {
     return TeamAccess.onTeam(
       teamId,
-      await this.people.memberOf(teamId, viewerId),
+      await this.people.viewerOf(teamId, viewerId),
     );
   }
 

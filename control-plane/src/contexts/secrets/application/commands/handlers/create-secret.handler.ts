@@ -60,7 +60,7 @@ export class CreateSecretHandler
         return null;
       }
 
-      if (!permissions.managesSecrets) {
+      if (!permissions.allows('secrets')) {
         return forbiddenTo('secrets');
       }
 

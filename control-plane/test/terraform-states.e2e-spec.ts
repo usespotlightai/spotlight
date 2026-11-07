@@ -4,6 +4,7 @@ import {
   type TerraformStateBodiesPort,
 } from '@configuration/application/ports/terraform-state-bodies.port';
 import type { INestApplication } from '@nestjs/common';
+import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { eq, inArray } from 'drizzle-orm';
@@ -17,6 +18,7 @@ import {
   it,
 } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -25,13 +27,15 @@ const TOKEN_HEADER = 'spotlight-workspace-token';
 const kept = () => {
   const bodies = new Map<string, Uint8Array>();
   const port: TerraformStateBodiesPort = {
-    put: async (state, version, body) => {
-      bodies.set(`${state.workspaceId.value}/${version.id.value}`, body);
+    put: async (at, body) => {
+      bodies.set(`${at.workspaceId.value}/${at.versionId.value}`, body);
     },
-    read: async (state, version) =>
-      bodies.get(`${state.workspaceId.value}/${version.id.value}`) ?? null,
-    remove: async (state, version) => {
-      bodies.delete(`${state.workspaceId.value}/${version.id.value}`);
+    read: async (at) =>
+      bodies.get(`${at.workspaceId.value}/${at.versionId.value}`) ?? null,
+    remove: async (at) => {
+      for (const each of at) {
+        bodies.delete(`${each.workspaceId.value}/${each.versionId.value}`);
+      }
     },
     removeForWorkspace: async (workspaceId) => {
       for (const key of [...bodies.keys()]) {
@@ -455,13 +459,17 @@ describe('Terraform states over the http backend protocol (e2e)', () => {
       )
       .where(eq(schema.terraformState.workspaceId, seat.workspaceId));
     const numbers = versions.map(({ number }) => number).sort((a, b) => a - b);
-    const kept = [...store.bodies.keys()].filter((key) =>
-      key.startsWith(`${seat.workspaceId}/`),
-    );
+    const kept = () =>
+      [...store.bodies.keys()].filter((key) =>
+        key.startsWith(`${seat.workspaceId}/`),
+      );
 
     expect(numbers).toHaveLength(100);
     expect(numbers[0]).toBe(3);
-    expect(kept).toHaveLength(100);
+    await eventually(async () => {
+      await app.get(EventDelivery).drain(2_000);
+      return kept().length === 100;
+    });
     expect(JSON.parse((await as(tokens.plan).read()).text).serial).toBe(102);
   }, 60_000);
 });

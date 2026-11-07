@@ -1,8 +1,8 @@
 import type { HookTokensPort } from '@integrations/application/ports/hook-tokens.port';
 import type { OutboundHostsPort } from '@integrations/application/ports/outbound-hosts.port';
 import type { WorkspaceHostsPort } from '@integrations/application/ports/workspace-hosts.port';
-import type { HookAllowances } from '@integrations/domain/aggregates/hook-definition.aggregate';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
+import type { HookAllowances } from '@integrations/domain/services/hook-allowances';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 

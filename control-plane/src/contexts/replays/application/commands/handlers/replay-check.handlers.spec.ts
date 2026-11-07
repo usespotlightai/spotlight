@@ -19,6 +19,7 @@ import {
   snapshotsFor,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
+import { StartCheckReplays } from '@replays/application/services/start-check-replays.service';
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
@@ -40,12 +41,14 @@ import { CandidateScoring } from '@replays/domain/value-objects/candidate-scorin
 import { Money } from '@replays/domain/value-objects/money.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
+import { SetUsers } from '@replays/domain/value-objects/set-users.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
+import type { IdempotentLookupsPort } from '@shared-kernel/application/ports/idempotent-lookups.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -68,6 +71,10 @@ const CHECKED = CandidateScoring.of({
 const FRESH: IdempotentCreatesPort = {
   reserve: async () => ({ kind: 'new' }),
   recordCreated: async () => {},
+};
+
+const LOOKUPS: IdempotentLookupsPort = {
+  lookup: async () => ({ kind: 'new' }),
 };
 
 const PLAN = {
@@ -127,26 +134,36 @@ const keptAtStation = (set: ReplaySet = aSet(3)): ReplaySet => {
 const evaluations = () =>
   new CheckEvaluations(memory.replayRepository, memory.setRepository);
 
-const start = (
+const start = async (
   station: unknown = PLAN,
   mayPlan: boolean | null = true,
   line?: unknown,
-): Promise<ReplayCheckStartedOutcome> =>
-  new StartReplayCheckHandler(
+): Promise<ReplayCheckStartedOutcome> => {
+  const outcome = await new StartReplayCheckHandler(
     accessFor(memory, work, mayPlan),
     peopleWho(mayPlan),
     work,
     snapshotsFor(memory, work),
+    new StartCheckReplays(
+      checks,
+      memory.replayRepository,
+      memory.candidateRepository,
+      memory.setRepository,
+      snapshotsFor(memory, work),
+      IDS,
+      CLOCK,
+      TRANSACTION,
+    ),
     evaluations(),
-    memory.candidateRepository,
     memory.setRepository,
-    memory.replayRepository,
     checks,
     FRESH,
+    LOOKUPS,
     { sha256 },
     IDS,
     CLOCK,
     TRANSACTION,
+    QUIET,
   ).execute(
     new StartReplayCheckCommand(
       'team_1',
@@ -162,6 +179,24 @@ const start = (
       'key-1',
     ),
   );
+
+  for (const event of [...memory.events]) {
+    if (event instanceof ReplayCheckStarted) {
+      await new StartCheckReplays(
+        checks,
+        memory.replayRepository,
+        memory.candidateRepository,
+        memory.setRepository,
+        snapshotsFor(memory, work),
+        IDS,
+        CLOCK,
+        TRANSACTION,
+      ).started(event);
+    }
+  }
+
+  return outcome;
+};
 
 const read = (id: string, mayPlan: boolean | null = false) =>
   new ReadReplayCheckHandler(
@@ -349,7 +384,7 @@ describe('StartReplayCheckHandler', () => {
           remove: [],
         },
         NOW,
-        false,
+        SetUsers.none(),
       ),
     );
     const fourth = idOf(await start());
@@ -398,7 +433,7 @@ describe('StartReplayCheckHandler', () => {
     const old = await snapshotsFor(memory, work).taken(set);
     const staleLive = Replay.start({
       id: ReplayId.of('replay_stale'),
-      set,
+      set: set.snapshot,
       candidate: {
         id: old.id,
         isLive: true,

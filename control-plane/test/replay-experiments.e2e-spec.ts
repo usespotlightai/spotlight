@@ -5,9 +5,9 @@ import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { WORK, type WorkPort } from '@replays/application/ports/work.port';
+import { healthView } from '@replays/application/queries/views/replay-views';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
-import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
-import { healthView } from '@replays/application/services/replay-views';
+import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -32,6 +32,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import {
   ARCHIVE_REFERENCES,
   type ArchiveReferencesPort,
@@ -50,7 +51,6 @@ import {
 } from '@work/application/ports/workspace-archive-store.port';
 import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
@@ -62,6 +62,7 @@ import { keptSet, runEnded } from './support/kept-sets';
 import { plannedCandidate, replayOf, startedReplay } from './support/replays';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-experiment-${randomUUID().slice(0, 8)}`;
@@ -212,7 +213,7 @@ const anOriginal = async (
 };
 
 const refreshedBefore = (setId: string) =>
-  app.get(RefreshKeptSets).refreshBefore(ReplaySetId.of(setId));
+  app.get(RefreshReplaySets).refreshBefore(ReplaySetId.of(setId));
 
 const createSet = (...originals: Original[]) =>
   createSetAt(BUILD, ...originals);
@@ -331,7 +332,7 @@ const startReplay = (setId: string, candidate: string, amount: number) =>
   startedReplay(app, setId, { candidate, amount });
 
 const setOf = async (stationId: string = BUILD) =>
-  app.get(DrizzleReplaySetRepository).ofStation(stationId);
+  app.get(DrizzleReplaySetRepository).ofStation(StationId.of(stationId));
 
 beforeAll(async () => {
   app = await openApp((module) =>
@@ -359,7 +360,7 @@ beforeAll(async () => {
     lineId: DELIVERY,
     repository: Repository.of('acme/api').value,
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -463,7 +464,7 @@ describe('a replay set', () => {
 
     await runEnded(app, at(BUILD), first.runId);
     await runEnded(app, at(BUILD), second.runId);
-    await app.get(RefreshKeptSets).processDue();
+    await app.get(RefreshReplaySets).processDue();
 
     const set = await setOf();
     const runs = set?.runs.map((each) => each.value);
@@ -941,7 +942,7 @@ describe('a replay set whose station leaves its line', () => {
     );
     await eventually(async () => (await startingPointHoldsOf()).length === 0);
 
-    expect((await runRow(replayRun as string))?.stationId).toBeNull();
+    expect((await runRow(replayRun as string))?.stationId).toBe(POLISH);
 
     const otherTeam = randomUUID();
     const otherReader = randomUUID();
@@ -960,6 +961,7 @@ describe('a replay set whose station leaves its line', () => {
       workspaceId: team.workspaceId.value,
       key: `other-${otherTeam.slice(0, 8)}`,
       name: 'Other',
+      origin: 'configuration',
     });
     await db.insert(schema.teamMember).values({
       workspaceId: team.workspaceId.value,

@@ -1,8 +1,8 @@
+import type { TeamWindow } from '@insights/application/ports/insights-reader.port';
 import type {
   MemoryUsePort,
   TeamMemoryUseView,
 } from '@insights/application/ports/memory-use.port';
-import type { TeamWindow } from '@insights/domain/repositories/run-record.repository';
 import type { TeamMemoryUsePort } from '@memory/application/ports/team-memory-use.port';
 
 export class MemoryUse implements MemoryUsePort {

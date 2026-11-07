@@ -3,12 +3,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { InboxRequestCreated } from '@work/domain/events/inbox-request-created.event';
-import { InboxRequestResolved } from '@work/domain/events/inbox-request-resolved.event';
-import {
-  type InboxRequestForm,
-  inboxRequestForm,
-} from '@work/domain/value-objects/inbox-request-form';
+import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
 import type { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import type { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
@@ -42,27 +37,21 @@ export class InboxRequest extends EventRecorder {
     id: InboxRequestId;
     workspaceId: WorkspaceId;
     taskId: TaskId;
-    form: string;
+    form: InboxRequestForm;
     about: InboxRequestSubject;
     now: Date;
   }): InboxRequest {
-    const form = inboxRequestForm(input.form);
-    const { about } = input;
-    const created = new InboxRequest(
+    return new InboxRequest(
       input.id,
       input.workspaceId,
       input.taskId,
-      form,
-      about,
+      input.form,
+      input.about,
       input.now,
       [],
       null,
       0,
     );
-    created.record(
-      new InboxRequestCreated(input.id, input.taskId, form, about),
-    );
-    return created;
   }
 
   static rehydrate(input: {
@@ -137,12 +126,22 @@ export class InboxRequest extends EventRecorder {
       : visibility.seesTeam;
   }
 
+  static unread(seen: {
+    readonly readAt: Date | null;
+    readonly resolvedAt: Date | null;
+  }): boolean {
+    return seen.readAt === null && seen.resolvedAt === null;
+  }
+
   get open(): boolean {
     return this.resolvedAt === null;
   }
 
   unreadBy(viewer: UserId): boolean {
-    return !this.reads.some((each) => each.by.equals(viewer));
+    return InboxRequest.unread({
+      readAt: this.reads.find((each) => each.by.equals(viewer))?.at ?? null,
+      resolvedAt: this.resolvedAt,
+    });
   }
 
   readBy(viewer: UserId, now: Date): InboxRequest {
@@ -158,9 +157,7 @@ export class InboxRequest extends EventRecorder {
       return this;
     }
 
-    const resolved = this.with({ resolvedAt: now });
-    resolved.record(new InboxRequestResolved(this.id, this.taskId));
-    return resolved;
+    return this.with({ resolvedAt: now });
   }
 
   reopen(now: Date): InboxRequest {
@@ -181,9 +178,6 @@ export class InboxRequest extends EventRecorder {
     );
 
     reopened.inheritEvents(this);
-    reopened.record(
-      new InboxRequestCreated(this.id, this.taskId, this.form, this.about),
-    );
     return reopened;
   }
 

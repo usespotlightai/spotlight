@@ -5,13 +5,22 @@ import type {
   ValidatedCandidate,
   WorkPort,
 } from '@replays/application/ports/work.port';
-import { CandidateProblems } from '@replays/application/rendering/candidate-problems';
 import { stationChangeRefusalReason } from '@replays/application/rendering/station-change-refusals';
 import type { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
+import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
+import type { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
+import { resultPendingAt } from '@replays/application/services/result-pending';
 import type { StartSearch } from '@replays/application/services/start-search.service';
+import type {
+  StationChangeRefusal,
+  StationChangeTestOutcome,
+  StationChangeTestRequest,
+  StationChangeTestScope,
+} from '@replays/application/services/station-change-test';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
+import type { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { MonthlyCeilingReachedError } from '@replays/domain/exceptions/monthly-ceiling-reached.error';
 import { RequestLimitReachedError } from '@replays/domain/exceptions/request-limit-reached.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
@@ -23,14 +32,16 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
-import { pendingPickOf } from '@replays/domain/services/pending-pick';
 import {
-  fitsMonth,
-  monthSpentOf,
+  fitsMonthAfter,
   monthStartOf,
   nextMonthStartOf,
+  requestRefusalOf,
 } from '@replays/domain/services/search-schedule';
-import { unsearchableChanges } from '@replays/domain/services/searchable-changes';
+import {
+  nameProblem,
+  searchedProposalOf,
+} from '@replays/domain/services/searched-proposal';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
@@ -42,14 +53,9 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type {
-  StationChangeRefusal,
-  StationChangeTestOutcome,
-  StationChangeTestRequest,
-  StationChangeTestScope,
-  StationChangeTestsPort,
-} from '@work/application/ports/station-change-tests.port';
 
 const NAME_TAKEN = 'names another candidate of the running search already';
 
@@ -82,7 +88,7 @@ const scopeOf = (search: Search): StationChangeTestScope => ({
   iterations: search.budget.iterations,
 });
 
-export class StationChangeTests implements StationChangeTestsPort {
+export class StationChangeTests {
   constructor(
     private readonly work: WorkPort,
     private readonly people: PeoplePort,
@@ -91,8 +97,10 @@ export class StationChangeTests implements StationChangeTestsPort {
     private readonly searches: SearchRepository,
     private readonly candidates: CandidateRepository,
     private readonly pullRequests: ConfigPullRequestRepository,
+    private readonly refreshing: RefreshReplaySets,
     private readonly readiness: CheckSearchReadiness,
     private readonly starting: StartSearch,
+    private readonly snapshots: LiveCandidates,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -101,7 +109,8 @@ export class StationChangeTests implements StationChangeTestsPort {
   async request(
     request: StationChangeTestRequest,
   ): Promise<StationChangeTestOutcome> {
-    const { lineId, stationId } = request;
+    const lineId = LineId.of(request.lineId);
+    const stationId = StationId.of(request.stationId);
     const station = await this.work.station(lineId, stationId);
 
     if (
@@ -162,7 +171,7 @@ export class StationChangeTests implements StationChangeTestsPort {
     station: StationView,
     proposal: Proposal,
   ): Promise<StationChangeTestOutcome> {
-    const { stationId } = request;
+    const stationId = StationId.of(request.stationId);
     const schedule = await this.schedules.ofStation(stationId);
     const set = schedule && (await this.sets.find(schedule.setId));
     const policy = live.search;
@@ -171,32 +180,29 @@ export class StationChangeTests implements StationChangeTestsPort {
     if (!policy || !schedule || !set || set.isAtGoneStation) {
       return this.refused('no-replay-set');
     }
-    if (await this.resultPending(stationId)) {
-      return this.refused('result-pending');
-    }
-    if (await this.pullRequests.openAtStation(stationId)) {
-      return this.refused('pull-request-open');
-    }
-    if (
-      !fitsMonth(
+    const refusal = requestRefusalOf({
+      resultPending: await resultPendingAt(
+        stationId,
+        this.searches,
+        this.pullRequests,
+      ),
+      pullRequestOpen: await this.pullRequests.openAtStation(stationId),
+      fitsMonth: fitsMonthAfter(
         policy,
-        monthSpentOf(
-          await this.searches.ofLineStartedSince(
-            request.lineId,
-            monthStartOf(now),
-          ),
-          policy.monthlyCeiling.currency,
+        await this.searches.ofLineStartedSince(
+          LineId.of(request.lineId),
+          monthStartOf(now),
         ),
-      )
-    ) {
-      return this.refused('monthly-ceiling');
+      ),
+      takesRequest: schedule.takesRequestOn(now),
+      scores: live.scoring.judges || live.scoring.checksChanges,
+    });
+
+    if (refusal) {
+      return this.refused(refusal);
     }
-    if (!schedule.takesRequestOn(now)) {
-      return this.refused('request-limit');
-    }
-    if (!live.scoring.judges && !live.scoring.checksChanges) {
-      return this.refused('no-scoring');
-    }
+
+    await this.refreshing.refreshBefore(set.id);
 
     const ready = await this.readiness.check({
       set,
@@ -264,7 +270,9 @@ export class StationChangeTests implements StationChangeTestsPort {
       throw error;
     }
 
-    const active = await this.searches.activeAtStation(request.stationId);
+    const active = await this.searches.activeAtStation(
+      StationId.of(request.stationId),
+    );
 
     return active
       ? this.joinedOrEarlier(active, request, station)
@@ -280,45 +288,55 @@ export class StationChangeTests implements StationChangeTestsPort {
       return this.refused('search-running');
     }
 
-    try {
-      return await this.transaction.inTransaction(async () => {
-        const search = await this.searches.locked(seen.id);
-        const schedule = await this.schedules.locked(request.stationId);
-        const at = this.clock.now();
+    const stationId = StationId.of(request.stationId);
+    const iteration = seen.requestIteration;
+    const candidate = this.candidateOf(
+      seen.id,
+      seen.station,
+      proposal,
+      iteration,
+    );
+    const at = this.clock.now();
+    const before = await this.requestCounted(stationId, at);
 
-        if (!search?.takesRequests) {
+    if (before.refusal) {
+      return this.refused(before.refusal);
+    }
+
+    await this.snapshots.kept(candidate);
+
+    try {
+      const outcome = await this.transaction.inTransaction(async () => {
+        const search = await this.searches.locked(seen.id);
+
+        if (!search?.takesRequests || search.requestIteration !== iteration) {
           return this.refused('search-running');
         }
-        if (!schedule) {
-          return this.refused('no-replay-set');
-        }
-        if (!schedule.takesRequestOn(at)) {
-          return this.refused('request-limit');
-        }
 
-        const iteration = search.requestIteration;
-        const candidate = this.candidateOf(
-          search.id,
-          search.station,
-          proposal,
-          iteration,
+        await this.searches.save(
+          search.request(this.requestOf(candidate, proposal)),
         );
-        const requested = search.request(this.requestOf(candidate, proposal));
-
-        await this.candidates.add(candidate);
-        await this.searches.save(requested);
-        await this.schedules.save(schedule.requested(at));
 
         return {
-          outcome: 'joined',
+          outcome: 'joined' as const,
           ...scopeOf(search),
           mode: request.mode,
           iteration,
         };
       });
+
+      if (outcome.outcome === 'joined') {
+        return outcome;
+      }
+
+      await this.requestWithdrawn(stationId, before.schedule, candidate);
+
+      return outcome;
     } catch (error) {
+      await this.requestWithdrawn(stationId, before.schedule, candidate);
+
       if (error instanceof SearchCandidateNameTakenError) {
-        return invalid([CandidateProblems.name(NAME_TAKEN)]);
+        return invalid([nameProblem(NAME_TAKEN)]);
       }
       if (error instanceof SearchTakesNoRequestsError) {
         return this.refused('search-running');
@@ -327,17 +345,50 @@ export class StationChangeTests implements StationChangeTestsPort {
     }
   }
 
+  private requestCounted(
+    stationId: StationId,
+    at: Date,
+  ): Promise<
+    | { readonly refusal: StationChangeRefusal }
+    | { readonly refusal: null; readonly schedule: StationSearchSchedule }
+  > {
+    return this.transaction.inTransaction(async () => {
+      const schedule = await this.schedules.locked(stationId);
+
+      if (!schedule) {
+        return { refusal: 'no-replay-set' as const };
+      }
+      if (!schedule.takesRequestOn(at)) {
+        return { refusal: 'request-limit' as const };
+      }
+
+      await this.schedules.save(schedule.requested(at));
+
+      return { refusal: null, schedule };
+    });
+  }
+
+  private async requestWithdrawn(
+    stationId: StationId,
+    before: StationSearchSchedule,
+    candidate: Candidate,
+  ): Promise<void> {
+    await this.transaction.inTransaction(async () => {
+      const schedule = await this.schedules.locked(stationId);
+
+      if (schedule) {
+        await this.schedules.save(schedule.requestWithdrawn(before));
+      }
+    });
+    await this.snapshots.release(candidate);
+  }
+
   private async earlierAnswer(
     search: Search,
     proposal: Proposal,
   ): Promise<StationChangeTestOutcome | null> {
-    const same = search.requested.filter(
-      (each) =>
-        each.requestedBy.equals(proposal.requester) &&
-        each.name.value.toLowerCase() === proposal.name.value.toLowerCase(),
-    );
     const candidates = await this.candidates.findMany(
-      same.map((each) => each.candidateId),
+      search.requestedAs(proposal.requester, proposal.name),
     );
     const earlier = candidates.find((each) =>
       each.fingerprint.equals(proposal.validated.fingerprint),
@@ -363,8 +414,8 @@ export class StationChangeTests implements StationChangeTestsPort {
   ): Promise<Checked> {
     const teamKey = await this.people.teamKey(request.teamId);
     const validated = await this.work.validate(
-      request.lineId,
-      request.stationId,
+      LineId.of(request.lineId),
+      StationId.of(request.stationId),
       request.block,
     );
     const address =
@@ -374,47 +425,30 @@ export class StationChangeTests implements StationChangeTestsPort {
       return { ok: false, outcome: this.refused('station-gone') };
     }
 
-    const name = CandidateProblems.parsed(
-      () => CandidateName.searched(request.name),
-      CandidateProblems.name,
-    );
-    const hypothesis = CandidateProblems.parsed(
-      () => Hypothesis.of(request.hypothesis),
-      CandidateProblems.hypothesis,
-    );
-    const problems = [
-      ...(name.ok ? [] : [name.problem]),
-      ...(hypothesis.ok ? [] : [hypothesis.problem]),
-      ...(validated.ok
-        ? unsearchableChanges(seed, validated.block)
-        : validated.problems),
-    ];
+    const proposal = searchedProposalOf({
+      name: request.name,
+      hypothesis: request.hypothesis,
+      seed,
+      proposed: validated,
+    });
 
-    if (!name.ok || !hypothesis.ok || !validated.ok || problems.length > 0) {
-      return { ok: false, outcome: invalid(problems) };
+    if (!proposal.ok) {
+      return { ok: false, outcome: invalid(proposal.problems) };
+    }
+    if (!validated.ok) {
+      return { ok: false, outcome: invalid(validated.problems) };
     }
 
     return {
       ok: true,
       proposal: {
-        name: name.value,
-        hypothesis: hypothesis.value,
+        name: proposal.name,
+        hypothesis: proposal.hypothesis,
         validated,
         address,
         requester: request.requester,
       },
     };
-  }
-
-  private async resultPending(stationId: string): Promise<boolean> {
-    const newest = await this.searches.newestAtStation(stationId);
-    const picked = newest?.pickedCandidate ?? null;
-    const pickHasPullRequest =
-      newest !== null &&
-      picked !== null &&
-      (await this.pullRequests.forCandidate(newest.id, picked)) !== null;
-
-    return pendingPickOf(newest, pickHasPullRequest) !== null;
   }
 
   private candidateOf(

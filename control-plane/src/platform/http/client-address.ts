@@ -1,4 +1,4 @@
-import type { RequestHeaders } from '@shared-kernel/application/ports/session.port';
+import type { RequestHeaders } from '@platform/http/request-headers';
 
 type AddressedRequest = {
   readonly headers: RequestHeaders;

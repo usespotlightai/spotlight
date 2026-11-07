@@ -22,17 +22,17 @@ export class UpdateWorkspaceRunnersHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,
-    private readonly declarations: WorkspaceRunnersRepository,
+    private readonly workspaceRunners: WorkspaceRunnersRepository,
     private readonly transaction: TransactionPort,
   ) {}
 
   async execute(
     command: UpdateWorkspaceRunnersCommand,
   ): Promise<ResourceUpdated | null> {
-    const id = WorkspaceRunnersId.of(command.declarationId);
+    const id = WorkspaceRunnersId.of(command.workspaceRunnersId);
 
     try {
-      const existing = await this.declarations.find(id);
+      const existing = await this.workspaceRunners.find(id);
       const permissions = existing
         ? await this.access.permissionsIn(
             existing.workspaceId,
@@ -44,7 +44,7 @@ export class UpdateWorkspaceRunnersHandler
         return null;
       }
 
-      if (!permissions.managesRunners) {
+      if (!permissions.allows('runners')) {
         return forbiddenTo('runners');
       }
 
@@ -57,7 +57,7 @@ export class UpdateWorkspaceRunnersHandler
       }
 
       await this.transaction.inTransaction(() =>
-        this.declarations.save(
+        this.workspaceRunners.save(
           existing.update(
             compiled,
             ChangeActor.of(command.actor, permissions.workspaceId),
@@ -68,7 +68,7 @@ export class UpdateWorkspaceRunnersHandler
       return { outcome: 'updated', id: id.value };
     } catch (error) {
       if (error instanceof WorkspaceRunnersVersionConflictError) {
-        const current = await this.declarations.find(id);
+        const current = await this.workspaceRunners.find(id);
 
         return current
           ? { outcome: 'version-conflict', currentVersion: current.version }
@@ -78,7 +78,7 @@ export class UpdateWorkspaceRunnersHandler
       if (error instanceof InvalidWorkspaceRunnersError) {
         return {
           outcome: 'invalid',
-          problems: [RunnerProblems.declarationInvalid(error)],
+          problems: [RunnerProblems.workspaceRunnersInvalid(error)],
         };
       }
 

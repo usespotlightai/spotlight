@@ -56,13 +56,13 @@ const connecting = (
     {
       viewableBy: vi.fn(),
       mayView: vi.fn(),
-      onTeam: vi.fn(),
+      inWorkspaceOfTeam: vi.fn(),
       inWorkspace: vi.fn(async () =>
         over.membership === undefined ? membership() : over.membership,
       ),
       permissionsIn: vi.fn(),
       permissionsInSlug: vi.fn(),
-      permissionsOnTeam: vi.fn(),
+      permissionsInWorkspaceOfTeam: vi.fn(),
       permissionsAsTeamReader: vi.fn(),
       mayPlan: vi.fn(),
     } satisfies WorkspaceAccessPort,

@@ -1,5 +1,6 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { AttachmentCopies } from '@work/application/services/attachment-copies';
 import type { CreateTask } from '@work/application/services/create-task';
@@ -8,14 +9,13 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { Placement } from '@work/domain/services/placement';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 
 export class CreateTaskFromProposal implements ProposalAcceptances {
   constructor(
     private readonly chats: ChatRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly placements: TaskPlacementsPort,
     private readonly createTask: CreateTask,
     private readonly copies: AttachmentCopies,
@@ -50,7 +50,8 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
         title: event.title,
         description: event.description,
         attachments,
-        rank: Placement.atTheBack(
+        rank: Placement.entering(
+          'opened',
           (await this.placements.placementsAt(station.id)).map(
             (each) => each.rank,
           ),

@@ -4,11 +4,7 @@ import {
 } from '@change-review/domain/entities/decision.entity';
 import { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
 import { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
-import { DecisionGenerationFailed } from '@change-review/domain/events/decision-generation-failed.event';
-import { DecisionsDiscarded } from '@change-review/domain/events/decisions-discarded.event';
-import { DecisionsMerged } from '@change-review/domain/events/decisions-merged.event';
 import { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
-import { DecisionsRequested } from '@change-review/domain/events/decisions-requested.event';
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
 import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
 import type { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
@@ -39,7 +35,6 @@ export class DecisionSet
     readonly decisions: readonly Decision[],
     readonly generation: DecisionGeneration | null,
     readonly status: DecisionStatus,
-    readonly discarded: boolean,
     readonly version: number,
   ) {
     super();
@@ -58,7 +53,6 @@ export class DecisionSet
       [],
       null,
       DecisionStatus.proposed(),
-      false,
       0,
     );
   }
@@ -98,7 +92,6 @@ export class DecisionSet
       input.decisions,
       input.generation,
       input.status,
-      false,
       input.version,
     );
   }
@@ -120,11 +113,9 @@ export class DecisionSet
       return this;
     }
 
-    const requested = this.with({
+    return this.with({
       generation: DecisionGeneration.requested(runId, now),
     });
-    requested.record(new DecisionsRequested(this.id, this.taskId, runId));
-    return requested;
   }
 
   leaseJob(now: Date): DecisionSet {
@@ -159,11 +150,7 @@ export class DecisionSet
       return this;
     }
 
-    const cleared = this.with({ generation: null });
-    cleared.record(
-      new DecisionGenerationFailed(this.id, this.taskId, this.generation.runId),
-    );
-    return cleared;
+    return this.with({ generation: null });
   }
 
   recordGeneration(input: {
@@ -246,19 +233,11 @@ export class DecisionSet
       return this;
     }
 
-    const merged = this.with({ status: DecisionStatus.merged(merge) });
-    merged.record(new DecisionsMerged(this.id, this.taskId, merge.commit));
-    return merged;
+    return this.with({ status: DecisionStatus.merged(merge) });
   }
 
-  closeUnmerged(): DecisionSet {
-    if (this.status.isMerged || this.discarded) {
-      return this;
-    }
-
-    const discarded = this.with({ discarded: true });
-    discarded.record(new DecisionsDiscarded(this.id, this.taskId));
-    return discarded;
+  get discardable(): boolean {
+    return !this.status.isMerged;
   }
 
   private with(change: {
@@ -266,7 +245,6 @@ export class DecisionSet
     decisions?: readonly Decision[];
     generation?: DecisionGeneration | null;
     status?: DecisionStatus;
-    discarded?: boolean;
   }): DecisionSet {
     const next = new DecisionSet(
       this.id,
@@ -276,7 +254,6 @@ export class DecisionSet
       change.decisions ?? this.decisions,
       change.generation !== undefined ? change.generation : this.generation,
       change.status ?? this.status,
-      change.discarded ?? this.discarded,
       this.version,
     );
 

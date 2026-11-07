@@ -1,22 +1,8 @@
 import type {
-  EvidencePort,
   StationJudge,
-} from '@insights/application/ports/evidence.port';
+  StationJudgesPort,
+} from '@insights/application/ports/station-judges.port';
 import { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
-import { taskPullRequestOf } from '@insights/domain/insights.fake-spec';
-import {
-  judgeScore,
-  NEXT_RUBRIC_VERSION,
-  personGrade,
-  RUBRIC_VERSION,
-  ScoresInMemory,
-} from '@insights/domain/judging.fake-spec';
-import {
-  endedRecord,
-  RunRecordsInMemory,
-  TaskPullRequestsInMemory,
-  WORKSPACE,
-} from '@insights/domain/runs.fake-spec';
 import {
   calibrationIn,
   judgeReportOf,
@@ -24,7 +10,24 @@ import {
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
+import { taskPullRequestOf } from '@insights/insights.fake-spec';
+import {
+  judgeScore,
+  NEXT_RUBRIC_VERSION,
+  personGrade,
+  RUBRIC_VERSION,
+  ScoresInMemory,
+} from '@insights/judging.fake-spec';
+import { PullRequestRecordsInMemory } from '@insights/pull-requests.fake-spec';
+import {
+  endedRecord,
+  RunRecordsInMemory,
+  StationFactsInMemory,
+  WORKSPACE,
+} from '@insights/runs.fake-spec';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -44,8 +47,8 @@ const JUDGE: StationJudge = {
 const STATION = {
   workspaceId: WORKSPACE,
   teamId: TeamId.of('team_1'),
-  lineId: 'line_1',
-  stationId: 'station_1',
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
 };
 
 const reporting = async (judge: StationJudge | null = JUDGE) => {
@@ -68,15 +71,11 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
 
   return new StationJudgeReports(
     {
-      hasTask: async () => true,
-      of: async () => null,
       judgeAt: async () => judge,
       judgesOnTeam: async () =>
         new Map(judge ? [['station_1', judge] as const] : []),
     },
-    scores,
-    records,
-    new TaskPullRequestsInMemory(),
+    new StationFactsInMemory(records, { scores }),
   );
 };
 
@@ -100,11 +99,9 @@ const STATIONS = [
 const judgedAcross = async () => {
   const records = new RunRecordsInMemory();
   const scores = new ScoresInMemory();
-  const taskPullRequests = new TaskPullRequestsInMemory();
+  const taskPullRequests = new PullRequestRecordsInMemory();
   const requested: string[] = [];
-  const evidence: EvidencePort = {
-    hasTask: async () => true,
-    of: async () => null,
+  const judges: StationJudgesPort = {
     judgeAt: async (stationId) => JUDGES.get(stationId) ?? null,
     judgesOnTeam: async (teamId) => {
       requested.push(teamId);
@@ -162,14 +159,14 @@ const judgedAcross = async () => {
     );
   }
 
-  return { evidence, requested, scores, records, taskPullRequests };
+  return { judges, requested, scores, records, taskPullRequests };
 };
 
 const oneByOne = async (
   fixture: Awaited<ReturnType<typeof judgedAcross>>,
   station: { lineId: string; stationId: string },
 ) => {
-  const found = await fixture.evidence.judgeAt(station.stationId);
+  const found = await fixture.judges.judgeAt(station.stationId);
   const judge =
     found && found.teamId === 'team_1' && found.lineId === station.lineId
       ? found
@@ -182,29 +179,29 @@ const oneByOne = async (
       passThreshold: judge.passThreshold,
       version: judge.rubricVersion,
     });
+  const facts = new StationFactsInMemory(fixture.records, {
+    scores: fixture.scores,
+    pullRequests: fixture.taskPullRequests,
+  });
   const judged =
     judge && rubric
-      ? await fixture.scores.judgedAtStation({
+      ? await facts.judgedAtStation({
           workspaceId: WORKSPACE,
           teamId: TeamId.of('team_1'),
-          ...station,
+          lineId: LineId.of(station.lineId),
+          stationId: StationId.of(station.stationId),
           rubricVersion: judge.rubricVersion,
           last: 500,
         })
       : [];
-  const records = await fixture.records.ofRuns(
-    judged.map((each) => each.runId),
-  );
+  const runFacts = await facts.ofRuns(judged.map((each) => each.runId));
   const grades = (
-    await fixture.scores.ofRuns(
-      [...new Set([...records, ...judged].map((each) => each.runId.value))].map(
-        RunId.of,
-      ),
+    await facts.scoresOfRuns(
+      [
+        ...new Set([...runFacts, ...judged].map((each) => each.runId.value)),
+      ].map(RunId.of),
     )
   ).filter((each) => !each.fromJudge);
-  const taskPullRequests = await fixture.taskPullRequests.forTasks(
-    records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
-  );
 
   return {
     stationId: station.stationId,
@@ -213,9 +210,8 @@ const oneByOne = async (
       judgeReportOf({
         judged,
         grades,
-        records,
+        facts: runFacts,
         covering: [],
-        taskPullRequests,
       }),
       judge && {
         rubricVersion: judge.rubricVersion,
@@ -230,10 +226,11 @@ describe('StationJudgeReports', () => {
   it('gives each station of a team the calibration it has alone, with one look at the team’s judges', async () => {
     const fixture = await judgedAcross();
     const reports = new StationJudgeReports(
-      fixture.evidence,
-      fixture.scores,
-      fixture.records,
-      fixture.taskPullRequests,
+      fixture.judges,
+      new StationFactsInMemory(fixture.records, {
+        scores: fixture.scores,
+        pullRequests: fixture.taskPullRequests,
+      }),
     );
 
     const calibrations = await reports.calibrationsOf(

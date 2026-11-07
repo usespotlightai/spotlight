@@ -50,7 +50,7 @@ export class NoteByCallbackHandler
 
       const fired = callbackToken.firing
         ? await this.history.chainOf(
-            callbackToken.workspaceId.value,
+            callbackToken.workspaceId,
             callbackToken.firing,
           )
         : null;
@@ -60,7 +60,7 @@ export class NoteByCallbackHandler
           this.notes.noted(
             callbackToken.taskId.value,
             note.body,
-            callbackToken.hook,
+            callbackToken.hook.value,
             callbackToken.noteIdempotencyKey(command.idempotencyKey),
           ),
       );

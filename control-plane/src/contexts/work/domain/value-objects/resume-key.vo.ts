@@ -1,14 +1,33 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 
-const TASK = 'task-';
+export type ResumeKeyKind = 'task' | 'chat' | 'replay' | 'search' | 'named';
 
-const CHAT = 'chat-';
+const PREFIXES = {
+  task: 'task-',
+  chat: 'chat-',
+  replay: 'replay-',
+  search: 'search-',
+} as const satisfies Record<Exclude<ResumeKeyKind, 'named'>, string>;
+
+const kindOf = (key: string): ResumeKeyKind => {
+  const tagged = (Object.keys(PREFIXES) as (keyof typeof PREFIXES)[]).find(
+    (kind) =>
+      key.startsWith(PREFIXES[kind]) && key.length > PREFIXES[kind].length,
+  );
+
+  return tagged ?? 'named';
+};
 
 export class ResumeKey {
-  private constructor(readonly value: string) {}
+  private constructor(
+    readonly kind: ResumeKeyKind,
+    readonly value: string,
+  ) {}
 
   static of(raw: string): ResumeKey {
     const key = raw.trim();
@@ -17,41 +36,59 @@ export class ResumeKey {
       throw new InvalidIdentifierError('resume key');
     }
 
-    return new ResumeKey(key);
+    return new ResumeKey(kindOf(key), key);
   }
 
-  static forTask(taskId: string): ResumeKey {
-    return ResumeKey.of(`${TASK}${taskId}`);
+  static forTask(taskId: TaskId): ResumeKey {
+    return ResumeKey.of(`${PREFIXES.task}${taskId.value}`);
   }
 
-  static forChat(chatId: string): ResumeKey {
-    return ResumeKey.of(`${CHAT}${chatId}`);
+  static forChat(chatId: ChatId): ResumeKey {
+    return ResumeKey.of(`${PREFIXES.chat}${chatId.value}`);
   }
 
-  static forReplay(runId: string): ResumeKey {
-    return ResumeKey.of(`replay-${runId}`);
+  static forReplay(runId: RunId): ResumeKey {
+    return ResumeKey.of(`${PREFIXES.replay}${runId.value}`);
+  }
+
+  static forSearch(runId: RunId): ResumeKey {
+    return ResumeKey.of(`${PREFIXES.search}${runId.value}`);
+  }
+
+  private get tail(): string {
+    return this.kind === 'named'
+      ? this.value
+      : this.value.slice(PREFIXES[this.kind].length);
   }
 
   get archiveHolder(): ArchiveHolder | null {
-    const of = (prefix: string): string | null =>
-      this.value.startsWith(prefix) && this.value.length > prefix.length
-        ? this.value.slice(prefix.length)
-        : null;
-    const task = of(TASK);
-    const chat = of(CHAT);
-
-    if (task) {
-      return { kind: 'task', taskId: TaskId.of(task) };
+    switch (this.kind) {
+      case 'task':
+        return { kind: 'task', taskId: TaskId.of(this.tail) };
+      case 'chat':
+        return { kind: 'chat', chatId: ChatId.of(this.tail) };
+      default:
+        return null;
     }
-
-    return chat ? { kind: 'chat', chatId: ChatId.of(chat) } : null;
   }
 
   get isRejoinable(): boolean {
-    return [TASK, CHAT].some(
-      (prefix) =>
-        this.value.startsWith(prefix) && this.value.length > prefix.length,
-    );
+    return this.kind === 'task' || this.kind === 'chat';
+  }
+
+  belongsTo(subject: RunSubject | null): boolean {
+    switch (this.kind) {
+      case 'task':
+        return subject?.taskId?.value === this.tail;
+      case 'chat':
+        return subject?.chatId?.value === this.tail;
+      case 'replay':
+        return subject?.isReplay ?? false;
+      case 'search':
+        return subject?.isSearch ?? false;
+      case 'named':
+        return true;
+    }
   }
 
   equals(other: ResumeKey): boolean {

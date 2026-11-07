@@ -15,7 +15,9 @@ import {
 } from '@runners/domain/value-objects/pool-access.vo';
 import type { PoolCapacity } from '@runners/domain/value-objects/pool-capacity';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import type { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
 import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
+import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolChangeDetail } from '@runners/domain/value-objects/runner-pool-change-detail.vo';
 import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
@@ -142,7 +144,10 @@ export class RunnerPool extends EventRecorder {
         );
       }
 
-      return PullAccess.of(accessInput.tokenHash, accessInput.tokenVersion);
+      return PullAccess.of(
+        accessInput.tokenHash,
+        RotationVersion.of(accessInput.tokenVersion),
+      );
     }
 
     if (!accessInput.secret) {
@@ -155,7 +160,7 @@ export class RunnerPool extends EventRecorder {
     return PushAccess.of(
       accessInput.url,
       accessInput.secret,
-      accessInput.secretVersion,
+      RotationVersion.of(accessInput.secretVersion),
       accessInput.egress,
       accessInput.egressTraffic,
     );
@@ -177,6 +182,10 @@ export class RunnerPool extends EventRecorder {
     return this.workspaceId.equals(workspaceId);
   }
 
+  get acceptsPullToken(): boolean {
+    return !this.isDeleted && this.mode === 'pull';
+  }
+
   get egress(): EgressReference | null {
     return this.provision?.egress ?? null;
   }
@@ -189,24 +198,20 @@ export class RunnerPool extends EventRecorder {
     return !this.isDeleted && (this.provision?.usesEgress(egress) ?? false);
   }
 
-  hasRoomFor(running: number): boolean {
-    return !this.isDeleted && (this.maxRuns?.allows(running) ?? true);
-  }
-
-  roomFor(running: number): number | null {
+  roomFor(occupancy: PoolOccupancy): number | null {
     if (this.isDeleted) {
       return 0;
     }
 
-    return this.maxRuns ? this.maxRuns.roomAfter(running) : null;
+    return this.maxRuns ? this.maxRuns.roomAfter(occupancy.taken) : null;
   }
 
-  capacity(mode: PoolMode, running: number): PoolCapacity {
+  capacity(mode: PoolMode, occupancy: PoolOccupancy): PoolCapacity {
     if (this.isDeleted || mode !== this.mode) {
       return 'gone';
     }
 
-    return this.hasRoomFor(running) ? 'open' : 'full';
+    return (this.maxRuns?.allows(occupancy.taken) ?? true) ? 'open' : 'full';
   }
 
   assertVersion(version: number): void {
@@ -297,7 +302,7 @@ export class RunnerPool extends EventRecorder {
     if (accessInput.mode === 'pull' && this.access.mode === 'pull') {
       if (
         !accessInput.tokenHash &&
-        this.access.rotatesOn(accessInput.tokenVersion)
+        this.access.rotatesOn(RotationVersion.of(accessInput.tokenVersion))
       ) {
         throw new InvalidRunnerPoolError(
           'token',
@@ -307,14 +312,14 @@ export class RunnerPool extends EventRecorder {
 
       return PullAccess.of(
         accessInput.tokenHash ?? this.access.tokenHash,
-        accessInput.tokenVersion,
+        RotationVersion.of(accessInput.tokenVersion),
       );
     }
 
     if (accessInput.mode === 'push' && this.access.mode === 'push') {
       if (
         !accessInput.secret &&
-        this.access.rotatesOn(accessInput.secretVersion)
+        this.access.rotatesOn(RotationVersion.of(accessInput.secretVersion))
       ) {
         throw new InvalidRunnerPoolError(
           SECRET_FIELD,
@@ -325,7 +330,7 @@ export class RunnerPool extends EventRecorder {
       return PushAccess.of(
         accessInput.url,
         accessInput.secret ?? this.access.secret,
-        accessInput.secretVersion,
+        RotationVersion.of(accessInput.secretVersion),
         accessInput.egress,
         accessInput.egressTraffic,
       );

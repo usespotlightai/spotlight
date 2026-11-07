@@ -381,6 +381,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
           accessToken: 'xoxb-encrypted-1',
           refreshToken: 'xoxe-encrypted-1',
         }),
+        at: new Date('2026-09-01T00:00:00.000Z'),
       }),
     );
 

@@ -1,6 +1,9 @@
-import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
-import type { StationKey } from '@work/domain/value-objects/station-key.vo';
-import type { StationName } from '@work/domain/value-objects/station-name.vo';
+import {
+  DONE,
+  REVIEW,
+} from '@shared-kernel/domain/value-objects/handover-word';
+import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 
 interface OfferedStation {
   readonly key: StationKey;

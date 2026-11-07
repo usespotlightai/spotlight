@@ -1,26 +1,26 @@
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import {
   checkoutsOf,
   repositoriesForTask,
   repositoryForTaskNamed,
   runCheckoutsFor,
 } from '@work/domain/services/task-checkouts';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
-import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import {
+  lineMapOf,
+  repositoryOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
@@ -28,31 +28,28 @@ import { describe, expect, it } from 'vitest';
 const API = Repository.of('acme/api');
 const WEB = Repository.of('acme/web');
 
-const LINE = Line.rehydrate({
+const LINE = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
   key: LineKey.of('default'),
   name: LineName.of('Default'),
-  repositories: [
-    LineRepositoryConfig.of(API, { setup: RepositorySetup.of('npm ci') }),
-    LineRepositoryConfig.of(WEB),
-  ],
+  repositories: [repositoryOf(API, { setup: 'npm ci' }), repositoryOf(WEB)],
   stations: [
-    Station.of({
+    stationOf({
       id: StationId.of('station_1'),
       key: StationKey.of('backlog'),
       name: StationName.of('Backlog'),
       position: 0,
-      color: StationColor.plain(),
+      color: '#a3a8b0',
       kind: 'backlog',
     }),
-    Station.of({
+    stationOf({
       id: StationId.of('station_2'),
       key: StationKey.of('completed'),
       name: StationName.of('Completed'),
       position: 1,
-      color: StationColor.plain(),
+      color: '#a3a8b0',
       kind: 'completed',
     }),
   ],
@@ -70,7 +67,7 @@ const added = () =>
   });
 
 const reviewing = (url: string) =>
-  added().reviews(PullRequestUrl.of(url), { outside: false });
+  added().reviews(PullRequestUrl.of(url), { outside: false }, new Date(0));
 
 const names = (repositories: readonly Repository[]) =>
   repositories.map((each) => each.value);
@@ -89,7 +86,7 @@ describe('the repositories a task works on', () => {
         branch: task.branch,
         ref: null,
         diffOf: 'worktree',
-        setup: RepositorySetup.of('npm ci'),
+        setup: 'npm ci',
       },
       {
         repository: WEB,
@@ -111,7 +108,7 @@ describe('the repositories a task works on', () => {
         branch: null,
         ref: 'refs/pull/42/head',
         diffOf: 'commits',
-        setup: RepositorySetup.of('npm ci'),
+        setup: 'npm ci',
       },
     ]);
     expect(repositoryForTaskNamed('api', task, LINE)).toEqual(API);

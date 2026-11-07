@@ -1,13 +1,15 @@
 import { recentRejectionsAt } from '@memory/domain/services/recent-rejections';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const TEAM = TeamId.of('team_1');
 const RUN_CONTEXT = {
   teamId: TEAM,
-  lineId: 'line_1',
-  stationId: 'station_1',
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
   repositories: [],
 };
 
@@ -24,12 +26,12 @@ describe('recent rejections', () => {
         rejected('team_wide', MemoryScope.of({ teamId: TEAM }), 1),
         rejected(
           'other_line',
-          MemoryScope.of({ teamId: TEAM, lineId: 'line_2' }),
+          MemoryScope.of({ teamId: TEAM, lineId: LineId.of('line_2') }),
           3,
         ),
         rejected(
           'this_line',
-          MemoryScope.of({ teamId: TEAM, lineId: 'line_1' }),
+          MemoryScope.of({ teamId: TEAM, lineId: LineId.of('line_1') }),
           2,
         ),
       ],

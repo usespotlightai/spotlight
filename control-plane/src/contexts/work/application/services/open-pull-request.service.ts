@@ -3,18 +3,17 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { OpenedPullRequest } from '@work/application/dto/pull-request.dto';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskViewsPort } from '@work/application/ports/task-views.port';
-import { reassignTaskMarks } from '@work/application/services/task-marks';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { PullRequestHookDeniedError } from '@work/domain/exceptions/pull-request-hook-denied.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
 interface PullRequestFor {
   readonly runId: RunId;
@@ -31,7 +30,7 @@ interface PullRequestInput {
 export class OpenPullRequest {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly pullRequests: PullRequestPort,
     private readonly transaction: TransactionPort,
     private readonly taskViews: TaskViewsPort,
@@ -111,7 +110,6 @@ export class OpenPullRequest {
         line,
       );
 
-      await reassignTaskMarks(this.tasks, marked);
       await this.tasks.save(marked);
 
       return opened;

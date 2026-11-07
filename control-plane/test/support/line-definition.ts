@@ -1,4 +1,4 @@
-import type { LineOpening } from '@work/domain/services/built-in-lines';
+import type { LineOpening } from '@lines/domain/services/built-in-lines';
 
 export const definitionOf = (line: LineOpening) => ({
   key: line.key.value,

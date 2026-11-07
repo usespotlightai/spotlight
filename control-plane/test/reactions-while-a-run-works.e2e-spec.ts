@@ -1,13 +1,19 @@
 import { randomUUID } from 'node:crypto';
+import { Line } from '@lines/domain/aggregates/line.aggregate';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
+import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import type { INestApplication } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { CompleteRunCommand } from '@work/application/commands/runner.commands';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import {
@@ -22,31 +28,26 @@ import {
   TASK_NOTES_FROM_HOOKS,
   type TaskNotesFromHooksPort,
 } from '@work/application/ports/task-notes-from-hooks.port';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
-import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
-import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import { mapOf, projectStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const RUNNER = RunnerId.of('runner_reactions');
@@ -57,7 +58,7 @@ const DEFERRED_MOVE_TO_CODE_REVIEW =
 let app: INestApplication;
 let db: DrizzleDatabase;
 let team: Awaited<ReturnType<typeof createTeam>>;
-let line: Line;
+let line: LineMap;
 let tasks: DrizzleTaskRepository;
 let runs: DrizzleRunRepository;
 
@@ -204,7 +205,7 @@ const approvalRequested = async (task: Task, runId: RunId) => {
     ),
     ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
     {
-      station: StationName.of('Implementation'),
+      station: null,
       body: TaskNoteBody.of('Approve linear.comment?'),
       at: new Date(),
       voice: Voice.station(runId),
@@ -248,14 +249,20 @@ beforeAll(async () => {
     throw new Error('Spotlight ships no delivery line');
   }
 
-  line = Line.create({
+  const created = Line.create({
     by: changeActorIn(),
     workspaceId: team.workspaceId,
     teamId: team.teamId,
     line: opening,
+    harness: HarnessId.of('claude-code'),
     newId: () => randomUUID(),
-  }).runsOn(HarnessId.of('claude-code'), null);
-  await app.get(DrizzleLineRepository).add(line);
+  });
+  await app.get(DrizzleLineRepository).add(created);
+  await projectStations(
+    db,
+    created.stations.map((each) => each.id.value),
+  );
+  line = mapOf(created);
 }, 60_000);
 
 afterAll(async () => {

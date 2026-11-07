@@ -5,7 +5,7 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
-import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { CommandBus } from '@nestjs/cqrs';
 import {
   ApiCreatedResponse,
   ApiNotFoundResponse,
@@ -15,7 +15,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import { EnqueueRunCommand } from '@work/application/commands/runner.commands';
 import type { EnqueuedRunDto } from '@work/application/dto/run.dto';
 import { EnqueueRunRequestDto } from '@work/presentation/http/dto/runner.request.dto';
@@ -25,10 +25,7 @@ import { EnqueuedRunResponseDto } from '@work/presentation/http/dto/runner.respo
 @ApiUnauthorizedResponse({ description: 'No valid session' })
 @Controller('workspaces/:slug/runs')
 export class RunController {
-  constructor(
-    private readonly commandBus: CommandBus,
-    readonly _queryBus: QueryBus,
-  ) {}
+  constructor(private readonly commandBus: CommandBus) {}
 
   @Post()
   @ApiOperation({

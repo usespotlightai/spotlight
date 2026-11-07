@@ -1,12 +1,12 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
 import {
+  INBOX_SECTIONS,
+  type InboxSection,
+} from '@work/application/read-models/inbox-section';
+import {
   TASK_NOTE_FORMS,
   TASK_NOTE_KINDS,
 } from '@work/domain/entities/task-note.entity';
-import {
-  INBOX_SECTIONS,
-  type InboxSection,
-} from '@work/domain/services/inbox-section';
 import { APPROVAL_STATUSES } from '@work/domain/value-objects/approval.vo';
 import {
   APPROVAL_SUBJECT_KINDS,

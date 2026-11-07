@@ -395,13 +395,15 @@ describe('a search for a better station config, when it stalls or loses its stat
         ).length === 0,
       WITHIN,
     );
-    expect(
-      (
-        await db
-          .select({ state: schema.run.state })
-          .from(schema.run)
-          .where(inArray(schema.run.id, [agentRun?.id ?? '']))
-      )[0]?.state,
-    ).not.toBe('queued');
+    await eventually(
+      async () =>
+        (
+          await db
+            .select({ state: schema.run.state })
+            .from(schema.run)
+            .where(inArray(schema.run.id, [agentRun?.id ?? '']))
+        )[0]?.state !== 'queued',
+      WITHIN,
+    );
   }, 120_000);
 });

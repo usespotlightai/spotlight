@@ -4,18 +4,15 @@ import type {
   StationInsightsDto,
 } from '@insights/application/dto/station-insights.dto';
 import type { StationConfigPullRequestsPort } from '@insights/application/ports/station-config-pull-requests.port';
+import type { StationFactsPort } from '@insights/application/ports/station-facts.port';
 import type { WorkPort } from '@insights/application/ports/work.port';
-import type { ReadStationInsightsQuery } from '@insights/application/queries/read-station-insights.query';
 import {
   configChangesOf,
   fingerprintsToRead,
-} from '@insights/application/services/config-changes';
+} from '@insights/application/queries/config-changes';
+import type { ReadStationInsightsQuery } from '@insights/application/queries/read-station-insights.query';
 import type { InsightsAccess } from '@insights/application/services/insights-access.service';
-import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
-import type { TaskFailuresRepository } from '@insights/domain/repositories/task-failures.repository';
-import type { TaskPullRequestRepository } from '@insights/domain/repositories/task-pull-request.repository';
 import {
-  failuresInRuns,
   runFailureSummaries,
   taskFailureSummaries,
 } from '@insights/domain/services/failure-summaries';
@@ -25,46 +22,35 @@ import {
   fingerprintGroupsNewestFirst,
 } from '@insights/domain/services/fingerprint-groups';
 import { runTally, tallyRatesOf } from '@insights/domain/services/run-tally';
+import { listingSizeOf } from '@insights/domain/value-objects/listing.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-
-const DEFAULT_LAST = 50;
-const MAX_LAST = 200;
-
-const lastOf = (requested: number | null): number =>
-  requested !== null && Number.isInteger(requested) && requested > 0
-    ? Math.min(requested, MAX_LAST)
-    : DEFAULT_LAST;
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 export class ReadStationInsightsHandler
   implements QueryHandlerPort<ReadStationInsightsQuery, StationInsightsDto>
 {
   constructor(
     private readonly access: InsightsAccess,
-    private readonly records: RunRecordRepository,
-    private readonly taskPullRequests: TaskPullRequestRepository,
+    private readonly facts: StationFactsPort,
     private readonly pullRequests: StationConfigPullRequestsPort,
     private readonly work: WorkPort,
-    private readonly failures: TaskFailuresRepository,
   ) {}
 
   async execute(query: ReadStationInsightsQuery): Promise<StationInsightsDto> {
     try {
       const access = await this.access.forTeam(query.teamId, query.viewerId);
-      const records = await this.records.latestStartedAtStation({
+      const records = await this.facts.latestStartedAt({
         workspaceId: access.workspaceId,
         teamId: access.teamId,
-        lineId: query.lineId,
-        stationId: query.stationId,
-        last: lastOf(query.last),
+        lineId: query.lineId === null ? null : LineId.of(query.lineId),
+        stationId: StationId.of(query.stationId),
+        last: listingSizeOf(query.last),
       });
-      const taskPullRequests = await this.taskPullRequests.forTasks(
-        records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
-      );
       const oldest = records[records.length - 1];
-      const carried = oldest?.end
-        ? await this.records.lastConfigRunsBefore(access.teamId, [
+      const carried = oldest
+        ? await this.facts.lastConfigRunsBefore(access.teamId, [
             {
               stationId: query.stationId,
               from: oldest.end.beganAt,
@@ -98,7 +84,7 @@ export class ReadStationInsightsHandler
       );
 
       const groups: FingerprintGroupDto[] = newestFirst.map((group, at) => {
-        const tally = runTally(group.records, taskPullRequests);
+        const tally = runTally(group.records);
         const pullRequest =
           group.fingerprint !== null
             ? pullRequests.get(group.fingerprint)
@@ -111,10 +97,7 @@ export class ReadStationInsightsHandler
           config: configs.configOf(group.fingerprint),
           changes: configs.between(pairs[at]),
           pullRequest: pullRequest ? { url: pullRequest.value } : null,
-          runs: group.records.flatMap((each) => {
-            const outcome = runOutcomeOf(each, taskPullRequests);
-            return outcome ? [outcome] : [];
-          }),
+          runs: group.records.map(runOutcomeOf),
           tally,
           rates: tallyRatesOf(tally),
           ...daySpanOf(group.records),
@@ -123,14 +106,8 @@ export class ReadStationInsightsHandler
 
       const inForce = configInForce(newestFirst);
       const taskFailures = inForce
-        ? await this.failures.ofTasks(
-            [
-              ...new Set(
-                inForce.records.flatMap((each) =>
-                  each.taskId ? [each.taskId.value] : [],
-                ),
-              ),
-            ].map(TaskId.of),
+        ? await this.facts.failuresOfRuns(
+            inForce.records.map((each) => each.runId),
           )
         : [];
 
@@ -139,13 +116,8 @@ export class ReadStationInsightsHandler
         groups,
         inForce: inForce
           ? {
-              tally: runTally(inForce.records, taskPullRequests),
-              taskFailures: taskFailureSummaries(
-                failuresInRuns(
-                  taskFailures,
-                  new Set(inForce.records.map((each) => each.runId.value)),
-                ),
-              ),
+              tally: runTally(inForce.records),
+              taskFailures: taskFailureSummaries(taskFailures),
               runFailures: runFailureSummaries(inForce.records),
             }
           : null,

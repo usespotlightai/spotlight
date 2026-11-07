@@ -19,6 +19,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import { RateLimited } from '@platform/http/decorators/rate-limited.decorator';
 import { CLIENT_HEADER } from '@platform/http/resources/resource-headers';
 import { WORKSPACE_TOKEN_EXCHANGE } from '@platform/http/routes';
@@ -29,6 +30,7 @@ const UNAUTHORIZED =
 
 @ApiTags('workspace-tokens')
 @AllowAnonymous()
+@InAudience('resources')
 @Controller(WORKSPACE_TOKEN_EXCHANGE)
 export class WorkloadTokenExchangeController {
   constructor(private readonly commandBus: CommandBus) {}

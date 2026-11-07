@@ -40,7 +40,7 @@ export class DeleteRunnerTrustHandler
         return null;
       }
 
-      if (!permissions.managesRunners) {
+      if (!permissions.allows('runners')) {
         return forbiddenTo('runners');
       }
 

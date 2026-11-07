@@ -14,6 +14,8 @@ import { ResourceConfigurationQuery } from '@configuration/application/queries/r
 import { WorkspaceConfigurationQuery } from '@configuration/application/queries/workspace-configuration.query';
 import { ExportableConfigurations } from '@configuration/application/services/exportable-configurations.service';
 import type { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
+import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
+import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import type { OidcTrustConfigurationPort } from '@identity/application/ports/oidc-trust-configuration.port';
 import type {
   TeamDirectoryPort,
@@ -21,26 +23,23 @@ import type {
 } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import type {
+  LineRecord,
+  LineResourcesPort,
+} from '@lines/application/ports/line-resources.port';
 import type { RunnerConfigurationPort } from '@runners/application/ports/runner-configuration.port';
 import type { SecretConfigurationPort } from '@secrets/application/ports/secret-configuration.port';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
-import type {
-  LineRecord,
-  LineResourcesPort,
-} from '@work/application/ports/line-resources.port';
 import { describe, expect, it, vi } from 'vitest';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 
 const READ_TOKEN = TokenPrincipal.of({
-  tokenId: WorkspaceTokenId.of('token_1'),
+  grant: { tokenKey: 'token_1' },
   workspaceId: WORKSPACE,
-  scopes: TokenScopes.named(['read']),
   issuedBy: UserId.of('user_1'),
 });
 
@@ -120,9 +119,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
             workspaceId: WORKSPACE,
             slug: 'acme',
             configures: false,
-            managesSecrets: false,
-            managesRunners: false,
-            managesOidcTrusts: false,
+            allows: () => false,
             isAdmin: false,
           },
     ),
@@ -248,7 +245,12 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     id,
     version: 1,
     teamId: CORE.id,
-    definition: { key },
+    key: ProfileKey.of(key),
+    settings: ProfileSettings.fromRaw({
+      permissions: { allow: [], ask: [], deny: [] },
+      mcpServers: [],
+      native: {},
+    }),
   });
   const profiles = {
     withId: vi.fn(async (id: string) =>
@@ -268,9 +270,9 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     onTeam: vi.fn((record: HarnessProfileRecord, teamKey: string) => ({
       id: record.id,
       version: record.version,
-      address: `${teamKey}/${String(record.definition.key)}`,
+      address: `${teamKey}/${record.key.value}`,
       teamId: record.teamId.value,
-      key: String(record.definition.key),
+      key: record.key.value,
       permissions: { allow: [], ask: [], deny: [] },
       mcpServers: [],
       native: {},
@@ -297,7 +299,7 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     trustWithId: vi.fn(async (id: string) => (id === TRUST.id ? TRUST : null)),
     poolWithId: vi.fn(async (id: string) => (id === POOL.id ? POOL : null)),
     egressWithId: vi.fn(async () => null),
-    declaredWithId: vi.fn(async (id: string) =>
+    workspaceRunnersWithId: vi.fn(async (id: string) =>
       id === DECLARED.id ? DECLARED : null,
     ),
   } satisfies RunnerConfigurationPort;

@@ -1,53 +1,50 @@
-import type {
-  MemoryUsesPort,
-  UsedMemory,
-} from '@memory/application/ports/memory-uses.port';
+import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
+import type { RecordedMemoryUses } from '@memory/domain/entities/recorded-memory-uses.entity';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryUse } from '@memory/domain/value-objects/memory-use';
 import { memoryUse } from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { and, asc, countDistinct, eq, inArray } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleMemoryUses implements MemoryUsesPort {
-  constructor(private readonly context: DrizzleContext) {}
+  constructor(
+    private readonly context: DrizzleContext,
+    @Inject(DOMAIN_EVENT_DISPATCHER)
+    private readonly events: DomainEventDispatcher,
+  ) {}
 
-  async record(
-    runId: RunId,
-    via: MemoryUse,
-    memories: readonly MemoryId[],
-    at: Date,
-  ): Promise<void> {
-    if (memories.length === 0) {
-      return;
-    }
-
-    await this.context.db
-      .insert(memoryUse)
-      .values(
-        memories.map((each) => ({
-          memoryId: each.value,
-          runId: runId.value,
-          via,
-          at,
-        })),
-      )
-      .onConflictDoNothing();
+  async record(uses: RecordedMemoryUses): Promise<void> {
+    await this.context.inTransaction(async () => {
+      await this.context.db
+        .insert(memoryUse)
+        .values(
+          uses.memories.map((each) => ({
+            memoryId: each.value,
+            runId: uses.runId.value,
+            via: uses.via,
+            at: uses.at,
+          })),
+        )
+        .onConflictDoNothing();
+      await this.events.dispatch(uses.pullEvents());
+    });
   }
 
-  async ofRun(runId: RunId): Promise<readonly UsedMemory[]> {
+  async usedBy(runId: RunId, via: MemoryUse): Promise<readonly MemoryId[]> {
     const rows = await this.context.db
-      .select({ memoryId: memoryUse.memoryId, via: memoryUse.via })
+      .select({ memoryId: memoryUse.memoryId })
       .from(memoryUse)
-      .where(eq(memoryUse.runId, runId.value))
+      .where(and(eq(memoryUse.runId, runId.value), eq(memoryUse.via, via)))
       .orderBy(asc(memoryUse.at));
 
-    return rows.map((row) => ({
-      memoryId: MemoryId.of(row.memoryId),
-      via: row.via,
-    }));
+    return rows.map((row) => MemoryId.of(row.memoryId));
   }
 
   async runsUsing(

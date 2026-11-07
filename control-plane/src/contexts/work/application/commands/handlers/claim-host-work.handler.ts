@@ -24,12 +24,12 @@ import type { LongPoll } from '@work/application/services/long-poll';
 import type { RunLeases } from '@work/application/services/run-leases.service';
 import type { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
+import { ClaimOrder } from '@work/domain/services/claim-order';
 import type {
   Claimant,
-  RunRepository,
   SandboxRouting,
-} from '@work/domain/repositories/run.repository';
-import { ClaimOrder } from '@work/domain/services/claim-order';
+} from '@work/domain/value-objects/claimant';
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 
 const CLAIM_WINDOW_MS = 60_000;

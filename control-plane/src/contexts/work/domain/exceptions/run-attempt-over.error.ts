@@ -1,4 +1,6 @@
-export class RunAttemptOverError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class RunAttemptOverError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(runId: string, attempt: number) {

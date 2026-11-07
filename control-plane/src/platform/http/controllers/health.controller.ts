@@ -7,6 +7,7 @@ import {
 } from '@nestjs/swagger';
 import { ReadinessChecks } from '@platform/health/readiness-checks';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import { HealthResponseDto } from '@platform/http/dto/health.response.dto';
 import {
   ReadinessCheckDto,
@@ -19,6 +20,7 @@ import {
 import type { Response } from 'express';
 
 @ApiTags('health')
+@InAudience('hosts')
 @Controller('health')
 export class HealthController {
   constructor(

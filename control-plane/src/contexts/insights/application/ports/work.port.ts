@@ -1,5 +1,4 @@
 import type { UnfinishedRun } from '@insights/domain/services/unfinished-runs';
-import type { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
 
 export const WORK = Symbol('INSIGHTS_WORK');
 
@@ -47,7 +46,7 @@ export interface StationConfigView {
   readonly decisions: boolean;
   readonly memories: boolean;
   readonly judge?: {
-    readonly rubricHash: string;
+    readonly rubricVersion: string;
     readonly sample: number;
     readonly minAgreement: number;
   };
@@ -97,9 +96,5 @@ export interface WorkPort {
     fingerprints: readonly string[],
   ): Promise<readonly ConfigInOrder[]>;
 
-  teamRepositories(teamId: string): Promise<readonly string[]>;
-
   teamSkillKeys(teamId: string): Promise<readonly string[]>;
-
-  alertsAt(stationId: string): Promise<readonly AlertRule[] | null>;
 }

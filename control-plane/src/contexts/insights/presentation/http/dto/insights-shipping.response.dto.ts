@@ -16,7 +16,7 @@ import type {
   TypedStageTimesDto,
   TypeMergeDto,
 } from '@insights/application/dto/insights-shipping.dto';
-import type { ByPercentile } from '@insights/domain/services/measures';
+import type { ByPercentileDto } from '@insights/application/dto/read-model.dto';
 import {
   FLOW_STAGE_KINDS,
   STATION_STAGES,
@@ -276,7 +276,7 @@ export class PercentileBottleneckRatiosResponseDto {
   @ApiProperty({ example: 0.8 })
   readonly p95: number;
 
-  constructor(bottleneckRatios: ByPercentile<number>) {
+  constructor(bottleneckRatios: ByPercentileDto<number>) {
     this.p50 = bottleneckRatios.p50;
     this.p75 = bottleneckRatios.p75;
     this.p90 = bottleneckRatios.p90;
@@ -297,7 +297,7 @@ export class PercentileWorstResponseDto {
   @ApiProperty({ example: false })
   readonly p95: boolean;
 
-  constructor(worst: ByPercentile<boolean>) {
+  constructor(worst: ByPercentileDto<boolean>) {
     this.p50 = worst.p50;
     this.p75 = worst.p75;
     this.p90 = worst.p90;
@@ -334,7 +334,7 @@ export class PercentilePartsResponseDto {
   })
   readonly p95: string | null;
 
-  constructor(parts: ByPercentile<string | null>) {
+  constructor(parts: ByPercentileDto<string | null>) {
     this.p50 = parts.p50;
     this.p75 = parts.p75;
     this.p90 = parts.p90;
@@ -589,7 +589,7 @@ export class PercentileTypesResponseDto {
   @ApiProperty({ enum: PULL_REQUEST_TYPES, isArray: true })
   readonly p95: readonly string[];
 
-  constructor(types: ByPercentile<readonly string[]>) {
+  constructor(types: ByPercentileDto<readonly string[]>) {
     this.p50 = types.p50;
     this.p75 = types.p75;
     this.p90 = types.p90;

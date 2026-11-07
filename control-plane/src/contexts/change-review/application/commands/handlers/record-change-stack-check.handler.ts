@@ -5,6 +5,7 @@ import type { ChangeStackRepository } from '@change-review/domain/repositories/c
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { skipOf } from '@change-review/domain/value-objects/stack-check.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -24,7 +25,9 @@ export class RecordChangeStackCheckHandler
     try {
       const runId = RunId.of(command.runId);
       const stackId = ChangeStackId.of(command.stackId);
-      const check = await this.checks.find(stackId, command.recheck);
+      const check = await this.checks.find(
+        StackCheckId.of(stackId, command.recheck),
+      );
 
       if (!check?.runId.equals(runId)) {
         throw new UnknownChangeStackError(
@@ -57,10 +60,7 @@ export class RecordChangeStackCheckHandler
       await this.checks.save(
         check.recordResult(
           runner,
-          {
-            steps: stack.checkSteps(check.entries),
-            layers: stack.layers(),
-          },
+          check.plannedFrom(stack),
           checkedStepsFrom(command.steps),
           now,
         ),

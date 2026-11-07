@@ -1,4 +1,6 @@
-export class InvalidStartingPointError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidStartingPointError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(reason: string) {

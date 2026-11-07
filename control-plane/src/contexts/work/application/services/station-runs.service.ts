@@ -6,12 +6,10 @@ import type {
 } from '@work/application/ports/station-run-reader.port';
 import type {
   EndedStationRun,
-  StationAlertShape,
   StationRunsPort,
   TracedWork,
   UnfinishedStationRun,
 } from '@work/application/ports/station-runs.port';
-import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
 import { visitAfter } from '@work/domain/services/station-visit';
 import { reviewedOrAll } from '@work/domain/services/task-checkouts';
 import { progressOf } from '@work/domain/value-objects/run-state';
@@ -25,10 +23,7 @@ const shortened = (text: string | null | undefined): string | null => {
 };
 
 export class StationRuns implements StationRunsPort {
-  constructor(
-    private readonly reader: StationRunReaderPort,
-    private readonly skills: TeamSkillsPort,
-  ) {}
+  constructor(private readonly reader: StationRunReaderPort) {}
 
   async ended(runId: string): Promise<EndedStationRun | null> {
     const found = await this.reader.endedRun(runId);
@@ -73,23 +68,6 @@ export class StationRuns implements StationRunsPort {
     });
   }
 
-  async alertsAt(
-    stationId: string,
-  ): Promise<readonly StationAlertShape[] | null> {
-    const alerts = await this.reader.alertsAt(stationId);
-
-    return (
-      alerts?.map((each) => ({
-        measure: each.measure,
-        risesBy: each.risesBy,
-        above: each.above,
-        fallsBy: each.fallsBy,
-        below: each.below,
-        over: each.over,
-      })) ?? null
-    );
-  }
-
   async traced(wanted: TracedWanted): Promise<TracedWork> {
     const rows = await this.reader.traced(wanted);
 
@@ -114,10 +92,6 @@ export class StationRuns implements StationRunsPort {
         }),
       ),
     };
-  }
-
-  teamSkillKeys(teamId: string): Promise<readonly string[]> {
-    return this.skills.definedFor(TeamId.of(teamId));
   }
 
   async configsInOrder(

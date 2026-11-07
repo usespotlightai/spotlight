@@ -1,5 +1,6 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { InvalidRunAttemptError } from '@work/domain/exceptions/invalid-run-attempt.error';
 
 export class RunAttempt {
   private constructor(
@@ -10,6 +11,14 @@ export class RunAttempt {
   static of(runId: RunId, number: number): RunAttempt {
     if (!Number.isInteger(number) || number < 1) {
       throw new InconsistentStateError('run', 'has no attempt to its name');
+    }
+
+    return new RunAttempt(runId, number);
+  }
+
+  static reported(runId: RunId, number: number): RunAttempt {
+    if (!Number.isInteger(number) || number < 1) {
+      throw new InvalidRunAttemptError(number);
     }
 
     return new RunAttempt(runId, number);

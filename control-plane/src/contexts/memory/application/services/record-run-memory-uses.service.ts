@@ -1,14 +1,8 @@
 import type { WorkPort } from '@memory/application/ports/work.port';
-import type {
-  RecordMemoryUses,
-  UsingRun,
-} from '@memory/application/services/record-memory-uses.service';
+import type { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
+import type { UsingRun } from '@memory/domain/entities/recorded-memory-uses.entity';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
-import {
-  handlesRead,
-  MEMORY_FILE,
-  MEMORY_FOLDER,
-} from '@memory/domain/services/memory-folder';
+import { handlesRead } from '@memory/domain/services/memory-folder';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 
 export class RecordRunMemoryUses {
@@ -28,11 +22,7 @@ export class RecordRunMemoryUses {
 
   async runEnded(run: UsingRun): Promise<void> {
     const runContext = await this.work.contextOfRun(run.id);
-    const referenced = await this.work.referencedUnder(
-      run.id,
-      MEMORY_FOLDER,
-      MEMORY_FILE,
-    );
+    const referenced = await this.work.memoryFilesRead(run.id);
     const handles = handlesRead(referenced ?? []);
 
     if (!runContext || handles.length === 0) {
@@ -41,7 +31,7 @@ export class RecordRunMemoryUses {
 
     const read = (
       await this.memories.withHandles(runContext.teamId, handles)
-    ).filter((each) => each.appliesAt(runContext));
+    ).filter((each) => each.appliesAt(runContext, null));
 
     await this.recording.recorded(
       run,

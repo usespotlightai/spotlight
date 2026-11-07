@@ -9,7 +9,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import type { RunnerActivityDto } from '@work/application/dto/runner-activity.dto';
 import { ListRunnerActivityQuery } from '@work/application/queries/list-runner-activity.query';
 import {

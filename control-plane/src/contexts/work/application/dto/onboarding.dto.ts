@@ -1,8 +1,8 @@
-import type { Provisioning } from '@work/application/ports/team-provisioning.port';
 import {
   SETUP_STEPS,
   type SetupStepKey,
 } from '@work/domain/services/setup-list';
+import type { Provisioning } from '@work/domain/services/team-provisioning';
 
 export const SETUP_STEP_KEYS = SETUP_STEPS;
 

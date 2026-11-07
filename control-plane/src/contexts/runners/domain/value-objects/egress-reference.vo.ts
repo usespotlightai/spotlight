@@ -3,6 +3,8 @@ import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 const PLATFORM = 'spotlight';
 
 export class EgressReference {
+  static readonly PLATFORM = PLATFORM;
+
   private readonly kind = 'egress-reference';
 
   private constructor(readonly egressId: EgressId | null) {}
@@ -25,6 +27,10 @@ export class EgressReference {
 
   get isPlatform(): boolean {
     return this.egressId === null;
+  }
+
+  usableWith(platformStored: boolean): boolean {
+    return !this.isPlatform || platformStored;
   }
 
   get value(): string {

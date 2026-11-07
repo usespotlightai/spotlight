@@ -4,6 +4,7 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { MarkdownCommentBodies } from '@change-review/infrastructure/rendering/markdown-comment-bodies';
 import type { StickyComment } from '@github/application/ports/pull-request-comments.port';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -43,7 +44,7 @@ const ready = () =>
         ],
       },
     ]),
-    facts: StackFacts.none(),
+    facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
     now: NOW,
   }).propose(
     [
@@ -162,6 +163,7 @@ const posting = (
       decisionsOf: ({ taskId }) =>
         `https://app.example/tasks/${taskId}#decisions`,
     },
+    new MarkdownCommentBodies(),
   );
 
   return { poster, upserted };

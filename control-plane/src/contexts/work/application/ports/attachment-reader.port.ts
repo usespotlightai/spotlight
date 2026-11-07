@@ -7,8 +7,13 @@ export interface AttachmentSummary {
   readonly size: number;
 }
 
+export type AttachmentHolder =
+  | { readonly kind: 'task' }
+  | { readonly kind: 'chat'; readonly startedById: string };
+
 export interface AttachmentRecord extends AttachmentSummary {
   readonly workspaceId: string;
+  readonly holder: AttachmentHolder;
 }
 
 export interface AttachmentReaderPort {

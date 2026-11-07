@@ -1,4 +1,4 @@
-import type { ConnectionOwnerKind } from '@integrations/application/ports/oauth2-linking.port';
+import type { ConnectionOwnerKind } from '@integrations/domain/value-objects/connection-owner.vo';
 
 export class BeginOAuth2ConnectionCommand {
   constructor(

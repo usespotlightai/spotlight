@@ -77,7 +77,7 @@ const stackWith = (request: CheckRequest | null) =>
     repository: null,
     base: null,
     diff: DIFF,
-    facts: StackFacts.none(),
+    facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
     request,
     now: NOW,
   }).propose([cohort([['h1'], ['h2']])], LATER);

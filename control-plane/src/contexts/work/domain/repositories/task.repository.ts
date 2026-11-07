@@ -4,7 +4,9 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
+import type { Mark } from '@work/domain/value-objects/mark.vo';
+
+export const TASK_REPOSITORY = Symbol('TASK_REPOSITORY');
 
 export interface TaskRepository {
   add(task: Task): Promise<void>;
@@ -15,13 +17,13 @@ export interface TaskRepository {
 
   remove(task: Task): Promise<void>;
 
-  allAtStation(stationId: StationId): Promise<Task[]>;
-
-  // Locks the task until the transaction ends.
-  findByMarks(
+  // Locks the tasks until the transaction ends.
+  findByCorrelation(
     workspaceId: WorkspaceId,
     correlationKeys: CorrelationKeys,
-  ): Promise<Task | null>;
+  ): Promise<readonly Task[]>;
+
+  holdingMark(workspaceId: WorkspaceId, mark: Mark): Promise<readonly Task[]>;
 
   settingUpFor(teamId: TeamId): Promise<Task | null>;
 

@@ -2,16 +2,17 @@ import {
   HookDefinition,
   type SigningSecretChange,
 } from '@integrations/domain/aggregates/hook-definition.aggregate';
-import { Hook } from '@integrations/domain/entities/hook.entity';
 import { HookCreated } from '@integrations/domain/events/hook-created.event';
 import { HookDeleted } from '@integrations/domain/events/hook-deleted.event';
 import { HookUpdated } from '@integrations/domain/events/hook-updated.event';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
+import { Hook } from '@integrations/domain/value-objects/hook.vo';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import { HookMatch } from '@integrations/domain/value-objects/hook-match.vo';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
@@ -43,7 +44,16 @@ const hook = ({
   Hook.of({
     key: HookKey.of(key),
     event: HookEvent.of('tool.used'),
-    match: { tools: tools.map((tool) => ToolName.of(tool)), paths: [] },
+    match: HookMatch.of(
+      {
+        tools: tools.map((tool) => ToolName.of(tool)),
+        lines: [],
+        stations: [],
+        repositories: [],
+        paths: [],
+      },
+      HookEvent.of('tool.used'),
+    ),
     steps: [
       {
         name: 'notify',
@@ -73,7 +83,7 @@ const supplied = (fill: string, version: number): SigningSecretChange => ({
 });
 
 const PROVIDED = {
-  provided: ['grafana.search', 'slack.post-message'],
+  provided: [ToolName.of('grafana.search'), ToolName.of('slack.post-message')],
   signsTokens: false,
   allowsHost: (host: string) => host.endsWith('example.com'),
 };
@@ -136,7 +146,7 @@ describe('HookDefinition', () => {
         workspaceId: WORKSPACE,
         teamId: TEAM,
         secret: supplied('a', 1),
-        allowances: { ...PROVIDED, provided: ['grafana.search'] },
+        allowances: { ...PROVIDED, provided: [ToolName.of('grafana.search')] },
         by: BY,
       });
       expect.unreachable();
@@ -170,7 +180,7 @@ describe('HookDefinition', () => {
         allowances: PROVIDED,
         by: BY,
       }),
-    ).toThrow(/needs HOOK_SIGNING_KEY/);
+    ).toThrow(/needs a signing key/);
   });
 
   it('rejects a tool no integration of the team offers', () => {

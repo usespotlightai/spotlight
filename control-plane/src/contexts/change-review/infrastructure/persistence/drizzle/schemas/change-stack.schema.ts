@@ -1,6 +1,8 @@
 import {
   CHANGE_STACK_STATES,
   type ChangeStackState,
+  STACK_FAILURES,
+  type StackFailure,
 } from '@change-review/domain/value-objects/stack-progress.vo';
 import type {
   StoredCohort,
@@ -18,7 +20,6 @@ import {
   pgEnum,
   pgTable,
   text,
-  unique,
 } from 'drizzle-orm/pg-core';
 
 export interface StoredModelUsage {
@@ -37,6 +38,11 @@ export const changeStackState = pgEnum(
   CHANGE_STACK_STATES,
 );
 
+export const changeStackFailure = pgEnum(
+  'change_stack_failure',
+  STACK_FAILURES,
+);
+
 export const changeStack = pgTable(
   'change_stack',
   {
@@ -50,7 +56,7 @@ export const changeStack = pgTable(
     state: changeStackState('state').$type<ChangeStackState>().notNull(),
     files: jsonb('files').$type<StoredFile[]>().notNull(),
     cohorts: jsonb('cohorts').$type<StoredCohort[]>().notNull().default([]),
-    failure: text('failure'),
+    failure: changeStackFailure('failure').$type<StackFailure>(),
     startedAt: timestamptz('started_at').notNull(),
     completedAt: timestamptz('completed_at'),
     facts: jsonb('facts').$type<StoredFacts>().notNull(),
@@ -62,6 +68,7 @@ export const changeStack = pgTable(
       .default([]),
     checkPlacementImage: text('check_placement_image'),
     redrafting: boolean('redrafting').notNull().default(false),
+    pendingJob: boolean('pending_job').notNull().default(false),
     usage: jsonb('usage').$type<StoredModelUsage>().notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamptz('job_due_at'),
@@ -72,8 +79,8 @@ export const changeStack = pgTable(
       'change_stack_job_attempts_not_negative',
       sql`${table.jobAttempts} >= 0`,
     ),
-    unique('change_stack_workspace_id_id_key').on(table.workspaceId, table.id),
     index('change_stack_run_idx').on(table.runId, table.startedAt),
     index('change_stack_task_idx').on(table.taskId, table.startedAt),
+    index('change_stack_pending_job_idx').on(table.pendingJob, table.jobDueAt),
   ],
 );

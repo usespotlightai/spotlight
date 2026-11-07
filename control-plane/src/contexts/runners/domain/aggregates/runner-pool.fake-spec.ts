@@ -19,6 +19,7 @@ import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
+import { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.vo';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
@@ -162,12 +163,19 @@ export const aHostReport = (
     ],
   });
 
+export const aSandboxReport = (
+  sandboxes: string[] = [],
+  stopping = false,
+): SandboxReport => SandboxReport.of({ sandboxes, stopping });
+
 export const aHost = (
   input: {
     through?: RunnerPool | RunnerTrust;
     id?: HostId;
     at?: Date;
     release?: string;
+    sandboxes?: string[];
+    stopping?: boolean;
   } = {},
 ): RunnerHost => {
   const through = input.through ?? aPullPool();
@@ -178,6 +186,7 @@ export const aHost = (
     source: CredentialSource.ofId(through.id),
     bootId: BootId.of('boot_1'),
     report: aHostReport([], input.release),
+    sandboxes: aSandboxReport(input.sandboxes, input.stopping),
     at: input.at ?? STARTED_AT,
   });
 };
@@ -204,6 +213,7 @@ export const storedHosts = (...known: RunnerHost[]) => {
           source: host.source,
           bootId: host.bootId,
           report: host.report,
+          sandboxes: host.sandboxes,
           firstHeartbeatAt: host.firstHeartbeatAt,
           onlineSince: host.onlineSince,
           lastHeartbeatAt: host.lastHeartbeatAt,
@@ -217,23 +227,12 @@ export const storedHosts = (...known: RunnerHost[]) => {
       }
       stored.delete(host.id.value);
     }),
-    removeStaleBefore: vi.fn(async (cutoff: Date) => {
-      let removed = 0;
-      for (const [id, host] of stored) {
-        if (host.lastHeartbeatAt <= cutoff) {
-          stored.delete(id);
-          removed++;
-        }
-      }
-      return removed;
-    }),
-    removeThrough: vi.fn(async (source: CredentialSource) => {
-      for (const [id, host] of stored) {
-        if (host.hasSource(source)) {
-          stored.delete(id);
-        }
-      }
-    }),
+    silentSince: vi.fn(async (cutoff: Date) =>
+      [...stored.values()].filter((host) => host.lastHeartbeatAt <= cutoff),
+    ),
+    servingThrough: vi.fn(async (source: CredentialSource) =>
+      [...stored.values()].filter((host) => host.hasSource(source)),
+    ),
   } satisfies RunnerHostRepository;
 
   return { stored, hosts };

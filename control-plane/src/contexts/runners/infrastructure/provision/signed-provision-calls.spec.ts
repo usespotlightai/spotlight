@@ -24,7 +24,7 @@ const calling = (
   pool: 'sandboxes',
   workspaceId: 'ws_1',
   kind: 'run',
-  stackId: null,
+  checkId: null,
   runId: 'run_1',
   taskId: 'task_1',
   labels: ['sandbox'],
@@ -119,7 +119,7 @@ describe('SignedProvisionCalls', () => {
     await provision.call({
       ...calling(),
       kind: 'check',
-      stackId: 'stack_1',
+      checkId: 'stack_1',
       taskId: null,
     });
 

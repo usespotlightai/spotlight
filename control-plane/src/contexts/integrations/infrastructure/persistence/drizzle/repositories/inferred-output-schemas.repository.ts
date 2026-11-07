@@ -100,23 +100,46 @@ export class DrizzleInferredOutputSchemas
     }
   }
 
-  async deleteForIntegration(
+  async ofIntegration(
     teamId: TeamId,
     integration: IntegrationKey,
-  ): Promise<void> {
-    await this.context.db
-      .delete(inferredOutputSchema)
+  ): Promise<readonly InferredOutputSchema[]> {
+    const rows = await this.context.db
+      .select()
+      .from(inferredOutputSchema)
       .where(
         and(
           eq(inferredOutputSchema.teamId, teamId.value),
           eq(inferredOutputSchema.integration, integration.value),
         ),
       );
+
+    return rows.map(rehydrate);
   }
 
-  async deleteForTeam(teamId: TeamId): Promise<void> {
-    await this.context.db
-      .delete(inferredOutputSchema)
+  async ofTeam(teamId: TeamId): Promise<readonly InferredOutputSchema[]> {
+    const rows = await this.context.db
+      .select()
+      .from(inferredOutputSchema)
       .where(eq(inferredOutputSchema.teamId, teamId.value));
+
+    return rows.map(rehydrate);
+  }
+
+  async remove(schema: InferredOutputSchema): Promise<void> {
+    const removed = await this.context.db
+      .delete(inferredOutputSchema)
+      .where(
+        and(
+          eq(inferredOutputSchema.teamId, schema.teamId.value),
+          eq(inferredOutputSchema.tool, schema.tool.value),
+          eq(inferredOutputSchema.version, schema.version),
+        ),
+      )
+      .returning({ tool: inferredOutputSchema.tool });
+
+    if (removed.length === 0) {
+      throw new InferredOutputSchemaVersionConflictError(schema.tool.value);
+    }
   }
 }

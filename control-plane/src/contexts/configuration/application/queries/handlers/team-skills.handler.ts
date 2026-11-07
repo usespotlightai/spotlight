@@ -1,8 +1,7 @@
 import type { TeamSkillsDto } from '@configuration/application/dto/skills.dto';
-import type { SkillReaderPort } from '@configuration/application/ports/skill-reader.port';
-import type { TeamSkillFilesPort } from '@configuration/application/ports/team-skill-files.port';
 import type { TeamsPort } from '@configuration/application/ports/teams.port';
 import type { TeamSkillsQuery } from '@configuration/application/queries/team-skills.query';
+import type { TeamSkillReading } from '@configuration/application/services/team-skill-reading.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -12,8 +11,7 @@ export class TeamSkillsHandler
 {
   constructor(
     private readonly teams: TeamsPort,
-    private readonly teamSkillFiles: TeamSkillFilesPort,
-    private readonly reader: SkillReaderPort,
+    private readonly skills: TeamSkillReading,
   ) {}
 
   async execute(query: TeamSkillsQuery): Promise<TeamSkillsDto | null> {
@@ -27,11 +25,8 @@ export class TeamSkillsHandler
         return null;
       }
 
-      const teamSkillFiles = await this.teamSkillFiles.of(member.teamId);
-      const { skills } = this.reader.parse(teamSkillFiles.skills);
-
       return {
-        skills: skills.map(({ skill }) => ({
+        skills: (await this.skills.of(member.teamId)).map(({ skill }) => ({
           key: skill.key.value,
           description: skill.description,
         })),

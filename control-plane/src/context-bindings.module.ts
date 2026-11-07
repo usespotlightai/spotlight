@@ -5,10 +5,12 @@ import { IntegrationsModule } from '@integrations/integrations.module';
 import { MemoryModule } from '@memory/memory.module';
 import { Global, Module } from '@nestjs/common';
 import { ReplaysModule } from '@replays/replays.module';
+import { WorkModule } from '@work/work.module';
 
 @Global()
 @Module({
   imports: [
+    WorkModule,
     ConfigurationModule,
     ChangeReviewModule,
     IntegrationsModule,
@@ -17,6 +19,7 @@ import { ReplaysModule } from '@replays/replays.module';
     ReplaysModule,
   ],
   exports: [
+    WorkModule,
     ConfigurationModule,
     ChangeReviewModule,
     IntegrationsModule,

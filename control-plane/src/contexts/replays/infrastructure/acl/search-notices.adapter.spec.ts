@@ -1,5 +1,7 @@
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { SearchNotices } from '@replays/infrastructure/acl/search-notices.adapter';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -23,8 +25,8 @@ const noticeOf = (
   teamId: TeamId.of('team_1'),
   searchId: SearchId.of('search_1'),
   addressee,
-  lineId: 'line_1',
-  stationId: 'station_1',
+  lineId: LineId.of('line_1'),
+  stationId: StationId.of('station_1'),
   about: 'result',
   headline: 'Spotlight opened a config pull request for the Build station',
   points: ['Candidate terse changes prompt.'],

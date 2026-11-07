@@ -6,12 +6,13 @@ import type {
   RunJournal,
 } from '@work/application/contracts/run-journal.contract';
 import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { RunEvidences } from '@work/application/services/run-evidences.service';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
+import type { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
+import { judgeOf } from '@work/domain/value-objects/line-map.fake-spec';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
@@ -86,7 +87,7 @@ const REPLAY = {
   spec: { checkoutFolders: ['api'] },
 };
 
-const evidences = (judge: StationJudge | null = null) =>
+const evidences = (judge: JudgeSettings | null = null) =>
   new RunEvidences(
     {
       findById: async (id: RunId) =>
@@ -120,7 +121,7 @@ const evidences = (judge: StationJudge | null = null) =>
           stations: [{ id: { value: 'station_3' }, judge }],
         },
       ],
-    } as unknown as LineRepository,
+    } as unknown as LineMapsPort,
     {
       attemptsOfRun: async () => [
         { ...journal, steps: journal.steps.slice(0, 2) },
@@ -180,7 +181,7 @@ describe('RunEvidences', () => {
 
   it('versions the station’s judge by the hash of its rubric, claims and pass threshold together', async () => {
     const judge = await evidences(
-      StationJudge.of({
+      judgeOf({
         rubric: 'Did it retry?',
         sample: 0.5,
         minAgreement: 0.6,
@@ -201,7 +202,7 @@ describe('RunEvidences', () => {
 
   it('gives a judge of claims alone, with the share of them a run must meet', async () => {
     const judge = await evidences(
-      StationJudge.of({
+      judgeOf({
         claims: ['It retries.', 'It adds a test.'],
         passThreshold: 0.5,
         sample: 0.5,
@@ -217,7 +218,7 @@ describe('RunEvidences', () => {
     expect(judge?.rubricVersion).not.toBe(
       (
         await evidences(
-          StationJudge.of({
+          judgeOf({
             claims: ['It retries.', 'It adds a test.'],
             passThreshold: 1,
             sample: 0.5,
@@ -230,7 +231,7 @@ describe('RunEvidences', () => {
 
   it('gives the judges of a team’s stations on every line as the station sets each one', async () => {
     const reader = evidences(
-      StationJudge.of({
+      judgeOf({
         rubric: 'Did it retry?',
         sample: 0.5,
         minAgreement: 0.6,

@@ -1,6 +1,5 @@
 import type { HashPort } from '@replays/application/ports/hash.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
-import type { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
@@ -52,7 +51,6 @@ export interface ReadinessInput {
 
 export class CheckSearchReadiness {
   constructor(
-    private readonly refreshing: RefreshKeptSets,
     private readonly sets: ReplaySetRepository,
     private readonly healths: SetHealths,
     private readonly work: WorkPort,
@@ -63,9 +61,6 @@ export class CheckSearchReadiness {
 
   async check(input: ReadinessInput): Promise<SearchReadiness> {
     const { policy } = input;
-
-    await this.refreshing.refreshBefore(input.set.id);
-
     const set = (await this.sets.find(input.set.id)) ?? input.set;
     const standard = await this.healths.standardAt(set.station);
     const health = await this.healths.ofSet(set, standard);

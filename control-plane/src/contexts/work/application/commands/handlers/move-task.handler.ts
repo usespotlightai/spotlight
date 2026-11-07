@@ -2,6 +2,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { MoveTaskCommand } from '@work/application/commands/move-task.command';
@@ -15,7 +16,6 @@ import { UnknownStationError } from '@work/domain/exceptions/unknown-station.err
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Placement } from '@work/domain/services/placement';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -93,7 +93,7 @@ export class MoveTaskHandler
             stationId,
             rank,
             {
-              station: from?.name ?? station.name,
+              station: from,
               body: TaskNoteBody.movedTo(station.name),
               at: this.clock.now(),
               voice: Voice.station(),

@@ -1,32 +1,34 @@
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ChatMarksPort } from '@work/application/ports/chat-marks.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ApprovalAsked } from '@work/application/rendering/approval-asked';
 import { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -35,27 +37,27 @@ import { describe, expect, it } from 'vitest';
 const NOW = new Date('2026-09-07T10:00:00.000Z');
 
 const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
     teamId: TeamId.of('team_1'),
     key: LineKey.of('delivery'),
     name: LineName.of('Delivery'),
     stations: [
-      Station.of({
+      stationOf({
         id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'backlog',
       }),
-      Station.of({
+      stationOf({
         id: StationId.of('station_completed'),
         key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 1,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'completed',
       }),
     ],
@@ -69,19 +71,22 @@ const task = () =>
     rank: TaskRank.of('i'),
     now: NOW,
     newId: () => 'task_1',
-  }).markedBy(Mark.of('slack.thread', '170.1'));
+  }).markedBy(Mark.of('slack.thread', '170.1'), new Date(0));
 
 const line = {
   teamId: TeamId.of('team_1'),
   key: { value: 'delivery' },
   stationAt: () => ({ name: { value: 'Triage' }, key: { value: 'triage' } }),
-} as unknown as Line;
+} as unknown as LineMap;
 
-const taskViews = (found: Line | null = line, ambient: readonly Mark[] = []) =>
+const taskViews = (
+  found: LineMap | null = line,
+  ambient: readonly Mark[] = [],
+) =>
   new IntegrationTaskViews(
     {
       findByStation: async () => found,
-    } as unknown as LineRepository,
+    } as unknown as LineMapsPort,
     { ambientOf: async () => ambient } satisfies ChatMarksPort,
   );
 
@@ -103,7 +108,7 @@ describe('IntegrationTaskViews', () => {
       }),
       now: NOW,
       newId: () => 'task_1',
-    }).markedBy(Mark.of('slack.thread', '170.1'));
+    }).markedBy(Mark.of('slack.thread', '170.1'), new Date(0));
 
     const view = await taskViews(line, ambient).of(proposed);
     const plain = await taskViews(line, ambient).of(task());
@@ -135,7 +140,7 @@ describe('IntegrationTaskViews', () => {
   it('carries the question whose answer is pending', async () => {
     const asked = task().askedAbout(
       {
-        station: StationName.of('Triage'),
+        station: null,
         body: TaskNoteBody.of('Which queue should I drain?'),
         at: NOW,
         voice: Voice.station(),
@@ -153,7 +158,7 @@ describe('IntegrationTaskViews', () => {
   it('carries the files of the question, for an integration to send', async () => {
     const asked = task().askedAbout(
       {
-        station: StationName.of('Code Review'),
+        station: null,
         body: TaskNoteBody.of('Here are the screenshots.'),
         at: NOW,
         voice: Voice.station(),
@@ -189,7 +194,7 @@ describe('IntegrationTaskViews', () => {
       ),
       ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
       {
-        station: StationName.of('Triage'),
+        station: null,
         body: TaskNoteBody.of(
           ApprovalAsked.body(
             DeclaredTool.of({

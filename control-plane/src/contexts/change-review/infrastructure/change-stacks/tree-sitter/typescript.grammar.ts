@@ -1,4 +1,4 @@
-import type { IndexedReference } from '@change-review/domain/services/symbol-index';
+import type { IndexedReference } from '@change-review/domain/value-objects/symbol-index.vo';
 import {
   type EmbeddedScript,
   endingIn,

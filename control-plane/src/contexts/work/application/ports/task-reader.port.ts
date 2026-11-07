@@ -1,7 +1,6 @@
 import type { PersonSummary } from '@identity/application/ports/person-reader.port';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { Progress } from '@work/domain/value-objects/run-state';
@@ -43,15 +42,7 @@ export type TaskListing =
 export const TASK_READER = Symbol('TASK_READER');
 
 export interface TaskReaderPort {
-  listForTeamMember(
-    teamId: TeamId,
-    userId: UserId,
-    listing: TaskListing,
-  ): Promise<Page<TaskSummary> | null>;
+  listForTeam(teamId: TeamId, listing: TaskListing): Promise<Page<TaskSummary>>;
 
-  findForTeamMember(
-    teamId: TeamId,
-    userId: UserId,
-    taskId: TaskId,
-  ): Promise<TaskSummary | null>;
+  findInTeam(teamId: TeamId, taskId: TaskId): Promise<TaskSummary | null>;
 }

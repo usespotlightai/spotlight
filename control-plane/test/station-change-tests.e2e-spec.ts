@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import { OpenConfigPullRequests } from '@replays/application/services/open-config-pull-requests.service';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import {
   REPLAY_CANDIDATES,
@@ -13,12 +19,6 @@ import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { TEST_STATION_CHANGE } from '@work/domain/services/built-in-tools';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
@@ -67,6 +67,7 @@ const STATIONS: Readonly<Record<string, { key: string; name: string }>> = {
 const improving = async (stationId: string | null): Promise<ChatId> => {
   const station = stationId ? STATIONS[stationId] : undefined;
   const chat = Chat.start({
+    lines: [],
     workspaceId: team.workspaceId,
     teamId: team.teamId,
     startedBy: team.owner,

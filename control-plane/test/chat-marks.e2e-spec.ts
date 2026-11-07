@@ -44,6 +44,7 @@ const CHANNEL = Mark.of('slack.channel', 'C1');
 
 const startedIn = (thread: Mark, workspaceId = WORKSPACE) =>
   Chat.start({
+    lines: [],
     workspaceId,
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_1'),
@@ -72,11 +73,11 @@ describe('chat marks, stored in the database (e2e)', () => {
 
     await chats.add(chat);
 
-    expect((await chats.findByMarks(WORKSPACE, keys(thread)))?.id).toEqual(
-      chat.id,
-    );
     expect(
-      await chats.findByMarks(WorkspaceId.of('ws_2'), keys(thread)),
+      (await chats.findByCorrelation(WORKSPACE, keys(thread)))?.id,
+    ).toEqual(chat.id);
+    expect(
+      await chats.findByCorrelation(WorkspaceId.of('ws_2'), keys(thread)),
     ).toBeNull();
   });
 
@@ -133,6 +134,6 @@ describe('chat marks, stored in the database (e2e)', () => {
     await chats.add(startedIn(Mark.of('slack.thread', `C1:${randomUUID()}`)));
     await chats.add(startedIn(Mark.of('slack.thread', `C1:${randomUUID()}`)));
 
-    expect(await chats.findByMarks(WORKSPACE, keys(CHANNEL))).toBeNull();
+    expect(await chats.findByCorrelation(WORKSPACE, keys(CHANNEL))).toBeNull();
   });
 });

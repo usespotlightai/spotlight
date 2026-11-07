@@ -2,6 +2,8 @@ import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import { RecipientPinnedError } from '@secrets/domain/exceptions/recipient-pinned.error';
 import { RunGrantsEndedError } from '@secrets/domain/exceptions/run-grants-ended.error';
 import { RunLeaseOverError } from '@secrets/domain/exceptions/run-lease-over.error';
+import { BoundHost } from '@secrets/domain/value-objects/bound-host.vo';
+import { EgressId } from '@secrets/domain/value-objects/egress-id.vo';
 import { Recipient } from '@secrets/domain/value-objects/recipient.vo';
 import { RunLease } from '@secrets/domain/value-objects/run-lease.vo';
 import { SecretFetcher } from '@secrets/domain/value-objects/secret-fetcher.vo';
@@ -18,14 +20,17 @@ const FIRST = RunLease.of(RUN, 1);
 const SECOND = RunLease.of(RUN, 2);
 const SIDECAR = SecretFetcher.sidecar(Recipient.of('recipient-key'));
 const RESTARTED = SecretFetcher.sidecar(Recipient.of('another-key'));
-const SHARED = SecretFetcher.shared(Recipient.of('recipient-key'), 'egress_1');
+const SHARED = SecretFetcher.shared(
+  Recipient.of('recipient-key'),
+  EgressId.of('egress_1'),
+);
 const ANOTHER_NODE = SecretFetcher.shared(
   Recipient.of('another-key'),
-  'egress_1',
+  EgressId.of('egress_1'),
 );
 const ANOTHER_EGRESS = SecretFetcher.shared(
   Recipient.of('another-key'),
-  'egress_2',
+  EgressId.of('egress_2'),
 );
 const ENDED_AT = new Date('2026-09-23T12:00:00.000Z');
 const WEEK = 7 * 24 * 60 * 60_000;
@@ -38,7 +43,7 @@ const grant = (
     runId: RunId.of(over.runId ?? 'run_1'),
     workspaceId: WorkspaceId.of(over.workspaceId ?? 'ws_1'),
     secretId: SecretId.of('secret_linear'),
-    host,
+    host: BoundHost.of(host),
   });
 
 const begun = () => RunGrants.start(FIRST, WORKSPACE);
@@ -194,7 +199,7 @@ describe('RunGrants', () => {
     };
 
     expect(() =>
-      RunGrants.rehydrate({ ...record, grants: [], version: 0 }),
+      RunGrants.rehydrate({ ...record, grants: [], version: -1 }),
     ).toThrow(InconsistentStateError);
     expect(() =>
       RunGrants.rehydrate({

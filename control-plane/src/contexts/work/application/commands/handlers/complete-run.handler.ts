@@ -6,6 +6,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { CompleteRunCommand } from '@work/application/commands/runner.commands';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
@@ -13,7 +14,6 @@ import { lastWordsIn } from '@work/application/services/last-words';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { turnEnded } from '@work/domain/services/turn-end';
@@ -35,7 +35,7 @@ export class CompleteRunHandler
   constructor(
     private readonly runs: RunRepository,
     private readonly tasks: TaskRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly transaction: TransactionPort,
     private readonly taskViews: TaskViewsPort,
     private readonly hooks: LifecycleHooksPort,

@@ -1,3 +1,9 @@
+import {
+  DONE,
+  REVIEW,
+} from '@shared-kernel/domain/value-objects/handover-word';
+import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
 import type { SkillBrief } from '@work/application/dto/ready-skill.dto';
 import type {
@@ -8,7 +14,6 @@ import { Attached } from '@work/application/rendering/attached';
 import { ConfiguringSpotlight } from '@work/application/rendering/configuring-spotlight';
 import { Learned } from '@work/application/rendering/learned';
 import { SpotlightCli } from '@work/application/rendering/spotlight-cli';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
 import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
@@ -19,12 +24,10 @@ import type {
 } from '@work/domain/value-objects/briefed-task.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { MAX_HANDOVER_ATTACHMENTS } from '@work/domain/value-objects/handover.vo';
-import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { ReviewCommentHandle } from '@work/domain/value-objects/review-comment-handle.vo';
-import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
-const closing = (line: Line, stationId: StationId): string => {
+const closing = (line: LineMap, stationId: StationId): string => {
   const offered = line.optionsFrom(stationId);
   const named = offered
     .flatMap((each) =>
@@ -149,7 +152,7 @@ const SAYING_DECISIONS = [
 const PERSISTENT_WORKSPACE =
   'The task keeps this workspace from one run and station to the next, so work an earlier one left, committed or not, may already be here.';
 
-const workspaceOf = (task: BriefedTask, line: Line): string | null => {
+const workspaceOf = (task: BriefedTask, line: LineMap): string | null => {
   const repositories = repositoriesReviewedOrAll(task.reviewing, line);
 
   if (repositories.length === 0) {
@@ -178,7 +181,7 @@ const workspaceOf = (task: BriefedTask, line: Line): string | null => {
 export const TaskBriefing = {
   brief(input: {
     task: BriefedTask;
-    line: Line;
+    line: LineMap;
     skills: readonly SkillBrief[];
     listedIn: string | null;
     memories: readonly BriefedMemory[];
@@ -192,7 +195,7 @@ export const TaskBriefing = {
     );
 
     return [
-      station?.agentPrompt?.value.trim(),
+      station?.agentPrompt?.trim(),
       `## ${input.task.title}`,
       input.task.description,
       Attached.listed(input.task.attachments),

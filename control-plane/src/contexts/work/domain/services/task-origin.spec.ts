@@ -1,5 +1,5 @@
+import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { originOfRun } from '@work/domain/services/task-origin';
-import { Happening } from '@work/domain/value-objects/happening.vo';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { describe, expect, it } from 'vitest';
 

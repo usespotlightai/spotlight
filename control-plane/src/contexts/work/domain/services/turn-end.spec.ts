@@ -1,15 +1,20 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { RunPaused } from '@work/domain/events/run-paused.event';
 import { turnEnded } from '@work/domain/services/turn-end';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
@@ -17,24 +22,22 @@ import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo'
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
+import {
+  lineMapOf,
+  type RepositorySpec,
+  repositoryOf,
+  routesOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -67,19 +70,19 @@ const station = (
   id: StationId,
   key: string,
   position: number,
-  extra: Partial<Parameters<typeof Station.of>[0]> = {},
+  extra: Partial<Parameters<typeof stationOf>[0]> = {},
 ) =>
-  Station.of({
+  stationOf({
     id,
     key: StationKey.of(key),
     name: StationName.of(key),
     position,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     ...extra,
   });
 
-const lineWith = (repositories: readonly LineRepositoryConfig[]) =>
-  Line.rehydrate({
+const lineWith = (repositories: readonly RepositorySpec[]) =>
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -91,7 +94,7 @@ const lineWith = (repositories: readonly LineRepositoryConfig[]) =>
       }),
       station(BUILD, 'build', 1, {
         harness: HarnessId.of('dev'),
-        routes: StationRoutes.of({ stations: [SHIP] }),
+        routes: routesOf({ stations: [SHIP] }),
       }),
       station(SHIP, 'ship', 2, { harness: HarnessId.of('dev') }),
       station(StationId.of('station_completed'), 'completed', 3, {
@@ -134,7 +137,7 @@ const approvalAsked = () =>
     ),
     ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
     {
-      station: StationName.of('build'),
+      station: null,
       body: TaskNoteBody.of('Approve?'),
       at: NOW,
       voice: Voice.station(RUN),
@@ -150,7 +153,7 @@ const ending = (input: {
   outcome?: RunOutcome;
   handover?: { next?: string; note?: string } | null;
   ran?: Run;
-  on?: Line;
+  on?: LineMap;
 }) =>
   turnEnded({
     run: input.ran ?? run(),
@@ -194,7 +197,7 @@ describe('turnEnded', () => {
 
   it('puts the run back on the queue at once, to resume its session, when the person answered before the turn was reported', () => {
     const answered = approvalAsked().answer(NotePosition.of(0), {
-      station: StationName.of('build'),
+      station: null,
       body: TaskNoteBody.of('Yes.'),
       at: NOW,
       voice: Voice.person(UserId.of('user_1')),
@@ -216,7 +219,7 @@ describe('turnEnded', () => {
 
   it('checks out the repositories its line gained when it puts the run back on the queue at once', () => {
     const answered = approvalAsked().answer(NotePosition.of(0), {
-      station: StationName.of('build'),
+      station: null,
       body: TaskNoteBody.of('Yes.'),
       at: NOW,
       voice: Voice.person(UserId.of('user_1')),
@@ -224,7 +227,7 @@ describe('turnEnded', () => {
 
     const ended = ending({
       task: answered,
-      on: lineWith([LineRepositoryConfig.of(Repository.of('acme/widgets'))]),
+      on: lineWith([repositoryOf(Repository.of('acme/widgets'))]),
     });
 
     expect(ended.run.spec.checkoutFolders).toEqual(['widgets']);

@@ -146,8 +146,8 @@ describe('the shared draft of a task', () => {
     await eventually(async () => {
       const [row] = await db
         .select()
-        .from(schema.taskDraft)
-        .where(eq(schema.taskDraft.taskId, team.list.id.value));
+        .from(schema.taskDraftState)
+        .where(eq(schema.taskDraftState.taskId, team.list.id.value));
       return row?.state != null && row.state.byteLength > 0;
     }, 15_000);
   });

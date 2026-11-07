@@ -1,6 +1,5 @@
 import { HOOK_CONFIGS } from '@configuration/application/ports/hook-configs.port';
 import { INTEGRATION_CONFIGS } from '@configuration/application/ports/integration-configs.port';
-import { INTEGRATION_READER } from '@configuration/application/ports/integration-reader.port';
 import { ConfigurationModule } from '@configuration/configuration.module';
 import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
@@ -9,6 +8,7 @@ import {
   INTEGRATIONS_CONTROLLERS,
   INTEGRATIONS_PROVIDERS,
 } from '@integrations/integrations.wiring';
+import { LinesModule } from '@lines/lines.module';
 import { Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { SecretsModule } from '@secrets/secrets.module';
@@ -25,6 +25,7 @@ import { WorkModule } from '@work/work.module';
     IdentityModule,
     SecretsModule,
     GitHubModule,
+    LinesModule,
     WorkModule,
     ConfigurationModule,
   ],
@@ -32,7 +33,6 @@ import { WorkModule } from '@work/work.module';
   providers: [...INTEGRATIONS_PROVIDERS, ...HOOKS_PROVIDERS],
   exports: [
     TEAM_INTEGRATIONS,
-    INTEGRATION_READER,
     INTEGRATION_CONFIGS,
     HOOK_CONFIGS,
     TASK_NOTICES,

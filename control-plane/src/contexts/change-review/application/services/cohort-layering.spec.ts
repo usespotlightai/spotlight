@@ -7,7 +7,12 @@ import {
 } from '@change-review/application/services/cohort-layering';
 import type { DiffFacts } from '@change-review/domain/services/diff-facts';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
-import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import type { StackCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
+import {
+  CohortId,
+  HunkId,
+  LayerId,
+} from '@change-review/domain/value-objects/stack-ids';
 import { describe, expect, it } from 'vitest';
 
 const CALL = {
@@ -174,7 +179,20 @@ describe('layerCohort', () => {
       usage: null,
     }),
   };
-  const layering = (changeLayersBefore?: number) =>
+  const twoLayers: StackCohort = {
+    id: CohortId.at(1),
+    kind: 'change',
+    title: 'Moves',
+    intent: 'Moves code',
+    joinedBecause: null,
+    layers: ['h1', 'h2'].map((id, l) => ({
+      ...layerOf(id),
+      id: LayerId.in(CohortId.at(1), l + 1),
+      dependsOn: [],
+      questions: [],
+    })),
+  };
+  const layering = (redrafting?: StackCohort) =>
     layerCohort(generator, {
       diff: DIFF,
       facts: FACTS,
@@ -186,12 +204,12 @@ describe('layerCohort', () => {
         joinedBecause: null,
         hunks: [HunkId.of('h1'), HunkId.of('h2')],
       },
-      changeLayersBefore,
+      redrafting,
     });
 
   it('puts moved code together only within the layers the cohort had before', async () => {
     const free = await layering();
-    const held = await layering(2);
+    const held = await layering(twoLayers);
 
     expect(free.outcome === 'layered' && free.cohort.layers).toHaveLength(1);
     expect(held.outcome).toBe('broken');

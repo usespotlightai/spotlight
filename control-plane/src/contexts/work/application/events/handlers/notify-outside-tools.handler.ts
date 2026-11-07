@@ -1,11 +1,10 @@
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import {
+  bindableTaskEventOf,
+  type NoticedTaskEvent,
+} from '@work/application/mappers/bindable-task-event.mapper';
 import type { OutboundTaskNotifierPort } from '@work/application/ports/outbound-task-notifier.port';
-import { reassignTaskMarks } from '@work/application/services/task-marks';
-import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
-import type { TaskAsked } from '@work/domain/events/task-asked.event';
-import type { TaskFailed } from '@work/domain/events/task-failed.event';
-import type { TaskFinished } from '@work/domain/events/task-finished.event';
-import type { TaskOpened } from '@work/domain/events/task-opened.event';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
 export class NotifyOutsideTools {
@@ -13,16 +12,10 @@ export class NotifyOutsideTools {
     private readonly tasks: TaskRepository,
     private readonly notifier: OutboundTaskNotifierPort,
     private readonly transaction: TransactionPort,
+    private readonly clock: ClockPort,
   ) {}
 
-  async on(
-    event:
-      | TaskOpened
-      | PullRequestOpened
-      | TaskAsked
-      | TaskFinished
-      | TaskFailed,
-  ): Promise<void> {
+  async on(event: NoticedTaskEvent): Promise<void> {
     if (event.kind === 'task.opened' && !event.fromIntegration) {
       return;
     }
@@ -33,7 +26,10 @@ export class NotifyOutsideTools {
       return;
     }
 
-    const notified = await this.notifier.notify(task, event.kind);
+    const notified = await this.notifier.notify(
+      task,
+      bindableTaskEventOf(event),
+    );
 
     if (notified.length === 0) {
       return;
@@ -46,12 +42,12 @@ export class NotifyOutsideTools {
         return;
       }
 
+      const now = this.clock.now();
       const marked = notified.reduce(
-        (markedTask, mark) => markedTask.markedBy(mark),
+        (markedTask, mark) => markedTask.markedBy(mark, now),
         current,
       );
 
-      await reassignTaskMarks(this.tasks, marked);
       await this.tasks.save(marked);
     });
   }

@@ -63,7 +63,7 @@ const ready = ChangeStack.startGeneration({
       ],
     },
   ]),
-  facts: StackFacts.none(),
+  facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
   request: null,
   now: NOW,
 }).propose(
@@ -99,6 +99,7 @@ const answered = (id: string, personId: UserId, asked = question) =>
   QuestionAnswer.given({
     id: QuestionAnswerId.of(id),
     workspaceId: ready.workspaceId,
+    taskId: ready.taskId,
     stackId: ready.id,
     question: asked,
     personId,
@@ -170,11 +171,13 @@ describe('answers to the questions of a change stack', () => {
     expect((await questionsFor(BEA))?.[0]?.answered).toBeNull();
   });
 
-  it('forgets the answers of a task before its change stacks go', async () => {
-    await answers.removeForTask(TaskId.of('task_1'));
+  it('finds the answers of a task and removes each, whether or not its change stack is still there', async () => {
     await database.db.execute(
       sql`delete from change_stack where id = 'stack_1'`,
     );
+    for (const each of await answers.ofTask(TaskId.of('task_1'))) {
+      await answers.remove(each);
+    }
 
     const [{ count } = { count: -1 }] = (
       await database.db.execute<{ count: number }>(

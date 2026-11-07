@@ -1,7 +1,3 @@
-import type {
-  ListedServer,
-  ListedServersPort,
-} from '@integrations/application/ports/listed-servers.port';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationAlreadyExistsError } from '@integrations/domain/exceptions/integration-already-exists.error';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
@@ -11,6 +7,7 @@ import { DefinitionDocument } from '@integrations/domain/value-objects/definitio
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { integrationDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -19,7 +16,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { and, eq, lt, type SQL, sql } from 'drizzle-orm';
+import { and, eq, type SQL } from 'drizzle-orm';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -57,8 +54,9 @@ const rehydrated = (row: Row): IntegrationDefinition =>
     teamId: TeamId.of(row.teamId),
     integration: IntegrationKey.of(row.integration),
     document: DefinitionDocument.of(row.definition),
-    tools: row.tools,
+    tools: row.tools.map((tool) => ToolName.of(tool)),
     reading: readingOf(row),
+    relistsTools: row.relistsTools,
     version: row.version,
   });
 
@@ -70,7 +68,7 @@ const inPlace = (definition: IntegrationDefinition) =>
 
 @Injectable()
 export class DrizzleIntegrationDefinitions
-  implements IntegrationDefinitionRepository, ListedServersPort
+  implements IntegrationDefinitionRepository
 {
   constructor(
     private readonly context: DrizzleContext,
@@ -103,33 +101,6 @@ export class DrizzleIntegrationDefinitions
     ).map(rehydrated);
   }
 
-  async claimListedBefore(
-    before: Date,
-    at: Date,
-  ): Promise<readonly ListedServer[]> {
-    const claimed = await this.context.db
-      .update(integrationDefinition)
-      .set({
-        specReadAt: at,
-        updatedAt: sql`${integrationDefinition.updatedAt}`,
-      })
-      .where(
-        and(
-          sql`${integrationDefinition.definition} ? 'mcp'`,
-          lt(integrationDefinition.specReadAt, before),
-        ),
-      )
-      .returning({
-        teamId: integrationDefinition.teamId,
-        integration: integrationDefinition.integration,
-      });
-
-    return claimed.map((each) => ({
-      teamId: TeamId.of(each.teamId),
-      integration: IntegrationKey.of(each.integration),
-    }));
-  }
-
   async save(definition: IntegrationDefinition): Promise<void> {
     await this.context.inTransaction(async () => {
       await this.stored(definition);
@@ -140,7 +111,8 @@ export class DrizzleIntegrationDefinitions
   private async stored(definition: IntegrationDefinition): Promise<void> {
     const fields = {
       definition: { ...definition.document.fields },
-      tools: [...definition.tools],
+      tools: definition.tools.map((each) => each.value),
+      relistsTools: definition.relistsTools,
       ...readingColumns(definition.reading),
     };
 

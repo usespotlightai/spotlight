@@ -32,7 +32,7 @@ export class ListWorkspaceRunnersResourcesHandler
         return null;
       }
 
-      const record = await this.resources.declaredIn(permissions.workspaceId);
+      const record = await this.resources.ofWorkspace(permissions.workspaceId);
 
       return record
         ? [

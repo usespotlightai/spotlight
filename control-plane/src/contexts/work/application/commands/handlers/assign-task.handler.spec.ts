@@ -4,25 +4,26 @@ import type {
 } from '@identity/application/ports/team-directory.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { taskReaderOver } from '@work/application/ports/task-reader.fake-spec';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -42,27 +43,27 @@ const delivery = (
   backlogId = 'station_1',
   teamId = 'team_1',
 ) =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
     teamId: TeamId.of(teamId),
     key: LineKey.of('delivery'),
     name: LineName.of('Delivery'),
     stations: [
-      Station.of({
+      stationOf({
         id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'backlog',
       }),
-      Station.of({
+      stationOf({
         id: StationId.of('station_completed'),
         key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 1,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'completed',
       }),
     ],
@@ -88,9 +89,9 @@ const tasks = (found: Task | null = task()) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    findByMarks: vi.fn(async () => null),
+    findByCorrelation: vi.fn(async () => []),
+    holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -106,14 +107,14 @@ const teams = (found: TeamProfile | null = team()) =>
 const lines = (teamId = 'team_1') =>
   ({
     findByStation: vi.fn(async () => delivery('ws_1', 'station_1', teamId)),
-  }) as unknown as LineRepository;
+  }) as unknown as LineMapsPort;
 
 const assign = (
   assigneeId: string | null,
   viewerId = 'user_1',
   stored: TaskRepository = tasks(),
   team: TeamDirectoryPort = teams(),
-  board: LineRepository = lines(),
+  board: LineMapsPort = lines(),
 ) =>
   new AssignTaskHandler(
     stored,

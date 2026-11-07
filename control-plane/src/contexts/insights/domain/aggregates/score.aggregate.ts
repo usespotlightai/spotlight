@@ -1,27 +1,24 @@
 import { ScoreRecorded } from '@insights/domain/events/score-recorded.event';
 import { InvalidScoreError } from '@insights/domain/exceptions/invalid-score.error';
+import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import type { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
-import { isRubricVersion } from '@insights/domain/value-objects/rubric.vo';
+import { RubricVersion } from '@insights/domain/value-objects/rubric-version.vo';
 import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import type { ScoreId } from '@insights/domain/value-objects/score-id.vo';
+import type { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import {
-  metRate,
-  type ScoreScale,
-} from '@insights/domain/value-objects/score-scale.vo';
-import type { ScoreSource } from '@insights/domain/value-objects/score-source';
+  fromJudgeSource,
+  type ScoreSource,
+} from '@insights/domain/value-objects/score-source';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const FINGERPRINT = /^[0-9a-f]{64}$/;
-
 export const MAX_SEEN_CHARS = 64_000;
 
-const LEEWAY = 1e-9;
-
-interface ScoreState {
+interface ScoreFields {
   readonly id: ScoreId;
   readonly runId: RunId;
   readonly workspaceId: WorkspaceId;
@@ -40,20 +37,20 @@ interface ScoreState {
   readonly version: number;
 }
 
+interface ScoreState
+  extends Omit<ScoreFields, 'fingerprint' | 'rubricVersion'> {
+  readonly fingerprint: ConfigFingerprint | null;
+  readonly rubricVersion: RubricVersion | null;
+}
+
 const claimResultsValid = (state: ScoreState): boolean => {
   const { claimResults } = state;
 
-  if (!state.scale.byClaims) {
-    return (
-      claimResults === null &&
-      state.reasons.every((each) => each.claim === null)
-    );
-  }
-  if (claimResults === null || claimResults.length === 0) {
+  if (!state.scale.marks(state.value, claimResults)) {
     return false;
   }
-  if (Math.abs(metRate(claimResults) - state.value) > LEEWAY) {
-    return false;
+  if (claimResults === null) {
+    return state.reasons.every((each) => each.claim === null);
   }
 
   return (
@@ -67,7 +64,13 @@ const claimResultsValid = (state: ScoreState): boolean => {
   );
 };
 
-const checked = (state: ScoreState): ScoreState => {
+const checked = (fields: ScoreFields): ScoreState => {
+  const state: ScoreState = {
+    ...fields,
+    fingerprint: ConfigFingerprint.optional(fields.fingerprint),
+    rubricVersion: RubricVersion.optional(fields.rubricVersion),
+  };
+
   if (!state.scale.includes(state.value)) {
     throw new InvalidScoreError(
       `${state.value} is not on the ${state.scale.kind} scale`,
@@ -75,14 +78,6 @@ const checked = (state: ScoreState): ScoreState => {
   }
   if (!claimResultsValid(state)) {
     throw new InvalidScoreError('must mark claims only on a claims scale');
-  }
-  if (state.fingerprint !== null && !FINGERPRINT.test(state.fingerprint)) {
-    throw new InvalidScoreError(
-      'station config fingerprint must be 64 hex characters',
-    );
-  }
-  if (state.rubricVersion !== null && !isRubricVersion(state.rubricVersion)) {
-    throw new InvalidScoreError('rubric hash must be 64 hex characters');
   }
 
   if (state.source === 'judge') {
@@ -184,7 +179,7 @@ export class Score extends EventRecorder {
     return graded;
   }
 
-  static rehydrate(state: ScoreState): Score {
+  static rehydrate(state: ScoreFields): Score {
     return new Score(checked(state));
   }
 
@@ -204,7 +199,7 @@ export class Score extends EventRecorder {
     return this.state.location;
   }
 
-  get fingerprint(): string | null {
+  get fingerprint(): ConfigFingerprint | null {
     return this.state.fingerprint;
   }
 
@@ -224,7 +219,7 @@ export class Score extends EventRecorder {
     return this.state.claimResults;
   }
 
-  get rubricVersion(): string | null {
+  get rubricVersion(): RubricVersion | null {
     return this.state.rubricVersion;
   }
 
@@ -253,7 +248,7 @@ export class Score extends EventRecorder {
   }
 
   get fromJudge(): boolean {
-    return this.state.source === 'judge';
+    return fromJudgeSource(this.state.source);
   }
 
   regrade(input: {
@@ -278,6 +273,7 @@ export class Score extends EventRecorder {
     }
 
     const regraded = new Score(checked({ ...this.state, ...input }));
+    regraded.inheritEvents(this);
     regraded.record(
       new ScoreRecorded(this.id, this.runId, this.location, 'person'),
     );

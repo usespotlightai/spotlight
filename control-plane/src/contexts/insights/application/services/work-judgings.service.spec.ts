@@ -3,12 +3,9 @@ import type { RunEvidence } from '@insights/application/ports/evidence.port';
 import type { JudgeRequest } from '@insights/application/ports/judge.port';
 import { WorkJudgings } from '@insights/application/services/work-judgings.service';
 import type { RunJudged } from '@insights/domain/events/run-judged.event';
-import {
-  JudgingsInMemory,
-  queuedJudging,
-} from '@insights/domain/judging.fake-spec';
-import { inTransaction } from '@insights/domain/runs.fake-spec';
 import type { Verdict } from '@insights/domain/services/grounded-verdict';
+import { JudgingsInMemory, queuedJudging } from '@insights/judging.fake-spec';
+import { inTransaction } from '@insights/runs.fake-spec';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -60,8 +57,6 @@ const working = async (
     {
       hasTask: async () => true,
       of: async () => evidence,
-      judgesOnTeam: async () => new Map(),
-      judgeAt: async () => null,
     },
     {
       available: true,

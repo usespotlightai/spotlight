@@ -1,10 +1,10 @@
-import { claimsCriteria } from '@insights/domain/judging.fake-spec';
 import {
   type ClaimVerdict,
   groundedVerdict,
 } from '@insights/domain/services/grounded-verdict';
 import { JudgeEvidence } from '@insights/domain/services/judge-evidence';
-import { JudgeCriteria } from '@insights/domain/value-objects/judge-criteria.vo';
+import { claimsCriteria } from '@insights/judging.fake-spec';
+import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 

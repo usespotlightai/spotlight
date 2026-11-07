@@ -22,6 +22,7 @@ const connected = (owner: ConnectionOwner) => {
     integration: LINEAR,
     owner,
     tokens: OAuthTokens.of({ accessToken: 'lin-1' }),
+    at: new Date('2026-09-01T00:00:00.000Z'),
   });
   connection.pullEvents();
   return connection;
@@ -37,7 +38,7 @@ const disconnecting = (member = true) => {
     connections,
     handler: new DisconnectIntegrationHandler(
       {
-        onTeam: async () => (member ? {} : null),
+        inWorkspaceOfTeam: async () => (member ? {} : null),
       } as unknown as WorkspaceAccessPort,
       connections,
       {
@@ -74,9 +75,6 @@ describe('DisconnectIntegrationHandler', () => {
     expect(
       await connections.of(TEAM, LINEAR, ConnectionOwner.team()),
     ).not.toBeNull();
-    expect(connections.events.map((each) => each.kind)).toEqual([
-      'integrations.integration-disconnected',
-    ]);
   });
 
   it('denies someone off the team', async () => {

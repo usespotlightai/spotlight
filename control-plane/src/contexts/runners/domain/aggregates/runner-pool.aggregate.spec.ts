@@ -13,8 +13,10 @@ import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runne
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
+import { PoolOccupancy } from '@runners/domain/value-objects/pool-occupancy.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
+import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { describe, expect, it } from 'vitest';
@@ -32,6 +34,14 @@ const changeOf = (pool: ReturnType<typeof aPullPool>) => {
 
   return event instanceof RunnerPoolUpdated ? event.change : null;
 };
+
+const occupied = (runners: number, idleSandboxes = 0): PoolOccupancy =>
+  PoolOccupancy.of({
+    runners,
+    idleSandboxes: Array.from({ length: idleSandboxes }, (_, index) =>
+      SandboxId.of(`sandbox_${index}`),
+    ),
+  });
 
 describe('RunnerPool', () => {
   it('is created as a change to the workspace’s configuration, naming its mode', () => {
@@ -161,33 +171,38 @@ describe('RunnerPool', () => {
     });
   });
 
-  it('has room for runs up to maxRuns, and none once deleted', () => {
-    const bounded = aPullPool({ maxRuns: 2 });
-
-    expect(bounded.hasRoomFor(1)).toBe(true);
-    expect(bounded.hasRoomFor(2)).toBe(false);
-    expect(aPullPool().hasRoomFor(10_000)).toBe(true);
-    expect(bounded.delete(BY).hasRoomFor(0)).toBe(false);
-  });
-
   it('says how many more runs it has room for, none past maxRuns, and no bound without one', () => {
     const bounded = aPullPool({ maxRuns: 3 });
 
-    expect(bounded.roomFor(1)).toBe(2);
-    expect(bounded.roomFor(5)).toBe(0);
-    expect(aPullPool().roomFor(10_000)).toBeNull();
-    expect(aPullPool().delete(BY).roomFor(0)).toBe(0);
+    expect(bounded.roomFor(occupied(1))).toBe(2);
+    expect(bounded.roomFor(occupied(1, 1))).toBe(1);
+    expect(bounded.roomFor(occupied(5))).toBe(0);
+    expect(aPullPool().roomFor(occupied(10_000))).toBeNull();
+    expect(aPullPool().delete(BY).roomFor(occupied(0))).toBe(0);
   });
 
   it('lets a runner start only in its own mode, while it is not deleted and has room', () => {
     const pulled = aPullPool({ maxRuns: 1 });
 
-    expect(pulled.capacity('pull', 0)).toBe('open');
-    expect(pulled.capacity('pull', 1)).toBe('full');
-    expect(pulled.capacity('push', 0)).toBe('gone');
-    expect(aPushPool().capacity('push', 0)).toBe('open');
-    expect(aPushPool().capacity('pull', 0)).toBe('gone');
-    expect(pulled.delete(BY).capacity('pull', 0)).toBe('gone');
+    expect(pulled.capacity('pull', occupied(0))).toBe('open');
+    expect(pulled.capacity('pull', occupied(1))).toBe('full');
+    expect(pulled.capacity('pull', occupied(0, 1))).toBe('full');
+    expect(pulled.capacity('push', occupied(0))).toBe('gone');
+    expect(aPushPool().capacity('push', occupied(0))).toBe('open');
+    expect(aPushPool().capacity('pull', occupied(0))).toBe('gone');
+    expect(pulled.delete(BY).capacity('pull', occupied(0))).toBe('gone');
+  });
+
+  it('gives a runner that enters an idle sandbox the slot of that sandbox', () => {
+    const pulled = aPullPool({ maxRuns: 1 });
+    const idle = occupied(0, 1);
+
+    expect(
+      pulled.capacity('pull', idle.entering(SandboxId.of('sandbox_0'))),
+    ).toBe('open');
+    expect(
+      pulled.capacity('pull', idle.entering(SandboxId.of('sandbox_9'))),
+    ).toBe('full');
   });
 
   it('always keeps its provision secret encrypted, even after an update without one', () => {

@@ -1,4 +1,6 @@
-export class ReviewCommentVersionConflictError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class ReviewCommentVersionConflictError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(id: string) {

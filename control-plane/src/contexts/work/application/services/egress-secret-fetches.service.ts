@@ -1,5 +1,6 @@
 import type { RunTokensPort } from '@identity/application/ports/run-tokens.port';
 import type { LeasedWork } from '@runners/application/ports/runners.port';
+import { Credential } from '@secrets/application/contracts/credential.contract';
 import type { RunGrantsPort } from '@secrets/application/ports/run-grants.port';
 import type { RunSecretFetchesPort } from '@secrets/application/ports/run-secret-fetches.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -13,10 +14,6 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 
 const SPOTLIGHT_API = 'spotlight-api';
-
-const SPOTLIGHT_API_SCOPES = ['plan'];
-
-const SPOTLIGHT_API_LIFETIME_MS = 60 * 60 * 1_000;
 
 export interface EgressAuthorized {
   readonly runnerId: string;
@@ -160,15 +157,14 @@ export class EgressSecretFetches {
       run.id.value,
       attempt.number,
     );
+    const grant = chat.apiGrantAt(this.clock.now());
     const token = await this.runTokens.issueFor({
       workspaceId: run.workspaceId.value,
       runId: run.id.value,
       attempt: attempt.number,
-      issuedBy: chat.startedBy.value,
-      scopes: SPOTLIGHT_API_SCOPES,
-      expiresAt: new Date(
-        this.clock.now().getTime() + SPOTLIGHT_API_LIFETIME_MS,
-      ),
+      issuedBy: grant.issuedBy.value,
+      scopes: [...grant.scopes],
+      expiresAt: grant.expiresAt,
     });
 
     return {
@@ -176,7 +172,7 @@ export class EgressSecretFetches {
       sealed: this.runSecretFetches.sealedFor({
         runId: run.id.value,
         name: SPOTLIGHT_API,
-        value: token.token,
+        value: Credential.of(token.token),
         recipient,
       }),
     };

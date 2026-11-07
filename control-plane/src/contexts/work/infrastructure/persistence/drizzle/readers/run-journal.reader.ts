@@ -8,7 +8,7 @@ import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   JournalledRun,
@@ -16,6 +16,7 @@ import type {
   RunJournal,
 } from '@work/application/contracts/run-journal.contract';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import { ChatAccess } from '@work/domain/services/chat-access';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import {
   changesOfTask,
@@ -120,17 +121,13 @@ export class DrizzleRunJournalReader implements RunJournalReaderPort {
     viewerId: UserId,
   ): Promise<boolean> {
     const [visible] = await this.db
-      .select({ id: chat.id })
+      .select({ startedById: chat.startedById })
       .from(chat)
-      .where(
-        and(
-          eq(chat.id, chatId.value),
-          eq(chat.teamId, teamId.value),
-          eq(chat.startedById, viewerId.value),
-        ),
-      )
+      .where(and(eq(chat.id, chatId.value), eq(chat.teamId, teamId.value)))
       .limit(1);
 
-    return visible !== undefined;
+    return visible
+      ? ChatAccess.readableBy(UserId.of(visible.startedById), viewerId)
+      : false;
   }
 }

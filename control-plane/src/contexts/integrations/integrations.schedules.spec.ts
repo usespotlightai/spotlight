@@ -2,12 +2,12 @@ import type {
   DefinedIntegrationsPort,
   TeamDefinedIntegrations,
 } from '@integrations/application/ports/defined-integrations.port';
-import type { PollState } from '@integrations/application/ports/integration-cursors.port';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import { RunSchedules } from '@integrations/application/services/run-schedules.service';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
+import { cronCalendar } from '@integrations/infrastructure/integrations/cron-calendar';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
 import type {
@@ -17,7 +17,7 @@ import type {
 import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
-import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-spec';
+import { FakeScheduleCursors } from '@integrations/integrations.cursors.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import {
@@ -81,10 +81,10 @@ const config = (file: string): TeamDefinedIntegrations => ({
 
 const OK: OutboundResult = { ok: true, status: 200, response: {}, capture: {} };
 
-const KEY = 'linear:schedule';
+const KEY = 'linear';
 
 const scheduling = (
-  cursors: FakeIntegrationCursors,
+  cursors: FakeScheduleCursors,
   run: (
     request: unknown,
     against?: unknown,
@@ -101,16 +101,21 @@ const scheduling = (
     runtimeWith({ run } as unknown as HttpOutbound),
     callAuthFor(injection),
     cursors,
+    cronCalendar,
     { now: () => now } as ClockPort,
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
   );
 
-const working = (state: PollState, now: Date = NOW, file = schedule()) => {
+const working = (
+  state: { ranAt: Date | null },
+  now: Date = NOW,
+  file = schedule(),
+) => {
   const run = vi.fn(async (_request: unknown) => OK);
-  const cursors = new FakeIntegrationCursors();
+  const cursors = new FakeScheduleCursors();
 
   if (state.ranAt) {
-    cursors.setState(TEAM, KEY, state);
+    cursors.setState(TEAM, KEY, { ranAt: state.ranAt });
   }
 
   return { schedules: scheduling(cursors, run, now, file), run, cursors };
@@ -118,7 +123,7 @@ const working = (state: PollState, now: Date = NOW, file = schedule()) => {
 
 describe('RunSchedules', () => {
   it('sets a clock going without firing when it first sees a schedule', async () => {
-    const { schedules, run, cursors } = working({ cursor: null, ranAt: null });
+    const { schedules, run, cursors } = working({ ranAt: null });
 
     await schedules.runDue();
 
@@ -128,7 +133,6 @@ describe('RunSchedules', () => {
 
   it('runs the action when the cron has come round', async () => {
     const { schedules, run, cursors } = working({
-      cursor: null,
       ranAt: new Date('2026-09-07T08:00:00.000Z'),
     });
 
@@ -140,7 +144,7 @@ describe('RunSchedules', () => {
 
   it('leaves a schedule alone until its cron comes round', async () => {
     const { schedules, run, cursors } = working(
-      { cursor: null, ranAt: new Date('2026-09-07T09:00:00.000Z') },
+      { ranAt: new Date('2026-09-07T09:00:00.000Z') },
       new Date('2026-09-07T09:30:00.000Z'),
     );
 
@@ -154,7 +158,6 @@ describe('RunSchedules', () => {
 
   it('fires once for a schedule that fell behind, not once per missed hour', async () => {
     const { schedules, run } = working({
-      cursor: null,
       ranAt: new Date('2026-09-06T08:00:00.000Z'),
     });
 
@@ -175,9 +178,8 @@ describe('RunSchedules', () => {
       ) => OK,
     );
 
-    const cursors = new FakeIntegrationCursors();
+    const cursors = new FakeScheduleCursors();
     cursors.setState(TEAM, KEY, {
-      cursor: null,
       ranAt: new Date('2026-09-07T08:00:00.000Z'),
     });
 
@@ -207,7 +209,7 @@ describe('RunSchedules', () => {
     const together = new Promise<void>((resolve) => {
       bothRead = resolve;
     });
-    const cursors = new FakeIntegrationCursors(async () => {
+    const cursors = new FakeScheduleCursors(async () => {
       reads += 1;
       if (reads === 2) {
         bothRead();
@@ -215,7 +217,6 @@ describe('RunSchedules', () => {
       await together;
     });
     cursors.setState(TEAM, KEY, {
-      cursor: null,
       ranAt: new Date('2026-09-07T08:00:00.000Z'),
     });
     const run = vi.fn(async () => OK);

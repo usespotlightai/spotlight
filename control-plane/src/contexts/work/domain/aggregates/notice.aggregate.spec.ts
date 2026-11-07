@@ -9,6 +9,7 @@ import { NoticeExternalLink } from '@work/domain/value-objects/notice-external-l
 import { noticeForm } from '@work/domain/value-objects/notice-form';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
+import { NoticeSubject } from '@work/domain/value-objects/notice-subject.vo';
 import { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -25,7 +26,7 @@ const created = (subject = 'replay-search search_1 iteration 3') =>
     teamId: TeamId.of('team_1'),
     addressee: PERSON,
     form: 'ended',
-    subject,
+    subject: NoticeSubject.of(subject),
     link: NoticeLink.of({
       path: 'lines/line_1/stations/station_1',
       label: 'Open the station',

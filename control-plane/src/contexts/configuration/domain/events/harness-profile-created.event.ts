@@ -5,7 +5,7 @@ import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/co
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class HarnessProfileCreated implements ConfigurationChanged {
-  readonly kind = 'configuration.harness-profile-created';
+  readonly kind = 'harness-profile.created';
 
   constructor(
     readonly id: HarnessProfileId,

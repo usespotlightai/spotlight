@@ -44,9 +44,7 @@ export const hookFiring = pgTable(
   'hook_firing',
   {
     id: text('id').primaryKey(),
-    hookId: text('hook_id')
-      .notNull()
-      .references(() => hookDefinition.id, { onDelete: 'cascade' }),
+    hookId: text('hook_id').notNull(),
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
     taskId: text('task_id').notNull(),
@@ -93,6 +91,7 @@ export const hookCallback = pgTable(
     hook: text('hook').notNull(),
     firingId: text('firing_id'),
     expiresAt: timestamptz('expires_at').notNull(),
+    version: integer('version').notNull().default(1),
   },
   (table) => [index('hook_callback_expires_idx').on(table.expiresAt)],
 );

@@ -1,18 +1,19 @@
 import { randomUUID } from 'node:crypto';
+import { Line } from '@lines/domain/aggregates/line.aggregate';
+import { LineRoleTakenError } from '@lines/domain/exceptions/line-role-taken.error';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@lines/domain/services/built-in-lines';
+import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
   afterAll,
@@ -716,6 +717,7 @@ describe('a line, created through the resource API (e2e)', () => {
         workspaceId: WorkspaceId.of(teamId),
         teamId: TeamId.of(teamId),
         line: { ...opening, key: LineKey.of(key) },
+        harness: HarnessId.of('claude-code'),
         newId: () => `${teamId}-${key}-${++next}`,
       });
 

@@ -42,6 +42,7 @@ export interface LineComment extends FileComment {
 
 export interface SubmittedReview {
   readonly githubId: number;
+  readonly postedAs: ReviewEvent;
   readonly comments: readonly (OnGitHub | null)[];
 }
 

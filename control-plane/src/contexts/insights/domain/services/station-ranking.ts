@@ -2,7 +2,11 @@ import type { LocatedFailure } from '@insights/domain/services/failure-summaries
 import { rateOf } from '@insights/domain/services/measures';
 import type { TallyCounts } from '@insights/domain/services/run-tally';
 import type { TeamCounts } from '@insights/domain/services/station-reports';
-import type { StationLocation } from '@insights/domain/services/team-history';
+
+export interface StationLocation {
+  readonly lineId: string;
+  readonly stationId: string;
+}
 
 export const STATION_SIGNALS = [
   'sent-back',
@@ -98,7 +102,8 @@ export const stationsWorthImprovingFrom = (
     rates: ratesOf(
       tally,
       failing.filter(
-        (each) => stationId === null || each.occurrence.stationId === stationId,
+        (each) =>
+          stationId === null || each.occurrence.stationId.value === stationId,
       ).length,
     ),
     currency: tally.cost?.currency ?? null,

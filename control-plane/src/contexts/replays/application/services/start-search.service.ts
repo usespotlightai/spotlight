@@ -1,24 +1,20 @@
 import type { HashPort } from '@replays/application/ports/hash.port';
-import type { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
+import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import { LineSearchBudget } from '@replays/domain/aggregates/line-search-budget.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { Search } from '@replays/domain/aggregates/search.aggregate';
-import { MonthlyCeilingReachedError } from '@replays/domain/exceptions/monthly-ceiling-reached.error';
+import type { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
 import { SearchInProgressError } from '@replays/domain/exceptions/search-in-progress.error';
+import { SearchVersionConflictError } from '@replays/domain/exceptions/search-version-conflict.error';
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
 import { UnknownSearchScheduleError } from '@replays/domain/exceptions/unknown-search-schedule.error';
 import { UnsearchableRequestError } from '@replays/domain/exceptions/unsearchable-request.error';
-import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import type { LineSearchBudgetRepository } from '@replays/domain/repositories/line-search-budget.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
-import {
-  fitsMonth,
-  monthSpentOf,
-  monthStartOf,
-} from '@replays/domain/services/search-schedule';
+import { monthStartOf } from '@replays/domain/services/search-schedule';
 import { unsearchableChanges } from '@replays/domain/services/searchable-changes';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -33,6 +29,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 export interface SearchBeginning {
   readonly id: SearchId;
@@ -53,12 +50,11 @@ interface RequestedCandidate {
 
 export class StartSearch {
   constructor(
-    private readonly snapshots: LiveSnapshots,
+    private readonly snapshots: LiveCandidates,
     private readonly sets: ReplaySetRepository,
-    private readonly replays: ReplayRepository,
-    private readonly candidates: CandidateRepository,
     private readonly searches: SearchRepository,
     private readonly schedules: StationSearchScheduleRepository,
+    private readonly budgets: LineSearchBudgetRepository,
     private readonly hash: HashPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -66,9 +62,13 @@ export class StartSearch {
   ) {}
 
   async begin(beginning: SearchBeginning): Promise<HeldOutSplit> {
-    const { id, budget, calibrates, requested } = beginning;
-    const seedId = ReplayId.of(this.ids.generate());
+    const { requested } = beginning;
+    const { stationId } = beginning.set.station;
     const live = await this.snapshots.taken(beginning.set);
+    const kept: Candidate[] = [live];
+    let admitted = false;
+    let before: StationSearchSchedule | null = null;
+    const at = this.clock.now();
 
     try {
       const problems = requested
@@ -78,98 +78,163 @@ export class StartSearch {
       if (problems.length > 0) {
         throw new UnsearchableRequestError(problems);
       }
+      if (requested) {
+        await this.snapshots.kept(requested.candidate);
+        kept.push(requested.candidate);
+      }
 
-      return await this.transaction.inTransaction(async () => {
-        const { lineId, stationId } = beginning.set.station;
-        const at = this.clock.now();
-        const monthSpent = monthSpentOf(
-          await this.searches.lockedOfLineStartedSince(
-            lineId,
-            monthStartOf(at),
-          ),
-          beginning.policy.monthlyCeiling.currency,
-        );
+      await this.admitted(beginning, at);
+      admitted = true;
 
-        if (!fitsMonth(beginning.policy, monthSpent)) {
-          throw new MonthlyCeilingReachedError(lineId);
-        }
+      if (await this.searches.activeAtStation(stationId)) {
+        throw new SearchInProgressError(stationId);
+      }
 
-        const set = await this.sets.locked(beginning.set.id);
-        const schedule = await this.schedules.locked(stationId);
+      const taken = await this.scheduled(beginning, at);
 
-        if (!set) {
-          throw new UnknownReplaySetError(beginning.set.id.value);
-        }
-        if (!schedule) {
-          throw new UnknownSearchScheduleError(stationId);
-        }
-        if (
-          (await this.searches.activeOfSet(set.id)) ||
-          (await this.searches.activeAtStation(set.station.stationId))
-        ) {
-          throw new SearchInProgressError(set.station.stationId);
-        }
+      before = taken.before;
+      await this.started(beginning, live, taken.split, at);
 
-        const split = HeldOutSplit.drawn({
-          searchId: id,
-          entries: set.entries,
-          hash: (text) => this.hash.sha256(text),
-          excluding: schedule.searchedTasks,
-        });
-        const ceilingSplit = budget.splitCeiling(split, calibrates);
-        const by = ChangeActor.spotlight(set.workspaceId);
-
-        if (requested) {
-          await this.candidates.add(requested.candidate);
-        }
-
-        await this.searches.add(
-          Search.start({
-            id,
-            set,
-            agent: beginning.agent,
-            budget,
-            objective: beginning.objective,
-            split,
-            calibrates,
-            seed: { candidate: live, replayId: seedId },
-            trigger: beginning.trigger,
-            requests: requested ? [requested.request] : [],
-            at,
-            by,
-          }),
-        );
-        await this.replays.add(
-          Replay.start({
-            id: seedId,
-            set,
-            candidate: live,
-            baseline: true,
-            ceiling: ceilingSplit.seed,
-            unpricedRate: ceilingSplit.perRun,
-            at,
-            by,
-            repeats: budget.seedRepeats(calibrates),
-            calibration: calibrates,
-            searchId: id,
-          }),
-        );
-        await this.sets.save(set.recordSearch());
-        await this.schedules.save(
-          schedule.started({
-            searched: split.searched.map((each) => each.taskId),
-            inSet: set.entries.map((each) => each.taskId),
-            at,
-            cooldownMilliseconds: beginning.policy.cooldownMilliseconds,
-            trigger: beginning.trigger,
-          }),
-        );
-
-        return split;
-      });
+      return taken.split;
     } catch (error) {
-      await this.snapshots.release(live);
-      throw error;
+      if (before) {
+        await this.scheduleWithdrawn(stationId, before);
+      }
+      if (admitted) {
+        await this.admissionWithdrawn(beginning, at);
+      }
+      for (const each of kept) {
+        await this.snapshots.release(each);
+      }
+
+      throw error instanceof SearchVersionConflictError &&
+        (await this.searches.activeAtStation(stationId))
+        ? new SearchInProgressError(stationId)
+        : error;
     }
+  }
+
+  private admitted(beginning: SearchBeginning, at: Date): Promise<void> {
+    const { lineId } = beginning.set.station;
+
+    return this.transaction.inTransaction(async () => {
+      const month = monthStartOf(at);
+      const found = await this.budgets.locked(lineId, month);
+      const budget =
+        found ??
+        LineSearchBudget.open({
+          lineId,
+          workspaceId: beginning.set.workspaceId,
+          teamId: beginning.set.teamId,
+          at,
+        });
+      const admitted = budget.admit(
+        { searchId: beginning.id, ceiling: beginning.budget.ceiling },
+        beginning.policy,
+        await this.searches.ofLineStartedSince(lineId, month),
+      );
+
+      await (found ? this.budgets.save(admitted) : this.budgets.add(admitted));
+    });
+  }
+
+  private scheduled(
+    beginning: SearchBeginning,
+    at: Date,
+  ): Promise<{ split: HeldOutSplit; before: StationSearchSchedule }> {
+    const { set } = beginning;
+
+    return this.transaction.inTransaction(async () => {
+      const schedule = await this.schedules.locked(set.station.stationId);
+
+      if (!schedule) {
+        throw new UnknownSearchScheduleError(set.station.stationId);
+      }
+
+      const split = HeldOutSplit.drawn({
+        searchId: beginning.id,
+        entries: set.entries,
+        hash: (text) => this.hash.sha256(text),
+        excluding: schedule.searchedTasks,
+      });
+
+      await this.schedules.save(
+        schedule.started({
+          searched: split.searched.map((each) => each.taskId),
+          inSet: set.entries.map((each) => each.taskId),
+          at,
+          cooldownMilliseconds: beginning.policy.cooldownMilliseconds,
+          trigger: beginning.trigger,
+        }),
+      );
+
+      return { split, before: schedule };
+    });
+  }
+
+  private started(
+    beginning: SearchBeginning,
+    live: Candidate,
+    split: HeldOutSplit,
+    at: Date,
+  ): Promise<void> {
+    const { id, budget, calibrates, requested } = beginning;
+
+    return this.transaction.inTransaction(async () => {
+      const set = await this.sets.locked(beginning.set.id);
+
+      if (!set) {
+        throw new UnknownReplaySetError(beginning.set.id.value);
+      }
+      if (await this.searches.activeAtStation(set.station.stationId)) {
+        throw new SearchInProgressError(set.station.stationId);
+      }
+
+      await this.searches.add(
+        Search.start({
+          id,
+          set: set.snapshot,
+          agent: beginning.agent,
+          budget,
+          objective: beginning.objective,
+          split,
+          calibrates,
+          seed: { candidate: live, replayId: ReplayId.of(this.ids.generate()) },
+          trigger: beginning.trigger,
+          requests: requested ? [requested.request] : [],
+          at,
+          by: ChangeActor.spotlight(set.workspaceId),
+        }),
+      );
+    });
+  }
+
+  private scheduleWithdrawn(
+    stationId: StationId,
+    before: StationSearchSchedule,
+  ): Promise<void> {
+    return this.transaction.inTransaction(async () => {
+      const schedule = await this.schedules.locked(stationId);
+
+      if (schedule) {
+        await this.schedules.save(schedule.startWithdrawn(before));
+      }
+    });
+  }
+
+  private admissionWithdrawn(
+    beginning: SearchBeginning,
+    at: Date,
+  ): Promise<void> {
+    return this.transaction.inTransaction(async () => {
+      const budget = await this.budgets.locked(
+        beginning.set.station.lineId,
+        monthStartOf(at),
+      );
+
+      if (budget?.admits(beginning.id)) {
+        await this.budgets.save(budget.withdrawn(beginning.id));
+      }
+    });
   }
 }

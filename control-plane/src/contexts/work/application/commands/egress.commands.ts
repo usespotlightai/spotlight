@@ -7,25 +7,11 @@ export class FetchRunSecretsCommand {
   ) {}
 }
 
-export class AuthorizeRunnerCommand {
-  constructor(
-    readonly token: string | undefined,
-    readonly proxyCredential: string,
-  ) {}
-}
-
 export class FetchSharedRunSecretsCommand {
   constructor(
     readonly token: string | undefined,
     readonly proxyCredential: string,
     readonly recipient: string,
-  ) {}
-}
-
-export class CheckActiveRunsCommand {
-  constructor(
-    readonly token: string | undefined,
-    readonly proxyCredentials: readonly string[],
   ) {}
 }
 

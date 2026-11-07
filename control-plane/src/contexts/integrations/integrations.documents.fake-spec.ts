@@ -12,8 +12,6 @@ export const documentsContaining = (
   return {
     stored,
     withHash: async (hash) => withHash(hash.value),
-    operation: async (hash, name) =>
-      withHash(hash.value)?.operation(name) ?? null,
     save: async (document) => {
       if (!withHash(document.hash.value)) {
         stored.push(document);
@@ -24,4 +22,8 @@ export const documentsContaining = (
 
 export const operationsContaining = (
   ...documents: SpecDocument[]
-): OperationCache => new OperationCache(documentsContaining(...documents));
+): OperationCache =>
+  new OperationCache({
+    operation: async (hash, name) =>
+      documents.find((each) => each.hash.equals(hash))?.operation(name) ?? null,
+  });

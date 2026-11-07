@@ -4,6 +4,7 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { IdentityProblems } from '@identity/application/rendering/identity-problems';
 import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import {
   forbiddenTo,
   type ResourceUpdated,
@@ -13,7 +14,6 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
 export class UpdateWorkspaceTokenHandler
   implements
@@ -56,14 +56,14 @@ export class UpdateWorkspaceTokenHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      await this.transaction.inTransaction(() =>
-        this.tokens.save(
-          existing.update(
-            compiled.spec,
-            ChangeActor.of(command.actor, existing.workspaceId),
-          ),
-        ),
+      const updated = existing.update(
+        compiled.spec,
+        ChangeActor.of(command.actor, existing.workspaceId),
       );
+
+      if (updated !== existing) {
+        await this.transaction.inTransaction(() => this.tokens.save(updated));
+      }
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {

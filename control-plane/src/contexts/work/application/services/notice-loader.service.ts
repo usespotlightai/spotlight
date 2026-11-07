@@ -15,7 +15,7 @@ export class NoticeLoader {
     const viewer = UserId.of(person);
     const notice = await this.notices.find(NoticeId.of(noticeId));
     const membership = notice?.isFor(viewer)
-      ? await this.access.onTeam(notice.teamId.value, viewer)
+      ? await this.access.inWorkspaceOfTeam(notice.teamId, viewer)
       : null;
 
     if (

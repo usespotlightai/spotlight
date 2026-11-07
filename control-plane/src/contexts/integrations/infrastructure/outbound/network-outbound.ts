@@ -6,9 +6,10 @@ import {
   type OutboundResult,
   parsed,
 } from '@integrations/infrastructure/outbound/http-outbound';
+import { applyInjected } from '@integrations/infrastructure/outbound/secret-injection';
 import type { CelVariables } from '@platform/expressions/cel-variables';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { NetworkCallsPort } from '@work/application/ports/network-calls.port';
 
 export class NetworkOutbound {
@@ -37,7 +38,7 @@ export class NetworkOutbound {
       request.auth?.kind === 'secrets' ? request.auth.secrets : [];
 
     if (secrets.length > 0) {
-      (await credentials.standInsFor(url.href, secrets)).applyTo({
+      applyInjected(await credentials.standInsFor(url.href, secrets), {
         url,
         headers,
       });

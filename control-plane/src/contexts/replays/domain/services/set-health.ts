@@ -9,7 +9,7 @@ import {
 import { totalsOf } from '@replays/domain/services/replay-results';
 import {
   noiseReadingOf,
-  type ReplayedConfig,
+  type ScoredCandidate,
   type SetNoiseReading,
   setNoiseOf,
 } from '@replays/domain/services/set-noise';
@@ -27,7 +27,7 @@ export const SATURATED_ABOVE = 0.95;
 
 export const JUDGE_UNSTABLE_BELOW = 0.8;
 
-export interface HealthConfig extends ReplayedConfig {
+export interface HealthCandidate extends ScoredCandidate {
   readonly isOracle: boolean;
   readonly basedOn: StationFingerprint;
 }
@@ -98,24 +98,26 @@ const newestFirst = (one: Replay, other: Replay): number =>
   (other.endedAt ?? other.startedAt).getTime() -
   (one.endedAt ?? one.startedAt).getTime();
 
-const configOf = (
+const candidateOf = (
   replay: Replay,
-  configs: readonly HealthConfig[],
-): HealthConfig | null =>
-  configs.find((each) => each.id.equals(replay.candidateId)) ?? null;
+  candidates: readonly HealthCandidate[],
+): HealthCandidate | null =>
+  candidates.find((each) => each.id.equals(replay.candidateId)) ?? null;
 
 const isWholeLive = (
   replay: Replay,
-  configs: readonly ReplayedConfig[],
+  candidates: readonly ScoredCandidate[],
   liveFingerprint: StationFingerprint,
 ): boolean => {
-  const config = configs.find((each) => each.id.equals(replay.candidateId));
+  const candidate = candidates.find((each) =>
+    each.id.equals(replay.candidateId),
+  );
 
   return (
     replay.runSubset === null &&
     (replay.searchId === null || replay.calibration) &&
-    config?.isLive === true &&
-    config.fingerprint.equals(liveFingerprint)
+    candidate?.isLive === true &&
+    candidate.fingerprint.equals(liveFingerprint)
   );
 };
 
@@ -132,7 +134,7 @@ const coversSet = (replay: Replay, set: ReplaySet): boolean =>
 export const wantsCalibration = (
   set: ReplaySet,
   replays: readonly Replay[],
-  configs: readonly ReplayedConfig[],
+  candidates: readonly ScoredCandidate[],
   liveFingerprint: StationFingerprint,
 ): boolean =>
   set.entries.length >= MIN_CHECKED_RUNS &&
@@ -140,7 +142,7 @@ export const wantsCalibration = (
     (each) =>
       each.calibration &&
       VALID_CALIBRATION_STATES.includes(each.current) &&
-      isWholeLive(each, configs, liveFingerprint) &&
+      isWholeLive(each, candidates, liveFingerprint) &&
       coversSet(each, set),
   );
 
@@ -214,7 +216,7 @@ const checksOf = (calibration: Replay): CheckConsistency | null => {
 
 const oracleOf = (
   oracle: Replay,
-  config: HealthConfig,
+  candidate: HealthCandidate,
   replays: readonly Replay[],
   minGain: number,
 ): OracleReading => {
@@ -231,7 +233,7 @@ const oracleOf = (
 
   return {
     replayId: oracle.id,
-    candidateId: config.id,
+    candidateId: candidate.id,
     repeats: oracle.repeats,
     state: oracle.current,
     referenceReplayId: oracle.referenceReplayId,
@@ -253,7 +255,7 @@ const oracleOf = (
 
 export const setHealthOf = (
   replays: readonly Replay[],
-  configs: readonly HealthConfig[],
+  candidates: readonly HealthCandidate[],
   liveFingerprint: StationFingerprint,
   minGain: number,
 ): SetHealth => {
@@ -261,25 +263,26 @@ export const setHealthOf = (
   const live = newest.filter(
     (each) =>
       each.current === 'finished' &&
-      isWholeLive(each, configs, liveFingerprint),
+      isWholeLive(each, candidates, liveFingerprint),
   );
   const calibration = live.find((each) => each.calibration) ?? null;
   const oracle =
     newest.flatMap((each) => {
-      const config = configOf(each, configs);
+      const candidate = candidateOf(each, candidates);
 
-      return config?.isOracle && config.basedOn.equals(liveFingerprint)
-        ? [{ replay: each, config }]
+      return candidate?.isOracle && candidate.basedOn.equals(liveFingerprint)
+        ? [{ replay: each, candidate }]
         : [];
     })[0] ?? null;
 
-  const noise = setNoiseOf(replays, configs, liveFingerprint);
+  const noise = setNoiseOf(replays, candidates, liveFingerprint);
 
   return {
     noise: noise && noiseReadingOf(noise, minGain),
     saturation: saturationOf(live),
     judge: calibration && judgeOf(calibration),
     checks: calibration && checksOf(calibration),
-    oracle: oracle && oracleOf(oracle.replay, oracle.config, replays, minGain),
+    oracle:
+      oracle && oracleOf(oracle.replay, oracle.candidate, replays, minGain),
   };
 };

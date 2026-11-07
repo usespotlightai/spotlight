@@ -9,7 +9,7 @@ describe('lookUpOnce', () => {
       name: 'Maya Chen',
       image: null,
     }));
-    const person = lookUpOnce({ memberOf: async () => null, find });
+    const person = lookUpOnce({ viewerOf: async () => null, find });
 
     await Promise.all([
       person(UserId.of('user_1')),
@@ -21,7 +21,7 @@ describe('lookUpOnce', () => {
 
   it('names no one it cannot find', async () => {
     const person = lookUpOnce({
-      memberOf: async () => null,
+      viewerOf: async () => null,
       find: async () => null,
     });
 

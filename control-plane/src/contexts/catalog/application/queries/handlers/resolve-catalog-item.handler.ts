@@ -7,7 +7,7 @@ import type { ResolveCatalogItemQuery } from '@catalog/application/queries/resol
 import { CatalogProblems } from '@catalog/application/rendering/catalog-problems';
 import type { CatalogItem } from '@catalog/domain/entities/catalog-item.entity';
 import { InvalidCatalogEntryError } from '@catalog/domain/exceptions/invalid-catalog-entry.error';
-import type { CatalogRepository } from '@catalog/domain/repositories/catalog.repository';
+import type { CatalogItems } from '@catalog/domain/services/catalog-items';
 import { resolveEntitledItem } from '@catalog/domain/services/entitlement-resolution';
 import { newestMatching } from '@catalog/domain/services/newest-matching';
 import { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
@@ -53,7 +53,7 @@ export class ResolveCatalogItemHandler
 {
   constructor(
     private readonly access: WorkspaceAccessPort,
-    private readonly catalog: CatalogRepository,
+    private readonly catalog: CatalogItems,
     private readonly plans: WorkspacePlansPort,
     private readonly clock: ClockPort,
   ) {}

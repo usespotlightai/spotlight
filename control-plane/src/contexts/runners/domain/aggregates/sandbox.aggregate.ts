@@ -1,29 +1,25 @@
+import type { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
+import type { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
+import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 import type { SandboxDrainPolicy } from '@runners/domain/value-objects/sandbox-drain-policy.vo';
 import type { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import type { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import { SandboxLease } from '@runners/domain/value-objects/sandbox-lease.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export const SANDBOX_STATES = [
-  'starting',
-  'ready',
-  'draining',
-  'gone',
-] as const;
+export const SANDBOX_STATES = ['open', 'draining', 'gone'] as const;
 
 export type SandboxState = (typeof SANDBOX_STATES)[number];
 
-export const OPEN_SANDBOX_STATES: readonly SandboxState[] = [
-  'starting',
-  'ready',
-];
+export type SandboxStatus = 'starting' | 'ready' | 'draining' | 'gone';
 
 export const LIVE_SANDBOX_STATES: readonly SandboxState[] = [
-  ...OPEN_SANDBOX_STATES,
+  'open',
   'draining',
 ];
 
@@ -36,6 +32,7 @@ interface State {
   readonly workspaceId: WorkspaceId;
   readonly key: SandboxKey | null;
   readonly hostId: HostId | null;
+  readonly source: CredentialSource | null;
   readonly tokenHash: TokenHash | null;
   readonly state: SandboxState;
   readonly leases: readonly SandboxLease[];
@@ -55,8 +52,9 @@ export class Sandbox extends EventRecorder {
     workspaceId: WorkspaceId;
     key: SandboxKey | null;
     hostId: HostId;
+    source: CredentialSource;
     tokenHash: TokenHash;
-    runId: string;
+    runId: RunId;
     at: Date;
   }): Sandbox {
     return new Sandbox({
@@ -64,9 +62,10 @@ export class Sandbox extends EventRecorder {
       workspaceId: input.workspaceId,
       key: input.key,
       hostId: input.hostId,
+      source: input.source,
       tokenHash: input.tokenHash,
-      state: 'starting',
-      leases: [SandboxLease.forRun(input.runId, input.at)],
+      state: 'open',
+      leases: [SandboxLease.of(LeaseHolder.run(input.runId), input.at)],
       idleSince: null,
       startedAt: input.at,
       goneAt: null,
@@ -85,8 +84,9 @@ export class Sandbox extends EventRecorder {
       workspaceId: input.workspaceId,
       key: input.key,
       hostId: null,
+      source: null,
       tokenHash: null,
-      state: 'starting',
+      state: 'open',
       leases: [],
       idleSince: input.at,
       startedAt: input.at,
@@ -110,19 +110,19 @@ export class Sandbox extends EventRecorder {
       );
     }
 
-    if ((state.hostId === null) !== (state.tokenHash === null)) {
+    if (
+      (state.hostId === null) !== (state.tokenHash === null) ||
+      (state.hostId === null) !== (state.source === null)
+    ) {
       throw new InconsistentStateError(
         'sandbox',
-        'has a host with no token, or a token with no host',
+        'has a host with no token or pool, or a token or pool with no host',
       );
     }
 
-    const holdsARun = state.leases.some((each) => each.kind === 'run');
+    const holdsARun = state.leases.some((each) => each.isForRun);
 
-    if (
-      state.hostId === null &&
-      (holdsARun || (state.state !== 'starting' && state.state !== 'gone'))
-    ) {
+    if (state.hostId === null && (holdsARun || state.state === 'draining')) {
       throw new InconsistentStateError(
         'sandbox',
         `is ${state.state} or held by a run while no host started it`,
@@ -143,6 +143,12 @@ export class Sandbox extends EventRecorder {
     return new Date(now.getTime() - GONE_RETENTION_MS);
   }
 
+  isExpiredAt(now: Date): boolean {
+    return (
+      this.state.goneAt !== null && this.state.goneAt <= Sandbox.goneBefore(now)
+    );
+  }
+
   get id(): SandboxId {
     return this.state.id;
   }
@@ -159,6 +165,10 @@ export class Sandbox extends EventRecorder {
     return this.state.hostId;
   }
 
+  get source(): CredentialSource | null {
+    return this.state.source;
+  }
+
   get tokenHash(): TokenHash | null {
     return this.state.tokenHash;
   }
@@ -168,7 +178,7 @@ export class Sandbox extends EventRecorder {
   }
 
   get isRequested(): boolean {
-    return !this.isPlaced && this.state.state === 'starting';
+    return !this.isPlaced && this.isOpen;
   }
 
   get current(): SandboxState {
@@ -196,42 +206,62 @@ export class Sandbox extends EventRecorder {
   }
 
   get isOpen(): boolean {
-    return OPEN_SANDBOX_STATES.includes(this.state.state);
+    return this.state.state === 'open';
   }
 
   get isLive(): boolean {
     return this.state.state !== 'gone';
   }
 
-  get mustDrain(): boolean {
-    return !this.isOpen;
+  holdsRun(runId: RunId): boolean {
+    return this.isHeldBy(LeaseHolder.run(runId));
   }
 
-  holdsRun(runId: string): boolean {
-    return this.state.leases.some((each) => each.isHeldBy('run', runId));
-  }
-
-  holdsEditor(holder: string): boolean {
-    return this.state.leases.some((each) => each.isHeldBy('editor', holder));
-  }
-
-  get isReady(): boolean {
-    return this.state.state === 'ready';
+  holdsEditor(holder: LeaseHolder): boolean {
+    return holder.isEditor && this.isHeldBy(holder);
   }
 
   get isIdle(): boolean {
     return this.state.idleSince !== null;
   }
 
-  takesRunOn(hostId: HostId): boolean {
+  isOn(hostId: HostId): boolean {
+    return this.state.hostId?.equals(hostId) ?? false;
+  }
+
+  isReadyOn(host: RunnerHost | null): boolean {
     return (
-      this.isReady &&
-      this.isIdle &&
-      (this.state.hostId?.equals(hostId) ?? false)
+      this.isOpen &&
+      host !== null &&
+      this.isOn(host.id) &&
+      host.reportsSandbox(this.state.id)
     );
   }
 
-  placeOn(hostId: HostId, tokenHash: TokenHash, at: Date): Sandbox {
+  statusOn(host: RunnerHost | null): SandboxStatus {
+    if (!this.isOpen) {
+      return this.state.state === 'draining' ? 'draining' : 'gone';
+    }
+
+    return this.isReadyOn(host) ? 'ready' : 'starting';
+  }
+
+  takesRunOn(host: RunnerHost): boolean {
+    return this.isReadyOn(host) && this.isIdle && !host.isStopping;
+  }
+
+  keptBy(host: RunnerHost): boolean {
+    return (
+      this.isOpen && this.isOn(host.id) && !(host.isStopping && this.isIdle)
+    );
+  }
+
+  placeOn(
+    hostId: HostId,
+    source: CredentialSource,
+    tokenHash: TokenHash,
+    at: Date,
+  ): Sandbox {
     if (!this.isRequested) {
       throw new InconsistentStateError(
         'sandbox',
@@ -239,10 +269,35 @@ export class Sandbox extends EventRecorder {
       );
     }
 
-    return this.with({ hostId, tokenHash, startedAt: at, idleSince: at });
+    return this.with({
+      hostId,
+      source,
+      tokenHash,
+      startedAt: at,
+      idleSince: at,
+    });
   }
 
-  holdRun(runId: string, at: Date): Sandbox {
+  holdRunFor(
+    run: {
+      runId: RunId;
+      workspaceId: WorkspaceId;
+      key: SandboxKey | null;
+    },
+    host: RunnerHost,
+    at: Date,
+  ): Sandbox {
+    const ownsTheRun =
+      run.key !== null &&
+      (this.state.key?.equals(run.key) ?? false) &&
+      this.state.workspaceId.equals(run.workspaceId);
+
+    return ownsTheRun && this.takesRunOn(host)
+      ? this.holdRun(run.runId, at)
+      : this;
+  }
+
+  holdRun(runId: RunId, at: Date): Sandbox {
     if (this.holdsRun(runId)) {
       return this;
     }
@@ -250,32 +305,34 @@ export class Sandbox extends EventRecorder {
     if (!this.isOpen || !this.isPlaced) {
       throw new InconsistentStateError(
         'sandbox',
-        `is ${this.state.state} or has no host, and cannot take run ${runId}`,
+        `is ${this.state.state} or has no host, and cannot take run ${runId.value}`,
       );
     }
 
     return this.with({
-      leases: [...this.state.leases, SandboxLease.forRun(runId, at)],
+      leases: [
+        ...this.state.leases,
+        SandboxLease.of(LeaseHolder.run(runId), at),
+      ],
       idleSince: null,
     });
   }
 
-  releaseRun(runId: string, at: Date): Sandbox {
+  releaseRun(runId: RunId, at: Date): Sandbox {
     if (!this.holdsRun(runId)) {
       return this;
     }
 
-    const leases = this.state.leases.filter(
-      (each) => !each.isHeldBy('run', runId),
-    );
+    const holder = LeaseHolder.run(runId);
+    const leases = this.state.leases.filter((each) => !each.isHeldBy(holder));
 
     return this.with({
       leases,
-      idleSince: leases.some((each) => each.kind === 'run') ? null : at,
+      idleSince: leases.some((each) => each.isForRun) ? null : at,
     });
   }
 
-  retireRun(runId: string, at: Date): Sandbox {
+  retireRun(runId: RunId, at: Date): Sandbox {
     if (!this.holdsRun(runId)) {
       return this;
     }
@@ -285,7 +342,14 @@ export class Sandbox extends EventRecorder {
     return released.leases.length === 0 ? released.drain() : released;
   }
 
-  holdEditor(holder: string, at: Date): Sandbox {
+  holdEditor(holder: LeaseHolder, at: Date): Sandbox {
+    if (!holder.isEditor) {
+      throw new InconsistentStateError(
+        'sandbox',
+        `cannot give an editor lease to a ${holder.kind}`,
+      );
+    }
+
     if (!this.isOpen) {
       throw new InconsistentStateError(
         'sandbox',
@@ -295,19 +359,19 @@ export class Sandbox extends EventRecorder {
 
     return this.with({
       leases: [
-        ...this.state.leases.filter((each) => !each.isHeldBy('editor', holder)),
-        SandboxLease.forEditor(holder, at),
+        ...this.state.leases.filter((each) => !each.isHeldBy(holder)),
+        SandboxLease.of(holder, at),
       ],
     });
   }
 
-  releaseEditor(holder: string, at: Date): Sandbox {
+  releaseEditor(holder: LeaseHolder, at: Date): Sandbox {
     if (!this.holdsEditor(holder)) {
       return this;
     }
 
     return this.withLeases(
-      this.state.leases.filter((each) => !each.isHeldBy('editor', holder)),
+      this.state.leases.filter((each) => !each.isHeldBy(holder)),
       at,
     );
   }
@@ -320,22 +384,21 @@ export class Sandbox extends EventRecorder {
       : this.withLeases(leases, now);
   }
 
-  reported(): Sandbox {
-    return this.state.state === 'starting'
-      ? this.with({ state: 'ready' })
-      : this;
+  static unreportedStartedBefore(now: Date): Date {
+    return new Date(now.getTime() - START_WINDOW_MS);
   }
 
-  unreported(at: Date): Sandbox {
-    if (!this.isLive) {
-      return this;
-    }
+  droppedBy(hostId: HostId, at: Date): Sandbox {
+    return this.isOn(hostId) ? this.lost(at) : this;
+  }
 
-    const stillStarting =
-      this.state.state === 'starting' &&
-      at.getTime() - this.state.startedAt.getTime() < START_WINDOW_MS;
+  unreportedOn(host: RunnerHost, at: Date): Sandbox {
+    const unreported =
+      this.isOn(host.id) &&
+      !host.reportsSandbox(this.state.id) &&
+      this.state.startedAt <= Sandbox.unreportedStartedBefore(at);
 
-    return stillStarting ? this : this.lost(at);
+    return unreported ? this.lost(at) : this;
   }
 
   lost(at: Date): Sandbox {
@@ -353,8 +416,8 @@ export class Sandbox extends EventRecorder {
     return this.isOpen ? this.with({ state: 'draining' }) : this;
   }
 
-  drainedWhenIdle(): Sandbox {
-    return this.isIdle ? this.drain() : this;
+  drainedWhenPlaced(): Sandbox {
+    return this.isPlaced ? this.drain() : this;
   }
 
   drainDue(policy: SandboxDrainPolicy, now: Date): boolean {
@@ -380,8 +443,12 @@ export class Sandbox extends EventRecorder {
     return held.isPlaced ? held.drain() : held.lost(now);
   }
 
+  private isHeldBy(holder: LeaseHolder): boolean {
+    return this.state.leases.some((each) => each.isHeldBy(holder));
+  }
+
   private withLeases(leases: readonly SandboxLease[], at: Date): Sandbox {
-    const idle = !leases.some((each) => each.kind === 'run');
+    const idle = !leases.some((each) => each.isForRun);
 
     return this.with({
       leases,

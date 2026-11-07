@@ -1,10 +1,10 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
 import { UnknownInboxRequestError } from '@work/domain/exceptions/unknown-inbox-request.error';
 import type { InboxRequestRepository } from '@work/domain/repositories/inbox-request.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 
@@ -12,7 +12,7 @@ export class InboxRequestLoader {
   constructor(
     private readonly inboxRequests: InboxRequestRepository,
     private readonly tasks: TaskRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly access: WorkspaceAccessPort,
   ) {}
 
@@ -36,12 +36,12 @@ export class InboxRequestLoader {
         assignee: task.assignee,
         seesTeam:
           InboxRequest.requiredAccess(inboxRequest.form) === 'seesTeam' &&
-          (await this.access.onTeam(line.teamId.value, viewer)) !== null,
+          (await this.access.inWorkspaceOfTeam(line.teamId, viewer)) !== null,
         readsTeamInsights:
           InboxRequest.requiredAccess(inboxRequest.form) ===
             'readsTeamInsights' &&
           (await this.access.permissionsAsTeamReader(
-            line.teamId.value,
+            line.teamId,
             PersonPrincipal.of(viewer),
           )) !== null,
       })

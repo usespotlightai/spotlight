@@ -1,17 +1,17 @@
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type { ChatMarksPort } from '@work/application/ports/chat-marks.port';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 export class IntegrationTaskViews {
   constructor(
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly chatMarks: ChatMarksPort,
   ) {}
 
-  async of(task: Task, on?: Line): Promise<IntegrationTaskViewDto | null> {
+  async of(task: Task, on?: LineMap): Promise<IntegrationTaskViewDto | null> {
     const line = on ?? (await this.lines.findByStation(task.stationId));
     if (!line) {
       return null;

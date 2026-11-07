@@ -1,25 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
+  codeOf,
   UNIQUE_VIOLATION,
-  violates,
 } from '@platform/persistence/drizzle/violations';
 import {
   ReplaySet,
   type ReplaySetRefresh,
 } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplaySetVersionConflictError } from '@replays/domain/exceptions/replay-set-version-conflict.error';
-import { StationHasReplaySetError } from '@replays/domain/exceptions/station-has-replay-set.error';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
-import type { RefreshCutoff } from '@replays/domain/services/kept-set-refresh';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
-import { DISPATCHING_REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
-import { ACTIVE_SEARCH_STATES } from '@replays/domain/value-objects/search-state';
 import {
-  replay,
-  replayCheck,
-  replaySearch,
   replaySet,
   replaySetEntry,
   type StoredSetRefresh,
@@ -28,7 +21,9 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -39,7 +34,6 @@ import {
   inArray,
   isNull,
   lt,
-  notExists,
   or,
   type SQL,
   sql,
@@ -48,8 +42,6 @@ import {
 type SetRow = typeof replaySet.$inferSelect;
 
 type EntryRow = typeof replaySetEntry.$inferSelect;
-
-const STATION_INDEX = 'replay_set_station_idx';
 
 const refreshOf = (stored: StoredSetRefresh | null): ReplaySetRefresh | null =>
   stored && {
@@ -73,8 +65,8 @@ const toSet = (row: SetRow, entries: readonly EntryRow[]): ReplaySet =>
     station: {
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: LineId.of(row.lineId),
+      stationId: StationId.of(row.stationId),
     },
     entries: entries
       .filter((each) => each.setId === row.id)
@@ -123,73 +115,32 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
     return found ?? null;
   }
 
-  ofLine(lineId: string): Promise<readonly ReplaySet[]> {
-    return this.withEntries(eq(replaySet.lineId, lineId));
+  ofLine(lineId: LineId): Promise<readonly ReplaySet[]> {
+    return this.withEntries(eq(replaySet.lineId, lineId.value));
   }
 
-  async ofStation(stationId: string): Promise<ReplaySet | null> {
-    const [found] = await this.withEntries(eq(replaySet.stationId, stationId));
+  async ofStation(stationId: StationId): Promise<ReplaySet | null> {
+    const [found] = await this.withEntries(
+      eq(replaySet.stationId, stationId.value),
+    );
 
     return found ?? null;
   }
 
-  async dueForRefresh(
-    cutoff: RefreshCutoff,
-    limit: number,
-  ): Promise<readonly ReplaySet[]> {
-    const db = this.context.db;
-    const entries = sql`(select count(*) from ${replaySetEntry} where ${replaySetEntry.setId} = ${replaySet.id})`;
-    const rows = await db
+  async atLiveStationsRefreshedBefore(at: Date): Promise<readonly ReplaySet[]> {
+    const rows = await this.context.db
       .select()
       .from(replaySet)
       .where(
         and(
           isNull(replaySet.stationGoneAt),
-          or(
-            isNull(replaySet.refreshedAt),
-            lt(replaySet.refreshedAt, cutoff.before),
-            and(
-              lt(replaySet.refreshedAt, cutoff.unfilledBefore),
-              sql`${entries} < ${cutoff.size}`,
-            ),
-          ),
-          notExists(
-            db
-              .select({ id: replaySearch.id })
-              .from(replaySearch)
-              .where(
-                and(
-                  eq(replaySearch.setId, replaySet.id),
-                  inArray(replaySearch.state, [...ACTIVE_SEARCH_STATES]),
-                ),
-              ),
-          ),
-          notExists(
-            db
-              .select({ id: replay.id })
-              .from(replay)
-              .where(
-                and(
-                  eq(replay.setId, replaySet.id),
-                  inArray(replay.state, [...DISPATCHING_REPLAY_STATES]),
-                ),
-              ),
-          ),
-          notExists(
-            db
-              .select({ id: replayCheck.id })
-              .from(replayCheck)
-              .where(
-                and(
-                  eq(replayCheck.setId, replaySet.id),
-                  eq(replayCheck.baseline, 'awaiting'),
-                ),
-              ),
-          ),
+          or(isNull(replaySet.refreshedAt), lt(replaySet.refreshedAt, at)),
         ),
       )
-      .orderBy(sql`${replaySet.refreshedAt} asc nulls first`, asc(replaySet.id))
-      .limit(limit);
+      .orderBy(
+        sql`${replaySet.refreshedAt} asc nulls first`,
+        asc(replaySet.id),
+      );
 
     return this.setsOf(rows);
   }
@@ -202,8 +153,8 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
             id: added.id.value,
             workspaceId: added.workspaceId.value,
             teamId: added.teamId.value,
-            lineId: added.station.lineId,
-            stationId: added.station.stationId,
+            lineId: added.station.lineId.value,
+            stationId: added.station.stationId.value,
             createdAt: added.createdAt,
             refreshedAt: added.refreshedAt,
             lastRefresh: storedRefreshOf(added.lastRefresh),
@@ -211,8 +162,8 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
           }),
         )
         .catch((error: unknown) => {
-          if (violates(error, UNIQUE_VIOLATION, STATION_INDEX)) {
-            throw new StationHasReplaySetError(added.station.stationId);
+          if (codeOf(error) === UNIQUE_VIOLATION) {
+            throw new ReplaySetVersionConflictError(added.id.value);
           }
           throw error;
         });

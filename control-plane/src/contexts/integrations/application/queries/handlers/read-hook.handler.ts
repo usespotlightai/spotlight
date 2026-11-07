@@ -21,8 +21,8 @@ export class ReadHookHandler
 
       if (
         !record ||
-        !(await this.access.permissionsOnTeam(
-          record.teamId.value,
+        !(await this.access.permissionsInWorkspaceOfTeam(
+          record.teamId,
           query.principal,
         ))
       ) {

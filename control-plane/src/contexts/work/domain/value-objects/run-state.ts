@@ -21,6 +21,11 @@ export const TERMINAL_RUN_STATES = [
   'superseded',
 ] as const satisfies readonly RunState[];
 
+export const OPEN_RUN_STATES = RUN_STATES.filter(
+  (state): state is Exclude<RunState, (typeof TERMINAL_RUN_STATES)[number]> =>
+    !(TERMINAL_RUN_STATES as readonly RunState[]).includes(state),
+);
+
 export const isStopping = (state: RunState, stopRequested: boolean): boolean =>
   stopRequested &&
   !(TERMINAL_RUN_STATES as readonly RunState[]).includes(state);

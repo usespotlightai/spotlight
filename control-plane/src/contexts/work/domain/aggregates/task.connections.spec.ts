@@ -1,22 +1,23 @@
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -36,16 +37,16 @@ const station = (
   position: number,
   kind: 'backlog' | 'work' | 'completed',
 ) =>
-  Station.of({
+  stationOf({
     id,
     key: StationKey.of(key),
     name: StationName.of(key),
     position,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     kind,
   });
 
-const line = Line.rehydrate({
+const line = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TEAM,
@@ -81,14 +82,14 @@ const ask = (personId = ALICE) =>
   });
 
 const asking = {
-  station: StationName.of('implementation'),
+  station: null,
   body: TaskNoteBody.of('Connect Linear and I will carry on.'),
   at: NOW,
   voice: Voice.station(RUN),
 };
 
 const connectedBy = (who: UserId) => ({
-  station: StationName.of('implementation'),
+  station: null,
   body: TaskNoteBody.of('Connected Linear.'),
   at: NOW,
   voice: Voice.person(who),

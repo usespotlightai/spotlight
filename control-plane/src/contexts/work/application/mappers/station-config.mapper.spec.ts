@@ -1,15 +1,16 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { StationConfigMapper } from '@work/application/mappers/station-config.mapper';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import type { RunOrder } from '@work/domain/services/run-order';
+import {
+  judgeOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
-import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationJudge } from '@work/domain/value-objects/station-judge.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { describe, expect, it } from 'vitest';
 
@@ -18,7 +19,7 @@ const HASH = new Sha256ContentHash();
 const LINE = {
   image: null,
   repositories: LineRepositories.none(),
-} as unknown as Line;
+} as unknown as LineMap;
 
 const ORDER = {
   harness: { id: HarnessId.of('claude-code') },
@@ -30,14 +31,14 @@ const ORDER = {
 const RUBRIC = 'A good run changes only what the task requests.\n';
 
 const station = (
-  over: Partial<Parameters<typeof Station.of>[0]> = {},
+  over: Partial<Parameters<typeof stationOf>[0]> = {},
 ): Station =>
-  Station.of({
+  stationOf({
     id: StationId.of('station_1'),
     key: StationKey.of('implementation'),
     name: StationName.of('Implementation'),
     position: 1,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     ...over,
   });
 
@@ -48,21 +49,9 @@ const configured = (at: Station) =>
   );
 
 describe('StationConfigMapper', () => {
-  it('keeps alerts out of the fingerprint', () => {
-    const alerted = station({
-      alerts: [
-        StationAlert.of({ measure: 'cost_per_run', above: 2, over: 10 }),
-      ],
-    });
-
-    expect(configured(alerted).fingerprint).toBe(
-      configured(station()).fingerprint,
-    );
-  });
-
   it('configures the judge by its rubric hash, sample and minimum agreement', () => {
     const judged = station({
-      judge: StationJudge.of({
+      judge: judgeOf({
         rubric: RUBRIC,
         sample: 0.2,
         minAgreement: 0.6,
@@ -82,7 +71,7 @@ describe('StationConfigMapper', () => {
     const judgedBy = (passThreshold: number) =>
       configured(
         station({
-          judge: StationJudge.of({
+          judge: judgeOf({
             rubric: RUBRIC,
             claims: ['It retries.'],
             passThreshold,
@@ -96,7 +85,7 @@ describe('StationConfigMapper', () => {
     expect(judgedBy(1)).not.toBe(
       configured(
         station({
-          judge: StationJudge.of({
+          judge: judgeOf({
             rubric: RUBRIC,
             sample: 0.2,
             minAgreement: 0.6,

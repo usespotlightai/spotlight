@@ -11,6 +11,7 @@ import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.er
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
+import { ValueVersion } from '@secrets/domain/value-objects/value-version.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { z } from 'zod';
 
@@ -65,7 +66,11 @@ export class SecretDefinitions implements SecretDefinitionsPort {
           read.data.valueWo === null || read.data.valueWo === undefined
             ? null
             : SecretValue.of(read.data.valueWo),
-        valueVersion: read.data.valueWoVersion ?? null,
+        valueVersion:
+          read.data.valueWoVersion === null ||
+          read.data.valueWoVersion === undefined
+            ? null
+            : ValueVersion.of(read.data.valueWoVersion),
       };
     } catch (error) {
       if (error instanceof InvalidSecretError) {

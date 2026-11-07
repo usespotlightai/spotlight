@@ -27,12 +27,9 @@ import {
   stationsPerLine,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
-import {
-  line,
-  station,
-} from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
@@ -50,7 +47,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
       .select({
         teamId: sql<
           string | null
-        >`coalesce(${chat.teamId}, ${line.teamId}, ${run.ranForTeamId})`,
+        >`coalesce(${chat.teamId}, ${workStation.teamId}, ${run.ranForTeamId})`,
         replayOf: run.replayOfRunId,
         replaysFrom: replayed.startedFromAt,
         searchId: run.searchId,
@@ -58,8 +55,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
       .from(run)
       .leftJoin(chat, eq(chat.id, run.chatId))
       .leftJoin(task, eq(task.id, run.taskId))
-      .leftJoin(station, eq(station.id, task.stationId))
-      .leftJoin(line, eq(line.id, station.lineId))
+      .leftJoin(workStation, eq(workStation.stationId, task.stationId))
       .leftJoin(replayed, eq(replayed.id, run.replayOfRunId))
       .where(
         and(
@@ -90,10 +86,9 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
 
   async teamOfTask(taskId: TaskId): Promise<TeamId | null> {
     const [row] = await this.db
-      .select({ teamId: line.teamId })
+      .select({ teamId: workStation.teamId })
       .from(task)
-      .innerJoin(station, eq(station.id, task.stationId))
-      .innerJoin(line, eq(line.id, station.lineId))
+      .innerJoin(workStation, eq(workStation.stationId, task.stationId))
       .where(eq(task.id, taskId.value))
       .limit(1);
 
@@ -112,7 +107,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
         updatedAt: run.updatedAt,
         harness: run.harness,
         image: run.ranIn,
-        stationId: ranAt.id,
+        stationId: ranAt.stationId,
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
@@ -121,7 +116,7 @@ export class DrizzleRunnerTraceReader implements RunnerTraceReaderPort {
       })
       .from(run)
       .innerJoin(task, eq(task.id, run.taskId))
-      .leftJoin(ranAt, eq(ranAt.id, run.stationId))
+      .leftJoin(ranAt, eq(ranAt.stationId, run.stationId))
       .where(eq(run.taskId, taskId.value))
       .orderBy(desc(run.createdAt));
 

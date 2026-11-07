@@ -2,16 +2,19 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
-import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
+import type {
+  OAuth2Client,
+  OAuth2ClientsPort,
+} from '@integrations/application/ports/oauth2-clients.port';
 import type {
   OAuth2Authorized,
   OAuth2LinkInput,
   OAuth2LinkingPort,
+  OAuth2Registration,
   OAuth2Returned,
   OAuth2Start,
 } from '@integrations/application/ports/oauth2-linking.port';
 import type { OAuth2NoncesPort } from '@integrations/application/ports/oauth2-nonces.port';
-import { returnPathOf } from '@integrations/application/services/return-to';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { oauth2Of } from '@integrations/infrastructure/integrations/oauth2-config';
@@ -24,6 +27,7 @@ import {
   OAuth2State,
   type OpenedOAuth2Intent,
 } from '@integrations/infrastructure/integrations/oauth2-state';
+import { returnPathOf } from '@integrations/infrastructure/integrations/return-to';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -54,33 +58,49 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     private readonly scope: WorkspaceOutboundScopePort,
   ) {}
 
-  begin(input: OAuth2LinkInput): Promise<OAuth2Start | null> {
+  registrationFor(
+    teamId: TeamId,
+    integration: IntegrationKey,
+  ): Promise<OAuth2Registration | null> {
+    return this.onBehalfOf(teamId, async () => {
+      const oauth2 = await this.oauth2Of(teamId, integration.value);
+
+      return oauth2
+        ? {
+            endpoint: oauth2.registration,
+            server: authorizationServerOf(oauth2),
+          }
+        : null;
+    });
+  }
+
+  begin(
+    input: OAuth2LinkInput,
+    client: OAuth2Client,
+  ): Promise<OAuth2Start | null> {
     const teamId = TeamId.of(input.teamId);
 
-    return this.onBehalfOf(teamId, () => this.begun(teamId, input));
+    return this.onBehalfOf(teamId, () => this.begun(teamId, input, client));
+  }
+
+  private oauth2Of(teamId: TeamId, integration: string) {
+    return oauth2Of(
+      this.defined,
+      this.reader,
+      this.discovery,
+      teamId,
+      integration,
+    );
   }
 
   private async begun(
     teamId: TeamId,
     input: OAuth2LinkInput,
+    client: OAuth2Client,
   ): Promise<OAuth2Start | null> {
-    const oauth2 = await oauth2Of(
-      this.defined,
-      this.reader,
-      this.discovery,
-      teamId,
-      input.integration,
-    );
-    const client = oauth2
-      ? await this.clients.clientFor(
-          teamId,
-          IntegrationKey.of(input.integration),
-          oauth2.registration,
-          authorizationServerOf(oauth2),
-        )
-      : null;
+    const oauth2 = await this.oauth2Of(teamId, input.integration);
 
-    if (!oauth2 || !client) {
+    if (!oauth2) {
       return null;
     }
 

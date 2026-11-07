@@ -1,10 +1,10 @@
 import type { AnswerQuestionCommand } from '@change-review/application/commands/answer-question.command';
 import type { QuestionAnswerDto } from '@change-review/application/dto/change-stack.dto';
+import { ChangeStacksUnavailableError } from '@change-review/application/errors/change-stacks-unavailable.error';
 import { questionAnswerDtoOf } from '@change-review/application/mappers/question-answer.to-dto';
 import type { AnswerGraderPort } from '@change-review/application/ports/answer-grader.port';
-import type { ChangeStackAccess } from '@change-review/application/services/change-stack-access.service';
+import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
-import { ChangeStacksUnavailableError } from '@change-review/domain/exceptions/change-stacks-unavailable.error';
 import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknown-change-stack.error';
 import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
@@ -19,18 +19,20 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 const questionIdOf = (raw: string): QuestionId => {
-  try {
-    return QuestionId.of(raw);
-  } catch {
+  const parsed = QuestionId.parsed(raw);
+
+  if (!parsed) {
     throw new UnknownQuestionError();
   }
+
+  return parsed;
 };
 
 export class AnswerQuestionHandler
   implements CommandHandlerPort<AnswerQuestionCommand, QuestionAnswerDto>
 {
   constructor(
-    private readonly access: ChangeStackAccess,
+    private readonly access: TeamWorkAccess,
     private readonly stacks: ChangeStackRepository,
     private readonly answers: QuestionAnswerRepository,
     private readonly grader: AnswerGraderPort,
@@ -40,7 +42,7 @@ export class AnswerQuestionHandler
 
   async execute(command: AnswerQuestionCommand): Promise<QuestionAnswerDto> {
     try {
-      const run = await this.access.ofRun(
+      const run = await this.access.run(
         command.teamId,
         command.runId,
         command.viewerId,
@@ -81,6 +83,7 @@ export class AnswerQuestionHandler
         : QuestionAnswer.given({
             id: QuestionAnswerId.of(this.ids.generate()),
             workspaceId: stack.workspaceId,
+            taskId: stack.taskId,
             stackId: stack.id,
             question,
             personId,

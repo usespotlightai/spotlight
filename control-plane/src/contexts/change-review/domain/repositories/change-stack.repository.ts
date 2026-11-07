@@ -14,5 +14,7 @@ export interface ChangeStackRepository {
 
   nextDueJob(now: Date): Promise<ChangeStack | null>;
 
-  removeForTask(taskId: TaskId): Promise<void>;
+  ofTask(taskId: TaskId): Promise<readonly ChangeStack[]>;
+
+  remove(stack: ChangeStack): Promise<void>;
 }

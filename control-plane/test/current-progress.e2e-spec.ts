@@ -3,7 +3,6 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { FIRST_PAGE } from '@work/application/dto/page.dto';
 import type {
   InboxItemSummary,
@@ -16,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { aRunOf, endedAtFor } from './support/run-ended';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
@@ -49,7 +49,7 @@ const inboxWith = async (
     teamId: 'team_1',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values({
+  await insertStations(db, {
     id: stationId,
     key: 'implementation',
     workspaceId: workspaceId,
@@ -118,38 +118,31 @@ const inboxWith = async (
     await db.insert(schema.taskNote).values(notes);
   }
 
-  const tasks = new DrizzleTaskReader(
-    db,
-    { mayView: async () => true } as never,
-    {
-      find: async () => ({ workspaceId: WorkspaceId.of(workspaceId) }),
-    } as never,
-    { findMany: async () => new Map() } as never,
-  );
-  const reader = new DrizzleInboxReader(
-    db,
-    { mayView: async () => true, onTeam: async () => null } as never,
-    { idForSlug: async () => workspaceId } as never,
-    { findMany: async () => new Map() } as never,
-  );
+  const tasks = new DrizzleTaskReader(db, {
+    findMany: async () => new Map(),
+  } as never);
+  const reader = new DrizzleInboxReader(db, {
+    findMany: async () => new Map(),
+  } as never);
 
-  const entries = await reader.openForWorkspaceMember(
-    'acme',
-    UserId.of(viewer),
-  );
+  const entries = await reader.open({
+    workspaceId,
+    viewer: UserId.of(viewer),
+    teamsSeen: new Set(),
+    teamsRead: new Set(),
+  });
 
-  const onBoard = await tasks.findForTeamMember(
+  const onBoard = await tasks.findInTeam(
     TeamId.of('team_1'),
-    UserId.of(viewer),
     TaskId.of(taskId),
   );
 
   return {
-    inbox: entries?.find(
+    inbox: entries.find(
       (each): each is InboxItemSummary => each.kind === 'task',
     ),
     board: onBoard,
-    running: entries?.find(
+    running: entries.find(
       (each): each is InboxRunSummary => each.kind === 'run',
     ),
   };

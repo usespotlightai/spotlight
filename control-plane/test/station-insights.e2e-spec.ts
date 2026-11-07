@@ -1,3 +1,4 @@
+import { stationConfigPullRequestsInMemory } from '@insights/application/ports/station-config-pull-requests.fake-spec';
 import type {
   ConfigInOrder,
   EndedRun,
@@ -7,17 +8,14 @@ import { ReadStationInsightsHandler } from '@insights/application/queries/handle
 import { ReadStationInsightsQuery } from '@insights/application/queries/read-station-insights.query';
 import { AlertInbox } from '@insights/application/services/alert-inbox.service';
 import { DeleteInsights } from '@insights/application/services/delete-insights.service';
+import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { GradeInboxRequests } from '@insights/application/services/grade-inbox-requests.service';
 import { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { RecordChangeChecks } from '@insights/application/services/record-change-checks.service';
 import { RecordChangeShape } from '@insights/application/services/record-change-shape.service';
 import { RecordChat } from '@insights/application/services/record-chat.service';
-import { RecordConfigPullRequest } from '@insights/application/services/record-config-pull-request.service';
 import { RecordHumanAction } from '@insights/application/services/record-human-action.service';
 import { RecordJudgeScore } from '@insights/application/services/record-judge-score.service';
-import { RecordPullRequestClosing } from '@insights/application/services/record-pull-request-closing.service';
-import { RecordPullRequestOpening } from '@insights/application/services/record-pull-request-opening.service';
-import { RecordPullRequestReview } from '@insights/application/services/record-pull-request-review.service';
 import { RecordPullRequests } from '@insights/application/services/record-pull-requests.service';
 import { RecordRunEnding } from '@insights/application/services/record-run-ending.service';
 import { RecordRunMemories } from '@insights/application/services/record-run-memories.service';
@@ -30,41 +28,34 @@ import { RequestJudging } from '@insights/application/services/request-judging.s
 import { RunOutcomes } from '@insights/application/services/run-outcomes.service';
 import { WatchStations } from '@insights/application/services/watch-stations.service';
 import { RunRecordVersionConflictError } from '@insights/domain/exceptions/run-record-version-conflict.error';
-import { lastConfigRunsFrom } from '@insights/domain/runs.fake-spec';
 import type { ConfigIntervalBound } from '@insights/domain/services/config-intervals';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { DrizzleChats } from '@insights/infrastructure/persistence/drizzle/ledgers/chats.ledger';
 import { DrizzleDeletions } from '@insights/infrastructure/persistence/drizzle/ledgers/deletions.ledger';
-import { DrizzlePendingReviews } from '@insights/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
-import { DrizzleStationConfigPullRequests } from '@insights/infrastructure/persistence/drizzle/ledgers/station-config-pull-requests.ledger';
-import { DrizzleRunFactProjection } from '@insights/infrastructure/persistence/drizzle/projections/run-fact.projection';
-import { DrizzleChangeJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/change-judging.repository';
-import { DrizzleChatRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/chat-record.repository';
+import { DrizzleStationFacts } from '@insights/infrastructure/persistence/drizzle/readers/station-facts.reader';
 import { DrizzleJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzlePullRequestRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@insights/infrastructure/persistence/drizzle/repositories/score.repository';
-import { DrizzleSideBySideJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/side-by-side-judging.repository';
 import { DrizzleStationAlertStateRepository } from '@insights/infrastructure/persistence/drizzle/repositories/station-alert-state.repository';
-import { DrizzleTaskChangeShapeRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
 import { DrizzleTaskFailuresRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-failures.repository';
-import { DrizzleTaskHumanActionsRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-human-actions.repository';
-import { DrizzleTaskPullRequestRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-pull-request.repository';
-import { stationConfigPullRequest } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
+import { chatRecord } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { insightsSubscribers } from '@insights/presentation/events/insights.subscribers';
+import { factOf, lastConfigRunsFrom } from '@insights/runs.fake-spec';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
-import { CONFIG_PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/config-pull-request-opened.integration-event';
-import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
+import { PULL_REQUEST_UPDATED } from '@shared-kernel/application/integration-events/pull-request-updated.integration-event';
 import { RUN_ENDED } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import { RUN_USAGE_RECORDED } from '@shared-kernel/application/integration-events/run-usage-recorded.integration-event';
 import { TASK_ACTED_ON } from '@shared-kernel/application/integration-events/task-acted-on.integration-event';
 import { TASK_DELETED } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import { TEAM_DELETED } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
-import { WORKSPACE_DELETED } from '@shared-kernel/application/integration-events/workspace-deleted.integration-event';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -73,6 +64,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { projectedInsights } from './support/insights-facts';
 
 const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
@@ -142,9 +134,7 @@ const work: WorkPort = {
   endedRun: async (runId) => ended.get(runId) ?? null,
   unfinishedRuns: async () => [],
   traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
-  teamRepositories: async () => [],
   teamSkillKeys: async () => [],
-  alertsAt: async () => null,
   configsInOrder: async (fingerprints) =>
     fingerprints.map((fingerprint, index) => ({
       ...configOf(fingerprint, fingerprint === SONNET ? 'sonnet' : 'opus'),
@@ -165,14 +155,16 @@ const work: WorkPort = {
 
 let database: TestDatabase;
 let records: DrizzleRunRecordRepository;
-let taskPullRequests: DrizzleTaskPullRequestRepository;
+let pullRequests: DrizzlePullRequestRecordRepository;
+let stationFacts: DrizzleStationFacts;
 let failures: DrizzleTaskFailuresRepository;
 let subscribers: readonly DomainEventSubscriber[];
 let listing: ReadStationInsightsHandler;
 let context: DrizzleContext;
 let deletions: DrizzleDeletions;
-let chats: DrizzleChatRecordRepository;
-let configPullRequests: DrizzleStationConfigPullRequests;
+let chats: DrizzleChats;
+let recorder: FactRecorder;
+let configPullRequests: ReturnType<typeof stationConfigPullRequestsInMemory>;
 
 const deliver = async (name: string, event: Record<string, unknown>) => {
   const subscriber = subscribers.find((each) => each.name === name);
@@ -228,116 +220,50 @@ const list = (viewer = 'user_ada') =>
     new ReadStationInsightsQuery('team_1', 'line_1', 'station_1', viewer, null),
   );
 
-const listAt = (workspaceId: string, teamId: string) =>
-  new ReadStationInsightsHandler(
-    new InsightsAccess({
-      namesOf: async () => new Map(),
-      membershipOnTeam: async (_teamId, principal) => ({
-        workspaceId: WorkspaceId.of(workspaceId),
-        by: principal.userId,
-      }),
-    }),
-    records,
-    taskPullRequests,
-    configPullRequests,
-    work,
-    failures,
-  ).execute(
-    new ReadStationInsightsQuery(
-      teamId,
-      'line_1',
-      'station_1',
-      'user_ada',
-      null,
-    ),
-  );
-
-const configPullRequestOpened = (
-  workspaceId: string,
-  teamId: string,
-  id: string,
-) =>
-  deliver('insights.record-opened-config-pull-request', {
-    kind: CONFIG_PULL_REQUEST_OPENED,
-    configPullRequestId: id,
-    workspaceId,
-    teamId,
-    stationId: 'station_1',
-    fingerprint: OPUS,
-    url: `https://github.com/acme/platform/pull/${id}`,
-    at: at(17).toISOString(),
-  });
-
 beforeAll(async () => {
   database = await openDatabase('station_insights');
   context = new DrizzleContext(database.db);
   const quiet = {
     dispatch: async () => {},
   } as unknown as DomainEventDispatcher;
-  records = new DrizzleRunRecordRepository(
-    context,
-    new DrizzleRunFactProjection(context),
-    quiet,
-  );
-  taskPullRequests = new DrizzleTaskPullRequestRepository(
-    context,
-    new DrizzleRunFactProjection(context),
-    quiet,
-  );
+  const projected = projectedInsights(context);
+  records = projected.records;
+  pullRequests = projected.pullRequests;
+  stationFacts = new DrizzleStationFacts(context);
   const judgings = new DrizzleJudgingRepository(context, quiet);
   const scores = new DrizzleScoreRepository(context, quiet);
-  const humanActions = new DrizzleTaskHumanActionsRepository(
-    context,
-    new DrizzleRunFactProjection(context),
-  );
+  const humanActions = projected.humanActions;
   failures = new DrizzleTaskFailuresRepository(context);
-  chats = new DrizzleChatRecordRepository(context);
-  const pullRequests = new DrizzlePullRequestRecordRepository(context);
-  const shapes = new DrizzleTaskChangeShapeRepository(context);
+  chats = new DrizzleChats(context);
+  const shapes = projected.shapes;
   const alertStates = new DrizzleStationAlertStateRepository(context, quiet);
-  const reviews = new DrizzlePendingReviews(context);
-  configPullRequests = new DrizzleStationConfigPullRequests(context);
+  configPullRequests = stationConfigPullRequestsInMemory();
   deletions = new DrizzleDeletions(context);
+  recorder = new FactRecorder(deletions);
   subscribers = insightsSubscribers({
-    ending: new RecordRunEnding(work, records, deletions, context, QUIET),
-    superseding: new RecordSupersededRun(records, deletions, context, {
+    ending: new RecordRunEnding(work, records, recorder, context, QUIET),
+    superseding: new RecordSupersededRun(records, recorder, context, {
       now: () => RECEIVED_AT,
       sleep: async () => {},
     }),
-    checking: new RecordChangeChecks(records, deletions, context, {
+    checking: new RecordChangeChecks(records, recorder, context, {
       now: () => RECEIVED_AT,
       sleep: async () => {},
     }),
-    acting: new RecordHumanAction(work, records, deletions, context),
-    opening: new RecordPullRequestOpening(
-      taskPullRequests,
-      reviews,
-      deletions,
-      context,
-      { now: () => new Date(), sleep: async () => {} },
-    ),
-    closing: new RecordPullRequestClosing(taskPullRequests, context),
+    acting: new RecordHumanAction(work, records, recorder, context),
     deleting: new DeleteInsights(
       {
         records,
-        taskPullRequests,
         judgings,
-        changeJudgings: new DrizzleChangeJudgingRepository(context, quiet),
-        sideBySideJudgings: new DrizzleSideBySideJudgingRepository(
-          context,
-          quiet,
-        ),
         scores,
-        taskHumanActions: humanActions,
+        humanActions,
         failures,
-        chats,
-        pullRequests,
         shapes,
+        pullRequests,
         alertStates,
-        reviews,
-        configPullRequests,
-        deletions,
+        chats,
       },
+      deletions,
       context,
     ),
     judging: new RequestJudging(
@@ -345,6 +271,8 @@ beforeAll(async () => {
       {
         hasTask: async () => true,
         of: async () => null,
+      },
+      {
         judgesOnTeam: async () => new Map(),
         judgeAt: async () => null,
       },
@@ -358,7 +286,7 @@ beforeAll(async () => {
         }),
       },
       judgings,
-      deletions,
+      recorder,
       context,
       { now: () => new Date(), sleep: async () => {} },
     ),
@@ -369,38 +297,22 @@ beforeAll(async () => {
       ask: async () => {},
       resolve: async () => {},
     }),
-    recordingUsage: new RecordRunUsageSummary(
-      work,
-      records,
-      deletions,
-      context,
-    ),
-    remembering: new RecordRunMemories(work, records, deletions, context),
-    passing: new RecordStationPass(records, deletions, context),
-    reviewing: new RecordPullRequestReview(
-      taskPullRequests,
-      reviews,
-      deletions,
-      context,
-      { now: () => new Date(), sleep: async () => {} },
-    ),
-    failing: new RecordTaskFailure(failures, deletions, context),
+    recordingUsage: new RecordRunUsageSummary(work, records, recorder, context),
+    remembering: new RecordRunMemories(work, records, recorder, context),
+    passing: new RecordStationPass(records, recorder, context),
+    failing: new RecordTaskFailure(failures, recorder, context),
     recordingHumanActions: new RecordTaskHumanAction(
       humanActions,
-      deletions,
+      recorder,
       context,
     ),
     chatting: new RecordChat(chats, deletions, context),
-    recording: new RecordPullRequests(pullRequests, deletions, context),
-    shaping: new RecordChangeShape(work, shapes, deletions, context),
+    recording: new RecordPullRequests(pullRequests, recorder, context),
+    shaping: new RecordChangeShape(work, shapes, recorder, context),
     watching: new WatchStations(
-      work,
-      {
-        records,
-        taskPullRequests,
-        alertStates,
-        deletions,
-      },
+      { teamRepositories: async () => [], alertsAt: async () => null },
+      { facts: stationFacts, alertStates },
+      recorder,
       context,
       { generate: () => 'alert_1' },
       { now: () => new Date(), sleep: async () => {} },
@@ -412,11 +324,6 @@ beforeAll(async () => {
       },
       alertStates,
     ),
-    openingConfigPullRequests: new RecordConfigPullRequest(
-      configPullRequests,
-      deletions,
-      context,
-    ),
   });
   listing = new ReadStationInsightsHandler(
     new InsightsAccess({
@@ -426,11 +333,9 @@ beforeAll(async () => {
           ? { workspaceId: WorkspaceId.of(WORKSPACE), by: principal.userId }
           : null,
     }),
-    records,
-    taskPullRequests,
+    stationFacts,
     configPullRequests,
     work,
-    failures,
   );
 }, 60_000);
 
@@ -512,7 +417,7 @@ describe('how a station’s runs turned out', () => {
   });
 
   it('follows the task’s pull request from opened to merged', async () => {
-    await deliver('insights.record-opened-pull-request', {
+    await deliver('insights.record-pull-request-owner', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: WORKSPACE,
@@ -520,17 +425,35 @@ describe('how a station’s runs turned out', () => {
       url: PULL,
       at: at(12).toISOString(),
     });
-    await deliver('insights.record-closed-pull-request', {
-      kind: PULL_REQUEST_CLOSED,
+    await deliver('insights.record-seen-pull-request', {
+      kind: PULL_REQUEST_UPDATED,
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       repository: 'acme/api',
+      number: 7,
+      title: 'Retry failed uploads',
+      author: 'ada',
+      authorIsBot: false,
+      branch: null,
+      additions: 1,
+      deletions: 1,
+      changedFiles: 1,
+      openedAt: at(12).toISOString(),
+      state: 'merged',
       closedAt: at(13).toISOString(),
-      merged: true,
-      mergeCommit: 'c0ffee',
+      updatedAt: at(13).toISOString(),
+      readyForReviewAt: at(12).toISOString(),
+      draftPeriods: [],
+      reviews: [],
+      reviewComments: 0,
+      botComments: [],
+      threads: [],
+      isRevert: false,
+      revertedBy: null,
+      version: 2,
     });
 
-    const outcomes = await new RunOutcomes(records, taskPullRequests).of(
+    const outcomes = await new RunOutcomes(stationFacts).of(
       ['run_1', 'run_2'],
       null,
     );
@@ -657,30 +580,21 @@ describe('how a station’s runs turned out', () => {
       hour: number,
       stationId = 'station_1',
     ) =>
-      deliver('insights.record-opened-config-pull-request', {
-        kind: CONFIG_PULL_REQUEST_OPENED,
+      configPullRequests.opened({
         configPullRequestId: id,
-        workspaceId: WORKSPACE,
-        teamId: 'team_1',
+        workspaceId: WorkspaceId.of(WORKSPACE),
+        teamId: TeamId.of('team_1'),
         stationId,
         fingerprint,
-        url: `https://github.com/acme/platform/pull/${id}`,
-        at: at(hour).toISOString(),
+        url: PullRequestUrl.of(`https://github.com/acme/platform/pull/${id}`),
+        openedAt: at(hour),
       });
 
-    await opened('41', OPUS, 7);
-    await opened('42', OPUS, 9);
-    await opened('43', SONNET, 9, 'station_2');
-    await opened('41', OPUS, 7);
+    opened('41', OPUS, 7);
+    opened('42', OPUS, 9);
+    opened('43', SONNET, 9, 'station_2');
 
     const outcomes = await list();
-
-    expect(
-      await database.db
-        .select({ openedAt: stationConfigPullRequest.openedAt })
-        .from(stationConfigPullRequest)
-        .where(eq(stationConfigPullRequest.configPullRequestId, '41')),
-    ).toEqual([{ openedAt: at(7) }]);
 
     expect(
       outcomes.groups.map((group) => [group.firstRunId, group.pullRequest]),
@@ -776,7 +690,7 @@ describe('how a station’s runs turned out', () => {
     expect(await records.of(RunId.of('run_9'))).not.toBeNull();
 
     await deliver('insights.delete-runs-of-deleted-task', deleted);
-    await deliver('insights.delete-task-pull-request-of-deleted-task', deleted);
+    await deliver('insights.delete-pull-requests-of-deleted-task', deleted);
 
     expect(await records.of(RunId.of('run_1'))).toBeNull();
     expect(await records.of(RunId.of('run_9'))).toBeNull();
@@ -795,7 +709,7 @@ describe('how a station’s runs turned out', () => {
       afterRunId: 'run_10',
       at: at(15).toISOString(),
     });
-    await deliver('insights.record-opened-pull-request', {
+    await deliver('insights.record-pull-request-owner', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: WORKSPACE,
@@ -805,7 +719,7 @@ describe('how a station’s runs turned out', () => {
     });
 
     expect(await records.of(RunId.of('run_10'))).toBeNull();
-    expect(await taskPullRequests.forTask(TaskId.of('task_1'))).toBeNull();
+    expect(await pullRequests.ownedBy([TaskId.of('task_1')])).toEqual([]);
   });
 
   it('records nothing of a task whose events arrive while its deletion is under way, once the deletion commits', async () => {
@@ -818,9 +732,8 @@ describe('how a station’s runs turned out', () => {
       release = resolve;
     });
     const deletion = context.inTransaction(async () => {
-      await deletions.deleteTask(
-        WorkspaceId.of(WORKSPACE),
-        TaskId.of('task_9'),
+      await deletions.markDeleted(
+        DeletionScope.ofTask(WorkspaceId.of(WORKSPACE), TaskId.of('task_9')),
       );
       locked();
       await released;
@@ -862,53 +775,12 @@ describe('how a station’s runs turned out', () => {
       at: at(16).toISOString(),
     });
 
-    expect(await chats.of('chat_gone')).toBeNull();
-  });
-
-  it('stores no config pull request of a deleted team that arrives late', async () => {
-    endedRun('run_deleted', {
-      teamId: 'team_deleted',
-      taskId: 'task_deleted',
-      fingerprint: OPUS,
-      startedAt: at(16),
-      endedAt: at(17),
-    });
-    await runEnded('run_deleted');
-
-    await deliver('insights.delete-config-pull-requests-of-deleted-team', {
-      kind: TEAM_DELETED,
-      workspaceId: WORKSPACE,
-      teamId: 'team_deleted',
-      key: 'deleted',
-    });
-    await configPullRequestOpened(WORKSPACE, 'team_deleted', '51');
-
-    const outcomes = await listAt(WORKSPACE, 'team_deleted');
-
-    expect(outcomes.groups.map((group) => group.pullRequest)).toEqual([null]);
-  });
-
-  it('stores no config pull request of a deleted workspace that arrives late', async () => {
-    endedRun('run_deleted_ws', {
-      workspaceId: 'ws_deleted',
-      teamId: 'team_deleted_ws',
-      taskId: 'task_deleted_ws',
-      fingerprint: OPUS,
-      startedAt: at(16),
-      endedAt: at(17),
-    });
-    await runEnded('run_deleted_ws', { workspaceId: 'ws_deleted' });
-
-    await deliver('insights.delete-config-pull-requests-of-deleted-workspace', {
-      kind: WORKSPACE_DELETED,
-      workspaceId: 'ws_deleted',
-      slug: 'deleted',
-    });
-    await configPullRequestOpened('ws_deleted', 'team_deleted_ws', '52');
-
-    const outcomes = await listAt('ws_deleted', 'team_deleted_ws');
-
-    expect(outcomes.groups.map((group) => group.pullRequest)).toEqual([null]);
+    expect(
+      await database.db
+        .select()
+        .from(chatRecord)
+        .where(eq(chatRecord.chatId, 'chat_gone')),
+    ).toEqual([]);
   });
 });
 
@@ -948,7 +820,7 @@ describe('the config runs a station’s runs make', () => {
     const noting = new RecordRunEnding(
       work,
       configIntervals,
-      deletions,
+      new FactRecorder(deletions),
       context,
       QUIET,
     );
@@ -969,6 +841,8 @@ describe('the config runs a station’s runs make', () => {
 
       await noting.ended({
         runId: run.runId,
+        taskId: `task_${teamId}_${stationId}`,
+        stationId,
         outcome,
         stopped: false,
         failure: outcome === 'failed' ? 'exited' : null,
@@ -978,13 +852,7 @@ describe('the config runs a station’s runs make', () => {
   };
 
   beforeAll(async () => {
-    configIntervals = new DrizzleRunRecordRepository(
-      context,
-      new DrizzleRunFactProjection(context),
-      {
-        dispatch: async () => {},
-      } as unknown as DomainEventDispatcher,
-    );
+    configIntervals = records;
 
     await ranAt('station_aba', [
       planned('aba_1', SONNET, 1),
@@ -1027,7 +895,7 @@ describe('the config runs a station’s runs make', () => {
     ) => {
       const fromSql = (
         await context.inTransaction(() =>
-          configIntervals.lastConfigRunsBefore(TeamId.of(teamId), bounds),
+          stationFacts.lastConfigRunsBefore(TeamId.of(teamId), bounds),
         )
       )
         .map((each) => each.runId.value)
@@ -1036,7 +904,9 @@ describe('the config runs a station’s runs make', () => {
         plannedRuns.map((each) => RunId.of(each)),
       );
       const fromDomain = lastConfigRunsFrom(
-        records.filter((each) => each.end?.location.teamId.value === teamId),
+        records
+          .filter((each) => each.end?.location.teamId.value === teamId)
+          .map(factOf),
         bounds,
       )
         .map((each) => each.runId.value)

@@ -1,3 +1,4 @@
+import { EmptyChatMessageError } from '@work/domain/exceptions/empty-chat-message.error';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { TargetStation } from '@work/domain/value-objects/target-station.vo';
@@ -12,9 +13,7 @@ export class ChatMessageBody {
     const trimmed = raw.trim();
 
     if (trimmed.length === 0) {
-      throw new InvalidChatMessageError(
-        'needs text, a file, a trace or a station to improve',
-      );
+      throw new EmptyChatMessageError();
     }
     if (trimmed.length > MAX_LENGTH) {
       throw new InvalidChatMessageError(

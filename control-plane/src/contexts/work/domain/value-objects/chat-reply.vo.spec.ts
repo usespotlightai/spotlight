@@ -1,9 +1,9 @@
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskProposal } from '@work/domain/entities/task-proposal.entity';
 import { ChatReply } from '@work/domain/value-objects/chat-reply.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
 

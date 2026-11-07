@@ -1,9 +1,12 @@
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
+import { HostStoppedReportingSandbox } from '@runners/domain/events/host-stopped-reporting-sandbox.event';
 import { HostInUseError } from '@runners/domain/exceptions/host-in-use.error';
 import { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
+import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
+import { SandboxReport } from '@runners/domain/value-objects/sandbox-report.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -44,13 +47,17 @@ const reportOf = (running: string[] = [], images: Images = []) =>
     images,
   });
 
-const firstHeartbeat = (images: Images = []) =>
+const sandboxesOf = (sandboxes: string[] = [], stopping = false) =>
+  SandboxReport.of({ sandboxes, stopping });
+
+const firstHeartbeat = (images: Images = [], sandboxes: string[] = []) =>
   RunnerHost.fromHeartbeat({
     id: HOST,
     workspaceId: WorkspaceId.of('ws_1'),
     source: THROUGH_POOL,
     bootId: FIRST_BOOT,
     report: reportOf([], images),
+    sandboxes: sandboxesOf(sandboxes),
     at: FIRST_HEARTBEAT,
   });
 
@@ -71,6 +78,7 @@ const rehydrated = (
     source: THROUGH_POOL,
     bootId: FIRST_BOOT,
     report: reportOf(),
+    sandboxes: sandboxesOf(),
     firstHeartbeatAt: over.firstHeartbeatAt ?? FIRST_HEARTBEAT,
     onlineSince: over.onlineSince ?? over.firstHeartbeatAt ?? FIRST_HEARTBEAT,
     lastHeartbeatAt: over.lastHeartbeatAt ?? FIRST_HEARTBEAT,
@@ -84,12 +92,14 @@ const reportedThrough = (
   running: string[] = [],
   workspaceId = WorkspaceId.of('ws_1'),
   images: Images = [],
+  sandboxes = sandboxesOf(),
 ) =>
   host.reportThrough({
     source,
     workspaceId,
     bootId: FIRST_BOOT,
     report: reportOf(running, images),
+    sandboxes,
     at,
   });
 
@@ -99,8 +109,26 @@ const reportedIn = (host: RunnerHost, bootId: BootId, at: Date) =>
     workspaceId: WorkspaceId.of('ws_1'),
     bootId,
     report: reportOf(),
+    sandboxes: sandboxesOf(),
     at,
   });
+
+const reportingSandboxes = (
+  host: RunnerHost,
+  at: Date,
+  sandboxes: string[],
+  stopping = false,
+  source = THROUGH_POOL,
+) =>
+  reportedThrough(
+    host,
+    source,
+    at,
+    [],
+    WorkspaceId.of('ws_1'),
+    [],
+    sandboxesOf(sandboxes, stopping),
+  );
 
 const reportedReady = (host: RunnerHost, source: CredentialSource, at: Date) =>
   reportedThrough(host, source, at, [], WorkspaceId.of('ws_1'), READY);
@@ -291,7 +319,7 @@ describe('RunnerHost', () => {
     const host = firstHeartbeat(READY);
 
     expect(host.supportsAHarness).toBe(true);
-    expect(kindsOf(host)).toEqual(['runner-host.ready']);
+    expect(kindsOf(host)).toEqual(['runner-host.became-ready']);
   });
 
   it('does not serve on a report with no image, an unavailable image or an image without a harness', () => {
@@ -312,7 +340,7 @@ describe('RunnerHost', () => {
     kindsOf(host);
 
     expect(kindsOf(reportedReady(host, THROUGH_POOL, later(30_000)))).toEqual([
-      'runner-host.ready',
+      'runner-host.became-ready',
     ]);
   });
 
@@ -330,8 +358,63 @@ describe('RunnerHost', () => {
     kindsOf(host);
 
     expect(kindsOf(reportedReady(host, THROUGH_TRUST, later(90_000)))).toEqual([
-      'runner-host.ready',
+      'runner-host.became-ready',
     ]);
+  });
+
+  it('keeps the sandboxes it reports and whether it stops, and reports a sandbox it no longer reports once', () => {
+    const first = firstHeartbeat([], ['sandbox_1', 'sandbox_2']);
+    first.pullEvents();
+
+    expect(first.reportsSandbox(SandboxId.of('sandbox_1'))).toBe(true);
+    expect(first.isStopping).toBe(false);
+
+    const dropped = reportingSandboxes(
+      first,
+      later(30_000),
+      ['sandbox_2'],
+      true,
+    );
+    const events = dropped.pullEvents();
+
+    expect(dropped.reportsSandbox(SandboxId.of('sandbox_1'))).toBe(false);
+    expect(dropped.reportsSandbox(SandboxId.of('sandbox_2'))).toBe(true);
+    expect(dropped.isStopping).toBe(true);
+    expect(events).toEqual([
+      new HostStoppedReportingSandbox(
+        HOST,
+        WorkspaceId.of('ws_1'),
+        SandboxId.of('sandbox_1'),
+        later(30_000),
+      ),
+    ]);
+    expect(
+      kindsOf(reportingSandboxes(dropped, later(60_000), ['sandbox_2'])),
+    ).toEqual([]);
+  });
+
+  it('reports every sandbox of its old pool or trust as dropped once re-homed', () => {
+    const first = firstHeartbeat([], ['sandbox_1']);
+
+    const rehomed = reportingSandboxes(
+      first,
+      later(120_000),
+      [],
+      false,
+      THROUGH_TRUST,
+    );
+
+    expect(kindsOf(rehomed)).toEqual(['runner-host.stopped-reporting-sandbox']);
+  });
+
+  it('takes no sandboxes from a report that arrives late', () => {
+    const host = reportingSandboxes(
+      firstHeartbeat([], ['sandbox_1']),
+      later(30_000),
+      ['sandbox_1'],
+    );
+
+    expect(reportingSandboxes(host, later(10_000), [])).toBe(host);
   });
 
   it('is not read back with its last heartbeat before its first heartbeat', () => {

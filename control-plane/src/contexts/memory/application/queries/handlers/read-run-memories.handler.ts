@@ -47,9 +47,9 @@ export class ReadRunMemoriesHandler
         throw new UnknownRunError(query.runId);
       }
 
-      const recalled = (await this.uses.ofRun(runId))
-        .filter((each) => each.via === 'recalled')
-        .map((each) => each.memoryId.value);
+      const recalled = (await this.uses.usedBy(runId, 'recalled')).map(
+        (each) => each.value,
+      );
       const [briefed, omitted, remembered, proposed] = await Promise.all([
         this.teamMemories(access, run.briefed),
         this.teamMemories(access, run.omitted),

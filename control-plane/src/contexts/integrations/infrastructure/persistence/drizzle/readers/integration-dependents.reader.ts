@@ -1,3 +1,4 @@
+import type { Dependent } from '@identity/application/ports/dependents.port';
 import type { TeamDependentSource } from '@identity/application/ports/team-dependents.port';
 import { hookDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { integrationDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
@@ -10,7 +11,7 @@ import { asc, eq } from 'drizzle-orm';
 export class DrizzleIntegrationDependents implements TeamDependentSource {
   constructor(private readonly context: DrizzleContext) {}
 
-  async dependentsOf(teamId: TeamId): Promise<readonly string[]> {
+  async dependentsOf(teamId: TeamId): Promise<readonly Dependent[]> {
     const [integrations, hooks] = await Promise.all([
       this.context.db
         .select({ integration: integrationDefinition.integration })
@@ -25,8 +26,11 @@ export class DrizzleIntegrationDependents implements TeamDependentSource {
     ]);
 
     return [
-      ...integrations.map((each) => `integration ${each.integration}`),
-      ...hooks.map((each) => `hook ${each.key}`),
+      ...integrations.map((each) => ({
+        kind: 'integration' as const,
+        key: each.integration,
+      })),
+      ...hooks.map((each) => ({ kind: 'hook' as const, key: each.key })),
     ];
   }
 }

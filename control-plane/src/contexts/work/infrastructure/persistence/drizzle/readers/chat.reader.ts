@@ -23,6 +23,7 @@ import type {
   ChatView,
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
+import { ChatAccess } from '@work/domain/services/chat-access';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { Progress } from '@work/domain/value-objects/run-state';
 import { progressOfCurrentRuns } from '@work/infrastructure/persistence/drizzle/readers/current-progress';
@@ -33,10 +34,7 @@ import {
   chatAttachment,
   chatMessage,
 } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
-import {
-  line,
-  station,
-} from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 
 type Row = typeof chat.$inferSelect;
@@ -142,16 +140,10 @@ export class DrizzleChatReader implements ChatReaderPort {
     const [row] = await this.db
       .select()
       .from(chat)
-      .where(
-        and(
-          eq(chat.id, chatId.value),
-          eq(chat.teamId, teamId.value),
-          eq(chat.startedById, viewerId.value),
-        ),
-      )
+      .where(and(eq(chat.id, chatId.value), eq(chat.teamId, teamId.value)))
       .limit(1);
 
-    if (!row) {
+    if (!row || !ChatAccess.readableBy(UserId.of(row.startedById), viewerId)) {
       return null;
     }
 
@@ -177,16 +169,15 @@ export class DrizzleChatReader implements ChatReaderPort {
       proposedAt.length > 0
         ? await this.db
             .select({
-              id: station.id,
-              name: station.name,
-              color: station.color,
-              position: station.position,
-              lineId: station.lineId,
-              lineName: line.name,
+              id: workStation.stationId,
+              name: workStation.name,
+              color: workStation.color,
+              position: workStation.position,
+              lineId: workStation.lineId,
+              lineName: workStation.lineName,
             })
-            .from(station)
-            .innerJoin(line, eq(line.id, station.lineId))
-            .where(inArray(station.id, proposedAt))
+            .from(workStation)
+            .where(inArray(workStation.stationId, proposedAt))
         : [];
     const stationCounts = await stationsPerLine(
       this.db,

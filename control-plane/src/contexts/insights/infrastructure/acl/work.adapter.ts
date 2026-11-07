@@ -1,26 +1,47 @@
 import type {
   ConfigInOrder,
   EndedRun,
+  StationConfigView,
   TracedWanted,
   TracedWork,
   WorkPort,
 } from '@insights/application/ports/work.port';
-import { InvalidAlertError } from '@insights/domain/exceptions/invalid-alert.error';
 import type { UnfinishedRun } from '@insights/domain/services/unfinished-runs';
-import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
-import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { LineResourcesPort } from '@work/application/ports/line-resources.port';
-import type {
-  StationAlertShape,
-  StationRunsPort,
-} from '@work/application/ports/station-runs.port';
+import type { StationConfigShape } from '@work/application/contracts/station-config.contract';
+import type { StationRunsPort } from '@work/application/ports/station-runs.port';
+import type { TeamSkillsPort } from '@work/application/ports/team-skills.port';
+
+const configViewOf = (config: StationConfigShape): StationConfigView => ({
+  prompt: config.prompt,
+  harness: config.harness,
+  model: config.model,
+  effort: config.effort,
+  profile: config.profile,
+  image: config.image,
+  repositories: config.repositories.map((each) => ({
+    name: each.name,
+    setup: each.setup,
+  })),
+  skills: config.skills.map((each) => ({ key: each.key, hash: each.hash })),
+  tools: config.tools,
+  decisions: config.decisions,
+  memories: config.memories,
+  ...(config.judge
+    ? {
+        judge: {
+          rubricVersion: config.judge.rubricHash,
+          sample: config.judge.sample,
+          minAgreement: config.judge.minAgreement,
+        },
+      }
+    : {}),
+});
 
 export class Work implements WorkPort {
   constructor(
     private readonly stations: StationRunsPort,
-    private readonly lines: LineResourcesPort,
-    private readonly logger: LoggerPort,
+    private readonly skills: TeamSkillsPort,
   ) {}
 
   async endedRun(runId: string): Promise<EndedRun | null> {
@@ -96,47 +117,18 @@ export class Work implements WorkPort {
 
     return (await this.stations.configsInOrder(fingerprints)).map((each) => ({
       fingerprint: each.fingerprint,
-      config: each.config,
-      changes: each.changes,
+      config: configViewOf(each.config),
+      changes: each.changes.map((change) => ({
+        part: change.part,
+        name: change.name,
+        kind: change.kind,
+        was: change.was,
+        now: change.now,
+      })),
     }));
   }
 
-  async alertsAt(stationId: string): Promise<readonly AlertRule[] | null> {
-    const alerts = await this.stations.alertsAt(stationId);
-
-    return alerts
-      ? alerts.flatMap((each) => this.ruleOf(stationId, each))
-      : null;
-  }
-
-  async teamRepositories(teamId: string): Promise<readonly string[]> {
-    const names = (await this.lines.ofTeam(TeamId.of(teamId))).flatMap((line) =>
-      line.definition.repositories.map((each) => each.name),
-    );
-
-    return [...new Set(names)];
-  }
-
   teamSkillKeys(teamId: string): Promise<readonly string[]> {
-    return this.stations.teamSkillKeys(teamId);
-  }
-
-  private ruleOf(
-    stationId: string,
-    alert: StationAlertShape,
-  ): readonly AlertRule[] {
-    try {
-      return [AlertRule.of(alert)];
-    } catch (error) {
-      if (!(error instanceof InvalidAlertError)) {
-        throw error;
-      }
-
-      this.logger.warn(
-        { stationId, measure: alert.measure, reason: error.message },
-        'Skipped a station alert that Insights cannot watch',
-      );
-      return [];
-    }
+    return this.skills.definedFor(TeamId.of(teamId));
   }
 }

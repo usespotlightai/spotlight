@@ -1,8 +1,8 @@
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { runCheckoutsFor } from '@work/domain/services/task-checkouts';
@@ -13,7 +13,7 @@ export class PausedRuns {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly runs: RunRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
   ) {}
 
   onTaskAnswered(event: TaskAnswered): Promise<void> {

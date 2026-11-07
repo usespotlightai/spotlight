@@ -22,7 +22,9 @@ export class ReadWorkspaceRunnersHandler
     query: ReadWorkspaceRunnersQuery,
   ): Promise<WorkspaceRunnersResourceDto | null> {
     try {
-      const record = await this.resources.declaredWithId(query.declarationId);
+      const record = await this.resources.workspaceRunnersWithId(
+        query.workspaceRunnersId,
+      );
       const permissions = record
         ? await this.access.permissionsIn(record.workspaceId, query.principal)
         : null;

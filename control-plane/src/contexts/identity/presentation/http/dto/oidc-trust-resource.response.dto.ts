@@ -1,7 +1,7 @@
 import type { OidcTrustResourceDto } from '@identity/application/dto/oidc-trust-resource.dto';
+import { TOKEN_SCOPES } from '@identity/domain/value-objects/token-scope.vo';
 import { ApiProperty } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
-import { TOKEN_SCOPES } from '@shared-kernel/domain/value-objects/token-scope.vo';
 
 export class OidcTrustResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({

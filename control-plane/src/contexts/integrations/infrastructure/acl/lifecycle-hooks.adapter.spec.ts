@@ -1,9 +1,11 @@
-import type {
-  FireHooks,
-  Happened,
-} from '@integrations/application/services/fire-hooks.service';
+import type { HooksListening } from '@integrations/application/services/hooks-listening.service';
+import type { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
+import type { RunBeforeHooks } from '@integrations/application/services/run-before-hooks.service';
 import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import { LifecycleHooks } from '@integrations/infrastructure/acl/lifecycle-hooks.adapter';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { TaskViewDto } from '@work/application/ports/task-views.port';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -22,10 +24,32 @@ const TASK: TaskViewDto = {
   runId: 'run_1',
 };
 
+const setUp = (decide = vi.fn()) => {
+  const on = vi.fn(async () => true);
+  const toolUsed = vi.fn(async () => {});
+
+  return {
+    on,
+    decide,
+    toolUsed,
+    hooks: new LifecycleHooks(
+      { on } as unknown as HooksListening,
+      { decide } as unknown as RunBeforeHooks,
+      { toolUsed } as unknown as LifecycleHookTriggers,
+    ),
+  };
+};
+
 describe('LifecycleHooks', () => {
-  it('tells each use of a tool apart, so using one often is never read as a loop', async () => {
-    const happened = vi.fn(async (_happened: Happened) => 1);
-    const hooks = new LifecycleHooks({ happened } as unknown as FireHooks);
+  it('asks whether a hook of the team listens', async () => {
+    const { hooks, on } = setUp();
+
+    await expect(hooks.listens('team_1', 'run.starting')).resolves.toBe(true);
+    expect(on).toHaveBeenCalledWith(TeamId.of('team_1'), 'run.starting');
+  });
+
+  it('hands each use of a tool over with its occurrence', async () => {
+    const { hooks, toolUsed } = setUp();
     const used = {
       on: 'tool.used' as const,
       tool: 'github.comment',
@@ -35,19 +59,28 @@ describe('LifecycleHooks', () => {
     };
 
     await hooks.after(TASK, used, 'call_1');
-    await hooks.after(TASK, used, 'call_2');
 
-    const [first, second] = happened.mock.calls.map(([each]) => each.change);
-    expect(first).not.toBe(second);
-    expect(first).toContain('github.comment');
+    expect(toolUsed).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: TaskId.of('task_1') }),
+      {
+        tool: 'github.comment',
+        event: {
+          tool: 'github.comment',
+          inputs: {},
+          output: null,
+          failed: false,
+        },
+      },
+      'call_1',
+    );
   });
 
   it('answers Work in its own words for what the hooks decided', async () => {
-    const before = vi
+    const decide = vi
       .fn()
       .mockResolvedValueOnce(HookDecision.allowed())
       .mockResolvedValueOnce(HookDecision.denied('The hook dba says no'));
-    const hooks = new LifecycleHooks({ before } as unknown as FireHooks);
+    const { hooks } = setUp(decide);
     const starting = { on: 'run.starting' as const };
 
     await expect(hooks.before(TASK, starting)).resolves.toEqual({
@@ -57,8 +90,11 @@ describe('LifecycleHooks', () => {
       kind: 'denied',
       reason: 'The hook dba says no',
     });
-    expect(before).toHaveBeenCalledWith(
-      expect.objectContaining({ taskId: 'task_1', runId: 'run_1' }),
+    expect(decide).toHaveBeenCalledWith(
+      expect.objectContaining({
+        taskId: TaskId.of('task_1'),
+        runId: RunId.of('run_1'),
+      }),
       'run.starting',
       {},
       null,

@@ -51,23 +51,30 @@ export class InMemoryInferredOutputSchemas
     );
   }
 
-  async deleteForIntegration(
+  async ofIntegration(
     teamId: TeamId,
     integration: IntegrationKey,
-  ): Promise<void> {
-    for (const [key, each] of this.stored) {
-      if (each.teamId.equals(teamId) && each.integration.equals(integration)) {
-        this.stored.delete(key);
-      }
-    }
+  ): Promise<readonly InferredOutputSchema[]> {
+    return [...this.stored.values()].filter(
+      (each) =>
+        each.teamId.equals(teamId) && each.integration.equals(integration),
+    );
   }
 
-  async deleteForTeam(teamId: TeamId): Promise<void> {
-    for (const [key, each] of this.stored) {
-      if (each.teamId.equals(teamId)) {
-        this.stored.delete(key);
-      }
+  async ofTeam(teamId: TeamId): Promise<readonly InferredOutputSchema[]> {
+    return [...this.stored.values()].filter((each) =>
+      each.teamId.equals(teamId),
+    );
+  }
+
+  async remove(schema: InferredOutputSchema): Promise<void> {
+    const key = keyOf(schema.teamId, schema.tool);
+
+    if (this.stored.get(key)?.version !== schema.version) {
+      throw new InferredOutputSchemaVersionConflictError(schema.tool.value);
     }
+
+    this.stored.delete(key);
   }
 }
 

@@ -1,7 +1,10 @@
+import {
+  DONE,
+  REVIEW,
+} from '@shared-kernel/domain/value-objects/handover-word';
+import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
-import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 
 export const MAX_HANDOVER_ATTACHMENTS = 10;
 

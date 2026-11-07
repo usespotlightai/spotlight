@@ -1,7 +1,7 @@
 import type { ConfiguredWebhookProvidersPort } from '@integrations/application/ports/configured-webhook-providers.port';
-import type { DeliveryAddressee } from '@integrations/application/ports/delivery-queue.port';
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
 import type { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
+import type { DeliveryAddressee } from '@integrations/domain/aggregates/inbound-delivery.aggregate';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 

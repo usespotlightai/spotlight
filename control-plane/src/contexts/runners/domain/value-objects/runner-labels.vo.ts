@@ -35,13 +35,6 @@ export class RunnerLabels {
     return new RunnerLabels(values);
   }
 
-  joinedWith(other: RunnerLabels): RunnerLabels {
-    return new RunnerLabels([
-      ...this.values,
-      ...other.values.filter((each) => !this.values.includes(each)),
-    ]);
-  }
-
   equals(other: RunnerLabels): boolean {
     return (
       this.kind === other.kind &&

@@ -1,5 +1,11 @@
-import type { WorkspaceRoleName } from '@identity/domain/value-objects/workspace-role.vo';
+import type { TeamSummary } from '@identity/application/ports/workspace-records.port';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+
+export type WorkspaceRoleName = 'owner' | 'admin' | 'member';
+
+export type WorkspaceSetupStatus = 'pending' | 'done';
+
+export type TeamOriginName = 'sign-up' | 'configuration';
 
 export interface WorkspaceListing {
   readonly id: string;
@@ -8,17 +14,13 @@ export interface WorkspaceListing {
   readonly role: WorkspaceRoleName;
 }
 
-interface TeamSummary {
-  readonly id: string;
-  readonly name: string;
-}
-
 export interface WorkspaceDetail {
   readonly id: string;
   readonly name: string;
   readonly slug: string;
   readonly teams: readonly TeamSummary[];
   readonly role: WorkspaceRoleName;
+  readonly setupStatus: WorkspaceSetupStatus;
 }
 
 export interface WorkspaceProfile {
@@ -56,6 +58,7 @@ export interface WorkspaceReaderPort {
     teamId: string;
     teamKey: string;
     slug: string;
+    origin: TeamOriginName;
   } | null>;
 
   findForMember(slug: string, userId: UserId): Promise<WorkspaceDetail | null>;

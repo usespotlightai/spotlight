@@ -19,7 +19,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { and, eq, isNotNull } from 'drizzle-orm';
 
 type TrustRow = typeof runnerTrust.$inferSelect;
-type DeclaredRow = typeof workspaceRunners.$inferSelect;
+type WorkspaceRunnersRow = typeof workspaceRunners.$inferSelect;
 type PoolRow = typeof runnerPool.$inferSelect;
 type EgressRow = typeof egress.$inferSelect;
 
@@ -61,7 +61,9 @@ const trustRecord = (row: TrustRow): RunnerTrustRecord => ({
   labels: row.labels,
 });
 
-const declaredRecord = (row: DeclaredRow): WorkspaceRunnersRecord => ({
+const workspaceRunnersRecord = (
+  row: WorkspaceRunnersRow,
+): WorkspaceRunnersRecord => ({
   id: row.id,
   version: row.version,
   workspaceId: WorkspaceId.of(row.workspaceId),
@@ -194,17 +196,19 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
     ).map(egressRecord);
   }
 
-  async declaredWithId(id: string): Promise<WorkspaceRunnersRecord | null> {
+  async workspaceRunnersWithId(
+    id: string,
+  ): Promise<WorkspaceRunnersRecord | null> {
     const [found] = await this.db
       .select()
       .from(workspaceRunners)
       .where(eq(workspaceRunners.id, id))
       .limit(1);
 
-    return found ? declaredRecord(found) : null;
+    return found ? workspaceRunnersRecord(found) : null;
   }
 
-  async declaredIn(
+  async ofWorkspace(
     workspaceId: WorkspaceId,
   ): Promise<WorkspaceRunnersRecord | null> {
     const [found] = await this.db
@@ -213,7 +217,7 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
       .where(eq(workspaceRunners.workspaceId, workspaceId.value))
       .limit(1);
 
-    return found ? declaredRecord(found) : null;
+    return found ? workspaceRunnersRecord(found) : null;
   }
 
   async credentialSourceKeysIn(

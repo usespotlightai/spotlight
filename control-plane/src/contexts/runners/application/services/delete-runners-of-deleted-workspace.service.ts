@@ -1,3 +1,5 @@
+import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import { EgressInUseError } from '@runners/domain/exceptions/egress-in-use.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
@@ -10,9 +12,10 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export class DeleteRunnersOfDeletedWorkspace {
   constructor(
     private readonly trusts: RunnerTrustRepository,
-    private readonly declarations: WorkspaceRunnersRepository,
+    private readonly workspaceRunners: WorkspaceRunnersRepository,
     private readonly pools: RunnerPoolRepository,
     private readonly egresses: EgressRepository,
+    private readonly workspaces: WorkspaceReaderPort,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -41,18 +44,30 @@ export class DeleteRunnersOfDeletedWorkspace {
     const pools = await this.pools.inWorkspace(workspaceId);
 
     for (const egress of await this.egresses.inWorkspace(workspaceId)) {
-      await this.transaction.inTransaction(() =>
-        this.egresses.save(egress.delete(poolsNaming(egress, pools), by)),
-      );
+      try {
+        await this.transaction.inTransaction(() =>
+          this.egresses.save(egress.delete(poolsNaming(egress, pools), by)),
+        );
+      } catch (error) {
+        if (!(error instanceof EgressInUseError)) {
+          throw error;
+        }
+      }
     }
   }
 
-  async declarationOf(workspaceId: WorkspaceId): Promise<void> {
-    const declared = await this.declarations.declaredIn(workspaceId);
+  async egressesAfterPoolOf(workspaceId: WorkspaceId): Promise<void> {
+    if (!(await this.workspaces.isOpen(workspaceId.value))) {
+      await this.egressesOf(workspaceId);
+    }
+  }
+
+  async workspaceRunnersOf(workspaceId: WorkspaceId): Promise<void> {
+    const declared = await this.workspaceRunners.ofWorkspace(workspaceId);
 
     if (declared) {
       await this.transaction.inTransaction(() =>
-        this.declarations.save(
+        this.workspaceRunners.save(
           declared.delete(ChangeActor.spotlight(workspaceId)),
         ),
       );

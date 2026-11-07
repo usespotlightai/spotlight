@@ -30,6 +30,7 @@ import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { SpotlightApiGrant } from '@work/domain/value-objects/spotlight-api-grant.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-25T12:00:00.000Z');
@@ -71,7 +72,10 @@ const leasedRun = (
     }),
   }).claim(RunnerId.of(by), NOW);
 
-const CHAT = { startedBy: UserId.of('user_1') } as unknown as Chat;
+const CHAT = {
+  apiGrantAt: (now: Date) =>
+    SpotlightApiGrant.forChatRun(UserId.of('user_1'), now),
+} as unknown as Chat;
 
 const leaseExpiredRun = () => {
   const leased = leasedRun();
@@ -111,7 +115,8 @@ const fetching = (
         fetchesMade.push(wanted);
         return FETCHED;
       },
-      sealedFor: (sealed) => `sealed(${sealed.name}=${sealed.value})`,
+      sealedFor: (sealed) =>
+        `sealed(${sealed.name}=${sealed.value.revealed()})`,
     } as RunSecretFetchesPort,
     {
       leaseLost: async (lease) => {

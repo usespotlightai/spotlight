@@ -3,6 +3,7 @@ import type { DefinedIntegrationsPort } from '@integrations/application/ports/de
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
+import { NotifyChannel } from '@integrations/application/services/notify-channel.service';
 import { ChannelNotices } from '@integrations/infrastructure/acl/channel-notices.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -13,6 +14,7 @@ import type {
 } from '@integrations/infrastructure/outbound/http-outbound';
 import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
+import { WebInboxLinks } from '@integrations/infrastructure/web-inbox-links';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
@@ -24,11 +26,13 @@ import {
   callAuthFor,
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
-import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { ChannelNoticeDto } from '@work/application/ports/channel-notices.port';
 import { describe, expect, it, vi } from 'vitest';
+
+const channelNotices = (...args: ConstructorParameters<typeof NotifyChannel>) =>
+  new ChannelNotices(new NotifyChannel(...args));
 
 const expressions = new CelExpressionEngine();
 
@@ -98,7 +102,7 @@ const notifying = (definition = SLACK) => {
   );
   const warn = vi.fn();
 
-  const notices = new ChannelNotices(
+  const notices = channelNotices(
     {
       ofTeam: vi.fn(async () => [defined(definition)]),
     } as unknown as DefinedIntegrationsPort,
@@ -190,7 +194,7 @@ describe('ChannelNotices', () => {
       expect.objectContaining({
         error: { status: 0, output: 'Slack is down' },
       }),
-      'A service answered a chat’s word with an error',
+      'A service answered a chat notice with an error',
     );
   });
 

@@ -6,10 +6,10 @@ import type {
   SpecRead,
   SpecReaderPort,
 } from '@integrations/application/ports/spec-reader.port';
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import {
   type ReadOperations,
   SpecUnreadable,

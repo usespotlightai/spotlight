@@ -1,27 +1,59 @@
 import type { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
-import {
-  CAUSE_HEADER,
-  type HookFiringHistoryPort,
-} from '@integrations/application/ports/hook-firing-history.port';
-import type { WebhookHeaders } from '@integrations/application/ports/webhook-provider.port';
+import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
 import type { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
+import { CauseLinks } from '@integrations/domain/services/cause-links';
+import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import {
+  ApplicationError,
+  type ApplicationErrorKind,
+} from '@shared-kernel/application/errors/application-error';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { CausationPort } from '@shared-kernel/application/ports/causation.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import {
+  DomainError,
+  type DomainErrorKind,
+} from '@shared-kernel/domain/exceptions/domain-error';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
 
-const causeIn = (headers: WebhookHeaders): string | null => {
-  const named = headers[CAUSE_HEADER];
-  const cause = Array.isArray(named) ? named[0] : named;
+type FailureKind = DomainErrorKind | ApplicationErrorKind;
 
-  return cause?.trim() || null;
+const PERMANENT_KINDS: ReadonlySet<FailureKind> = new Set([
+  'invalid',
+  'not-allowed',
+  'not-found',
+]);
+
+const kindOf = (error: unknown): FailureKind | null =>
+  error instanceof DomainError || error instanceof ApplicationError
+    ? error.kind
+    : null;
+
+const failureOf = (error: unknown): DeliveryFailure | null => {
+  if (error instanceof UpstreamError) {
+    return error.retryable
+      ? DeliveryFailure.transient(error.message)
+      : DeliveryFailure.permanent(error.message);
+  }
+
+  const kind = kindOf(error);
+
+  if (kind === 'conflict') {
+    return DeliveryFailure.transient((error as Error).message);
+  }
+
+  return kind !== null && PERMANENT_KINDS.has(kind)
+    ? DeliveryFailure.permanent((error as Error).message)
+    : null;
 };
 
 export class ReadDeliveryHandler
-  implements CommandHandlerPort<ReadDeliveryCommand, void>
+  implements CommandHandlerPort<ReadDeliveryCommand, DeliveryFailure | null>
 {
   constructor(
     private readonly providers: ProviderForDelivery,
@@ -31,8 +63,24 @@ export class ReadDeliveryHandler
     private readonly logger: LoggerPort,
   ) {}
 
-  async execute(command: ReadDeliveryCommand): Promise<void> {
+  async execute(command: ReadDeliveryCommand): Promise<DeliveryFailure | null> {
     try {
+      await this.read(command);
+
+      return null;
+    } catch (error) {
+      const failure = failureOf(error);
+
+      if (failure) {
+        return failure;
+      }
+
+      rethrowAsApplicationError(error);
+    }
+  }
+
+  private async read(command: ReadDeliveryCommand): Promise<void> {
+    {
       const stored = command.delivered;
       const provider = await this.providers.find({
         integration: stored.integration,
@@ -66,9 +114,9 @@ export class ReadDeliveryHandler
         return;
       }
 
-      const cause = causeIn(stored.headers);
+      const cause = stored.causeFiringId;
       const fired = cause
-        ? await this.history.chainOf(workspaceId.value, cause)
+        ? await this.history.chainOf(workspaceId, HookFiringId.of(cause))
         : null;
 
       await this.causation.runWith(
@@ -81,8 +129,6 @@ export class ReadDeliveryHandler
             `delivery:${stored.integration}:${stored.to?.teamId ?? ''}:${stored.id}`,
           ),
       );
-    } catch (error) {
-      rethrowAsApplicationError(error);
     }
   }
 
@@ -107,11 +153,7 @@ export class ReadDeliveryHandler
     integration: string,
   ): CausalChain {
     return fired
-      ? fired.append({
-          kind: 'delivery',
-          key: `delivery:${integration}`,
-          description: `a delivery from ${integration}`,
-        })
+      ? fired.append(CauseLinks.delivery(integration))
       : CausalChain.none();
   }
 }

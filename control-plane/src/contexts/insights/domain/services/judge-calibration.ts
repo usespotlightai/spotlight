@@ -25,11 +25,11 @@ export const HIDDEN_REASONS = [
   'below-min-agreement',
 ] as const;
 
-type HiddenReason = (typeof HIDDEN_REASONS)[number];
+export type HiddenReason = (typeof HIDDEN_REASONS)[number];
 
 export const AGREEMENT_MEASURES = ['kappa', 'spearman'] as const;
 
-type AgreementMeasure = (typeof AGREEMENT_MEASURES)[number];
+export type AgreementMeasure = (typeof AGREEMENT_MEASURES)[number];
 
 export interface JudgeCalibration {
   readonly qualified: boolean;

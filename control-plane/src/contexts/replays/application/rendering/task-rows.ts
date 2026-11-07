@@ -3,6 +3,7 @@ import type {
   TaskRow,
   TaskSide,
 } from '@replays/application/dto/task-rows.dto';
+import type { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
 import type { Scoring } from '@replays/domain/services/entry-result';
 import type { EntryComparison } from '@replays/domain/services/replay-results';
 import type { CheckSkip } from '@replays/domain/value-objects/check-skip';
@@ -11,7 +12,6 @@ import type {
   EntryReason,
   EntryReasonCode,
 } from '@replays/domain/value-objects/entry-reason';
-import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 

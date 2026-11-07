@@ -1,16 +1,19 @@
 import { createHash } from 'node:crypto';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type {
-  TeamMembership,
+  TeamWorkspaceMembership,
   WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import { RecordToolOutputHandler } from '@integrations/application/commands/handlers/record-tool-output.handler';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
+import type { OAuth2LinkInput } from '@integrations/application/ports/oauth2-linking.port';
 import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
+import { ResolveToolForRun } from '@integrations/application/services/resolve-tool-for-run.service';
 import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
@@ -60,6 +63,28 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type { IntegrationTool } from '@work/application/ports/integration-tool-calls.port';
 import { describe, expect, it } from 'vitest';
+
+const integrationToolCalls = (
+  ...[defined, runtime, auth, inferring, personRules, links]: [
+    ConstructorParameters<typeof ResolveToolForRun>[0],
+    ConstructorParameters<typeof ResolveToolForRun>[1],
+    ConstructorParameters<typeof ResolveToolForRun>[2],
+    ConstructorParameters<typeof RecordToolOutputHandler>[0],
+    ConstructorParameters<typeof ResolveToolForRun>[3],
+    ConstructorParameters<typeof ResolveToolForRun>[4],
+  ]
+) =>
+  new IntegrationToolCalls(
+    new ResolveToolForRun(
+      defined,
+      runtime,
+      auth,
+      personRules,
+      links,
+      new RecordToolOutputHandler(inferring),
+      { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} },
+    ),
+  );
 
 const NO_LINKS = {
   task: async () => 'https://app.example/tasks/task_1',
@@ -224,7 +249,11 @@ class InMemoryRegistrations implements OAuth2ClientRegistrationRepository {
     this.stored = registration;
   }
 
-  async deleteForTeam(): Promise<void> {
+  async ofTeam(): Promise<readonly OAuth2ClientRegistration[]> {
+    return this.stored ? [this.stored] : [];
+  }
+
+  async remove(): Promise<void> {
     this.stored = null;
   }
 }
@@ -313,6 +342,7 @@ const settingUp = ({
       clientId: 'dcr-client',
       clientSecret: AccessToken.of('dcr-secret'),
       secretExpiresAt: null,
+      registeredAt: new Date('2026-09-01T00:00:00.000Z'),
       version: 1,
     });
   }
@@ -365,14 +395,14 @@ const settingUp = ({
     clock,
     () => new Promise((resolve) => setTimeout(resolve, 1)),
   );
-  const tools = new IntegrationToolCalls(
+  const tools = integrationToolCalls(
     definitions as unknown as DefinedIntegrationsPort,
     runtime,
     new CallAuthResolver(
       connections,
       TEAMS,
       {
-        onTeam: async () => ({}) as TeamMembership,
+        inWorkspaceOfTeam: async () => ({}) as TeamWorkspaceMembership,
       } as unknown as WorkspaceAccessPort,
       injecting().injection,
       connectionRefresh,
@@ -381,7 +411,7 @@ const settingUp = ({
     personRulesFrom(policies, { [ALICE.value]: 'Alice' }),
     NO_LINKS,
   );
-  const linking = new OAuth2Linking(
+  const linked = new OAuth2Linking(
     definitions as unknown as DefinedIntegrationsPort,
     new IntegrationReader(expressions, operations),
     discoveringNothing(),
@@ -396,6 +426,25 @@ const settingUp = ({
     CALLBACK,
     unscoped,
   );
+  const linking = {
+    authorized: linked.authorized.bind(linked),
+    begin: async (input: OAuth2LinkInput) => {
+      const registration = await linked.registrationFor(
+        TeamId.of(input.teamId),
+        IntegrationKey.of(input.integration),
+      );
+      const client = registration
+        ? await clients.clientFor(
+            TeamId.of(input.teamId),
+            IntegrationKey.of(input.integration),
+            registration.endpoint,
+            registration.server,
+          )
+        : null;
+
+      return client ? linked.begin(input, client) : null;
+    },
+  };
 
   const connectedAs = (accessToken: string, refreshToken = 'rt-1') =>
     connections.add(
@@ -413,6 +462,7 @@ const settingUp = ({
         refreshFailedAt: null,
         refreshClaim: null,
         version: 1,
+        connectedAt: new Date('2026-09-01T00:00:00.000Z'),
       }),
     );
 

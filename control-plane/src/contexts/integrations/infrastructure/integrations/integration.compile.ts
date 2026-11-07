@@ -9,13 +9,17 @@ import {
   INTEGRATIONS,
   integrationAt,
 } from '@integrations/application/rendering/integration-problems';
-import { Integration } from '@integrations/domain/entities/integration.entity';
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import { InvalidIntegrationPartError } from '@integrations/domain/exceptions/invalid-integration-part.error';
 import {
   type ApprovalOverride,
   generatedTools,
 } from '@integrations/domain/services/generated-tools';
+import { readsASecret } from '@integrations/domain/services/secret-reads';
+import {
+  Action,
+  type ActionFields,
+} from '@integrations/domain/value-objects/action.vo';
 import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
 import { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
@@ -25,6 +29,7 @@ import { DeclaredHappening } from '@integrations/domain/value-objects/declared-h
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { MarkKind } from '@integrations/domain/value-objects/mark-kind.vo';
 import { Opening } from '@integrations/domain/value-objects/opening.vo';
@@ -306,7 +311,20 @@ const becauseOf = (error: unknown): string =>
 
 const NETWORK_TIMEOUT_SECONDS = 30;
 
-const READS_A_SECRET = /(^|[^A-Za-z0-9_.])secret\s*(\.|\[)/;
+const actionFieldsOf = (name: string, action: ActionFile): ActionFields => ({
+  name,
+  fromNetwork: action.from === 'network',
+  waitsSeconds: action.timeoutSeconds ?? null,
+  uploads: action.uploads
+    ? { sendsBody: action.uploads.send.body !== undefined }
+    : null,
+  auth: {
+    oauth2: Boolean(action.request.auth?.oauth2),
+    secrets: Boolean(action.request.auth?.secrets),
+  },
+  headers: Object.keys(action.request.headers),
+  url: action.request.url,
+});
 
 const doubted = (error: ExpressionErrorDto): string =>
   error.suggestion
@@ -380,7 +398,7 @@ class Compiler {
   }
 
   expression(raw: string, place: Place): Expression | null {
-    if (READS_A_SECRET.test(raw)) {
+    if (readsASecret(raw)) {
       this.problems.push(
         ConfigurationProblem.of({
           path: this.path,
@@ -637,71 +655,35 @@ class Compiler {
     };
   }
 
-  action(action: ActionFile, at: Place, field: FieldPath): ActionIR {
+  action(
+    name: string,
+    action: ActionFile,
+    at: Place,
+    field: FieldPath,
+  ): ActionIR {
     const request = {
       ...this.request(action.request, at.to('request')),
       uploads: action.uploads
-        ? this.uploads(action.uploads, at.to('uploads'), field.to('uploads'))
+        ? this.uploads(action.uploads, at.to('uploads'))
         : null,
     };
 
-    if (action.from !== 'network') {
-      if (action.timeoutSeconds !== undefined) {
-        this.refuse(
-          field.to('timeoutSeconds'),
-          'is how long Spotlight waits for a host to send the action. Only an action sent from the network has it. Please set from: network, or remove timeoutSeconds',
-        );
-      }
-
-      return request;
+    for (const problem of Action.problemsOf(actionFieldsOf(name, action))) {
+      this.refuse(field.to(...problem.at.segments), problem.because);
     }
 
-    if (action.uploads) {
-      this.refuse(
-        field.to('uploads'),
-        'sends files that Spotlight keeps. An action sent from the network cannot read them. Please remove from: network, or remove uploads',
-      );
-    }
-
-    if (action.request.auth?.oauth2) {
-      this.refuse(
-        field.to('request', 'auth'),
-        'cannot use an OAuth connection. An action sent from the network authenticates only with auth.secrets',
-      );
-    }
-
-    for (const name of Object.keys(action.request.headers)) {
-      if (name.toLowerCase() === 'host') {
-        this.refuse(
-          field.to('request', 'headers', name),
-          'is a Host header. Egress sends an action from the network to the host its URL names. Please remove the Host header',
-        );
-      }
-    }
-
-    if (action.request.auth?.secrets && /^http:/i.test(action.request.url)) {
-      this.refuse(
-        field.to('request', 'url'),
-        'is an http address. Egress injects secrets only into https requests. Please use an https address',
-      );
-    }
-
-    return {
-      ...request,
-      fromNetwork: {
-        timeoutMs: (action.timeoutSeconds ?? NETWORK_TIMEOUT_SECONDS) * 1_000,
-      },
-    };
+    return action.from === 'network'
+      ? {
+          ...request,
+          fromNetwork: {
+            timeoutMs:
+              (action.timeoutSeconds ?? NETWORK_TIMEOUT_SECONDS) * 1_000,
+          },
+        }
+      : request;
   }
 
-  uploads(uploads: UploadsFile, at: Place, field: FieldPath): UploadsIR {
-    if (uploads.send.body !== undefined) {
-      this.refuse(
-        field.to('send', 'body'),
-        'is the body of the request that sends a file. Spotlight sends the bytes of the file as the body. Please remove body',
-      );
-    }
-
+  uploads(uploads: UploadsFile, at: Place): UploadsIR {
     return {
       each: this.expression(uploads.each, at.to('each')) as Expression,
       prepare: this.request(uploads.prepare, at.to('prepare')),
@@ -1085,6 +1067,7 @@ export const compileIntegration = (
     actions.set(
       name,
       compiler.action(
+        name,
         action,
         root
           .to('actions')
@@ -1095,36 +1078,18 @@ export const compileIntegration = (
     );
   }
 
-  for (const [name, tool] of Object.entries(file.tools)) {
-    if (file.actions[tool.action]?.uploads) {
-      compiler.refuse(
-        FieldPath.of(['tools', name, 'action']),
-        `names the action ${tool.action}, which uploads files. Only an event in on sends files. Please name an action without uploads`,
+  const defined = Object.entries(file.actions).some(
+    ([name, action]) =>
+      Action.problemsOf(actionFieldsOf(name, action)).length > 0,
+  )
+    ? null
+    : compiler.part(FieldPath.of(['actions']), () =>
+        DefinedActions.of(
+          Object.entries(file.actions).map(([name, action]) =>
+            Action.of(actionFieldsOf(name, action)),
+          ),
+        ),
       );
-    }
-  }
-
-  for (const [event, listed] of Object.entries(file.on)) {
-    listed.forEach((binding, at) => {
-      if (event.startsWith('chat.') && file.actions[binding.action]?.uploads) {
-        compiler.refuse(
-          FieldPath.of(['on', event, at, 'action']),
-          `names the action ${binding.action}, which uploads files. A chat event has no files. Please name an action without uploads`,
-        );
-      }
-    });
-  }
-
-  if (file.schedule && file.actions[file.schedule.action]?.uploads) {
-    compiler.refuse(
-      FieldPath.of(['schedule', 'action']),
-      `names the action ${file.schedule.action}, which uploads files. Only an event in on sends files. Please name an action without uploads`,
-    );
-  }
-
-  const defined = compiler.part(FieldPath.of(['actions']), () =>
-    DefinedActions.of(Object.keys(file.actions)),
-  );
 
   const tools = new Map<string, ToolIR>();
   for (const [name, tool] of Object.entries(file.tools)) {
@@ -1132,7 +1097,7 @@ export const compileIntegration = (
     const placed = root.to('tools').each(name);
 
     compiler.part(FieldPath.of(['tools', name, 'action']), () =>
-      defined?.named(tool.action, at),
+      defined?.forTool(tool.action, at),
     );
 
     tools.set(name, {
@@ -1233,10 +1198,12 @@ export const compileIntegration = (
           CronExpression.of(written.cron, cronCalendar),
         );
         const action = compiler.part(FieldPath.of(['schedule', 'action']), () =>
-          defined?.named(written.action, 'schedule'),
+          defined?.forSchedule(written.action, 'schedule'),
         );
 
-        return cron && action ? Schedule.of({ cron, action }) : null;
+        return cron && action
+          ? Schedule.of({ cron, action: action.name })
+          : null;
       })()
     : null;
 
@@ -1249,7 +1216,7 @@ export const compileIntegration = (
       );
       const action = compiler.part(
         FieldPath.of(['on', event, at, 'action']),
-        () => defined?.named(binding.action, `binding on ${event}`),
+        () => defined?.forBinding(binding.action, event, `binding on ${event}`),
       );
 
       if (bound && action) {

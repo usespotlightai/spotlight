@@ -1,7 +1,7 @@
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
+import { UnplaceableHappeningError } from '@integrations/domain/exceptions/unplaceable-happening.error';
 import { GitHubWebhookProvider } from '@integrations/infrastructure/webhooks/github.webhook-provider';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   PULL_REQUEST_MARK,
@@ -18,7 +18,7 @@ const MERGED: PullRequestActivity = {
   label: null,
   details: null,
   reviewComment: null,
-  byBot: false,
+  ignoredAsBot: false,
   checkSuite: null,
   failedChecks: [],
 };
@@ -36,7 +36,7 @@ const OPENED: PullRequestActivity = {
     draft: false,
   },
   reviewComment: null,
-  byBot: false,
+  ignoredAsBot: false,
   checkSuite: null,
   failedChecks: [],
 };
@@ -157,7 +157,7 @@ describe('GitHubWebhookProvider', () => {
   });
 
   it('marks what a bot did as Spotlight’s own', async () => {
-    expect(await readOne({ ...MERGED, byBot: true })).toMatchObject({
+    expect(await readOne({ ...MERGED, ignoredAsBot: true })).toMatchObject({
       ourOwn: true,
     });
   });
@@ -167,7 +167,7 @@ describe('GitHubWebhookProvider', () => {
       providerOver([
         { ...MERGED, branch: null, pullRequest: null },
       ]).provider.read(DELIVERED),
-    ).rejects.toThrow(UpstreamError);
+    ).rejects.toThrow(UnplaceableHappeningError);
   });
 
   it('requests a review of a pull request opened, found by the review it wants', async () => {
@@ -310,7 +310,7 @@ describe('GitHubWebhookProvider', () => {
   it('rejects a pull request opened that it cannot name', async () => {
     await expect(
       providerOver([{ ...OPENED, pullRequest: null }]).provider.read(DELIVERED),
-    ).rejects.toThrow(UpstreamError);
+    ).rejects.toThrow(UnplaceableHappeningError);
   });
 
   it('says nothing where GitHub reported no activity', async () => {

@@ -17,7 +17,7 @@ export interface ProvisionCall {
   readonly pool: string;
   readonly workspaceId: string;
   readonly kind: 'run' | 'check';
-  readonly stackId: string | null;
+  readonly checkId: string | null;
   readonly runId: string;
   readonly taskId: string | null;
   readonly labels: readonly string[];

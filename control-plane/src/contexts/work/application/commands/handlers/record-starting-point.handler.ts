@@ -17,7 +17,6 @@ import type { WorkspaceArchiveRepository } from '@work/domain/repositories/works
 import type { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
-import { MAX_STARTED_CHECKOUTS } from '@work/domain/value-objects/starting-point.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 const listed = (
@@ -25,12 +24,6 @@ const listed = (
 ): readonly ReportedCheckout[] => {
   if (!checkouts) {
     throw new InvalidStartingPointError('checkouts must be a list');
-  }
-
-  if (checkouts.length > MAX_STARTED_CHECKOUTS) {
-    throw new InvalidStartingPointError(
-      `can name at most ${MAX_STARTED_CHECKOUTS} checkouts`,
-    );
   }
 
   return checkouts;
@@ -57,19 +50,13 @@ export class RecordStartingPointHandler
 
       const checkouts = listed(command.checkouts);
 
-      if (!Number.isInteger(command.attempt) || command.attempt < 1) {
-        throw new InvalidStartingPointError(
-          'must name the attempt the run started on',
-        );
-      }
-
       const run = await this.runs.findById(RunId.of(command.runId));
 
       if (!run) {
         throw new UnknownRunError(`Run ${command.runId} not found.`);
       }
 
-      const attempt = RunAttempt.of(run.id, command.attempt);
+      const attempt = RunAttempt.reported(run.id, command.attempt);
 
       run.assertStillOn(attempt, runner);
 

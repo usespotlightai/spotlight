@@ -1,5 +1,10 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
-import { Station } from '@work/domain/entities/station.entity';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
+import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import {
   HANDING_OVER,
   OPENING_PULL_REQUESTS,
@@ -11,14 +16,8 @@ import {
   skillsForTools,
 } from '@work/domain/services/enabled-for-run';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
+import { stationOf } from '@work/domain/value-objects/line-map.fake-spec';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
-import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { describe, expect, it } from 'vitest';
 
 const station = (
@@ -26,12 +25,12 @@ const station = (
   skills: string[] = [],
   profile: string | null = null,
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of('station_1'),
     key: StationKey.of('implementation'),
     name: StationName.of('Implementation'),
     position: 1,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     harness: HarnessId.of('dev'),
     tools: tools.map((each) => Tool.of(each)),
     skills: skills.map((each) => SkillKey.of(each)),

@@ -1,8 +1,9 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import type { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
@@ -64,6 +65,20 @@ export class Approval {
     intent: ApprovalIntent | null;
     askedOf: UserId | null;
   }): Approval {
+    if ((input.status === 'pending') !== (input.decided === null)) {
+      throw new InconsistentStateError(
+        'approval',
+        `is ${input.status} ${input.decided ? 'with' : 'without'} a decision`,
+      );
+    }
+
+    if (input.spent && input.status !== 'approved') {
+      throw new InconsistentStateError(
+        'approval',
+        `was spent while ${input.status}`,
+      );
+    }
+
     return new Approval(
       input.subject,
       input.at,

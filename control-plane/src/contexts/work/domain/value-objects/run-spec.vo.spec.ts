@@ -1,9 +1,9 @@
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
 import {
   RunSpec,
   type RunSpecParts,
 } from '@work/domain/value-objects/run-spec.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { describe, expect, it } from 'vitest';
 
 const parts = (over: Partial<RunSpecParts> = {}): RunSpecParts => ({

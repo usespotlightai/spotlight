@@ -9,9 +9,15 @@ import type {
   TeamLine,
   WorkPort,
 } from '@memory/application/ports/work.port';
+import {
+  MEMORY_FILE,
+  MEMORY_FOLDER,
+} from '@memory/domain/services/memory-folder';
 import type { RunContext } from '@memory/domain/value-objects/run-context';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -47,8 +53,9 @@ export class Work implements WorkPort {
         taskId: leased.taskId,
         replaysFrom: leased.replaysFrom,
         isSearch: leased.isSearch,
-        lineId: leased.lineId,
-        stationId: leased.stationId,
+        lineId: leased.lineId === null ? null : LineId.of(leased.lineId),
+        stationId:
+          leased.stationId === null ? null : StationId.of(leased.stationId),
         repositories: leased.repositories,
       }
     );
@@ -60,19 +67,19 @@ export class Work implements WorkPort {
     return (
       runContext && {
         teamId: runContext.teamId,
-        lineId: runContext.lineId,
-        stationId: runContext.stationId,
+        lineId:
+          runContext.lineId === null ? null : LineId.of(runContext.lineId),
+        stationId:
+          runContext.stationId === null
+            ? null
+            : StationId.of(runContext.stationId),
         repositories: runContext.repositories,
       }
     );
   }
 
-  referencedUnder(
-    runId: RunId,
-    folder: string,
-    file: RegExp,
-  ): Promise<readonly string[] | null> {
-    return this.work.referencedUnder(runId, folder, file);
+  memoryFilesRead(runId: RunId): Promise<readonly string[] | null> {
+    return this.work.referencedUnder(runId, MEMORY_FOLDER, MEMORY_FILE);
   }
 
   async stationContextOf(runId: RunId): Promise<NamedStationContext | null> {
@@ -81,9 +88,9 @@ export class Work implements WorkPort {
     return (
       runContext && {
         teamId: runContext.teamId,
-        lineId: runContext.lineId,
+        lineId: LineId.of(runContext.lineId),
         lineName: runContext.lineName,
-        stationId: runContext.stationId,
+        stationId: StationId.of(runContext.stationId),
         stationName: runContext.stationName,
         repositories: runContext.repositories,
       }
@@ -92,10 +99,10 @@ export class Work implements WorkPort {
 
   async linesOf(teamId: TeamId): Promise<readonly TeamLine[]> {
     return (await this.work.linesOf(teamId)).map((line) => ({
-      id: line.id,
+      id: LineId.of(line.id),
       name: line.name,
       stations: line.stations.map((station) => ({
-        id: station.id,
+        id: StationId.of(station.id),
         name: station.name,
       })),
       repositories: line.repositories,

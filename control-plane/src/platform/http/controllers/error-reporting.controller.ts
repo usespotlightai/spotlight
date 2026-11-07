@@ -3,9 +3,11 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import { ErrorReportingResponseDto } from '@platform/http/dto/error-reporting.response.dto';
 
 @ApiTags('error-reporting')
+@InAudience('web')
 @Controller('error-reporting')
 export class ErrorReportingController {
   constructor(@Inject(ENV) private readonly env: Env) {}

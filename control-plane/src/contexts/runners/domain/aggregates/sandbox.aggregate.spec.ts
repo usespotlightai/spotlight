@@ -1,3 +1,8 @@
+import {
+  aHost,
+  aPullPool,
+  aTrust,
+} from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { Sandbox } from '@runners/domain/aggregates/sandbox.aggregate';
 import {
   aSandbox,
@@ -6,7 +11,9 @@ import {
   GRACE_MS,
   tokenHashOf,
 } from '@runners/domain/aggregates/sandbox.fake-spec';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
+import { LeaseHolder } from '@runners/domain/value-objects/lease-holder.vo';
 import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { SandboxKey } from '@runners/domain/value-objects/sandbox-key.vo';
 import {
@@ -14,6 +21,7 @@ import {
   SandboxLease,
 } from '@runners/domain/value-objects/sandbox-lease.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -23,6 +31,16 @@ const later = (ms: number): Date => new Date(STARTED_AT.getTime() + ms);
 
 const HOST = HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDE');
 
+const OTHER_HOST = HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDF');
+
+const reporting = aHost({ id: HOST, sandboxes: ['sandbox_1'] });
+
+const silent = aHost({ id: HOST });
+
+const stopping = aHost({ id: HOST, sandboxes: ['sandbox_1'], stopping: true });
+
+const editor = (connection: string) => LeaseHolder.editor(connection);
+
 const started = () =>
   aSandbox({
     workspaceId: WorkspaceId.of('ws_1'),
@@ -31,13 +49,14 @@ const started = () =>
   });
 
 const withLeases = (leases: SandboxLease[], idleSince: Date | null) => {
-  const sandbox = started().reported();
+  const sandbox = started();
 
   return Sandbox.rehydrate({
     id: sandbox.id,
     workspaceId: sandbox.workspaceId,
     key: sandbox.key,
     hostId: sandbox.hostId,
+    source: sandbox.source,
     tokenHash: sandbox.tokenHash,
     state: sandbox.current,
     leases,
@@ -49,83 +68,135 @@ const withLeases = (leases: SandboxLease[], idleSince: Date | null) => {
 };
 
 describe('Sandbox', () => {
-  it('starts for a run, held by that run, until its host reports it', () => {
+  it('starts for a run, held by that run, and is ready once its host reports it', () => {
     const sandbox = started();
 
-    expect(sandbox.current).toBe('starting');
-    expect(sandbox.holdsRun('run_1')).toBe(true);
+    expect(sandbox.current).toBe('open');
+    expect(sandbox.holdsRun(RunId.of('run_1'))).toBe(true);
     expect(sandbox.idleSince).toBeNull();
-    expect(sandbox.reported().current).toBe('ready');
+    expect(sandbox.statusOn(silent)).toBe('starting');
+    expect(sandbox.statusOn(null)).toBe('starting');
+    expect(sandbox.statusOn(reporting)).toBe('ready');
+    expect(
+      sandbox.isReadyOn(aHost({ id: OTHER_HOST, sandboxes: ['sandbox_1'] })),
+    ).toBe(false);
+  });
+
+  it('keeps the pool or trust of the host it started on', () => {
+    expect(started().source?.poolId?.value).toBe('pool_1');
+
+    const trust = aTrust();
+    const onTrust = aSandbox({
+      workspaceId: WorkspaceId.of('ws_1'),
+      hostId: HOST,
+      source: CredentialSource.ofId(trust.id),
+      at: STARTED_AT,
+    });
+
+    expect(onTrust.source?.trustId?.equals(trust.id)).toBe(true);
+    expect(onTrust.source?.poolId).toBeNull();
   });
 
   it('becomes idle when its run lets go of it, and ignores a run that does not hold it', () => {
-    const sandbox = started().reported();
+    const sandbox = started();
 
-    expect(sandbox.releaseRun('run_2', later(1_000))).toBe(sandbox);
+    expect(sandbox.releaseRun(RunId.of('run_2'), later(1_000))).toBe(sandbox);
 
-    const released = sandbox.releaseRun('run_1', later(1_000));
+    const released = sandbox.releaseRun(RunId.of('run_1'), later(1_000));
 
-    expect(released.holdsRun('run_1')).toBe(false);
+    expect(released.holdsRun(RunId.of('run_1'))).toBe(false);
     expect(released.leases).toEqual([]);
     expect(released.idleSince).toEqual(later(1_000));
   });
 
   it('drains when the run that retires it holds its last lease, and ignores a run that does not hold it', () => {
-    const sandbox = started().reported();
+    const sandbox = started();
 
-    expect(sandbox.retireRun('run_2', later(1_000))).toBe(sandbox);
+    expect(sandbox.retireRun(RunId.of('run_2'), later(1_000))).toBe(sandbox);
 
-    const retired = sandbox.retireRun('run_1', later(1_000));
+    const retired = sandbox.retireRun(RunId.of('run_1'), later(1_000));
 
     expect(retired.current).toBe('draining');
-    expect(retired.mustDrain).toBe(true);
+    expect(retired.statusOn(reporting)).toBe('draining');
+    expect(retired.keptBy(reporting)).toBe(false);
     expect(retired.leases).toEqual([]);
   });
 
   it('stays ready when a run retires it while another run holds it', () => {
-    const shared = started().reported().holdRun('run_2', later(500));
+    const shared = started().holdRun(RunId.of('run_2'), later(500));
 
-    expect(shared.retireRun('run_1', later(1_000)).current).toBe('ready');
+    expect(
+      shared.retireRun(RunId.of('run_1'), later(1_000)).statusOn(reporting),
+    ).toBe('ready');
   });
 
   it('stays ready when a run retires it while an editor holds it', () => {
-    const edited = started().reported().holdEditor('conn_1', later(500));
+    const edited = started().holdEditor(editor('conn_1'), later(500));
 
-    expect(edited.retireRun('run_1', later(1_000)).current).toBe('ready');
+    expect(
+      edited.retireRun(RunId.of('run_1'), later(1_000)).statusOn(reporting),
+    ).toBe('ready');
   });
 
   it('takes the next run on its host once ready and idle, and holds it', () => {
-    const idle = started().reported().releaseRun('run_1', later(1_000));
+    const idle = started().releaseRun(RunId.of('run_1'), later(1_000));
 
-    expect(idle.takesRunOn(HOST)).toBe(true);
-    expect(idle.takesRunOn(HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDF'))).toBe(
-      false,
-    );
-    expect(started().takesRunOn(HOST)).toBe(false);
-    expect(started().reported().takesRunOn(HOST)).toBe(false);
-    expect(idle.drain().takesRunOn(HOST)).toBe(false);
+    expect(idle.takesRunOn(reporting)).toBe(true);
+    expect(
+      idle.takesRunOn(aHost({ id: OTHER_HOST, sandboxes: ['sandbox_1'] })),
+    ).toBe(false);
+    expect(idle.takesRunOn(silent)).toBe(false);
+    expect(started().takesRunOn(reporting)).toBe(false);
+    expect(idle.drain().takesRunOn(reporting)).toBe(false);
 
-    const held = idle.holdRun('run_2', later(2_000));
+    const held = idle.holdRun(RunId.of('run_2'), later(2_000));
 
-    expect(held.holdsRun('run_2')).toBe(true);
+    expect(held.holdsRun(RunId.of('run_2'))).toBe(true);
     expect(held.idleSince).toBeNull();
-    expect(held.takesRunOn(HOST)).toBe(false);
-    expect(held.holdRun('run_2', later(3_000))).toBe(held);
+    expect(held.takesRunOn(reporting)).toBe(false);
+    expect(held.holdRun(RunId.of('run_2'), later(3_000))).toBe(held);
+  });
+
+  it('takes the run of its own key and workspace only, on the host that reports it', () => {
+    const idle = started().releaseRun(RunId.of('run_1'), later(1_000));
+    const run = {
+      runId: RunId.of('run_2'),
+      workspaceId: WorkspaceId.of('ws_1'),
+      key: SandboxKey.of('task-task_1'),
+    };
+
+    expect(
+      idle.holdRunFor(run, reporting, later(2_000)).holdsRun(run.runId),
+    ).toBe(true);
+    expect(idle.holdRunFor(run, silent, later(2_000))).toBe(idle);
+    expect(
+      idle.holdRunFor(
+        { ...run, key: SandboxKey.of('task-task_2') },
+        reporting,
+        later(2_000),
+      ),
+    ).toBe(idle);
+    expect(
+      idle.holdRunFor(
+        { ...run, workspaceId: WorkspaceId.of('ws_2') },
+        reporting,
+        later(2_000),
+      ),
+    ).toBe(idle);
   });
 
   it('takes no run once it drains', () => {
     const draining = started()
-      .reported()
-      .releaseRun('run_1', later(1_000))
+      .releaseRun(RunId.of('run_1'), later(1_000))
       .drain();
 
-    expect(() => draining.holdRun('run_2', later(2_000))).toThrow(
+    expect(() => draining.holdRun(RunId.of('run_2'), later(2_000))).toThrow(
       'cannot take run run_2',
     );
   });
 
   it('drains once it holds no lease for the grace, and not before', () => {
-    const idle = started().reported().releaseRun('run_1', later(0));
+    const idle = started().releaseRun(RunId.of('run_1'), later(0));
 
     expect(idle.drainDue(DRAIN_POLICY, later(GRACE_MS - 1))).toBe(false);
     expect(idle.drainedWhenDue(DRAIN_POLICY, later(GRACE_MS - 1))).toBe(idle);
@@ -134,24 +205,27 @@ describe('Sandbox', () => {
     );
   });
 
-  it('drains at once when idle and its host stops, but not while a run holds it', () => {
-    const held = started().reported();
+  it('is kept by its host while open, and given up when idle on a host that stops, but not while a run holds it', () => {
+    const held = started();
+    const idle = held.releaseRun(RunId.of('run_1'), later(0));
 
-    expect(held.drainedWhenIdle()).toBe(held);
-    expect(held.releaseRun('run_1', later(0)).drainedWhenIdle().current).toBe(
-      'draining',
-    );
+    expect(held.keptBy(reporting)).toBe(true);
+    expect(idle.keptBy(reporting)).toBe(true);
+    expect(held.keptBy(stopping)).toBe(true);
+    expect(idle.keptBy(stopping)).toBe(false);
+    expect(idle.takesRunOn(stopping)).toBe(false);
+    expect(idle.keptBy(aHost({ id: OTHER_HOST }))).toBe(false);
   });
 
   it('never drains while a run holds it', () => {
-    const held = started().reported();
+    const held = started();
 
     expect(held.drainDue(DRAIN_POLICY, later(EDITOR_LIMIT_MS * 2))).toBe(false);
   });
 
   it('drains when only editors held it past the editor limit after its last run', () => {
     const edited = withLeases(
-      [SandboxLease.of('editor', 'person_1', later(0))],
+      [SandboxLease.of(editor('person_1'), later(0))],
       later(0),
     );
 
@@ -167,33 +241,41 @@ describe('Sandbox', () => {
 
     expect(draining.current).toBe('draining');
     expect(draining.drain()).toBe(draining);
-    expect(draining.mustDrain).toBe(true);
     expect(draining.lost(later(1)).drain().current).toBe('gone');
   });
 
-  it('is gone once its host no longer reports it', () => {
-    const ready = started().reported();
-    const gone = ready.unreported(later(1_000));
+  it('is gone once the host it is on stops reporting it, and ignores another host', () => {
+    const gone = started().droppedBy(HOST, later(1_000));
 
     expect(gone.current).toBe('gone');
     expect(gone.goneAt).toEqual(later(1_000));
     expect(gone.isLive).toBe(false);
-    expect(started().drain().unreported(later(1)).current).toBe('gone');
+    expect(started().drain().droppedBy(HOST, later(1)).current).toBe('gone');
+    expect(started().droppedBy(OTHER_HOST, later(1)).current).toBe('open');
   });
 
-  it('gives a starting sandbox a minute before a report without it counts', () => {
-    expect(started().unreported(later(59_999)).current).toBe('starting');
-    expect(started().unreported(later(60_000)).current).toBe('gone');
+  it('gives a sandbox a minute to appear in its host’s report before it counts as gone', () => {
+    expect(started().unreportedOn(silent, later(59_999)).current).toBe('open');
+    expect(started().unreportedOn(silent, later(60_000)).current).toBe('gone');
+    expect(started().unreportedOn(reporting, later(60_000)).current).toBe(
+      'open',
+    );
+    expect(
+      started().unreportedOn(aHost({ id: OTHER_HOST }), later(60_000)).current,
+    ).toBe('open');
   });
 
   it('is gone when its host goes silent, whatever its state', () => {
     expect(started().lost(later(1)).current).toBe('gone');
-    expect(started().reported().drain().lost(later(1)).current).toBe('gone');
+    expect(started().drain().lost(later(1)).current).toBe('gone');
   });
 
   it('cannot be idle while a run holds it', () => {
     expect(() =>
-      withLeases([SandboxLease.forRun('run_1', later(0))], later(0)),
+      withLeases(
+        [SandboxLease.of(LeaseHolder.run(RunId.of('run_1')), later(0))],
+        later(0),
+      ),
     ).toThrow(InconsistentStateError);
     expect(() => withLeases([], null)).toThrow(InconsistentStateError);
   });
@@ -209,29 +291,38 @@ describe('Sandbox', () => {
     it('waits on no host, held by nothing and idle from the request', () => {
       const sandbox = requested();
 
-      expect(sandbox.current).toBe('starting');
+      expect(sandbox.current).toBe('open');
+      expect(sandbox.statusOn(null)).toBe('starting');
       expect(sandbox.isRequested).toBe(true);
       expect(sandbox.hostId).toBeNull();
+      expect(sandbox.source).toBeNull();
       expect(sandbox.tokenHash).toBeNull();
       expect(sandbox.leases).toEqual([]);
       expect(sandbox.idleSince).toEqual(STARTED_AT);
-      expect(sandbox.takesRunOn(HOST)).toBe(false);
+      expect(
+        sandbox.takesRunOn(aHost({ id: HOST, sandboxes: ['sandbox_r'] })),
+      ).toBe(false);
     });
 
     it('starts on the host that claims it and becomes idle from then', () => {
+      const pool = CredentialSource.ofId(aPullPool().id);
       const placed = requested().placeOn(
         HOST,
+        pool,
         tokenHashOf('token'),
         later(5_000),
       );
 
       expect(placed.isRequested).toBe(false);
       expect(placed.hostId?.equals(HOST)).toBe(true);
+      expect(placed.source?.equals(pool)).toBe(true);
       expect(placed.startedAt).toEqual(later(5_000));
       expect(placed.idleSince).toEqual(later(5_000));
-      expect(placed.reported().takesRunOn(HOST)).toBe(true);
+      expect(
+        placed.takesRunOn(aHost({ id: HOST, sandboxes: ['sandbox_r'] })),
+      ).toBe(true);
       expect(() =>
-        placed.placeOn(HOST, tokenHashOf('token'), later(6_000)),
+        placed.placeOn(HOST, pool, tokenHashOf('token'), later(6_000)),
       ).toThrow(InconsistentStateError);
     });
 
@@ -245,12 +336,12 @@ describe('Sandbox', () => {
     });
 
     it('takes no run before a host starts it', () => {
-      expect(() => requested().holdRun('run_1', later(1))).toThrow(
+      expect(() => requested().holdRun(RunId.of('run_1'), later(1))).toThrow(
         InconsistentStateError,
       );
     });
 
-    it('cannot have a host without a token', () => {
+    it('cannot have a host without a token or a pool', () => {
       const sandbox = started();
 
       expect(() =>
@@ -259,6 +350,23 @@ describe('Sandbox', () => {
           workspaceId: sandbox.workspaceId,
           key: sandbox.key,
           hostId: sandbox.hostId,
+          source: null,
+          tokenHash: sandbox.tokenHash,
+          state: sandbox.current,
+          leases: sandbox.leases,
+          idleSince: sandbox.idleSince,
+          startedAt: sandbox.startedAt,
+          goneAt: null,
+          version: 0,
+        }),
+      ).toThrow(InconsistentStateError);
+      expect(() =>
+        Sandbox.rehydrate({
+          id: sandbox.id,
+          workspaceId: sandbox.workspaceId,
+          key: sandbox.key,
+          hostId: sandbox.hostId,
+          source: sandbox.source,
           tokenHash: null,
           state: sandbox.current,
           leases: sandbox.leases,
@@ -272,50 +380,62 @@ describe('Sandbox', () => {
   });
 
   describe('held by editors', () => {
-    const idle = () => started().reported().releaseRun('run_1', later(0));
+    const idle = () => started().releaseRun(RunId.of('run_1'), later(0));
 
     it('takes one lease per connection, renewed in place, and stays idle for runs', () => {
       const held = idle()
-        .holdEditor('conn_1', later(1_000))
-        .holdEditor('conn_1', later(31_000));
+        .holdEditor(editor('conn_1'), later(1_000))
+        .holdEditor(editor('conn_1'), later(31_000));
 
       expect(held.leases).toEqual([
-        SandboxLease.forEditor('conn_1', later(31_000)),
+        SandboxLease.of(editor('conn_1'), later(31_000)),
       ]);
       expect(held.idleSince).toEqual(later(0));
-      expect(held.takesRunOn(HOST)).toBe(true);
+      expect(held.takesRunOn(reporting)).toBe(true);
+    });
+
+    it('gives an editor lease to editors only', () => {
+      expect(() =>
+        idle().holdEditor(LeaseHolder.run(RunId.of('run_2')), later(1_000)),
+      ).toThrow(InconsistentStateError);
+      expect(idle().holdsEditor(LeaseHolder.run(RunId.of('run_1')))).toBe(
+        false,
+      );
     });
 
     it('keeps its editors while a run holds it, and drops editor leases that expired', () => {
       const shared = started()
-        .reported()
-        .holdEditor('conn_1', later(0))
-        .holdEditor('conn_2', later(EDITOR_LEASE_MS));
+        .holdEditor(editor('conn_1'), later(0))
+        .holdEditor(editor('conn_2'), later(EDITOR_LEASE_MS));
 
       const live = shared.withoutExpiredEditors(later(EDITOR_LEASE_MS));
 
-      expect(live.holdsRun('run_1')).toBe(true);
-      expect(live.holdsEditor('conn_1')).toBe(false);
-      expect(live.holdsEditor('conn_2')).toBe(true);
-      expect(shared.releaseRun('run_1', later(1)).holdsEditor('conn_2')).toBe(
-        true,
-      );
+      expect(live.holdsRun(RunId.of('run_1'))).toBe(true);
+      expect(live.holdsEditor(editor('conn_1'))).toBe(false);
+      expect(live.holdsEditor(editor('conn_2'))).toBe(true);
+      expect(
+        shared
+          .releaseRun(RunId.of('run_1'), later(1))
+          .holdsEditor(editor('conn_2')),
+      ).toBe(true);
     });
 
     it('counts the grace from the moment its last editor leaves', () => {
       const left = idle()
-        .holdEditor('conn_1', later(1_000))
-        .releaseEditor('conn_1', later(GRACE_MS * 3));
+        .holdEditor(editor('conn_1'), later(1_000))
+        .releaseEditor(editor('conn_1'), later(GRACE_MS * 3));
 
       expect(left.leases).toEqual([]);
       expect(left.idleSince).toEqual(later(GRACE_MS * 3));
       expect(left.drainDue(DRAIN_POLICY, later(GRACE_MS * 4 - 1))).toBe(false);
       expect(left.drainDue(DRAIN_POLICY, later(GRACE_MS * 4))).toBe(true);
-      expect(left.releaseEditor('conn_1', later(GRACE_MS * 5))).toBe(left);
+      expect(left.releaseEditor(editor('conn_1'), later(GRACE_MS * 5))).toBe(
+        left,
+      );
     });
 
     it('drops an editor lease nobody renewed, and then drains after the grace', () => {
-      const forgotten = idle().holdEditor('conn_1', later(0));
+      const forgotten = idle().holdEditor(editor('conn_1'), later(0));
       const expiry = later(EDITOR_LEASE_MS);
 
       expect(
@@ -325,7 +445,7 @@ describe('Sandbox', () => {
       const dropped = forgotten.drainedWhenDue(DRAIN_POLICY, expiry);
 
       expect(dropped.leases).toEqual([]);
-      expect(dropped.current).toBe('ready');
+      expect(dropped.statusOn(reporting)).toBe('ready');
       expect(dropped.idleSince).toEqual(expiry);
       expect(
         dropped.drainedWhenDue(
@@ -336,7 +456,10 @@ describe('Sandbox', () => {
     });
 
     it('drains at the editor limit even while an editor renews its lease', () => {
-      const renewed = idle().holdEditor('conn_1', later(EDITOR_LIMIT_MS - 1));
+      const renewed = idle().holdEditor(
+        editor('conn_1'),
+        later(EDITOR_LIMIT_MS - 1),
+      );
 
       expect(
         renewed.drainedWhenDue(DRAIN_POLICY, later(EDITOR_LIMIT_MS)).current,
@@ -349,30 +472,31 @@ describe('Sandbox', () => {
         workspaceId: WorkspaceId.of('ws_1'),
         key: SandboxKey.of('task-task_1'),
         at: STARTED_AT,
-      }).holdEditor('conn_1', later(1_000));
+      }).holdEditor(editor('conn_1'), later(1_000));
 
-      expect(requested.holdsEditor('conn_1')).toBe(true);
+      expect(requested.holdsEditor(editor('conn_1'))).toBe(true);
       expect(
         Sandbox.rehydrate({
           id: requested.id,
           workspaceId: requested.workspaceId,
           key: requested.key,
           hostId: null,
+          source: null,
           tokenHash: null,
-          state: 'starting',
+          state: 'open',
           leases: requested.leases,
           idleSince: requested.idleSince,
           startedAt: requested.startedAt,
           goneAt: null,
           version: 0,
-        }).holdsEditor('conn_1'),
+        }).holdsEditor(editor('conn_1')),
       ).toBe(true);
     });
 
     it('takes no editor once it drains', () => {
-      expect(() => idle().drain().holdEditor('conn_1', later(1_000))).toThrow(
-        InconsistentStateError,
-      );
+      expect(() =>
+        idle().drain().holdEditor(editor('conn_1'), later(1_000)),
+      ).toThrow(InconsistentStateError);
     });
   });
 });

@@ -1,4 +1,5 @@
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { InvalidToolError } from '@work/domain/exceptions/invalid-tool.error';
 import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
@@ -6,7 +7,6 @@ import {
   DeclaredTool,
   type ToolInput,
 } from '@work/domain/value-objects/declared-tool.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { describe, expect, it } from 'vitest';
 
 const input = (over: Partial<ToolInput> = {}): ToolInput => ({

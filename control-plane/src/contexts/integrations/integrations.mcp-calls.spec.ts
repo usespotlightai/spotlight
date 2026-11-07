@@ -5,8 +5,6 @@ import type {
 } from '@integrations/application/ports/integration-runtime.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
-import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
-import { ToolAskedMidCallError } from '@integrations/domain/exceptions/tool-asked-mid-call.error';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
@@ -19,6 +17,8 @@ import {
   McpUnauthorizedError,
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import type { McpSessions } from '@integrations/infrastructure/mcp/mcp-sessions';
+import { ToolAskedMidCallError } from '@integrations/infrastructure/mcp/tool-asked-mid-call.error';
+import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';

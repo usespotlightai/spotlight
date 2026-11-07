@@ -3,8 +3,10 @@ import { HarnessProfileDeleted } from '@configuration/domain/events/harness-prof
 import { HarnessProfileUpdated } from '@configuration/domain/events/harness-profile-updated.event';
 import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harness-profile-in-use.error';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
+import { IncompatibleHarnessProfileError } from '@configuration/domain/exceptions/incompatible-harness-profile.error';
 import { MissingSecretsError } from '@configuration/domain/exceptions/missing-secrets.error';
 import { missingSecrets } from '@configuration/domain/services/missing-secrets';
+import type { HarnessCompatibility } from '@configuration/domain/value-objects/harness-compatibility.vo';
 import type { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import type { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
@@ -34,10 +36,18 @@ export interface ParsedProfile {
   readonly settings: ProfileSettings;
 }
 
-const rejectMissing = (
+const rejectUnusable = (
   parsed: ParsedProfile,
   existing: readonly SecretName[],
+  compatibility: HarnessCompatibility,
 ): void => {
+  if (!compatibility.isCompatible) {
+    throw new IncompatibleHarnessProfileError(
+      parsed.key.value,
+      compatibility.incompatibilities,
+    );
+  }
+
   const missing = missingSecrets(parsed.settings, existing);
 
   if (missing.length > 0) {
@@ -56,9 +66,10 @@ export class HarnessProfile extends EventRecorder {
       teamId: TeamId;
       by: ChangeActor;
       existingSecrets: readonly SecretName[];
+      compatibility: HarnessCompatibility;
     },
   ): HarnessProfile {
-    rejectMissing(input, input.existingSecrets);
+    rejectUnusable(input, input.existingSecrets, input.compatibility);
 
     const created = new HarnessProfile({
       id: input.id,
@@ -102,6 +113,7 @@ export class HarnessProfile extends EventRecorder {
     parsed: ParsedProfile,
     by: ChangeActor,
     existingSecrets: readonly SecretName[],
+    compatibility: HarnessCompatibility,
   ): HarnessProfile {
     this.guardLive();
 
@@ -115,7 +127,7 @@ export class HarnessProfile extends EventRecorder {
       );
     }
 
-    rejectMissing(parsed, existingSecrets);
+    rejectUnusable(parsed, existingSecrets, compatibility);
 
     const updated = this.with({ settings: parsed.settings });
 

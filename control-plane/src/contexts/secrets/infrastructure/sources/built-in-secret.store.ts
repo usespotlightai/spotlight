@@ -3,7 +3,7 @@ import type {
   SecretReference,
   SecretSourcePort,
 } from '@secrets/application/ports/secret-source.port';
-import { UnreadableSecretError } from '@secrets/domain/exceptions/unreadable-secret.error';
+import { UnreadableSecretError } from '@secrets/application/errors/unreadable-secret.error';
 import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import {
   DecryptionFailedError,

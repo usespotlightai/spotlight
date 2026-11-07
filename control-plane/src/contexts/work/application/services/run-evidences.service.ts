@@ -1,8 +1,10 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { JournalStep } from '@work/application/contracts/run-journal.contract';
 import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
 import type { ContentHashPort } from '@work/application/ports/content-hash.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type {
   EvidencedHunk,
   EvidencedRun,
@@ -11,15 +13,13 @@ import type {
   StationJudgeSettings,
 } from '@work/application/ports/run-evidence.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { hunksOf } from '@work/domain/services/change-hunks';
 import { workspacePath } from '@work/domain/services/workspace-path';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import type { StationJudge } from '@work/domain/value-objects/station-judge.vo';
+import type { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 const MAX_TEXT = 4_000;
 
@@ -80,7 +80,7 @@ export class RunEvidences implements RunEvidencePort {
   constructor(
     private readonly runs: RunRepository,
     private readonly tasks: TaskRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly journals: RunJournalReaderPort,
     private readonly briefed: BriefedTasksPort,
     private readonly hash: ContentHashPort,
@@ -165,7 +165,10 @@ export class RunEvidences implements RunEvidencePort {
     );
   }
 
-  private settingsOf(line: Line, judge: StationJudge): StationJudgeSettings {
+  private settingsOf(
+    line: LineMap,
+    judge: JudgeSettings,
+  ): StationJudgeSettings {
     return {
       teamId: line.teamId.value,
       lineId: line.id.value,

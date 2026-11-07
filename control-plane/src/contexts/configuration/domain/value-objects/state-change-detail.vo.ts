@@ -21,8 +21,8 @@ export class StateChangeDetail implements ChangeDetail {
 
     return new StateChangeDetail({
       released: forced ? 'forced' : 'held-by-another',
-      lock: lock.id,
-      heldBy: lock.lockedBy,
+      lock: lock.id.value,
+      heldBy: lock.lockedBy.value,
       operation: typeof operation === 'string' ? operation : null,
     });
   }

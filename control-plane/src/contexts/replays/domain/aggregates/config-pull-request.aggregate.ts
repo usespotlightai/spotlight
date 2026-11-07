@@ -5,7 +5,9 @@ import { ConfigPullRequestMerged } from '@replays/domain/events/config-pull-requ
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
 import { ConfigPullRequestReopened } from '@replays/domain/events/config-pull-request-reopened.event';
 import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
+import { ConfigPullRequestTransitionError } from '@replays/domain/exceptions/config-pull-request-transition.error';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
+import type { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ConfigPullRequestDetail } from '@replays/domain/value-objects/config-pull-request-detail.vo';
 import type { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
@@ -77,12 +79,12 @@ interface State {
   readonly candidateId: CandidateId;
   readonly station: ReplayedStation;
   readonly stationKey: string;
-  readonly candidateName: string;
-  readonly repository: string | null;
+  readonly candidateName: CandidateName;
+  readonly repository: Repository | null;
   readonly path: string | null;
   readonly branch: string;
   readonly state: ConfigPullRequestState;
-  readonly url: string | null;
+  readonly url: PullRequestUrl | null;
   readonly number: number | null;
   readonly gitHubId: number | null;
   readonly basedOn: StationFingerprint | null;
@@ -113,8 +115,8 @@ export class ConfigPullRequest extends EventRecorder {
     super();
   }
 
-  static branchFor(searchId: SearchId, candidateName: string): string {
-    return `spotlight/search-${searchId.value.slice(0, SEARCH_PREFIX)}-${slugOf(candidateName)}`;
+  static branchFor(searchId: SearchId, candidateName: CandidateName): string {
+    return `spotlight/search-${searchId.value.slice(0, SEARCH_PREFIX)}-${slugOf(candidateName.value)}`;
   }
 
   static pick(input: {
@@ -123,7 +125,7 @@ export class ConfigPullRequest extends EventRecorder {
     candidateId: CandidateId;
     station: ReplayedStation;
     stationKey: string;
-    candidateName: string;
+    candidateName: CandidateName;
     lineKey: string;
     source: ConfigSourceOf | null;
     at: Date;
@@ -235,7 +237,7 @@ export class ConfigPullRequest extends EventRecorder {
     | 'updatedAt'
   > {
     return {
-      repository: source?.repository.value ?? null,
+      repository: source?.repository ?? null,
       path: source?.path ?? null,
       state: source ? 'opening' : 'failed',
       url: null,
@@ -281,11 +283,11 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.stationKey;
   }
 
-  get candidateName(): string {
+  get candidateName(): CandidateName {
     return this.state.candidateName;
   }
 
-  get repository(): string | null {
+  get repository(): Repository | null {
     return this.state.repository;
   }
 
@@ -301,7 +303,7 @@ export class ConfigPullRequest extends EventRecorder {
     return this.state.state;
   }
 
-  get url(): string | null {
+  get url(): PullRequestUrl | null {
     return this.state.url;
   }
 
@@ -336,9 +338,7 @@ export class ConfigPullRequest extends EventRecorder {
   get gitHubPullRequest(): GitHubPullRequest | null {
     const { repository, number } = this.state;
 
-    return repository && number !== null
-      ? { repository: Repository.of(repository), number }
-      : null;
+    return repository && number !== null ? { repository, number } : null;
   }
 
   get isOpen(): boolean {
@@ -396,8 +396,8 @@ export class ConfigPullRequest extends EventRecorder {
 
     const next = this.with({
       state: 'opened',
-      repository: opened.repository.value,
-      url: opened.url.value,
+      repository: opened.repository,
+      url: opened.url,
       number: opened.number,
       gitHubId: opened.gitHubId,
       basedOn: opened.basedOn,
@@ -616,14 +616,19 @@ export class ConfigPullRequest extends EventRecorder {
   }
 
   delete(): ConfigPullRequest {
-    return new ConfigPullRequest(this.state, true);
+    const deleted = new ConfigPullRequest(this.state, true);
+
+    deleted.inheritEvents(this);
+
+    return deleted;
   }
 
   private mustBe(...states: readonly ConfigPullRequestState[]): void {
     if (!states.includes(this.state.state)) {
-      throw new InconsistentStateError(
-        AGGREGATE,
-        `is ${this.state.state}, not ${states.join(' or ')}`,
+      throw new ConfigPullRequestTransitionError(
+        this.state.id.value,
+        this.state.state,
+        states,
       );
     }
   }
@@ -641,7 +646,7 @@ export class ConfigPullRequest extends EventRecorder {
     const detail = ConfigPullRequestDetail.of({
       searchId: this.state.searchId.value,
       candidateId: this.state.candidateId.value,
-      candidate: this.state.candidateName,
+      candidate: this.state.candidateName.value,
     });
 
     return new ConfigPullRequestRequested(

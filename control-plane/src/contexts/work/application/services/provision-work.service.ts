@@ -14,8 +14,10 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { OncePer } from '@shared-kernel/application/services/once-per';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type {
   CheckProvisioningPort,
   WaitingCheck,
@@ -342,8 +344,8 @@ export class ProvisionWork {
       () =>
         this.provisioned(pool, runnerId, {
           work: { kind: 'run', id: reserved.id.value },
-          runId: reserved.id.value,
-          taskId: reserved.taskId?.value ?? null,
+          runId: reserved.id,
+          taskId: reserved.taskId ?? null,
           placement: reserved.placement,
           needsEgress: reserved.injectsSecrets,
           claimBy: reservation.until,
@@ -383,7 +385,7 @@ export class ProvisionWork {
       () =>
         this.provisioned(pool, runnerId, {
           work: { kind: 'check', id: check.stackId },
-          runId: check.runId,
+          runId: RunId.of(check.runId),
           taskId: null,
           placement: check.placement,
           needsEgress: false,
@@ -408,8 +410,8 @@ export class ProvisionWork {
     runnerId: RunnerId,
     reserved: {
       readonly work: LeasedWork;
-      readonly runId: string;
-      readonly taskId: string | null;
+      readonly runId: RunId;
+      readonly taskId: TaskId | null;
       readonly placement: RunnerPlacement;
       readonly needsEgress: boolean;
       readonly claimBy: Date;

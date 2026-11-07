@@ -15,6 +15,7 @@ import {
   ReviewCommentResponseDto,
   ReviewResponseDto,
 } from '@change-review/presentation/http/dto/review.response.dto';
+import { deliveryFailureText } from '@change-review/presentation/http/mappers/delivery-failure.text';
 import {
   Body,
   Controller,
@@ -39,7 +40,7 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 
 @ApiTags('reviews')
 @ApiParam({ name: 'teamId', type: String })
@@ -70,8 +71,20 @@ export class ReviewController {
 
     return new CodeReviewResponseDto(
       found.pullRequest,
-      found.comments.map((each) => new ReviewCommentResponseDto(each)),
-      found.reviews.map((each) => new ReviewResponseDto(each)),
+      found.comments.map(
+        (each) =>
+          new ReviewCommentResponseDto({
+            ...each,
+            failure: deliveryFailureText(each.failure, 'comment'),
+          }),
+      ),
+      found.reviews.map(
+        (each) =>
+          new ReviewResponseDto({
+            ...each,
+            failure: deliveryFailureText(each.failure, 'review'),
+          }),
+      ),
     );
   }
 
@@ -95,25 +108,13 @@ export class ReviewController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CreatedIdResponseDto> {
     const id = await this.commandBus.execute<DraftReviewCommentCommand, string>(
-      new DraftReviewCommentCommand(
-        teamId,
-        runId,
-        user.id,
-        body.body ?? '',
-        body.replyTo
-          ? { replyTo: body.replyTo }
-          : body.line === undefined
-            ? { file: body.path ?? '' }
-            : {
-                path: body.path ?? '',
-                side: body.side ?? '',
-                line: Number(body.line),
-                startLine:
-                  body.startLine === undefined || body.startLine === null
-                    ? null
-                    : Number(body.startLine),
-              },
-      ),
+      new DraftReviewCommentCommand(teamId, runId, user.id, body.body ?? '', {
+        replyTo: body.replyTo ?? null,
+        path: body.path ?? '',
+        side: body.side ?? null,
+        line: body.line ?? null,
+        startLine: body.startLine ?? null,
+      }),
     );
 
     return new CreatedIdResponseDto(id);

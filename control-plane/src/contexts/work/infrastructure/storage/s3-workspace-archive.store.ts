@@ -8,6 +8,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import type { Env } from '@platform/config/env.schema';
 import { headObject, s3ClientsOf } from '@platform/storage/s3-clients';
+import { StorageNotConfiguredError } from '@work/application/errors/storage-not-configured.error';
 import type {
   ArchiveUpload,
   WorkspaceArchiveStorePort,
@@ -16,7 +17,6 @@ import type {
   StoredArchive,
   WorkspaceArchive,
 } from '@work/domain/aggregates/workspace-archive.aggregate';
-import { InvalidWorkspaceArchiveError } from '@work/domain/exceptions/invalid-workspace-archive.error';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 
@@ -118,9 +118,7 @@ export class S3WorkspaceArchiveStore implements WorkspaceArchiveStorePort {
 
   private assertBucket(): void {
     if (!this.bucket) {
-      throw new InvalidWorkspaceArchiveError(
-        'storage is not configured on this deployment',
-      );
+      throw new StorageNotConfiguredError('Workspace archive');
     }
   }
 }

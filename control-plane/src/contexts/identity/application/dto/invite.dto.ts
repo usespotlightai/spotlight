@@ -14,10 +14,6 @@ export interface InviteOutcomeDto {
   readonly outcome: InviteOutcome;
 }
 
-export interface InviteOutcomesDto {
-  readonly outcomes: readonly InviteOutcomeDto[];
-}
-
 export interface WorkspaceInviteDto {
   readonly id: string;
   readonly email: string;

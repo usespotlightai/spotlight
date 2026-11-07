@@ -1,6 +1,7 @@
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { RunEventReaderPort } from '@work/application/ports/run-event-reader.port';
 import type { RunEventView } from '@work/application/ports/run-stream.port';
 import type { ReadRunEventsQuery } from '@work/application/queries/read-run-events.query';
@@ -15,8 +16,16 @@ export class ReadRunEventsHandler
 
   async execute(query: ReadRunEventsQuery): Promise<RunEventView[]> {
     try {
+      const runId = RunId.of(query.runId);
+
+      if (
+        !(await this.events.findForViewer(runId, UserId.of(query.viewerId)))
+      ) {
+        return [];
+      }
+
       const found = await this.events.eventsSince(
-        RunId.of(query.runId),
+        runId,
         query.attempt,
         Math.max(0, query.afterSeq),
         MAX_TO_REPLAY_ENTRIES,

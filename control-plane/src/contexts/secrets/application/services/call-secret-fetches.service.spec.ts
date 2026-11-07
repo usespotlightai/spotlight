@@ -1,9 +1,9 @@
 import { InvalidRecipientError } from '@secrets/application/errors/invalid-recipient.error';
 import type {
-  RunSealingPort,
   SealedFor,
   SealingRecipient,
-} from '@secrets/application/ports/run-sealing.port';
+  SecretSealingPort,
+} from '@secrets/application/ports/secret-sealing.port';
 import { CallSecretFetches } from '@secrets/application/services/call-secret-fetches.service';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
@@ -18,10 +18,10 @@ import {
   NOW,
   readingFrom,
   WORKSPACE,
-} from '@secrets/secrets.fakes.fake-spec';
+} from '@secrets/testing/secrets.fakes.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
-class SealedInTheOpen implements RunSealingPort {
+class SealedInTheOpen implements SecretSealingPort {
   recipientOf(written: string): SealingRecipient {
     if (written !== 'recipient-key') {
       throw new InvalidRecipientError();
@@ -31,7 +31,7 @@ class SealedInTheOpen implements RunSealingPort {
   }
 
   seal(value: SecretValue, to: SealingRecipient, sealedFor: SealedFor): string {
-    return `sealed(${value.revealed()}|${to.key}|${sealedFor.runId}|${sealedFor.secretName})`;
+    return `sealed(${value.revealed()}|${to.key}|${sealedFor.subject}|${sealedFor.secretName})`;
   }
 }
 
@@ -81,6 +81,11 @@ const setUp = async () => {
     bindings: [{ host: 'sentry.io', name: 'x-sentry-token' }],
   });
   await saved('secret_loose', { name: 'LOOSE', bindings: [] });
+  await saved('secret_slack_user', {
+    name: 'SLACK_USER_TOKEN',
+    value: 'xoxp-1',
+    bindings: [{ host: 'slack.com', prefix: 'Bearer ' }],
+  });
   await saved('secret_lines', {
     name: 'MULTI_LINE',
     value: 'one\ntwo',
@@ -100,6 +105,27 @@ const setUp = async () => {
 };
 
 describe('CallSecretFetches', () => {
+  it('denies a secret injected in the same header for the same host as one before it', async () => {
+    const { fetches } = await setUp();
+
+    const fetched = await fetches.sealedForCall({
+      ...FETCHING,
+      secrets: ['SLACK_BOT_TOKEN', 'SLACK_USER_TOKEN'],
+    });
+
+    expect([...new Set(fetched.secrets.map((each) => each.secret))]).toEqual([
+      'SLACK_BOT_TOKEN',
+    ]);
+    expect(fetched.denied).toEqual([
+      {
+        secret: 'SLACK_USER_TOKEN',
+        reason: expect.stringContaining(
+          'Secrets SLACK_USER_TOKEN and SLACK_BOT_TOKEN are both injected in authorization',
+        ),
+      },
+    ]);
+  });
+
   it('seals a value Spotlight stores for each host it is bound to, bound to the call', async () => {
     const { fetches } = await setUp();
 

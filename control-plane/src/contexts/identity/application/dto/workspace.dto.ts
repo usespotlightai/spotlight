@@ -1,4 +1,4 @@
-import type { WorkspaceSetupStatus } from '@identity/application/ports/workspace-setup-status.port';
+import type { WorkspaceSetupStatus } from '@identity/domain/aggregates/workspace.aggregate';
 
 interface TeamDto {
   readonly id: string;

@@ -33,7 +33,7 @@ export class MemoryReactions {
       }
 
       const supersedes = event.supersedes
-        ? await this.memories.find(event.supersedes)
+        ? ((await this.memories.find(event.supersedes))?.asPredecessor ?? null)
         : null;
 
       await this.memories.add(

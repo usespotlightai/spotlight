@@ -1,5 +1,16 @@
+const BEFORE_BUDGET_MS = 60_000;
+
 export class HookDecision {
   private constructor(readonly denyReason: string | null) {}
+
+  static budgetFrom(at: Date, until: Date | null): Date {
+    return new Date(
+      Math.min(
+        until?.getTime() ?? Number.POSITIVE_INFINITY,
+        at.getTime() + BEFORE_BUDGET_MS,
+      ),
+    );
+  }
 
   static allowed(): HookDecision {
     return new HookDecision(null);

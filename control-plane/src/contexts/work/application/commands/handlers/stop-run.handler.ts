@@ -4,9 +4,10 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { StopRunCommand } from '@work/application/commands/stop-run.command';
-import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
+import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { RunStopPolicy } from '@work/domain/services/run-stop-policy';
 
 export class StopRunHandler
   implements CommandHandlerPort<StopRunCommand, void>
@@ -23,10 +24,12 @@ export class StopRunHandler
       const task = run?.taskId ? await this.tasks.find(run.taskId) : null;
 
       if (
-        !run?.stationId ||
-        !task?.assignedToThem(UserId.of(command.stoppedBy))
+        !run ||
+        !RunStopPolicy.allows(run, task, UserId.of(command.stoppedBy))
       ) {
-        throw new UnknownTaskError(command.runId);
+        throw new UnknownRunError(
+          `Run ${command.runId} is not one you may stop.`,
+        );
       }
 
       const stopping = run.requestStop(this.clock.now());

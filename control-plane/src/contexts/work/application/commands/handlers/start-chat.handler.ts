@@ -6,32 +6,30 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { StartChatCommand } from '@work/application/commands/chat.commands';
 import type { AccessibleRepositoriesPort } from '@work/application/ports/accessible-repositories.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import type { CiSetups } from '@work/application/services/ci-setups.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { ConfigFolderUnreachableError } from '@work/domain/exceptions/config-folder-unreachable.error';
-import { SetupNeedsAnAdminError } from '@work/domain/exceptions/setup-needs-an-admin.error';
-import { SetupNeedsEgressError } from '@work/domain/exceptions/setup-needs-egress.error';
 import { UnknownHarnessError } from '@work/domain/exceptions/unknown-harness.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
+import { admittedSetupFolder } from '@work/domain/services/setup-chat-admission';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
-import { Effort } from '@work/domain/value-objects/effort.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 
 export class StartChatHandler
@@ -43,7 +41,7 @@ export class StartChatHandler
     private readonly chats: ChatRepository,
     private readonly files: FilesLoader,
     private readonly traces: TracesLoader,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly dispatch: ChatDispatching,
     private readonly launch: HarnessLaunchPort,
     private readonly repositories: AccessibleRepositoriesPort,
@@ -74,30 +72,13 @@ export class StartChatHandler
 
       const workspaceId = WorkspaceId.of(member.workspaceId);
       const teamId = TeamId.of(member.teamId);
-      const asked = command.setup ? ConfigFolder.of(command.setup) : null;
-
-      if (
-        asked &&
-        !(
-          await this.access.permissionsIn(
+      const asked = command.setup
+        ? await this.admitted(
+            ConfigFolder.of(command.setup),
             workspaceId,
-            PersonPrincipal.of(startedBy),
+            startedBy,
           )
-        )?.isAdmin
-      ) {
-        throw new SetupNeedsAnAdminError();
-      }
-
-      if (
-        asked &&
-        !(await this.repositories.isAccessible(workspaceId, asked.repository))
-      ) {
-        throw new ConfigFolderUnreachableError(asked.repository.value);
-      }
-
-      if (asked && !(await this.runners.hasEgressCapableRunner(workspaceId))) {
-        throw new SetupNeedsEgressError();
-      }
+        : null;
 
       const setup = asked
         ? asked.withCi(
@@ -118,6 +99,7 @@ export class StartChatHandler
         const chat = Chat.start({
           workspaceId,
           teamId,
+          lines: await this.lines.ofTeam(teamId),
           startedBy,
           harness: HarnessId.of(command.harness),
           model: command.model === null ? null : HarnessModel.of(command.model),
@@ -148,6 +130,24 @@ export class StartChatHandler
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private async admitted(
+    folder: ConfigFolder,
+    workspaceId: WorkspaceId,
+    startedBy: UserId,
+  ): Promise<ConfigFolder> {
+    const [permissions, folderReachable, egressAvailable] = await Promise.all([
+      this.access.permissionsIn(workspaceId, PersonPrincipal.of(startedBy)),
+      this.repositories.isAccessible(workspaceId, folder.repository),
+      this.runners.hasEgressCapableRunner(workspaceId),
+    ]);
+
+    return admittedSetupFolder(folder, {
+      requesterIsAdmin: permissions?.isAdmin ?? false,
+      folderReachable,
+      egressAvailable,
+    });
   }
 
   private async targetStationOf(stationId: string): Promise<TargetStation> {

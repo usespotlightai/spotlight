@@ -47,23 +47,23 @@ const provisioning = (
   const save = vi.fn(async (check: StackCheck) => {
     if (conflicting > 0) {
       conflicting -= 1;
-      throw new StackCheckVersionConflictError(check.stackId.value);
+      throw new StackCheckVersionConflictError(check.id);
     }
     stored.set(check.stackId.value, check);
   });
-  const awaitingProvision = vi.fn(async () => listed);
-  const withExpiredReservations = vi.fn(async () => listed);
+  const waitingIn = vi.fn(async () => listed);
+  const reserved = vi.fn(async () => listed);
 
   return {
     find,
     save,
-    awaitingProvision,
+    waitingIn,
     check: (stack: string) => stored.get(stack) as StackCheck,
     service: new ProvisionChangeStackChecks({
-      open: find,
+      latestOf: find,
       save,
-      awaitingProvision,
-      withExpiredReservations,
+      waitingIn,
+      reserved,
     } as unknown as StackCheckRepository),
   };
 };
@@ -73,7 +73,7 @@ describe('ProvisionChangeStackChecks', () => {
     const retryScheduled = waiting('stack_3')
       .reservedFor(RUNNER, PoolId.of('pool_burst'), NOW)
       .provisionFailed(RUNNER, HTTP_ERROR, NOW);
-    const { service, awaitingProvision } = provisioning([
+    const { service, waitingIn } = provisioning([
       waiting('stack_1', ['gpu']),
       waiting('stack_2').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
       retryScheduled,
@@ -94,14 +94,22 @@ describe('ProvisionChangeStackChecks', () => {
         placement: RunnerPlacement.of(['gpu']),
       },
     ]);
-    expect(awaitingProvision).toHaveBeenCalledWith(
-      WorkspaceId.of('ws_1'),
-      NOW,
-      {
-        skip: 0,
-        max: 200,
-      },
-    );
+    expect(waitingIn).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
+  });
+
+  it('offers one page of the checks waiting to be provisioned at a time', async () => {
+    const { service } = provisioning([
+      waiting('stack_1'),
+      waiting('stack_2'),
+      waiting('stack_3'),
+    ]);
+
+    const offered = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
+      skip: 1,
+      max: 1,
+    });
+
+    expect(offered.map((each) => each.stackId)).toEqual(['stack_2']);
   });
 
   it('reserves a waiting check for the runner and says until when', async () => {

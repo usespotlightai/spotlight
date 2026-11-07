@@ -9,13 +9,13 @@ import {
   within,
 } from '@insights/domain/value-objects/insights-period.vo';
 import {
+  PULL_REQUEST_STATES,
+  type PullRequestState,
+} from '@insights/domain/value-objects/pull-request-state';
+import {
   RUN_ENDINGS,
   type RunEnding,
 } from '@insights/domain/value-objects/run-ending';
-import {
-  TASK_PULL_REQUEST_STATES,
-  type TaskPullRequestState,
-} from '@insights/domain/value-objects/task-pull-request-state';
 
 export const HARNESS_DEFAULT_MODEL = '~default';
 
@@ -78,7 +78,7 @@ export interface RunFilter {
   readonly failedAfter: string | null;
   readonly dismissedTool: string | null;
   readonly dismissedServer: Narrowing;
-  readonly pullRequestState: TaskPullRequestState | null;
+  readonly pullRequestState: PullRequestState | null;
   readonly humanAction: TaskAction | null;
   readonly askedWithin: Window | null;
 }
@@ -241,7 +241,7 @@ export const runFilterOf = (
     'dismissed server',
   ),
   pullRequestState: oneOf(
-    TASK_PULL_REQUEST_STATES,
+    PULL_REQUEST_STATES,
     query.pullRequestState,
     'pull request state',
   ),
@@ -266,27 +266,3 @@ export const narrowsEndedOnly = (filter: RunFilter): boolean =>
   filter.pullRequestState !== null ||
   filter.humanAction !== null ||
   filter.askedWithin !== null;
-
-export const EVERY_RUN: RunFilter = {
-  lineId: null,
-  stationId: null,
-  outcome: null,
-  harness: null,
-  model: { kind: 'any' },
-  repository: { kind: 'any' },
-  fingerprint: null,
-  taskIds: null,
-  personId: null,
-  day: null,
-  week: null,
-  skillEnabled: null,
-  skillUsed: null,
-  server: null,
-  serverFailed: null,
-  failedAfter: null,
-  dismissedTool: null,
-  dismissedServer: { kind: 'any' },
-  pullRequestState: null,
-  humanAction: null,
-  askedWithin: null,
-};

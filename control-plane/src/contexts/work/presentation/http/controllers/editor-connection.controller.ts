@@ -15,9 +15,8 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import { EDITOR_CONNECTIONS } from '@platform/http/routes';
 import type { EditorLease } from '@runners/application/ports/editor-leases.port';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import {
   ConnectEditorCommand,
   type EditorTarget,
@@ -41,7 +40,7 @@ const targetOf = (body: ConnectEditorRequestDto): EditorTarget => {
 
 @ApiTags('editor-connections')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
-@Controller(EDITOR_CONNECTIONS)
+@Controller('editor-connections')
 export class EditorConnectionController {
   constructor(private readonly commandBus: CommandBus) {}
 

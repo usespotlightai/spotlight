@@ -18,6 +18,6 @@ export class SearchRequest {
   }
 
   isNamed(name: CandidateName): boolean {
-    return this.name.value.toLowerCase() === name.value.toLowerCase();
+    return this.name.equals(name);
   }
 }

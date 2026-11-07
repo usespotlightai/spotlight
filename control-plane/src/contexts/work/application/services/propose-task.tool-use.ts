@@ -1,11 +1,11 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { Attached } from '@work/application/rendering/attached';
 import type { AttachmentCopies } from '@work/application/services/attachment-copies';
 import type { BuiltInToolUse } from '@work/application/services/built-in-tools.service';
 import { UnknownChatError } from '@work/domain/exceptions/unknown-chat.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { PROPOSE_TASK } from '@work/domain/services/built-in-tools';
 import { proposalPlacementWithin } from '@work/domain/services/proposal-placement-within';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -17,7 +17,7 @@ export class ProposeTaskToolUse implements BuiltInToolUse<ChatToolContext> {
 
   constructor(
     private readonly chats: ChatRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly copies: AttachmentCopies,
     private readonly clock: ClockPort,
   ) {}

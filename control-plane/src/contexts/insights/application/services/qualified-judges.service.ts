@@ -1,7 +1,7 @@
-import type { JudgeCalibrationPort } from '@insights/application/ports/judge-calibration.port';
+import type { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import type { JudgeCalibration } from '@insights/domain/services/judge-calibration';
-import type { TeamAccess } from '@insights/domain/services/team-access';
-import type { StationLocation } from '@insights/domain/services/team-history';
+import type { StationLocation } from '@insights/domain/services/station-ranking';
+import type { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
 
 export interface StationJudgeCalibration
   extends StationLocation,
@@ -15,7 +15,9 @@ export interface JudgeCalibrations {
 }
 
 export class QualifiedJudges {
-  constructor(private readonly judges: JudgeCalibrationPort) {}
+  constructor(
+    private readonly judges: Pick<StationJudgeReports, 'calibrationsOf'>,
+  ) {}
 
   async calibrations(
     access: TeamAccess,

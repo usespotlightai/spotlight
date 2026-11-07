@@ -6,8 +6,8 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
-  Arriving,
   Happened,
+  InboundAttachment,
 } from '@work/application/contracts/happenings.contract';
 import {
   HappenedMapper,
@@ -15,6 +15,7 @@ import {
 } from '@work/application/mappers/happened.mapper';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
@@ -22,12 +23,10 @@ import {
   type ChannelAnswer,
   ChannelChats,
 } from '@work/application/services/channel-chats.service';
+import { correlatedTask } from '@work/application/services/correlated-task';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { reassignTaskMarks } from '@work/application/services/task-marks';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Placement } from '@work/domain/services/placement';
 import {
@@ -39,9 +38,9 @@ import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -70,7 +69,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
   constructor(
     private readonly tasks: TaskRepository,
     private readonly placements: TaskPlacementsPort,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly dispatch: TaskDispatching,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
@@ -140,7 +139,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
   private async storedAttachments(
     workspaceId: WorkspaceId,
-    arriving: readonly Arriving[],
+    arriving: readonly InboundAttachment[],
   ): Promise<Attachment[]> {
     const stored: Attachment[] = [];
 
@@ -194,7 +193,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return null;
     }
 
-    const task = await this.tasks.findByMarks(
+    const task = await correlatedTask(
+      this.tasks,
       workspaceId,
       happened.correlationKeys,
     );
@@ -305,16 +305,16 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return answered('chat.refused', ChannelReplies.nothingSaid);
     }
 
-    const rule = line.reactionTo(happened.payload.happening, task.stationId);
-    const to = (rule && line.stationAt(rule.to)?.id) ?? task.stationId;
+    const to = task.reopensAt(line, happened.payload.happening);
     const reopened = task.reopen(
       line,
-      to,
-      Placement.atTheTop(
+      happened.payload.happening,
+      Placement.entering(
+        'reacted',
         (await this.placements.placementsAt(to)).map((each) => each.rank),
       ),
       {
-        station: line.stationAt(task.stationId)?.name ?? StationName.unknown(),
+        station: line.stationAt(task.stationId) ?? null,
         body: TaskNoteBody.receivedHappening(happened.payload.summary, anchor),
         at: this.clock.now(),
         voice: Voice.person(speaker),
@@ -359,7 +359,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
         workspaceId,
         Mark.pullRequest(request.pullRequest),
       ),
-      reviewTask: await this.tasks.findByMarks(
+      reviewTask: await correlatedTask(
+        this.tasks,
         workspaceId,
         happened.correlationKeys,
       ),
@@ -378,7 +379,11 @@ export class ReactToHappenings implements HappeningReactionsPort {
 
     if (answer.kind === 'opens') {
       await this.openOn(workspaceId, answer.on, happened, attachments, (task) =>
-        task.reviews(request.pullRequest, { outside: request.outside }),
+        task.reviews(
+          request.pullRequest,
+          { outside: request.outside },
+          this.clock.now(),
+        ),
       );
     }
   }
@@ -390,7 +395,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     const correlationKeys = CorrelationKeys.of({ marks: [mark] });
 
     return correlationKeys
-      ? this.tasks.findByMarks(workspaceId, correlationKeys)
+      ? correlatedTask(this.tasks, workspaceId, correlationKeys)
       : null;
   }
 
@@ -401,14 +406,14 @@ export class ReactToHappenings implements HappeningReactionsPort {
     const correlationKeys = CorrelationKeys.of({ branch: branch.value });
 
     return correlationKeys
-      ? this.tasks.findByMarks(workspaceId, correlationKeys)
+      ? correlatedTask(this.tasks, workspaceId, correlationKeys)
       : null;
   }
 
   private async linesOf(
     workspaceId: WorkspaceId,
     teamId: TeamId | null,
-  ): Promise<readonly Line[]> {
+  ): Promise<readonly LineMap[]> {
     return teamId
       ? this.lines.ofTeam(teamId)
       : this.lines.ofWorkspace(workspaceId);
@@ -460,10 +465,11 @@ export class ReactToHappenings implements HappeningReactionsPort {
     const assignee = happened.opens?.assignEmail
       ? await this.members.byEmail(workspaceId, happened.opens.assignEmail)
       : null;
+    const now = this.clock.now();
 
     const added = shaped(
       opening.marks.reduce(
-        (task, mark) => task.markedBy(mark),
+        (task, mark) => task.markedBy(mark, now),
         Task.add({
           line,
           at: opening.at.id,
@@ -471,12 +477,13 @@ export class ReactToHappenings implements HappeningReactionsPort {
           description: opening.description,
           attachments,
           receivedFrom: happened.payload.happening,
-          rank: Placement.atTheBack(
+          rank: Placement.entering(
+            'opened',
             (await this.placements.placementsAt(opening.at.id)).map(
               (each) => each.rank,
             ),
           ),
-          now: this.clock.now(),
+          now,
           newId: () => this.ids.generate(),
         }),
       ),
@@ -489,7 +496,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
       : null;
 
     const stored = runId ? opened.assignRun(runId, line) : opened;
-    await reassignTaskMarks(this.tasks, stored);
     await this.tasks.add(stored);
   }
 
@@ -507,7 +513,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
   private async applied(
     reaction: Outcome,
     task: Task,
-    line: Line,
+    line: LineMap,
     attachments: readonly Attachment[],
     authorEmail: string | null,
   ): Promise<Task | null> {
@@ -547,7 +553,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
     return task.react(
       line,
       reaction.to.id,
-      Placement.atTheTop(
+      Placement.entering(
+        'reacted',
         (await this.placements.placementsAt(reaction.to.id)).map(
           (each) => each.rank,
         ),

@@ -1,6 +1,7 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
   check,
   index,
   integer,
@@ -11,13 +12,25 @@ import {
   unique,
 } from 'drizzle-orm/pg-core';
 
-export const integrationCursor = pgTable(
-  'integration_cursor',
+export const pollCursor = pgTable(
+  'poll_cursor',
   {
     teamId: text('team_id').notNull(),
     integration: text('integration').notNull(),
     cursor: text('cursor'),
-    ranAt: timestamptz('ran_at'),
+    polledAt: timestamptz('polled_at'),
+    version: integer('version').notNull().default(1),
+  },
+  (table) => [primaryKey({ columns: [table.teamId, table.integration] })],
+);
+
+export const scheduleCursor = pgTable(
+  'schedule_cursor',
+  {
+    teamId: text('team_id').notNull(),
+    integration: text('integration').notNull(),
+    ranAt: timestamptz('ran_at').notNull(),
+    version: integer('version').notNull().default(1),
   },
   (table) => [primaryKey({ columns: [table.teamId, table.integration] })],
 );
@@ -37,7 +50,7 @@ export const integrationConnection = pgTable(
     refreshFailedAt: timestamptz('refresh_failed_at'),
     refreshClaimedUntil: timestamptz('refresh_claimed_until'),
     version: integer('version').notNull().default(1),
-    connectedAt: timestamptz('connected_at').notNull().defaultNow(),
+    connectedAt: timestamptz('connected_at').notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.teamId, table.integration, table.owner] }),
@@ -94,7 +107,7 @@ export const oauth2ClientRegistration = pgTable(
     clientSecret: text('client_secret'),
     secretExpiresAt: timestamptz('secret_expires_at'),
     version: integer('version').notNull().default(1),
-    registeredAt: timestamptz('registered_at').notNull().defaultNow(),
+    registeredAt: timestamptz('registered_at').notNull(),
   },
   (table) => [primaryKey({ columns: [table.teamId, table.integration] })],
 );
@@ -117,6 +130,7 @@ export const integrationDefinition = pgTable(
     specReadAt: timestamptz('spec_read_at'),
     specProblem: text('spec_problem'),
     specSkipped: jsonb('spec_skipped').$type<string[]>(),
+    relistsTools: boolean('relists_tools').notNull().default(false),
     version: integer('version').notNull().default(1),
     updatedAt: timestamptz('updated_at')
       .defaultNow()
@@ -132,6 +146,7 @@ export const specDocument = pgTable('spec_document', {
   operations: integer('operations').notNull(),
   skipped: jsonb('skipped').$type<string[]>().notNull(),
   readAt: timestamptz('read_at').notNull(),
+  version: integer('version').notNull().default(1),
 });
 
 export const specOperation = pgTable(

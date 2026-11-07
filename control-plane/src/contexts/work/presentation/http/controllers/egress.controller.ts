@@ -9,7 +9,7 @@ import {
   UnauthorizedException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { CommandBus } from '@nestjs/cqrs';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -22,9 +22,8 @@ import {
 } from '@nestjs/swagger';
 import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import {
-  AuthorizeRunnerCommand,
-  CheckActiveRunsCommand,
   FetchRunSecretsCommand,
   FetchSharedRunSecretsCommand,
   RecordEgressConnectionsCommand,
@@ -35,6 +34,10 @@ import type {
 } from '@work/application/dto/egress-authorization.dto';
 import type { EgressConnectionsRecordedDto } from '@work/application/dto/egress-connections.dto';
 import type { EgressSecretsDto } from '@work/application/dto/egress-secrets.dto';
+import {
+  ActiveRunsQuery,
+  AuthorizeRunnerQuery,
+} from '@work/application/queries/egress.queries';
 import {
   AuthorizeRunnerRequestDto,
   CheckActiveRunsRequestDto,
@@ -87,9 +90,13 @@ const records = (
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @AllowAnonymous()
+@InAudience('hosts')
 @Controller('egress')
 export class EgressController {
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
+  ) {}
 
   @Post('secrets')
   @HttpCode(HttpStatus.OK)
@@ -149,11 +156,11 @@ export class EgressController {
     @Headers('authorization') authorization: string | undefined,
     @Body() body: AuthorizeRunnerRequestDto,
   ): Promise<EgressAuthorizationResponseDto> {
-    const authorized = await this.commandBus.execute<
-      AuthorizeRunnerCommand,
+    const authorized = await this.queryBus.execute<
+      AuthorizeRunnerQuery,
       EgressAuthorizationDto
     >(
-      new AuthorizeRunnerCommand(
+      new AuthorizeRunnerQuery(
         bearerIn(authorization),
         typeof body?.proxyCredential === 'string' ? body.proxyCredential : '',
       ),
@@ -188,11 +195,11 @@ export class EgressController {
     @Headers('authorization') authorization: string | undefined,
     @Body() body: CheckActiveRunsRequestDto,
   ): Promise<EgressActiveRunsResponseDto> {
-    const checked = await this.commandBus.execute<
-      CheckActiveRunsCommand,
+    const checked = await this.queryBus.execute<
+      ActiveRunsQuery,
       EgressActiveRunsDto
     >(
-      new CheckActiveRunsCommand(
+      new ActiveRunsQuery(
         bearerIn(authorization),
         texts(body?.proxyCredentials),
       ),

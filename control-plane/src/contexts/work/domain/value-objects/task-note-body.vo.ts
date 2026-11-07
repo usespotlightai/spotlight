@@ -1,7 +1,7 @@
+import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { InvalidTaskNoteError } from '@work/domain/exceptions/invalid-task-note.error';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
-import type { StationName } from '@work/domain/value-objects/station-name.vo';
 
 export class TaskNoteBody {
   private constructor(readonly value: string) {}

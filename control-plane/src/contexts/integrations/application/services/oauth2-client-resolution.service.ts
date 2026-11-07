@@ -102,6 +102,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
       clientId: answered.clientId,
       clientSecret: AccessToken.maybe(answered.clientSecret),
       secretExpiresAt: answered.secretExpiresAt,
+      registeredAt: this.clock.now(),
     });
 
     try {

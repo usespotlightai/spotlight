@@ -30,9 +30,9 @@ export class IssuedTokens {
 
   async expireDue(): Promise<number> {
     const now = this.clock.now();
-    const expired = await this.tokens.issuedAndExpiredBy(now, EXPIRE_BATCH);
+    const expired = await this.tokens.dueToExpireBy(now, EXPIRE_BATCH);
 
-    for (const token of expired) {
+    for (const token of expired.filter((each) => each.isDueToExpireAt(now))) {
       await this.ignoringVersionConflict(() =>
         this.transaction.inTransaction(() =>
           this.tokens.save(token.expire(now)),

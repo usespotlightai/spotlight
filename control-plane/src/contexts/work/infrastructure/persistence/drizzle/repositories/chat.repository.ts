@@ -4,12 +4,19 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -27,17 +34,10 @@ import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
-import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -277,6 +277,32 @@ export class DrizzleChatRepository implements ChatRepository {
     await this.writeMessages(saved);
   }
 
+  async remove(removed: Chat): Promise<void> {
+    await this.context.inTransaction(async () => {
+      const gone = await this.context.db
+        .delete(chat)
+        .where(
+          and(eq(chat.id, removed.id.value), eq(chat.version, removed.version)),
+        )
+        .returning({ id: chat.id });
+
+      if (gone.length === 0) {
+        throw new ChatVersionConflictError(removed.id.value);
+      }
+
+      await this.events.dispatch(removed.pullEvents());
+    });
+  }
+
+  async ofTeam(teamId: TeamId): Promise<Chat[]> {
+    const found = await this.context.db
+      .select()
+      .from(chat)
+      .where(eq(chat.teamId, teamId.value));
+
+    return Promise.all(found.map((each) => this.whole(each)));
+  }
+
   async find(id: ChatId): Promise<Chat | null> {
     const [found] = await this.context.db
       .select()
@@ -287,7 +313,7 @@ export class DrizzleChatRepository implements ChatRepository {
     return found ? this.whole(found) : null;
   }
 
-  async findByMarks(
+  async findByCorrelation(
     workspaceId: WorkspaceId,
     correlationKeys: CorrelationKeys,
   ): Promise<Chat | null> {

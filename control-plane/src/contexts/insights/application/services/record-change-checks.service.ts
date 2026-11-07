@@ -1,7 +1,8 @@
-import type { DeletionsPort } from '@insights/application/ports/deletions.port';
+import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
 import { verdictOf } from '@insights/domain/value-objects/check-verdict';
+import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -11,7 +12,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export class RecordChangeChecks {
   constructor(
     private readonly records: RunRecordRepository,
-    private readonly deletions: DeletionsPort,
+    private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -22,31 +23,20 @@ export class RecordChangeChecks {
     taskId: TaskId | null,
     passed: boolean | null,
   ): Promise<void> {
+    if (!taskId) {
+      return Promise.resolve();
+    }
+
     const verdict = verdictOf(passed);
 
-    return this.transaction.inTransaction(async () => {
-      await this.deletions.lockDeletion(workspaceId, taskId);
-      const existing = await this.records.of(runId);
-
-      if (!existing) {
-        if (await this.deletions.isDeleted(workspaceId, taskId)) {
-          return;
-        }
-
-        await this.records.add(
-          RunRecord.empty(runId, workspaceId, taskId).recordCheck(
-            verdict,
-            this.clock.now(),
-          ),
-        );
-        return;
-      }
-
-      const checked = existing.recordCheck(verdict, this.clock.now());
-
-      if (checked !== existing) {
-        await this.records.save(checked);
-      }
-    });
+    return this.transaction.inTransaction(() =>
+      this.recorder.record(this.records, {
+        owner: FactOwner.of(workspaceId, { taskId }),
+        erased: (existing) => existing.erased(),
+        load: () => this.records.of(runId),
+        fresh: () => RunRecord.empty(runId, workspaceId, taskId),
+        change: (record) => record.recordCheck(verdict, this.clock.now()),
+      }),
+    );
   }
 }

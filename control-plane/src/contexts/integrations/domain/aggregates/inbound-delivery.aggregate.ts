@@ -1,0 +1,215 @@
+import { InvalidInboundDeliveryTransitionError } from '@integrations/domain/exceptions/invalid-inbound-delivery-transition.error';
+import { DELIVERING } from '@integrations/domain/services/delivery-retry';
+import type { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+
+export interface DeliveryAddressee {
+  readonly workspaceId: string;
+  readonly teamId: string;
+  readonly teamKey: string;
+}
+
+export type DeliveryHeaders = Readonly<
+  Record<string, string | string[] | undefined>
+>;
+
+export type InboundDeliveryProgress =
+  | { readonly kind: 'pending'; readonly dueAt: Date }
+  | { readonly kind: 'working'; readonly claimedAt: Date }
+  | { readonly kind: 'done'; readonly at: Date }
+  | { readonly kind: 'failed'; readonly at: Date };
+
+export type InboundDeliveryState = InboundDeliveryProgress['kind'];
+
+export const INBOUND_DELIVERY_STATES = [
+  'pending',
+  'working',
+  'done',
+  'failed',
+] as const satisfies readonly InboundDeliveryState[];
+
+interface Received {
+  readonly integration: IntegrationKey;
+  readonly to: DeliveryAddressee | null;
+  readonly id: string;
+  readonly headers: DeliveryHeaders;
+  readonly body: unknown;
+  readonly causeFiringId: string | null;
+}
+
+interface State extends Received {
+  readonly receivedAt: Date;
+  readonly progress: InboundDeliveryProgress;
+  readonly attempts: number;
+  readonly failure: string | null;
+  readonly version: number;
+}
+
+const LEASE_MS = 10 * 60 * 1000;
+
+export class InboundDelivery {
+  private constructor(private readonly state: State) {}
+
+  static receive(input: Received, now: Date): InboundDelivery {
+    if (input.id.trim() === '') {
+      throw new InconsistentStateError(
+        'inbound delivery',
+        `from ${input.integration.value} names no delivery id`,
+      );
+    }
+
+    return new InboundDelivery({
+      ...input,
+      causeFiringId: input.causeFiringId?.trim() || null,
+      headers: deepFrozen(structuredClone(input.headers)),
+      receivedAt: now,
+      progress: { kind: 'pending', dueAt: now },
+      attempts: 0,
+      failure: null,
+      version: 0,
+    });
+  }
+
+  static rehydrate(state: State): InboundDelivery {
+    if (!Number.isInteger(state.version) || state.version < 1) {
+      throw new InconsistentStateError(
+        'inbound delivery',
+        `has an impossible version (${state.version})`,
+      );
+    }
+
+    if (!Number.isInteger(state.attempts) || state.attempts < 0) {
+      throw new InconsistentStateError(
+        'inbound delivery',
+        `was attempted ${state.attempts} times`,
+      );
+    }
+
+    if (state.progress.kind === 'failed' && state.failure === null) {
+      throw new InconsistentStateError(
+        'inbound delivery',
+        `failed for no reason (${state.id})`,
+      );
+    }
+
+    return new InboundDelivery(state);
+  }
+
+  static leaseExpiredBefore(now: Date): Date {
+    return new Date(now.getTime() - LEASE_MS);
+  }
+
+  get integration(): IntegrationKey {
+    return this.state.integration;
+  }
+
+  get to(): DeliveryAddressee | null {
+    return this.state.to;
+  }
+
+  get id(): string {
+    return this.state.id;
+  }
+
+  get headers(): DeliveryHeaders {
+    return this.state.headers;
+  }
+
+  get body(): unknown {
+    return this.state.body;
+  }
+
+  get causeFiringId(): string | null {
+    return this.state.causeFiringId;
+  }
+
+  get receivedAt(): Date {
+    return this.state.receivedAt;
+  }
+
+  get progress(): InboundDeliveryProgress {
+    return this.state.progress;
+  }
+
+  get attempts(): number {
+    return this.state.attempts;
+  }
+
+  get failure(): string | null {
+    return this.state.failure;
+  }
+
+  get version(): number {
+    return this.state.version;
+  }
+
+  get isNew(): boolean {
+    return this.state.version === 0;
+  }
+
+  get gaveUp(): boolean {
+    return this.state.progress.kind === 'failed';
+  }
+
+  claimed(now: Date): InboundDelivery {
+    const { progress } = this.state;
+    const due =
+      progress.kind === 'pending' && progress.dueAt.getTime() <= now.getTime();
+    const leaseExpired =
+      progress.kind === 'working' &&
+      progress.claimedAt.getTime() <
+        InboundDelivery.leaseExpiredBefore(now).getTime();
+
+    if (!due && !leaseExpired) {
+      throw new InvalidInboundDeliveryTransitionError(
+        progress.kind === 'working'
+          ? 'is still claimed'
+          : `cannot be claimed while ${progress.kind}`,
+      );
+    }
+
+    return this.with({ progress: { kind: 'working', claimedAt: now } });
+  }
+
+  worked(now: Date): InboundDelivery {
+    this.guardWorking('be worked');
+
+    return this.with({
+      progress: { kind: 'done', at: now },
+      attempts: this.state.attempts + 1,
+    });
+  }
+
+  failedWith(failure: DeliveryFailure, now: Date): InboundDelivery {
+    this.guardWorking('fail');
+
+    const attempts = this.state.attempts + 1;
+    const again = failure.transient
+      ? DELIVERING.nextAttemptAt(attempts, now)
+      : null;
+
+    return this.with({
+      progress: again
+        ? { kind: 'pending', dueAt: again }
+        : { kind: 'failed', at: now },
+      attempts,
+      failure: failure.reason,
+    });
+  }
+
+  private guardWorking(doing: string): void {
+    const { kind } = this.state.progress;
+
+    if (kind !== 'working') {
+      throw new InvalidInboundDeliveryTransitionError(
+        `cannot ${doing} while ${kind}`,
+      );
+    }
+  }
+
+  private with(part: Partial<State>): InboundDelivery {
+    return new InboundDelivery({ ...this.state, ...part });
+  }
+}

@@ -1,5 +1,3 @@
-import type { SandboxState } from '@runners/domain/aggregates/sandbox.aggregate';
-
 export const SANDBOXES = Symbol('SANDBOXES');
 
 export interface SandboxForRun {
@@ -20,9 +18,11 @@ export interface SandboxTakingRuns {
   readonly key: string;
 }
 
+export type SandboxStatus = 'starting' | 'ready' | 'draining' | 'gone';
+
 export interface OpenedSandbox {
   readonly id: string;
-  readonly state: SandboxState;
+  readonly state: SandboxStatus;
 }
 
 export interface RequestedSandbox {

@@ -12,6 +12,7 @@ import {
 } from '@configuration/application/rendering/harness-profile-problems';
 import type { ParsedProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { InvalidHarnessProfileError } from '@configuration/domain/exceptions/invalid-harness-profile.error';
+import { HarnessCompatibility } from '@configuration/domain/value-objects/harness-compatibility.vo';
 import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
 import { madeBy, problemsIn } from '@platform/definitions/definition-schema';
@@ -42,34 +43,16 @@ const profileSchema = z.object({
   native: z.record(z.string(), z.unknown()).default({}),
 });
 
-const problemOf = (
-  key: string,
-  note: ReviewNote,
-  severity: 'error' | 'warning',
-): ConfigurationProblem =>
+const warningOf = (key: string, note: ReviewNote): ConfigurationProblem =>
   ConfigurationProblem.of({
     path: profileAt(key),
     at: note.at,
     reason: note.reason,
-    severity,
+    severity: 'warning',
   });
 
 export class HarnessProfileCompiler implements HarnessProfileCompilerPort {
   constructor(private readonly harnesses: HarnessReviewPort) {}
-
-  compile(input: unknown): ProfileParseResult {
-    const parsed = this.parse(input);
-
-    if (!parsed.ok) {
-      return parsed;
-    }
-
-    const problems = this.harnesses
-      .review(parsed)
-      .problems.map((note) => problemOf(parsed.key.value, note, 'error'));
-
-    return problems.length > 0 ? { ok: false, problems } : parsed;
-  }
 
   parse(input: unknown): ProfileParseResult {
     const read = profileSchema.safeParse(input);
@@ -106,9 +89,13 @@ export class HarnessProfileCompiler implements HarnessProfileCompilerPort {
     return { ok: true, ...profile };
   }
 
+  compatibilityOf(parsed: ParsedProfile): HarnessCompatibility {
+    return HarnessCompatibility.of(this.harnesses.review(parsed).problems);
+  }
+
   warningsOf(parsed: ParsedProfile): readonly ConfigurationProblem[] {
     return this.harnesses
       .review(parsed)
-      .warnings.map((note) => problemOf(parsed.key.value, note, 'warning'));
+      .warnings.map((note) => warningOf(parsed.key.value, note));
   }
 }

@@ -112,6 +112,8 @@ describe('workSubscribers', () => {
       ['ws_1', 'run_1', null],
       ['ws_1', 'run_1', 3],
     ]);
+    expect(named('work.revoke-tokens-of-ended-run')?.callsOut).toBe(true);
+    expect(named('work.revoke-tokens-of-ended-attempt')?.callsOut).toBe(true);
   });
 
   it('reconciles the setup list of the team whose setup chat opened its pull request', async () => {

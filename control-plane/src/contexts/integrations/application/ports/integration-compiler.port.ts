@@ -1,7 +1,7 @@
-import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 

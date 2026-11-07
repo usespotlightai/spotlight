@@ -21,6 +21,7 @@ import type {
   ReadInboxItemQuery,
   ReadInboxNoticeQuery,
 } from '@work/application/queries/list-inbox.query';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 
 const noteDtoOf = (note: InboxNote): NoteDto => ({
   ...note,
@@ -52,25 +53,32 @@ const entryDtoOf = (entry: InboxEntrySummary): InboxEntryDto => {
 export class ListInboxHandler
   implements QueryHandlerPort<ListInboxQuery, Page<InboxEntryDto> | null>
 {
-  constructor(private readonly inbox: InboxReaderPort) {}
+  constructor(
+    private readonly inbox: InboxReaderPort,
+    private readonly access: WorkAccess,
+  ) {}
 
   async execute(query: ListInboxQuery): Promise<Page<InboxEntryDto> | null> {
     try {
-      const viewer = UserId.of(query.viewerId);
+      const scope = await this.access.inboxOf(
+        query.slug,
+        UserId.of(query.viewerId),
+      );
 
-      if (query.state === 'resolved') {
-        const page = await this.inbox.resolvedForWorkspaceMember(
-          query.slug,
-          viewer,
-          query.page,
-        );
-
-        return page && mapPage(page, entryDtoOf);
+      if (!scope) {
+        return null;
       }
 
-      const open = await this.inbox.openForWorkspaceMember(query.slug, viewer);
+      if (query.state === 'resolved') {
+        return mapPage(
+          await this.inbox.resolved(scope, query.page),
+          entryDtoOf,
+        );
+      }
 
-      return open && { items: open.map(entryDtoOf), next: null };
+      const open = await this.inbox.open(scope);
+
+      return { items: open.map(entryDtoOf), next: null };
     } catch (error) {
       rethrowAsApplicationError(error);
     }
@@ -80,15 +88,18 @@ export class ListInboxHandler
 export class ReadInboxItemHandler
   implements QueryHandlerPort<ReadInboxItemQuery, InboxItemViewDto | null>
 {
-  constructor(private readonly inbox: InboxReaderPort) {}
+  constructor(
+    private readonly inbox: InboxReaderPort,
+    private readonly access: WorkAccess,
+  ) {}
 
   async execute(query: ReadInboxItemQuery): Promise<InboxItemViewDto | null> {
     try {
-      const found = await this.inbox.itemForWorkspaceMember(
+      const scope = await this.access.inboxOf(
         query.slug,
         UserId.of(query.viewerId),
-        query.itemId,
       );
+      const found = scope && (await this.inbox.item(scope, query.itemId));
 
       return (
         found && { ...itemDtoOf(found), notes: found.notes.map(noteDtoOf) }
@@ -102,15 +113,18 @@ export class ReadInboxItemHandler
 export class ReadInboxNoticeHandler
   implements QueryHandlerPort<ReadInboxNoticeQuery, InboxNoticeDto | null>
 {
-  constructor(private readonly inbox: InboxReaderPort) {}
+  constructor(
+    private readonly inbox: InboxReaderPort,
+    private readonly access: WorkAccess,
+  ) {}
 
   async execute(query: ReadInboxNoticeQuery): Promise<InboxNoticeDto | null> {
     try {
-      const found = await this.inbox.noticeForWorkspaceMember(
+      const scope = await this.access.inboxOf(
         query.slug,
         UserId.of(query.viewerId),
-        query.noticeId,
       );
+      const found = scope && (await this.inbox.notice(scope, query.noticeId));
 
       return found && noticeDtoOf(found);
     } catch (error) {

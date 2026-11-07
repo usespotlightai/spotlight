@@ -7,13 +7,12 @@ import type {
   AgentConfigCounts,
 } from '@insights/domain/services/agent-config-comparison';
 import type { RubricRates } from '@insights/domain/services/judge-rates';
-import { SIZE_BOUNDS } from '@insights/domain/services/run-size';
 import { rateOfScore } from '@insights/infrastructure/persistence/drizzle/readers/insights/judge-rate.sql';
 import {
   counted,
   endedIn,
   type GroupColumns,
-  groupCountsOf,
+  groupCountsOfRow,
   inEndOrder,
   measuredColumns,
   onTeam,
@@ -47,25 +46,6 @@ interface RubricRow extends Record<string, unknown> {
   readonly judged: number;
 }
 
-const sizedBy = (count: SQL, field: 'maxLines' | 'maxSteps'): SQL => {
-  const bounded = SIZE_BOUNDS.flatMap((bound) => {
-    const limit = bound[field];
-
-    return limit === null
-      ? []
-      : [sql`when ${count} <= ${limit} then ${bound.size}`];
-  });
-  const open = SIZE_BOUNDS.find((bound) => bound[field] === null);
-
-  return sql`case ${sql.join(bounded, sql` `)} else ${open?.size ?? 'large'} end`;
-};
-
-const sizeOfRun = sql`case
-  when not ${runFact.usageRecorded} then null
-  when ${runFact.changedLines} > 0 then ${sizedBy(sql`${runFact.changedLines}`, 'maxLines')}
-  else ${sizedBy(sql`${runFact.steps}`, 'maxSteps')}
-end`;
-
 const endedFor = (team: TeamInPeriod, filter: AgentConfigFilter): SQL => {
   const { current } = team.period;
 
@@ -74,7 +54,7 @@ const endedFor = (team: TeamInPeriod, filter: AgentConfigFilter): SQL => {
     where ${onTeam(team)}
       and ${endedIn(current.from, current.to)}
       ${filter.stationId === null ? sql`` : sql`and ${runFact.stationId} = ${filter.stationId}`}
-      ${filter.size === null ? sql`` : sql`and ${sizeOfRun} = ${filter.size}`}`;
+      ${filter.size === null ? sql`` : sql`and ${runFact.size} = ${filter.size}`}`;
 };
 
 const agentConfigColumns = sql`${runFact.harness}, ${runFact.model}, ${runFact.effort}, ${runFact.profileKey}`;
@@ -181,7 +161,7 @@ export const agentConfigCountsIn = async (
         model: row.model,
         effort: row.effort,
         profileKey: row.profile_key,
-        counts: groupCountsOf(row),
+        counts: groupCountsOfRow(row),
         answered: row.answered,
         rubrics: rubrics
           .filter((each) => sameAgentConfig(each, row))

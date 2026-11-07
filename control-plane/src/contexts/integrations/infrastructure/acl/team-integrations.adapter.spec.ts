@@ -1,8 +1,9 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import type { ToolDeclarationsPort } from '@integrations/application/ports/tool-declarations.port';
+import { ProvidedTools } from '@integrations/application/services/provided-tools.service';
 import { InferredOutputSchema } from '@integrations/domain/aggregates/inferred-output-schema.aggregate';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { TeamIntegrations } from '@integrations/infrastructure/acl/team-integrations.adapter';
-import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { InMemoryInferredOutputSchemas } from '@integrations/integrations.inferred.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { ToolDeclaration } from '@work/application/contracts/tools.contract';
@@ -35,9 +36,11 @@ const providing = async (declarations: readonly ToolDeclaration[]) => {
   }
 
   return new TeamIntegrations(
-    { ofTeam: async () => [] } as unknown as DefinedIntegrationsPort,
-    { declared: () => declarations } as unknown as IntegrationReader,
-    schemas,
+    new ProvidedTools(
+      { ofTeam: async () => [] } as unknown as DefinedIntegrationsPort,
+      { declared: async () => declarations } satisfies ToolDeclarationsPort,
+      schemas,
+    ),
   ).provided(
     TEAM,
     declarations.map((each) => each.tool),

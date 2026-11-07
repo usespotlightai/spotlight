@@ -6,7 +6,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export class ReplayBaselineRequested implements DomainEvent {
-  readonly kind = 'replay.baseline-requested';
+  readonly kind = 'replays.replay-baseline-requested';
 
   constructor(
     readonly replayId: ReplayId,

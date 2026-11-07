@@ -1,5 +1,6 @@
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -12,19 +13,22 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ChatMessage } from '@work/domain/entities/chat-message.entity';
 import type { TaskProposal } from '@work/domain/entities/task-proposal.entity';
+import { ChatDeleted } from '@work/domain/events/chat-deleted.event';
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
-import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
+import { MixedRunnerImagesError } from '@work/domain/exceptions/mixed-runner-images.error';
 import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.error';
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
+import { ChatAccess } from '@work/domain/services/chat-access';
+import { chatPlacement } from '@work/domain/services/chat-placement';
 import { TraceAccess } from '@work/domain/services/trace-access';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -33,13 +37,14 @@ import type { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import type { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
-import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import { SpotlightApiGrant } from '@work/domain/value-objects/spotlight-api-grant.vo';
 import type { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import type { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -93,11 +98,21 @@ export class Chat extends EventRecorder {
     targetStation?: TargetStation | null;
     setup?: ConfigFolder | null;
     marks?: readonly ChatMark[];
+    lines: readonly LineMap[];
     now: Date;
     newId: () => string;
   }): Chat {
     Chat.assertNoForeignTraces(input.teamId, input.traces ?? []);
     Chat.assertNoForeignStation(input.teamId, input.targetStation ?? null);
+
+    const repositories = Chat.distinct([
+      ...(input.setup ? [input.setup.repository] : []),
+      ...(input.repositories ?? []),
+    ]);
+
+    if (!chatPlacement(repositories, input.lines)) {
+      throw new MixedRunnerImagesError();
+    }
 
     const opening = ChatMessage.sent({
       position: MessagePosition.of(0),
@@ -117,10 +132,7 @@ export class Chat extends EventRecorder {
       input.harness,
       input.model ?? null,
       input.effort ?? null,
-      Chat.distinct([
-        ...(input.setup ? [input.setup.repository] : []),
-        ...(input.repositories ?? []),
-      ]),
+      repositories,
       input.targetStation ?? null,
       input.setup ?? null,
       [opening],
@@ -478,7 +490,7 @@ export class Chat extends EventRecorder {
 
   resume(): Resume {
     return Resume.of({
-      key: ResumeKey.forChat(this.id.value),
+      key: ResumeKey.forChat(this.id),
       sessionId: this.sessionId,
     });
   }
@@ -495,11 +507,7 @@ export class Chat extends EventRecorder {
       ...input,
       position: this.proposalPositionFor(input.runId),
     });
-    const next = this.with({ messages: [...this.messages, message] });
-
-    next.record(new TaskProposed(this.id, message.position, input.placement));
-
-    return next;
+    return this.with({ messages: [...this.messages, message] });
   }
 
   proposalPositionFor(runId: RunId): MessagePosition {
@@ -593,7 +601,7 @@ export class Chat extends EventRecorder {
   }
 
   isStartedBy(by: UserId): boolean {
-    return this.startedBy.equals(by);
+    return ChatAccess.readableBy(this.startedBy, by);
   }
 
   private assertStarter(by: UserId): void {
@@ -645,6 +653,25 @@ export class Chat extends EventRecorder {
     next.inheritEvents(this);
 
     return next;
+  }
+
+  apiGrantAt(now: Date): SpotlightApiGrant {
+    return SpotlightApiGrant.forChatRun(this.startedBy, now);
+  }
+
+  deleted(): Chat {
+    const gone = this.with({ currentRunId: null });
+
+    gone.record(
+      new ChatDeleted(
+        this.id,
+        this.workspaceId,
+        this.teamId,
+        this.currentRunId,
+      ),
+    );
+
+    return gone;
   }
 
   equals(other: Chat): boolean {

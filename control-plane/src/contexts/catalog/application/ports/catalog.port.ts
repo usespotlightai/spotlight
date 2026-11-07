@@ -16,11 +16,17 @@ export interface CatalogCallRequest {
   readonly inputs: CatalogInputValues;
 }
 
-export interface CatalogPort {
+export interface CatalogEntitlementsPort {
   entitledTo(
     workspaceId: WorkspaceId,
     request: CatalogRequest,
   ): Promise<EntitledItems>;
+}
 
+export interface CatalogCallsPort {
   call(request: CatalogCallRequest): Promise<CatalogCallResult>;
 }
+
+export interface CatalogPort
+  extends CatalogEntitlementsPort,
+    CatalogCallsPort {}

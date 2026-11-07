@@ -8,6 +8,7 @@ import type {
   DecisionReaderPort,
   MergedSought,
 } from '@change-review/application/ports/decision-reader.port';
+import type { WorkspacePath } from '@change-review/domain/value-objects/workspace-path.vo';
 import {
   type DecisionSetRow,
   generationRunOf,
@@ -38,18 +39,17 @@ type DisputeRow = typeof decisionDispute.$inferSelect;
 
 const escaped = (path: string): string => path.replace(/[\\%_]/g, '\\$&');
 
-const lies = (path: string, within: readonly string[]): boolean =>
-  within.length === 0 ||
-  within.some((each) => path === each || path.startsWith(`${each}/`));
+const lies = (path: string, within: readonly WorkspacePath[]): boolean =>
+  within.length === 0 || within.some((each) => each.covers(path));
 
-const touching = (within: readonly string[]): SQL =>
+const touching = (within: readonly WorkspacePath[]): SQL =>
   sql`exists (
     select 1 from ${decision}, jsonb_array_elements_text(${decision.paths}) as touched(path)
     where ${decision.setId} = ${decisionSet.id}
     and (${sql.join(
       within.map(
         (each) =>
-          sql`touched.path = ${each} or touched.path like ${`${escaped(each)}/%`}`,
+          sql`touched.path = ${each.value} or touched.path like ${`${escaped(each.value)}/%`}`,
       ),
       sql` or `,
     )})

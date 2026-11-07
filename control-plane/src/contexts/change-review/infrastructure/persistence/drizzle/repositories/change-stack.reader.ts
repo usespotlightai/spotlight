@@ -8,7 +8,7 @@ import type {
   ChangeStackReaderPort,
   ChangeStackSummary,
 } from '@change-review/application/ports/change-stack-reader.port';
-import { checkReasonOf } from '@change-review/application/rendering/check-reason';
+import { answersQuestion } from '@change-review/domain/aggregates/question-answer.aggregate';
 import { tallyOf } from '@change-review/domain/value-objects/diff.vo';
 import {
   checkStatusAt,
@@ -23,12 +23,14 @@ import type { StoredCohort } from '@change-review/infrastructure/persistence/dri
 import { changeStack } from '@change-review/infrastructure/persistence/drizzle/schemas/change-stack.schema';
 import { questionAnswer } from '@change-review/infrastructure/persistence/drizzle/schemas/question-answer.schema';
 import { stackCheck } from '@change-review/infrastructure/persistence/drizzle/schemas/stack-check.schema';
+import { checkReasonOf } from '@change-review/infrastructure/rendering/check-reason';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 
 const PROGRESS = {
   state: changeStack.state,
@@ -37,18 +39,34 @@ const PROGRESS = {
   completedAt: changeStack.completedAt,
 };
 
-const CHECK = {
-  command: stackCheck.command,
-  status: stackCheck.status,
-  outcome: stackCheck.outcome,
-  waitingSince: stackCheck.waitingSince,
-  leaseExpiresAt: stackCheck.leaseExpiresAt,
-  claimedAt: stackCheck.claimedAt,
+const firstCheck = alias(stackCheck, 'first_check');
+
+const recheck = alias(stackCheck, 'recheck');
+
+const checkColumns = (table: typeof firstCheck | typeof recheck) => ({
+  command: table.command,
+  status: table.status,
+  outcome: table.outcome,
+  waitingSince: table.waitingSince,
+  leaseExpiresAt: table.leaseExpiresAt,
+  claimedAt: table.claimedAt,
+});
+
+const CHECKS = {
+  firstCheck: checkColumns(firstCheck),
+  recheck: checkColumns(recheck),
 };
 
+type CheckColumns = ReturnType<typeof checkColumns>;
+
 type CheckRow = {
-  [K in keyof typeof CHECK]: (typeof CHECK)[K]['_']['data'] | null;
+  [K in keyof CheckColumns]: CheckColumns[K]['_']['data'] | null;
 };
+
+const latestCheckOf = (row: {
+  readonly firstCheck: CheckRow | null;
+  readonly recheck: CheckRow | null;
+}): CheckRow | null => (row.recheck?.command ? row.recheck : row.firstCheck);
 
 const checkOf = (row: CheckRow | null, now: Date): StackCheckDto | null => {
   if (!row?.command || !row.status || !row.waitingSince) {
@@ -119,8 +137,7 @@ const answeredFrom =
     const row = rows.find(
       (each) =>
         each.stackId === stackId &&
-        each.questionId === questionId &&
-        each.asked === asked,
+        answersQuestion(each, { id: questionId, question: asked }),
     );
 
     return row
@@ -150,10 +167,20 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
         cohorts: changeStack.cohorts,
         files: changeStack.files,
         ...PROGRESS,
-        check: CHECK,
+        ...CHECKS,
       })
       .from(changeStack)
-      .leftJoin(stackCheck, eq(stackCheck.stackId, changeStack.id))
+      .leftJoin(
+        firstCheck,
+        and(
+          eq(firstCheck.stackId, changeStack.id),
+          eq(firstCheck.recheck, false),
+        ),
+      )
+      .leftJoin(
+        recheck,
+        and(eq(recheck.stackId, changeStack.id), eq(recheck.recheck, true)),
+      )
       .where(
         and(
           eq(changeStack.taskId, taskId.value),
@@ -178,7 +205,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
         ...cohort,
         layers: cohort.layers.map(({ questions: _, ...layer }) => layer),
       })),
-      check: checkOf(row.check, now),
+      check: checkOf(latestCheckOf(row), now),
       added: tally.added,
       removed: tally.removed,
     };
@@ -196,10 +223,20 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
         files: changeStack.files,
         cohorts: changeStack.cohorts,
         ...PROGRESS,
-        check: CHECK,
+        ...CHECKS,
       })
       .from(changeStack)
-      .leftJoin(stackCheck, eq(stackCheck.stackId, changeStack.id))
+      .leftJoin(
+        firstCheck,
+        and(
+          eq(firstCheck.stackId, changeStack.id),
+          eq(firstCheck.recheck, false),
+        ),
+      )
+      .leftJoin(
+        recheck,
+        and(eq(recheck.stackId, changeStack.id), eq(recheck.recheck, true)),
+      )
       .where(eq(changeStack.runId, runId.value))
       .orderBy(asc(changeStack.startedAt));
 
@@ -236,7 +273,7 @@ export class DrizzleChangeStackReader implements ChangeStackReaderPort {
       completedAt: row.completedAt?.toISOString() ?? null,
       files: row.files,
       cohorts: cohortDtosOf(row.cohorts, answeredFrom(answers, row.id)),
-      check: checkOf(row.check, now),
+      check: checkOf(latestCheckOf(row), now),
     }));
   }
 }

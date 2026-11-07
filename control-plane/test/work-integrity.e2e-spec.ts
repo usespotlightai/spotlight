@@ -3,34 +3,33 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { reassignTaskMarks } from '@work/application/services/task-marks';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
+import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
+import { correlatedTask } from '@work/application/services/correlated-task';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
+import { TaskMarked } from '@work/domain/events/task-marked.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
-import { MarkAlreadyClaimedError } from '@work/domain/exceptions/mark-already-claimed.error';
-import { StationNotEmptyError } from '@work/domain/exceptions/station-not-empty.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
+import { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { Station } from '@work/domain/value-objects/station.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { DrizzleWorkStations } from '@work/infrastructure/persistence/drizzle/projections/work-stations.projection';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
-import { DrizzleStationTallies } from '@work/infrastructure/persistence/drizzle/readers/station-tallies.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
-import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
@@ -53,12 +52,16 @@ afterAll(async () => {
 });
 
 const added = (
-  line: Line,
+  line: LineMap,
   at: StationId,
-  over: { attachments?: readonly Attachment[]; marks?: readonly Mark[] } = {},
+  over: {
+    attachments?: readonly Attachment[];
+    marks?: readonly Mark[];
+    markedAt?: Date;
+  } = {},
 ): Task => {
   const task = (over.marks ?? []).reduce(
-    (each, mark) => each.markedBy(mark),
+    (each, mark) => each.markedBy(mark, over.markedAt ?? NOW),
     Task.add({
       line,
       at,
@@ -81,22 +84,14 @@ describe('a line that drops a station', () => {
   const withReview = async () => {
     const team = await createTeam(db, tasks, `review-${randomUUID()}`);
     const reviewId = StationId.of(randomUUID());
-    const [backlog, completed] = team.line.stations;
-    const closing = Station.of({
-      id: completed.id,
-      key: StationKey.of('completed'),
-      name: StationName.of('Completed'),
-      position: 2,
-      color: StationColor.plain(),
-      kind: 'completed',
-    });
+    const [backlog, completed] = team.line.stations as [Station, Station];
 
     await db
       .update(schema.station)
       .set({ position: 2 })
       .where(eq(schema.station.id, completed.id.value));
 
-    await db.insert(schema.station).values({
+    await insertStations(db, {
       id: reviewId.value,
       workspaceId: team.workspaceId.value,
       lineId: team.line.id.value,
@@ -105,42 +100,44 @@ describe('a line that drops a station', () => {
       position: 1,
     });
 
-    const review = Station.of({
-      id: reviewId,
-      key: StationKey.of('code-review'),
-      name: StationName.of('Review'),
-      position: 1,
-      color: StationColor.plain(),
-      kind: 'work',
-    });
-    const whole = Line.rehydrate({
+    const whole = LineMap.of({
       id: team.line.id,
       workspaceId: team.line.workspaceId,
       teamId: team.line.teamId,
       key: team.line.key,
       name: team.line.name,
-      stations: [backlog, review, closing],
-    });
-    const without = Line.rehydrate({
-      id: team.line.id,
-      workspaceId: team.line.workspaceId,
-      teamId: team.line.teamId,
-      key: team.line.key,
-      name: team.line.name,
-      stations: [backlog, completed],
+      stations: [
+        backlog,
+        Station.of({
+          id: reviewId,
+          key: StationKey.of('code-review'),
+          name: StationName.of('Review'),
+          kind: 'work',
+          position: 1,
+        }),
+        Station.of({
+          id: completed.id,
+          key: completed.key,
+          name: completed.name,
+          kind: 'completed',
+          position: 2,
+        }),
+      ],
     });
 
-    return { whole, without, reviewId };
+    return { whole, reviewId };
   };
 
-  it('does not drop a station that still has work, and keeps the work', async () => {
-    const { whole, without, reviewId } = await withReview();
+  it('is held while a task is at the station, and keeps the task', async () => {
+    const { whole, reviewId } = await withReview();
     const task = added(whole, reviewId);
     await tasks.add(task);
 
     await expect(
-      new DrizzleLineRepository(context, quiet).save(without),
-    ).rejects.toBeInstanceOf(StationNotEmptyError);
+      context.inTransaction(() =>
+        new DrizzleWorkStations(context).release([reviewId]),
+      ),
+    ).resolves.toBe('held');
     await expect(tasks.find(task.id)).resolves.not.toBeNull();
   });
 
@@ -149,16 +146,20 @@ describe('a line that drops a station', () => {
     await tasks.add(added(whole, reviewId));
 
     const tally = await context.inTransaction(() =>
-      new DrizzleStationTallies(context).lockedTaskCountsAt([reviewId]),
+      new DrizzleWorkStations(context).lockedTaskCountsAt([reviewId]),
     );
 
     expect(tally.get(reviewId.value)).toBe(1);
   });
 
-  it('rejects a task at a station that is gone', async () => {
-    const { whole, without, reviewId } = await withReview();
-    await new DrizzleLineRepository(context, quiet).save(without);
+  it('rejects a task at a station that is released', async () => {
+    const { whole, reviewId } = await withReview();
 
+    await expect(
+      context.inTransaction(() =>
+        new DrizzleWorkStations(context).release([reviewId]),
+      ),
+    ).resolves.toBe('released');
     await expect(tasks.add(added(whole, reviewId))).rejects.toBeInstanceOf(
       UnknownStationError,
     );
@@ -166,47 +167,44 @@ describe('a line that drops a station', () => {
 });
 
 describe('a mark that one task has and another task claims', () => {
-  it('rejects a claim that skips the task with the mark', async () => {
-    const { line, stationId } = await createTeam(
-      db,
-      tasks,
-      `m-${randomUUID()}`,
-    );
-    const thread = Mark.of('slack.thread', randomUUID());
-
-    await tasks.add(added(line, stationId, { marks: [thread] }));
-
-    await expect(
-      tasks.add(added(line, stationId, { marks: [thread] })),
-    ).rejects.toBeInstanceOf(MarkAlreadyClaimedError);
-  });
-
-  it('passes to the newest claim through the task that had the mark', async () => {
+  it('finds the newest holder while the older one still holds it, and releases it from the older one', async () => {
     const { line, stationId, workspaceId } = await createTeam(
       db,
       tasks,
       `n-${randomUUID()}`,
     );
     const thread = Mark.of('slack.thread', randomUUID());
-    const before = added(line, stationId, { marks: [thread] });
+    const before = added(line, stationId, {
+      marks: [thread],
+      markedAt: new Date('2026-09-17T09:00:00.000Z'),
+    });
     await tasks.add(before);
 
-    const newest = added(line, stationId, { marks: [thread] });
-    await context.inTransaction(async () => {
-      await reassignTaskMarks(tasks, newest);
-      await tasks.add(newest);
+    const newest = added(line, stationId, {
+      marks: [thread],
+      markedAt: new Date('2026-09-17T10:00:00.000Z'),
     });
+    await tasks.add(newest);
 
     const correlationKeys = CorrelationKeys.of({
       marks: [thread],
     }) as CorrelationKeys;
     await expect(
-      tasks.findByMarks(workspaceId, correlationKeys),
-    ).resolves.toMatchObject({
-      id: newest.id,
-    });
+      context.inTransaction(() =>
+        correlatedTask(tasks, workspaceId, correlationKeys),
+      ),
+    ).resolves.toMatchObject({ id: newest.id });
+
+    await new ReleaseTakenMarks(tasks, context).on(
+      new TaskMarked(newest.id, workspaceId, thread),
+    );
+
     expect((await tasks.find(before.id))?.marks).toEqual([]);
     expect((await tasks.find(before.id))?.version).toBe(before.version + 1);
+    expect((await tasks.find(newest.id))?.marks).toEqual([thread]);
+    await expect(tasks.holdingMark(workspaceId, thread)).resolves.toHaveLength(
+      1,
+    );
   });
 });
 
@@ -253,6 +251,7 @@ describe('a file handed over twice', () => {
     await tasks.add(added(line, stationId, { attachments: [attachment] }));
 
     const chat = Chat.start({
+      lines: [],
       workspaceId,
       teamId,
       startedBy: owner,
@@ -278,6 +277,7 @@ describe('a chat dispatched to a run', () => {
     );
     const chats = new DrizzleChatRepository(context, quiet);
     const started = Chat.start({
+      lines: [],
       workspaceId,
       teamId,
       startedBy: owner,

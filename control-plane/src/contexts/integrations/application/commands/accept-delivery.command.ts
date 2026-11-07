@@ -1,10 +1,15 @@
-import type { DeliveryAddressee } from '@integrations/application/ports/delivery-queue.port';
 import type { Delivered } from '@integrations/application/ports/webhook-provider.port';
+
+export interface TeamAddress {
+  readonly slug: string;
+  readonly teamKey: string;
+}
 
 export class AcceptDeliveryCommand {
   constructor(
     readonly integration: string,
-    readonly to: DeliveryAddressee | null,
+    readonly addressedTo: TeamAddress | null,
     readonly delivered: Delivered,
+    readonly causeFiringId: string | null,
   ) {}
 }

@@ -1,6 +1,6 @@
 import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
-import type { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import type { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
+import type { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import { actsOutsideSpotlight } from '@change-review/domain/services/replay-isolation';
 
 export class ChangeStackReactions {
@@ -12,7 +12,7 @@ export class ChangeStackReactions {
     }
   }
 
-  async onChecked(event: ChangeStackChecked): Promise<void> {
+  async onChecked(event: StackChecked): Promise<void> {
     if (actsOutsideSpotlight(event)) {
       await this.poster.ofRun(event.runId);
     }

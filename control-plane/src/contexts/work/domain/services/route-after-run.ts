@@ -1,22 +1,22 @@
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import type { Station } from '@work/domain/entities/station.entity';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 
 export type RunRouting =
-  | { readonly kind: 'finish'; readonly line: Line }
+  | { readonly kind: 'finish'; readonly line: LineMap }
   | { readonly kind: 'ask'; readonly failure: TaskFailure | null }
   | { readonly kind: 'detach'; readonly failure: TaskFailure | null }
   | {
       readonly kind: 'advance';
       readonly to: Station;
-      readonly line: Line;
+      readonly line: LineMap;
     }
   | {
       readonly kind: 'deferredMove';
       readonly to: Station;
-      readonly line: Line;
+      readonly line: LineMap;
     };
 
 export const putsItToAPerson = (routing: RunRouting): boolean =>
@@ -27,7 +27,7 @@ const failureOf = (handover: ResolvedHandover): TaskFailure | null =>
 
 export const routeAfterRun = (
   handover: ResolvedHandover,
-  line: Line | null,
+  line: LineMap | null,
   task: Pick<Task, 'awaitingReview' | 'deferredMoveTo'>,
 ): RunRouting => {
   const passedTo =

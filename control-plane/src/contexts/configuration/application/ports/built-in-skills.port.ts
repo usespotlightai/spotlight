@@ -1,7 +1,5 @@
-import type { SkillFolder } from '@configuration/application/ports/skill-reader.port';
-
-const _BUILT_IN_SKILLS = Symbol('BUILT_IN_SKILLS');
+import type { ReadSkillFolder } from '@configuration/application/ports/skill-folders.port';
 
 export interface BuiltInSkillsPort {
-  named(key: string): SkillFolder | null;
+  named(key: string): ReadSkillFolder | null;
 }

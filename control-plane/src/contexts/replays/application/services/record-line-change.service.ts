@@ -1,14 +1,13 @@
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
-import { ReplaySetStationCheckRequested } from '@replays/domain/events/replay-set-station-check-requested.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
-import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
+import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 
 export class RecordLineChange {
   constructor(
@@ -20,73 +19,85 @@ export class RecordLineChange {
     private readonly clock: ClockPort,
   ) {}
 
-  async changed(lineId: string): Promise<readonly DomainEvent[]> {
-    return (await this.sets.ofLine(lineId))
-      .filter((each) => !each.isAtGoneStation)
-      .map(
-        (each) => new ReplaySetStationCheckRequested(each.id, each.workspaceId),
-      );
-  }
-
-  async check(setId: ReplaySetId): Promise<void> {
-    const seen = await this.sets.find(setId);
-
-    if (!seen || seen.isAtGoneStation) {
-      return;
-    }
-
-    if (await this.work.station(seen.station.lineId, seen.station.stationId)) {
-      await this.staleOraclesStopped(seen);
-      return;
-    }
-
-    await this.transaction.inTransaction(async () => {
-      const set = await this.sets.find(setId);
-
-      if (
-        !set ||
-        set.isAtGoneStation ||
-        (await this.work.station(set.station.lineId, set.station.stationId))
-      ) {
-        return;
+  async stationsLeft(lineId: LineId): Promise<void> {
+    for (const seen of await this.atStationsOf(lineId)) {
+      if (await this.stationExists(seen)) {
+        continue;
       }
 
-      await this.sets.save(set.stationLeft(this.clock.now()));
-    });
+      await this.transaction.inTransaction(async () => {
+        const set = await this.sets.find(seen.id);
+
+        if (!set || set.isAtGoneStation || (await this.stationExists(set))) {
+          return;
+        }
+
+        await this.sets.save(set.stationLeft(this.clock.now()));
+      });
+    }
   }
 
-  private staleOraclesStopped(set: ReplaySet): Promise<void> {
-    return this.transaction.inTransaction(async () => {
-      const locked = await this.sets.locked(set.id);
-
-      if (!locked) {
-        return;
+  async staleOraclesStopped(lineId: LineId): Promise<void> {
+    for (const set of await this.atStationsOf(lineId)) {
+      if (await this.stationExists(set)) {
+        for (const oracle of await this.staleOraclesOf(set)) {
+          await this.stopped(set, oracle);
+        }
       }
+    }
+  }
 
-      const live = await this.work.live(
-        locked.station.lineId,
-        locked.station.stationId,
-      );
-      const oracles = (await this.replays.ofSet(locked.id)).filter(
-        (each) => each.isOracle && each.isDispatching && !each.stoppedAt,
-      );
-      const configs = await this.candidates.findMany(
-        oracles.map((each) => each.candidateId),
-      );
+  private async atStationsOf(lineId: LineId): Promise<readonly ReplaySet[]> {
+    return (await this.sets.ofLine(lineId)).filter(
+      (each) => !each.isAtGoneStation,
+    );
+  }
 
-      for (const oracle of oracles) {
-        const config = configs.find((each) =>
+  private async stationExists(set: ReplaySet): Promise<boolean> {
+    return (
+      (await this.work.station(set.station.lineId, set.station.stationId)) !==
+      null
+    );
+  }
+
+  private async staleOraclesOf(set: ReplaySet): Promise<readonly ReplayId[]> {
+    const live = await this.work.live(
+      set.station.lineId,
+      set.station.stationId,
+    );
+    const oracles = (await this.replays.ofSet(set.id)).filter(
+      (each) => each.isOracle && each.isDispatching && !each.stoppedAt,
+    );
+    const candidates = await this.candidates.findMany(
+      oracles.map((each) => each.candidateId),
+    );
+
+    return oracles
+      .filter((oracle) => {
+        const candidate = candidates.find((each) =>
           each.id.equals(oracle.candidateId),
         );
 
-        if (!live || !config?.basedOn.equals(live.fingerprint)) {
-          await this.replays.save(
-            oracle.stop(
-              this.clock.now(),
-              ChangeActor.spotlight(oracle.workspaceId),
-            ),
-          );
-        }
+        return (
+          !candidate || candidate.isStaleAgainst(live?.fingerprint ?? null)
+        );
+      })
+      .map((each) => each.id);
+  }
+
+  private stopped(set: ReplaySet, oracleId: ReplayId): Promise<void> {
+    return this.transaction.inTransaction(async () => {
+      await this.sets.locked(set.id);
+
+      const oracle = await this.replays.find(oracleId);
+
+      if (oracle?.isDispatching && !oracle.stoppedAt) {
+        await this.replays.save(
+          oracle.stop(
+            this.clock.now(),
+            ChangeActor.spotlight(oracle.workspaceId),
+          ),
+        );
       }
     });
   }

@@ -1,6 +1,7 @@
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
-export class InvalidSecretError extends Error {
+export class InvalidSecretError extends DomainError {
   readonly kind = 'invalid' as const;
 
   readonly field: FieldPath;

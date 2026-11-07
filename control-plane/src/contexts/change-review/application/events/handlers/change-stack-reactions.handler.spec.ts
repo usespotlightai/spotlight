@@ -1,7 +1,8 @@
 import { ChangeStackReactions } from '@change-review/application/events/handlers/change-stack-reactions.handler';
-import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
+import { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -20,14 +21,13 @@ const posting = () => {
 };
 
 const checked = (replay: boolean) =>
-  new ChangeStackChecked(
-    STACK_ID,
+  new StackChecked(
+    StackCheckId.first(STACK_ID),
     RUN_ID,
     null,
     WorkspaceId.of('ws_1'),
     true,
     replay,
-    false,
   );
 
 describe('ChangeStackReactions', () => {

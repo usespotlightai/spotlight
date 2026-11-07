@@ -1,7 +1,6 @@
 import type {
   FlaggedMemoryDto,
   InsightsMemoryDto,
-  MemoryBenchmarkDto,
 } from '@insights/application/dto/insights-memory.dto';
 import { InsightsPeriodResponseDto } from '@insights/presentation/http/dto/insights-common.response.dto';
 import { MeasureVerdictResponseDto } from '@insights/presentation/http/dto/measure-verdict.response.dto';
@@ -43,33 +42,6 @@ export class FlaggedMemoryResponseDto {
     this.by = flagged.by;
     this.byName = flagged.byName;
     this.at = flagged.at;
-  }
-}
-
-export class MemoryBenchmarkResponseDto {
-  @ApiProperty({ example: '2026-09-30T10:00:00.000Z' })
-  readonly ranAt: string;
-
-  @ApiProperty({
-    example: 0.8,
-    description: 'Share of the benchmark’s cases solved with memories',
-  })
-  readonly withMemories: number;
-
-  @ApiProperty({
-    example: 0.6,
-    description: 'Share of the benchmark’s cases solved without them',
-  })
-  readonly withoutMemories: number;
-
-  @ApiProperty({ example: 20 })
-  readonly cases: number;
-
-  constructor(benchmark: MemoryBenchmarkDto) {
-    this.ranAt = benchmark.ranAt;
-    this.withMemories = benchmark.withMemories;
-    this.withoutMemories = benchmark.withoutMemories;
-    this.cases = benchmark.cases;
   }
 }
 
@@ -129,13 +101,6 @@ export class InsightsMemoryResponseDto {
   })
   readonly verdicts: readonly MeasureVerdictResponseDto[];
 
-  @ApiProperty({
-    type: MemoryBenchmarkResponseDto,
-    nullable: true,
-    description: 'The latest memory benchmark run for the team, if any',
-  })
-  readonly benchmark: MemoryBenchmarkResponseDto | null;
-
   constructor(memory: InsightsMemoryDto) {
     this.period = new InsightsPeriodResponseDto(memory.period);
     this.activeCount = memory.activeCount;
@@ -151,8 +116,5 @@ export class InsightsMemoryResponseDto {
     this.verdicts = memory.verdicts.map(
       (each) => new MeasureVerdictResponseDto(each),
     );
-    this.benchmark = memory.benchmark
-      ? new MemoryBenchmarkResponseDto(memory.benchmark)
-      : null;
   }
 }

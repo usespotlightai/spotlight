@@ -8,7 +8,9 @@ import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import type { TouchedContext } from '@memory/domain/value-objects/run-context';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -41,8 +43,8 @@ const approved = (
     body: MemoryBody.of(body),
     scope: MemoryScope.of({
       teamId: scope.teamId ?? TEAM,
-      lineId: scope.lineId ?? null,
-      stationId: scope.stationId ?? null,
+      lineId: scope.lineId ? LineId.of(scope.lineId) : null,
+      stationId: scope.stationId ? StationId.of(scope.stationId) : null,
       repository: scope.repository ?? null,
       paths: (scope.paths ?? []).map(MemoryPath.of),
     }),
@@ -55,8 +57,8 @@ const OLDER = new Date('2026-09-01T10:00:00.000Z');
 
 const TOUCHED_CONTEXT: TouchedContext = {
   teamId: TEAM,
-  lineId: 'line_delivery',
-  stationId: 'station_build',
+  lineId: LineId.of('line_delivery'),
+  stationId: StationId.of('station_build'),
   repositories: [API],
   touched: [{ repository: API, path: MemoryPath.of('src/uploads/retry.ts') }],
 };

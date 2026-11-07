@@ -6,8 +6,8 @@ import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import type { Claimant } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
+import type { Claimant } from '@work/domain/value-objects/claimant';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { describe, expect, it } from 'vitest';

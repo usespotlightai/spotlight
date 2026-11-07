@@ -80,7 +80,10 @@ import {
   type PersonReaderPort,
 } from '@identity/application/ports/person-reader.port';
 import { RUN_TOKENS } from '@identity/application/ports/run-tokens.port';
-import { SIGNUP_SURVEYS } from '@identity/application/ports/signup-surveys.port';
+import {
+  SIGNUP_SURVEYS,
+  type SignupSurveysPort,
+} from '@identity/application/ports/signup-surveys.port';
 import { TEAM_DEPENDENTS } from '@identity/application/ports/team-dependents.port';
 import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port';
 import {
@@ -101,7 +104,7 @@ import {
   WORKSPACE_READER,
   type WorkspaceReaderPort,
 } from '@identity/application/ports/workspace-reader.port';
-import { WORKSPACE_SETUP_STATUS } from '@identity/application/ports/workspace-setup-status.port';
+import { WORKSPACE_TOKEN_IDENTITY } from '@identity/application/ports/workspace-token-identity.port';
 import { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.query';
 import { GetWorkspaceHandler } from '@identity/application/queries/handlers/get-workspace.handler';
 import { ImportTeamHandler } from '@identity/application/queries/handlers/import-team.handler';
@@ -166,9 +169,11 @@ import { TokenAuthenticator } from '@identity/application/services/token-authent
 import { VerificationSending } from '@identity/application/services/verification-sending.service';
 import { WorkspaceAccess } from '@identity/application/services/workspace-access.service';
 import { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
-import { IDENTITY_PAYLOAD_TYPES } from '@identity/domain/payload-types';
+import { WorkspaceInviteRemoval } from '@identity/application/services/workspace-invite-removal.service';
+import { WorkspaceReader } from '@identity/application/services/workspace-reader.service';
+import { WorkspaceSetup } from '@identity/application/services/workspace-setup.service';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
-import { OutboxWorkspaceSetupStatus } from '@identity/infrastructure/events/outbox-workspace-setup-status';
+import { IDENTITY_PAYLOAD_TYPES } from '@identity/infrastructure/events/identity-payload-types';
 import { InviteByMail } from '@identity/infrastructure/mail/invite.mail';
 import { LogMailTransport } from '@identity/infrastructure/mail/log.transport';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
@@ -177,6 +182,7 @@ import { UserEmailVerificationByMail } from '@identity/infrastructure/mail/user-
 import { CachedWorkspaceOutboundHosts } from '@identity/infrastructure/outbound/cached-workspace-outbound-hosts';
 import { WorkspaceOutboundScope } from '@identity/infrastructure/outbound/workspace-outbound-scope';
 import { DrizzleConfigurationAudit } from '@identity/infrastructure/persistence/drizzle/configuration-audit';
+import { DrizzleVerificationSends } from '@identity/infrastructure/persistence/drizzle/ledgers/verification-send.ledger';
 import { DrizzleOidcTrustUsage } from '@identity/infrastructure/persistence/drizzle/oidc-trust-usage';
 import { DrizzleEmailOwners } from '@identity/infrastructure/persistence/drizzle/readers/email-owners.reader';
 import { DrizzleIdentityResources } from '@identity/infrastructure/persistence/drizzle/readers/identity-resources.reader';
@@ -186,18 +192,18 @@ import { DrizzleMemberDirectory } from '@identity/infrastructure/persistence/dri
 import { DrizzleOidcTrustReader } from '@identity/infrastructure/persistence/drizzle/readers/oidc-trust.reader';
 import { DrizzlePersonReader } from '@identity/infrastructure/persistence/drizzle/readers/person.reader';
 import { DrizzleUserEmailReader } from '@identity/infrastructure/persistence/drizzle/readers/user-email.reader';
-import { DrizzleViewableWorkspaces } from '@identity/infrastructure/persistence/drizzle/readers/viewable-workspaces.reader';
-import { DrizzleWorkspaceReader } from '@identity/infrastructure/persistence/drizzle/readers/workspace.reader';
+import { DrizzleWorkspaceRecords } from '@identity/infrastructure/persistence/drizzle/readers/workspace-records.reader';
+import { DrizzleWorkspaceRoles } from '@identity/infrastructure/persistence/drizzle/readers/workspace-roles.reader';
 import { DrizzleOidcTrustRepository } from '@identity/infrastructure/persistence/drizzle/repositories/oidc-trust.repository';
 import { DrizzleTeamRepository } from '@identity/infrastructure/persistence/drizzle/repositories/team.repository';
 import { DrizzleUserEmailRepository } from '@identity/infrastructure/persistence/drizzle/repositories/user-email.repository';
-import { DrizzleVerificationSendRepository } from '@identity/infrastructure/persistence/drizzle/repositories/verification-send.repository';
 import { DrizzleWorkspaceRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace.repository';
 import { DrizzleWorkspaceInviteRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace-invite.repository';
 import { DrizzleWorkspaceTokenRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace-token.repository';
 import { DrizzleSignupSurveys } from '@identity/infrastructure/persistence/drizzle/signup-surveys';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { identitySubscribers } from '@identity/presentation/events/identity.subscribers';
+import { IDENTITY_API_CONVENTIONS } from '@identity/presentation/http/api-conventions';
 import { ConfigurationChangeController } from '@identity/presentation/http/controllers/configuration-change.controller';
 import {
   InviteController,
@@ -212,8 +218,10 @@ import { WorkloadTokenExchangeController } from '@identity/presentation/http/con
 import { WorkspaceController } from '@identity/presentation/http/controllers/workspace.controller';
 import { WorkspaceResourceController } from '@identity/presentation/http/controllers/workspace-resource.controller';
 import { WorkspaceTokenResourceController } from '@identity/presentation/http/controllers/workspace-token-resource.controller';
+import { AuthenticatedGuard } from '@identity/presentation/http/guards/authenticated.guard';
 import { ExpiredTokensWorker } from '@identity/presentation/workers/expired-tokens.worker';
 import type { Provider, Type } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
@@ -222,6 +230,7 @@ import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { ApiConventions } from '@platform/http/api-conventions';
 import {
   CLOCK,
   type ClockPort,
@@ -245,11 +254,12 @@ import {
 } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
 import { WORKSPACE_OUTBOUND_SCOPE } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
-import { WORKSPACE_TOKEN_IDENTITY } from '@shared-kernel/application/ports/workspace-token-identity.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const IDENTITY_EVENTS = Symbol('IDENTITY_EVENTS');
+
+const IDENTITY_API_DOCUMENTATION = Symbol('IDENTITY_API_DOCUMENTATION');
 
 const MAIL_TRANSPORT = Symbol('MAIL_TRANSPORT');
 
@@ -273,11 +283,24 @@ const adapters: Provider[] = [
   DrizzleTeamRepository,
   DrizzleWorkspaceInviteRepository,
   DrizzleUserEmailRepository,
-  DrizzleVerificationSendRepository,
+  DrizzleVerificationSends,
   DrizzleWorkspaceTokenRepository,
   DrizzleOidcTrustRepository,
-  DrizzleViewableWorkspaces,
-  { provide: WORKSPACE_READER, useClass: DrizzleWorkspaceReader },
+  DrizzleWorkspaceRoles,
+  DrizzleWorkspaceRecords,
+  {
+    provide: WORKSPACE_READER,
+    inject: [
+      DrizzleWorkspaceRecords,
+      DrizzleWorkspaceRepository,
+      DrizzleTeamRepository,
+    ],
+    useFactory: (
+      records: DrizzleWorkspaceRecords,
+      workspaces: DrizzleWorkspaceRepository,
+      teams: DrizzleTeamRepository,
+    ) => new WorkspaceReader(records, workspaces, teams),
+  },
   {
     provide: WORKSPACE_OUTBOUND_HOSTS,
     inject: [WORKSPACE_READER],
@@ -290,7 +313,6 @@ const adapters: Provider[] = [
     useFactory: (hosts: WorkspaceOutboundHostsPort) =>
       new WorkspaceOutboundScope(hosts),
   },
-  { provide: WORKSPACE_SETUP_STATUS, useClass: OutboxWorkspaceSetupStatus },
   { provide: PERSON_READER, useClass: DrizzlePersonReader },
   { provide: MEMBER_READER, useClass: DrizzleMemberReader },
   { provide: OIDC_TRUST_READER, useClass: DrizzleOidcTrustReader },
@@ -401,9 +423,12 @@ const handlers: Provider[] = [
   ]),
   ...bindQueryHandler(GetWorkspaceQuery, GetWorkspaceHandler, [
     WORKSPACE_READER,
-    WORKSPACE_SETUP_STATUS,
   ]),
-  ...bindQueryHandler(ListMembersQuery, ListMembersHandler, [MEMBER_READER]),
+  ...bindQueryHandler(ListMembersQuery, ListMembersHandler, [
+    DrizzleTeamRepository,
+    DrizzleWorkspaceRepository,
+    MEMBER_READER,
+  ]),
   ...bindQueryHandler(ListWorkspaceMembersQuery, ListWorkspaceMembersHandler, [
     DrizzleWorkspaceRepository,
     MEMBER_READER,
@@ -421,7 +446,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(
     CreateWorkspaceWithTeamCommand,
     CreateWorkspaceWithTeamHandler,
-    [DrizzleWorkspaceRepository, SIGNUP_SURVEYS, ID_GENERATOR, TRANSACTION],
+    [DrizzleWorkspaceRepository, ID_GENERATOR, TRANSACTION],
   ),
   ...bindCommandHandler(CreateWorkspaceCommand, CreateWorkspaceHandler, [
     IDENTITY_DEFINITIONS,
@@ -438,7 +463,9 @@ const handlers: Provider[] = [
   ]),
   ...bindCommandHandler(DeleteWorkspaceCommand, DeleteWorkspaceHandler, [
     DrizzleWorkspaceRepository,
-    IDENTITY_RESOURCES,
+    DrizzleTeamRepository,
+    DrizzleWorkspaceTokenRepository,
+    DrizzleOidcTrustRepository,
     WORKSPACE_DEPENDENTS,
     TRANSACTION,
   ]),
@@ -627,7 +654,7 @@ const handlers: Provider[] = [
   ]),
   ...bindCommandHandler(AddUserEmailCommand, AddUserEmailHandler, [
     DrizzleUserEmailRepository,
-    DrizzleVerificationSendRepository,
+    DrizzleVerificationSends,
     VerificationSending,
     TOKEN_ISSUER,
     ID_GENERATOR,
@@ -639,7 +666,7 @@ const handlers: Provider[] = [
     ResendUserEmailVerificationHandler,
     [
       DrizzleUserEmailRepository,
-      DrizzleVerificationSendRepository,
+      DrizzleVerificationSends,
       VerificationSending,
       TOKEN_ISSUER,
       CLOCK,
@@ -669,8 +696,10 @@ const published: Provider[] = [
       DrizzleTeamRepository,
       CONFIGURATION_AUDIT,
       OIDC_TRUST_USAGE,
+      SIGNUP_SURVEYS,
       IssuedTokens,
       PERSON_READER,
+      DrizzleWorkspaceInviteRepository,
     ],
     useFactory: (
       types: PayloadTypes,
@@ -681,17 +710,21 @@ const published: Provider[] = [
       teams: DrizzleTeamRepository,
       audit: ConfigurationAuditPort,
       usage: OidcTrustUsagePort,
+      surveys: SignupSurveysPort,
       issuedTokens: IssuedTokens,
       people: PersonReaderPort,
+      invites: DrizzleWorkspaceInviteRepository,
     ) => {
       types.register('identity', IDENTITY_PAYLOAD_TYPES);
       mappers.register(IDENTITY_EVENT_MAPPERS);
-      projections.register(identityProjections(audit, usage));
+      projections.register(identityProjections(audit, usage, surveys));
       subscribers.register(
         identitySubscribers(
           new InviteMemberships(workspaces, teams, people),
           new FirstTeam(teams),
           issuedTokens,
+          new WorkspaceInviteRemoval(invites),
+          new WorkspaceSetup(workspaces),
         ),
       );
       return true;
@@ -700,17 +733,15 @@ const published: Provider[] = [
   {
     provide: WORKSPACE_ACCESS,
     inject: [
-      DrizzleViewableWorkspaces,
+      DrizzleWorkspaceRoles,
       DrizzleWorkspaceRepository,
-      IDENTITY_RESOURCES,
       DrizzleTeamRepository,
     ],
     useFactory: (
-      visibility: DrizzleViewableWorkspaces,
+      roles: DrizzleWorkspaceRoles,
       workspaces: DrizzleWorkspaceRepository,
-      resources: IdentityResourcesPort,
       teams: DrizzleTeamRepository,
-    ) => new WorkspaceAccess(visibility, workspaces, resources, teams),
+    ) => new WorkspaceAccess(roles, workspaces, teams),
   },
   {
     provide: WORKSPACE_TOKEN_IDENTITY,
@@ -758,6 +789,16 @@ const published: Provider[] = [
 ];
 
 export const IDENTITY_PROVIDERS: readonly Provider[] = [
+  {
+    provide: IDENTITY_API_DOCUMENTATION,
+    inject: [ApiConventions],
+    useFactory: (conventions: ApiConventions) => {
+      conventions.register(IDENTITY_API_CONVENTIONS);
+      return true;
+    },
+  },
+  { provide: APP_GUARD, useClass: AuthenticatedGuard },
+
   ...adapters,
   ...services,
   ...handlers,

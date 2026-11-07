@@ -1,6 +1,5 @@
 import {
   compileHook,
-  globToRegex,
   secretIn,
 } from '@integrations/infrastructure/hooks/hook.compile';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
@@ -55,6 +54,12 @@ const MIGRATIONS = {
   ],
   signing: { oidc: { audience: 'https://dba.example.com' } },
   failure: 'block',
+};
+
+const TASK = {
+  line: 'delivery',
+  stationKey: 'implementation',
+  repositories: ['acme/api'],
 };
 
 const instance = (event: Record<string, unknown>) => ({
@@ -124,17 +129,51 @@ describe('compileHook', () => {
     );
   });
 
+  it('stores in its document only the request origin it was written with', () => {
+    const fromNetwork = {
+      ...MIGRATIONS,
+      steps: [
+        {
+          name: 'tell',
+          request: { url: 'https://dba.example.com/', from: 'network' },
+        },
+      ],
+    };
+    const unwritten = compileHook(MIGRATIONS, engine);
+    const written = compileHook(fromNetwork, engine);
+
+    if (!unwritten.ok || !written.ok) throw new Error('did not compile');
+
+    expect(unwritten.document.fields.steps).toEqual([
+      {
+        name: 'tell',
+        request: expect.not.objectContaining({ from: 'spotlight' }),
+      },
+    ]);
+    expect(written.document.fields.steps).toEqual([
+      { name: 'tell', request: expect.objectContaining({ from: 'network' }) },
+    ]);
+    expect(written.ir.steps[0]).toMatchObject({ fromNetwork: true });
+  });
+
+  it('leaves the when it was written with to CEL, and nothing else', () => {
+    const compiled = compileHook(GRAFANA_READS, engine);
+    if (!compiled.ok) throw new Error('did not compile');
+
+    expect(compiled.ir.when).toBeNull();
+  });
+
   it('matches the tools it names and no other', () => {
     const compiled = compileHook(GRAFANA_READS, engine);
     if (!compiled.ok) throw new Error('did not compile');
 
     const matched = (tool: string) =>
-      compiled.ir.conditions.every((condition) =>
-        isTrue(
-          condition,
-          instance({ tool, inputs: {}, output: null, failed: false }),
-        ),
-      );
+      compiled.ir.hook.matches(TASK, {
+        tool,
+        inputs: {},
+        output: null,
+        failed: false,
+      });
 
     expect(matched('grafana.search')).toBe(true);
     expect(matched('grafana.dashboard')).toBe(false);
@@ -144,18 +183,20 @@ describe('compileHook', () => {
     const compiled = compileHook(MIGRATIONS, engine);
     if (!compiled.ok) throw new Error(JSON.stringify(compiled.problems));
 
-    const matched = (changed: string[]) =>
-      compiled.ir.conditions.every((condition) =>
-        isTrue(
-          condition,
-          instance({
-            repository: 'acme/api',
-            branch: 'b',
-            title: 'Add a column',
-            changed,
-          }),
-        ),
+    const matched = (changed: string[]) => {
+      const event = {
+        repository: 'acme/api',
+        branch: 'b',
+        title: 'Add a column',
+        changed,
+      };
+
+      return (
+        compiled.ir.hook.matches(TASK, event) &&
+        compiled.ir.when !== null &&
+        isTrue(compiled.ir.when, instance(event))
       );
+    };
 
     expect(matched(['src/app.ts', 'db/migrations/0042_add.sql'])).toBe(true);
     expect(matched(['src/app.ts'])).toBe(false);
@@ -266,18 +307,5 @@ describe('compileHook', () => {
         when: 'secret.SLACK_TOKEN != ""',
       }),
     ).toEqual([['when', expect.stringMatching(/secret/)]]);
-  });
-});
-
-describe('globToRegex', () => {
-  it.each([
-    ['db/migrations/**', 'db/migrations/a/b.sql', true],
-    ['db/migrations/*', 'db/migrations/a/b.sql', false],
-    ['db/migrations/', 'db/migrations/a.sql', true],
-    ['**/*.sql', 'db/x.sql', true],
-    ['src/?.ts', 'src/a.ts', true],
-    ['a.b', 'axb', false],
-  ])('%s against %s is %s', (glob, path, matched) => {
-    expect(new RegExp(globToRegex(glob)).test(path)).toBe(matched);
   });
 });

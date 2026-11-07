@@ -1,18 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import {
-  UNIQUE_VIOLATION,
-  violates,
-} from '@platform/persistence/drizzle/violations';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
-import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { Hypothesis } from '@replays/domain/value-objects/hypothesis.vo';
-import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import { PlannedReference } from '@replays/domain/value-objects/planned-reference.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -27,13 +21,14 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, inArray, type SQL } from 'drizzle-orm';
 
 type CandidateRow = typeof replayCandidate.$inferSelect;
-
-const SEARCH_NAME_INDEX = 'replay_candidate_search_name_idx';
 
 const searchOf = (row: CandidateRow) =>
   row.searchId !== null && row.iteration !== null && row.hypothesis !== null
@@ -71,8 +66,8 @@ const toCandidate = (row: CandidateRow): Candidate =>
     station: {
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: LineId.of(row.lineId),
+      stationId: StationId.of(row.stationId),
     },
     address: stationPathOf(row),
     name: CandidateName.rehydrate(row.name),
@@ -116,15 +111,6 @@ export class DrizzleCandidateRepository implements CandidateRepository {
 
   async find(id: CandidateId): Promise<Candidate | null> {
     const [found] = await this.where(eq(replayCandidate.id, id.value));
-
-    return found ?? null;
-  }
-
-  async locked(id: CandidateId): Promise<Candidate | null> {
-    const [found] = await this.where(
-      eq(replayCandidate.id, id.value),
-      'update',
-    );
 
     return found ?? null;
   }
@@ -175,8 +161,8 @@ export class DrizzleCandidateRepository implements CandidateRepository {
           id: added.id.value,
           workspaceId: added.workspaceId.value,
           teamId: added.teamId.value,
-          lineId: added.station.lineId,
-          stationId: added.station.stationId,
+          lineId: added.station.lineId.value,
+          stationId: added.station.stationId.value,
           teamKey: added.stationPath.teamKey,
           lineKey: added.stationPath.lineKey,
           stationKey: added.stationPath.stationKey,
@@ -203,13 +189,7 @@ export class DrizzleCandidateRepository implements CandidateRepository {
           version: added.version,
         })
         .onConflictDoNothing({ target: replayCandidate.id })
-        .returning({ id: replayCandidate.id })
-        .catch((error: unknown) => {
-          if (violates(error, UNIQUE_VIOLATION, SEARCH_NAME_INDEX)) {
-            throw new SearchCandidateNameTakenError(added.name.value);
-          }
-          throw error;
-        });
+        .returning({ id: replayCandidate.id });
 
       if (written.length === 0) {
         throw new CandidateVersionConflictError(added.id.value);

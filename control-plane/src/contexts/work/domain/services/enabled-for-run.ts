@@ -1,5 +1,6 @@
 import { distinct } from '@shared-kernel/domain/services/distinct';
-import type { Station } from '@work/domain/entities/station.entity';
+import type { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import {
   HANDING_OVER,
   USING_TOOLS,
@@ -10,8 +11,7 @@ import { ProfileMissing } from '@work/domain/value-objects/profile-missing.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 import type { ReadySkill } from '@work/domain/value-objects/ready-skill';
 import type { RefusalReason } from '@work/domain/value-objects/run-outcome.vo';
-import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
-import type { Tool } from '@work/domain/value-objects/tool.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 
 export interface EnabledForRun {
   readonly tools: readonly Tool[];

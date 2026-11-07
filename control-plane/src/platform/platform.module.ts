@@ -8,7 +8,6 @@ import { ConfigModule } from '@platform/config/config.module';
 import type { Env } from '@platform/config/env.schema';
 import { SentryErrorReports } from '@platform/errors/sentry-error-reports';
 import { AsyncLocalCausation } from '@platform/events/async-local-causation';
-import { DeliveryBacklog } from '@platform/events/delivery-backlog';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
@@ -16,12 +15,14 @@ import { EventProjections } from '@platform/events/event-projections';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
+import { SHARED_KERNEL_PAYLOAD_TYPES } from '@platform/events/shared-kernel-payload-types';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { EXPRESSION_ENGINE } from '@platform/expressions/expression-engine.port';
 import { ExpressionFailures } from '@platform/expressions/expression-failures';
 import { PostgresReadiness } from '@platform/health/postgres-readiness';
 import { ReadinessChecks } from '@platform/health/readiness-checks';
 import { ReadinessGauges } from '@platform/health/readiness-gauges';
+import { ApiConventions } from '@platform/http/api-conventions';
 import { ErrorReportingController } from '@platform/http/controllers/error-reporting.controller';
 import { HealthController } from '@platform/http/controllers/health.controller';
 import { ApplicationErrorFilter } from '@platform/http/filters/application-error.filter';
@@ -62,7 +63,6 @@ import { TELEMETRY } from '@shared-kernel/application/ports/telemetry.port';
 import { TOKEN_ISSUER } from '@shared-kernel/application/ports/token-issuer.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
-import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 
 @Global()
@@ -150,10 +150,10 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     IntegrationEventMappers,
     EventProjections,
     EventOutbox,
+    ApiConventions,
     { provide: DOMAIN_EVENT_DISPATCHER, useExisting: EventOutbox },
     EventDelivery,
     EventDeliveryWorker,
-    DeliveryBacklog,
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
     { provide: ERROR_REPORTS, useClass: SentryErrorReports },
@@ -194,9 +194,9 @@ import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-li
     IntegrationEventMappers,
     EventProjections,
     EventOutbox,
+    ApiConventions,
     DOMAIN_EVENT_DISPATCHER,
     EventDelivery,
-    DeliveryBacklog,
     ID_GENERATOR,
     CLOCK,
     EXPRESSION_ENGINE,

@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { RepositoryUnreachableError } from '@github/application/errors/repository-unreachable.error';
+import {
+  STATION_CONFIG_PULL_REQUESTS,
+  type StationConfigPullRequestsPort,
+} from '@insights/application/ports/station-config-pull-requests.port';
 import { AdvanceSearches } from '@replays/application/services/advance-searches.service';
 import {
   CloseStaleConfigPullRequests,
@@ -149,6 +153,7 @@ const anOpenedPullRequest = async (input: {
     path: CONFIG_FILE,
     branch: `spotlight/search-${input.number}`,
     state: 'opened',
+    open: true,
     url: `https://github.com/${CONFIG}/pull/${input.number}`,
     number: input.number,
     gitHubId: GITHUB_ID_BASE + input.number,
@@ -543,5 +548,81 @@ describe('following a config pull request after it opened', () => {
     ).toEqual([]);
 
     await prompted('Build it.');
+  });
+});
+
+describe('the config pull requests Insights shows on a station', () => {
+  const closedPullRequest = async (input: {
+    readonly number: number;
+    readonly proposing: string;
+    readonly createdAt: Date;
+    readonly stationId?: string;
+  }) => {
+    const id = randomUUID();
+
+    await db.insert(schema.configPullRequest).values({
+      id,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      searchId: randomUUID(),
+      candidateId: randomUUID(),
+      lineId: DELIVERY,
+      stationId: input.stationId ?? BUILD,
+      stationKey: input.stationId === POLISH ? 'polish' : 'build',
+      candidateName: `candidate-${input.number}`,
+      repository: CONFIG,
+      path: CONFIG_FILE,
+      branch: `spotlight/search-${input.number}`,
+      state: 'closed',
+      open: false,
+      url: `https://github.com/${CONFIG}/pull/${input.number}`,
+      number: input.number,
+      gitHubId: GITHUB_ID_BASE + input.number,
+      basedOn: 'e'.repeat(64),
+      proposing: input.proposing,
+      checkedAt: input.createdAt,
+      closedBecause: 'by-person',
+      retries: 0,
+      createdAt: input.createdAt,
+      updatedAt: input.createdAt,
+    });
+  };
+
+  it('names the newest pull request Spotlight opened proposing each config at the station, and none for a config it proposed elsewhere', async () => {
+    const proposed = '1'.repeat(64);
+    const elsewhere = '2'.repeat(64);
+    const never = '3'.repeat(64);
+
+    await closedPullRequest({
+      number: 91,
+      proposing: proposed,
+      createdAt: new Date(Date.now() - 2 * HOUR_MS),
+    });
+    await closedPullRequest({
+      number: 92,
+      proposing: proposed,
+      createdAt: new Date(Date.now() - HOUR_MS),
+    });
+    await closedPullRequest({
+      number: 93,
+      proposing: elsewhere,
+      createdAt: new Date(Date.now() - HOUR_MS),
+      stationId: POLISH,
+    });
+
+    const newest = await app
+      .get<StationConfigPullRequestsPort>(STATION_CONFIG_PULL_REQUESTS)
+      .newestFor(
+        {
+          workspaceId: team.workspaceId,
+          teamId: team.teamId,
+          stationId: BUILD,
+        },
+        [proposed, elsewhere, never],
+      );
+
+    expect(
+      Object.fromEntries([...newest].map(([each, url]) => [each, url.value])),
+    ).toEqual({ [proposed]: `https://github.com/${CONFIG}/pull/92` });
   });
 });

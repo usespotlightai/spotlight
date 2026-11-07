@@ -1,9 +1,9 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
-import type { Membership } from '@replays/domain/services/team-access';
+import type { Membership } from '@replays/application/services/team-access';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class People implements PeoplePort {
   constructor(
@@ -16,7 +16,7 @@ export class People implements PeoplePort {
     principal: Principal,
   ): Promise<Membership | null> {
     const permissions = await this.access.permissionsAsTeamReader(
-      teamId,
+      TeamId.of(teamId),
       principal,
     );
 

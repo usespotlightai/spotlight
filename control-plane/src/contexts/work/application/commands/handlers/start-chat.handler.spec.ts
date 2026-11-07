@@ -8,13 +8,13 @@ import { StartChatCommand } from '@work/application/commands/chat.commands';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import type { AccessibleRepositoriesPort } from '@work/application/ports/accessible-repositories.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import type { CiSetups } from '@work/application/services/ci-setups.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -61,7 +61,7 @@ const starting = ({
       takenIn: vi.fn(async () => undefined),
     } as unknown as FilesLoader,
     { shared: vi.fn(async () => []) } as unknown as TracesLoader,
-    {} as LineRepository,
+    { ofTeam: async () => [] } as unknown as LineMapsPort,
     {
       takenUp: vi.fn(async (chat: Chat) => chat),
     } as unknown as ChatDispatching,

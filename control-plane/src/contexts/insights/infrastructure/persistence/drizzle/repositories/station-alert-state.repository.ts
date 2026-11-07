@@ -1,9 +1,12 @@
 import { StationAlertState } from '@insights/domain/aggregates/station-alert-state.aggregate';
 import { StationAlertStateVersionConflictError } from '@insights/domain/exceptions/station-alert-state-version-conflict.error';
 import type { StationAlertStateRepository } from '@insights/domain/repositories/station-alert-state.repository';
-import { AlertFiring } from '@insights/domain/value-objects/alert-firing.vo';
+import type { AlertFiring } from '@insights/domain/value-objects/alert-firing.vo';
 import { AlertId } from '@insights/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
+import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
+import { inScope } from '@insights/infrastructure/persistence/drizzle/deletion-scope.sql';
+import { firingOf } from '@insights/infrastructure/persistence/drizzle/mappers/alert-firing.mapper';
 import {
   stationAlert,
   stationAlertState,
@@ -14,43 +17,17 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  inArray,
-  isNotNull,
-  isNull,
-  or,
-  type SQL,
-  sql,
-} from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 type AlertStateRow = typeof stationAlertState.$inferSelect;
 
 type AlertRow = typeof stationAlert.$inferSelect;
-
-const firingOf = (row: AlertRow): AlertFiring =>
-  AlertFiring.of({
-    id: AlertId.of(row.id),
-    rule: AlertRule.of({
-      measure: row.measure,
-      [row.condition]: row.threshold,
-      over: row.over,
-    }),
-    reading: { value: row.value, baseline: row.baseline },
-    runId: RunId.of(row.runId),
-    taskId: TaskId.of(row.taskId),
-    firedAt: row.firedAt,
-    resolvedAt: row.resolvedAt,
-    clearRuns: row.clearRuns,
-    lastSeen: row.lastSeenRunId ? RunId.of(row.lastSeenRunId) : null,
-  });
 
 const toAlertState = (
   row: AlertStateRow,
@@ -60,8 +37,8 @@ const toAlertState = (
     station: {
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      lineId: row.lineId,
-      stationId: row.stationId,
+      lineId: LineId.of(row.lineId),
+      stationId: StationId.of(row.stationId),
     },
     firings: alerts.map(firingOf),
     version: row.version,
@@ -69,7 +46,7 @@ const toAlertState = (
 
 const alertRowOf = (alertState: StationAlertState, firing: AlertFiring) => ({
   id: firing.id.value,
-  stationId: alertState.station.stationId,
+  stationId: alertState.station.stationId.value,
   measure: firing.rule.measure,
   condition: firing.rule.condition,
   threshold: firing.rule.threshold,
@@ -99,10 +76,10 @@ export class DrizzleStationAlertStateRepository
       const written = await this.context.db
         .insert(stationAlertState)
         .values({
-          stationId: added.station.stationId,
+          stationId: added.station.stationId.value,
           workspaceId: added.station.workspaceId.value,
           teamId: added.station.teamId.value,
-          lineId: added.station.lineId,
+          lineId: added.station.lineId.value,
           version: added.version,
         })
         .onConflictDoNothing()
@@ -110,7 +87,7 @@ export class DrizzleStationAlertStateRepository
 
       if (written.length === 0) {
         throw new StationAlertStateVersionConflictError(
-          added.station.stationId,
+          added.station.stationId.value,
         );
       }
 
@@ -123,10 +100,10 @@ export class DrizzleStationAlertStateRepository
     await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(stationAlertState)
-        .set({ version: saved.version + 1, lineId: saved.station.lineId })
+        .set({ version: saved.version + 1, lineId: saved.station.lineId.value })
         .where(
           and(
-            eq(stationAlertState.stationId, saved.station.stationId),
+            eq(stationAlertState.stationId, saved.station.stationId.value),
             eq(stationAlertState.version, saved.version),
           ),
         )
@@ -134,7 +111,7 @@ export class DrizzleStationAlertStateRepository
 
       if (written.length === 0) {
         throw new StationAlertStateVersionConflictError(
-          saved.station.stationId,
+          saved.station.stationId.value,
         );
       }
 
@@ -143,14 +120,14 @@ export class DrizzleStationAlertStateRepository
     });
   }
 
-  async of(
-    stationId: string,
-    withTask?: TaskId,
-  ): Promise<StationAlertState | null> {
-    return this.alertStateAt(
-      stationId,
-      withTask ? eq(stationAlert.taskId, withTask.value) : null,
-    );
+  async of(stationId: StationId): Promise<StationAlertState | null> {
+    const [row] = await this.context.db
+      .select()
+      .from(stationAlertState)
+      .where(eq(stationAlertState.stationId, stationId.value))
+      .limit(1);
+
+    return row ? this.withFirings(row) : null;
   }
 
   async ofAlert(alertId: AlertId): Promise<StationAlertState | null> {
@@ -160,91 +137,65 @@ export class DrizzleStationAlertStateRepository
       .where(eq(stationAlert.id, alertId.value))
       .limit(1);
 
-    return row
-      ? this.alertStateAt(row.stationId, eq(stationAlert.id, alertId.value))
-      : null;
+    return row ? this.of(StationId.of(row.stationId)) : null;
   }
 
-  async stationsWithTask(taskId: TaskId): Promise<readonly string[]> {
-    const rows = await this.context.db
-      .selectDistinct({ stationId: stationAlert.stationId })
-      .from(stationAlert)
-      .where(eq(stationAlert.taskId, taskId.value));
-
-    return rows.map((each) => each.stationId);
-  }
-
-  async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    await this.context.db
+  async remove(removed: StationAlertState): Promise<void> {
+    const gone = await this.context.db
       .delete(stationAlertState)
       .where(
         and(
-          eq(stationAlertState.workspaceId, workspaceId.value),
-          eq(stationAlertState.teamId, teamId.value),
+          eq(stationAlertState.stationId, removed.station.stationId.value),
+          eq(stationAlertState.version, removed.version),
         ),
+      )
+      .returning({ stationId: stationAlertState.stationId });
+
+    if (gone.length === 0) {
+      throw new StationAlertStateVersionConflictError(
+        removed.station.stationId.value,
       );
-  }
-
-  async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.db
-      .delete(stationAlertState)
-      .where(eq(stationAlertState.workspaceId, workspaceId.value));
-  }
-
-  private async alertStateAt(
-    stationId: string,
-    alsoIncluded: SQL | null,
-  ): Promise<StationAlertState | null> {
-    const [row] = await this.context.db
-      .select()
-      .from(stationAlertState)
-      .where(eq(stationAlertState.stationId, stationId))
-      .limit(1);
-
-    if (!row) {
-      return null;
     }
+  }
 
+  async ofScope(
+    scope: DeletionScope,
+    max: number,
+  ): Promise<readonly StationAlertState[]> {
+    const rows =
+      scope.kind === 'task'
+        ? await this.context.db
+            .selectDistinct({ stationId: stationAlert.stationId })
+            .from(stationAlert)
+            .where(eq(stationAlert.taskId, scope.taskId.value))
+            .limit(max)
+        : await this.context.db
+            .select({ stationId: stationAlertState.stationId })
+            .from(stationAlertState)
+            .where(inScope(stationAlertState, scope))
+            .limit(max);
+    const states = await Promise.all(
+      rows.map((row) => this.of(StationId.of(row.stationId))),
+    );
+
+    return states.filter((each) => each !== null);
+  }
+
+  private async withFirings(row: AlertStateRow): Promise<StationAlertState> {
     const alerts = await this.context.db
       .select()
       .from(stationAlert)
-      .where(
-        and(
-          eq(stationAlert.stationId, stationId),
-          alsoIncluded
-            ? or(isNull(stationAlert.resolvedAt), alsoIncluded)
-            : isNull(stationAlert.resolvedAt),
-        ),
-      )
+      .where(eq(stationAlert.stationId, row.stationId))
       .orderBy(asc(stationAlert.firedAt), asc(stationAlert.id));
-    const cooling = await this.context.db
-      .selectDistinctOn([stationAlert.measure, stationAlert.condition])
-      .from(stationAlert)
-      .where(
-        and(
-          eq(stationAlert.stationId, stationId),
-          isNotNull(stationAlert.resolvedAt),
-        ),
-      )
-      .orderBy(
-        asc(stationAlert.measure),
-        asc(stationAlert.condition),
-        desc(stationAlert.resolvedAt),
-        desc(stationAlert.id),
-      );
-    const openIds = new Set(alerts.map((each) => each.id));
 
-    return toAlertState(row, [
-      ...alerts,
-      ...cooling.filter((each) => !openIds.has(each.id)),
-    ]);
+    return toAlertState(row, alerts);
   }
 
   private async writeAlerts(alertState: StationAlertState): Promise<void> {
     if (alertState.dropped.length > 0) {
       await this.context.db.delete(stationAlert).where(
         and(
-          eq(stationAlert.stationId, alertState.station.stationId),
+          eq(stationAlert.stationId, alertState.station.stationId.value),
           inArray(
             stationAlert.id,
             alertState.dropped.map((each) => each.value),

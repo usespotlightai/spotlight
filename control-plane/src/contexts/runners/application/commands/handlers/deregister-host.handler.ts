@@ -32,7 +32,7 @@ export class DeregisterHostHandler
       );
 
       await deregisterHost(this.hosts, HostId.of(command.hostId), (known) =>
-        known.hasSource(source),
+        known.admits(source, authenticated.workspaceId),
       );
 
       return { outcome: 'deregistered' };

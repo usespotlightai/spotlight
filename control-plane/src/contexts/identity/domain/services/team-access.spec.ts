@@ -1,20 +1,23 @@
 import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { TeamAccess } from '@identity/domain/services/team-access';
+import { Dependents } from '@identity/domain/value-objects/dependents.vo';
+import { IssuedTokenGrant } from '@identity/domain/value-objects/issued-token-grant.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
+import { TokenScopes } from '@identity/domain/value-objects/token-scopes.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
+import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import {
   PersonPrincipal,
   TokenPrincipal,
 } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const OWNER = UserId.of('owner_1');
@@ -42,6 +45,7 @@ const team = (name: string, members: readonly UserId[], workspace = 'ws_1') =>
     workspaceId: WorkspaceId.of(workspace),
     key: TeamKey.from(name),
     name: TeamName.of(name),
+    origin: 'configuration',
     members,
     version: 0,
   });
@@ -49,7 +53,7 @@ const team = (name: string, members: readonly UserId[], workspace = 'ws_1') =>
 const PLATFORM = team('Platform', [OWNER, ON_PLATFORM]);
 
 const tokenOf = (scopes: readonly string[], workspace = 'ws_1') =>
-  TokenPrincipal.of({
+  IssuedTokenGrant.principal({
     tokenId: WorkspaceTokenId.of('token_1'),
     workspaceId: WorkspaceId.of(workspace),
     scopes: TokenScopes.named(scopes),
@@ -57,9 +61,44 @@ const tokenOf = (scopes: readonly string[], workspace = 'ws_1') =>
   });
 
 const allows = (principal: PersonPrincipal | TokenPrincipal, of = PLATFORM) =>
-  TeamAccess.allows(of, ACME, principal);
+  TeamAccess.readsTeam(of, ACME, principal);
 
-describe('TeamAccess', () => {
+const inWorkspace = (
+  principal: PersonPrincipal | TokenPrincipal,
+  of = PLATFORM,
+) => TeamAccess.permissionsInWorkspaceOf(of, ACME, principal);
+
+describe('TeamAccess, in the workspace of a team', () => {
+  it('grants a workspace member who is only on another team what their role grants', () => {
+    expect(inWorkspace(PersonPrincipal.of(ON_PAYMENTS)).reads).toBe(true);
+    expect(inWorkspace(PersonPrincipal.of(ON_PAYMENTS)).isAdmin).toBe(false);
+    expect(inWorkspace(PersonPrincipal.of(ADMIN)).isAdmin).toBe(true);
+  });
+
+  it('grants a token of the workspace what its scopes grant', () => {
+    expect(inWorkspace(tokenOf(['read'])).reads).toBe(true);
+    expect(inWorkspace(tokenOf(['read'])).configures).toBe(false);
+  });
+
+  it('grants nothing to someone outside the workspace', () => {
+    expect(inWorkspace(PersonPrincipal.of(OUTSIDER)).reads).toBe(false);
+  });
+
+  it('grants nothing for a team of another workspace, or a deleted team', () => {
+    expect(
+      inWorkspace(PersonPrincipal.of(ADMIN), team('Platform', [ADMIN], 'ws_2'))
+        .reads,
+    ).toBe(false);
+    expect(
+      inWorkspace(
+        PersonPrincipal.of(ADMIN),
+        PLATFORM.delete(Dependents.none(), changeActorIn(ACME.id)),
+      ).reads,
+    ).toBe(false);
+  });
+});
+
+describe('TeamAccess, reading a team', () => {
   it('allows a member of the team', () => {
     expect(allows(PersonPrincipal.of(ON_PLATFORM))).toBe(true);
   });

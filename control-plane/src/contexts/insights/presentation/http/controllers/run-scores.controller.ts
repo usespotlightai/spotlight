@@ -27,7 +27,7 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 
 const gradeIn = (
   body: GradeRunRequestDto | undefined,
@@ -95,16 +95,16 @@ export class RunScoresController {
     @Body() body: GradeRunRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<RunScoresResponseDto> {
-    return new RunScoresResponseDto(
-      await this.commandBus.execute<GradeRunCommand, RunScoresDto>(
-        new GradeRunCommand(
-          teamId,
-          runId,
-          gradeIn(body),
-          claimsIn(body),
-          user.id,
-        ),
+    await this.commandBus.execute<GradeRunCommand, void>(
+      new GradeRunCommand(
+        teamId,
+        runId,
+        gradeIn(body),
+        claimsIn(body),
+        user.id,
       ),
     );
+
+    return this.scores(teamId, runId, user);
   }
 }

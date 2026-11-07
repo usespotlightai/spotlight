@@ -1,3 +1,4 @@
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { PersonRuleMapper } from '@work/application/mappers/person-rule.mapper';
 import { ToolActingAsMapper } from '@work/application/mappers/tool-acting-as.mapper';
 import { ToolDeclarationMapper } from '@work/application/mappers/tool-declaration.mapper';
@@ -7,17 +8,16 @@ import type {
   ResolvedTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import type { RunWorks } from '@work/application/services/run-works.service';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
-import type { Tool } from '@work/domain/value-objects/tool.vo';
 
 export class IntegrationTools implements IntegrationToolsPort {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly taskViews: IntegrationTaskViews,
     private readonly calls: IntegrationToolCallsPort,
     private readonly works: RunWorks,

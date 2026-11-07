@@ -113,10 +113,10 @@ export class UserEmail extends EventRecorder implements State {
   }
 
   static rehydrate(input: State): UserEmail {
-    if (!Number.isInteger(input.version) || input.version < 1) {
+    if (!Number.isInteger(input.version) || input.version < 0) {
       throw new InconsistentStateError(
         'user email',
-        'was stored without ever being written',
+        `has an impossible version (${input.version})`,
       );
     }
 

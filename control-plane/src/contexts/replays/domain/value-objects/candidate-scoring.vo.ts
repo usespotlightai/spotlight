@@ -1,5 +1,5 @@
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
-import type { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
+import type { JudgeCriteria } from '@shared-kernel/domain/value-objects/judge-criteria.vo';
 
 export class CandidateScoring {
   private constructor(

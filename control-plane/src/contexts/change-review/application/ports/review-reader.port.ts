@@ -1,5 +1,5 @@
+import type { DeliveryFailureCode } from '@change-review/domain/value-objects/delivery-failure.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export const REVIEW_READER = Symbol('REVIEW_READER');
 
@@ -20,6 +20,8 @@ export interface ReviewCommentView {
   readonly url: string | null;
   readonly createdAt: Date;
   readonly editedAt: Date | null;
+  readonly failureCode: DeliveryFailureCode | null;
+  readonly failureDetail: string | null;
 }
 
 export interface ReviewView {
@@ -31,13 +33,12 @@ export interface ReviewView {
   readonly body: string;
   readonly state: 'submitted' | 'posted' | 'failed' | 'discarded';
   readonly submittedAt: Date;
+  readonly failureCode: DeliveryFailureCode | null;
+  readonly failureDetail: string | null;
 }
 
 export interface ReviewReaderPort {
-  commentsVisibleTo(
-    taskId: TaskId,
-    viewer: UserId,
-  ): Promise<ReviewCommentView[]>;
+  commentsOf(taskId: TaskId): Promise<ReviewCommentView[]>;
 
   reviewsOf(taskId: TaskId): Promise<ReviewView[]>;
 }

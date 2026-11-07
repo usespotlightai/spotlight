@@ -1,4 +1,4 @@
-export const LINE_CHANGED = 'work.line-changed.v1';
+export const LINE_CHANGED = 'lines.line-changed.v1';
 
 export type LineChangedIntegrationEvent = {
   readonly kind: typeof LINE_CHANGED;

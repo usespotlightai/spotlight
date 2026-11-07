@@ -4,6 +4,7 @@ import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
 import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
+import { SearchReplaysPlanned } from '@replays/domain/events/search-replays-planned.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
 import { InvalidFailureCauseError } from '@replays/domain/exceptions/invalid-failure-cause.error';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
@@ -30,6 +31,7 @@ import {
   searchRunIds,
   sha256,
 } from '@replays/domain/replays.fake-spec';
+import { scoresOf } from '@replays/domain/services/search-scores';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
@@ -167,7 +169,7 @@ describe('Search', () => {
       const started = Search.start({
         id: SEARCH_ID,
         calibrates: false,
-        set,
+        set: set.snapshot,
         agent: AGENT,
         budget: aBudget(),
         objective: 'success',
@@ -197,6 +199,7 @@ describe('Search', () => {
             expect.anything(),
           ),
         ),
+        new SearchReplaysPlanned(SEARCH_ID, set.workspaceId, [SEED]),
       ]);
     });
 
@@ -205,7 +208,7 @@ describe('Search', () => {
       const started = Search.start({
         id: SEARCH_ID,
         calibrates: false,
-        set,
+        set: set.snapshot,
         agent: AGENT,
         budget: aBudget({ iterations: 4, perIteration: 3, concurrency: 6 }),
         objective: 'success',
@@ -245,7 +248,7 @@ describe('Search', () => {
         Search.start({
           id: SEARCH_ID,
           calibrates: false,
-          set,
+          set: set.snapshot,
           agent: AGENT,
           budget: aBudget(),
           objective: 'success',
@@ -270,7 +273,7 @@ describe('Search', () => {
         Search.start({
           id: SEARCH_ID,
           calibrates: false,
-          set,
+          set: set.snapshot,
           agent: AGENT,
           budget: aBudget(),
           objective: 'success',
@@ -382,7 +385,11 @@ describe('Search', () => {
       expect(accepted.proposals.map((each) => each.name.value)).toEqual([
         'terse',
       ]);
-      expect(accepted.pullEvents()).toEqual([]);
+      expect(accepted.pullEvents()).toEqual([
+        new SearchReplaysPlanned(SEARCH_ID, accepted.workspaceId, [
+          ReplayId.of('replay_terse'),
+        ]),
+      ]);
     });
 
     it('takes at most its per-iteration number of candidates from one run', () => {
@@ -498,6 +505,16 @@ describe('Search', () => {
           true,
         ),
       ).toBe(seeded);
+    });
+
+    it('knows a planned replay awaits its start until it is seen started, once', () => {
+      const planned = aSearch();
+      const started = planned.replayStarted(SEED);
+
+      expect(planned.replaysAwaitingStart).toEqual([SEED]);
+      expect(started.replaysAwaitingStart).toEqual([]);
+      expect(started.replayStarted(SEED)).toBe(started);
+      expect(planned.replayStarted(ReplayId.of('elsewhere'))).toBe(planned);
     });
 
     it('takes what a replay spent after it ended, only ever more, and adds it to the spend of the next iteration', () => {
@@ -770,6 +787,9 @@ describe('Search', () => {
       expect(search.stopReason).toBe('iterations-spent');
       expect(search.endedAt).toBeNull();
       expect(search.pullEvents()).toEqual([
+        new SearchReplaysPlanned(SEARCH_ID, search.workspaceId, [
+          ReplayId.of('replay_three'),
+        ]),
         new SearchHoldingOutRequested(SEARCH_ID, search.workspaceId),
       ]);
     });
@@ -1211,24 +1231,27 @@ describe('Search', () => {
 
     return search
       .heldOutFrom(
-        [
-          replayedAs(
-            replayFor(SET, 'replay_seed', 'candidate_live', null, true),
-            () => 'completed',
-            3,
-          ),
-          replayedAs(
-            replayFor(
-              SET,
-              'replay_one',
-              'candidate_one',
-              search.split.searchedRuns,
+        scoresOf(
+          search,
+          [
+            replayedAs(
+              replayFor(SET, 'replay_seed', 'candidate_live', null, true),
+              () => 'completed',
+              3,
             ),
-            () => 'completed',
-            1,
-          ),
-        ],
-        0.05,
+            replayedAs(
+              replayFor(
+                SET,
+                'replay_one',
+                'candidate_one',
+                search.split.searchedRuns,
+              ),
+              () => 'completed',
+              1,
+            ),
+          ],
+          0.05,
+        ),
         () => ReplayId.of(`held_out_${++count}`),
         NOW,
       )
@@ -1305,12 +1328,15 @@ describe('Search', () => {
     it('holds out only the candidates on the frontier, then finishes once their held-out replays ended', () => {
       const search = holdingOut();
       const heldOutSearch = search.heldOutFrom(
-        [
-          seedRan(),
-          candidateRan(search, 'one', 1),
-          candidateRan(search, 'two', 2),
-        ],
-        0.05,
+        scoresOf(
+          search,
+          [
+            seedRan(),
+            candidateRan(search, 'one', 1),
+            candidateRan(search, 'two', 2),
+          ],
+          0.05,
+        ),
         heldOutIds(),
         later(2),
       );
@@ -1336,6 +1362,9 @@ describe('Search', () => {
       expect(finished.stopReason).toBe('iterations-spent');
       expect(finished.endedAt).toEqual(later(3));
       expect(finished.pullEvents()).toEqual([
+        new SearchReplaysPlanned(SEARCH_ID, finished.workspaceId, [
+          ReplayId.of('held_out_1'),
+        ]),
         new SearchEnded(
           SEARCH_ID,
           finished.workspaceId,
@@ -1350,13 +1379,16 @@ describe('Search', () => {
     it('holds out at most its per-iteration number, the best searched first', () => {
       const search = holdingOut([['best', 'good'], ['cheap']]);
       const heldOutSearch = search.heldOutFrom(
-        [
-          seedRan(),
-          candidateRan(search, 'best', 3),
-          candidateRan(search, 'good', 2, 1),
-          candidateRan(search, 'cheap', 1, 2),
-        ],
-        0.05,
+        scoresOf(
+          search,
+          [
+            seedRan(),
+            candidateRan(search, 'best', 3),
+            candidateRan(search, 'good', 2, 1),
+            candidateRan(search, 'cheap', 1, 2),
+          ],
+          0.05,
+        ),
         heldOutIds(),
         NOW,
       );
@@ -1381,7 +1413,7 @@ describe('Search', () => {
         );
 
         return search
-          .heldOutFrom(ran(search), 0.05, heldOutIds(), NOW)
+          .heldOutFrom(scoresOf(search, ran(search), 0.05), heldOutIds(), NOW)
           .heldOut.map((each) => each.candidateId.value);
       };
 
@@ -1398,12 +1430,33 @@ describe('Search', () => {
 
       expect(
         search.heldOutFrom(
-          [seedRan(), candidateRan(search, 'worse', 5, 3)],
-          0.05,
+          scoresOf(
+            search,
+            [seedRan(), candidateRan(search, 'worse', 5, 3)],
+            0.05,
+          ),
           heldOutIds(),
           NOW,
         ).current,
       ).toBe('finished');
+    });
+
+    it('holds out only by the scores of its own replays', () => {
+      const search = holdingOut();
+      const other = holdingOut([['one']]);
+      const replays = [seedRan(), candidateRan(other, 'one', 1)];
+      const scores = scoresOf(other, replays, 0.05);
+
+      expect(() =>
+        search.heldOutFrom(
+          {
+            ...scores,
+            seed: { ...scores.seed, replayId: ReplayId.of('replay_other') },
+          },
+          heldOutIds(),
+          NOW,
+        ),
+      ).toThrow(InvalidSearchError);
     });
 
     it('holds out once, and only after it stopped searching', () => {
@@ -1414,13 +1467,21 @@ describe('Search', () => {
         candidateRan(search, 'two', 2),
       ];
 
+      const once = search.heldOutFrom(
+        scoresOf(search, replays, 0.05),
+        heldOutIds(),
+        NOW,
+      );
+
       expect(() =>
-        search
-          .heldOutFrom(replays, 0.05, heldOutIds(), NOW)
-          .heldOutFrom(replays, 0.05, heldOutIds(), NOW),
+        once.heldOutFrom(scoresOf(once, replays, 0.05), heldOutIds(), NOW),
       ).toThrow(InvalidSearchError);
       expect(() =>
-        searching().heldOutFrom(replays, 0.05, heldOutIds(), NOW),
+        searching().heldOutFrom(
+          scoresOf(searching(), replays, 0.05),
+          heldOutIds(),
+          NOW,
+        ),
       ).toThrow(InvalidSearchError);
     });
 
@@ -1431,8 +1492,11 @@ describe('Search', () => {
     it('takes what a held-out replay spent after it ended', () => {
       const search = holdingOut()
         .heldOutFrom(
-          [seedRan(), candidateRan(holdingOut(), 'one', 1)],
-          0.05,
+          scoresOf(
+            holdingOut(),
+            [seedRan(), candidateRan(holdingOut(), 'one', 1)],
+            0.05,
+          ),
           heldOutIds(),
           NOW,
         )
@@ -1528,6 +1592,9 @@ describe('Search', () => {
   describe('ending early', () => {
     it('stops when it is turned off, cancels its run and stops its replays in progress', () => {
       const search = proposing(searching(), 1, ['one']);
+
+      search.pullEvents();
+
       const stopped = search.turnOff(later(5));
 
       expect(stopped.current).toBe('stopped');
@@ -1829,7 +1896,7 @@ describe('a search that a person asked for', () => {
       Search.start({
         id: SEARCH_ID,
         calibrates: false,
-        set,
+        set: set.snapshot,
         agent: null,
         budget: SearchBudget.agentless({
           ceiling: Money.ceiling(100, 'USD'),

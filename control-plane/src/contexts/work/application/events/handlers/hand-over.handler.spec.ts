@@ -1,22 +1,27 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { HandOver } from '@work/application/events/handlers/hand-over.handler';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
@@ -24,23 +29,19 @@ import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo'
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  routesOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -65,20 +66,20 @@ const at = (
   ends = false,
   passesTo: readonly string[] = [],
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     harness,
-    routes: StationRoutes.of({ ends, stations: passesTo.map(StationId.of) }),
+    routes: routesOf({ ends, stations: passesTo.map(StationId.of) }),
     kind:
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
   });
 
 const line = () =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -180,9 +181,9 @@ const tasks = (found: Task | null = task()) =>
     }),
     find: vi.fn(async () => found),
     remove: vi.fn(),
-    allAtStation: vi.fn(async () => []),
     placementsAt: vi.fn(async () => []),
-    findByMarks: vi.fn(async () => null),
+    findByCorrelation: vi.fn(async () => []),
+    holdingMark: vi.fn(async () => []),
     settingUpFor: vi.fn(async () => null),
     settingUpIn: vi.fn(async () => []),
     settingUp: vi.fn(async () => []),
@@ -191,13 +192,12 @@ const tasks = (found: Task | null = task()) =>
 
 const lines = () =>
   ({
-    add: vi.fn(),
-    save: vi.fn(),
     find: vi.fn(async () => line()),
     findByStation: vi.fn(async () => line()),
     ofWorkspace: vi.fn(async () => []),
     ofTeam: vi.fn(async () => []),
-  }) satisfies LineRepository;
+    candidate: vi.fn(),
+  }) satisfies LineMapsPort;
 
 const dispatch: TaskDispatching = {
   runIdFor: async () => RunId.of('run_2'),
@@ -296,7 +296,7 @@ describe('HandOver', () => {
 
   it('keeps a failure on a finished task from the inbox', async () => {
     const finished = task().finishHere(RunId.of('run_1'), line(), {
-      station: StationName.of('Triage'),
+      station: null,
       body: TaskNoteBody.of('Done by hand.'),
       at: NOW,
       voice: Voice.station(RunId.of('run_1')),
@@ -405,7 +405,7 @@ describe('HandOver', () => {
   describe('a run that ends while its task waits on a person', () => {
     const asked = () =>
       task().putToAPerson(RunId.of('run_1'), {
-        station: StationName.of('Triage'),
+        station: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -438,7 +438,7 @@ describe('HandOver', () => {
 
     const deferredWhileAsked = () =>
       asked().deferMove(line(), StationId.of('station_4'), {
-        station: StationName.of('Triage'),
+        station: null,
         body: TaskNoteBody.of('The checks failed on the pull request.'),
         at: NOW,
         voice: Voice.world(),
@@ -482,7 +482,7 @@ describe('HandOver', () => {
   describe('a move deferred while the run was in progress', () => {
     const deferred = (to = 'station_4') =>
       task().deferMove(line(), StationId.of(to), {
-        station: StationName.of('Triage'),
+        station: null,
         body: TaskNoteBody.of('The checks failed on the pull request.'),
         at: NOW,
         voice: Voice.world(),
@@ -543,7 +543,7 @@ describe('HandOver', () => {
         ),
         ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
         {
-          station: StationName.of('Triage'),
+          station: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -555,7 +555,7 @@ describe('HandOver', () => {
       return asked.answer(
         NotePosition.of(1),
         {
-          station: StationName.of('Triage'),
+          station: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),

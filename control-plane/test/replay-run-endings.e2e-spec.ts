@@ -15,6 +15,7 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -28,7 +29,6 @@ import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp } from './support/app';
 
@@ -180,6 +180,8 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
     await app?.close();
   });
 
+  let nextSlot = 0;
+
   const storedAfter = async (end: (run: Run) => Run) => {
     const runId = randomUUID();
     const replayId = randomUUID();
@@ -187,7 +189,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
 
     await replays.add(
       aReplay({ id: replayId, count: 1 })
-        .reserving(1, () => RunId.of(runId))
+        .reserving([nextSlot++], () => RunId.of(runId))
         .confirm(RunId.of(runId), FINGERPRINT, NOW),
     );
 

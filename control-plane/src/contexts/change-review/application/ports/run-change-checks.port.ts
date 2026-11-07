@@ -1,22 +1,20 @@
 export const RUN_CHANGE_CHECKS = Symbol('RUN_CHANGE_CHECKS');
 
-const CHANGE_CHECK_STATUSES = [
-  'generating',
-  'not-generated',
-  'unchecked',
-  'checking',
-  'passed',
-  'failed',
-  'skipped',
-] as const;
-
-export type ChangeCheckStatus = (typeof CHANGE_CHECK_STATUSES)[number];
+export type CheckedChangeStatus =
+  | 'generating'
+  | 'not-generated'
+  | 'unchecked'
+  | 'checking'
+  | 'passed'
+  | 'failed'
+  | 'skipped';
 
 export interface CheckedChange {
   readonly repository: string | null;
-  readonly status: ChangeCheckStatus;
+  readonly status: CheckedChangeStatus;
   readonly skip: string | null;
-  readonly failedAt: readonly string[];
+  readonly failedWhole: boolean;
+  readonly failedLayers: readonly string[];
   readonly usage: {
     readonly costs: readonly {
       readonly amount: number;

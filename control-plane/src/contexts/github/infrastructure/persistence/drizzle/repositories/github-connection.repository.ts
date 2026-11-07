@@ -7,25 +7,15 @@ import { githubConnection } from '@github/infrastructure/persistence/drizzle/sch
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
+  UNIQUE_VIOLATION,
+  violates,
+} from '@platform/persistence/drizzle/violations';
+import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq } from 'drizzle-orm';
-
-const UNIQUE_VIOLATION = '23505';
-
-const isAlreadyConnected = (error: unknown): boolean => {
-  const raised = ((error as { cause?: unknown } | null)?.cause ?? error) as {
-    code?: string;
-    constraint?: string;
-  } | null;
-
-  return (
-    raised?.code === UNIQUE_VIOLATION &&
-    String(raised.constraint ?? '').includes('installation')
-  );
-};
 
 @Injectable()
 export class DrizzleGitHubConnections implements GitHubConnectionRepository {
@@ -129,7 +119,7 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
         throw new GitHubConnectionVersionConflictError();
       }
     } catch (error) {
-      if (isAlreadyConnected(error)) {
+      if (violates(error, UNIQUE_VIOLATION, 'installation')) {
         throw new InstallationAlreadyConnectedError(installation.value);
       }
       throw error;

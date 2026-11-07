@@ -12,15 +12,12 @@ import {
 } from '@work/domain/value-objects/run-state';
 import type { StartedCheckoutParts } from '@work/domain/value-objects/started-checkout.vo';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
-import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
-import { station } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { sql } from 'drizzle-orm';
 import {
   type AnyPgColumn,
   bigint,
   boolean,
   check,
-  foreignKey,
   index,
   integer,
   jsonb,
@@ -45,14 +42,12 @@ export const run = pgTable(
     chatId: text('chat_id'),
     replayOfRunId: text('replay_of_run_id').references(
       (): AnyPgColumn => run.id,
-      { onDelete: 'cascade' },
     ),
+    replayedTaskId: text('replayed_task_id'),
     ranForTeamId: text('ran_for_team_id'),
     searchId: text('search_id'),
     searchIteration: integer('search_iteration'),
-    stationId: text('station_id').references(() => station.id, {
-      onDelete: 'set null',
-    }),
+    stationId: text('station_id'),
     state: runState('state').notNull(),
     spec: jsonb('spec').$type<unknown>().notNull(),
     attempt: integer('attempt').notNull().default(1),
@@ -132,11 +127,6 @@ export const run = pgTable(
       sql`(${table.stationConfig} is null) = (${table.stationFingerprint} is null)`,
     ),
     unique('run_workspace_id_id_key').on(table.workspaceId, table.id),
-    foreignKey({
-      name: 'run_chat_fk',
-      columns: [table.workspaceId, table.chatId],
-      foreignColumns: [chat.workspaceId, chat.id],
-    }),
     index('run_chat_idx').on(table.chatId),
     index('run_replay_of_idx').on(table.replayOfRunId),
     index('run_search_idx').on(table.searchId),

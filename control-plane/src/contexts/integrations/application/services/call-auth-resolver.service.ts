@@ -9,11 +9,11 @@ import type { ConnectionRefresh } from '@integrations/application/services/conne
 import { RunCredentials } from '@integrations/application/services/run-credentials';
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
 import type { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
-import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
 import { ConnectionChoice } from '@integrations/domain/services/connection-choice';
 import type { ConnectionMissing } from '@integrations/domain/value-objects/connection-missing.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -45,12 +45,9 @@ export class CallAuthResolver {
   ) {}
 
   async of(teamId: TeamId, integration: Integration): Promise<CallAuth> {
-    const connection = integration.requiresConnection
-      ? await this.connections.of(
-          teamId,
-          integration.key,
-          ConnectionOwner.team(),
-        )
+    const owner = ConnectionChoice.forUnrequestedCall(integration);
+    const connection = owner
+      ? await this.connections.of(teamId, integration.key, owner)
       : null;
 
     let found: Promise<string> | null = null;
@@ -86,7 +83,7 @@ export class CallAuthResolver {
       personId: requester,
       member:
         requester !== null && integration.actsAs.byRequester
-          ? (await this.access.onTeam(teamId.value, requester)) !== null
+          ? (await this.access.inWorkspaceOfTeam(teamId, requester)) !== null
           : false,
     });
 

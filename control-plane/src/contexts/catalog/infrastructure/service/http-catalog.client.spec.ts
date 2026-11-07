@@ -2,7 +2,7 @@ import type { CatalogTool } from '@catalog/domain/entities/catalog-item.entity';
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { HttpCatalogClient } from '@catalog/infrastructure/service/http-catalog.client';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';

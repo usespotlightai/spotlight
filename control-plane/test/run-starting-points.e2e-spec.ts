@@ -6,6 +6,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
@@ -17,7 +18,6 @@ import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { DrizzleBriefedTasks } from '@work/infrastructure/persistence/drizzle/readers/briefed-tasks.reader';
@@ -26,6 +26,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 
 const NOW = new Date('2026-10-01T09:00:00.000Z');
 const STATION = randomUUID();
@@ -54,7 +55,7 @@ beforeAll(async () => {
     teamId: 'team_1',
     name: 'Delivery',
   });
-  await database.db.insert(schema.station).values({
+  await insertStations(database.db, {
     id: STATION,
     key: 'build',
     workspaceId: 'ws_1',
@@ -93,22 +94,18 @@ const briefed = BriefedTask.of({
   ],
 });
 
-const aTaskRun = (): Run =>
+const aTaskRun = (taskId = TaskId.of(randomUUID())): Run =>
   Run.enqueue({
     id: RunId.of(randomUUID()),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject: RunSubject.task(
-      TaskId.of(randomUUID()),
-      StationId.of(STATION),
-      TaskRevision.of(1),
-    ),
+    subject: RunSubject.task(taskId, StationId.of(STATION), TaskRevision.of(1)),
     spec: RunSpec.of({
       checkouts: [{ remote: 'spotlight:repository', path: 'api' }],
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      resume: { key: 'task-task_1' },
+      resume: { key: ResumeKey.forTask(taskId).value },
       startingPoint: true,
     }),
     briefedTask: briefed,
@@ -117,7 +114,7 @@ const aTaskRun = (): Run =>
 describe('a task run’s starting point', () => {
   it('stores the task as it was briefed, read apart from the run', async () => {
     const run = aTaskRun();
-    await runs.add(run, { briefed });
+    await runs.add(run);
 
     const found = await runs.findById(run.id);
     const read = await briefedTasks.of(run.id);
@@ -158,7 +155,7 @@ describe('a task run’s starting point', () => {
           restored: RestoredArchive.of(
             archive,
             run.workspaceId,
-            ResumeKey.forTask('task_1'),
+            run.resumeKey as ResumeKey,
           ),
           checkouts,
         },

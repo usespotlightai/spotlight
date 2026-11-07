@@ -1,10 +1,11 @@
+import type { OAuth2Client } from '@integrations/application/ports/oauth2-clients.port';
+import type { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
+import type { ConnectionOwnerKind } from '@integrations/domain/value-objects/connection-owner.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const OAUTH2_LINKING = Symbol('OAUTH2_LINKING');
-
-export const OAUTH2_CALLBACK_ROUTE = 'integrations/oauth/callback';
-
-export type ConnectionOwnerKind = 'team' | 'person';
 
 export interface OAuth2Start {
   readonly url: string;
@@ -31,8 +32,21 @@ export interface OAuth2Authorized extends OAuth2LinkInput {
   readonly tokens: OAuthTokens;
 }
 
+export interface OAuth2Registration {
+  readonly endpoint: string | null;
+  readonly server: AuthorizationServer | null;
+}
+
 export interface OAuth2LinkingPort {
-  begin(input: OAuth2LinkInput): Promise<OAuth2Start | null>;
+  registrationFor(
+    teamId: TeamId,
+    integration: IntegrationKey,
+  ): Promise<OAuth2Registration | null>;
+
+  begin(
+    input: OAuth2LinkInput,
+    client: OAuth2Client,
+  ): Promise<OAuth2Start | null>;
 
   authorized(returned: OAuth2Returned): Promise<OAuth2Authorized | null>;
 

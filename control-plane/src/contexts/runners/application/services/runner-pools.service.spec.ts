@@ -6,6 +6,7 @@ import type {
   RunnerPoolRecord,
   RunnerResourcesPort,
 } from '@runners/application/ports/runner-resources.port';
+import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
@@ -16,6 +17,7 @@ import {
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import { SandboxId } from '@runners/domain/value-objects/sandbox-id.vo';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -29,6 +31,7 @@ const pooling = (
   stored: {
     pool?: RunnerPool | null;
     alive?: readonly Runner[];
+    idleSandboxes?: readonly SandboxId[];
     provisioning?: readonly RunnerPoolRecord[];
     platform?: boolean;
   } = {},
@@ -43,6 +46,9 @@ const pooling = (
     {
       aliveIn: vi.fn(async () => stored.alive ?? []),
     } as unknown as RunnerRepository,
+    {
+      idleInPool: vi.fn(async () => stored.idleSandboxes ?? []),
+    } as unknown as SandboxPlacementsPort,
     {
       provisioningPools: vi.fn(async () => stored.provisioning ?? []),
     } as unknown as RunnerResourcesPort,
@@ -156,6 +162,16 @@ describe('RunnerPools', () => {
       const { pools } = pooling(null, { alive: [aRunner()] });
 
       await expect(pools.roomIn(POOL_ID.value, NOW)).resolves.toBe(1);
+    });
+
+    it('counts a live sandbox no run is in against maxRuns, as starting a runner does', async () => {
+      const { pools } = pooling(null, {
+        alive: [aRunner()],
+        idleSandboxes: [SandboxId.of('sandbox_1')],
+      });
+
+      await expect(pools.roomIn(POOL_ID.value, NOW)).resolves.toBe(0);
+      await expect(pools.running(POOL_ID.value, NOW)).resolves.toBe(1);
     });
 
     it('is unbounded for a pool without maxRuns', async () => {

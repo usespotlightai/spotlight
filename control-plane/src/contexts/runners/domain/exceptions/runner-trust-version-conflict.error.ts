@@ -1,4 +1,6 @@
-export class RunnerTrustVersionConflictError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class RunnerTrustVersionConflictError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(trustId: string) {

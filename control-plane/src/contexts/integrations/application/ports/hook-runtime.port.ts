@@ -1,8 +1,14 @@
 import type { HookCall } from '@integrations/application/ports/hook-calls.port';
 import type { TaskView } from '@integrations/application/ports/tasks-for-hooks.port';
 import type { HookStepOutcome } from '@integrations/domain/aggregates/hook-firing.aggregate';
-import type { Hook } from '@integrations/domain/entities/hook.entity';
+import type { Hook } from '@integrations/domain/value-objects/hook.vo';
+import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
+import type { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const HOOK_RUNTIME = Symbol('HOOK_RUNTIME');
 
@@ -12,16 +18,14 @@ export interface HookEventInstance {
   readonly at: Date;
   readonly task: TaskView;
   readonly event: Readonly<Record<string, unknown>>;
-  readonly firing: string | null;
+  readonly firing: HookFiringId | null;
 }
 
 export interface ListeningHook {
-  readonly id: string;
-  readonly key: string;
-  readonly teamId: string;
+  readonly id: HookDefinitionId;
+  readonly key: HookKey;
+  readonly teamId: TeamId;
   readonly blocks: boolean;
-  readonly timeoutSeconds: number;
-  readonly steps: readonly string[];
   readonly broken: string | null;
   readonly written: Hook | null;
 }
@@ -46,15 +50,46 @@ export interface StepRequest {
   readonly waitMode: WaitMode;
 }
 
+export type HookRequestSigning =
+  | { readonly kind: 'hmac' }
+  | { readonly kind: 'oidc'; readonly audience: string };
+
+export type WrittenStep =
+  | {
+      readonly kind: 'call';
+      readonly name: string;
+      readonly tool: ToolName;
+      readonly with: unknown;
+    }
+  | {
+      readonly kind: 'request';
+      readonly name: string;
+      readonly url: URL;
+      readonly headers: Readonly<Record<string, string>>;
+      readonly body: string;
+      readonly fromNetwork: boolean;
+      readonly signing: HookRequestSigning | null;
+    }
+  | {
+      readonly kind: 'unwritable';
+      readonly name: string;
+      readonly failure: HookFailure;
+    };
+
 export interface HookRuntimePort {
   listening(
-    teamId: string,
+    teamId: TeamId,
     on: HookEventName,
   ): Promise<readonly ListeningHook[]>;
 
-  hook(hookId: string): Promise<ListeningHook | null>;
+  hook(hookId: HookDefinitionId): Promise<ListeningHook | null>;
 
-  matches(hook: ListeningHook, instance: HookEventInstance): boolean;
+  whenHolds(hook: ListeningHook, instance: HookEventInstance): boolean;
 
-  step(request: StepRequest): Promise<StepResult>;
+  written(
+    hook: ListeningHook,
+    step: string,
+    instance: HookEventInstance,
+    earlier: readonly StepOutcome[],
+  ): WrittenStep;
 }

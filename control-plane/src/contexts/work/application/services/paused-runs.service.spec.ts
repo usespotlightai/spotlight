@@ -1,35 +1,36 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { PausedRuns } from '@work/application/services/paused-runs.service';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
+import {
+  lineMapOf,
+  repositoryOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -46,14 +47,14 @@ const station = (
   id: string,
   key: string,
   position: number,
-  extra: Partial<Parameters<typeof Station.of>[0]> = {},
+  extra: Partial<Parameters<typeof stationOf>[0]> = {},
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(key),
     name: StationName.of(key),
     position,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     ...extra,
   });
 
@@ -61,7 +62,7 @@ const WIDGETS = Repository.of('acme/widgets');
 const CONFIG = Repository.of('acme/config');
 
 const lineWith = (repositories: readonly Repository[]) =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -73,10 +74,8 @@ const lineWith = (repositories: readonly Repository[]) =>
       station('station_completed', 'completed', 2, { kind: 'completed' }),
     ],
     repositories: repositories.map((each) =>
-      LineRepositoryConfig.of(each, {
-        setup: each.equals(CONFIG)
-          ? RepositorySetup.of('terraform version')
-          : null,
+      repositoryOf(each, {
+        setup: each.equals(CONFIG) ? 'terraform version' : null,
       }),
     ),
   });
@@ -84,7 +83,7 @@ const lineWith = (repositories: readonly Repository[]) =>
 const line = lineWith([WIDGETS]);
 
 const note = (body: string, voice: Voice) => ({
-  station: StationName.of('build'),
+  station: null,
   body: TaskNoteBody.of(body),
   at: NOW,
   voice,
@@ -143,7 +142,7 @@ const taking = (
   {
     conflictsFirst = false,
     current = line,
-  }: { conflictsFirst?: boolean; current?: Line | null } = {},
+  }: { conflictsFirst?: boolean; current?: LineMap | null } = {},
 ) => {
   const saved: Run[] = [];
   let conflicted = !conflictsFirst;
@@ -160,7 +159,7 @@ const taking = (
         saved.push(each);
       },
     } as unknown as RunRepository,
-    { findByStation: async () => current } as unknown as LineRepository,
+    { findByStation: async () => current } as unknown as LineMapsPort,
   );
 
   return {

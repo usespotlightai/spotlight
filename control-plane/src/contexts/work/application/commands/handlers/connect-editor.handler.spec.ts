@@ -27,6 +27,7 @@ const CHAT: EditorTarget = { kind: 'chat', id: 'chat_1' };
 
 const setUp = () => {
   const chat = Chat.start({
+    lines: [],
     workspaceId: WORKSPACE,
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of(ADA),

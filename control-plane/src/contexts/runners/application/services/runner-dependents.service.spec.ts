@@ -35,7 +35,7 @@ const dependents = (declared: WorkspaceRunners | null) =>
   new RunnerDependents(
     { inWorkspace: async () => [trust] } as unknown as RunnerTrustRepository,
     {
-      declaredIn: async () => declared,
+      ofWorkspace: async () => declared,
     } as unknown as WorkspaceRunnersRepository,
     {
       inWorkspace: async () => [aPullPool()],
@@ -57,19 +57,19 @@ describe('RunnerDependents', () => {
 
     await expect(dependents(declared).dependentsOf(WORKSPACE)).resolves.toEqual(
       [
-        'runner trust production',
-        'runner pool ephemeral',
-        'egress shared',
-        'workspace runners',
+        { kind: 'runner-trust', key: 'production' },
+        { kind: 'runner-pool', key: 'ephemeral' },
+        { kind: 'egress', key: 'shared' },
+        { kind: 'workspace-runners', key: null },
       ],
     );
   });
 
   it('names no declaration when the workspace made none', async () => {
     await expect(dependents(null).dependentsOf(WORKSPACE)).resolves.toEqual([
-      'runner trust production',
-      'runner pool ephemeral',
-      'egress shared',
+      { kind: 'runner-trust', key: 'production' },
+      { kind: 'runner-pool', key: 'ephemeral' },
+      { kind: 'egress', key: 'shared' },
     ]);
   });
 });

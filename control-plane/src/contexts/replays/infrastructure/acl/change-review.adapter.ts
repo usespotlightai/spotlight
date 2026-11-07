@@ -9,11 +9,13 @@ import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { Money } from '@replays/domain/value-objects/money.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
+const WHOLE_CHANGE = 'the whole change';
+
 const statusOf = (each: CheckedChange): StackStatus => ({
   repository: each.repository,
   state: each.status,
   skip: each.skip,
-  failedAt: [...each.failedAt],
+  failedAt: [...(each.failedWhole ? [WHOLE_CHANGE] : []), ...each.failedLayers],
   spent: ModelSpent.of(
     each.usage.costs.map((cost) => Money.of(cost.amount, cost.currency)),
     each.usage.unpriced,

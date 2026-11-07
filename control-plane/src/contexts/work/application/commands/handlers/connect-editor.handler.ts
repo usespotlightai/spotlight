@@ -61,14 +61,19 @@ export class ConnectEditorHandler
   private async ofTask(taskId: string): Promise<Found | null> {
     const workspaceId = await this.tasks.workspaceOf(TaskId.of(taskId));
 
-    return workspaceId ? { workspaceId, key: ResumeKey.forTask(taskId) } : null;
+    return workspaceId
+      ? { workspaceId, key: ResumeKey.forTask(TaskId.of(taskId)) }
+      : null;
   }
 
   private async ofChat(viewer: UserId, chatId: string): Promise<Found | null> {
     const chat = await this.chats.find(ChatId.of(chatId));
 
     return chat?.isStartedBy(viewer)
-      ? { workspaceId: chat.workspaceId, key: ResumeKey.forChat(chatId) }
+      ? {
+          workspaceId: chat.workspaceId,
+          key: ResumeKey.forChat(ChatId.of(chatId)),
+        }
       : null;
   }
 }

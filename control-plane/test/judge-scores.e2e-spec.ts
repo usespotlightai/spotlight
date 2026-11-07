@@ -5,8 +5,10 @@ import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import { Score } from '@insights/domain/aggregates/score.aggregate';
 import { RunJudged } from '@insights/domain/events/run-judged.event';
 import { ScoreVersionConflictError } from '@insights/domain/exceptions/score-version-conflict.error';
+import type { ScopedRemoval } from '@insights/domain/repositories/scoped-removal';
 import { JudgeEvidence } from '@insights/domain/services/judge-evidence';
 import { Citation } from '@insights/domain/value-objects/citation.vo';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
 import { JudgeReason } from '@insights/domain/value-objects/judge-reason.vo';
 import { Rubric } from '@insights/domain/value-objects/rubric.vo';
@@ -16,21 +18,24 @@ import { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { ScoreId } from '@insights/domain/value-objects/score-id.vo';
 import { ScoreScale } from '@insights/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@insights/domain/value-objects/seen-evidence.vo';
-import { DrizzleRunFactProjection } from '@insights/infrastructure/persistence/drizzle/projections/run-fact.projection';
+import { DrizzleStationFacts } from '@insights/infrastructure/persistence/drizzle/readers/station-facts.reader';
 import { DrizzleJudgingRepository } from '@insights/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzleRunRecordRepository } from '@insights/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@insights/infrastructure/persistence/drizzle/repositories/score.repository';
-import { DrizzleTaskPullRequestRepository } from '@insights/infrastructure/persistence/drizzle/repositories/task-pull-request.repository';
+import { scoreFactOf } from '@insights/runs.fake-spec';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { projectedInsights } from './support/insights-facts';
 
 const WORKSPACE = WorkspaceId.of('ws_1');
 const TEAM = TeamId.of('team_1');
@@ -46,8 +51,8 @@ const CLAIMS = ['It retries the upload.', 'It adds a test for it.'] as const;
 const locationOf = (taskId: string) =>
   RunLocation.of({
     teamId: TEAM,
-    lineId: 'line_1',
-    stationId: 'station_1',
+    lineId: LineId.of('line_1'),
+    stationId: StationId.of('station_1'),
     taskId: TaskId.of(taskId),
   });
 
@@ -131,6 +136,7 @@ let scores: DrizzleScoreRepository;
 let records: DrizzleRunRecordRepository;
 let reports: StationJudgeReports;
 let context: DrizzleContext;
+let facts: DrizzleStationFacts;
 const dispatched: DomainEvent[] = [];
 
 beforeAll(async () => {
@@ -143,15 +149,16 @@ beforeAll(async () => {
   } as unknown as DomainEventDispatcher;
   judgings = new DrizzleJudgingRepository(context, dispatcher);
   scores = new DrizzleScoreRepository(context, dispatcher);
-  records = new DrizzleRunRecordRepository(
-    context,
-    new DrizzleRunFactProjection(context),
-    dispatcher,
-  );
+  const projected = projectedInsights(context);
+  records = new DrizzleRunRecordRepository(context, {
+    dispatch: async (events) => {
+      dispatched.push(...events);
+      await projected.dispatcher.dispatch(events);
+    },
+  });
+  facts = new DrizzleStationFacts(context);
   reports = new StationJudgeReports(
     {
-      hasTask: async () => true,
-      of: async () => null,
       judgesOnTeam: async () => new Map(),
       judgeAt: async (stationId) =>
         stationId === CLAIMS_STATION
@@ -176,19 +183,25 @@ beforeAll(async () => {
               minAgreement: 0.5,
             },
     },
-    scores,
-    records,
-    new DrizzleTaskPullRequestRepository(
-      context,
-      new DrizzleRunFactProjection(context),
-      dispatcher,
-    ),
+    facts,
   );
 }, 60_000);
 
 afterAll(async () => {
   await database?.close();
 });
+
+const erased = async <A>(
+  aggregates: ScopedRemoval<A>,
+  taskId: TaskId,
+): Promise<void> => {
+  for (const each of await aggregates.ofScope(
+    DeletionScope.ofTask(WORKSPACE, taskId),
+    100,
+  )) {
+    await aggregates.remove(each);
+  }
+};
 
 describe('judgings, stored', () => {
   it('stores a pending job for a judging until it is judged, and says so', async () => {
@@ -356,8 +369,8 @@ describe('judge scores at many stations, read at once', () => {
       workspaceId: where.workspaceId ?? ELSEWHERE,
       location: RunLocation.of({
         teamId: TeamId.of(where.teamId ?? 'team_1'),
-        lineId: where.lineId ?? 'line_1',
-        stationId: where.stationId,
+        lineId: LineId.of(where.lineId ?? 'line_1'),
+        stationId: StationId.of(where.stationId),
         taskId: TaskId.of(`task_${runId}`),
       }),
       fingerprint: CONFIG,
@@ -410,8 +423,8 @@ describe('judge scores at many stations, read at once', () => {
         workspaceId: ELSEWHERE,
         location: RunLocation.of({
           teamId: TEAM,
-          lineId: 'line_1',
-          stationId: 'station_c',
+          lineId: LineId.of('line_1'),
+          stationId: StationId.of('station_c'),
           taskId: TaskId.of('task_many_c_1'),
         }),
         fingerprint: CONFIG,
@@ -424,10 +437,14 @@ describe('judge scores at many stations, read at once', () => {
       }),
     );
     const stations = ['station_a', 'station_b', 'station_c'].map(
-      (stationId) => ({ lineId: 'line_1', stationId, rubricVersion: VERSION }),
+      (stationId) => ({
+        lineId: LineId.of('line_1'),
+        stationId: StationId.of(stationId),
+        rubricVersion: VERSION,
+      }),
     );
 
-    const read = await scores.judgedAtStations({
+    const read = await facts.judgedAtStations({
       workspaceId: ELSEWHERE,
       teamId: TEAM,
       stations: [...stations, stations[0] as (typeof stations)[number]],
@@ -446,7 +463,7 @@ describe('judge scores at many stations, read at once', () => {
     );
     const oneByOne = await Promise.all(
       stations.map((each) =>
-        scores.judgedAtStation({
+        facts.judgedAtStation({
           workspaceId: ELSEWHERE,
           teamId: TEAM,
           ...each,
@@ -461,10 +478,10 @@ describe('judge scores at many stations, read at once', () => {
         .sort(),
     );
     expect(read.find((each) => each.id.value === 'judge_many_a_4')).toEqual(
-      added[4],
+      scoreFactOf(added[4] as Score),
     );
     expect(
-      await scores.judgedAtStations({
+      await facts.judgedAtStations({
         workspaceId: ELSEWHERE,
         teamId: TEAM,
         stations: [],
@@ -492,8 +509,8 @@ describe('how often the judge agrees with people', () => {
     const { report, calibration } = await reports.at({
       workspaceId: WORKSPACE,
       teamId: TEAM,
-      lineId: 'line_1',
-      stationId: 'station_1',
+      lineId: LineId.of('line_1'),
+      stationId: StationId.of('station_1'),
     });
 
     const [version] = report.versions;
@@ -510,15 +527,15 @@ describe('how often the judge agrees with people', () => {
       await reports.calibrationAt({
         workspaceId: WORKSPACE,
         teamId: TEAM,
-        lineId: 'line_1',
-        stationId: 'station_1',
+        lineId: LineId.of('line_1'),
+        stationId: StationId.of('station_1'),
       }),
     ).toEqual({ rubricVersion: VERSION, calibration });
   });
 
   it('deletes the judgings and scores of a deleted task', async () => {
-    await scores.removeForTask(TaskId.of('task_run_a'));
-    await judgings.removeForTask(TaskId.of('task_judged'));
+    await erased(scores, TaskId.of('task_run_a'));
+    await erased(judgings, TaskId.of('task_judged'));
 
     expect(await scores.ofRuns([RunId.of('run_a')])).toEqual([]);
     expect(await judgings.of(RunId.of('run_judged'))).toBeNull();
@@ -574,8 +591,8 @@ describe('how often the judge agrees with people', () => {
     await lockedNow;
 
     const deleting = context.inTransaction(async () => {
-      await judgings.removeForTask(TaskId.of('task_racing'));
-      await scores.removeForTask(TaskId.of('task_racing'));
+      await erased(judgings, TaskId.of('task_racing'));
+      await erased(scores, TaskId.of('task_racing'));
     });
     await new Promise((resolve) => setTimeout(resolve, 200));
     release();
@@ -590,8 +607,8 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
   const claimsLocation = (taskId: string) =>
     RunLocation.of({
       teamId: TEAM,
-      lineId: 'line_1',
-      stationId: CLAIMS_STATION,
+      lineId: LineId.of('line_1'),
+      stationId: StationId.of(CLAIMS_STATION),
       taskId: TaskId.of(taskId),
     });
   const rateOf = (claimResults: readonly boolean[]) =>
@@ -654,8 +671,8 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
     const { report, calibration } = await reports.at({
       workspaceId: WORKSPACE,
       teamId: TEAM,
-      lineId: 'line_1',
-      stationId: CLAIMS_STATION,
+      lineId: LineId.of('line_1'),
+      stationId: StationId.of(CLAIMS_STATION),
     });
 
     const [version] = report.versions;

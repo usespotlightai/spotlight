@@ -2,26 +2,25 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { NewNote, Task } from '@work/domain/aggregates/task.aggregate';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { HandoverFor } from '@work/domain/services/handover-for';
 import { Placement } from '@work/domain/services/placement';
 import { routeAfterRun } from '@work/domain/services/route-after-run';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 interface WaitingTask {
   readonly task: Task;
-  readonly line: Line | null;
+  readonly line: LineMap | null;
 }
 
 export class HandOver implements RunOutcomes {
@@ -29,7 +28,7 @@ export class HandOver implements RunOutcomes {
     private readonly tasks: TaskRepository,
     private readonly runs: RunRepository,
     private readonly placements: TaskPlacementsPort,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
   ) {}
@@ -52,7 +51,7 @@ export class HandOver implements RunOutcomes {
     });
 
     const recorded = event.session
-      ? task.recordSession(event.session, event.claimedBy)
+      ? task.recordSession(event.runId, event.session, event.claimedBy)
       : task;
 
     await this.saved(await this.applied(handover, recorded, line, event.runId));
@@ -123,11 +122,11 @@ export class HandOver implements RunOutcomes {
   private newNoteOf(
     handover: ResolvedHandover,
     task: Task,
-    line: Line | null,
+    line: LineMap | null,
     run: RunId,
   ): NewNote {
     return {
-      station: line?.stationAt(task.stationId)?.name ?? StationName.unknown(),
+      station: line?.stationAt(task.stationId) ?? null,
       body: handover.body,
       at: this.clock.now(),
       voice: Voice.station(run),
@@ -138,7 +137,7 @@ export class HandOver implements RunOutcomes {
   private async applied(
     handover: ResolvedHandover,
     task: Task,
-    line: Line | null,
+    line: LineMap | null,
     run: RunId,
   ): Promise<Task> {
     const newNote = this.newNoteOf(handover, task, line, run);
@@ -171,14 +170,14 @@ export class HandOver implements RunOutcomes {
             run,
             routing.line,
             routing.to.id,
-            Placement.atTheBack(ranks),
+            Placement.entering('passed-on', ranks),
             newNote,
           )
         : task.moveAsDeferred(
             run,
             routing.line,
             routing.to.id,
-            Placement.atTheTop(ranks),
+            Placement.entering('deferred', ranks),
             { newNote, handover },
           );
 

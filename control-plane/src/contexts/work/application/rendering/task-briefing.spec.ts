@@ -1,7 +1,14 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { BriefedDecision } from '@work/application/ports/task-decisions.port';
@@ -10,35 +17,31 @@ import type {
   MemoryFolder,
 } from '@work/application/ports/team-memories.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import {
   HANDING_OVER,
   OPENING_PULL_REQUESTS,
 } from '@work/domain/services/built-in-skills';
 import { builtInTool } from '@work/domain/services/built-in-tools';
-import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
+import {
+  lineMapOf,
+  type RepositorySpec,
+  repositoryOf,
+  routesOf,
+  stationOf,
+  stationWith,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -71,19 +74,19 @@ const at = (
   id: string,
   name: string,
   position: number,
-  prompt?: AgentPrompt,
+  prompt?: string,
   passesTo: string[] = [],
   finishes = false,
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(name.toLowerCase()),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#93a1b5'),
+    color: '#93a1b5',
     harness: HarnessId.of('dev'),
     agentPrompt: prompt,
-    routes: StationRoutes.of({
+    routes: routesOf({
       stations: passesTo.map(StationId.of),
       ends: finishes,
     }),
@@ -92,34 +95,26 @@ const at = (
 const triage = () => at('station_1', 'Triage', 0, undefined, ['station_2']);
 
 const ends = (id: string, name: string, position: number) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(name.toLowerCase()),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     kind: position === 0 ? 'backlog' : 'completed',
   });
 
 const atPlace = (station: Station, position: number) =>
-  Station.of({
-    id: station.id,
-    key: station.key,
-    name: station.name,
-    position,
-    color: station.color,
-    description: station.description,
-    harness: station.harness,
-    agentPrompt: station.agentPrompt,
-    kind: station.kind,
-    decisions: station.decisions,
-    routes: station.routes,
-    tools: station.tools,
-    skills: station.skills,
-  });
+  stationWith(station, { position });
 
-const lineOf = (...stations: Station[]) =>
-  Line.rehydrate({
+const lineOf = (...stations: Station[]) => lineIn([], ...stations);
+
+const lineIn = (
+  repositories: readonly RepositorySpec[],
+  ...stations: Station[]
+) =>
+  lineMapOf({
+    repositories,
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -181,7 +176,7 @@ const brief = (
 describe('TaskBriefing', () => {
   it('leads with the station’s instructions', () => {
     const briefing = brief(
-      at('station_1', 'Triage', 0, AgentPrompt.of('## Role\n\nSort it.')),
+      at('station_1', 'Triage', 0, '## Role\n\nSort it.'),
       task('station_1', TaskDescription.of('It hangs on restart.')),
     );
 
@@ -233,15 +228,15 @@ describe('TaskBriefing', () => {
   });
 
   it('tells a station that records decisions to say them as it works', () => {
-    const deciding = Station.of({
+    const deciding = stationOf({
       id: StationId.of('station_1'),
       key: StationKey.of('implementation'),
       name: StationName.of('Implementation'),
       position: 0,
-      color: StationColor.of('#93a1b5'),
+      color: '#93a1b5',
       harness: HarnessId.of('dev'),
       decisions: true,
-      routes: StationRoutes.of({
+      routes: routesOf({
         stations: [StationId.of('station_2')],
         ends: false,
       }),
@@ -458,9 +453,7 @@ describe('TaskBriefing', () => {
 
     it('keeps the station’s own instructions above the skills it lists', () => {
       const briefing = listed(
-        at('station_1', 'Triage', 0, AgentPrompt.of('## Role\n\nSort it.'), [
-          'station_2',
-        ]),
+        at('station_1', 'Triage', 0, '## Role\n\nSort it.', ['station_2']),
       );
 
       expect(briefing.indexOf('Sort it.')).toBeLessThan(
@@ -567,11 +560,8 @@ describe('TaskBriefing', () => {
         ],
         {
           path: '.spotlight/memory',
-          layout: [
-            { folder: 'team/', level: 'the whole team' },
-            { folder: 'station/', level: 'this station' },
-          ],
-          repositoryFolder: null,
+          guide:
+            '```\nteam/       the whole team\nstation/    this station\n```\n\nLook there before you:',
         },
       );
 
@@ -580,9 +570,9 @@ describe('TaskBriefing', () => {
         'The list above is only what bears most closely on this work.',
       );
       expect(briefing).toContain('`.spotlight/memory/` in the workspace');
-      expect(briefing).toContain('station/');
-      expect(briefing).not.toContain('- change code you do not know');
-      expect(briefing).toContain('- choose between approaches');
+      expect(briefing).toContain(
+        '```\nteam/       the whole team\nstation/    this station\n```\n\nLook there before you:\n\nFollow what you find',
+      );
       expect(briefing).toContain('changing them changes nothing');
       expect(briefing).toContain(
         '`spotlight remember --kind <kind> --body "…" [--path <path>]`',
@@ -599,10 +589,12 @@ describe('TaskBriefing', () => {
   });
   describe('the workspace', () => {
     const inBoth = () =>
-      lineOf(triage(), at('station_2', 'Spec', 1)).worksIn(
+      lineIn(
         ['acme/api', 'acme/web'].map((name) =>
-          LineRepositoryConfig.of(Repository.of(name)),
+          repositoryOf(Repository.of(name)),
         ),
+        triage(),
+        at('station_2', 'Spec', 1),
       );
 
     const briefed = (noted: Task) =>
@@ -630,6 +622,7 @@ describe('TaskBriefing', () => {
       const reviewing = task('station_1').reviews(
         PullRequestUrl.of('https://github.com/acme/web/pull/7'),
         { outside: false },
+        new Date(0),
       );
 
       const briefing = briefed(reviewing);

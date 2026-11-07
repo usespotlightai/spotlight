@@ -1,4 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import type { LineImagesPort } from '@lines/application/ports/line-images.port';
 import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
 import type {
   HostCredentials,
@@ -7,8 +8,8 @@ import type {
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { MIN_RUNNER_RELEASE } from '@work/application/contracts/least-runner-release.contract';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
-import type { LineImagesPort } from '@work/application/ports/line-images.port';
 import { HostRequirementsHandler } from '@work/application/queries/handlers/host-requirements.handler';
 import {
   HarnessCatalogueHandler,
@@ -16,7 +17,6 @@ import {
 } from '@work/application/queries/handlers/list-harnesses.handler';
 import { HostRequirementsQuery } from '@work/application/queries/host.queries';
 import { ListHarnessesQuery } from '@work/application/queries/list-harnesses.query';
-import { MIN_RUNNER_RELEASE } from '@work/application/services/least-runner-release';
 import { describe, expect, it, vi } from 'vitest';
 
 const launch = {
@@ -117,7 +117,7 @@ describe('listing harnesses for a workspace', () => {
         ),
       ).toEqual({
         hostRelease: 'v0.7.0',
-        hostMinimum: MIN_HOST_RELEASE.value,
+        hostMinimum: MIN_HOST_RELEASE,
         runnerMinimum: MIN_RUNNER_RELEASE,
         harnesses: [expect.objectContaining({ id: 'claude-code', models: [] })],
         images: ['ghcr.io/acme/widgets:1'],

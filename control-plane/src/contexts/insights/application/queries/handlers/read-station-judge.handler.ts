@@ -1,3 +1,4 @@
+import { judgeCalibrationOf } from '@insights/application/dto/judge-calibration.dto';
 import {
   rubricVersionOf,
   type StationJudgeDto,
@@ -7,6 +8,8 @@ import type { InsightsAccess } from '@insights/application/services/insights-acc
 import type { StationJudgeReports } from '@insights/application/services/station-judge-reports.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 export class ReadStationJudgeHandler
   implements QueryHandlerPort<ReadStationJudgeQuery, StationJudgeDto>
@@ -22,8 +25,8 @@ export class ReadStationJudgeHandler
       const { judge, report, calibration } = await this.reports.at({
         workspaceId: access.workspaceId,
         teamId: access.teamId,
-        lineId: query.lineId,
-        stationId: query.stationId,
+        lineId: LineId.of(query.lineId),
+        stationId: StationId.of(query.stationId),
       });
       const current = judge?.rubricVersion ?? null;
 
@@ -39,7 +42,7 @@ export class ReadStationJudgeHandler
               minAgreement: judge.minAgreement,
             }
           : null,
-        calibration,
+        calibration: judgeCalibrationOf(calibration),
         versions: report.versions.map((each) =>
           rubricVersionOf(each, current, calibration),
         ),

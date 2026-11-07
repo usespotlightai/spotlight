@@ -5,12 +5,14 @@ import {
 } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
+import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HOOK_FAILURES,
   HookFailure,
   type HookFailureCode,
 } from '@integrations/domain/value-objects/hook-failure.vo';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { hookFiring } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -20,6 +22,11 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, inArray, lt, lte, or } from 'drizzle-orm';
 
 type Row = typeof hookFiring.$inferSelect;
@@ -68,15 +75,32 @@ const progressOf = (row: Row): HookFiringProgress => {
   return { kind: row.state, at: row.handledAt };
 };
 
+type StoredStep = Readonly<Record<string, unknown>>;
+
+const stepOf = (stored: StoredStep): HookStepOutcome =>
+  stored.status === 'waiting'
+    ? {
+        name: String(stored.name),
+        status: 'waiting',
+        call: String(stored.call),
+        until: new Date(String(stored.until)),
+      }
+    : (stored as unknown as HookStepOutcome);
+
+const storedStep = (step: HookStepOutcome): StoredStep =>
+  step.status === 'waiting'
+    ? { ...step, until: step.until.toISOString() }
+    : { ...step };
+
 const toFiring = (row: Row): HookFiring =>
   HookFiring.rehydrate({
-    id: row.id,
-    hookId: row.hookId,
-    workspaceId: row.workspaceId,
-    teamId: row.teamId,
-    taskId: row.taskId,
-    runId: row.runId,
-    stationKey: row.stationKey,
+    id: HookFiringId.of(row.id),
+    hookId: HookDefinitionId.of(row.hookId),
+    workspaceId: WorkspaceId.of(row.workspaceId),
+    teamId: TeamId.of(row.teamId),
+    taskId: TaskId.of(row.taskId),
+    runId: row.runId === null ? null : RunId.of(row.runId),
+    stationKey: StationKey.of(row.stationKey),
     on: row.on as HookEventName,
     occurrence: row.occurrence,
     firedAt: row.firedAt,
@@ -84,7 +108,7 @@ const toFiring = (row: Row): HookFiring =>
     matched: row.matched,
     cause: CausalChain.read(row.cause),
     link: row.link,
-    steps: row.steps as unknown as HookStepOutcome[],
+    steps: row.steps.map(stepOf),
     progress: progressOf(row),
     attempts: row.attempts,
     failure: failureOf(row),
@@ -115,7 +139,7 @@ const progressColumns = (progress: HookFiringProgress) => {
 const columnsOf = (firing: HookFiring) => ({
   event: { ...firing.event },
   matched: firing.matched,
-  steps: firing.steps.map((each) => ({ ...each })),
+  steps: firing.steps.map(storedStep),
   attempts: firing.attempts,
   failure: firing.failure?.code ?? null,
   failed: firing.failure?.reason ?? null,
@@ -135,13 +159,13 @@ export class DrizzleHookFirings implements HookFiringRepository {
       const written = await this.context.db
         .insert(hookFiring)
         .values({
-          id: firing.id,
-          hookId: firing.hookId,
-          workspaceId: firing.workspaceId,
-          teamId: firing.teamId,
-          taskId: firing.taskId,
-          runId: firing.runId,
-          stationKey: firing.stationKey,
+          id: firing.id.value,
+          hookId: firing.hookId.value,
+          workspaceId: firing.workspaceId.value,
+          teamId: firing.teamId.value,
+          taskId: firing.taskId.value,
+          runId: firing.runId?.value ?? null,
+          stationKey: firing.stationKey.value,
           on: firing.on,
           occurrence: firing.occurrence,
           cause: { ...firing.cause.stored },
@@ -160,11 +184,11 @@ export class DrizzleHookFirings implements HookFiringRepository {
     });
   }
 
-  async withId(id: string): Promise<HookFiring | null> {
+  async withId(id: HookFiringId): Promise<HookFiring | null> {
     const [row] = await this.context.db
       .select()
       .from(hookFiring)
-      .where(eq(hookFiring.id, id))
+      .where(eq(hookFiring.id, id.value))
       .limit(1);
 
     return row ? toFiring(row) : null;
@@ -194,14 +218,14 @@ export class DrizzleHookFirings implements HookFiringRepository {
 
       await this.save(toFiring(row).claimed(now));
 
-      return this.withId(row.id);
+      return this.withId(HookFiringId.of(row.id));
     });
   }
 
   async save(firing: HookFiring): Promise<void> {
     await this.context.inTransaction(async () => {
       const matching = and(
-        eq(hookFiring.id, firing.id),
+        eq(hookFiring.id, firing.id.value),
         eq(hookFiring.version, firing.version),
       );
       const written = firing.isDiscarded
@@ -216,7 +240,7 @@ export class DrizzleHookFirings implements HookFiringRepository {
             .returning({ id: hookFiring.id });
 
       if (written.length === 0) {
-        throw new HookFiringVersionConflictError(firing.id);
+        throw new HookFiringVersionConflictError(firing.id.value);
       }
 
       await this.events.dispatch(firing.pullEvents());

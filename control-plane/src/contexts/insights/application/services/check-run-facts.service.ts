@@ -1,4 +1,4 @@
-import type { RunFactsPort } from '@insights/application/ports/run-facts.port';
+import type { RunFactsMaintenance } from '@insights/application/services/project-run-facts.service';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
@@ -15,7 +15,7 @@ export class CheckRunFacts implements PendingJobsPort {
   #checkedAt: number | null = null;
 
   constructor(
-    private readonly facts: RunFactsPort,
+    private readonly facts: RunFactsMaintenance,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}

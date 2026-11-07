@@ -1,4 +1,4 @@
-import type { CodeReadingPort } from '@change-review/application/ports/code-reading.port';
+import type { CodeReading } from '@change-review/domain/services/code-reading';
 import type { FileClass } from '@change-review/domain/services/diff-facts';
 
 const LOCKFILES = new Set([
@@ -122,7 +122,7 @@ const matchesIn = (
     ),
   );
 
-export class PatternCodeReading implements CodeReadingPort {
+export class PatternCodeReading implements CodeReading {
   classOf(path: string): FileClass {
     const name = path.split('/').pop() ?? path;
 

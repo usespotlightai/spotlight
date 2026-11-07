@@ -1,5 +1,5 @@
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import { NO_FACTS } from '@change-review/domain/services/diff-facts';
+import type { DiffFacts } from '@change-review/domain/services/diff-facts';
 import { StackProposal } from '@change-review/domain/services/stack-proposal';
 import {
   Diff,
@@ -13,6 +13,8 @@ import type {
 } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { describe, expect, it } from 'vitest';
+
+const NO_FACTS: DiffFacts = { hunks: [], links: [], imports: [] };
 
 const hunk = (id: string, start: number): DiffHunk => ({
   id: HunkId.of(id),
@@ -104,6 +106,33 @@ describe('StackProposal', () => {
     expect(cohort?.layers[0]?.notes).toEqual([
       { path: 'src/invite.ts', note: 'Adds the function that invites.' },
       { path: 'src/routes.ts', note: 'Mounts it under /invitations.' },
+    ]);
+  });
+
+  it('reports the problems of what the model proposed, unless the model’s own proposal would pass', () => {
+    const problemsWith = (modelProposal: ProposedCohort[]) => {
+      try {
+        StackProposal.accepted({
+          diff: DIFF,
+          facts: NO_FACTS,
+          cohorts: proposal(NOTED.slice(0, 1)),
+          modelProposal,
+        });
+      } catch (error) {
+        if (error instanceof InvalidChangeStackError) {
+          return error.problems.map((each) => each.message);
+        }
+        throw error;
+      }
+      return [];
+    };
+
+    expect(problemsWith(proposal([]))).toEqual([
+      'cohort 1, layer 1 has no note on src/invite.ts',
+      'cohort 1, layer 1 has no note on src/routes.ts',
+    ]);
+    expect(problemsWith(proposal(NOTED))).toEqual([
+      'cohort 1, layer 1 has no note on src/routes.ts',
     ]);
   });
 
@@ -232,13 +261,13 @@ describe('StackProposal', () => {
       layers: [layerOf('h1'), layerOf('h2'), layerOf('h3')],
     };
 
-    for (const changeLayersBefore of [undefined, 0]) {
+    for (const changeLayersAtLeast of [undefined, 0]) {
       expect(
         StackProposal.checkedCohort({
           diff: DIFF,
           facts,
           cohort: incidental,
-          changeLayersBefore,
+          changeLayersAtLeast,
         }).layers.map((each) => each.hunks.map((entry) => entry.hunk)),
       ).toEqual([['h2', 'h1'], ['h3']]);
     }

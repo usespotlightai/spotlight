@@ -1,25 +1,19 @@
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
+import type { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-
-export interface CheckClaimant {
-  readonly workspaceId: WorkspaceId;
-  readonly runner: RunnerId;
-  readonly offer: RunnerOffer;
-}
 
 export interface StackCheckRepository {
   add(check: StackCheck): Promise<void>;
 
   save(check: StackCheck): Promise<void>;
 
-  find(stackId: ChangeStackId, recheck: boolean): Promise<StackCheck | null>;
+  find(id: StackCheckId): Promise<StackCheck | null>;
 
-  open(stackId: ChangeStackId): Promise<StackCheck | null>;
+  latestOf(stackId: ChangeStackId): Promise<StackCheck | null>;
 
   ofRun(runId: RunId): Promise<readonly StackCheck[]>;
 
@@ -27,22 +21,11 @@ export interface StackCheckRepository {
 
   remove(check: StackCheck): Promise<void>;
 
-  dueForCheck(by: CheckClaimant, now: Date): Promise<StackCheck | null>;
+  waiting(): Promise<readonly StackCheck[]>;
 
-  reservedTo(runner: RunnerId, now: Date): Promise<StackCheck | null>;
+  waitingIn(workspaceId: WorkspaceId): Promise<readonly StackCheck[]>;
 
-  withExpiredWait(now: Date, max: number): Promise<readonly StackCheck[]>;
+  reserved(): Promise<readonly StackCheck[]>;
 
-  awaitingProvision(
-    workspaceId: WorkspaceId,
-    now: Date,
-    page: { readonly skip: number; readonly max: number },
-  ): Promise<readonly StackCheck[]>;
-
-  withExpiredReservations(now: Date): Promise<readonly StackCheck[]>;
-
-  waitingIn(
-    workspaceId: WorkspaceId,
-    now: Date,
-  ): Promise<readonly StackCheck[]>;
+  reservedFor(runner: RunnerId): Promise<readonly StackCheck[]>;
 }

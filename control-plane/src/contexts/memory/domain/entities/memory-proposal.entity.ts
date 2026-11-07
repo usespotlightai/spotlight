@@ -118,7 +118,7 @@ export class MemoryProposal {
     return this.source === 'outside';
   }
 
-  get remembered(): boolean {
+  get proposedByAgent(): boolean {
     return this.proposedBy === 'agent';
   }
 

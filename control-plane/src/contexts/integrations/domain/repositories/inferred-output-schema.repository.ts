@@ -13,12 +13,14 @@ export interface InferredOutputSchemaRepository {
     tools: readonly string[],
   ): Promise<readonly InferredOutputSchema[]>;
 
-  save(schema: InferredOutputSchema): Promise<void>;
-
-  deleteForIntegration(
+  ofIntegration(
     teamId: TeamId,
     integration: IntegrationKey,
-  ): Promise<void>;
+  ): Promise<readonly InferredOutputSchema[]>;
 
-  deleteForTeam(teamId: TeamId): Promise<void>;
+  ofTeam(teamId: TeamId): Promise<readonly InferredOutputSchema[]>;
+
+  save(schema: InferredOutputSchema): Promise<void>;
+
+  remove(schema: InferredOutputSchema): Promise<void>;
 }

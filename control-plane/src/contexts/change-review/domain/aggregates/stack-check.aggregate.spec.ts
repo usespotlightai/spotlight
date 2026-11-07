@@ -1,9 +1,9 @@
-import { checkReasonOf } from '@change-review/application/rendering/check-reason';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
-import { LeasedCheckDeleted } from '@change-review/domain/events/leased-check-deleted.event';
+import { LeasedStackCheckDeleted } from '@change-review/domain/events/leased-stack-check-deleted.event';
+import { StackCheckReservationDropped } from '@change-review/domain/events/stack-check-reservation-dropped.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import { InvalidStackCheckError } from '@change-review/domain/exceptions/invalid-stack-check.error';
 import { StackCheckNotLeasedError } from '@change-review/domain/exceptions/stack-check-not-leased.error';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import {
@@ -27,6 +27,7 @@ import {
   WAITING_LIMIT_MS,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
@@ -116,7 +117,7 @@ const stack = () =>
     repository: null,
     base: null,
     diff: DIFF,
-    facts: StackFacts.none(),
+    facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
     request: CheckRequest.of('npx tsc --noEmit', null),
     now: NOW,
   }).propose(
@@ -167,13 +168,15 @@ const step = (id: string, passes: boolean, output = ''): CheckedStep => ({
 const kinds = (check: StackCheck) =>
   check.pullEvents().map((event) => event.kind);
 
-const rehydrated = (over: Record<string, unknown>) =>
+const rehydrated = ({
+  recheck = false,
+  ...over
+}: Record<string, unknown> & { recheck?: boolean }) =>
   StackCheck.rehydrate({
-    stackId: ChangeStackId.of('stack-1'),
+    id: StackCheckId.of(ChangeStackId.of('stack-1'), recheck),
     runId: RunId.of('run-1'),
     taskId: null,
     replay: false,
-    recheck: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     request: CheckRequest.of('npx tsc --noEmit', null),
     status: 'waiting',
@@ -197,6 +200,58 @@ const failedAgain = (check: StackCheck, failure = HTTP_ERROR) => {
 };
 
 describe('StackCheck', () => {
+  it('begins for a stack once it is ready with a check to run, and for no other', () => {
+    const ready = stack();
+    const begun = StackCheck.beginFor(ready, LATER);
+
+    expect(begun?.id).toEqual(StackCheckId.first(ready.id));
+    expect(begun?.entries).toEqual(ready.entries());
+    expect(begun?.request).toEqual(ready.request);
+    expect(
+      StackCheck.beginFor(
+        ChangeStack.startGeneration({
+          id: ChangeStackId.of('stack-2'),
+          runId: RunId.of('run-1'),
+          taskId: null,
+          replay: false,
+          isSearch: false,
+          workspaceId: WorkspaceId.of('workspace-1'),
+          repository: null,
+          base: null,
+          diff: DIFF,
+          facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
+          request: CheckRequest.of('npx tsc --noEmit', null),
+          now: NOW,
+        }),
+        LATER,
+      ),
+    ).toBeNull();
+  });
+
+  it('plans its steps from its own stack only', () => {
+    const check = waiting();
+
+    expect(check.plannedFrom(stack())).toEqual(planned());
+    expect(() =>
+      check.plannedFrom(
+        ChangeStack.startGeneration({
+          id: ChangeStackId.of('stack-2'),
+          runId: RunId.of('run-1'),
+          taskId: null,
+          replay: false,
+          isSearch: false,
+          workspaceId: WorkspaceId.of('workspace-1'),
+          repository: null,
+          base: null,
+          diff: DIFF,
+          facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
+          request: null,
+          now: NOW,
+        }),
+      ),
+    ).toThrow(InvalidStackCheckError);
+  });
+
   it('waits for a runner once the stack completes, and gives up after a while', () => {
     const check = waiting();
 
@@ -232,14 +287,8 @@ describe('StackCheck', () => {
     );
 
     expect(checked.outcome).toMatchObject({ status: 'checked', layers: [] });
-    expect(
-      checkReasonOf({
-        skipped: checked.skippedAt(LATER),
-        wholeFailed: checked.wholeFailed,
-      }),
-    ).toBe(
-      'The finished change fails the check. Spotlight didn’t check its layers one by one.',
-    );
+    expect(checked.wholeFailed).toBe(true);
+    expect(checked.skippedAt(LATER)).toBeNull();
   });
 
   it('rejects steps the stack does not have, a missing whole, and a second report', () => {
@@ -250,7 +299,7 @@ describe('StackCheck', () => {
     ).toThrow(InvalidChangeStackError);
     expect(() =>
       check.recordResult(RUNNER, planned(), [step('c1.l1', true)], LATER),
-    ).toThrow(InvalidChangeStackError);
+    ).toThrow(InvalidStackCheckError);
 
     const checked = check.recordResult(
       RUNNER,
@@ -261,7 +310,7 @@ describe('StackCheck', () => {
 
     expect(() =>
       checked.recordResult(RUNNER, planned(), [step(WHOLE_STEP, true)], LATER),
-    ).toThrow(InvalidChangeStackError);
+    ).toThrow(InvalidStackCheckError);
   });
 
   it('says why a runner could not check it, in its own words', () => {
@@ -272,30 +321,24 @@ describe('StackCheck', () => {
     );
 
     expect(skipped.statusAt(LATER)).toBe('skipped');
-    expect(
-      checkReasonOf({
-        skipped: skipped.skippedAt(LATER),
-        wholeFailed: skipped.wholeFailed,
-      }),
-    ).toBe(
-      'The setup of the checkout failed before the check ran.\n\nnpm ci: no network',
-    );
+    expect(skipped.skippedAt(LATER)).toEqual({
+      code: 'setup-failed',
+      detail: 'npm ci: no network',
+    });
   });
 
   it('blames nobody in particular where no runner ever claimed it', () => {
     const check = waiting();
     const late = new Date(LATER.getTime() + WAITING_LIMIT_MS + 1);
 
-    expect(
-      checkReasonOf({
-        skipped: check.skippedAt(late),
-        wholeFailed: check.wholeFailed,
-      }),
-    ).toBe('No runner checked the layers in time.');
+    expect(check.skippedAt(late)).toEqual({
+      code: 'queue-timeout',
+      detail: null,
+    });
   });
 
   it('rejects a reason it does not know', () => {
-    expect(() => skipOf('made-up', null)).toThrow(InvalidChangeStackError);
+    expect(() => skipOf('made-up', null)).toThrow(InvalidStackCheckError);
   });
 
   it('requests redrafting where the whole change builds but a layer does not', () => {
@@ -307,7 +350,7 @@ describe('StackCheck', () => {
     );
 
     expect(checked.redrafting).toBe(true);
-    expect(kinds(checked)).toEqual(['change-stack.layers-failed-check']);
+    expect(kinds(checked)).toEqual(['stack-check.layers-failed']);
   });
 
   it('takes the redrafted layers and waits to be checked afresh', () => {
@@ -336,7 +379,7 @@ describe('StackCheck', () => {
     const checked = redrafting.retainCheckedLayers();
 
     expect(checked.statusAt(LATER)).toBe('checked');
-    expect(kinds(checked)).toEqual(['change-stack.checked']);
+    expect(kinds(checked)).toEqual(['stack-check.checked']);
   });
 
   it('drops a reservation when it takes redrafted layers', () => {
@@ -359,7 +402,7 @@ describe('StackCheck', () => {
     const again = redrafting.redrafted(stack().entries(), LATER);
 
     expect(again.reservation).toBeNull();
-    expect(kinds(again)).toEqual(['change-stack.check-reservation-dropped']);
+    expect(kinds(again)).toEqual(['stack-check.reservation-dropped']);
   });
 
   it('redrafts at most once', () => {
@@ -398,7 +441,7 @@ describe('StackCheck', () => {
 
       expect(leased.claimableAt(LATER)).toBe(false);
       expect(() => leased.claimedFor(OTHER, ANY, LATER)).toThrow(
-        InvalidChangeStackError,
+        InvalidStackCheckError,
       );
     });
 
@@ -452,7 +495,7 @@ describe('StackCheck', () => {
 
       expect(placed.claimableBy(RUNNER, laptop, LATER)).toBe(false);
       expect(() => placed.claimedFor(RUNNER, laptop, LATER)).toThrow(
-        InvalidChangeStackError,
+        InvalidStackCheckError,
       );
       expect(
         placed.claimedFor(RUNNER, RunnerOffer.of(['vpc-internal']), LATER).claim
@@ -556,10 +599,10 @@ describe('StackCheck', () => {
       expect(recorded.checkableAt(LATER)).toBe(false);
       expect(skipped.checkableAt(LATER)).toBe(false);
       expect(() => recorded.renewedFor(RUNNER, LATER)).toThrow(
-        InvalidChangeStackError,
+        InvalidStackCheckError,
       );
       expect(() => skipped.renewedFor(RUNNER, LATER)).toThrow(
-        InvalidChangeStackError,
+        InvalidStackCheckError,
       );
     });
 
@@ -610,7 +653,7 @@ describe('StackCheck', () => {
       expect(check.checkableAt(expired)).toBe(false);
       expect(check.waitExpiredAt(expired)).toBe(true);
       expect(() => check.renewedFor(RUNNER, expired)).toThrow(
-        InvalidChangeStackError,
+        InvalidStackCheckError,
       );
       expect(() =>
         check.recordResult(
@@ -619,7 +662,7 @@ describe('StackCheck', () => {
           [step(WHOLE_STEP, true)],
           expired,
         ),
-      ).toThrow(InvalidChangeStackError);
+      ).toThrow(InvalidStackCheckError);
       expect(check.expireWait(expired).skippedAt(expired)).toEqual({
         code: 'queue-timeout',
         detail: null,
@@ -660,7 +703,7 @@ describe('StackCheck', () => {
       expect(renewed.statusAt(ceiling)).toBe('skipped');
       expect(renewed.checkableAt(ceiling)).toBe(false);
       expect(() => renewed.renewedFor(RUNNER, ceiling)).toThrow(
-        InvalidChangeStackError,
+        InvalidStackCheckError,
       );
       expect(() =>
         renewed.recordResult(
@@ -669,7 +712,7 @@ describe('StackCheck', () => {
           [step(WHOLE_STEP, true)],
           ceiling,
         ),
-      ).toThrow(InvalidChangeStackError);
+      ).toThrow(InvalidStackCheckError);
       expect(renewed.waitExpiredAt(ceiling)).toBe(true);
       expect(renewed.expireWait(ceiling).skippedAt(ceiling)).toEqual({
         code: 'queue-timeout',
@@ -681,7 +724,7 @@ describe('StackCheck', () => {
       const claim = checking().claim;
 
       expect(() => claim.renewed(justBefore)).not.toThrow();
-      expect(() => claim.renewed(ceiling)).toThrow(InvalidChangeStackError);
+      expect(() => claim.renewed(ceiling)).toThrow(InvalidStackCheckError);
     });
 
     it('rejects a claim stored with no time it was claimed', () => {
@@ -741,13 +784,13 @@ describe('StackCheck', () => {
         detail: 'disk full',
       });
       expect(() => parseStoredSkip('made-up', null)).toThrow(
-        InvalidChangeStackError,
+        InvalidStackCheckError,
       );
     });
 
     it('never lets a runner say no runner could be provisioned', () => {
       expect(() => skipOf('provision-failed', null)).toThrow(
-        InvalidChangeStackError,
+        InvalidStackCheckError,
       );
     });
 
@@ -791,13 +834,13 @@ describe('StackCheck', () => {
       expect(skipped.provisionableAt(LATER)).toBe(false);
       expect(() =>
         reserved.reservedFor(OTHER, PoolId.of('pool_burst'), LATER),
-      ).toThrow(InvalidChangeStackError);
+      ).toThrow(InvalidStackCheckError);
       expect(() =>
         claimed.reservedFor(OTHER, PoolId.of('pool_burst'), LATER),
-      ).toThrow(InvalidChangeStackError);
+      ).toThrow(InvalidStackCheckError);
       expect(() =>
         skipped.reservedFor(OTHER, PoolId.of('pool_burst'), LATER),
-      ).toThrow(InvalidChangeStackError);
+      ).toThrow(InvalidStackCheckError);
     });
 
     it('is hidden from every runner but the one reserved while the reservation is active', () => {
@@ -811,7 +854,7 @@ describe('StackCheck', () => {
       expect(reserved.claimableAt(LATER, OTHER)).toBe(false);
       expect(reserved.claimableAt(LATER, RUNNER)).toBe(true);
       expect(() => reserved.claimedFor(OTHER, ANY, LATER)).toThrow(
-        InvalidChangeStackError,
+        InvalidStackCheckError,
       );
     });
 
@@ -837,7 +880,10 @@ describe('StackCheck', () => {
 
       expect(taken.reservation).toBeNull();
       expect(taken.pullEvents()).toEqual([
-        new CheckReservationDropped(ChangeStackId.of('stack-1'), RUNNER),
+        new StackCheckReservationDropped(
+          StackCheckId.first(ChangeStackId.of('stack-1')),
+          RUNNER,
+        ),
       ]);
     });
 
@@ -859,9 +905,7 @@ describe('StackCheck', () => {
         .unreservedFor(RUNNER);
 
       expect(unreserved.reservation).toBeNull();
-      expect(kinds(unreserved)).toEqual([
-        'change-stack.check-reservation-dropped',
-      ]);
+      expect(kinds(unreserved)).toEqual(['stack-check.reservation-dropped']);
       expect(unreserved.provisioning.attempts).toBe(0);
       expect(unreserved.provisionableAt(LATER)).toBe(true);
       expect(check.unreservedFor(RUNNER)).toBe(check);
@@ -887,7 +931,7 @@ describe('StackCheck', () => {
       expect(failed.provisionableAt(new Date(LATER.getTime() + 5_000))).toBe(
         true,
       );
-      expect(kinds(failed)).toEqual(['change-stack.check-reservation-dropped']);
+      expect(kinds(failed)).toEqual(['stack-check.reservation-dropped']);
     });
 
     it('is skipped as provision-failed after the fifth failed provision', () => {
@@ -902,7 +946,7 @@ describe('StackCheck', () => {
 
       expect(check.statusAt(LATER)).toBe('waiting');
       expect(kinds(check)).toEqual(
-        Array(4).fill('change-stack.check-reservation-dropped'),
+        Array(4).fill('stack-check.reservation-dropped'),
       );
 
       const skipped = failedAgain(check);
@@ -913,17 +957,9 @@ describe('StackCheck', () => {
         detail: 'Attempts: 5\nLast failure: http-error: answered 503',
       });
       expect(kinds(skipped)).toEqual([
-        'change-stack.check-reservation-dropped',
-        'change-stack.checked',
+        'stack-check.reservation-dropped',
+        'stack-check.checked',
       ]);
-      expect(
-        checkReasonOf({
-          skipped: skipped.skippedAt(LATER),
-          wholeFailed: skipped.wholeFailed,
-        }),
-      ).toBe(
-        'Spotlight couldn’t provision a runner to check the layers.\n\nAttempts: 5\nLast failure: http-error: answered 503',
-      );
       expect(skipped.provisionFailed(RUNNER, HTTP_ERROR, LATER)).toBe(skipped);
     });
 
@@ -963,7 +999,7 @@ describe('StackCheck', () => {
       expect(failed.reservation).toBeNull();
       expect(failed.provisioning.attempts).toBe(0);
       expect(failed.status).toBe('waiting');
-      expect(kinds(failed)).toEqual(['change-stack.check-reservation-dropped']);
+      expect(kinds(failed)).toEqual(['stack-check.reservation-dropped']);
     });
 
     it('comes back skipped as provision-failed', () => {
@@ -1035,21 +1071,19 @@ describe('StackCheck', () => {
         detail: null,
       });
       expect(kinds(expired)).toEqual([
-        'change-stack.check-reservation-dropped',
-        'change-stack.checked',
+        'stack-check.reservation-dropped',
+        'stack-check.checked',
       ]);
     });
 
     it('releases no runner where none was reserved for it', () => {
       expect(kinds(waiting().expireWait(WAIT_EXPIRED))).toEqual([
-        'change-stack.checked',
+        'stack-check.checked',
       ]);
     });
 
     it('does not expire a check whose wait has not expired', () => {
-      expect(() => waiting().expireWait(LATER)).toThrow(
-        InvalidChangeStackError,
-      );
+      expect(() => waiting().expireWait(LATER)).toThrow(InvalidStackCheckError);
     });
   });
 
@@ -1061,7 +1095,10 @@ describe('StackCheck', () => {
 
       expect(deleted.reservation).toBeNull();
       expect(deleted.pullEvents()).toEqual([
-        new CheckReservationDropped(ChangeStackId.of('stack-1'), RUNNER),
+        new StackCheckReservationDropped(
+          StackCheckId.first(ChangeStackId.of('stack-1')),
+          RUNNER,
+        ),
       ]);
     });
 
@@ -1074,7 +1111,9 @@ describe('StackCheck', () => {
 
       expect(deleted.claim.claimedBy).toBeNull();
       expect(deleted.pullEvents()).toEqual([
-        new LeasedCheckDeleted(ChangeStackId.of('stack-1')),
+        new LeasedStackCheckDeleted(
+          StackCheckId.first(ChangeStackId.of('stack-1')),
+        ),
       ]);
     });
 
@@ -1147,20 +1186,26 @@ describe('StackCheck, rechecked', () => {
     expect(
       found.pullEvents().map((event) => ({
         kind: event.kind,
-        recheck: (event as { recheck?: boolean }).recheck,
+        recheck: (event as { checkId?: StackCheckId }).checkId?.recheck,
       })),
-    ).toEqual([{ kind: 'change-stack.checked', recheck: true }]);
+    ).toEqual([{ kind: 'stack-check.checked', recheck: true }]);
+  });
+
+  it('is recheckable only as a replay’s first check that found something', () => {
+    expect(passedOnce().recheckable).toBe(true);
+    expect(replayed().recheckable).toBe(false);
+    expect(passedOnce().rechecking(LATER).recheckable).toBe(false);
   });
 
   it('rechecks only a replay’s change whose first check found something, and only once', () => {
-    expect(() => replayed().rechecking(LATER)).toThrow(InvalidChangeStackError);
+    expect(() => replayed().rechecking(LATER)).toThrow(InvalidStackCheckError);
     expect(() =>
       checking()
         .recordResult(RUNNER, planned(), [step(WHOLE_STEP, true)], LATER)
         .rechecking(LATER),
-    ).toThrow(InvalidChangeStackError);
+    ).toThrow(InvalidStackCheckError);
     expect(() => passedOnce().rechecking(LATER).rechecking(LATER)).toThrow(
-      InvalidChangeStackError,
+      InvalidStackCheckError,
     );
   });
 

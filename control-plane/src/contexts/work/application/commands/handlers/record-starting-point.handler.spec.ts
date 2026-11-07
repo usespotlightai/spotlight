@@ -145,7 +145,7 @@ describe('RecordStartingPointHandler', () => {
       WorkspaceArchive.grant({
         id: WorkspaceArchiveId.of('archive_of_another_task'),
         workspaceId: WorkspaceId.of('ws_1'),
-        resumeKey: ResumeKey.forTask('task_2'),
+        resumeKey: ResumeKey.forTask(TaskId.of('task_2')),
         holder: { kind: 'task', taskId: TaskId.of('task_2') },
         grantee: ArchiveGrantee.run(RunId.of('run_2')),
         size: ArchiveSize.of(1_024),

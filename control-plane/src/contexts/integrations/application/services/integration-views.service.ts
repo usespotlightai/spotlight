@@ -9,6 +9,7 @@ import { integrationAt } from '@integrations/application/rendering/integration-p
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
@@ -53,9 +54,6 @@ export class IntegrationViews {
   onTeam(record: IntegrationRecord, teamKey: string): IntegrationResourceDto {
     const compiled = this.compiler.compile(record.definition);
     const spec = compiled.ok ? compiled.spec : null;
-    const handWritten = compiled.ok
-      ? compiled.integration.tools.map((each) => each.tool)
-      : [];
     const apiSpec: ApiSpecDto | null =
       spec && record.reading
         ? {
@@ -63,8 +61,9 @@ export class IntegrationViews {
             hash: record.generatedFrom,
             readAt: record.reading.readAt.toISOString(),
             problem: record.reading.problem,
-            tools: record.tools.filter((each) => !handWritten.includes(each))
-              .length,
+            tools: compiled.ok
+              ? compiled.integration.generatedToolCount(record.tools)
+              : record.tools.length,
           }
         : null;
 
@@ -79,7 +78,7 @@ export class IntegrationViews {
       integration: record.integration,
       definition: record.definition,
       tools: Object.fromEntries(
-        record.tools.map((tool) => [tool.slice(tool.indexOf('.') + 1), tool]),
+        record.tools.map((tool) => [ToolName.of(tool).name, tool]),
       ),
       spec: apiSpec,
       warnings: compiled.ok

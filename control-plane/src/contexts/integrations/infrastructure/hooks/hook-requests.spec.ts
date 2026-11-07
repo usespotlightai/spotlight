@@ -1,15 +1,19 @@
 import { createHash } from 'node:crypto';
 import type {
+  HookRequest,
+  WaitingOutcome,
+} from '@integrations/application/ports/hook-requests.port';
+import type {
   HookEventInstance,
   ListeningHook,
 } from '@integrations/application/ports/hook-runtime.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
-import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
+import { taskViewOf } from '@integrations/application/ports/tasks-for-hooks.fake-spec';
+import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
-import {
-  type HookRequest,
-  HookRequests,
-} from '@integrations/infrastructure/hooks/hook-requests';
+import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
 import {
@@ -19,6 +23,7 @@ import {
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import { OutboundHostsUnreadError } from '@shared-kernel/application/errors/outbound-hosts-unread.error';
 import type { WorkspaceOutboundScopePort } from '@shared-kernel/application/ports/workspace-outbound-scope.port';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { NetworkCallsPort } from '@work/application/ports/network-calls.port';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -29,12 +34,10 @@ const SECRET = HookSigningSecret.of(
 );
 
 const HOOK: ListeningHook = {
-  id: 'hook_1',
-  key: 'dba-review',
-  teamId: 'team_1',
+  id: HookDefinitionId.of('hook_1'),
+  key: HookKey.of('dba-review'),
+  teamId: TeamId.of('team_1'),
   blocks: true,
-  timeoutSeconds: 10,
-  steps: ['check'],
   broken: null,
   written: null,
 };
@@ -45,20 +48,7 @@ const INSTANCE: HookEventInstance = {
   firing: null,
   at: NOW,
   event: { changed: ['db/migrations/1.sql'] },
-  task: {
-    taskId: 'task_1',
-    workspaceId: 'workspace_1',
-    teamId: 'team_1',
-    title: 'Add a column',
-    url: 'https://spotlight.example.com/t/1',
-    line: 'delivery',
-    station: 'Implementation',
-    stationKey: 'implementation',
-    marks: {},
-    repositories: ['acme/api'],
-    pullRequest: null,
-    runId: 'run_1',
-  },
+  task: taskViewOf(),
 };
 
 const hookRequest = (overrides: Partial<HookRequest> = {}): HookRequest => ({
@@ -72,9 +62,10 @@ const hookRequest = (overrides: Partial<HookRequest> = {}): HookRequest => ({
   signing: { kind: 'hmac' },
   deadline: new Date(NOW.getTime() + 10_000),
   waitMode: 'wait',
-  resuming: null,
   ...overrides,
 });
+
+const TOKEN = 'callback_token';
 
 const network = (): NetworkCallsPort => ({
   queue: vi.fn(async () => 'call_1'),
@@ -98,16 +89,15 @@ const requests = (
   secret: HookSigningSecret | null = SECRET,
   limits: OutboundLimitsPort = unlimited,
   hosts: WorkspaceOutboundScopePort = unscoped,
+  signs = true,
 ) => {
   const fetch = vi.fn(reply);
   const signed = vi.fn(async () => 'jwt');
-  const issued = vi.fn(async () => 'callback_token');
 
   return {
     fetch,
     calls,
     signed,
-    issued,
     requests: new HookRequests(
       {
         publicUrl: 'https://spotlight.example.com',
@@ -115,12 +105,11 @@ const requests = (
       },
       { signingSecretOf: async () => secret },
       {
-        signs: true,
+        signs,
         issuer: 'https://spotlight.example.com/api',
         signed,
         keys: async () => ({ keys: [] }),
       },
-      { issued } as unknown as HookCallbackTokens,
       calls,
       limits,
       hosts,
@@ -141,7 +130,7 @@ describe('HookRequests', () => {
       async () => new Response('{"ok":true}', { status: 200 }),
     );
 
-    const stepResult = await sending.sent(hookRequest(), NOW);
+    const stepResult = await sending.sent(hookRequest(), TOKEN, NOW);
     const headers = sentHeaders(fetch);
 
     expect(stepResult.outcome).toEqual({
@@ -163,7 +152,7 @@ describe('HookRequests', () => {
     );
     expect(headers['x-team']).toBe('core');
 
-    await sending.sent(hookRequest(), NOW);
+    await sending.sent(hookRequest(), TOKEN, NOW);
     expect(sentHeaders(fetch)['webhook-id']).toBe(headers['webhook-id']);
   });
 
@@ -172,7 +161,7 @@ describe('HookRequests', () => {
       async () => new Response('{}', { status: 200 }),
     );
 
-    const stepResult = await sending.sent(hookRequest(), NOW);
+    const stepResult = await sending.sent(hookRequest(), TOKEN, NOW);
 
     expect(JSON.stringify(stepResult.trace)).not.toMatch(
       /callback_token|webhook-signature/,
@@ -187,7 +176,9 @@ describe('HookRequests', () => {
       null,
     );
 
-    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+    await expect(
+      sending.sent(hookRequest(), TOKEN, NOW),
+    ).resolves.toMatchObject({
       outcome: { status: 'failed', reason: expect.stringMatching(/no secret/) },
     });
     expect(fetch).not.toHaveBeenCalled();
@@ -198,7 +189,7 @@ describe('HookRequests', () => {
       async () => new Response('x'.repeat(100_000), { status: 200 }),
     );
 
-    const stepResult = await sending.sent(hookRequest(), NOW);
+    const stepResult = await sending.sent(hookRequest(), TOKEN, NOW);
 
     expect((stepResult.outcome as { output: string }).output).toHaveLength(
       16 * 1024,
@@ -219,7 +210,7 @@ describe('HookRequests', () => {
         ),
     );
 
-    const stepResult = await sending.sent(hookRequest(), NOW);
+    const stepResult = await sending.sent(hookRequest(), TOKEN, NOW);
 
     expect(stepResult.outcome).not.toMatchObject({ status: 'done' });
     expect(JSON.stringify(stepResult.outcome)).toContain(
@@ -236,6 +227,7 @@ describe('HookRequests', () => {
 
     await sending.sent(
       hookRequest({ signing: { kind: 'oidc', audience: 'https://dba' } }),
+      TOKEN,
       NOW,
     );
 
@@ -257,7 +249,9 @@ describe('HookRequests', () => {
         new Response('{"deny":"drops a column in use"}', { status: 200 }),
     );
 
-    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+    await expect(
+      sending.sent(hookRequest(), TOKEN, NOW),
+    ).resolves.toMatchObject({
       denyReason: 'drops a column in use',
     });
   });
@@ -267,7 +261,9 @@ describe('HookRequests', () => {
       async () => new Response('down', { status: 503 }),
     );
 
-    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+    await expect(
+      sending.sent(hookRequest(), TOKEN, NOW),
+    ).resolves.toMatchObject({
       outcome: {
         status: 'failed',
         code: 'server-error',
@@ -288,27 +284,54 @@ describe('HookRequests', () => {
       async () => new Response('no', { status }),
     );
 
-    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+    await expect(
+      sending.sent(hookRequest(), TOKEN, NOW),
+    ).resolves.toMatchObject({
       outcome: { status: 'failed', code },
     });
   });
 
   it('names the firing it was sent for, so a reply can carry the chain back', async () => {
-    const {
-      fetch,
-      issued,
-      requests: sending,
-    } = requests(async () => new Response('{}', { status: 200 }));
+    const { fetch, requests: sending } = requests(
+      async () => new Response('{}', { status: 200 }),
+    );
 
     await sending.sent(
-      hookRequest({ instance: { ...INSTANCE, firing: 'firing_1' } }),
+      hookRequest({
+        instance: { ...INSTANCE, firing: HookFiringId.of('firing_1') },
+      }),
+      TOKEN,
       NOW,
     );
 
     expect(sentHeaders(fetch)['spotlight-cause']).toBe('firing_1');
-    expect(issued).toHaveBeenCalledWith(
-      expect.objectContaining({ firing: 'firing_1' }),
+  });
+
+  it('sends nothing when a hook that signs with OIDC finds no key to sign with', async () => {
+    const { fetch, requests: sending } = requests(
+      async () => new Response('{}'),
+      network(),
+      undefined,
+      SECRET,
+      unlimited,
+      unscoped,
+      false,
     );
+
+    await expect(
+      sending.sent(
+        hookRequest({ signing: { kind: 'oidc', audience: 'https://dba' } }),
+        TOKEN,
+        NOW,
+      ),
+    ).resolves.toMatchObject({
+      outcome: {
+        status: 'failed',
+        code: 'not-allowed',
+        reason: 'needs a key to sign its OIDC token. This deployment has none',
+      },
+    });
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('names no firing for a hook before an event', async () => {
@@ -316,7 +339,7 @@ describe('HookRequests', () => {
       async () => new Response('{}', { status: 200 }),
     );
 
-    await sending.sent(hookRequest(), NOW);
+    await sending.sent(hookRequest(), TOKEN, NOW);
 
     expect(sentHeaders(fetch)['spotlight-cause']).toBeUndefined();
   });
@@ -330,7 +353,9 @@ describe('HookRequests', () => {
       { perSecond: 50, take: async () => false },
     );
 
-    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+    await expect(
+      sending.sent(hookRequest(), TOKEN, NOW),
+    ).resolves.toMatchObject({
       outcome: {
         status: 'failed',
         code: 'throttled',
@@ -348,7 +373,9 @@ describe('HookRequests', () => {
       });
     });
 
-    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+    await expect(
+      sending.sent(hookRequest(), TOKEN, NOW),
+    ).resolves.toMatchObject({
       outcome: {
         status: 'failed',
         code: 'unreachable',
@@ -365,7 +392,9 @@ describe('HookRequests', () => {
       ['slack.com'],
     );
 
-    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+    await expect(
+      sending.sent(hookRequest(), TOKEN, NOW),
+    ).resolves.toMatchObject({
       outcome: { status: 'failed', code: 'not-allowed' },
     });
     expect(fetch).not.toHaveBeenCalled();
@@ -381,7 +410,9 @@ describe('HookRequests', () => {
       scopedTo('slack.com'),
     );
 
-    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+    await expect(
+      sending.sent(hookRequest(), TOKEN, NOW),
+    ).resolves.toMatchObject({
       outcome: {
         status: 'failed',
         code: 'not-allowed',
@@ -409,10 +440,12 @@ describe('HookRequests', () => {
       },
     );
 
-    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
+    await expect(
+      sending.sent(hookRequest(), TOKEN, NOW),
+    ).resolves.toMatchObject({
       outcome: {
         status: 'failed',
-        code: 'errored',
+        code: 'unavailable',
         reason:
           "Spotlight could not read the workspace's allowed hosts: connection lost",
       },
@@ -430,7 +463,7 @@ describe('HookRequests', () => {
       scopedTo('*.example.com'),
     );
 
-    await sending.sent(hookRequest(), NOW);
+    await sending.sent(hookRequest(), TOKEN, NOW);
 
     expect(fetch).toHaveBeenCalledOnce();
   });
@@ -444,6 +477,7 @@ describe('HookRequests', () => {
 
     const stepResult = await sending.sent(
       hookRequest({ url: 'http://dba.acme.internal/', fromNetwork: true }),
+      TOKEN,
       NOW,
     );
 
@@ -474,6 +508,7 @@ describe('HookRequests', () => {
 
     const first = await sending.sent(
       hookRequest({ fromNetwork: true, waitMode: 'suspend' }),
+      TOKEN,
       NOW,
     );
 
@@ -481,8 +516,15 @@ describe('HookRequests', () => {
       name: 'check',
       status: 'waiting',
       call: 'call_1',
-      until: new Date(NOW.getTime() + 2 * 60 * 1000).toISOString(),
+      until: new Date(NOW.getTime() + 2 * 60 * 1000),
     });
+    await expect(
+      sending.resumed(
+        hookRequest({ fromNetwork: true, waitMode: 'suspend' }),
+        first.outcome as WaitingOutcome,
+        NOW,
+      ),
+    ).resolves.toMatchObject({ outcome: first.outcome });
 
     vi.mocked(calls.stateOf).mockResolvedValueOnce({
       kind: 'answered',
@@ -496,12 +538,9 @@ describe('HookRequests', () => {
     });
 
     await expect(
-      sending.sent(
-        hookRequest({
-          fromNetwork: true,
-          waitMode: 'suspend',
-          resuming: first.outcome,
-        }),
+      sending.resumed(
+        hookRequest({ fromNetwork: true, waitMode: 'suspend' }),
+        first.outcome as WaitingOutcome,
         NOW,
       ),
     ).resolves.toMatchObject({
@@ -522,7 +561,7 @@ describe('HookRequests', () => {
     );
 
     await expect(
-      sending.sent(hookRequest({ fromNetwork: true }), NOW),
+      sending.sent(hookRequest({ fromNetwork: true }), TOKEN, NOW),
     ).resolves.toMatchObject({
       outcome: {
         status: 'failed',

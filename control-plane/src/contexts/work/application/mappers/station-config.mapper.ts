@@ -1,8 +1,8 @@
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import type { ContentHashPort } from '@work/application/ports/content-hash.port';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
-import type { Station } from '@work/domain/entities/station.entity';
 import type { RunOrder } from '@work/domain/services/run-order';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 const byPath = (a: { path: string }, b: { path: string }): number =>
@@ -17,7 +17,7 @@ export const StationConfigMapper = {
       folders,
     }: {
       station: Station;
-      line: Line;
+      line: LineMap;
       order: RunOrder;
       folders: readonly ReadySkillFolder[];
     },
@@ -27,7 +27,7 @@ export const StationConfigMapper = {
 
     return StationConfig.of(
       {
-        prompt: station.agentPrompt?.value ?? null,
+        prompt: station.agentPrompt,
         harness: order.harness.id.value,
         model: order.model?.value ?? null,
         effort: order.effort?.value ?? null,
@@ -52,7 +52,7 @@ export const StationConfigMapper = {
         image: line.image?.value ?? null,
         repositories: line.repositories.entries.map((each) => ({
           name: each.repository.name,
-          setup: each.setup?.value ?? null,
+          setup: each.setup,
         })),
         skills: folders.map((folder) => ({
           key: folder.skill.key,

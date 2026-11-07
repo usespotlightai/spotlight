@@ -1,14 +1,17 @@
 import { TaskFailures } from '@insights/domain/aggregates/task-failures.aggregate';
 import { TaskFailuresVersionConflictError } from '@insights/domain/exceptions/task-failures-version-conflict.error';
 import type { TaskFailuresRepository } from '@insights/domain/repositories/task-failures.repository';
+import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import { FailureOccurrence } from '@insights/domain/value-objects/failure-occurrence.vo';
+import { inScope } from '@insights/infrastructure/persistence/drizzle/deletion-scope.sql';
 import { taskFailures } from '@insights/infrastructure/persistence/drizzle/schemas/insights.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type FailuresRow = typeof taskFailures.$inferSelect;
 
@@ -18,14 +21,18 @@ const toFailures = (row: FailuresRow): TaskFailures =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     teamId: TeamId.of(row.teamId),
     occurrences: row.occurrences.map((each) =>
-      FailureOccurrence.of({ ...each, at: new Date(each.at) }),
+      FailureOccurrence.of({
+        ...each,
+        stationId: StationId.of(each.stationId),
+        at: new Date(each.at),
+      }),
     ),
     version: row.version,
   });
 
 const columnsOf = (failures: TaskFailures) => ({
   occurrences: failures.occurrences.map((each) => ({
-    stationId: each.stationId,
+    stationId: each.stationId.value,
     runId: each.runId,
     source: each.source,
     code: each.code,
@@ -84,44 +91,32 @@ export class DrizzleTaskFailuresRepository implements TaskFailuresRepository {
     return row ? toFailures(row) : null;
   }
 
-  async ofTasks(taskIds: readonly TaskId[]): Promise<readonly TaskFailures[]> {
-    if (taskIds.length === 0) {
-      return [];
-    }
-
-    const rows = await this.context.db
-      .select()
-      .from(taskFailures)
-      .where(
-        inArray(
-          taskFailures.taskId,
-          taskIds.map((each) => each.value),
-        ),
-      );
-
-    return rows.map(toFailures);
-  }
-
-  async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db
-      .delete(taskFailures)
-      .where(eq(taskFailures.taskId, taskId.value));
-  }
-
-  async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    await this.context.db
+  async remove(removed: TaskFailures): Promise<void> {
+    const gone = await this.context.db
       .delete(taskFailures)
       .where(
         and(
-          eq(taskFailures.workspaceId, workspaceId.value),
-          eq(taskFailures.teamId, teamId.value),
+          eq(taskFailures.taskId, removed.taskId.value),
+          eq(taskFailures.version, removed.version),
         ),
-      );
+      )
+      .returning({ taskId: taskFailures.taskId });
+
+    if (gone.length === 0) {
+      throw new TaskFailuresVersionConflictError(removed.taskId.value);
+    }
   }
 
-  async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.db
-      .delete(taskFailures)
-      .where(eq(taskFailures.workspaceId, workspaceId.value));
+  async ofScope(
+    scope: DeletionScope,
+    max: number,
+  ): Promise<readonly TaskFailures[]> {
+    const rows = await this.context.db
+      .select()
+      .from(taskFailures)
+      .where(inScope(taskFailures, scope))
+      .limit(max);
+
+    return rows.map(toFailures);
   }
 }

@@ -1,13 +1,13 @@
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { DispatchTask } from '@work/application/services/dispatch-task.service';
 import type { TaskDispatched } from '@work/domain/events/task-dispatched.event';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
 export class EnqueueTaskRun {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly runs: RunRepository,
     private readonly dispatching: DispatchTask,
   ) {}

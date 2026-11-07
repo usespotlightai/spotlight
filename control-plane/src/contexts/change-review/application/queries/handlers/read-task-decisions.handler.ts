@@ -6,7 +6,7 @@ import { namedDisputes } from '@change-review/application/mappers/named-disputes
 import type { DecisionReaderPort } from '@change-review/application/ports/decision-reader.port';
 import type { PeoplePort } from '@change-review/application/ports/people.port';
 import type { ReadTaskDecisionsQuery } from '@change-review/application/queries/read-task-decisions.query';
-import type { DecisionAccess } from '@change-review/application/services/decision-access.service';
+import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -14,7 +14,7 @@ export class ReadTaskDecisionsHandler
   implements QueryHandlerPort<ReadTaskDecisionsQuery, TaskDecisionsDto | null>
 {
   constructor(
-    private readonly access: DecisionAccess,
+    private readonly access: TeamWorkAccess,
     private readonly decisions: DecisionReaderPort,
     private readonly people: PeoplePort,
   ) {}
@@ -23,7 +23,7 @@ export class ReadTaskDecisionsHandler
     query: ReadTaskDecisionsQuery,
   ): Promise<TaskDecisionsDto | null> {
     try {
-      const deciding = await this.access.ofTask(
+      const deciding = await this.access.task(
         query.teamId,
         query.taskId,
         query.viewerId,

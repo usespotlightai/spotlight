@@ -1,10 +1,8 @@
 import { InvalidOidcTrustError } from '@identity/domain/exceptions/invalid-oidc-trust.error';
 import { ClaimPattern } from '@identity/domain/value-objects/claim-pattern.vo';
+import { OidcAudience } from '@identity/domain/value-objects/oidc-audience.vo';
+import { OidcIssuer } from '@identity/domain/value-objects/oidc-issuer.vo';
 import type { WorkloadClaims } from '@shared-kernel/domain/value-objects/workload-claims.vo';
-
-const LONGEST = 255;
-
-const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 const CLAIM_NAME = /^[a-z][a-z0-9_]{0,63}$/;
 
@@ -18,56 +16,11 @@ export class WorkloadRule {
   private readonly kind = 'workload-rule';
 
   private constructor(
-    readonly issuer: string,
-    readonly audience: string,
+    readonly issuer: OidcIssuer,
+    readonly audience: OidcAudience,
     readonly subject: ClaimPattern,
     private readonly claimed: ReadonlyMap<string, ClaimPattern>,
   ) {}
-
-  static issuerOf(raw: string): string {
-    const trimmed = raw.trim();
-    const invalid = new InvalidOidcTrustError(
-      'issuer',
-      'must be an https URL with no query or fragment, as in https://token.actions.githubusercontent.com',
-    );
-    let url: URL;
-
-    try {
-      url = new URL(trimmed);
-    } catch {
-      throw invalid;
-    }
-
-    const secure =
-      url.protocol === 'https:' ||
-      (url.protocol === 'http:' && LOOPBACK.has(url.hostname));
-
-    if (
-      !secure ||
-      url.search ||
-      url.hash ||
-      url.username ||
-      url.password ||
-      trimmed.length > LONGEST
-    ) {
-      throw invalid;
-    }
-
-    return trimmed;
-  }
-
-  static audienceOf(raw: string): string {
-    const trimmed = raw.trim();
-
-    if (!trimmed || trimmed.length > LONGEST || /\s/.test(trimmed)) {
-      throw new InvalidOidcTrustError(
-        'audience',
-        `must be one word of at most ${LONGEST} characters, as in spotlight`,
-      );
-    }
-
-    return trimmed;
-  }
 
   static claimNameOf(raw: string): string {
     if (!CLAIM_NAME.test(raw) || REGISTERED.has(raw)) {
@@ -111,8 +64,8 @@ export class WorkloadRule {
     }
 
     return new WorkloadRule(
-      WorkloadRule.issuerOf(input.issuer),
-      WorkloadRule.audienceOf(input.audience),
+      OidcIssuer.of(input.issuer),
+      OidcAudience.of(input.audience),
       subject,
       claimed,
     );
@@ -128,8 +81,8 @@ export class WorkloadRule {
     const customClaims = new Map(Object.entries(workload.customClaims));
 
     return (
-      workload.issuer === this.issuer &&
-      workload.audiences.includes(this.audience) &&
+      this.issuer.issued(workload.issuer) &&
+      this.audience.among(workload.audiences) &&
       this.subject.matches(workload.subject) &&
       [...this.claimed].every(([name, pattern]) => {
         const claimed = customClaims.get(name);
@@ -142,8 +95,8 @@ export class WorkloadRule {
   equals(other: WorkloadRule): boolean {
     return (
       this.kind === other.kind &&
-      this.issuer === other.issuer &&
-      this.audience === other.audience &&
+      this.issuer.equals(other.issuer) &&
+      this.audience.equals(other.audience) &&
       this.subject.equals(other.subject) &&
       this.claimed.size === other.claimed.size &&
       [...this.claimed].every(

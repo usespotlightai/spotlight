@@ -27,6 +27,7 @@ const registered = (secretExpiresAt: Date | null = null) =>
     clientId: 'client-1',
     clientSecret: AccessToken.of('secret-1'),
     secretExpiresAt,
+    registeredAt: new Date('2026-09-01T00:00:00.000Z'),
   });
 
 describe('OAuth2ClientRegistration', () => {
@@ -80,6 +81,7 @@ describe('OAuth2ClientRegistration', () => {
       clientId: 'client-0',
       clientSecret: null,
       secretExpiresAt: null,
+      registeredAt: new Date('2026-09-01T00:00:00.000Z'),
       version: 2,
     });
     const replaced = stored.replaceWith(registered());
@@ -98,6 +100,7 @@ describe('OAuth2ClientRegistration', () => {
         clientId: ' ',
         clientSecret: null,
         secretExpiresAt: null,
+        registeredAt: new Date('2026-09-01T00:00:00.000Z'),
       }),
     ).toThrow();
   });

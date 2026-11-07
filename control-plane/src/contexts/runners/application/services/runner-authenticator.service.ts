@@ -56,8 +56,7 @@ export class RunnerAuthenticator implements RunnerAuthenticatorPort {
       TokenHash.of(this.tokens.hash(token)),
     );
 
-    return pool?.mode === 'pull' &&
-      !pool.isDeleted &&
+    return pool?.acceptsPullToken &&
       (await this.workspaces.isOpen(pool.workspaceId.value))
       ? pool
       : null;

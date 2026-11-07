@@ -2,6 +2,7 @@ import type {
   HarnessProfileRecord,
   HarnessProfileResourcesPort,
 } from '@configuration/application/ports/harness-profile-resources.port';
+import { storedProfileOf } from '@configuration/infrastructure/persistence/drizzle/harness-profile-rows';
 import { harnessProfile } from '@configuration/infrastructure/persistence/drizzle/schemas/configuration.schema';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -14,12 +15,7 @@ const recordFrom = (found: ProfileRow): HarnessProfileRecord => ({
   id: found.id,
   version: found.version,
   teamId: TeamId.of(found.teamId),
-  definition: {
-    key: found.key,
-    permissions: found.permissions,
-    mcpServers: found.mcpServers,
-    native: found.native,
-  },
+  ...storedProfileOf(found),
 });
 
 @Injectable()

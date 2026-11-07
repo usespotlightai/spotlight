@@ -84,7 +84,10 @@ const applying = (
   const sets = {
     forTask: async () => stored,
     save: async (set: DecisionSet) => {
-      stored = set.discarded ? null : set;
+      stored = set;
+    },
+    remove: async () => {
+      stored = null;
     },
   } as unknown as DecisionSetRepository;
 
@@ -105,10 +108,8 @@ describe('applying a pull request close to the decisions of its task', () => {
     await service.closed(MERGED);
 
     expect(stored()?.status.isMerged).toBe(true);
-    expect(stored()?.status.merge).toMatchObject({
-      commit: 'c'.repeat(40),
-      at: CLOSED_AT,
-    });
+    expect(stored()?.status.merge?.commit.value).toBe('c'.repeat(40));
+    expect(stored()?.status.merge?.at).toEqual(CLOSED_AT);
     expect(stored()?.status.merge?.repository.value).toBe('acme/api');
     expect(stored()?.decisions).toHaveLength(1);
   });

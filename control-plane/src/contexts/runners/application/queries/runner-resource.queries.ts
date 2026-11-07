@@ -17,7 +17,7 @@ export class ImportRunnerTrustQuery {
 
 export class ReadWorkspaceRunnersQuery {
   constructor(
-    readonly declarationId: string,
+    readonly workspaceRunnersId: string,
     readonly principal: Principal,
   ) {}
 }

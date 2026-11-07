@@ -1,7 +1,7 @@
+import type { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import type { HarnessSetupShape } from '@work/application/contracts/run-spec.contract';
-import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import type { ReadyProfile } from '@work/domain/value-objects/ready-profile';
 

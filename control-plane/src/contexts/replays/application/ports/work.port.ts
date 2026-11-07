@@ -11,8 +11,10 @@ import type { StationFingerprint } from '@replays/domain/value-objects/station-f
 import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -27,9 +29,9 @@ interface ConfigSourceView {
 export interface StationView {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
-  readonly lineId: string;
+  readonly lineId: LineId;
   readonly lineKey: string;
-  readonly stationId: string;
+  readonly stationId: StationId;
   readonly key: string;
   readonly name: string;
   readonly source: ConfigSourceView | null;
@@ -38,7 +40,7 @@ export interface StationView {
 export interface RunReplayability {
   readonly runId: RunId;
   readonly taskId: TaskId | null;
-  readonly stationId: string | null;
+  readonly stationId: StationId | null;
   readonly unreplayableReason: UnreplayableReason | null;
   readonly reason: string | null;
 }
@@ -89,8 +91,8 @@ export interface ReplayRunOrder {
   readonly run: RunId;
   readonly original: RunId;
   readonly workspaceId: WorkspaceId;
-  readonly lineId: string;
-  readonly stationId: string;
+  readonly lineId: LineId;
+  readonly stationId: StationId;
   readonly block: StationBlock;
   readonly line: PlannedLine | null;
   readonly answer: OracleAnswer | null;
@@ -108,8 +110,8 @@ export interface SearchRunOrder {
   readonly run: RunId;
   readonly searchId: SearchId;
   readonly iteration: number;
-  readonly lineId: string;
-  readonly stationId: string;
+  readonly lineId: LineId;
+  readonly stationId: StationId;
   readonly agent: SearchAgent;
   readonly briefing: string;
 }
@@ -143,11 +145,11 @@ export interface AgentProblem {
 }
 
 export interface WorkPort {
-  station(lineId: string, stationId: string): Promise<StationView | null>;
+  station(lineId: LineId, stationId: StationId): Promise<StationView | null>;
 
-  findStation(stationId: string): Promise<StationView | null>;
+  findStation(stationId: StationId): Promise<StationView | null>;
 
-  keyed(lineId: string, key: string): Promise<StationView | null>;
+  keyed(lineId: LineId, key: string): Promise<StationView | null>;
 
   runSummaries(
     workspaceId: WorkspaceId,
@@ -156,18 +158,18 @@ export interface WorkPort {
 
   recentAt(
     workspaceId: WorkspaceId,
-    stationId: string,
+    stationId: StationId,
     max: number,
   ): Promise<readonly PickableRun[]>;
 
   validate(
-    lineId: string,
-    stationId: string,
+    lineId: LineId,
+    stationId: StationId,
     block: unknown,
     line?: PlannedLine | null,
   ): Promise<ValidatedCandidate | null>;
 
-  live(lineId: string, stationId: string): Promise<LiveConfig | null>;
+  live(lineId: LineId, stationId: StationId): Promise<LiveConfig | null>;
 
   dispatch(order: ReplayRunOrder): Promise<ReplayRunQueued>;
 

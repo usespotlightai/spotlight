@@ -1,11 +1,15 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { EFFORTS, Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TRACE_PARENT_VAR } from '@work/application/contracts/run-spec.contract';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type {
   SearchAgent,
   SearchAgentProblem,
@@ -17,16 +21,13 @@ import type {
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunAlreadyExistsError } from '@work/domain/exceptions/run-already-exists.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { SEARCH_PRIORITY } from '@work/domain/services/search-priority';
-import { EFFORTS, Effort } from '@work/domain/value-objects/effort.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
+import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { SearchId } from '@work/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
 
 const QUEUED: SearchDispatched = { outcome: 'queued' };
 
@@ -58,7 +59,7 @@ const succeeds = (made: () => unknown): boolean => {
 export class DispatchSearch implements SearchDispatchPort {
   constructor(
     private readonly runs: RunRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly launch: HarnessLaunchPort,
     private readonly tracing: TraceParentPort,
     private readonly transaction: TransactionPort,
@@ -152,11 +153,7 @@ export class DispatchSearch implements SearchDispatchPort {
       const stationId = StationId.of(order.stationId);
       const line = await this.lines.find(LineId.of(order.lineId));
 
-      if (
-        !line ||
-        line.isDeleted ||
-        !line.stationAt(stationId)?.isAgentStation
-      ) {
+      if (!line?.stationAt(stationId)?.isAgentStation) {
         return unstartable('the line no longer has the station it searches');
       }
 
@@ -191,7 +188,7 @@ export class DispatchSearch implements SearchDispatchPort {
             }),
             briefing: order.briefing,
             handover: { options: [], noteLimit: 0 },
-            resume: { key: `search-${id.value}` },
+            resume: { key: ResumeKey.forSearch(id).value },
             search: {},
           }),
         }),

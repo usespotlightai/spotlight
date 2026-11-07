@@ -10,6 +10,7 @@ import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate'
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { aSearch, aSet, NOW, STATION } from '@replays/domain/replays.fake-spec';
 import { SearchPolicy } from '@replays/domain/value-objects/search-policy.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let memory: InMemoryReplays;
@@ -53,14 +54,14 @@ beforeEach(() => {
 
   (work as { live: WorkPort['live'] }).live = async (_lineId, stationId) => ({
     ...(await live()),
-    search: policyOf(enabled.get(stationId) ?? true),
+    search: policyOf(enabled.get(stationId.value) ?? true),
   });
 });
 
 describe('TurnOffSearches', () => {
   it('stops the search of a station whose resolved policy is off, though its line is on', async () => {
     await searchAt('search_1', aSet(10));
-    enabled.set(STATION.stationId, false);
+    enabled.set(STATION.stationId.value, false);
 
     await turningOff().lineChanged(STATION.lineId);
 
@@ -78,8 +79,8 @@ describe('TurnOffSearches', () => {
 
     expect(stateOf('search_1')?.isActive).toBe(true);
 
-    enabled.set(STATION.stationId, false);
-    await turningOff().lineChanged('line_other');
+    enabled.set(STATION.stationId.value, false);
+    await turningOff().lineChanged(LineId.of('line_other'));
 
     expect(stateOf('search_1')?.isActive).toBe(true);
   });
@@ -88,7 +89,7 @@ describe('TurnOffSearches', () => {
     const search = await searchAt('search_1', aSet(10));
     const ended = search.stationLeft(NOW);
 
-    enabled.set(STATION.stationId, false);
+    enabled.set(STATION.stationId.value, false);
     memory.searchRepository.locked = async () => ended;
 
     await turningOff().lineChanged(STATION.lineId);

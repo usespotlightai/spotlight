@@ -1,32 +1,34 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   Chosen,
   HarnessLaunchPort,
 } from '@work/application/ports/harness-launch.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { SearchOrder } from '@work/application/ports/search-dispatch.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { DispatchSearch } from '@work/application/services/dispatch-search.service';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { RunAlreadyExistsError } from '@work/domain/exceptions/run-already-exists.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { SEARCH_PRIORITY } from '@work/domain/services/search-priority';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-10-02T09:00:00.000Z');
@@ -39,16 +41,16 @@ const station = (
   position: number,
   kind: 'backlog' | 'work' | 'completed',
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(key),
     name: StationName.of(key),
     position,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     kind,
   });
 
-const DELIVERY = Line.rehydrate({
+const DELIVERY = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TEAM,
@@ -75,7 +77,7 @@ const ORDER: SearchOrder = {
 const dispatching = (
   over: {
     launches?: boolean;
-    line?: Line | null;
+    line?: LineMap | null;
     addedElsewhere?: (run: Run) => Run;
   } = {},
 ) => {
@@ -97,7 +99,7 @@ const dispatching = (
     } as unknown as RunRepository,
     {
       find: async () => (over.line === undefined ? DELIVERY : over.line),
-    } as unknown as LineRepository,
+    } as unknown as LineMapsPort,
     {
       commandFor: (_harness: HarnessId, picked: Chosen) => {
         chosen.push(picked);
@@ -148,7 +150,7 @@ describe('DispatchSearch', () => {
 
   it('places a search run where its station’s own runners are, when the station names them', async () => {
     const gpu = RunnerPlacement.of(['gpu']);
-    const line = Line.rehydrate({
+    const line = lineMapOf({
       id: LineId.of('line_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TEAM,
@@ -157,12 +159,12 @@ describe('DispatchSearch', () => {
       placement: RunnerPlacement.of(['linux']),
       stations: [
         station('station_backlog', 'backlog', 0, 'backlog'),
-        Station.of({
+        stationOf({
           id: BUILD,
           key: StationKey.of('build'),
           name: StationName.of('build'),
           position: 1,
-          color: StationColor.plain(),
+          color: '#a3a8b0',
           kind: 'work',
           placement: gpu,
         }),

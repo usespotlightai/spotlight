@@ -2,6 +2,7 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
 import type {
   HistoryCandidateDto,
@@ -40,7 +41,6 @@ import {
 import { connectionsOf, traceOf } from '@work/application/read-models/trace-of';
 import { VisibleHistory } from '@work/application/read-models/visible-history';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 
 const sinceOf = (written: string | null): Date | null => {
   if (!written) {

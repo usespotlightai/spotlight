@@ -1,9 +1,3 @@
-import type { WebhookReview } from '@github/domain/aggregates/pull-request.aggregate';
-import type { RevertTarget } from '@github/domain/services/revert-convention';
-import type {
-  BotComment,
-  PullRequestThread,
-} from '@github/domain/value-objects/bot-activity.vo';
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import {
   boolean,
@@ -16,8 +10,32 @@ import {
   text,
 } from 'drizzle-orm/pg-core';
 
-export interface StoredReview extends Omit<WebhookReview, 'at'> {
+export interface StoredReview {
+  readonly id: number;
+  readonly state: 'approved' | 'changes-requested' | 'commented';
+  readonly login: string | null;
+  readonly byBot: boolean;
   readonly at: string | null;
+}
+
+export type StoredRevertTarget =
+  | { readonly kind: 'number'; readonly number: number }
+  | { readonly kind: 'title'; readonly title: string };
+
+export interface StoredBotComment {
+  readonly id: number;
+  readonly on: 'line' | 'conversation';
+  readonly login: string;
+  readonly opensThread: boolean;
+  readonly deleted: boolean;
+}
+
+export interface StoredThread {
+  readonly id: string;
+  readonly firstCommentId: number | null;
+  readonly login: string | null;
+  readonly byBot: boolean;
+  readonly resolved: boolean;
 }
 
 export interface StoredDraftPeriod {
@@ -55,7 +73,7 @@ export const githubPullRequest = pgTable(
     state: githubPullRequestState('state').notNull(),
     closedAt: timestamptz('closed_at'),
     updatedAt: timestamptz('updated_at').notNull(),
-    reverts: jsonb('reverts').$type<RevertTarget>(),
+    reverts: jsonb('reverts').$type<StoredRevertTarget>(),
     reviews: jsonb('reviews').$type<StoredReview[]>().notNull().default([]),
     dismissedReviews: jsonb('dismissed_reviews')
       .$type<number[]>()
@@ -67,13 +85,10 @@ export const githubPullRequest = pgTable(
       .notNull()
       .default([]),
     botComments: jsonb('bot_comments')
-      .$type<BotComment[]>()
+      .$type<StoredBotComment[]>()
       .notNull()
       .default([]),
-    threads: jsonb('threads')
-      .$type<PullRequestThread[]>()
-      .notNull()
-      .default([]),
+    threads: jsonb('threads').$type<StoredThread[]>().notNull().default([]),
     revertedBy: text('reverted_by'),
     version: integer('version').notNull().default(0),
   },

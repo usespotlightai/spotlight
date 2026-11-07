@@ -7,10 +7,13 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { OnboardingDto } from '@work/application/dto/onboarding.dto';
-import type { TeamProvisioningPort } from '@work/application/ports/team-provisioning.port';
+import type { TeamWelcomesPort } from '@work/application/ports/team-welcomes.port';
 import type { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import type { SetupStatus } from '@work/application/services/setup-status.service';
 import { shownFor } from '@work/application/services/setup-steps';
+import { ChatAccess } from '@work/domain/services/chat-access';
+import { mayStartSetup } from '@work/domain/services/setup-list';
+import { provisioningOf } from '@work/domain/services/team-provisioning';
 
 export class OnboardingHandler
   implements QueryHandlerPort<OnboardingQuery, OnboardingDto | null>
@@ -19,7 +22,7 @@ export class OnboardingHandler
     private readonly workspaces: WorkspaceReaderPort,
     private readonly access: WorkspaceAccessPort,
     private readonly setup: SetupStatus,
-    private readonly provisioning: TeamProvisioningPort,
+    private readonly welcomes: TeamWelcomesPort,
   ) {}
 
   async execute(query: OnboardingQuery): Promise<OnboardingDto | null> {
@@ -35,7 +38,10 @@ export class OnboardingHandler
 
       const teamId = TeamId.of(query.teamId);
       const workspaceId = WorkspaceId.of(team.workspaceId);
-      const provisioning = await this.provisioning.of(teamId);
+      const provisioning = provisioningOf({
+        madeAtSignUp: team.origin === 'sign-up',
+        welcomed: await this.welcomes.welcomed(teamId),
+      });
       const setup = await this.setup.of(workspaceId, teamId);
       const permissions = await this.access.permissionsIn(
         workspaceId,
@@ -47,10 +53,15 @@ export class OnboardingHandler
       return {
         provisioning,
         steps: shownFor(setup.state),
-        canSetUp: setup.state.connectedToGitHub && setup.hasEgressCapableRunner,
+        canSetUp: mayStartSetup(setup.state, setup.hasEgressCapableRunner),
         viewerIsAdmin: permissions?.isAdmin ?? false,
         setupChat: chat && {
-          id: chat.startedById === query.viewerId ? chat.id : null,
+          id: ChatAccess.readableBy(
+            UserId.of(chat.startedById),
+            UserId.of(query.viewerId),
+          )
+            ? chat.id
+            : null,
           repository: chat.repository,
           pullRequest: chat.pullRequest,
           ci: chat.ci,

@@ -10,6 +10,7 @@ import {
 } from '@nestjs/swagger';
 import { CurrentActor } from '@platform/http/decorators/current-actor.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
+import { InAudience } from '@platform/http/decorators/in-audience.decorator';
 import {
   ApiProblemResponse,
   ConventionalApiController,
@@ -60,6 +61,7 @@ const nothingToReplay = (scoringPinnedToLive: readonly string[]): never => {
   });
 };
 
+@InAudience('insights')
 @ConventionalApiController('teams/:teamId', 'replays')
 @ApiParam({ name: 'teamId', type: String })
 @ApiProblemResponse(

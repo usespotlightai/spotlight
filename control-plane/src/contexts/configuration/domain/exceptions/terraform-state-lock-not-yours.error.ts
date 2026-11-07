@@ -1,4 +1,6 @@
-export class TerraformStateLockNotYoursError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class TerraformStateLockNotYoursError extends DomainError {
   readonly kind = 'not-allowed' as const;
 
   constructor(name: string, id: string) {

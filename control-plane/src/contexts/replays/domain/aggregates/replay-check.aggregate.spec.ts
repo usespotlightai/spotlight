@@ -64,6 +64,14 @@ describe('ReplayCheck', () => {
     expect(check.scoringPinnedToLive).toEqual(['check', 'diffs']);
   });
 
+  it('starts at version 0 and keeps its start event through a baseline change', () => {
+    const check = started().recordBaseline();
+
+    expect(check.version).toBe(0);
+    expect(check.baseline).toBe('found');
+    expect(check.pullEvents()).toEqual([expect.any(ReplayCheckStarted)]);
+  });
+
   it('checks a change to how the station runs, counting its attempts from 1', () => {
     expect(() => started({ candidateHashes: LIVE_HASHES })).toThrow(
       InvalidReplayCheckError,

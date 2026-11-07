@@ -1,5 +1,5 @@
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import type { HarnessProfileShape } from '@work/application/contracts/harness-profile.contract';
-import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import {
   type ReadyProfile,
   readyProfile,

@@ -1,9 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
+import { CatalogCalls } from '@catalog/application/services/catalog-calls.service';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { StaticCatalog } from '@catalog/infrastructure/catalog/static-catalog';
-import { DrizzleMeteredCalls } from '@catalog/infrastructure/persistence/drizzle/ledgers/metered-calls.ledger';
+import { DrizzleCatalogCallLedger } from '@catalog/infrastructure/persistence/drizzle/ledgers/catalog-call.ledger';
 import { DrizzleWorkspacePlans } from '@catalog/infrastructure/persistence/drizzle/readers/workspace-plans.reader';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
 import { buildOpenApiDocument } from '@platform/http/openapi';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -14,10 +18,6 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
 import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -367,7 +367,7 @@ describe('a station enabling catalog tools and skills (e2e)', () => {
 describe('a catalog call (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
-  const workspace = `metered-${randomUUID().slice(0, 8)}`;
+  const workspace = `called-${randomUUID().slice(0, 8)}`;
 
   beforeAll(async () => {
     app = await openApp();
@@ -387,11 +387,11 @@ describe('a catalog call (e2e)', () => {
     await app.close();
   });
 
-  it('is metered, by workspace, run and the version called', async () => {
-    const entitlements = new CatalogEntitlements(
+  it('is recorded, by workspace, run and the version called', async () => {
+    const calls = new CatalogCalls(
       new StaticCatalog(CATALOG_ITEMS),
       new DrizzleWorkspacePlans(db),
-      new DrizzleMeteredCalls(new DrizzleContext(db), {
+      new DrizzleCatalogCallLedger(new DrizzleContext(db), {
         generate: () => randomUUID(),
       }),
       { call: async () => ['https://example.com'] },
@@ -400,7 +400,7 @@ describe('a catalog call (e2e)', () => {
     const runId = randomUUID();
 
     await expect(
-      entitlements.call({
+      calls.call({
         workspaceId: WorkspaceId.of(workspace),
         runId: RunId.of(runId),
         id: 'catalog.web-search@1.1.0',
@@ -408,12 +408,12 @@ describe('a catalog call (e2e)', () => {
       }),
     ).resolves.toEqual({ kind: 'answered', output: ['https://example.com'] });
 
-    const metered = await db
+    const recorded = await db
       .select()
       .from(schema.catalogCall)
       .where(eq(schema.catalogCall.workspaceId, workspace));
 
-    expect(metered).toEqual([
+    expect(recorded).toEqual([
       expect.objectContaining({
         runId,
         item: 'catalog.web-search@1.1.0',

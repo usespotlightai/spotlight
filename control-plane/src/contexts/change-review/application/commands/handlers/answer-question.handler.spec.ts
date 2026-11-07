@@ -2,7 +2,7 @@ import { AnswerQuestionCommand } from '@change-review/application/commands/answe
 import { AnswerQuestionHandler } from '@change-review/application/commands/handlers/answer-question.handler';
 import type { AnswerGraderPort } from '@change-review/application/ports/answer-grader.port';
 import type { RunForReview } from '@change-review/application/ports/work.port';
-import type { ChangeStackAccess } from '@change-review/application/services/change-stack-access.service';
+import type { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import type { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
@@ -11,7 +11,6 @@ import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
-import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -49,7 +48,7 @@ const asking = (question = 'Who signs when the member has left?') =>
     repository: null,
     base: null,
     diff: DIFF,
-    facts: StackFacts.none(),
+    facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
     request: null,
     now: NOW,
   }).propose(
@@ -97,8 +96,8 @@ const answering = (
 
   const handler = new AnswerQuestionHandler(
     {
-      ofRun: async () => (over.run === undefined ? RUN : over.run),
-    } as unknown as ChangeStackAccess,
+      run: async () => (over.run === undefined ? RUN : over.run),
+    } as unknown as TeamWorkAccess,
     { find: async () => asking() } as unknown as ChangeStackRepository,
     {
       of: async () => over.earlier ?? null,
@@ -108,7 +107,8 @@ const answering = (
       save: async (answer: QuestionAnswer) => {
         saved.push(answer);
       },
-      removeForTask: async () => {},
+      ofTask: async () => [],
+      remove: async () => {},
     } satisfies QuestionAnswerRepository,
     {
       available: over.graderAvailable !== false,
@@ -174,9 +174,12 @@ describe('AnswerQuestionHandler', () => {
 
     const { handler } = answering({ earlier: added[0] });
 
-    await expect(handler.execute(answer('The integration.'))).rejects.toThrow(
-      new ApplicationError('conflict', 'You already answered this question.'),
-    );
+    await expect(
+      handler.execute(answer('The integration.')),
+    ).rejects.toMatchObject({
+      kind: 'conflict',
+      message: 'You already answered this question.',
+    });
   });
 
   it('answers again, on the same answer, a question the stack asks in other words since it was redrafted', async () => {

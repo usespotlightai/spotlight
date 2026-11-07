@@ -2,6 +2,7 @@ import type {
   InviteMailPort,
   InviteToSend,
 } from '@identity/application/ports/invite-mail.port';
+import { INVITE_LASTS_FOR_DAYS } from '@identity/domain/aggregates/workspace-invite.aggregate';
 import { appUrl, escaped } from '@identity/infrastructure/mail/mail.format';
 import { mailLayout } from '@identity/infrastructure/mail/mail.layout';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
@@ -11,6 +12,8 @@ const listed = (names: readonly string[]): string =>
   names.length <= 1
     ? (names[0] ?? '')
     : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+
+const LASTS = `The link is yours alone and stops working in ${INVITE_LASTS_FOR_DAYS} days.`;
 
 const onTeams = (names: readonly string[]): string => {
   if (names.length === 0) {
@@ -43,7 +46,7 @@ export class InviteByMail implements InviteMailPort {
         'Accept the invitation:',
         link,
         '',
-        'The link is yours alone and stops working in two weeks.',
+        LASTS,
         'If you were not expecting this, you can ignore this message.',
       ].join('\n'),
       html: this.body(invite, link),
@@ -58,8 +61,7 @@ export class InviteByMail implements InviteMailPort {
       detail:
         'Spotlight is where this workspace runs its work with coding agents.',
       action: { label: 'Accept the invitation', href: link },
-      footnote:
-        'The link is yours alone and stops working in two weeks. If you were not expecting this, you can ignore this message.',
+      footnote: `${LASTS} If you were not expecting this, you can ignore this message.`,
     });
   }
 }

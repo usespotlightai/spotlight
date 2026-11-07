@@ -1,7 +1,13 @@
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -13,38 +19,33 @@ import type {
   BeforeHookEvent,
   HookDecision,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type {
   TaskViewDto,
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunPaused } from '@work/domain/events/run-paused.event';
 import { RunSuspended } from '@work/domain/events/run-suspended.event';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  routesOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -75,44 +76,44 @@ const leased = () =>
 const TASK_VIEW = { taskId: 'task_1', runId: 'run_1' } as TaskViewDto;
 
 const line = () =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     key: LineKey.of('default'),
     name: LineName.of('Default'),
     stations: [
-      Station.of({
+      stationOf({
         id: StationId.of('station_0'),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'backlog',
       }),
-      Station.of({
+      stationOf({
         id: StationId.of('station_1'),
         key: StationKey.of('build'),
         name: StationName.of('Build'),
         position: 1,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         harness: HarnessId.of('dev'),
-        routes: StationRoutes.of({ stations: [StationId.of('station_2')] }),
+        routes: routesOf({ stations: [StationId.of('station_2')] }),
       }),
-      Station.of({
+      stationOf({
         id: StationId.of('station_2'),
         key: StationKey.of('deploy'),
         name: StationName.of('Deploy'),
         position: 2,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         harness: HarnessId.of('dev'),
       }),
-      Station.of({
+      stationOf({
         id: StationId.of('station_3'),
         key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 3,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'completed',
       }),
     ],
@@ -150,7 +151,7 @@ const completing = (
       find: async () => (typeof task === 'function' ? task() : task),
       save: async (each: Task) => void stored.tasks.push(each),
     } as unknown as TaskRepository,
-    { findByStation: async () => line() } as unknown as LineRepository,
+    { findByStation: async () => line() } as unknown as LineMapsPort,
     {
       inTransaction: (work: () => Promise<unknown>) => work(),
     } as TransactionPort,
@@ -420,13 +421,13 @@ describe('CompleteRunHandler', () => {
       const stored = { tasks: [] as Task[] };
       const answeredAlready = claimedByTheRun()
         .putToAPerson(RunId.of('run_1'), {
-          station: StationName.of('Build'),
+          station: null,
           body: TaskNoteBody.of('Approve?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
         })
         .answer(NotePosition.of(0), {
-          station: StationName.of('Build'),
+          station: null,
           body: TaskNoteBody.of('Yes.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -470,13 +471,13 @@ describe('CompleteRunHandler', () => {
       const saved: Run[] = [];
       let reads = 0;
       const asked = claimedByTheRun().putToAPerson(RunId.of('run_1'), {
-        station: StationName.of('Build'),
+        station: null,
         body: TaskNoteBody.of('Approve?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
       });
       const answeredMeanwhile = asked.answer(NotePosition.of(0), {
-        station: StationName.of('Build'),
+        station: null,
         body: TaskNoteBody.of('Yes.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),

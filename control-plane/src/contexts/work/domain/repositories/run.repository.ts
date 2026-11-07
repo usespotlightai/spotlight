@@ -1,33 +1,12 @@
-import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import type { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
+import type { Claimant } from '@work/domain/value-objects/claimant';
 import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 
-type Claims = 'any' | 'reserved';
-
-export type SandboxRouting =
-  | { readonly into: ResumeKey }
-  | { readonly avoiding: readonly ResumeKey[] };
-
-export interface Claimant {
-  readonly runner: RunnerId;
-  readonly workspaceId: WorkspaceId;
-  readonly harnesses: readonly HarnessId[];
-  readonly offer: RunnerOffer;
-  readonly claims: Claims;
-  readonly sandbox?: SandboxRouting;
-}
-
-export interface RunExtras {
-  readonly briefed?: BriefedTask;
-}
-
 export interface RunRepository {
-  add(run: Run, extras?: RunExtras): Promise<void>;
+  add(run: Run): Promise<void>;
 
   // Must be atomic and follow ClaimOrder. Two runners must never claim the same run.
   claimNext(by: Claimant, now: Date): Promise<Run | null>;

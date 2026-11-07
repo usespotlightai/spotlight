@@ -11,83 +11,73 @@ import type {
 } from '@integrations/application/ports/hook-resources.port';
 import { HookAddress } from '@integrations/domain/value-objects/hook-address.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
+import {
+  type WrittenHook,
+  writtenHookOf,
+} from '@integrations/infrastructure/hooks/hook.compile';
+import type { HookStepFile } from '@integrations/infrastructure/hooks/hook.schema';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-type Fields = Readonly<Record<string, unknown>>;
-
-const isRecord = (value: unknown): value is Fields =>
-  typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const fieldsIn = (value: unknown): Fields => (isRecord(value) ? value : {});
-
-const textsIn = (value: unknown): readonly string[] =>
-  Array.isArray(value) ? value.map(String) : [];
-
-const textsBy = (value: unknown): Readonly<Record<string, string>> =>
-  Object.fromEntries(
-    Object.entries(fieldsIn(value)).map(([name, each]) => [name, String(each)]),
-  );
-
-const stepOf = (step: Fields): HookConfigStep => {
-  const name = String(step.name ?? '');
-
-  if (typeof step.call === 'string') {
-    return { name, call: step.call, with: { ...fieldsIn(step.with) } };
+const stepOf = (step: HookStepFile): HookConfigStep => {
+  if (step.call !== undefined) {
+    return { name: step.name, call: step.call, with: { ...step.with } };
   }
 
-  const request = fieldsIn(step.request);
+  const request = step.request as NonNullable<HookStepFile['request']>;
 
   return {
-    name,
+    name: step.name,
     request: {
-      url: String(request.url ?? ''),
-      headers: textsBy(request.headers),
+      url: request.url,
+      headers: { ...request.headers },
       body: request.body,
-      from: request.from === 'network' ? 'network' : 'spotlight',
+      from: request.from ?? null,
     },
   };
 };
 
-const signingOf = (value: unknown): HookConfigSigning | null => {
-  const signing = fieldsIn(value);
-
-  if (isRecord(signing.oidc)) {
-    return { oidc: { audience: String(signing.oidc.audience ?? '') } };
+const signingOf = (
+  signing: WrittenHook['signing'],
+): HookConfigSigning | null => {
+  if (!signing) {
+    return null;
   }
 
-  return typeof signing.secretVersion === 'number'
-    ? { secretVersion: signing.secretVersion }
-    : null;
+  return 'oidc' in signing
+    ? { oidc: { audience: signing.oidc.audience } }
+    : { secretVersion: signing.secretVersion };
 };
 
 const configOf = (teamKey: string, record: HookRecord): HookConfig => {
-  const definition = record.definition;
-  const match = fieldsIn(definition.match);
+  const written = writtenHookOf(record.definition);
+
+  if (!written) {
+    throw new InconsistentStateError(
+      'hook',
+      `${record.key} is stored in a form no hook is written in`,
+    );
+  }
 
   return {
     id: record.id,
     address: HookAddress.of(teamKey, HookKey.of(record.key)).toString(),
     teamId: record.teamId,
     key: record.key,
-    on: String(definition.on ?? ''),
+    on: written.on,
     match: {
-      tools: textsIn(match.tools),
-      lines: textsIn(match.lines),
-      stations: textsIn(match.stations),
-      repositories: textsIn(match.repositories),
-      paths: textsIn(match.paths),
+      tools: [...written.match.tools],
+      lines: [...written.match.lines],
+      stations: [...written.match.stations],
+      repositories: [...written.match.repositories],
+      paths: [...written.match.paths],
     },
-    when: typeof definition.when === 'string' ? definition.when : null,
-    vars: textsBy(definition.vars),
-    steps: (Array.isArray(definition.steps) ? definition.steps : [])
-      .filter(isRecord)
-      .map(stepOf),
-    signing: signingOf(definition.signing),
-    failure: typeof definition.failure === 'string' ? definition.failure : null,
-    timeoutSeconds:
-      typeof definition.timeoutSeconds === 'number'
-        ? definition.timeoutSeconds
-        : null,
+    when: written.when ?? null,
+    vars: { ...written.vars },
+    steps: written.steps.map(stepOf),
+    signing: signingOf(written.signing),
+    failure: written.failure,
+    timeoutSeconds: written.timeoutSeconds,
   };
 };
 

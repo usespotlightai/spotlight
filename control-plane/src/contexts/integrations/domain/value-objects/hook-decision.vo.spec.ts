@@ -15,4 +15,15 @@ describe('HookDecision', () => {
       false,
     );
   });
+
+  it('gives the before hooks a minute at most, and no more than the caller can wait', () => {
+    const at = new Date('2026-09-26T10:00:00.000Z');
+
+    expect(HookDecision.budgetFrom(at, null)).toEqual(
+      new Date('2026-09-26T10:01:00.000Z'),
+    );
+    expect(
+      HookDecision.budgetFrom(at, new Date('2026-09-26T10:00:10.000Z')),
+    ).toEqual(new Date('2026-09-26T10:00:10.000Z'));
+  });
 });

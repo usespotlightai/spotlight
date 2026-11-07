@@ -6,9 +6,9 @@ import type {
 import type { SpecReaderPort } from '@integrations/application/ports/spec-reader.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
-import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { SpecDocumentRepository } from '@integrations/domain/repositories/spec-document.repository';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';

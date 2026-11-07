@@ -1,3 +1,5 @@
+import type { StackFailure } from '@change-review/domain/value-objects/stack-progress.vo';
+
 export const CHANGE_STACK_STATE_NAMES = [
   'generating',
   'ready',
@@ -106,7 +108,7 @@ export interface ChangeStackDto {
   readonly id: string;
   readonly repository: string | null;
   readonly state: (typeof CHANGE_STACK_STATE_NAMES)[number];
-  readonly failure: string | null;
+  readonly failure: StackFailure | null;
   readonly startedAt: string;
   readonly completedAt: string | null;
   readonly files: readonly DiffFileDto[];

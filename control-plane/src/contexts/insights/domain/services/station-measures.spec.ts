@@ -1,14 +1,42 @@
-import { day, taskPullRequestOf } from '@insights/domain/insights.fake-spec';
-import { costedRecord, endedRecord } from '@insights/domain/runs.fake-spec';
+import type { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
+import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
 import {
-  measureAround,
-  measureOf,
-  readingOf,
+  measureAround as measureAroundFacts,
+  measureOf as measureOfFacts,
+  readingOf as readingOfFacts,
 } from '@insights/domain/services/station-measures';
-import { AlertRule } from '@insights/domain/value-objects/alert-rule.vo';
+import {
+  type AlertMeasure,
+  AlertRule,
+} from '@insights/domain/value-objects/alert-rule.vo';
 import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { day, taskPullRequestOf } from '@insights/insights.fake-spec';
+import { costedRecord, endedRecord, factsWith } from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
+
+type Records = readonly RunRecord[];
+
+type PullRequests = readonly PullRequestRecord[];
+
+const measureOf = (
+  measure: AlertMeasure,
+  records: Records,
+  pullRequests: PullRequests,
+) => measureOfFacts(measure, factsWith(records, pullRequests));
+
+const readingOf = (
+  rule: AlertRule,
+  records: Records,
+  pullRequests: PullRequests,
+) => readingOfFacts(rule, factsWith(records, pullRequests));
+
+const measureAround = (
+  rule: AlertRule,
+  pinned: { readonly runId: RunId; readonly value: number },
+  records: Records,
+  pullRequests: PullRequests,
+) => measureAroundFacts(rule, pinned, factsWith(records, pullRequests));
 
 const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 

@@ -13,13 +13,14 @@ import { ReviewCommentVersionConflictError } from '@change-review/domain/excepti
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
+import { DeliveryFailure } from '@change-review/domain/value-objects/delivery-failure.vo';
 import { ReviewAnchor } from '@change-review/domain/value-objects/review-anchor.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 
 import type { PullRequestReviewsPort } from '@github/application/ports/pull-request-reviews.port';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -46,7 +47,7 @@ const draft = (id: string, line: number) =>
 
 const syncing = (over: {
   pullRequest?: PullRequestUrl | null;
-  sync: Omit<ReviewOutboxEntry, 'id' | 'workspaceId' | 'taskId'>;
+  sync: Omit<ReviewOutboxEntry, 'id' | 'workspaceId' | 'taskId' | 'leaseUntil'>;
   comments?: ReviewComment[];
   reviews?: Review[];
   github?: Partial<PullRequestReviewsPort>;
@@ -63,6 +64,7 @@ const syncing = (over: {
     id: 'sync_1',
     workspaceId: WORKSPACE,
     taskId: TASK,
+    leaseUntil: NOW,
     ...over.sync,
   };
 
@@ -73,11 +75,13 @@ const syncing = (over: {
       pending = null;
       return next;
     },
-    done: async (...args) => void recorded.push({ how: 'done', args }),
-    later: async (...args) => void recorded.push({ how: 'later', args }),
-    failed: async (...args) => void recorded.push({ how: 'failed', args }),
-    failuresFor: async () => new Map(),
-    deleteTask: async () => undefined,
+    done: async (entry) =>
+      void recorded.push({ how: 'done', args: [entry.id] }),
+    later: async (entry, ...args) =>
+      void recorded.push({ how: 'later', args: [entry.id, ...args] }),
+    failed: async (entry) =>
+      void recorded.push({ how: 'failed', args: [entry.id] }),
+    dropTask: async () => undefined,
   };
 
   const task = {
@@ -94,6 +98,7 @@ const syncing = (over: {
   const github: PullRequestReviewsPort = {
     submit: vi.fn(async (input) => ({
       githubId: 900,
+      postedAs: input.event,
       comments: input.comments.map((_: unknown, index: number) => ({
         id: 100 + index,
         url: `https://github.com/c/${100 + index}`,
@@ -150,8 +155,7 @@ const syncing = (over: {
     },
     {
       find: async () => ({ name: 'Ada', image: null }),
-      pictureOf: () => null,
-      memberOf: async () => null,
+      viewerOf: async () => null,
     },
     github,
     { now: () => NOW, sleep: async () => {} },
@@ -215,11 +219,11 @@ describe('SyncReviews', () => {
       expect.arrayContaining([
         expect.objectContaining({ kind: 'review.posted' }),
         expect.objectContaining({
-          kind: 'review.comment-posted',
+          kind: 'review.included-comment-posted',
           github: { id: 100, url: 'https://github.com/c/100' },
         }),
         expect.objectContaining({
-          kind: 'review.comment-posted',
+          kind: 'review.included-comment-posted',
           github: { id: 101, url: 'https://github.com/c/101' },
         }),
       ]),
@@ -278,8 +282,10 @@ describe('SyncReviews', () => {
       comments: review.comments,
       state: 'submitted',
       githubId: null,
+      verdictOnGitHub: null,
       submittedAt: NOW,
       postedAt: null,
+      failure: null,
       version: 0,
     });
     const synced = syncing({
@@ -310,7 +316,7 @@ describe('SyncReviews', () => {
     expect(synced.recorded).toEqual([
       {
         how: 'later',
-        args: ['sync_1', new Date(NOW.getTime() + 60_000), null, false],
+        args: ['sync_1', new Date(NOW.getTime() + 60_000), false],
       },
     ]);
   });
@@ -335,12 +341,7 @@ describe('SyncReviews', () => {
     expect(early.recorded).toEqual([
       {
         how: 'later',
-        args: [
-          'sync_1',
-          new Date(NOW.getTime() + 60_000),
-          'submit the review: Server Error',
-          true,
-        ],
+        args: ['sync_1', new Date(NOW.getTime() + 60_000), true],
       },
     ]);
 
@@ -356,12 +357,13 @@ describe('SyncReviews', () => {
     });
     await last.service.syncDue();
 
-    expect(last.recorded).toEqual([
-      { how: 'failed', args: ['sync_1', 'submit the review: Server Error'] },
-    ]);
+    expect(last.recorded).toEqual([{ how: 'failed', args: ['sync_1'] }]);
     expect(last.reviews.get('review_1')?.state).toBe('failed');
+    expect(last.reviews.get('review_1')?.failure).toEqual(
+      DeliveryFailure.of('github-error', 'submit the review: Server Error'),
+    );
     expect(last.reviews.get('review_1')?.pullEvents()).toContainEqual(
-      expect.objectContaining({ kind: 'review.comment-not-posted' }),
+      expect.objectContaining({ kind: 'review.included-comment-returned' }),
     );
     expect(last.reports.report).toHaveBeenCalledExactlyOnceWith(
       expect.any(UpstreamError),
@@ -393,7 +395,7 @@ describe('SyncReviews', () => {
     expect(synced.github.submit).not.toHaveBeenCalled();
     expect(synced.reviews.get('review_1')?.state).toBe('discarded');
     expect(synced.reviews.get('review_1')?.pullEvents()).toContainEqual(
-      expect.objectContaining({ kind: 'review.comment-not-posted' }),
+      expect.objectContaining({ kind: 'review.included-comment-returned' }),
     );
     expect(synced.recorded).toEqual([{ how: 'done', args: ['sync_1'] }]);
   });
@@ -408,7 +410,7 @@ describe('SyncReviews', () => {
     });
     const synced = syncing({
       sync: { kind: 'reply', subjectId: 'comment_2', attempts: 0 },
-      comments: [sending.notPosted(), reply],
+      comments: [sending.returnedToDraftFrom(ReviewId.of('review_1')), reply],
     });
 
     await synced.service.syncDue();
@@ -416,6 +418,9 @@ describe('SyncReviews', () => {
     expect(synced.github.reply).not.toHaveBeenCalled();
     expect(synced.recorded[0]?.how).toBe('failed');
     expect(synced.comments.get('comment_2')?.state).toBe('failed');
+    expect(synced.comments.get('comment_2')?.failure?.code).toBe(
+      'parent-never-on-github',
+    );
   });
 
   it('stops waiting for the comment a reply answers after a while', async () => {
@@ -436,7 +441,7 @@ describe('SyncReviews', () => {
     expect(waiting.recorded).toEqual([
       {
         how: 'later',
-        args: ['sync_1', new Date(NOW.getTime() + 60_000), null, true],
+        args: ['sync_1', new Date(NOW.getTime() + 60_000), true],
       },
     ]);
 
@@ -452,6 +457,9 @@ describe('SyncReviews', () => {
 
     expect(tired.recorded[0]?.how).toBe('failed');
     expect(tired.comments.get('comment_2')?.state).toBe('failed');
+    expect(tired.comments.get('comment_2')?.failure?.code).toBe(
+      'parent-not-on-github',
+    );
   });
 
   it('posts a review with its comments on lines, and sends each comment on a whole file in a post of its own', async () => {
@@ -607,11 +615,11 @@ describe('SyncReviews', () => {
     expect(synced.reviews.get('review_1')?.pullEvents()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          kind: 'review.comment-posted',
+          kind: 'review.included-comment-posted',
           github: { id: 100, url: 'https://github.com/c/100' },
         }),
         expect.objectContaining({
-          kind: 'review.comment-posted',
+          kind: 'review.included-comment-posted',
           commentId: second.id,
           github: null,
         }),
@@ -621,7 +629,7 @@ describe('SyncReviews', () => {
 
   it('does not send a reply while the comment it answers is still on its way', async () => {
     const parent = draft('comment_1', 3).submittedIn(ReviewId.of('review_1'));
-    const reply = parent.postedAs(null).replied({
+    const reply = parent.replied({
       id: ReviewCommentId.of('comment_2'),
       body: 'Done',
       author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),

@@ -13,10 +13,10 @@ import {
   type RunFilter,
   runFilterOf,
 } from '@insights/domain/services/run-filter';
-import type { TeamAccess } from '@insights/domain/services/team-access';
 import { traceVolumeOf } from '@insights/domain/services/trace-volume';
 import { MAX_TRACED_RUNS, tracesOf } from '@insights/domain/services/traces';
 import { unfinishedMatching } from '@insights/domain/services/unfinished-runs';
+import type { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
 import { TraceRange } from '@insights/domain/value-objects/trace-range.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';

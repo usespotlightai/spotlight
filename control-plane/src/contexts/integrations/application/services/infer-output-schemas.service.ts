@@ -1,6 +1,7 @@
 import { InferredOutputSchema } from '@integrations/domain/aggregates/inferred-output-schema.aggregate';
 import { InferredOutputSchemaVersionConflictError } from '@integrations/domain/exceptions/inferred-output-schema-version-conflict.error';
 import type { InferredOutputSchemaRepository } from '@integrations/domain/repositories/inferred-output-schema.repository';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -31,6 +32,15 @@ export class InferOutputSchemas {
         { tool, error: error instanceof Error ? error.name : 'unknown' },
         'could not infer what a tool answers',
       );
+    }
+  }
+
+  async forget(teamId: TeamId, integration: IntegrationKey): Promise<void> {
+    for (const schema of await this.schemas.ofIntegration(
+      teamId,
+      integration,
+    )) {
+      await this.schemas.remove(schema);
     }
   }
 

@@ -29,6 +29,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const SPEC = {
@@ -48,6 +49,7 @@ let app: INestApplication;
 let db: DrizzleDatabase;
 let team: Awaited<ReturnType<typeof createTeam>>;
 let elsewhere: Awaited<ReturnType<typeof createTeam>>;
+const watched = randomUUID();
 
 const inboxRequestOf = async (taskId: string) => {
   const [inboxRequest] = await db
@@ -72,7 +74,7 @@ const ranAndEnded = async (minutesAgo: number) => {
     harness: 'dev',
     taskId: team.list.id.value,
     taskRevision: 0,
-    stationId: team.stationId.value,
+    stationId: watched,
     state: 'completed',
     spec: SPEC,
     stationFingerprint: 'a'.repeat(64),
@@ -99,7 +101,7 @@ const ranAndEnded = async (minutesAgo: number) => {
     runId,
     workspaceId: team.workspaceId.value,
     taskId: team.list.id.value,
-    stationId: team.stationId.value,
+    stationId: watched,
     outcome: 'completed',
     failure: null,
     stopped: false,
@@ -120,7 +122,7 @@ const actedOn = async (
     kind: TASK_ACTED_ON,
     taskId: team.list.id.value,
     workspaceId: team.workspaceId.value,
-    stationId: team.stationId.value,
+    stationId: watched,
     action: act,
     by: team.owner.value,
     afterRunId: runId,
@@ -142,7 +144,7 @@ const alertsAtStation = () =>
   db
     .select()
     .from(schema.stationAlert)
-    .where(eq(schema.stationAlert.stationId, team.stationId.value));
+    .where(eq(schema.stationAlert.stationId, watched));
 
 beforeAll(async () => {
   app = await openApp();
@@ -155,21 +157,30 @@ beforeAll(async () => {
     `elsewhere-${randomUUID().slice(0, 8)}`,
   );
 
+  const [, completed] = team.line.stations;
+
   await db
     .update(schema.station)
-    .set({
-      alerts: [
-        {
-          measure: 'accepted_rate',
-          risesBy: null,
-          above: null,
-          fallsBy: null,
-          below: 0.5,
-          over: 1,
-        },
-      ],
-    })
-    .where(eq(schema.station.id, team.stationId.value));
+    .set({ position: 2 })
+    .where(eq(schema.station.id, completed?.id.value ?? ''));
+  await insertStations(db, {
+    id: watched,
+    workspaceId: team.workspaceId.value,
+    lineId: team.line.id.value,
+    key: 'build',
+    name: 'Build',
+    position: 1,
+    alerts: [
+      {
+        measure: 'accepted_rate',
+        risesBy: null,
+        above: null,
+        fallsBy: null,
+        below: 0.5,
+        over: 1,
+      },
+    ],
+  });
 }, 60_000);
 
 afterAll(async () => {
@@ -202,7 +213,7 @@ describe('a station alert (e2e)', () => {
 
     expect(answer.status).toBe(200);
     expect(answer.body).toMatchObject({
-      stationId: team.stationId.value,
+      stationId: watched,
       runId,
       taskId: team.list.id.value,
       value: 0,
@@ -263,7 +274,7 @@ describe('a station alert (e2e)', () => {
       .from(schema.runRecord)
       .where(
         and(
-          eq(schema.runRecord.stationId, team.stationId.value),
+          eq(schema.runRecord.stationId, watched),
           isNull(schema.runRecord.firstHumanAction),
         ),
       );
@@ -313,13 +324,13 @@ describe('a station alert (e2e)', () => {
     await db
       .update(schema.station)
       .set({ alerts: [] })
-      .where(eq(schema.station.id, team.stationId.value));
+      .where(eq(schema.station.id, watched));
     const updated: LineChangedIntegrationEvent = {
       kind: LINE_CHANGED,
       lineId: team.line.id.value,
       workspaceId: team.workspaceId.value,
       teamId: team.teamId.value,
-      stationIds: [team.stationId.value],
+      stationIds: [watched],
     };
     await app.get(EventOutbox).record([updated as never]);
 
@@ -335,7 +346,7 @@ describe('a station alert (e2e)', () => {
     const [alert] = await db
       .select()
       .from(schema.stationAlert)
-      .where(eq(schema.stationAlert.stationId, team.stationId.value));
+      .where(eq(schema.stationAlert.stationId, watched));
 
     const answer = await served(app)
       .get(`/api/teams/${elsewhere.teamId.value}/insights/alerts/${alert?.id}`)
@@ -351,7 +362,7 @@ describe('a station alert (e2e)', () => {
     const [before] = await db
       .select()
       .from(schema.stationAlertState)
-      .where(eq(schema.stationAlertState.stationId, team.stationId.value));
+      .where(eq(schema.stationAlertState.stationId, watched));
 
     const deleted: TaskDeletedIntegrationEvent = {
       kind: TASK_DELETED,
@@ -366,7 +377,7 @@ describe('a station alert (e2e)', () => {
     const [after] = await db
       .select()
       .from(schema.stationAlertState)
-      .where(eq(schema.stationAlertState.stationId, team.stationId.value));
+      .where(eq(schema.stationAlertState.stationId, watched));
 
     expect(after?.version).toBeGreaterThan(before?.version ?? 0);
     await expect(

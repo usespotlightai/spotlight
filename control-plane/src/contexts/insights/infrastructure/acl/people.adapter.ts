@@ -1,8 +1,9 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { PeoplePort } from '@insights/application/ports/people.port';
-import type { Membership } from '@insights/domain/services/team-access';
+import type { Membership } from '@insights/domain/value-objects/team-access.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export class People implements PeoplePort {
@@ -16,7 +17,7 @@ export class People implements PeoplePort {
     principal: Principal,
   ): Promise<Membership | null> {
     const permissions = await this.access.permissionsAsTeamReader(
-      teamId,
+      TeamId.of(teamId),
       principal,
     );
     return permissions

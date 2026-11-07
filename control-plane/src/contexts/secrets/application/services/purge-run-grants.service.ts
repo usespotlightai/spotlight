@@ -1,4 +1,4 @@
-import type { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
+import type { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -13,7 +13,7 @@ export class PurgeRunGrants {
 
   constructor(
     private readonly grants: RunGrantsRepository,
-    private readonly unitOfWork: RunGrantsUnitOfWork,
+    private readonly changes: RunGrantsChanges,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -44,7 +44,7 @@ export class PurgeRunGrants {
   async deleteForWorkspace(workspaceId: WorkspaceId): Promise<void> {
     for (const runId of await this.grants.runsIn(workspaceId)) {
       if (await this.readable(runId)) {
-        await this.unitOfWork.changedIfExists(runId, (current) =>
+        await this.changes.changedIfExists(runId, (current) =>
           current.delete(),
         );
       }
@@ -58,7 +58,7 @@ export class PurgeRunGrants {
       return false;
     }
 
-    return this.unitOfWork.saveIgnoringConflict(existing, existing.purge(now));
+    return this.changes.saveIgnoringConflict(existing, existing.purge(now));
   }
 
   private async readable(runId: RunId): Promise<RunGrants | null> {

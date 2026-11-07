@@ -1,4 +1,6 @@
-export class SearchProposalsExhaustedError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class SearchProposalsExhaustedError extends DomainError {
   readonly kind = 'conflict' as const;
 
   constructor(readonly max: number) {

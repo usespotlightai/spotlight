@@ -1,11 +1,11 @@
 import { InvalidRecipientError } from '@secrets/application/errors/invalid-recipient.error';
 import type {
-  RunSealingPort,
   SealedFor,
   SealingRecipient,
-} from '@secrets/application/ports/run-sealing.port';
+  SecretSealingPort,
+} from '@secrets/application/ports/secret-sealing.port';
 import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
-import { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
+import { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
 import { RunSecretFetches } from '@secrets/application/services/run-secret-fetches.service';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
@@ -25,10 +25,10 @@ import {
   NOW,
   readingFrom,
   WORKSPACE,
-} from '@secrets/secrets.fakes.fake-spec';
+} from '@secrets/testing/secrets.fakes.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
-class SealedInTheOpen implements RunSealingPort {
+class SealedInTheOpen implements SecretSealingPort {
   recipientOf(written: string): SealingRecipient {
     if (!['recipient-key', 'another-key'].includes(written)) {
       throw new InvalidRecipientError();
@@ -38,7 +38,7 @@ class SealedInTheOpen implements RunSealingPort {
   }
 
   seal(value: SecretValue, to: SealingRecipient, sealedFor: SealedFor): string {
-    return `sealed(${value.revealed()}|${to.key}|${sealedFor.runId}|${sealedFor.secretName})`;
+    return `sealed(${value.revealed()}|${to.key}|${sealedFor.subject}|${sealedFor.secretName})`;
   }
 }
 
@@ -80,6 +80,11 @@ const setUp = async () => {
     bindings: [{ host: 'sentry.io', name: 'x-sentry-token' }],
   });
   await saved('secret_loose', { name: 'LOOSE', bindings: [] });
+  await saved('secret_linear_bot', {
+    name: 'LINEAR_BOT_KEY',
+    value: 'lin_bot_1',
+    bindings: [{ host: 'mcp.linear.app' }],
+  });
   await saved('secret_lines', {
     name: 'MULTI_LINE',
     value: 'one\ntwo',
@@ -89,7 +94,7 @@ const setUp = async () => {
   return {
     fetches: new RunSecretFetches(
       secrets,
-      new RunGrantsUnitOfWork(grants),
+      new RunGrantsChanges(grants),
       new SecretSources(store, aws),
       new SealedInTheOpen(),
     ),
@@ -99,6 +104,25 @@ const setUp = async () => {
 };
 
 describe('RunSecretFetches', () => {
+  it('denies, and grants nothing of, a secret injected in the same header for the same host as one before it', async () => {
+    const { fetches, grants } = await setUp();
+
+    const fetched = await fetches.fetchSecrets({
+      ...FETCHING,
+      injectedSecrets: ['LINEAR_API_KEY', 'LINEAR_BOT_KEY'],
+    });
+
+    expect(fetched.secrets.map((each) => each.secret)).toEqual([
+      'LINEAR_API_KEY',
+    ]);
+    expect(fetched.denied.map((each) => each.secret)).toEqual([
+      'LINEAR_BOT_KEY',
+    ]);
+    expect(grants.all.map((each) => each.secretId.value)).toEqual([
+      'secret_linear',
+    ]);
+  });
+
   it('seals a value Spotlight stores to the run’s recipient, with where egress injects it', async () => {
     const { fetches } = await setUp();
 
@@ -158,7 +182,7 @@ describe('RunSecretFetches', () => {
     });
 
     expect(
-      grants.all.map((each) => [each.runId.value, each.host]).sort(),
+      grants.all.map((each) => [each.runId.value, each.host.value]).sort(),
     ).toEqual([
       ['run_1', 'mcp.linear.app'],
       ['run_1', 'sentry.io'],
@@ -244,7 +268,7 @@ describe('RunSecretFetches', () => {
     const { fetches, grants } = await setUp();
     const fetching = { ...FETCHING, injectedSecrets: ['LINEAR_API_KEY'] };
     const endings = new RunGrantEndings(
-      new RunGrantsUnitOfWork(grants),
+      new RunGrantsChanges(grants),
       clockAt(),
     );
 
@@ -266,7 +290,9 @@ describe('RunSecretFetches', () => {
         recipient: 'another-key',
       }),
     ).resolves.toMatchObject({ denied: [] });
-    expect(grants.all.map((each) => each.host)).toEqual(['mcp.linear.app']);
+    expect(grants.all.map((each) => each.host.value)).toEqual([
+      'mcp.linear.app',
+    ]);
   });
 
   it('fetches nothing once the run’s grants have ended', async () => {
@@ -274,14 +300,13 @@ describe('RunSecretFetches', () => {
     const fetching = { ...FETCHING, injectedSecrets: ['LINEAR_API_KEY'] };
 
     await fetches.fetchSecrets(fetching);
-    await new RunGrantEndings(
-      new RunGrantsUnitOfWork(grants),
-      clockAt(),
-    ).endedFor({
-      workspaceId: WORKSPACE.value,
-      runId: 'run_1',
-      attempt: 1,
-    });
+    await new RunGrantEndings(new RunGrantsChanges(grants), clockAt()).endedFor(
+      {
+        workspaceId: WORKSPACE.value,
+        runId: 'run_1',
+        attempt: 1,
+      },
+    );
 
     await expect(
       fetches.fetchSecrets({ ...fetching, attempt: 2 }),

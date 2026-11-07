@@ -17,13 +17,12 @@ import {
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { taskWords } from '@work/application/services/remembering-words';
-import type { StationCatalog } from '@work/application/services/station-catalog.service';
+import type { RunCatalog } from '@work/application/services/run-catalog.service';
 import { StationOrdering } from '@work/application/services/station-ordering';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import type { TouchedFiles } from '@work/application/services/touched-files';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -32,6 +31,7 @@ import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { orderFor, taskOrderedAt } from '@work/domain/services/run-order';
 import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 
@@ -48,7 +48,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly teamSkills: StationSkills,
     private readonly integrations: TeamIntegrations,
     private readonly decisions: TaskDecisionsPort,
-    catalog: StationCatalog,
+    catalog: RunCatalog,
     profiles: StationProfilesPort,
     private readonly memories: TeamMemoriesPort,
     private readonly touched: TouchedFiles,
@@ -72,7 +72,7 @@ export class DispatchTask implements TaskDispatching {
     line,
   }: {
     task: Task;
-    line: Line;
+    line: LineMap;
   }): Promise<RunId | null> {
     const station = line.stationAt(task.stationId);
     const ready = station ? await this.teamSkills.readyAt(line, station) : [];
@@ -105,7 +105,7 @@ export class DispatchTask implements TaskDispatching {
     runId,
   }: {
     task: Task;
-    line: Line;
+    line: LineMap;
     runId: RunId;
   }): Promise<boolean> {
     const found = await this.ordering.ordered(line, taskOrderedAt(task, line));
@@ -189,17 +189,14 @@ export class DispatchTask implements TaskDispatching {
       }),
     });
 
-    await this.runs.add(
-      order.refusal ? queued.refused(order.refusal) : queued,
-      { briefed },
-    );
+    await this.runs.add(order.refusal ? queued.refused(order.refusal) : queued);
 
     return true;
   }
 
   private notDispatched(
     task: Task,
-    line: Line,
+    line: LineMap,
     reason: string,
     runId?: RunId,
   ): void {

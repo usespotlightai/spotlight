@@ -1,5 +1,5 @@
-import type { LineId } from '@work/domain/value-objects/line-id.vo';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 
 export class ProposalPlacement {
   private constructor(

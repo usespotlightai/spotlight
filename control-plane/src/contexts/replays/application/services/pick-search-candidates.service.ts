@@ -1,10 +1,13 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type {
+  StationView,
+  WorkPort,
+} from '@replays/application/ports/work.port';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
 import type { SearchEnded } from '@replays/domain/events/search-ended.event';
-import { ConfigPullRequestOpenAtStationError } from '@replays/domain/exceptions/config-pull-request-open-at-station.error';
+import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
@@ -16,6 +19,7 @@ import {
 } from '@replays/domain/services/search-picks';
 import { scoresOf } from '@replays/domain/services/search-scores';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
+import type { SearchProposal } from '@replays/domain/value-objects/search-proposal.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -120,6 +124,30 @@ export class PickSearchCandidates {
       return;
     }
 
+    if (await this.opened(search, proposal, station)) {
+      return;
+    }
+
+    await this.transaction.inTransaction(async () => {
+      const locked = await this.searches.locked(search.id);
+
+      if (locked?.pick?.outcome === 'picked') {
+        await this.searches.save(locked.pickWithdrawn('pull-request-open'));
+      }
+    });
+  }
+
+  private async opened(
+    search: Search,
+    proposal: SearchProposal,
+    station: StationView,
+  ): Promise<boolean> {
+    const { stationId } = search.station;
+
+    if (await this.pullRequests.openAtStation(stationId)) {
+      return false;
+    }
+
     try {
       await this.transaction.inTransaction(() =>
         this.pullRequests.add(
@@ -129,7 +157,7 @@ export class PickSearchCandidates {
             candidateId: proposal.candidateId,
             station: search.station,
             stationKey: station.key,
-            candidateName: proposal.name.value,
+            candidateName: proposal.name,
             lineKey: station.lineKey,
             source: station.source,
             at: this.clock.now(),
@@ -137,18 +165,21 @@ export class PickSearchCandidates {
           }),
         ),
       );
+
+      return true;
     } catch (error) {
-      if (!(error instanceof ConfigPullRequestOpenAtStationError)) {
+      if (!(error instanceof ConfigPullRequestVersionConflictError)) {
         throw error;
       }
-
-      await this.transaction.inTransaction(async () => {
-        const locked = await this.searches.locked(search.id);
-
-        if (locked?.pick?.outcome === 'picked') {
-          await this.searches.save(locked.pickWithdrawn('pull-request-open'));
-        }
-      });
+      if (
+        await this.pullRequests.forCandidate(search.id, proposal.candidateId)
+      ) {
+        return true;
+      }
+      if (await this.pullRequests.openAtStation(stationId)) {
+        return false;
+      }
+      throw error;
     }
   }
 }

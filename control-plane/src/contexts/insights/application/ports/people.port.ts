@@ -1,4 +1,4 @@
-import type { Membership } from '@insights/domain/services/team-access';
+import type { Membership } from '@insights/domain/value-objects/team-access.vo';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 export const PEOPLE = Symbol('INSIGHTS_PEOPLE');

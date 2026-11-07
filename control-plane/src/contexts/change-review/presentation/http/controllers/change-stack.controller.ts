@@ -6,6 +6,7 @@ import type {
 } from '@change-review/application/dto/change-stack.dto';
 import { ListRunChangeStacksQuery } from '@change-review/application/queries/list-run-change-stacks.query';
 import { ReadTaskChangeStackQuery } from '@change-review/application/queries/read-task-change-stack.query';
+import { RUN_CHANGE_STACKS } from '@change-review/presentation/http/change-stack-routes';
 import {
   AnswerQuestionRequestDto,
   LatestChangeStackResponseDto,
@@ -37,22 +38,18 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import { RUN_CHANGE_STACKS } from '@platform/http/routes';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 
 const replyIn = (body: AnswerQuestionRequestDto | undefined): string | null => {
   const reply: unknown = body?.reply;
 
-  if (reply === null) {
-    return null;
-  }
-  if (typeof reply !== 'string' || !reply.trim()) {
-    throw new BadRequestException(
-      'reply must be the answer in words, or null to say you do not know.',
-    );
+  if (reply === null || typeof reply === 'string') {
+    return reply;
   }
 
-  return reply;
+  throw new BadRequestException(
+    'reply must be the answer in words, or null to say you do not know.',
+  );
 };
 
 @ApiTags('change-stacks')

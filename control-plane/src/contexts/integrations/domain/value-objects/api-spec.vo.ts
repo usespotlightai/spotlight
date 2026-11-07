@@ -107,6 +107,10 @@ export class ApiSpec {
     return LABELS[this.kind];
   }
 
+  get listsToolsOnRequest(): boolean {
+    return this.kind === 'mcp';
+  }
+
   get readsUrl(): boolean {
     return this.document === null;
   }

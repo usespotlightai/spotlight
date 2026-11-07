@@ -1,14 +1,17 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import type { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
 import { rateOf, spendingOf } from '@insights/domain/services/measures';
 import { runTally } from '@insights/domain/services/run-tally';
-import { tasksOf } from '@insights/domain/services/team-history';
 import type {
   AlertMeasure,
   AlertRule,
   FinalReading,
 } from '@insights/domain/value-objects/alert-rule.vo';
+import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+
+const UNMEASURED_SLACK = 4;
+
+export const runsToReadFor = (rules: readonly AlertRule[]): number =>
+  Math.max(0, ...rules.map((each) => each.runsNeeded)) * UNMEASURED_SLACK;
 
 export interface MeasurePoint {
   readonly runId: string;
@@ -16,11 +19,13 @@ export interface MeasurePoint {
   readonly value: number | null;
 }
 
-const endedAt = (record: RunRecord): number =>
-  record.end?.endedAt.getTime() ?? 0;
+const endedAt = (fact: RunFact): number => fact.end.endedAt.getTime();
 
-const ranNewestFirst = (records: readonly RunRecord[]): readonly RunRecord[] =>
-  records
+const tasksRunBy = (facts: readonly RunFact[]): number =>
+  new Set(facts.map((each) => each.taskId.value)).size;
+
+const ranNewestFirst = (facts: readonly RunFact[]): readonly RunFact[] =>
+  facts
     .filter((each) => each.ran)
     .sort(
       (a, b) =>
@@ -29,43 +34,32 @@ const ranNewestFirst = (records: readonly RunRecord[]): readonly RunRecord[] =>
 
 export const measuredFor = (
   measure: AlertMeasure,
-  taskPullRequests: readonly TaskPullRequest[],
-): ((record: RunRecord) => boolean) => {
+): ((fact: RunFact) => boolean) => {
   switch (measure) {
     case 'sent_back_rate':
     case 'accepted_rate':
-      return (record) => record.firstHumanAction !== null;
+      return (fact) => fact.firstHumanAction !== null;
     case 'checks_failed_rate':
-      return (record) =>
-        record.checks === 'passed' || record.checks === 'failed';
+      return (fact) => fact.checks === 'passed' || fact.checks === 'failed';
     case 'merged_rate':
-      return (record) =>
-        taskPullRequests.some(
-          (each) =>
-            record.taskId !== null &&
-            each.taskId.equals(record.taskId) &&
-            each.finished,
-        );
+      return (fact) => fact.pullRequestFinished;
     case 'failed_rate':
       return () => true;
     case 'cost_per_run':
-      return (record) => record.usage !== null;
+      return (fact) => fact.usage !== null;
   }
 };
 
 const measuredNewestFirst = (
   measure: AlertMeasure,
-  records: readonly RunRecord[],
-  taskPullRequests: readonly TaskPullRequest[],
-): readonly RunRecord[] =>
-  ranNewestFirst(records).filter(measuredFor(measure, taskPullRequests));
+  facts: readonly RunFact[],
+): readonly RunFact[] => ranNewestFirst(facts).filter(measuredFor(measure));
 
 export const measureOf = (
   measure: AlertMeasure,
-  records: readonly RunRecord[],
-  taskPullRequests: readonly TaskPullRequest[],
+  facts: readonly RunFact[],
 ): number | null => {
-  const tally = runTally(records, taskPullRequests);
+  const tally = runTally(facts);
 
   switch (measure) {
     case 'sent_back_rate':
@@ -80,13 +74,10 @@ export const measureOf = (
         tally.checksPassed + tally.checksFailed,
       );
     case 'merged_rate':
-      return rateOf(
-        tally.merged,
-        tasksOf(records.filter((each) => each.ran)).length,
-      );
+      return rateOf(tally.merged, tasksRunBy(facts.filter((each) => each.ran)));
     case 'cost_per_run': {
       const spending = spendingOf(
-        records
+        facts
           .filter((each) => each.ran)
           .map((each) => each.usage?.spend ?? null),
       );
@@ -100,20 +91,19 @@ export const measureOf = (
 
 export const readingOf = (
   rule: AlertRule,
-  newestFirst: readonly RunRecord[],
-  taskPullRequests: readonly TaskPullRequest[],
+  newestFirst: readonly RunFact[],
 ): FinalReading | null => {
-  const ran = measuredNewestFirst(rule.measure, newestFirst, taskPullRequests);
+  const ran = measuredNewestFirst(rule.measure, newestFirst);
   const last = ran.slice(0, rule.over);
   const through = last[0];
 
-  if (last.length < rule.over || !through?.end) {
+  if (last.length < rule.over || !through) {
     return null;
   }
 
-  const newest = { runId: through.runId, taskId: through.end.location.taskId };
+  const newest = { runId: through.runId, taskId: through.taskId };
 
-  const value = measureOf(rule.measure, last, taskPullRequests);
+  const value = measureOf(rule.measure, last);
 
   if (value === null) {
     return null;
@@ -124,9 +114,7 @@ export const readingOf = (
 
   const before = ran.slice(rule.over, rule.over * 2);
   const baseline =
-    before.length < rule.over
-      ? null
-      : measureOf(rule.measure, before, taskPullRequests);
+    before.length < rule.over ? null : measureOf(rule.measure, before);
 
   return baseline === null ? null : { value, baseline, ...newest };
 };
@@ -138,11 +126,10 @@ const ALERT_CHART_TRAIL = 1;
 export const measureAround = (
   rule: AlertRule,
   pinned: { readonly runId: RunId; readonly value: number },
-  newestFirst: readonly RunRecord[],
-  taskPullRequests: readonly TaskPullRequest[],
+  newestFirst: readonly RunFact[],
 ): readonly MeasurePoint[] => {
   const oldestFirst = [
-    ...measuredNewestFirst(rule.measure, newestFirst, taskPullRequests),
+    ...measuredNewestFirst(rule.measure, newestFirst),
   ].reverse();
   const at = oldestFirst.findIndex((each) => each.runId.equals(pinned.runId));
 
@@ -156,18 +143,18 @@ export const measureAround = (
     at + rule.over * ALERT_CHART_TRAIL + 1,
   );
 
-  return oldestFirst.slice(from, to).map((record, offset) => {
+  return oldestFirst.slice(from, to).map((fact, offset) => {
     const upTo = from + offset + 1;
     const window = oldestFirst.slice(Math.max(0, upTo - rule.over), upTo);
 
     return {
-      runId: record.runId.value,
-      endedAt: record.end?.endedAt ?? new Date(0),
-      value: record.runId.equals(pinned.runId)
+      runId: fact.runId.value,
+      endedAt: fact.end.endedAt,
+      value: fact.runId.equals(pinned.runId)
         ? pinned.value
         : window.length < rule.over
           ? null
-          : measureOf(rule.measure, window, taskPullRequests),
+          : measureOf(rule.measure, window),
     };
   });
 };

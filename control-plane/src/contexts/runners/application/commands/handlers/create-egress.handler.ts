@@ -2,16 +2,21 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import type { CreateEgressCommand } from '@runners/application/commands/runner-resource.commands';
 import type { EgressCreatedDto } from '@runners/application/dto/runner-resource.dto';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
+import type { UsedTokensPort } from '@runners/application/ports/used-tokens.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
-import { recordEgressTokenUse } from '@runners/application/services/record-egress-token-use';
+import {
+  egressTokenHolders,
+  takeToken,
+} from '@runners/application/services/take-token';
 import { Egress } from '@runners/domain/aggregates/egress.aggregate';
 import { EgressAlreadyExistsError } from '@runners/domain/exceptions/egress-already-exists.error';
 import { EgressTokenAlreadyUsedError } from '@runners/domain/exceptions/egress-token-already-used.error';
 import { EgressTokenInUseError } from '@runners/domain/exceptions/egress-token-in-use.error';
 import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
-import type { UsedEgressTokensRepository } from '@runners/domain/repositories/used-egress-tokens.repository';
+import { tokenTakenBy } from '@runners/domain/services/token-reuse';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
+import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -35,7 +40,7 @@ export class CreateEgressHandler
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,
     private readonly egresses: EgressRepository,
-    private readonly usedTokens: UsedEgressTokensRepository,
+    private readonly usedTokens: UsedTokensPort,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
     private readonly tokens: TokenIssuer,
@@ -55,7 +60,7 @@ export class CreateEgressHandler
         return null;
       }
 
-      if (!permissions.managesRunners) {
+      if (!permissions.allows('runners')) {
         return { created: forbiddenTo('runners'), token: null };
       }
 
@@ -100,13 +105,13 @@ export class CreateEgressHandler
               },
             });
 
-            await this.egresses.add(egress);
-            await recordEgressTokenUse(
+            await takeToken(
               this.usedTokens,
-              this.egresses,
-              egress,
-              null,
+              egressTokenHolders(this.egresses),
+              TokenHolder.egress(egress.id),
+              tokenTakenBy(egress, null),
             );
+            await this.egresses.add(egress);
 
             return egress.id.value;
           }),

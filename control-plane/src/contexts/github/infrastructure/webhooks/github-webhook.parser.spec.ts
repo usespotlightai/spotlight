@@ -42,7 +42,7 @@ describe('GitHubWebhookParser', () => {
         label: null,
         details: null,
         reviewComment: null,
-        byBot: false,
+        ignoredAsBot: false,
         checkSuite: null,
         failedChecks: [],
       });
@@ -77,7 +77,7 @@ describe('GitHubWebhookParser', () => {
           sender: { type: 'Bot' },
           pull_request: pull({ merged: false }),
         }),
-      ).toMatchObject({ activity: 'labelled', byBot: false });
+      ).toMatchObject({ activity: 'labelled', ignoredAsBot: false });
     });
 
     it('carries no label on activity other than labelling', () => {
@@ -170,7 +170,7 @@ describe('GitHubWebhookParser', () => {
           pull_request: pull({ merged: false }),
           sender: { type: 'Bot' },
         }),
-      ).toMatchObject({ activity: 'opened', byBot: false });
+      ).toMatchObject({ activity: 'opened', ignoredAsBot: false });
     });
 
     it('says what the pull request a comment was left on is', () => {
@@ -393,7 +393,7 @@ describe('GitHubWebhookParser', () => {
           },
           sender: { type: 'Bot' },
         }),
-      ).toMatchObject({ activity: 'checks-failed', byBot: false });
+      ).toMatchObject({ activity: 'checks-failed', ignoredAsBot: false });
     });
 
     it('says nothing of a check suite that passed', () => {
@@ -417,7 +417,7 @@ describe('GitHubWebhookParser', () => {
           },
           comment: { body: 'Opened by the agent.', user: { type: 'Bot' } },
         }),
-      ).toMatchObject({ byBot: true });
+      ).toMatchObject({ ignoredAsBot: true });
     });
 
     it('says nothing of an event it was not told to read', () => {

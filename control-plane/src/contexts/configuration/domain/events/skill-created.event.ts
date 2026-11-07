@@ -5,7 +5,7 @@ import type { ConfigurationChange } from '@shared-kernel/domain/value-objects/co
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class SkillCreated implements ConfigurationChanged {
-  readonly kind = 'configuration.skill-created';
+  readonly kind = 'skill.created';
 
   constructor(
     readonly id: SkillDefinitionId,

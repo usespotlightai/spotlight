@@ -1,5 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { Happening } from '@work/domain/value-objects/happening.vo';
+import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { describe, expect, it } from 'vitest';
 

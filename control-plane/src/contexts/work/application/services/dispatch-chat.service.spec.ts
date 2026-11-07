@@ -2,61 +2,62 @@ import type { TeamDirectoryPort } from '@identity/application/ports/team-directo
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { BriefingContext } from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { SETUP_PULL_REQUEST } from '@work/domain/services/built-in-tools';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
+import {
+  lineMapOf,
+  repositoryOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-23T09:00:00.000Z');
 const API = Repository.of('acme/api');
 
 const ends = (key: string, kind: 'backlog' | 'completed', position: number) =>
-  Station.of({
+  stationOf({
     id: StationId.of(`${key}-${kind}`),
     key: StationKey.of(kind),
     name: StationName.of(kind),
     position,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     kind,
   });
 
 const line = (key: string, repositories: Repository[], runners: string[]) =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of(key),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     key: LineKey.of(key),
     name: LineName.of(key),
-    repositories: repositories.map((each) => LineRepositoryConfig.of(each)),
+    repositories: repositories.map((each) => repositoryOf(each)),
     placement: RunnerPlacement.of(runners),
     stations: [ends(key, 'backlog', 0), ends(key, 'completed', 1)],
   });
@@ -66,6 +67,7 @@ const chatIn = (
   setup: ConfigFolder | null = null,
 ) =>
   Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_1'),
@@ -100,7 +102,7 @@ const dispatching = (
         line('api', [API], ['vpc-internal']),
         line('web', [Repository.of('acme/web')], ['gpu']),
       ],
-    } as unknown as LineRepository,
+    } as unknown as LineMapsPort,
     { now: () => NOW } as ClockPort,
     {
       forBriefing: async (place: BriefingContext) => {
@@ -120,8 +122,7 @@ const dispatching = (
           omitted: [{ id: 'memory_2', handle: 'M-4' }],
           folder: {
             path: '.spotlight/memory',
-            layout: [],
-            repositoryFolder: null,
+            guide: '',
           },
         };
       },

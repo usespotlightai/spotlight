@@ -25,6 +25,7 @@ const given = (
   QuestionAnswer.given({
     id: QuestionAnswerId.of('answer-1'),
     workspaceId: WorkspaceId.of('workspace-1'),
+    taskId: null,
     stackId: ChangeStackId.of('stack-1'),
     question: QUESTION,
     personId: UserId.of('user-1'),
@@ -46,6 +47,15 @@ describe('QuestionAnswer', () => {
     expect(answer.asked).toBe(QUESTION.question);
     expect(answer.expected).toBe('The integration signs it.');
     expect(answer.usage.calls).toBe(1);
+  });
+
+  it('keeps at most the feedback it has room for', () => {
+    const answer = given('The bot.', {
+      grade: { verdict: 'missed', feedback: 'x'.repeat(2_500) },
+      usage: null,
+    });
+
+    expect(answer.feedback).toHaveLength(2_000);
   });
 
   it('counts “I don’t know” as missed, with no grade and no feedback', () => {

@@ -7,6 +7,7 @@ import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pu
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { autoSearched } from './support/app';
@@ -315,7 +316,7 @@ describe('a search for a better station config, ranking and picking its candidat
         pullRequestId,
         team.workspaceId,
         team.teamId,
-        BUILD,
+        StationId.of(BUILD),
         StationFingerprint.of('e'.repeat(64)),
         PullRequestUrl.of(`https://github.com/${CONFIG}/pull/1`),
         new Date(),

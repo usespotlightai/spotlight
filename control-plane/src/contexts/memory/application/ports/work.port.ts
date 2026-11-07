@@ -2,9 +2,11 @@ import type {
   RunContext,
   StationContext,
 } from '@memory/domain/value-objects/run-context';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -61,9 +63,12 @@ export interface TaskNote {
 }
 
 export interface TeamLine {
-  readonly id: string;
+  readonly id: LineId;
   readonly name: string;
-  readonly stations: readonly { readonly id: string; readonly name: string }[];
+  readonly stations: readonly {
+    readonly id: StationId;
+    readonly name: string;
+  }[];
   readonly repositories: readonly Repository[];
 }
 
@@ -74,11 +79,7 @@ export interface WorkPort {
 
   contextOfRun(runId: RunId): Promise<RunContext | null>;
 
-  referencedUnder(
-    runId: RunId,
-    folder: string,
-    file: RegExp,
-  ): Promise<readonly string[] | null>;
+  memoryFilesRead(runId: RunId): Promise<readonly string[] | null>;
 
   stationContextOf(runId: RunId): Promise<NamedStationContext | null>;
 

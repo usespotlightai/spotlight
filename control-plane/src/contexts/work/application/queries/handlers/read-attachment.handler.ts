@@ -6,6 +6,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { AttachmentReaderPort } from '@work/application/ports/attachment-reader.port';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { ReadAttachmentQuery } from '@work/application/queries/read-attachment.query';
+import { ChatAccess } from '@work/domain/services/chat-access';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 
 export class ReadAttachmentHandler
@@ -24,7 +25,14 @@ export class ReadAttachmentHandler
         this.attachments.find(query.attachmentId),
       ]);
 
-      if (!workspace || found?.workspaceId !== workspace.id) {
+      const viewer = UserId.of(query.viewerId);
+
+      if (
+        !workspace ||
+        found?.workspaceId !== workspace.id ||
+        (found.holder.kind === 'chat' &&
+          !ChatAccess.readableBy(UserId.of(found.holder.startedById), viewer))
+      ) {
         return null;
       }
 

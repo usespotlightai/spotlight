@@ -3,18 +3,26 @@ import { SetPersonToolRuleHandler } from '@integrations/application/commands/han
 import { SetPersonToolRuleCommand } from '@integrations/application/commands/set-person-tool-rule.command';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
+import { actionNamed } from '@integrations/domain/value-objects/action.fake-spec';
+import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
+import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
+import { Integration } from '@integrations/domain/value-objects/integration.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
+import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InMemoryPersonToolPolicies } from '@integrations/integrations.policies.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
+const LINEAR = IntegrationKey.of('linear');
+
 const setting = (member = true, actsAs = 'requester') => {
   const policies = new InMemoryPersonToolPolicies();
   const handler = new SetPersonToolRuleHandler(
     {
-      onTeam: async () => (member ? { isAdmin: false } : null),
+      inWorkspaceOfTeam: async () => (member ? { isAdmin: false } : null),
     } as unknown as WorkspaceAccessPort,
     {
       ofTeam: async () => [
@@ -23,10 +31,20 @@ const setting = (member = true, actsAs = 'requester') => {
     } as unknown as DefinedIntegrationsPort,
     {
       integrations: () => [
-        {
-          key: IntegrationKey.of('linear'),
-          actsAs: { byRequester: actsAs === 'requester' },
-        },
+        Integration.of({
+          key: LINEAR,
+          requiresConnection: true,
+          actsAs: actsAs === 'requester' ? ActsAs.requester() : ActsAs.team(),
+          actions: DefinedActions.of([actionNamed('comment')]),
+          tools: ['comment', 'issue'].map((name) =>
+            ProvidedTool.of({
+              integration: LINEAR,
+              name,
+              description: name,
+              backing: ToolBacking.action('comment'),
+            }),
+          ),
+        }),
       ],
     } as unknown as IntegrationRuntimePort,
     policies,

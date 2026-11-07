@@ -5,11 +5,11 @@ import type {
   ToolDismissalsDto,
   TrendRuleDto,
 } from '@insights/application/dto/insights-tools.dto';
-import { SKILL_TRENDS } from '@insights/domain/services/skill-trend';
 import type {
-  SkillAtStation,
-  SkillWeek,
-} from '@insights/domain/services/tool-insights';
+  SkillAtStationDto,
+  SkillWeekDto,
+} from '@insights/application/dto/read-model.dto';
+import { SKILL_TRENDS } from '@insights/domain/services/skill-trend';
 import { InsightsPeriodResponseDto } from '@insights/presentation/http/dto/insights-common.response.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -51,7 +51,7 @@ export class SkillWeekResponseDto {
   })
   readonly partial: boolean;
 
-  constructor(week: SkillWeek) {
+  constructor(week: SkillWeekDto) {
     this.week = week.week;
     this.runs = week.runs;
     this.enabled = week.enabled;
@@ -83,7 +83,7 @@ export class SkillAtStationResponseDto {
     example: 'flat',
     description: TREND_DESCRIPTION,
   })
-  readonly trend: SkillAtStation['trend'];
+  readonly trend: SkillAtStationDto['trend'];
 
   @ApiProperty({
     nullable: true,
@@ -94,7 +94,7 @@ export class SkillAtStationResponseDto {
   })
   readonly usedRate: number | null;
 
-  constructor(station: SkillAtStation) {
+  constructor(station: SkillAtStationDto) {
     this.lineId = station.lineId;
     this.stationId = station.stationId;
     this.runs = station.runs;

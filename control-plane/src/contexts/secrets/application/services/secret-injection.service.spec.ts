@@ -1,5 +1,6 @@
+import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { RunGrantEndings } from '@secrets/application/services/run-grant-endings.service';
-import { RunGrantsUnitOfWork } from '@secrets/application/services/run-grants-unit-of-work';
+import { RunGrantsChanges } from '@secrets/application/services/run-grants-changes';
 import { SecretInjection } from '@secrets/application/services/secret-injection.service';
 import { SecretSources } from '@secrets/application/services/secret-sources.service';
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
@@ -21,7 +22,7 @@ import {
   NOW,
   readingFrom,
   WORKSPACE,
-} from '@secrets/secrets.fakes.fake-spec';
+} from '@secrets/testing/secrets.fakes.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const URL = 'https://api.linear.app/graphql';
@@ -64,7 +65,7 @@ const setUp = async () => {
     injection: new SecretInjection(
       secrets,
       grants,
-      new RunGrantsUnitOfWork(grants),
+      new RunGrantsChanges(grants),
       sources,
     ),
     secrets,
@@ -73,22 +74,12 @@ const setUp = async () => {
   };
 };
 
-const headersOf = async (
-  injected: Promise<{
-    applyTo(request: {
-      url: globalThis.URL;
-      headers: Record<string, string>;
-    }): void;
-  }>,
-) => {
-  const headers: Record<string, string> = {};
-  (await injected).applyTo({
-    url: new globalThis.URL('https://example.test/'),
-    headers,
-  });
-
-  return headers;
-};
+const headersOf = async (injected: Promise<InjectedSecrets>) =>
+  Object.fromEntries(
+    (await injected).injected
+      .filter((each) => each.location === 'header')
+      .map((each) => [each.name, each.value.revealed()]),
+  );
 
 describe('SecretInjection', () => {
   describe('for Spotlight’s own requests', () => {
@@ -233,17 +224,19 @@ describe('SecretInjection', () => {
           },
         ),
       );
-      const url = new globalThis.URL('https://maps.example.com/geo?q=x');
+      const injected = await injection.standInsFor({
+        workspaceId: WORKSPACE.value,
+        secrets: ['MAPS_KEY'],
+        url: 'https://maps.example.com/geo?q=x',
+      });
 
-      (
-        await injection.standInsFor({
-          workspaceId: WORKSPACE.value,
-          secrets: ['MAPS_KEY'],
-          url: url.href,
-        })
-      ).applyTo({ url, headers: {} });
-
-      expect(url.search).toBe('?q=x&key=spotlight-egress%3AMAPS_KEY');
+      expect(
+        injected.injected.map((each) => [
+          each.location,
+          each.name,
+          each.value.revealed(),
+        ]),
+      ).toEqual([['query', 'key', 'spotlight-egress:MAPS_KEY']]);
     });
 
     it('refuses as injection does: a missing secret, a host it is not bound to, two secrets in one header', async () => {
@@ -358,7 +351,7 @@ describe('SecretInjection', () => {
         grants.all.map((each) => [
           each.runId.value,
           each.secretId.value,
-          each.host,
+          each.host.value,
         ]),
       ).toEqual([['run_1', 'secret_linear', 'api.linear.app']]);
     });
@@ -433,7 +426,7 @@ describe('SecretInjection', () => {
         });
       }
       await new RunGrantEndings(
-        new RunGrantsUnitOfWork(grants),
+        new RunGrantsChanges(grants),
         clockAt(),
       ).endedFor({
         workspaceId: WORKSPACE.value,
@@ -458,7 +451,7 @@ describe('SecretInjection', () => {
       const { injection, grants } = await setUp();
 
       await new RunGrantEndings(
-        new RunGrantsUnitOfWork(grants),
+        new RunGrantsChanges(grants),
         clockAt(),
       ).endedFor({
         workspaceId: WORKSPACE.value,
@@ -489,7 +482,7 @@ describe('SecretInjection', () => {
         });
 
       await new RunGrantEndings(
-        new RunGrantsUnitOfWork(grants),
+        new RunGrantsChanges(grants),
         clockAt(),
       ).leaseLost({
         workspaceId: WORKSPACE.value,
@@ -500,7 +493,9 @@ describe('SecretInjection', () => {
       await expect(granting(1)).rejects.toThrow(RunLeaseOverError);
       await granting(2);
 
-      expect(grants.all.map((each) => each.host)).toEqual(['api.linear.app']);
+      expect(grants.all.map((each) => each.host.value)).toEqual([
+        'api.linear.app',
+      ]);
     });
 
     it('injects only what the current attempt of the run was granted', async () => {

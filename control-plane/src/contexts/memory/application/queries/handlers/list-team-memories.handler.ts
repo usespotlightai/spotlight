@@ -1,15 +1,16 @@
 import type { TeamMemoryDto } from '@memory/application/dto/team-memory.dto';
 import type {
+  MemoryCriteria,
+  MemoryListingPort,
+} from '@memory/application/ports/memory-listing.port';
+import type {
   ListTeamMemoriesQuery,
   MemoryListing,
 } from '@memory/application/queries/list-team-memories.query';
 import type { MemoryAccess } from '@memory/application/services/memory-access.service';
 import type { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
-import type {
-  MemoryCriteria,
-  MemoryRepository,
-} from '@memory/domain/repositories/memory.repository';
+import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
 import { parseMemoryStatus } from '@memory/domain/value-objects/memory-status';
@@ -45,6 +46,7 @@ export class ListTeamMemoriesHandler
 {
   constructor(
     private readonly access: MemoryAccess,
+    private readonly listing: MemoryListingPort,
     private readonly memories: MemoryRepository,
     private readonly views: TeamMemoryViews,
   ) {}
@@ -54,7 +56,9 @@ export class ListTeamMemoriesHandler
       const access = await this.access.forTeam(query.teamId, query.viewerId);
 
       return await this.views.summaries(
-        await this.memories.ofTeam(access.teamId, criteriaOf(query.listing)),
+        await this.memories.findAll(
+          await this.listing.listed(access.teamId, criteriaOf(query.listing)),
+        ),
       );
     } catch (error) {
       rethrowAsApplicationError(error);

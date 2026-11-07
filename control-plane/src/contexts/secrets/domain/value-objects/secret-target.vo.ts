@@ -74,6 +74,10 @@ export class SecretTarget {
     return new SecretTarget('query', name);
   }
 
+  get written(): string {
+    return this.location === 'query' ? `?${this.name}` : this.name;
+  }
+
   equals(other: SecretTarget): boolean {
     return this.location === other.location && this.name === other.name;
   }

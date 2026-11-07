@@ -1,14 +1,16 @@
 import { deletionsInMemory } from '@insights/application/ports/deletions.fake-spec';
 import type { EndedRun, WorkPort } from '@insights/application/ports/work.port';
+import { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import { RecordRunEnding } from '@insights/application/services/record-run-ending.service';
 import { RecordSupersededRun } from '@insights/application/services/record-superseded-run.service';
+import { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
 import {
   FIRST_CONFIG,
   inTransaction,
   RunRecordsInMemory,
   SET_UP,
   WORKSPACE,
-} from '@insights/domain/runs.fake-spec';
+} from '@insights/runs.fake-spec';
 import type {
   LogFields,
   LoggerPort,
@@ -57,9 +59,7 @@ const recording = (runs: readonly EndedRun[]) => {
     endedRun: async (runId) =>
       runs.find((each) => each.runId === runId) ?? null,
     configsInOrder: async () => [],
-    teamRepositories: async () => [],
     teamSkillKeys: async () => [],
-    alertsAt: async () => null,
   };
 
   return {
@@ -69,14 +69,19 @@ const recording = (runs: readonly EndedRun[]) => {
     service: new RecordRunEnding(
       work,
       records,
-      deletions,
+      new FactRecorder(deletions),
       inTransaction,
       logger,
     ),
-    superseding: new RecordSupersededRun(records, deletions, inTransaction, {
-      now: () => RECEIVED_AT,
-      sleep: async () => {},
-    }),
+    superseding: new RecordSupersededRun(
+      records,
+      new FactRecorder(deletions),
+      inTransaction,
+      {
+        now: () => RECEIVED_AT,
+        sleep: async () => {},
+      },
+    ),
     ended: (
       runId: string,
       outcome = 'completed',
@@ -86,11 +91,13 @@ const recording = (runs: readonly EndedRun[]) => {
       new RecordRunEnding(
         work,
         records,
-        deletions,
+        new FactRecorder(deletions),
         inTransaction,
         logger,
       ).ended({
         runId,
+        taskId: 'task_1',
+        stationId: 'station_1',
         outcome,
         stopped,
         failure: outcome === 'failed' ? 'exited' : null,
@@ -110,7 +117,7 @@ describe('recording that a run ended', () => {
     expect(record?.ending).toBe('failed');
     expect(record?.end?.failure).toBe('exited');
     expect(record?.end?.fingerprint).toBe(FIRST_CONFIG);
-    expect(record?.end?.location.stationId).toBe('station_1');
+    expect(record?.end?.location.stationId.value).toBe('station_1');
     expect(record?.end?.location.taskId.value).toBe('task_1');
     expect(record?.end?.endedAt).toEqual(at(10));
     expect(record?.end?.visit).toBe(1);
@@ -236,7 +243,9 @@ describe('recording that a run ended', () => {
   it('records nothing of a run whose team was deleted, and lets go of what it received about the run before', async () => {
     const recorder = recording([endedRun('run_1')]);
     await recorder.superseding.superseded(RunId.of('run_1'), WORKSPACE, TASK);
-    await recorder.deletions.deleteTeam(WORKSPACE, TeamId.of('team_1'));
+    await recorder.deletions.markDeleted(
+      DeletionScope.ofTeam(WORKSPACE, TeamId.of('team_1')),
+    );
 
     await recorder.ended('run_1');
 

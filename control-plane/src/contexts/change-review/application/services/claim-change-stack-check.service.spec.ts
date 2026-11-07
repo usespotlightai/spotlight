@@ -57,7 +57,7 @@ const completed = () =>
         ],
       },
     ]),
-    facts: StackFacts.none(),
+    facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
     request: CheckRequest.of('npm test', null),
     now: NOW,
   }).propose(
@@ -101,14 +101,14 @@ const reservedFor = (runner: RunnerId) =>
 
 const claimingReserved = (found: StackCheck | null) => {
   const saved: StackCheck[] = [];
-  const reservedTo = vi.fn(async () => found);
+  const listedFor = vi.fn(async () => (found ? [found] : []));
 
   return {
     saved,
-    reservedTo,
+    listedFor,
     service: new ClaimChangeStackCheck(
       {
-        reservedTo,
+        reservedFor: listedFor,
         save: async (check: StackCheck) => {
           saved.push(check);
         },
@@ -122,13 +122,13 @@ const claimingReserved = (found: StackCheck | null) => {
 
 describe('ClaimChangeStackCheck', () => {
   it('hands a runner no check placed on runners it does not answer to', async () => {
-    const dueForCheck = vi.fn(async () =>
+    const waitingIn = vi.fn(async () => [
       waitingCheck(RunnerPlacement.of(['vpc-internal'])),
-    );
+    ]);
     const find = vi.fn();
 
     const claimed = await new ClaimChangeStackCheck(
-      { dueForCheck } as unknown as StackCheckRepository,
+      { waitingIn } as unknown as StackCheckRepository,
       { find } as unknown as ChangeStackRepository,
       {} as PatchWriterPort,
       { inTransaction: (work) => work() } as TransactionPort,
@@ -136,15 +136,45 @@ describe('ClaimChangeStackCheck', () => {
 
     expect(claimed).toBeNull();
     expect(find).not.toHaveBeenCalled();
-    expect(dueForCheck).toHaveBeenCalledWith(
-      expect.objectContaining({ offer: LAPTOP }),
-      NOW,
-    );
+    expect(waitingIn).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
+  });
+
+  it('claims the next waiting check when another runner took the first one meanwhile', async () => {
+    const first = waitingCheck();
+    const second = StackCheck.begin({
+      stackId: ChangeStackId.of('stack_2'),
+      runId: first.runId,
+      taskId: null,
+      replay: false,
+      workspaceId: first.workspaceId,
+      request: first.request,
+      entries: first.entries,
+      now: NOW,
+    });
+    const saved: StackCheck[] = [];
+
+    const claimed = await new ClaimChangeStackCheck(
+      {
+        waitingIn: async () => [first, second],
+        save: async (check: StackCheck) => {
+          if (check.stackId.equals(first.stackId)) {
+            throw new StackCheckVersionConflictError(check.id);
+          }
+          saved.push(check);
+        },
+      } as unknown as StackCheckRepository,
+      { find: async () => completed() } as unknown as ChangeStackRepository,
+      { patchOf: () => 'diff' } as PatchWriterPort,
+      { inTransaction: (work) => work() } as TransactionPort,
+    ).claimNext(WorkspaceId.of('ws_1'), RUNNER, LAPTOP, NOW);
+
+    expect(claimed).not.toBeNull();
+    expect(saved.map((each) => each.stackId.value)).toEqual(['stack_2']);
   });
 
   describe('for a runner started for a reserved check', () => {
     it('claims the check reserved for it and drops the reservation', async () => {
-      const { service, saved, reservedTo } = claimingReserved(
+      const { service, saved, listedFor } = claimingReserved(
         reservedFor(RUNNER),
       );
 
@@ -155,7 +185,7 @@ describe('ClaimChangeStackCheck', () => {
         runId: 'run_1',
         command: 'npm test',
       });
-      expect(reservedTo).toHaveBeenCalledWith(RUNNER, NOW);
+      expect(listedFor).toHaveBeenCalledWith(RUNNER);
       expect(saved[0]?.claim.claimedBy).toEqual(RUNNER);
       expect(saved[0]?.reservation).toBeNull();
     });
@@ -206,8 +236,8 @@ describe('ClaimChangeStackCheck', () => {
         saved,
         service: new ClaimChangeStackCheck(
           {
-            dueForCheck: async () => check,
-            reservedTo: async () => check,
+            waitingIn: async () => [check],
+            reservedFor: async () => [check],
             save: async (each: StackCheck) => {
               saved.push(each);
             },
@@ -240,7 +270,7 @@ describe('ClaimChangeStackCheck', () => {
       ).resolves.toBeNull();
       expect(removed[0]?.reservation).toBeNull();
       expect(removed[0]?.pullEvents().map((each) => each.kind)).toEqual([
-        'change-stack.check-reservation-dropped',
+        'stack-check.reservation-dropped',
       ]);
     });
   });
@@ -258,7 +288,7 @@ describe('ClaimChangeStackCheck', () => {
             save: async (check: StackCheck) => {
               if (left > 0) {
                 left -= 1;
-                throw new StackCheckVersionConflictError(check.stackId.value);
+                throw new StackCheckVersionConflictError(check.id);
               }
               saved.push(check);
             },
@@ -321,7 +351,7 @@ describe('ClaimChangeStackCheck', () => {
             save: async (check: StackCheck) => {
               if (left > 0) {
                 left -= 1;
-                throw new StackCheckVersionConflictError(check.stackId.value);
+                throw new StackCheckVersionConflictError(check.id);
               }
               saved.push(check);
             },

@@ -287,12 +287,10 @@ describe('a search for a better station config', () => {
         .where(eq(schema.replayCandidate.searchId, id)),
     ).toHaveLength(2);
 
-    await app.get(DispatchReplayRuns).processDue();
-    const bystander = await claimed();
-
-    if (!bystander) {
-      throw new Error('no replay run waited to be claimed');
-    }
+    const bystander = await eventually(async () => {
+      await app.get(DispatchReplayRuns).processDue();
+      return claimed();
+    }, WITHIN);
 
     const byStander = await bearing(bystander.token)
       .post(`/api/runs/${agent.runId}/search-candidates`, {
@@ -403,7 +401,13 @@ describe('a search for a better station config', () => {
     expect(
       current.candidates.find((each) => each.name === 'terse')?.heldOutReplayId,
     ).toBeNull();
-    expect(await originalsOf(heldOutReplayId)).toEqual(heldOutRuns);
+    expect(
+      await eventually(async () => {
+        const originals = await originalsOf(heldOutReplayId);
+
+        return originals.length > 0 && originals;
+      }, WITHIN),
+    ).toEqual(heldOutRuns);
 
     await drained(() => ({ score: 5, cost: 0.1 }));
     await eventually(async () => {

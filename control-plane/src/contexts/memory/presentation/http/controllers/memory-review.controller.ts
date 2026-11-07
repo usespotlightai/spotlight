@@ -29,7 +29,7 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 
 const approvedIn = (body: ApproveMemoriesRequestDto | undefined) =>
   (Array.isArray(body?.memories) ? body.memories : []).map((each) => ({

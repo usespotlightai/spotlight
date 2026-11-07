@@ -31,6 +31,7 @@ import type {
   TeamRunSummary,
 } from '@work/application/ports/run-reader.port';
 import { worksOn } from '@work/domain/services/conversations';
+import { threadAt } from '@work/domain/services/station-thread';
 import {
   progressOf,
   progressOfCurrentRun,
@@ -44,15 +45,11 @@ import {
   awaitedReviewsFor,
   reviewsBy,
   stationsPerLine,
-  threadAt,
   trailsFor,
 } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
-import {
-  line,
-  station,
-} from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
+import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import {
   and,
   desc,
@@ -65,7 +62,7 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
-export const ranAt = alias(station, 'ran_at');
+export const ranAt = alias(workStation, 'ran_at');
 
 export type StationRow = {
   stationId: string | null;
@@ -127,7 +124,7 @@ export class DrizzleRunReader implements RunReaderPort {
         updatedAt: run.updatedAt,
         harness: run.harness,
         image: run.ranIn,
-        stationId: ranAt.id,
+        stationId: ranAt.stationId,
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
@@ -137,7 +134,7 @@ export class DrizzleRunReader implements RunReaderPort {
       })
       .from(run)
       .innerJoin(task, eq(task.id, run.taskId))
-      .leftJoin(ranAt, eq(ranAt.id, run.stationId))
+      .leftJoin(ranAt, eq(ranAt.stationId, run.stationId))
       .where(eq(run.taskId, taskId.value))
       .orderBy(desc(run.createdAt));
     const rows = await this.visibleTo(viewerId, found);
@@ -218,7 +215,7 @@ export class DrizzleRunReader implements RunReaderPort {
         taskId: run.taskId,
         taskTitle: task.title,
         taskDescription: task.description,
-        stationId: ranAt.id,
+        stationId: ranAt.stationId,
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
@@ -229,10 +226,9 @@ export class DrizzleRunReader implements RunReaderPort {
       })
       .from(run)
       .innerJoin(task, eq(task.id, run.taskId))
-      .innerJoin(station, eq(station.id, task.stationId))
-      .innerJoin(line, eq(line.id, station.lineId))
-      .leftJoin(ranAt, eq(ranAt.id, run.stationId))
-      .where(and(eq(line.teamId, teamId.value), narrowedTo))
+      .innerJoin(workStation, eq(workStation.stationId, task.stationId))
+      .leftJoin(ranAt, eq(ranAt.stationId, run.stationId))
+      .where(and(eq(workStation.teamId, teamId.value), narrowedTo))
       .orderBy(desc(run.createdAt), desc(run.id))
       .limit(limit);
     const rows = await this.visibleTo(viewerId, found);
@@ -275,7 +271,7 @@ export class DrizzleRunReader implements RunReaderPort {
         workingRunId: task.currentRunId,
         createdAt: task.createdAt,
         spec: run.spec,
-        stationId: ranAt.id,
+        stationId: ranAt.stationId,
         stationName: ranAt.name,
         stationColor: ranAt.color,
         stationPosition: ranAt.position,
@@ -284,7 +280,7 @@ export class DrizzleRunReader implements RunReaderPort {
       })
       .from(run)
       .innerJoin(task, eq(task.id, run.taskId))
-      .leftJoin(ranAt, eq(ranAt.id, run.stationId))
+      .leftJoin(ranAt, eq(ranAt.stationId, run.stationId))
       .where(eq(run.id, runId.value))
       .limit(1);
 

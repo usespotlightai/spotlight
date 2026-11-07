@@ -222,7 +222,12 @@ const picking = () =>
     pullRequests,
     memory.candidateRepository,
     memory.scheduleRepository,
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
+    new SetHealths(
+      work,
+      memory.replayRepository,
+      memory.replaysReader,
+      memory.candidateRepository,
+    ),
     work,
     IDS,
     clock,
@@ -251,7 +256,12 @@ const opening = () =>
     TRANSACTION,
     clock,
     QUIET,
-    new SetHealths(work, memory.replayRepository, memory.candidateRepository),
+    new SetHealths(
+      work,
+      memory.replayRepository,
+      memory.replaysReader,
+      memory.candidateRepository,
+    ),
     memory.setRepository,
     new SearchFindings(work),
   );
@@ -354,9 +364,9 @@ describe('picking a search candidate', () => {
     await pick();
     await pick();
 
+    expect(only()?.repository?.value).toBe('acme/platform');
     expect(only()).toMatchObject({
       current: 'opening',
-      repository: 'acme/platform',
       path: 'teams/core/delivery.tf',
       branch: `spotlight/search-${search.id.value.slice(0, 8)}-terse`,
     });
@@ -369,9 +379,9 @@ describe('picking a search candidate', () => {
     await opening().processDue();
     await opening().processDue();
 
+    expect(only()?.url?.value).toBe('https://github.com/acme/platform/pull/1');
     expect(only()).toMatchObject({
       current: 'opened',
-      url: 'https://github.com/acme/platform/pull/1',
       lastCommit: 'commit_1',
     });
     expect(
@@ -403,7 +413,11 @@ describe('picking a search candidate', () => {
       lineKey: 'delivery',
       stationKey: 'build',
       file: { path: 'teams/core/delivery.tf' },
-      module: ['teams/core/skills.tf'],
+      besideFile: [
+        'teams/core/delivery.tf',
+        'teams/core/skills.tf',
+        'README.md',
+      ],
     });
   });
 
@@ -507,10 +521,8 @@ describe('picking a search candidate', () => {
     now = new Date(now.getTime() + 60 * 60_000);
     await opening().processDue();
 
-    expect(only()).toMatchObject({
-      current: 'opened',
-      url: 'https://github.com/acme/platform/pull/1',
-    });
+    expect(only().current).toBe('opened');
+    expect(only().url?.value).toBe('https://github.com/acme/platform/pull/1');
     expect(configs.openings).toHaveLength(1);
     expect(configs.commits[1]?.replacing).toBe('commit_1');
   });
@@ -576,9 +588,9 @@ describe('following a config pull request after it opened', () => {
   it('records the canonical repository, GitHub id and number, and the live config it was based on', async () => {
     await opened();
 
+    expect(only()?.repository?.value).toBe('Acme/Platform');
     expect(only()).toMatchObject({
       current: 'opened',
-      repository: 'Acme/Platform',
       number: 1,
       gitHubId: 101,
       basedOn: FINGERPRINT,
@@ -833,7 +845,7 @@ describe('following a config pull request after it opened', () => {
         candidateId: TERSE,
         station: search.station,
         stationKey: 'build',
-        candidateName: 'other',
+        candidateName: CandidateName.rehydrate('other'),
         lineKey: 'delivery',
         source: {
           repository: Repository.of('acme/platform'),
@@ -872,10 +884,12 @@ describe('following a config pull request after it opened', () => {
         later(50),
       );
 
-    memory.schedules.set(STATION_VIEW.stationId, schedule);
+    memory.schedules.set(STATION_VIEW.stationId.value, schedule);
     await schedules().rejected(closedBy('stale'));
 
-    expect(memory.schedules.get(STATION_VIEW.stationId)?.rejected).toEqual([]);
+    expect(
+      memory.schedules.get(STATION_VIEW.stationId.value)?.rejected,
+    ).toEqual([]);
 
     await schedules().rejected(closedBy('by-person'));
     await schedules().improved(
@@ -888,7 +902,7 @@ describe('following a config pull request after it opened', () => {
       ),
     );
 
-    expect(memory.schedules.get(STATION_VIEW.stationId)).toMatchObject({
+    expect(memory.schedules.get(STATION_VIEW.stationId.value)).toMatchObject({
       rejected: [PROPOSED],
       rejectedAgainst: FINGERPRINT,
       lastRejectedAt: later(50),
@@ -908,7 +922,7 @@ describe('following a config pull request after it opened', () => {
       ),
     );
 
-    expect(memory.schedules.get(STATION_VIEW.stationId)).toMatchObject({
+    expect(memory.schedules.get(STATION_VIEW.stationId.value)).toMatchObject({
       rejected: [],
       lastRejectedAt: later(50),
     });

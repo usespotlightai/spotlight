@@ -13,35 +13,33 @@ export const REVIEW_OUTBOX_KINDS = [
 
 export type ReviewOutboxKind = (typeof REVIEW_OUTBOX_KINDS)[number];
 
-export interface ReviewOutboxEntry {
+export interface ReviewDelivery {
   readonly id: string;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId;
   readonly kind: ReviewOutboxKind;
   readonly subjectId: string;
+}
+
+export interface ReviewOutboxEntry extends ReviewDelivery {
   readonly attempts: number;
+  readonly leaseUntil: Date;
 }
 
 export interface ReviewOutboxPort {
-  enqueue(
-    sync: Omit<ReviewOutboxEntry, 'attempts'>,
-    dueAt: Date,
-  ): Promise<void>;
+  enqueue(delivery: ReviewDelivery, dueAt: Date): Promise<void>;
 
   claimDue(now: Date, leaseUntil: Date): Promise<ReviewOutboxEntry | null>;
 
-  done(id: string): Promise<void>;
+  done(entry: ReviewOutboxEntry): Promise<void>;
 
   later(
-    id: string,
+    entry: ReviewOutboxEntry,
     dueAt: Date,
-    failure: string | null,
     attempted: boolean,
   ): Promise<void>;
 
-  failed(id: string, failure: string): Promise<void>;
+  failed(entry: ReviewOutboxEntry): Promise<void>;
 
-  failuresFor(taskId: TaskId): Promise<ReadonlyMap<string, string>>;
-
-  deleteTask(taskId: TaskId): Promise<void>;
+  dropTask(taskId: TaskId): Promise<void>;
 }

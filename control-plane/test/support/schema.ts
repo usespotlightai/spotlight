@@ -15,6 +15,7 @@ export * from '@insights/infrastructure/persistence/drizzle/schemas/insights.sch
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/delivery.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 export * from '@integrations/infrastructure/persistence/drizzle/schemas/integration.schema';
+export * from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
 export * from '@memory/infrastructure/persistence/drizzle/schemas/memory.schema';
 export * from '@platform/persistence/drizzle/schemas/event.schema';
 export * from '@platform/persistence/drizzle/schemas/idempotency.schema';
@@ -24,7 +25,6 @@ export * from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema
 export * from '@work/infrastructure/persistence/drizzle/schemas/attachment.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/inbox-request.schema';
-export * from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/network-call.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/replay-run-claim.schema';
@@ -33,4 +33,6 @@ export * from '@work/infrastructure/persistence/drizzle/schemas/run-connection.s
 export * from '@work/infrastructure/persistence/drizzle/schemas/starting-point-hold.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/task-draft.schema';
+export * from '@work/infrastructure/persistence/drizzle/schemas/team-welcome.schema';
+export * from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 export * from '@work/infrastructure/persistence/drizzle/schemas/workspace-archive.schema';

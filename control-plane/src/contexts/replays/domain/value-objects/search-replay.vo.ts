@@ -7,17 +7,19 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 export class SearchReplay {
   private constructor(
     readonly replayId: ReplayId,
+    readonly started: boolean,
     readonly end: ReplayStopReason | null,
     readonly spent: Money | null,
     readonly unpriced: number,
   ) {}
 
-  static started(replayId: ReplayId): SearchReplay {
-    return new SearchReplay(replayId, null, null, 0);
+  static planned(replayId: ReplayId): SearchReplay {
+    return new SearchReplay(replayId, false, null, null, 0);
   }
 
   static rehydrate(input: {
     replayId: ReplayId;
+    started: boolean;
     end: ReplayStopReason | null;
     spent: Money | null;
     unpriced: number;
@@ -37,10 +39,15 @@ export class SearchReplay {
 
     return new SearchReplay(
       input.replayId,
+      input.started || input.end !== null,
       input.end,
       input.spent,
       input.unpriced,
     );
+  }
+
+  get awaitsStart(): boolean {
+    return !this.started && this.end === null;
   }
 
   get hasEnded(): boolean {
@@ -55,9 +62,27 @@ export class SearchReplay {
     return this.replayId.equals(replayId);
   }
 
+  asStarted(): SearchReplay {
+    return this.started
+      ? this
+      : new SearchReplay(
+          this.replayId,
+          true,
+          this.end,
+          this.spent,
+          this.unpriced,
+        );
+  }
+
   endedAs(end: ReplayStopReason, charge: ReplayCharge): SearchReplay {
     return this.end === null
-      ? new SearchReplay(this.replayId, end, charge.spent, charge.unpriced)
+      ? new SearchReplay(
+          this.replayId,
+          true,
+          end,
+          charge.spent,
+          charge.unpriced,
+        )
       : this.spentAs(charge);
   }
 
@@ -77,12 +102,13 @@ export class SearchReplay {
 
     return spent === recorded && unpriced === this.unpriced
       ? this
-      : new SearchReplay(this.replayId, this.end, spent, unpriced);
+      : new SearchReplay(this.replayId, true, this.end, spent, unpriced);
   }
 
   equals(other: SearchReplay): boolean {
     return (
       this.replayId.equals(other.replayId) &&
+      this.started === other.started &&
       this.end === other.end &&
       this.unpriced === other.unpriced &&
       ((this.spent === null && other.spent === null) ||

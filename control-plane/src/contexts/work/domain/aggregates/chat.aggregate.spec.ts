@@ -1,9 +1,17 @@
+import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -13,10 +21,10 @@ import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
-import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
+import { MixedRunnerImagesError } from '@work/domain/exceptions/mixed-runner-images.error';
 import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.error';
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -26,17 +34,14 @@ import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
-import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  repositoryOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
@@ -52,6 +57,7 @@ const SECOND = MessagePosition.of(1);
 
 const started = (body = 'Plan how retries back off.\nThen split it up.') =>
   Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: LEON,
@@ -64,6 +70,7 @@ const started = (body = 'Plan how retries back off.\nThen split it up.') =>
 
 const targetingStation = (stationTeam: TeamId) =>
   Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: LEON,
@@ -104,10 +111,60 @@ const proposing = () => {
 };
 
 describe('Chat', () => {
+  it('says it was deleted, naming the run it leaves behind', () => {
+    const gone = started().assignRun(RunId.of('run_1'), NOW).deleted();
+    const [event] = gone
+      .pullEvents()
+      .filter((each) => each.kind === 'chat.deleted');
+
+    expect(gone.currentRunId).toBeNull();
+    expect(event).toMatchObject({ runId: RunId.of('run_1') });
+  });
+
+  it('refuses repositories whose lines run in different images, wherever it is started from', () => {
+    const lineIn = (key: string, repository: string, image: string) =>
+      lineMapOf({
+        id: LineId.of(`line_${key}`),
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TeamId.of('team_1'),
+        key: LineKey.of(key),
+        name: LineName.of(key),
+        stations: [],
+        repositories: [
+          repositoryOf(Repository.of(repository), {
+            image: RunnerImage.of(image),
+          }),
+        ],
+      });
+    const starting = (repositories: readonly string[]) =>
+      Chat.start({
+        lines: [
+          lineIn('web', 'acme/web', 'node:22'),
+          lineIn('api', 'acme/api', 'python:3.13'),
+        ],
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TeamId.of('team_1'),
+        startedBy: LEON,
+        harness: HarnessId.of('claude-code'),
+        repositories: repositories.map((each) => Repository.of(each)),
+        body: ChatMessageBody.fromInput('Why do retries fail?'),
+        now: NOW,
+        newId: () => 'chat_1',
+      });
+
+    expect(() => starting(['acme/web', 'acme/api'])).toThrow(
+      MixedRunnerImagesError,
+    );
+    expect(starting(['acme/web']).repositories).toEqual([
+      Repository.of('acme/web'),
+    ]);
+  });
+
   it('comes from a channel when it wears the marks it was started with', () => {
     const thread = Mark.of('slack.thread', 'C1:1700.1');
     const channel = Mark.of('slack.channel', 'C1');
     const chat = Chat.start({
+      lines: [],
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       startedBy: LEON,
@@ -144,6 +201,7 @@ describe('Chat', () => {
     const thread = Mark.of('slack.thread', 'C1:1700.1');
     const channel = Mark.of('slack.channel', 'C1');
     const chat = Chat.start({
+      lines: [],
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       startedBy: LEON,
@@ -196,6 +254,7 @@ describe('Chat', () => {
 
   it('names an attachment where nothing was typed', () => {
     const chat = Chat.start({
+      lines: [],
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       startedBy: LEON,
@@ -222,6 +281,7 @@ describe('Chat', () => {
     const traces = [retries, retries];
 
     const chat = Chat.start({
+      lines: [],
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       startedBy: LEON,
@@ -577,7 +637,6 @@ describe('Chat', () => {
     expect(chat.proposalAt(SECOND).isOpen).toBe(true);
     expect(chat.messages[1]?.kind).toBe('proposed');
     expect(chat.unacknowledged).toHaveLength(0);
-    expect(chat.pullEvents()).toEqual([expect.any(TaskProposed)]);
   });
 
   it('accepts a proposal for the person who started it, saying what to create', () => {
@@ -630,6 +689,7 @@ describe('Chat', () => {
       size: 1024,
     });
     const chat = Chat.start({
+      lines: [],
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       startedBy: LEON,
@@ -702,6 +762,7 @@ describe('Chat', () => {
   describe('setting up configuration', () => {
     const settingUp = () =>
       Chat.start({
+        lines: [],
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TeamId.of('team_1'),
         startedBy: LEON,

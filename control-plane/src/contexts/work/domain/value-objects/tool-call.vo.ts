@@ -7,7 +7,7 @@ import {
 } from '@shared-kernel/domain/services/json-value';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
 const parsed = (edit: string): JsonValue | undefined => {

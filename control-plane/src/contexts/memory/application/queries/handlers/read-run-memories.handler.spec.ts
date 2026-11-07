@@ -107,7 +107,7 @@ const reading = (input: {
       },
   } as unknown as WorkPort;
   const people = {
-    memberOf: async () => ({
+    viewerOf: async () => ({
       workspaceId: WORKSPACE,
       by: UserId.of('user_1'),
     }),
@@ -118,11 +118,7 @@ const reading = (input: {
       ids.flatMap((id) => input.stored.filter((each) => each.id.equals(id))),
   } as unknown as MemoryRepository;
   const uses = {
-    ofRun: async () =>
-      input.recalled.map((each) => ({
-        memoryId: each.id,
-        via: 'recalled' as const,
-      })),
+    usedBy: async () => input.recalled.map((each) => each.id),
     runsUsing: async () => new Map(),
   } as unknown as MemoryUsesPort;
 

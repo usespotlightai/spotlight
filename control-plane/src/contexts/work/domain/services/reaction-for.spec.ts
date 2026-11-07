@@ -1,30 +1,29 @@
+import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { type Outcome, ReactionFor } from '@work/domain/services/reaction-for';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
+import type { HappeningPayload } from '@work/domain/value-objects/happening-payload';
 import {
-  Happening,
-  type HappeningPayload,
-} from '@work/domain/value-objects/happening.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -43,17 +42,17 @@ const at = (
   position: number,
   kind: 'backlog' | 'work' | 'completed' = 'work',
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     harness: kind === 'work' ? HarnessId.of('dev') : undefined,
     kind,
   });
 
-const LINE = Line.rehydrate({
+const LINE = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
@@ -122,7 +121,7 @@ const handed = (stationId: string) => taskAt(stationId).assignRun(RUN, LINE);
 
 const paused = (stationId: string) =>
   handed(stationId).putToAPerson(RUN, {
-    station: StationName.of('Implementation'),
+    station: null,
     body: TaskNoteBody.of('Which queue should I drain?'),
     at: NOW,
     voice: Voice.station(RUN),
@@ -152,9 +151,9 @@ describe('ReactionFor.happened', () => {
 
     expect(outcome.kind).toBe('deferredMove');
     expect(destination(outcome)).toEqual(StationId.of('station_2'));
-    expect(outcome).toMatchObject({
-      station: StationName.of('Implementation'),
-    });
+    expect(outcome.kind !== 'nothing' && outcome.station?.id).toEqual(
+      StationId.of('station_1'),
+    );
   });
 
   it('notes what arrived while a run was in progress on the task, and where it moves once the run ends', () => {
@@ -179,7 +178,9 @@ describe('ReactionFor.happened', () => {
     const outcome = reaction(handed('station_2'), merged);
 
     expect(outcome.kind).toBe('interrupts');
-    expect(outcome).toMatchObject({ station: StationName.of('Code Review') });
+    expect(outcome.kind !== 'nothing' && outcome.station?.name).toEqual(
+      StationName.of('Code Review'),
+    );
     expect(outcome.kind === 'interrupts' && outcome.body.value).toBe(
       'The pull request was merged while Code Review was working. Close the task, or reply to carry on.',
     );
@@ -225,7 +226,7 @@ describe('ReactionFor.happened', () => {
 
   it('says the station was working where the task awaits only a tool approval', () => {
     const asking = handed('station_2').putToAPerson(RUN, {
-      station: StationName.of('Code Review'),
+      station: null,
       body: TaskNoteBody.of('Approve linear.comment?'),
       at: NOW,
       voice: Voice.station(RUN),
@@ -248,7 +249,7 @@ describe('ReactionFor.happened', () => {
   });
 
   it('names no station of the line when the task a merge interrupts is on none of it', () => {
-    const elsewhere = Line.rehydrate({
+    const elsewhere = lineMapOf({
       id: LineId.of('line_9'),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),

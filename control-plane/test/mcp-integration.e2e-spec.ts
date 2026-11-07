@@ -4,6 +4,13 @@ import {
   LISTED_SERVERS,
   type ListedServersPort,
 } from '@integrations/application/ports/listed-servers.port';
+import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
+import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
+import {
+  INTEGRATION_DEFINITIONS,
+  type IntegrationDefinitionRepository,
+} from '@integrations/domain/repositories/integration-definition.repository';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import {
   type FakeMcpServer,
   fakeMcpServer,
@@ -25,6 +32,7 @@ import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
 import * as schema from './support/schema';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-mcp-${randomUUID().slice(0, 8)}`;
@@ -286,7 +294,7 @@ beforeAll(async () => {
     key: 'delivery',
     name: 'Delivery',
   });
-  await db.insert(schema.station).values([
+  await insertStations(db, [
     {
       id: randomUUID(),
       workspaceId: team.workspaceId.value,
@@ -407,26 +415,48 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     ]);
   });
 
-  it('lets one claim to list a server again win, moving when it was read on without changing its version', async () => {
+  it('lets one claim to list a server again win, moving when it was read on through its definition', async () => {
     const servers = app.get<ListedServersPort>(LISTED_SERVERS);
+    const definitions = app.get<IntegrationDefinitionRepository>(
+      INTEGRATION_DEFINITIONS,
+    );
     const before = await integrationNamed('tracker');
     const due = new Date(Date.now() + 60_000);
     const at = new Date(Date.now() + 120_000);
 
-    const [one, other] = await Promise.all([
-      servers.claimListedBefore(due, at),
-      servers.claimListedBefore(due, at),
-    ]);
-    const claimed = [...one, ...other]
+    const listed = (await servers.listedBefore(due))
       .filter((each) => each.teamId.equals(team.teamId))
       .map((each) => each.integration.value);
 
-    expect(claimed).toEqual(['tracker']);
+    expect(listed).toEqual(['tracker']);
+
+    const stored = (await definitions.of(
+      team.teamId,
+      IntegrationKey.of('tracker'),
+    )) as IntegrationDefinition;
+    const claims = await Promise.allSettled([
+      definitions.save(stored.relistClaimed(at, due)),
+      definitions.save(stored.relistClaimed(at, due)),
+    ]);
+
+    expect(claims.filter((each) => each.status === 'fulfilled')).toHaveLength(
+      1,
+    );
+    expect(
+      claims.flatMap((each) =>
+        each.status === 'rejected' ? [each.reason] : [],
+      )[0],
+    ).toBeInstanceOf(IntegrationDefinitionVersionConflictError);
 
     const after = await integrationNamed('tracker');
 
-    expect(after?.version).toBe(before?.version);
+    expect(after?.version).toBe((before?.version ?? 0) + 1);
     expect(after?.spec.readAt).toBe(at.toISOString());
+    expect(
+      (await servers.listedBefore(due)).some((each) =>
+        each.teamId.equals(team.teamId),
+      ),
+    ).toBe(false);
   });
 
   it('runs a tool that only reads for a station, and journals it', async () => {

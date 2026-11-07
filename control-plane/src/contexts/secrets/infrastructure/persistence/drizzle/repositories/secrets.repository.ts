@@ -6,6 +6,7 @@ import type { SecretRepository } from '@secrets/domain/repositories/secret.repos
 import { SecretBindings } from '@secrets/domain/value-objects/secret-bindings.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
+import { ValueVersion } from '@secrets/domain/value-objects/value-version.vo';
 import { secret } from '@secrets/infrastructure/persistence/drizzle/schemas/secret.schema';
 import type { BuiltInSecretStore } from '@secrets/infrastructure/sources/built-in-secret.store';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -50,7 +51,8 @@ const rehydrated = (row: Row): Secret =>
     name: SecretName.of(row.name),
     source: sourceOf(row),
     bindings: SecretBindings.of(row.bindings),
-    valueVersion: row.valueVersion,
+    valueVersion:
+      row.valueVersion === null ? null : ValueVersion.of(row.valueVersion),
     rotatedAt: row.rotatedAt,
     version: row.version,
   });
@@ -102,12 +104,12 @@ export class DrizzleSecrets implements SecretRepository {
       sourceSecretId: record.source.secretId,
       sourceField: record.source.field,
       bindings: record.bindings.all.map((each) => ({
-        host: each.host,
+        host: each.host.value,
         location: each.target.location,
         name: each.target.name,
         prefix: each.prefix,
       })),
-      valueVersion: record.valueVersion,
+      valueVersion: record.valueVersion?.value ?? null,
       rotatedAt: record.rotatedAt,
     };
 
@@ -117,6 +119,7 @@ export class DrizzleSecrets implements SecretRepository {
           id: record.id.value,
           workspaceId: record.workspaceId.value,
           name: record.name.value,
+          version: record.version,
           ...fields,
         });
       } catch (error) {

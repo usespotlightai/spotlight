@@ -3,13 +3,24 @@ import type {
   EntitledItems,
 } from '@catalog/application/contracts/catalog.contract';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
+import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { HarnessProfileShape } from '@work/application/contracts/harness-profile.contract';
@@ -29,47 +40,36 @@ import type {
   TouchedFile,
 } from '@work/application/ports/team-memories.port';
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
-import { StationCatalog } from '@work/application/services/station-catalog.service';
+import { RunCatalog } from '@work/application/services/run-catalog.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import type { TouchedFiles } from '@work/application/services/touched-files';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
-import type {
-  RunExtras,
-  RunRepository,
-} from '@work/domain/repositories/run.repository';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
 import {
   HANDING_OVER,
   OPENING_PULL_REQUESTS,
   USING_TOOLS,
 } from '@work/domain/services/built-in-skills';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
-import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import { Effort } from '@work/domain/value-objects/effort.vo';
 import { Harness } from '@work/domain/value-objects/harness.vo';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
-import { LineRepositoryConfig } from '@work/domain/value-objects/line-repository-config.vo';
-import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
-import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
-import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
-import { StationCheck } from '@work/domain/value-objects/station-check.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
+import {
+  lineMapOf,
+  type RepositorySpec,
+  repositoryOf,
+  routesOf,
+  stationOf,
+  stationWith,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -157,14 +157,14 @@ const at = (
   passesTo: string[] = [],
   enables: { tools?: string[]; skills?: SkillKey[] } = {},
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(name.toLowerCase()),
     name: StationName.of(name),
     position,
-    color: StationColor.of('#a3a8b0'),
+    color: '#a3a8b0',
     harness,
-    routes: StationRoutes.of({ stations: passesTo.map(StationId.of) }),
+    routes: routesOf({ stations: passesTo.map(StationId.of) }),
     kind:
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
     tools: (enables.tools ?? []).map((each) => Tool.of(each)),
@@ -193,29 +193,25 @@ const task = (stationId: string, title = 'Fix the queue') =>
   });
 
 let queued: Run[] = [];
-let extras: RunExtras[] = [];
 
 const runs = {
-  add: async (run: Run, alongside: RunExtras = {}) => {
+  add: async (run: Run) => {
     queued.push(run);
-    extras.push(alongside);
   },
 } as unknown as RunRepository;
 
 const ids: IdGeneratorPort = { generate: () => 'run_1' };
 
-type RepositoryInput = string | LineRepositoryConfig;
+type RepositoryInput = string | RepositorySpec;
 
-const repositoryConfig = (each: RepositoryInput): LineRepositoryConfig =>
-  typeof each === 'string'
-    ? LineRepositoryConfig.of(Repository.of(each))
-    : each;
+const repositoryConfig = (each: RepositoryInput): RepositorySpec =>
+  typeof each === 'string' ? repositoryOf(Repository.of(each)) : each;
 
 const lineWith = (
   changed?: Station,
   repositories: readonly RepositoryInput[] = [],
 ) =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -281,7 +277,7 @@ const integrations = {
 let readySkills: ReadySkillFolder[] = [];
 
 const teamSkills = {
-  readyAt: async (_line: Line, station: Station) =>
+  readyAt: async (_line: LineMap, station: Station) =>
     readySkills.filter((each) =>
       station.skills.some((key) => key.value === each.skill.key),
     ),
@@ -304,7 +300,7 @@ const tracing = {
 let entitledItems: EntitledItems = { tools: [], skills: [], denied: [] };
 let catalogRequested: CatalogRequest[] = [];
 
-const catalog = new StationCatalog({
+const catalog = new RunCatalog({
   entitledTo: async (_workspace, named) => {
     catalogRequested.push(named);
     return entitledItems;
@@ -389,7 +385,6 @@ describe('DispatchTask', () => {
     remembered = { briefed: [], omitted: [], folder: null };
     touchedOnTask = [];
     queued = [];
-    extras = [];
     entitledItems = { tools: [], skills: [], denied: [] };
     catalogRequested = [];
   });
@@ -564,6 +559,7 @@ describe('DispatchTask', () => {
         task(station.id.value).reviews(
           PullRequestUrl.of('https://github.com/acme/api/pull/42'),
           { outside: false },
+          new Date(0),
         ),
         ['acme/widgets', 'acme/web'],
       );
@@ -580,8 +576,8 @@ describe('DispatchTask', () => {
 
     it('makes each checkout ready as its repository says', async () => {
       await dispatch(stations[1] as Station, undefined, [
-        LineRepositoryConfig.of(Repository.of('acme/api'), {
-          setup: RepositorySetup.of('npm ci'),
+        repositoryOf(Repository.of('acme/api'), {
+          setup: 'npm ci',
         }),
         'acme/web',
       ]);
@@ -603,17 +599,17 @@ describe('DispatchTask', () => {
 
     it('records the station’s check on the run its change stack is generated from, so later edits to the station leave it be', async () => {
       const checking = (diffs: boolean) =>
-        Station.of({
+        stationOf({
           id: StationId.of('station_2'),
           key: StationKey.of('triage'),
           name: StationName.of('Triage'),
           position: 1,
-          color: StationColor.of('#a3a8b0'),
+          color: '#a3a8b0',
           harness: DEV.id,
-          routes: StationRoutes.of({ stations: [StationId.of('station_3')] }),
+          routes: routesOf({ stations: [StationId.of('station_3')] }),
           kind: 'work',
           diffs,
-          check: StationCheck.of('npm test'),
+          check: 'npm test',
         });
 
       await dispatch(checking(true));
@@ -625,7 +621,7 @@ describe('DispatchTask', () => {
 
     it('places the run in the image the line’s repositories name', async () => {
       await dispatch(stations[1] as Station, undefined, [
-        LineRepositoryConfig.of(Repository.of('acme/api'), {
+        repositoryOf(Repository.of('acme/api'), {
           image: RunnerImage.of('ghcr.io/acme/api:1'),
         }),
       ]);
@@ -650,15 +646,15 @@ describe('DispatchTask', () => {
     };
 
     const naming = (profile: string) =>
-      Station.of({
+      stationOf({
         id: StationId.of('station_2'),
         key: StationKey.of('triage'),
         name: StationName.of('Triage'),
         position: 1,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         harness: DEV.id,
         profile: ProfileKey.of(profile),
-        routes: StationRoutes.of({ stations: [StationId.of('station_3')] }),
+        routes: routesOf({ stations: [StationId.of('station_3')] }),
       });
 
     beforeEach(() => {
@@ -826,8 +822,8 @@ describe('DispatchTask', () => {
 
     const run = queued[0] as Run;
 
-    expect(extras[0]?.briefed?.equals(dispatched.briefed)).toBe(true);
-    expect(extras[0]?.briefed?.title).toBe('Drain the queue');
+    expect(run.briefedTask?.equals(dispatched.briefed)).toBe(true);
+    expect(run.briefedTask?.title).toBe('Drain the queue');
     expect(written(run).briefing).toContain('## Drain the queue');
   });
 
@@ -847,10 +843,17 @@ describe('DispatchTask', () => {
     };
 
     const taskAt = (station: Station) =>
-      task(station.id.value).recordSession(
-        HarnessSession.of('session_1'),
-        RunnerId.of('runner_1'),
-      );
+      Task.rehydrate({
+        ...Task.rehydrate({
+          ...task(station.id.value),
+          currentRunId: RunId.of('run_earlier'),
+        }).recordSession(
+          RunId.of('run_earlier'),
+          HarnessSession.of('session_1'),
+          RunnerId.of('runner_1'),
+        ),
+        currentRunId: null,
+      });
 
     it('gives the task the same workspace run after run', async () => {
       const station = stations[1] as Station;
@@ -906,7 +909,6 @@ describe('DispatchTask, the skills a station enables for a run', () => {
 
   beforeEach(() => {
     queued = [];
-    extras = [];
     skillsHome = { directory: '.claude/skills', readByHarness: true };
     readySkills = [];
   });
@@ -978,7 +980,6 @@ describe('DispatchTask, the team’s own skills', () => {
 
   beforeEach(() => {
     queued = [];
-    extras = [];
     skillsHome = { directory: '.claude/skills', readByHarness: true };
     providedTools = [];
     providedRequested = [];
@@ -1053,7 +1054,6 @@ describe('DispatchTask, the tools a run is told about', () => {
 
   beforeEach(() => {
     queued = [];
-    extras = [];
     providedTools = [];
     providedRequested = [];
   });
@@ -1136,8 +1136,7 @@ describe('DispatchTask, the tools a run is told about', () => {
         omitted: [{ id: 'memory_2', handle: 'M-13' }],
         folder: {
           path: '.spotlight/memory',
-          layout: [],
-          repositoryFolder: null,
+          guide: '',
         },
       };
       touchedOnTask = [
@@ -1193,7 +1192,6 @@ describe('DispatchTask, the tools a run is told about', () => {
       repositories?: readonly RepositoryInput[],
     ) => {
       queued = [];
-      extras = [];
       await dispatch(station, task(station.id.value, title), repositories);
       const config = queued[0]?.configuredAs;
 
@@ -1206,13 +1204,14 @@ describe('DispatchTask, the tools a run is told about', () => {
 
     it('records the resolved values the run was configured with', async () => {
       const config = await configOf(
-        triageAt
-          .instruct(AgentPrompt.of('Triage carefully.'))
-          .atEffort(Effort.of('high')),
+        stationWith(triageAt, {
+          agentPrompt: 'Triage carefully.',
+          effort: Effort.of('high'),
+        }),
         undefined,
         [
-          LineRepositoryConfig.of(Repository.of('acme/api'), {
-            setup: RepositorySetup.of('npm ci'),
+          repositoryOf(Repository.of('acme/api'), {
+            setup: 'npm ci',
           }),
         ],
       );
@@ -1237,12 +1236,12 @@ describe('DispatchTask, the tools a run is told about', () => {
     it('gives a new fingerprint when any part of the station changes', async () => {
       const before = await configOf(triageAt);
       const changed = [
-        await configOf(triageAt.instruct(AgentPrompt.of('Be brief.'))),
-        await configOf(triageAt.atEffort(Effort.of('xhigh'))),
+        await configOf(stationWith(triageAt, { agentPrompt: 'Be brief.' })),
+        await configOf(stationWith(triageAt, { effort: Effort.of('xhigh') })),
         await configOf(triage({ tools: ['pull-request'] })),
         await configOf(triageAt, undefined, [
-          LineRepositoryConfig.of(Repository.of('acme/api'), {
-            setup: RepositorySetup.of('make deps'),
+          repositoryOf(Repository.of('acme/api'), {
+            setup: 'make deps',
           }),
         ]),
       ];
@@ -1271,15 +1270,15 @@ describe('DispatchTask, the tools a run is told about', () => {
       };
 
       const config = await configOf(
-        Station.of({
+        stationOf({
           id: StationId.of('station_2'),
           key: StationKey.of('triage'),
           name: StationName.of('Triage'),
           position: 1,
-          color: StationColor.of('#a3a8b0'),
+          color: '#a3a8b0',
           harness: DEV.id,
           profile: ProfileKey.of('tokened'),
-          routes: StationRoutes.of({ stations: [StationId.of('station_3')] }),
+          routes: routesOf({ stations: [StationId.of('station_3')] }),
         }),
       );
 
@@ -1288,11 +1287,14 @@ describe('DispatchTask, the tools a run is told about', () => {
     });
 
     it('says what changed between two configs', async () => {
-      const before = await configOf(triageAt.atEffort(Effort.of('high')));
+      const before = await configOf(
+        stationWith(triageAt, { effort: Effort.of('high') }),
+      );
       const after = await configOf(
-        triageAt
-          .atEffort(Effort.of('xhigh'))
-          .instruct(AgentPrompt.of('Be brief.')),
+        stationWith(triageAt, {
+          effort: Effort.of('xhigh'),
+          agentPrompt: 'Be brief.',
+        }),
       );
 
       expect(after.changesFrom(before)).toEqual([

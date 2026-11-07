@@ -1,4 +1,4 @@
-import type { LineDefinitionStation } from '@work/application/contracts/line-definition.contract';
+import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
 import type {
   SearchVisibility,
   SearchVisibilityPort,

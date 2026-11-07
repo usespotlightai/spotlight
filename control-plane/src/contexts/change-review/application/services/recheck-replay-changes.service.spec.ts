@@ -9,6 +9,7 @@ import {
   queueTimeout,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -24,11 +25,10 @@ const checkOf = (
   over: { replay?: boolean; recheck?: boolean } = {},
 ) =>
   StackCheck.rehydrate({
-    stackId: ChangeStackId.of(id),
+    id: StackCheckId.of(ChangeStackId.of(id), over.recheck ?? false),
     runId: RUN,
     taskId: null,
     replay: over.replay ?? true,
-    recheck: over.recheck ?? false,
     workspaceId: WorkspaceId.of('ws-1'),
     request: CheckRequest.of('npm test', null),
     status,
@@ -59,11 +59,8 @@ const rechecking = (stored: StackCheck[]) => {
   const all = () => [...stored, ...added];
   const checks = {
     ofRun: async () => all(),
-    find: async (stackId: { value: string }, recheck: boolean) =>
-      all().find(
-        (each) =>
-          each.stackId.value === stackId.value && each.recheck === recheck,
-      ) ?? null,
+    find: async (id: StackCheckId) =>
+      all().find((each) => each.id.equals(id)) ?? null,
     add: async (check: StackCheck) => {
       added.push(check);
     },

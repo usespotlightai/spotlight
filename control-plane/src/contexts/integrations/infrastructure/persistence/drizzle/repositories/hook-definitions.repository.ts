@@ -1,4 +1,3 @@
-import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
 import { HookAlreadyExistsError } from '@integrations/domain/exceptions/hook-already-exists.error';
 import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
@@ -7,7 +6,6 @@ import { DefinitionDocument } from '@integrations/domain/value-objects/definitio
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookEvent } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
-import { HookSigningSecret } from '@integrations/domain/value-objects/hook-signing-secret.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { hookDefinition } from '@integrations/infrastructure/persistence/drizzle/schemas/hook.schema';
 import { Inject, Injectable } from '@nestjs/common';
@@ -34,7 +32,8 @@ const collided = (error: unknown): boolean =>
     } | null
   )?.code === UNIQUE_VIOLATION;
 
-const secretLabel = (hookId: string): string => `hook:${hookId}:signing-secret`;
+export const secretLabel = (hookId: string): string =>
+  `hook:${hookId}:signing-secret`;
 
 const inPlace = (definition: HookDefinition) =>
   and(
@@ -61,9 +60,7 @@ const rehydrated = (row: Row): HookDefinition =>
   });
 
 @Injectable()
-export class DrizzleHookDefinitions
-  implements HookDefinitionRepository, HookSigningSecretsPort
-{
+export class DrizzleHookDefinitions implements HookDefinitionRepository {
   constructor(
     private readonly context: DrizzleContext,
     @Inject(DOMAIN_EVENT_DISPATCHER)
@@ -104,24 +101,6 @@ export class DrizzleHookDefinitions
       await this.stored(definition);
       await this.events.dispatch(definition.pullEvents());
     });
-  }
-
-  async signingSecretOf(hookId: string): Promise<HookSigningSecret | null> {
-    const found = await this.first(eq(hookDefinition.id, hookId));
-
-    if (!found?.signingSecret) {
-      return null;
-    }
-
-    return HookSigningSecret.of(
-      (
-        await this.encryption.decrypt(
-          found.workspaceId,
-          secretLabel(found.id),
-          found.signingSecret,
-        )
-      ).revealed(),
-    );
   }
 
   private async encrypted(definition: HookDefinition) {

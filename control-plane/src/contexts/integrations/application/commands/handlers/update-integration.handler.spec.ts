@@ -2,6 +2,7 @@ import { UpdateIntegrationHandler } from '@integrations/application/commands/han
 import { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
 import type { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import {
   access,
@@ -107,7 +108,10 @@ describe('UpdateIntegrationHandler', () => {
     const { update, repository } = updating({
       stored: storedAt(3, ['linear.comment']),
       enabled: ToolUses.of([
-        { tool: 'linear.comment', by: 'the station delivery/implementation' },
+        {
+          tool: ToolName.of('linear.comment'),
+          by: 'the station delivery/implementation',
+        },
       ]),
     });
 

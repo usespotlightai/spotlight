@@ -2,9 +2,9 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { BuiltInSkillsPort } from '@configuration/application/ports/built-in-skills.port';
 import type {
+  ReadSkillFolder,
   SkillFile,
-  SkillFolder,
-} from '@configuration/application/ports/skill-reader.port';
+} from '@configuration/application/ports/skill-folders.port';
 import { readSkillFolder } from '@configuration/infrastructure/skills/skill-file';
 import { SKILL_FILE } from '@work/application/contracts/run-spec.contract';
 
@@ -20,7 +20,7 @@ const filesIn = (root: string, within = ''): SkillFile[] =>
   });
 
 export class BuiltInSkillFiles implements BuiltInSkillsPort {
-  private readonly byKey: ReadonlyMap<string, SkillFolder>;
+  private readonly byKey: ReadonlyMap<string, ReadSkillFolder>;
 
   constructor(
     keys: readonly string[],
@@ -47,7 +47,7 @@ export class BuiltInSkillFiles implements BuiltInSkillsPort {
     this.byKey = new Map(folders.map((each) => [each.skill.key.value, each]));
   }
 
-  named(key: string): SkillFolder | null {
+  named(key: string): ReadSkillFolder | null {
     return this.byKey.get(key) ?? null;
   }
 }

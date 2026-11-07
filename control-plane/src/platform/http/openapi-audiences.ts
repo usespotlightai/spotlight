@@ -4,17 +4,12 @@ import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import type { OpenAPIObject } from '@nestjs/swagger';
 import { ALLOW_ANONYMOUS } from '@platform/http/decorators/allow-anonymous.decorator';
 import { ALLOW_WORKSPACE_TOKENS } from '@platform/http/decorators/allow-workspace-tokens.decorator';
-import { RUNNER_ONLY } from '@platform/http/decorators/runner-only.decorator';
 import {
-  EXPRESSIONS,
-  HOOK_CALLBACKS,
-  RESOURCES,
-  WORKSPACE_TOKEN_EXCHANGE,
-} from '@platform/http/routes';
-
-const AUDIENCES = ['web', 'resources', 'insights', 'hosts', 'public'] as const;
-
-export type Audience = (typeof AUDIENCES)[number];
+  AUDIENCES,
+  type Audience,
+  IN_AUDIENCE,
+} from '@platform/http/decorators/in-audience.decorator';
+import { RUNNER_ONLY } from '@platform/http/decorators/runner-only.decorator';
 
 type Credential = 'session' | 'workspace-token' | 'runner' | 'anonymous';
 
@@ -22,31 +17,20 @@ export interface Route {
   readonly method: string;
   readonly path: string;
   readonly credential: Credential;
+  readonly audience: Audience | null;
 }
 
-interface Rule {
-  readonly credential: Credential;
-  readonly under?: readonly string[];
-}
+const CREDENTIALS: Readonly<Record<Audience, readonly Credential[]>> = {
+  web: ['session', 'anonymous'],
+  resources: ['workspace-token', 'anonymous'],
+  insights: ['workspace-token'],
+  hosts: ['runner', 'anonymous'],
+  public: ['anonymous'],
+};
 
-const RULES: Readonly<Record<Audience, readonly Rule[]>> = {
-  web: [
-    { credential: 'session' },
-    { credential: 'anonymous', under: ['invites', 'error-reporting'] },
-  ],
-  resources: [
-    { credential: 'workspace-token', under: [RESOURCES, EXPRESSIONS] },
-    { credential: 'anonymous', under: [WORKSPACE_TOKEN_EXCHANGE] },
-  ],
-  insights: [{ credential: 'workspace-token', under: ['teams'] }],
-  hosts: [
-    { credential: 'runner' },
-    {
-      credential: 'anonymous',
-      under: ['hosts', 'egress', 'sandboxes', 'pools', 'health'],
-    },
-  ],
-  public: [{ credential: 'anonymous', under: ['.well-known', HOOK_CALLBACKS] }],
+const IMPLIED: Readonly<Partial<Record<Credential, Audience>>> = {
+  session: 'web',
+  runner: 'hosts',
 };
 
 const MARKERS: readonly (readonly [symbol, Credential])[] = [
@@ -55,25 +39,22 @@ const MARKERS: readonly (readonly [symbol, Credential])[] = [
   [ALLOW_WORKSPACE_TOKENS, 'workspace-token'],
 ];
 
-const isUnder = (path: string, prefix: string): boolean =>
-  path === `/${prefix}` || path.startsWith(`/${prefix}/`);
-
-const matches = (route: Route, rule: Rule): boolean =>
-  route.credential === rule.credential &&
-  (!rule.under || rule.under.some((prefix) => isUnder(route.path, prefix)));
-
 export const audienceOf = (route: Route): Audience => {
-  const found = AUDIENCES.filter((audience) =>
-    RULES[audience].some((rule) => matches(route, rule)),
-  );
+  const audience = route.audience ?? IMPLIED[route.credential];
+  const named = `${route.method.toUpperCase()} ${route.path} (${route.credential})`;
 
-  if (found.length !== 1) {
+  if (!audience) {
     throw new Error(
-      `${route.method.toUpperCase()} ${route.path} (${route.credential}) must belong to exactly one audience, but belongs to ${found.length === 0 ? 'none' : found.join(' and ')}.`,
+      `${named} must name its audience with @InAudience; ${route.credential} routes have none by default.`,
+    );
+  }
+  if (!CREDENTIALS[audience].includes(route.credential)) {
+    throw new Error(
+      `${named} is in the ${audience} audience, which takes ${CREDENTIALS[audience].join(' or ')} routes only.`,
     );
   }
 
-  return found[0];
+  return audience;
 };
 
 const joined = (...parts: string[]): string =>
@@ -120,6 +101,11 @@ export const routesOf = (app: INestApplication): Route[] => {
           );
         }
 
+        const audience =
+          reflector.getAllAndOverride<Audience | undefined>(IN_AUDIENCE, [
+            handler,
+            controller,
+          ]) ?? null;
         const method =
           RequestMethod[
             Reflect.getMetadata(METHOD_METADATA, handler) as RequestMethod
@@ -131,6 +117,7 @@ export const routesOf = (app: INestApplication): Route[] => {
               method,
               path: joined(base, path),
               credential: marked[0] ?? 'session',
+              audience,
             })),
         );
       });

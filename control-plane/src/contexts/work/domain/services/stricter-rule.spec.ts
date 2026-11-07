@@ -1,8 +1,8 @@
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { StricterRule } from '@work/domain/services/stricter-rule';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolRule } from '@work/domain/value-objects/tool-rule.vo';
 import { describe, expect, it } from 'vitest';
 

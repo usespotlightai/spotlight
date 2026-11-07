@@ -1,5 +1,6 @@
 import type { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
 import type { DeleteMemoryDraft } from '@memory/application/services/delete-memory-draft.service';
+import type { DeleteTeamMemories } from '@memory/application/services/delete-team-memories.service';
 import type { RecordRunMemoryUses } from '@memory/application/services/record-run-memory-uses.service';
 import type { RequestMemories } from '@memory/application/services/request-memories.service';
 import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
@@ -19,16 +20,22 @@ import {
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import {
+  TEAM_DELETED,
+  type TeamDeletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/team-deleted.integration-event';
+import {
   type DomainEventSubscriber,
   subscribing,
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const memorySubscribers = (
   requesting: RequestMemories,
   deleting: DeleteMemoryDraft,
+  deletingMemories: DeleteTeamMemories,
   reactions: MemoryReactions,
   recording: RecordRunMemoryUses,
 ): readonly DomainEventSubscriber[] => [
@@ -87,5 +94,10 @@ export const memorySubscribers = (
     'memory.delete-draft-of-deleted-task',
     [TASK_DELETED],
     (event) => deleting.deleteForTask(TaskId.of(event.taskId)),
+  ),
+  subscribing<TeamDeletedIntegrationEvent>(
+    'memory.delete-memories-of-deleted-team',
+    [TEAM_DELETED],
+    (event) => deletingMemories.deleteForTeam(TeamId.of(event.teamId)),
   ),
 ];

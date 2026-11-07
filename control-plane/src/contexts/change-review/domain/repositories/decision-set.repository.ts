@@ -10,5 +10,5 @@ export interface DecisionSetRepository {
 
   nextDueJob(now: Date): Promise<DecisionSet | null>;
 
-  removeForTask(taskId: TaskId): Promise<void>;
+  remove(set: DecisionSet): Promise<void>;
 }

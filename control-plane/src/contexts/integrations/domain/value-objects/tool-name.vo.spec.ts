@@ -14,4 +14,13 @@ describe('ToolName', () => {
     expect(() => ToolName.of('comment')).toThrow(InvalidIdentifierError);
     expect(() => ToolName.of('Linear.Comment')).toThrow(InvalidIdentifierError);
   });
+
+  it('names the integration that offers it, and its own name there', () => {
+    const tool = ToolName.of('linear.comment');
+
+    expect(tool.integration.value).toBe('linear');
+    expect(tool.name).toBe('comment');
+    expect(ToolName.parsed('comment')).toBeNull();
+    expect(ToolName.parsed(' linear.comment ')?.value).toBe('linear.comment');
+  });
 });

@@ -1,10 +1,11 @@
-import type { DeletionsPort } from '@insights/application/ports/deletions.port';
 import type { WorkPort } from '@insights/application/ports/work.port';
+import type { FactRecorder } from '@insights/application/services/fact-recorder.service';
 import {
   type ChangeShape,
   TaskChangeShape,
 } from '@insights/domain/aggregates/task-change-shape.aggregate';
 import type { TaskChangeShapeRepository } from '@insights/domain/repositories/task-change-shape.repository';
+import { FactOwner } from '@insights/domain/value-objects/fact-owner.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -12,7 +13,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 
 export interface ChangeShaped {
   readonly runId: string;
-  readonly taskId: string;
+  readonly taskId: string | null;
   readonly workspaceId: string;
   readonly shape: ChangeShape;
 }
@@ -21,12 +22,12 @@ export class RecordChangeShape {
   constructor(
     private readonly work: WorkPort,
     private readonly shapes: TaskChangeShapeRepository,
-    private readonly deletions: DeletionsPort,
+    private readonly recorder: FactRecorder,
     private readonly transaction: TransactionPort,
   ) {}
 
   async shaped(shaped: ChangeShaped): Promise<void> {
-    const run = await this.work.endedRun(shaped.runId);
+    const run = shaped.taskId ? await this.work.endedRun(shaped.runId) : null;
 
     if (
       !run ||
@@ -36,36 +37,24 @@ export class RecordChangeShape {
       return;
     }
 
-    const taskId = TaskId.of(shaped.taskId);
+    const taskId = TaskId.of(run.taskId);
     const workspaceId = WorkspaceId.of(shaped.workspaceId);
     const teamId = TeamId.of(run.teamId);
 
-    await this.transaction.inTransaction(async () => {
-      await this.deletions.lockDeletion(workspaceId, taskId, teamId);
-
-      if (await this.deletions.isDeleted(workspaceId, taskId, teamId)) {
-        return;
-      }
-
-      const existing = await this.shapes.forTask(taskId);
-
-      if (!existing) {
-        await this.shapes.add(
+    await this.transaction.inTransaction(() =>
+      this.recorder.record(this.shapes, {
+        owner: FactOwner.of(workspaceId, { teamId, taskId }),
+        erased: (existing) => existing.erased(),
+        load: () => this.shapes.forTask(taskId),
+        created: () =>
           TaskChangeShape.create({
             taskId,
             workspaceId,
             teamId,
             shape: shaped.shape,
           }),
-        );
-        return;
-      }
-
-      const latest = existing.withShape(shaped.shape);
-
-      if (latest !== existing) {
-        await this.shapes.save(latest);
-      }
-    });
+        change: (existing) => existing.withShape(shaped.shape),
+      }),
+    );
   }
 }

@@ -1,4 +1,6 @@
-export class InvalidCallbackNoteError extends Error {
+import { DomainError } from '@shared-kernel/domain/exceptions/domain-error';
+
+export class InvalidCallbackNoteError extends DomainError {
   readonly kind = 'invalid' as const;
 
   constructor(longest: number) {

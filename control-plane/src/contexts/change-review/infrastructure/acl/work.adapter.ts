@@ -60,8 +60,19 @@ export class Work implements WorkPort {
     return this.work.wasClaimedBy(runId, runner);
   }
 
-  reasoning(runId: RunId): Promise<RunReasoning | null> {
-    return this.work.reasoning(runId);
+  async reasoning(runId: RunId): Promise<RunReasoning | null> {
+    const reasoning = await this.work.reasoning(runId);
+
+    return (
+      reasoning && {
+        steps: reasoning.steps.map((step) => ({
+          index: step.index,
+          kind: step.kind,
+          text: step.text,
+        })),
+        changed: [...reasoning.changed],
+      }
+    );
   }
 
   async task(taskId: TaskId): Promise<ReviewedTask | null> {

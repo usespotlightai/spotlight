@@ -1,31 +1,20 @@
 import { InvalidPullRequestFilterError } from '@insights/domain/exceptions/invalid-pull-request-filter.error';
-import { byText } from '@insights/domain/services/measures';
-import {
-  comparedRepositoriesOf,
-  sameRepository,
-  weekWindowOf,
-} from '@insights/domain/services/pull-request-insights';
+import { weekWindowOf } from '@insights/domain/services/pull-request-insights';
 import {
   PULL_REQUEST_AUTHORS,
   type PullRequestAuthor,
   ROUND_BUCKETS,
   type RoundBucket,
-  reverted,
-  roundBucketOf,
-  type TeamPullRequest,
 } from '@insights/domain/services/team-pull-requests';
+import { type Window } from '@insights/domain/value-objects/insights-period.vo';
 import {
-  type Window,
-  within,
-} from '@insights/domain/value-objects/insights-period.vo';
+  PULL_REQUEST_STATES,
+  type PullRequestState,
+} from '@insights/domain/value-objects/pull-request-state';
 import {
   PULL_REQUEST_TYPES,
   type PullRequestType,
 } from '@insights/domain/value-objects/pull-request-type';
-import {
-  TASK_PULL_REQUEST_STATES,
-  type TaskPullRequestState,
-} from '@insights/domain/value-objects/task-pull-request-state';
 
 export const MAX_FILTERED_REPOSITORIES = 50;
 
@@ -46,7 +35,7 @@ export interface PullRequestFilter {
   readonly repositories: readonly string[] | null;
   readonly author: PullRequestAuthor | null;
   readonly type: PullRequestType | null;
-  readonly state: TaskPullRequestState | null;
+  readonly state: PullRequestState | null;
   readonly week: Window | null;
   readonly reverted: boolean;
   readonly rounds: RoundBucket | null;
@@ -128,73 +117,9 @@ export const pullRequestFilterOf = (
   repositories: repositoriesOf(query.repository),
   author: oneOf(PULL_REQUEST_AUTHORS, query.author, 'author'),
   type: oneOf(PULL_REQUEST_TYPES, query.type, 'type'),
-  state: oneOf(TASK_PULL_REQUEST_STATES, query.state, 'state'),
+  state: oneOf(PULL_REQUEST_STATES, query.state, 'state'),
   week: weekOf(query.week),
   reverted: flagOf(query.reverted, 'reverted'),
   rounds: oneOf(ROUND_BUCKETS, query.rounds, 'count of review rounds'),
   compared: flagOf(query.compared, 'compared'),
 });
-
-const activeWithin = (each: TeamPullRequest, window: Window): boolean =>
-  within(window, each.seen.openedAt) ||
-  within(window, each.seen.closedAt) ||
-  (each.seen.state === 'open' &&
-    each.seen.openedAt.getTime() < window.to.getTime());
-
-const inState = (
-  each: TeamPullRequest,
-  state: TaskPullRequestState | null,
-  window: Window,
-): boolean => {
-  if (state === null) {
-    return activeWithin(each, window);
-  }
-
-  if (state === 'open') {
-    return (
-      each.seen.state === 'open' &&
-      each.seen.openedAt.getTime() < window.to.getTime()
-    );
-  }
-
-  return each.seen.state === state && within(window, each.seen.closedAt);
-};
-
-const lastAt = (each: TeamPullRequest): number =>
-  (each.seen.closedAt ?? each.seen.openedAt).getTime();
-
-const inAny = (
-  each: TeamPullRequest,
-  repositories: readonly string[] | null,
-): boolean =>
-  repositories === null ||
-  repositories.some((repository) =>
-    sameRepository(repository, each.seen.repository),
-  );
-
-export const filteredPullRequests = (
-  pullRequests: readonly TeamPullRequest[],
-  filter: PullRequestFilter,
-  window: Window,
-): readonly TeamPullRequest[] => {
-  const compared = filter.compared
-    ? comparedRepositoriesOf(pullRequests, window)
-    : null;
-
-  return pullRequests
-    .filter(
-      (each) =>
-        inState(each, filter.state, window) &&
-        (filter.week === null || within(filter.week, each.seen.closedAt)) &&
-        inAny(each, filter.repositories) &&
-        inAny(each, compared) &&
-        (filter.author === null || each.by === filter.author) &&
-        (filter.type === null || each.type === filter.type) &&
-        (!filter.reverted || reverted(each)) &&
-        (filter.rounds === null ||
-          roundBucketOf(each.seen.reviewRounds) === filter.rounds),
-    )
-    .sort(
-      (a, b) => lastAt(b) - lastAt(a) || byText(a.pullRequest, b.pullRequest),
-    );
-};

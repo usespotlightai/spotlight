@@ -1,13 +1,11 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type {
-  ReplayedStation,
-  ReplaySet,
-} from '@replays/domain/aggregates/replay-set.aggregate';
+import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import { SearchCandidatePicked } from '@replays/domain/events/search-candidate-picked.event';
+import { SearchDeleted } from '@replays/domain/events/search-deleted.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
 import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
 import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import { SearchPickDeclined } from '@replays/domain/events/search-pick-declined.event';
+import { SearchReplaysPlanned } from '@replays/domain/events/search-replays-planned.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
@@ -20,7 +18,7 @@ import { UnknownSearchTaskError } from '@replays/domain/exceptions/unknown-searc
 import { frontierOf } from '@replays/domain/services/frontier';
 import type { ReplayCharge } from '@replays/domain/services/replay-charge';
 import { rankedOf } from '@replays/domain/services/search-ranking';
-import { scoresOf } from '@replays/domain/services/search-scores';
+import type { SearchScores } from '@replays/domain/services/search-scores';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { FailureCause } from '@replays/domain/value-objects/failure-cause.vo';
@@ -61,12 +59,14 @@ import type {
   SearchStopReason,
 } from '@replays/domain/value-objects/search-stop-reason';
 import type { SearchTrigger } from '@replays/domain/value-objects/search-trigger';
+import type { SetSnapshot } from '@replays/domain/value-objects/set-snapshot.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -94,7 +94,19 @@ export interface SeedCandidate {
   readonly id: CandidateId;
   readonly isLive: boolean;
   readonly fingerprint: StationFingerprint;
-  isFor(stationId: string): boolean;
+  isFor(stationId: StationId): boolean;
+}
+
+export interface SearchReplayTerms {
+  readonly replayId: ReplayId;
+  readonly candidateId: CandidateId;
+  readonly baseline: boolean;
+  readonly calibration: boolean;
+  readonly ceiling: Money;
+  readonly unpricedRate: Money;
+  readonly repeats: number;
+  readonly runSubset: readonly RunId[] | null;
+  readonly pairwiseReferenceId: ReplayId | null;
 }
 
 export interface RunEnding {
@@ -160,7 +172,7 @@ export class Search extends EventRecorder {
 
   static start(input: {
     id: SearchId;
-    set: ReplaySet;
+    set: SetSnapshot;
     agent: SearchAgent | null;
     budget: SearchBudget;
     objective: SearchObjective;
@@ -215,7 +227,7 @@ export class Search extends EventRecorder {
       seed: {
         candidateId: seed.candidate.id,
         fingerprint: seed.candidate.fingerprint,
-        replay: SearchReplay.started(seed.replayId),
+        replay: SearchReplay.planned(seed.replayId),
       },
       iterations: [],
       requests: [...input.requests],
@@ -247,6 +259,9 @@ export class Search extends EventRecorder {
           }),
         ),
       ),
+    );
+    started.record(
+      new SearchReplaysPlanned(input.id, set.workspaceId, [seed.replayId]),
     );
 
     return started;
@@ -420,6 +435,14 @@ export class Search extends EventRecorder {
       );
   }
 
+  requestedAs(requester: UserId, name: CandidateName): readonly CandidateId[] {
+    return this.requested
+      .filter(
+        (each) => each.requestedBy.equals(requester) && each.name.equals(name),
+      )
+      .map((each) => each.candidateId);
+  }
+
   get requested(): readonly {
     readonly candidateId: CandidateId;
     readonly name: CandidateName;
@@ -517,6 +540,10 @@ export class Search extends EventRecorder {
     return last?.ownsActiveRun ? last.runId : null;
   }
 
+  get budgetLeft(): Money {
+    return this.spent.leftUnder(this.state.budget.ceiling);
+  }
+
   get spent(): Money {
     const ceiling = this.state.budget.ceiling;
     const ceilingSplit = this.ceilingSplit;
@@ -608,6 +635,49 @@ export class Search extends EventRecorder {
       .map((each) => each.replayId);
   }
 
+  get replaysAwaitingStart(): readonly ReplayId[] {
+    return this.replays
+      .filter((each) => each.awaitsStart)
+      .map((each) => each.replayId);
+  }
+
+  plannedReplay(replayId: ReplayId): SearchReplayTerms | null {
+    const { seed, split, budget, calibrates } = this.state;
+    const ceilings = this.ceilingSplit;
+
+    if (seed.replay.is(replayId)) {
+      return {
+        replayId,
+        candidateId: seed.candidateId,
+        baseline: true,
+        calibration: calibrates,
+        ceiling: ceilings.seed,
+        unpricedRate: ceilings.perRun,
+        repeats: budget.seedRepeats(calibrates),
+        runSubset: null,
+        pairwiseReferenceId: null,
+      };
+    }
+
+    const searched = this.proposals.find((each) => each.replay.is(replayId));
+    const heldOut = this.state.heldOut.find((each) => each.replay.is(replayId));
+    const compared = searched ?? heldOut;
+
+    return compared
+      ? {
+          replayId,
+          candidateId: compared.candidateId,
+          baseline: false,
+          calibration: false,
+          ceiling: searched ? ceilings.searchReplay : ceilings.heldOutReplay,
+          unpricedRate: ceilings.perRun,
+          repeats: budget.repeats,
+          runSubset: searched ? split.searchedRuns : split.heldOutRuns,
+          pairwiseReferenceId: seed.replay.replayId,
+        }
+      : null;
+  }
+
   acceptProposal(run: RunId, proposal: AcceptedProposal): Search {
     const iteration = this.proposingIn(run);
 
@@ -623,12 +693,12 @@ export class Search extends EventRecorder {
         SearchProposal.of({
           candidateId: proposal.candidateId,
           name: proposal.name,
-          replay: SearchReplay.started(proposal.replayId),
+          replay: SearchReplay.planned(proposal.replayId),
           improved: null,
           requestedBy: null,
         }),
       ),
-    );
+    ).planning([proposal.replayId]);
   }
 
   request(request: SearchRequest): Search {
@@ -658,24 +728,25 @@ export class Search extends EventRecorder {
       );
     }
 
-    const taken = last.taken(
-      this.state.requests.map((each) =>
-        SearchProposal.of({
-          candidateId: each.candidateId,
-          name: each.name,
-          replay: SearchReplay.started(replayIds()),
-          improved: null,
-          requestedBy: each.requestedBy,
-        }),
-      ),
+    const proposals = this.state.requests.map((each) =>
+      SearchProposal.of({
+        candidateId: each.candidateId,
+        name: each.name,
+        replay: SearchReplay.planned(replayIds()),
+        improved: null,
+        requestedBy: each.requestedBy,
+      }),
     );
+    const taken = last.taken(proposals);
 
     return this.with({
       iterations: this.state.iterations.map((each) =>
         each === last ? taken : each,
       ),
       requests: [],
-    }).advancedAt(at, runIds);
+    })
+      .planning(proposals.map((each) => each.replay.replayId))
+      .advancedAt(at, runIds);
   }
 
   reflectingOn(
@@ -828,9 +899,37 @@ export class Search extends EventRecorder {
       : this;
   }
 
+  replayStarted(replayId: ReplayId): Search {
+    const { seed } = this.state;
+    const seedReplay = seed.replay.is(replayId)
+      ? seed.replay.asStarted()
+      : seed.replay;
+    const heldOut = this.state.heldOut.map((each) => {
+      const replay = each.replay.is(replayId)
+        ? each.replay.asStarted()
+        : each.replay;
+
+      return replay === each.replay ? each : { ...each, replay };
+    });
+    const iterations = this.state.iterations.map((each) =>
+      each.replayStarted(replayId),
+    );
+    const changed =
+      seedReplay !== seed.replay ||
+      heldOut.some((each, place) => each !== this.state.heldOut[place]) ||
+      iterations.some((each, place) => each !== this.state.iterations[place]);
+
+    return changed
+      ? this.with({
+          seed: { ...seed, replay: seedReplay },
+          heldOut,
+          iterations,
+        })
+      : this;
+  }
+
   heldOutFrom(
-    replays: readonly Replay[],
-    minGain: number,
+    scores: SearchScores,
     replayIds: () => ReplayId,
     at: Date,
   ): Search {
@@ -839,8 +938,15 @@ export class Search extends EventRecorder {
         'can hold out its candidates only once, after searching stops',
       );
     }
+    if (
+      !scores.seed.candidateId.equals(this.state.seed.candidateId) ||
+      !scores.seed.replayId.equals(this.state.seed.replay.replayId)
+    ) {
+      throw new InvalidSearchError(
+        'holds out by the scores of its own replays',
+      );
+    }
 
-    const scores = scoresOf(this, replays, minGain);
     const { objective } = this.state;
     const chosen = rankedOf(
       frontierOf([scores.seed, ...scores.candidates], objective).filter(
@@ -857,12 +963,14 @@ export class Search extends EventRecorder {
       objective,
     ).slice(0, this.state.budget.perIteration);
 
-    return this.with({
-      heldOut: chosen.map((each) => ({
-        candidateId: each.candidateId,
-        replay: SearchReplay.started(replayIds()),
-      })),
-    }).heldOutAt(at);
+    const heldOut = chosen.map((each) => ({
+      candidateId: each.candidateId,
+      replay: SearchReplay.planned(replayIds()),
+    }));
+
+    return this.with({ heldOut })
+      .planning(heldOut.map((each) => each.replay.replayId))
+      .heldOutAt(at);
   }
 
   turnOff(at: Date): Search {
@@ -913,6 +1021,9 @@ export class Search extends EventRecorder {
     const deleted = new Search(this.state, true);
 
     deleted.inheritEvents(this);
+    deleted.record(
+      new SearchDeleted(this.id, this.workspaceId, this.activeRun),
+    );
 
     return deleted;
   }
@@ -1155,6 +1266,16 @@ export class Search extends EventRecorder {
     );
 
     return ended;
+  }
+
+  private planning(replayIds: readonly ReplayId[]): Search {
+    if (replayIds.length > 0) {
+      this.record(
+        new SearchReplaysPlanned(this.id, this.workspaceId, replayIds),
+      );
+    }
+
+    return this;
   }
 
   private get droppedRequests(): Pick<State, 'requests' | 'dropped'> {

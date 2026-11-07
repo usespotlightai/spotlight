@@ -1,6 +1,8 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   ChatToolContext,
@@ -21,8 +23,6 @@ import {
   TEST_STATION_CHANGE,
 } from '@work/domain/services/built-in-tools';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it } from 'vitest';
 

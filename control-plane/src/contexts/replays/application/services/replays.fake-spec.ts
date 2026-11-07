@@ -1,12 +1,7 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
-import type {
-  InsightsPort,
-  JudgingAgainOrdered,
-  JudgingOrder,
-  JudgingOrdered,
-  SideBySideJudgingOrder,
-} from '@replays/application/ports/insights.port';
+import type { InsightsPort } from '@replays/application/ports/insights.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
+import type { ReplaysReaderPort } from '@replays/application/ports/replays-reader.port';
 import type {
   AgentProblem,
   CancelledRun,
@@ -25,19 +20,23 @@ import type {
   ValidatedCandidate,
   WorkPort,
 } from '@replays/application/ports/work.port';
-import { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
-import { RefreshKeptSets } from '@replays/application/services/refresh-kept-sets.service';
+import { LiveCandidates } from '@replays/application/services/live-candidates.service';
+import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
 import { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import { SetUsage } from '@replays/application/services/set-usage.service';
+import { StartSearchReplays } from '@replays/application/services/start-search-replays.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-request.aggregate';
+import { LineSearchBudget } from '@replays/domain/aggregates/line-search-budget.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
+import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
-import { ConfigPullRequestOpenAtStationError } from '@replays/domain/exceptions/config-pull-request-open-at-station.error';
+import type { SearchReplaysPlanned } from '@replays/domain/events/search-replays-planned.event';
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
+import { LineSearchBudgetVersionConflictError } from '@replays/domain/exceptions/line-search-budget-version-conflict.error';
+import { ReplayCheckVersionConflictError } from '@replays/domain/exceptions/replay-check-version-conflict.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import { StationSearchScheduleVersionConflictError } from '@replays/domain/exceptions/station-search-schedule-version-conflict.error';
 import {
@@ -51,6 +50,7 @@ import {
 } from '@replays/domain/replays.fake-spec';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
+import type { LineSearchBudgetRepository } from '@replays/domain/repositories/line-search-budget.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
@@ -58,10 +58,8 @@ import type { SearchRepository } from '@replays/domain/repositories/search.repos
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
 import { baselineOf } from '@replays/domain/services/baseline';
 import type { OriginalOutcome } from '@replays/domain/services/composition';
-import { isDueForRefresh } from '@replays/domain/services/kept-set-refresh';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { StackStatus } from '@replays/domain/value-objects/change-checks.vo';
-import type { ConfigPullRequestState } from '@replays/domain/value-objects/config-pull-request-state';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -75,12 +73,14 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { Actor } from '@shared-kernel/domain/value-objects/actor.vo';
 import { actorFor } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import {
   PersonPrincipal,
   type Principal,
 } from '@shared-kernel/domain/value-objects/principal.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -105,11 +105,125 @@ export class InMemoryReplays {
   readonly replays = new Map<string, Replay>();
   readonly searches = new Map<string, Search>();
   readonly schedules = new Map<string, StationSearchSchedule>();
+  readonly budgets = new Map<string, LineSearchBudget>();
   readonly events: DomainEvent[] = [];
 
+  startsPlannedReplays = false;
+
+  private async searchRaised(events: readonly DomainEvent[]): Promise<void> {
+    this.events.push(...events);
+
+    for (const each of events) {
+      if (
+        this.startsPlannedReplays &&
+        each.kind === 'replays.search-replays-planned'
+      ) {
+        await new StartSearchReplays(
+          this.searchRepository,
+          this.replayRepository,
+          this.candidateRepository,
+          this.setRepository,
+          CLOCK,
+          TRANSACTION,
+        ).planned(each as SearchReplaysPlanned);
+      }
+    }
+  }
+
+  readerOver(
+    pullRequests: InMemoryConfigPullRequests = new InMemoryConfigPullRequests(),
+  ): ReplaysReaderPort {
+    const replays = () => [...this.replays.values()];
+
+    return {
+      startedOfTeamSince: async (teamId, since, max) =>
+        replays()
+          .filter(
+            (each) =>
+              each.teamId.equals(teamId) &&
+              each.startedAt.getTime() >= since.getTime(),
+          )
+          .sort(
+            (one, other) =>
+              other.startedAt.getTime() - one.startedAt.getTime() ||
+              (one.id.value < other.id.value ? 1 : -1),
+          )
+          .slice(0, max),
+      ofSearches: async (searchIds) =>
+        replays().filter((each) =>
+          searchIds.some((id) => each.searchId?.equals(id) ?? false),
+        ),
+      baselinesOfSets: async (setIds) =>
+        setIds.flatMap((id) => {
+          const found = baselineOf(
+            replays().filter((each) => each.setId.equals(id)),
+          );
+          return found ? [found] : [];
+        }),
+      healthSamplesOfSets: async (setIds) =>
+        replays().filter(
+          (each) =>
+            each.isHealthSample && setIds.some((id) => each.setId.equals(id)),
+        ),
+      searchesOfSetsStartedSince: async (setIds, since) =>
+        [...this.searches.values()].filter(
+          (each) =>
+            setIds.some((id) => each.setId.equals(id)) &&
+            each.startedAt.getTime() >= since.getTime(),
+        ),
+      configPullRequestsOfSearches: async (searchIds) =>
+        [...pullRequests.stored.values()].filter((each) =>
+          searchIds.some((id) => id.value === each.searchId.value),
+        ),
+    };
+  }
+
+  get replaysReader(): ReplaysReaderPort {
+    return this.readerOver();
+  }
+
+  private budgetKey(budget: { lineId: { value: string }; month: Date }) {
+    return `${budget.lineId.value}:${budget.month.toISOString()}`;
+  }
+
+  readonly budgetRepository: LineSearchBudgetRepository = {
+    locked: async (lineId, month) =>
+      this.budgets.get(this.budgetKey({ lineId, month })) ?? null,
+    ofTeam: async (teamId) =>
+      [...this.budgets.values()].filter((each) => each.teamId.equals(teamId)),
+    add: async (budget) => {
+      if (this.budgets.has(this.budgetKey(budget))) {
+        throw new LineSearchBudgetVersionConflictError(budget.lineId);
+      }
+      this.budgets.set(this.budgetKey(budget), budget);
+    },
+    save: async (budget) => {
+      if (
+        this.budgets.get(this.budgetKey(budget))?.version !== budget.version
+      ) {
+        throw new LineSearchBudgetVersionConflictError(budget.lineId);
+      }
+      if (budget.isDeleted) {
+        this.budgets.delete(this.budgetKey(budget));
+      } else {
+        this.budgets.set(
+          this.budgetKey(budget),
+          LineSearchBudget.rehydrate({
+            lineId: budget.lineId,
+            month: budget.month,
+            workspaceId: budget.workspaceId,
+            teamId: budget.teamId,
+            admissions: budget.admissions,
+            version: budget.version + 1,
+          }),
+        );
+      }
+    },
+  };
+
   readonly scheduleRepository: StationSearchScheduleRepository = {
-    ofStation: async (stationId) => this.schedules.get(stationId) ?? null,
-    locked: async (stationId) => this.schedules.get(stationId) ?? null,
+    ofStation: async (stationId) => this.schedules.get(stationId.value) ?? null,
+    locked: async (stationId) => this.schedules.get(stationId.value) ?? null,
     ofSet: async (setId) =>
       [...this.schedules.values()].find((each) => each.setId.equals(setId)) ??
       null,
@@ -119,30 +233,31 @@ export class InMemoryReplays {
         .slice(0, limit)
         .map((each) => each.stationId),
     ofLine: async (lineId) =>
-      [...this.schedules.values()].filter(
-        (each) => each.station.lineId === lineId,
+      [...this.schedules.values()].filter((each) =>
+        each.station.lineId.equals(lineId),
       ),
     ofTeam: async (teamId) =>
       [...this.schedules.values()].filter((each) => each.teamId.equals(teamId)),
     add: async (schedule) => {
       this.events.push(...schedule.pullEvents());
-      if (!this.schedules.has(schedule.stationId)) {
-        this.schedules.set(schedule.stationId, schedule);
+      if (!this.schedules.has(schedule.stationId.value)) {
+        this.schedules.set(schedule.stationId.value, schedule);
       }
     },
     save: async (schedule) => {
       if (
-        this.schedules.get(schedule.stationId)?.version !== schedule.version
+        this.schedules.get(schedule.stationId.value)?.version !==
+        schedule.version
       ) {
         throw new StationSearchScheduleVersionConflictError(schedule.stationId);
       }
 
       this.events.push(...schedule.pullEvents());
       if (schedule.isDeleted) {
-        this.schedules.delete(schedule.stationId);
+        this.schedules.delete(schedule.stationId.value);
       } else {
         this.schedules.set(
-          schedule.stationId,
+          schedule.stationId.value,
           StationSearchSchedule.rehydrate({
             station: schedule.station,
             setId: schedule.setId,
@@ -168,16 +283,19 @@ export class InMemoryReplays {
     ofStation: async (stationId) =>
       [...this.sets.values()].find((each) => each.isAtStation(stationId)) ??
       null,
-    dueForRefresh: async (cutoff, limit) =>
+    atLiveStationsRefreshedBefore: async (at) =>
       [...this.sets.values()]
-        .filter((each) => isDueForRefresh(each, cutoff))
+        .filter(
+          (each) =>
+            !each.isAtGoneStation &&
+            (each.refreshedAt === null || each.refreshedAt < at),
+        )
         .sort(
           (one, other) =>
             (one.refreshedAt?.getTime() ?? -1) -
               (other.refreshedAt?.getTime() ?? -1) ||
             one.id.value.localeCompare(other.id.value),
-        )
-        .slice(0, limit),
+        ),
     add: async (set) => {
       this.events.push(...set.pullEvents());
       this.sets.set(set.id.value, set);
@@ -189,7 +307,9 @@ export class InMemoryReplays {
         return found ? [found] : [];
       }),
     ofLine: async (lineId) =>
-      [...this.sets.values()].filter((each) => each.station.lineId === lineId),
+      [...this.sets.values()].filter((each) =>
+        each.station.lineId.equals(lineId),
+      ),
     ofTeam: async (teamId) =>
       [...this.sets.values()].filter((each) => each.teamId.equals(teamId)),
     save: async (set) => {
@@ -204,7 +324,6 @@ export class InMemoryReplays {
 
   readonly candidateRepository: CandidateRepository = {
     find: async (id: CandidateId) => this.candidates.get(id.value) ?? null,
-    locked: async (id: CandidateId) => this.candidates.get(id.value) ?? null,
     findMany: async (ids) =>
       ids.flatMap((id) => {
         const found = this.candidates.get(id.value);
@@ -228,6 +347,11 @@ export class InMemoryReplays {
 
   readonly replayRepository: ReplayRepository = {
     find: async (id: ReplayId) => this.replays.get(id.value) ?? null,
+    findMany: async (ids) =>
+      ids.flatMap((id) => {
+        const found = this.replays.get(id.value);
+        return found ? [found] : [];
+      }),
     ranAs: async (run: RunId) =>
       [...this.replays.values()].find((each) => each.ran(run)) ?? null,
     ofSet: async (setId) =>
@@ -244,34 +368,6 @@ export class InMemoryReplays {
       [...this.replays.values()].filter(
         (each) => each.searchId?.equals(searchId) ?? false,
       ),
-    ofSearches: async (searchIds) =>
-      [...this.replays.values()].filter((each) =>
-        searchIds.some((id) => each.searchId?.equals(id) ?? false),
-      ),
-    baselinesOfSets: async (setIds) =>
-      setIds.flatMap((id) => {
-        const found = baselineOf(
-          [...this.replays.values()].filter((each) => each.setId.equals(id)),
-        );
-        return found ? [found] : [];
-      }),
-    healthReadOfSets: async (setIds) =>
-      [...this.replays.values()].filter((each) =>
-        setIds.some((id) => each.setId.equals(id)),
-      ),
-    ofTeamStartedSince: async (teamId, since, max) =>
-      [...this.replays.values()]
-        .filter(
-          (each) =>
-            each.teamId.equals(teamId) &&
-            each.startedAt.getTime() >= since.getTime(),
-        )
-        .sort(
-          (one, other) =>
-            other.startedAt.getTime() - one.startedAt.getTime() ||
-            (one.id.value < other.id.value ? 1 : -1),
-        )
-        .slice(0, max),
     teamsDispatching: async () => {
       const teams = new Map<string, TeamId>();
       for (const each of this.replays.values()) {
@@ -281,7 +377,7 @@ export class InMemoryReplays {
       }
       return [...teams.values()];
     },
-    inProgressOfTeamLocked: async (teamId) =>
+    inProgressOfTeam: async (teamId) =>
       [...this.replays.values()].filter(
         (each) => each.teamId.equals(teamId) && each.isInProgress,
       ),
@@ -313,22 +409,10 @@ export class InMemoryReplays {
         const found = this.searches.get(id.value);
         return found ? [found] : [];
       }),
-    ofSetsStartedSince: async (setIds, since) =>
-      [...this.searches.values()].filter(
-        (each) =>
-          setIds.some((id) => each.setId.equals(id)) &&
-          each.startedAt.getTime() >= since.getTime(),
-      ),
     ofLineStartedSince: async (lineId, since) =>
       [...this.searches.values()].filter(
         (each) =>
-          each.station.lineId === lineId &&
-          each.startedAt.getTime() >= since.getTime(),
-      ),
-    lockedOfLineStartedSince: async (lineId, since) =>
-      [...this.searches.values()].filter(
-        (each) =>
-          each.station.lineId === lineId &&
+          each.station.lineId.equals(lineId) &&
           each.startedAt.getTime() >= since.getTime(),
       ),
     ranAs: async (run) =>
@@ -337,15 +421,15 @@ export class InMemoryReplays {
       ) ?? null,
     activeAtStation: async (stationId) =>
       [...this.searches.values()].find(
-        (each) => each.isActive && each.station.stationId === stationId,
+        (each) => each.isActive && each.station.stationId.equals(stationId),
       ) ?? null,
     activeOfLine: async (lineId) =>
       [...this.searches.values()].filter(
-        (each) => each.isActive && each.station.lineId === lineId,
+        (each) => each.isActive && each.station.lineId.equals(lineId),
       ),
     newestAtStation: async (stationId) =>
       [...this.searches.values()]
-        .filter((each) => each.station.stationId === stationId)
+        .filter((each) => each.station.stationId.equals(stationId))
         .sort(
           (one, other) => other.startedAt.getTime() - one.startedAt.getTime(),
         )[0] ?? null,
@@ -354,8 +438,8 @@ export class InMemoryReplays {
         (each) => each.isActive && each.setId.equals(setId),
       ) ?? null,
     ofStation: async (stationId) =>
-      [...this.searches.values()].filter(
-        (each) => each.station.stationId === stationId,
+      [...this.searches.values()].filter((each) =>
+        each.station.stationId.equals(stationId),
       ),
     ofTeam: async (teamId) =>
       [...this.searches.values()].filter((each) => each.teamId.equals(teamId)),
@@ -364,23 +448,23 @@ export class InMemoryReplays {
         (each) =>
           each.isActive ||
           each.iterations.some((iteration) => iteration.agentSpent === null) ||
-          [...this.replays.values()].some(
-            (replay) =>
-              (replay.searchId?.equals(each.id) ?? false) &&
-              replay.isDispatching,
-          ),
+          each.unendedReplays.length > 0,
       ),
     add: async (search) => {
-      this.events.push(...search.pullEvents());
+      const raised = search.pullEvents();
+
       this.searches.set(search.id.value, search);
+      await this.searchRaised(raised);
     },
     save: async (search) => {
-      this.events.push(...search.pullEvents());
+      const raised = search.pullEvents();
+
       if (search.isDeleted) {
         this.searches.delete(search.id.value);
       } else {
         this.searches.set(search.id.value, search);
       }
+      await this.searchRaised(raised);
     },
   };
 }
@@ -392,16 +476,17 @@ export class FakeWork implements WorkPort {
   readonly startingPointHolds = new Map<string, readonly string[]>();
   unqueued: ReplayRunQueued | null = null;
 
-  station = async (lineId: string, stationId: string) =>
-    lineId === STATION_VIEW.lineId && stationId === STATION_VIEW.stationId
+  station = async (lineId: LineId, stationId: StationId) =>
+    lineId.equals(STATION_VIEW.lineId) &&
+    stationId.equals(STATION_VIEW.stationId)
       ? STATION_VIEW
       : null;
 
-  findStation = async (stationId: string) =>
-    stationId === STATION_VIEW.stationId ? STATION_VIEW : null;
+  findStation = async (stationId: StationId) =>
+    stationId.equals(STATION_VIEW.stationId) ? STATION_VIEW : null;
 
-  keyed = async (lineId: string, key: string) =>
-    lineId === STATION_VIEW.lineId && key === STATION_VIEW.key
+  keyed = async (lineId: LineId, key: string) =>
+    lineId.equals(STATION_VIEW.lineId) && key === STATION_VIEW.key
       ? STATION_VIEW
       : null;
 
@@ -436,8 +521,8 @@ export class FakeWork implements WorkPort {
   };
 
   validate = async (
-    _line: string,
-    _station: string,
+    _line: LineId,
+    _station: StationId,
     block: unknown,
     _planned?: PlannedLine | null,
   ): Promise<ValidatedCandidate> => ({
@@ -589,17 +674,6 @@ export class FakeChangeReview implements ChangeReviewPort {
 export class FakeInsights implements InsightsPort {
   readonly accepted = new Set<string>();
   readonly sentBack = new Set<string>();
-  readonly judgingRequests: JudgingOrder[] = [];
-  readonly rejudgingRequests: string[] = [];
-  readonly sideBySideJudgingRequests: SideBySideJudgingOrder[] = [];
-  answer: JudgingOrdered = 'requested';
-  pairAnswer: JudgingOrdered = 'requested';
-  againAnswer: JudgingAgainOrdered = 'requested';
-
-  async judgeAgain(run: RunId): Promise<JudgingAgainOrdered> {
-    this.rejudgingRequests.push(run.value);
-    return this.againAnswer;
-  }
 
   async acceptedAfter(run: RunId): Promise<boolean> {
     return this.accepted.has(run.value);
@@ -610,18 +684,6 @@ export class FakeInsights implements InsightsPort {
       ...[...this.accepted].map((run) => [run, 'accepted'] as const),
       ...[...this.sentBack].map((run) => [run, 'sent-back'] as const),
     ]);
-  }
-
-  async judge(order: JudgingOrder): Promise<JudgingOrdered> {
-    this.judgingRequests.push(order);
-    return this.answer;
-  }
-
-  async judgeSideBySide(
-    order: SideBySideJudgingOrder,
-  ): Promise<JudgingOrdered> {
-    this.sideBySideJudgingRequests.push(order);
-    return this.pairAnswer;
   }
 }
 
@@ -662,7 +724,7 @@ export const refreshingFor = (
   work: FakeWork,
   insights: InsightsPort = new FakeInsights(),
 ) =>
-  new RefreshKeptSets(
+  new RefreshReplaySets(
     memory.setRepository,
     memory.searchRepository,
     usageFor(memory),
@@ -678,7 +740,7 @@ export const snapshotsFor = (
   work: FakeWork,
   mayPlan: boolean | null = true,
 ) =>
-  new LiveSnapshots(
+  new LiveCandidates(
     peopleWho(mayPlan),
     work,
     memory.candidateRepository,
@@ -715,10 +777,11 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
     );
   }
 
-  async ofSearches(searchIds: readonly { value: string }[]) {
-    return [...this.stored.values()].filter((each) =>
-      searchIds.some((id) => id.value === each.searchId.value),
-    );
+  async findMany(ids: readonly { value: string }[]) {
+    return ids.flatMap((id) => {
+      const found = this.stored.get(id.value);
+      return found ? [found] : [];
+    });
   }
 
   async ofTeam(teamId: { value: string }) {
@@ -727,26 +790,9 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
     );
   }
 
-  async newestAtStation(
-    stationId: string,
-    states: readonly ConfigPullRequestState[],
-  ) {
-    return (
-      [...this.stored.values()]
-        .filter(
-          (each) =>
-            each.station.stationId === stationId &&
-            states.includes(each.current),
-        )
-        .sort(
-          (one, other) => other.updatedAt.getTime() - one.updatedAt.getTime(),
-        )[0] ?? null
-    );
-  }
-
-  async openAtStation(stationId: string) {
+  async openAtStation(stationId: StationId) {
     return [...this.stored.values()].some(
-      (each) => each.station.stationId === stationId && each.isOpen,
+      (each) => each.station.stationId.equals(stationId) && each.isOpen,
     );
   }
 
@@ -759,8 +805,8 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
         (each) =>
           each.workspaceId.value === workspaceId.value &&
           (key.gitHubId === null
-            ? each.repository?.toLowerCase() === key.repository.toLowerCase() &&
-              each.number === key.number
+            ? each.repository?.value.toLowerCase() ===
+                key.repository.toLowerCase() && each.number === key.number
             : each.gitHubId === key.gitHubId),
       ) ?? null
     );
@@ -777,9 +823,9 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
       .slice(0, limit);
   }
 
-  async openedOnLine(lineId: string) {
+  async openedOnLine(lineId: LineId) {
     return [...this.stored.values()].filter(
-      (each) => each.station.lineId === lineId && each.current === 'opened',
+      (each) => each.station.lineId.equals(lineId) && each.current === 'opened',
     );
   }
 
@@ -790,19 +836,15 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
   }
 
   async add(added: ConfigPullRequest) {
-    const existing = await this.forCandidate(added.searchId, added.candidateId);
-
-    if (existing) {
-      return existing;
-    }
-    if (added.isOpen && (await this.openAtStation(added.station.stationId))) {
-      throw new ConfigPullRequestOpenAtStationError(added.station.stationId);
+    if (
+      (await this.forCandidate(added.searchId, added.candidateId)) ||
+      (added.isOpen && (await this.openAtStation(added.station.stationId)))
+    ) {
+      throw new ConfigPullRequestVersionConflictError(added.id.value);
     }
 
     this.events.push(...added.pullEvents());
     this.stored.set(added.id.value, added);
-
-    return added;
   }
 
   async save(saved: ConfigPullRequest) {
@@ -860,13 +902,13 @@ export class InMemoryChecks implements ReplayCheckRepository {
   find = async (id: { value: string }) => this.stored.get(id.value) ?? null;
 
   matching = async (
-    stationId: string,
+    stationId: StationId,
     candidate: StationHashes,
     live: StationHashes,
   ) =>
     [...this.stored.values()].filter(
       (each) =>
-        each.station.stationId === stationId &&
+        each.station.stationId.equals(stationId) &&
         each.candidateHashes.behaviour === candidate.behaviour &&
         each.liveHashes.scoring === live.scoring,
     );
@@ -903,10 +945,39 @@ export class InMemoryChecks implements ReplayCheckRepository {
   };
 
   save = async (check: ReplayCheck) => {
+    if (this.stored.get(check.id.value)?.version !== check.version) {
+      throw new ReplayCheckVersionConflictError(check.id.value);
+    }
+
+    this.events.push(...check.pullEvents());
+
     if (check.isDeleted) {
       this.stored.delete(check.id.value);
     } else {
-      this.stored.set(check.id.value, check);
+      this.stored.set(
+        check.id.value,
+        ReplayCheck.rehydrate({
+          id: check.id,
+          station: check.station,
+          stationKey: check.stationKey,
+          setId: check.setId,
+          setEntries: check.setEntries,
+          attempt: check.attempt,
+          candidateId: check.candidateId,
+          replayId: check.replayId,
+          reference: check.reference,
+          liveFingerprint: check.liveFingerprint,
+          candidateFingerprint: check.candidateFingerprint,
+          liveHashes: check.liveHashes,
+          candidateHashes: check.candidateHashes,
+          threshold: check.threshold,
+          repeats: check.repeats,
+          scoringPinnedToLive: check.scoringPinnedToLive,
+          baseline: check.baseline,
+          createdAt: check.createdAt,
+          version: check.version + 1,
+        }),
+      );
     }
   };
 }

@@ -16,7 +16,7 @@ import {
 } from '@github/infrastructure/github/pull-request-lines';
 import type { LinkedAccountsPort } from '@identity/application/ports/linked-accounts.port';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 
 interface Posted {
   readonly id: number;
@@ -71,10 +71,9 @@ const userAnswered = async <T>(
 };
 
 const located = (on: OnPullRequest): { repo: string; number: number } => {
-  const repository = on.pullRequest.repository;
-  const number = Number(on.pullRequest.value.split('/').pop());
+  const { repository, number } = on.pullRequest;
 
-  if (!repository || !Number.isInteger(number)) {
+  if (!repository || number === null) {
     throw new InvalidPullRequestError(
       `at ${on.pullRequest.value} is not a GitHub pull request`,
     );
@@ -188,6 +187,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
       if (!inline || placed.length === 0) {
         return {
           githubId: review.id,
+          postedAs: event,
           comments: input.comments.map(() => null),
         };
       }
@@ -203,6 +203,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
 
       return {
         githubId: review.id,
+        postedAs: event,
         comments: input.comments.map((comment): OnGitHub | null => {
           if (!placed.includes(comment)) {
             return null;

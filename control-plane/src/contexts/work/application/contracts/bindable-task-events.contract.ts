@@ -7,6 +7,3 @@ export const BINDABLE_TASK_EVENTS = [
 ] as const;
 
 export type BindableTaskEvent = (typeof BINDABLE_TASK_EVENTS)[number];
-
-export const isBindableTaskEvent = (kind: string): kind is BindableTaskEvent =>
-  (BINDABLE_TASK_EVENTS as readonly string[]).includes(kind);

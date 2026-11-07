@@ -1,11 +1,15 @@
+import { TaskHumanActionsErased } from '@insights/domain/events/task-human-actions-erased.event';
+import { TaskOpeningRecorded } from '@insights/domain/events/task-opening-recorded.event';
 import type { InboxAsk } from '@insights/domain/value-objects/inbox-ask.vo';
 import type { TaskHumanAction } from '@insights/domain/value-objects/task-human-action.vo';
 import type { TaskOpening } from '@insights/domain/value-objects/task-opening.vo';
+import { EventRecorder } from '@shared-kernel/domain/event-recorder';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface InboxWait {
-  readonly stationId: string;
+  readonly stationId: StationId;
   readonly askedAt: Date;
   readonly answeredAt: Date | null;
   readonly answeredBy: string | null;
@@ -14,7 +18,7 @@ export interface InboxWait {
 const byTime = <T extends { readonly at: Date }>(one: T, other: T): number =>
   one.at.getTime() - other.at.getTime();
 
-export class TaskHumanActions {
+export class TaskHumanActions extends EventRecorder {
   private constructor(
     readonly taskId: TaskId,
     readonly workspaceId: WorkspaceId,
@@ -22,7 +26,9 @@ export class TaskHumanActions {
     readonly asks: readonly InboxAsk[],
     readonly actions: readonly TaskHumanAction[],
     readonly version: number,
-  ) {}
+  ) {
+    super();
+  }
 
   static empty(taskId: TaskId, workspaceId: WorkspaceId): TaskHumanActions {
     return new TaskHumanActions(taskId, workspaceId, null, [], [], 0);
@@ -57,7 +63,23 @@ export class TaskHumanActions {
   }
 
   recordOpen(opening: TaskOpening): TaskHumanActions {
-    return this.opening ? this : this.with({ opening });
+    if (this.opening) {
+      return this;
+    }
+
+    const opened = this.with({ opening });
+
+    opened.record(new TaskOpeningRecorded(this.taskId, this.workspaceId));
+
+    return opened;
+  }
+
+  erased(): TaskHumanActions {
+    const erased = this.with({});
+
+    erased.record(new TaskHumanActionsErased(this.taskId, this.workspaceId));
+
+    return erased;
   }
 
   asked(ask: InboxAsk): TaskHumanActions {
@@ -95,7 +117,7 @@ export class TaskHumanActions {
     asks?: readonly InboxAsk[];
     actions?: readonly TaskHumanAction[];
   }): TaskHumanActions {
-    return new TaskHumanActions(
+    const next = new TaskHumanActions(
       this.taskId,
       this.workspaceId,
       change.opening ?? this.opening,
@@ -103,5 +125,9 @@ export class TaskHumanActions {
       change.actions ?? this.actions,
       this.version,
     );
+
+    next.inheritEvents(this);
+
+    return next;
   }
 }

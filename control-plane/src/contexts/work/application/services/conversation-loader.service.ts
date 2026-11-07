@@ -1,23 +1,23 @@
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 
 export interface Conversing {
   readonly item: ConversationId;
   readonly task: Task;
-  readonly line: Line | null;
-  readonly station: StationName;
+  readonly line: LineMap | null;
+  readonly station: Station | null;
 }
 
 export class ConversationLoader {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
   ) {}
 
   async putTo(itemId: string, them: string): Promise<Conversing> {
@@ -34,7 +34,7 @@ export class ConversationLoader {
       item,
       task,
       line,
-      station: line?.stationAt(task.stationId)?.name ?? StationName.unknown(),
+      station: line?.stationAt(task.stationId) ?? null,
     };
   }
 }

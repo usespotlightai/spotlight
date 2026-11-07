@@ -7,6 +7,7 @@ import type {
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
+import { NotifyTask } from '@integrations/application/services/notify-task.service';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
 import { TaskNotices } from '@integrations/infrastructure/acl/task-notices.adapter';
@@ -20,6 +21,7 @@ import {
 import { noNetwork } from '@integrations/infrastructure/outbound/network-outbound.fake-spec';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
+import { WebInboxLinks } from '@integrations/infrastructure/web-inbox-links';
 import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
@@ -31,13 +33,15 @@ import {
   callAuthFor,
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
-import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import { describe, expect, it, vi } from 'vitest';
+
+const taskNotices = (...args: ConstructorParameters<typeof NotifyTask>) =>
+  new TaskNotices(new NotifyTask(...args));
 
 const expressions = new CelExpressionEngine();
 
@@ -143,7 +147,7 @@ const notifying = (
     ) => reply,
   );
 
-  const notifier = new TaskNotices(
+  const notifier = taskNotices(
     {
       ofTeam: vi.fn(async () => [defined(file)]),
     } as unknown as DefinedIntegrationsPort,
@@ -459,7 +463,7 @@ const uploading = (
   const sleep = vi.fn(async () => {});
   const warn = vi.fn();
 
-  const notifier = new TaskNotices(
+  const notifier = taskNotices(
     {
       ofTeam: vi.fn(async () => [defined(file)]),
     } as unknown as DefinedIntegrationsPort,
@@ -549,7 +553,7 @@ describe('TaskNotices uploads', () => {
     });
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({ error: { status: 500, output: '"OK"' } }),
-      'A service answered a task’s word with an error',
+      'A service answered a task notice with an error',
     );
   });
 
@@ -570,7 +574,7 @@ describe('TaskNotices uploads', () => {
           output: expect.stringContaining('invalid_blocks'),
         }),
       }),
-      'A service answered a task’s word with an error',
+      'A service answered a task notice with an error',
     );
   });
 
@@ -736,7 +740,7 @@ connection:
             'the check of the file shot.png was refused: {"ok":false,"error":"forbidden"}',
         },
       }),
-      'A service answered a task’s word with an error',
+      'A service answered a task notice with an error',
     );
   });
 
@@ -764,7 +768,7 @@ connection:
             'the file shot.png was not ready after 3 attempts: {"ok":true,"file":{}}',
         },
       }),
-      'A service answered a task’s word with an error',
+      'A service answered a task notice with an error',
     );
   });
 

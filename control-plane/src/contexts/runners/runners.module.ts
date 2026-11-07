@@ -15,14 +15,12 @@ import {
   RUNNERS_PROVIDERS,
 } from '@runners/runners.wiring';
 import { SecretsModule } from '@secrets/secrets.module';
-import { RUNNER_IDENTITY } from '@shared-kernel/application/ports/runner-identity.port';
 
 @Module({
   imports: [IdentityModule, SecretsModule],
   controllers: [...RUNNERS_CONTROLLERS],
   providers: [...RUNNERS_PROVIDERS],
   exports: [
-    RUNNER_IDENTITY,
     RUNNER_HEARTBEATS,
     RUNNER_READER,
     INSTALLER_ASSETS,

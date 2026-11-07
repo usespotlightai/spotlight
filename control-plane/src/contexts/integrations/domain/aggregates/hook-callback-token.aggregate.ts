@@ -1,3 +1,5 @@
+import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import type { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { CauseLink } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -8,12 +10,13 @@ interface CallbackTokenTarget {
   readonly tokenHash: TokenHash;
   readonly workspaceId: WorkspaceId;
   readonly taskId: TaskId;
-  readonly hook: string;
-  readonly firing: string | null;
+  readonly hook: HookKey;
+  readonly firing: HookFiringId | null;
 }
 
 interface Issued extends CallbackTokenTarget {
   readonly expiresAt: Date;
+  readonly version: number;
 }
 
 const LIFE_MS = 15 * 60 * 1000;
@@ -25,10 +28,18 @@ export class HookCallbackToken {
     return new HookCallbackToken({
       ...target,
       expiresAt: new Date(now.getTime() + LIFE_MS),
+      version: 0,
     });
   }
 
   static rehydrate(issued: Issued): HookCallbackToken {
+    if (!Number.isInteger(issued.version) || issued.version < 1) {
+      throw new InconsistentStateError(
+        'hook callback token',
+        `has an impossible version (${issued.version})`,
+      );
+    }
+
     if (Number.isNaN(issued.expiresAt.getTime())) {
       throw new InconsistentStateError(
         'hook callback token',
@@ -55,11 +66,11 @@ export class HookCallbackToken {
     return this.issued.taskId;
   }
 
-  get hook(): string {
+  get hook(): HookKey {
     return this.issued.hook;
   }
 
-  get firing(): string | null {
+  get firing(): HookFiringId | null {
     return this.issued.firing;
   }
 
@@ -67,11 +78,15 @@ export class HookCallbackToken {
     return this.issued.expiresAt;
   }
 
+  get version(): number {
+    return this.issued.version;
+  }
+
   get causeLink(): CauseLink {
     return {
       kind: 'callback',
-      key: `callback:${this.issued.hook}:${this.issued.taskId.value}`,
-      description: `a note by callback from the hook ${this.issued.hook}`,
+      key: `callback:${this.issued.hook.value}:${this.issued.taskId.value}`,
+      description: `a note by callback from the hook ${this.issued.hook.value}`,
     };
   }
 
@@ -87,7 +102,7 @@ export class HookCallbackToken {
     const { taskId, firing, hook } = this.issued;
 
     return idempotencyKey
-      ? `callback:${taskId.value}:${firing ?? hook}:${idempotencyKey}`
+      ? `callback:${taskId.value}:${firing?.value ?? hook.value}:${idempotencyKey}`
       : null;
   }
 }

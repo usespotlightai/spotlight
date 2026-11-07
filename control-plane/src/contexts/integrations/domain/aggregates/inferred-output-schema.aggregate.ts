@@ -1,4 +1,4 @@
-import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OutputShape } from '@integrations/domain/value-objects/output-shape.vo';
 import type { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -53,7 +53,7 @@ export class InferredOutputSchema {
   }
 
   get integration(): IntegrationKey {
-    return IntegrationKey.of(this.state.tool.value.split('.')[0] ?? '');
+    return this.state.tool.integration;
   }
 
   get shape(): OutputShape {

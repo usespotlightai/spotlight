@@ -1,5 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { Happening } from '@work/domain/value-objects/happening.vo';
+import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
 
 const PERSON = 'person';
 

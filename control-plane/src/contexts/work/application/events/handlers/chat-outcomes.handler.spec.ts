@@ -25,6 +25,7 @@ const IN_CHAT = RunSubject.chat(ChatId.of('chat_1'));
 
 const working = () =>
   Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_1'),

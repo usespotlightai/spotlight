@@ -51,8 +51,10 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -69,9 +71,11 @@ const IMAGE = 'ghcr.io/acme/runner:main';
 const WORKSPACE = WorkspaceId.of('ws_1');
 
 const idleSandbox = () =>
-  aSandbox({ workspaceId: WORKSPACE, hostId: HOST_ID, at: STARTED_AT })
-    .reported()
-    .releaseRun('run_1', STARTED_AT);
+  aSandbox({
+    workspaceId: WORKSPACE,
+    hostId: HOST_ID,
+    at: STARTED_AT,
+  }).releaseRun(RunId.of('run_1'), STARTED_AT);
 
 const PLATFORM: PlatformEgressSettings = {
   url: EgressUrl.of('https://egress.usespotlight.ai'),
@@ -94,15 +98,18 @@ const running = (
     sandboxes?: readonly Sandbox[];
   } = {},
 ) => {
-  const known = input.host === undefined ? aHost() : input.host;
+  const known =
+    input.host === undefined
+      ? aHost({ sandboxes: ['sandbox_1', 'sandbox_2'] })
+      : input.host;
   const { hosts } = known ? storedHosts(known) : storedHosts();
   const added: Runner[] = [];
   const logged: unknown[] = [];
   const saved: Runner[] = [];
   const called: ProvisionCall[] = [];
   let issued = 0;
-  const { sandboxes } = storedSandboxes(
-    { poolOf: (host) => (host === HOST ? POOL_ID.value : null) },
+  const { sandboxes, placements } = storedSandboxes(
+    {},
     ...(input.sandboxes ?? []),
   );
   const service = new Runners(
@@ -130,6 +137,7 @@ const running = (
       findByWork: vi.fn(async () => (input.existing ? [input.existing] : [])),
     } as unknown as RunnerRepository,
     sandboxes,
+    placements,
     {
       find: vi.fn(async () => input.egress ?? null),
     } as unknown as EgressRepository,
@@ -270,24 +278,82 @@ describe('Runners', () => {
       expect(added).toHaveLength(1);
     });
 
+    it('starts none into an idle sandbox past maxRuns, counting the runners already alive in the pool', async () => {
+      const { service, added } = running(aPullPool({ maxRuns: 1 }), {
+        alive: [aRunner()],
+        sandboxes: [idleSandbox()],
+      });
+
+      await expect(
+        service.start(
+          THROUGH_POOL,
+          HOST,
+          IMAGE,
+          STARTED_AT,
+          CLAIM_BY,
+          'sandbox_1',
+        ),
+      ).resolves.toEqual({ outcome: 'full' });
+      expect(added).toEqual([]);
+    });
+
+    it('lets another idle sandbox of the pool keep its slot when a runner enters one', async () => {
+      const { service, added } = running(aPullPool({ maxRuns: 2 }), {
+        sandboxes: [
+          idleSandbox(),
+          aSandbox({
+            id: 'sandbox_2',
+            workspaceId: WORKSPACE,
+            key: 'task-task_2',
+            hostId: HOST_ID,
+            runId: 'run_2',
+            at: STARTED_AT,
+          }).releaseRun(RunId.of('run_2'), STARTED_AT),
+        ],
+        alive: [aRunner()],
+      });
+
+      await expect(
+        service.start(
+          THROUGH_POOL,
+          HOST,
+          IMAGE,
+          STARTED_AT,
+          CLAIM_BY,
+          'sandbox_1',
+        ),
+      ).resolves.toEqual({ outcome: 'full' });
+      expect(added).toEqual([]);
+    });
+
     it('starts none into a sandbox that is busy, still starting or on another host', async () => {
-      for (const sandbox of [
-        aSandbox({ workspaceId: WORKSPACE, hostId: HOST_ID, at: STARTED_AT }),
-        aSandbox({
-          workspaceId: WORKSPACE,
-          hostId: HOST_ID,
-          at: STARTED_AT,
-        }).releaseRun('run_1', STARTED_AT),
-        aSandbox({
-          workspaceId: WORKSPACE,
-          hostId: HostId.of('Z7Q2M4ZC3VYH6N5RB8WX1TDJ9P'),
-          at: STARTED_AT,
-        })
-          .reported()
-          .releaseRun('run_1', STARTED_AT),
+      for (const { sandbox, host } of [
+        {
+          sandbox: aSandbox({
+            workspaceId: WORKSPACE,
+            hostId: HOST_ID,
+            at: STARTED_AT,
+          }),
+        },
+        {
+          sandbox: aSandbox({
+            workspaceId: WORKSPACE,
+            hostId: HOST_ID,
+            at: STARTED_AT,
+          }).releaseRun(RunId.of('run_1'), STARTED_AT),
+          host: aHost(),
+        },
+        {
+          sandbox: aSandbox({
+            workspaceId: WORKSPACE,
+            hostId: HostId.of('Z7Q2M4ZC3VYH6N5RB8WX1TDJ9P'),
+            at: STARTED_AT,
+          }).releaseRun(RunId.of('run_1'), STARTED_AT),
+        },
       ]) {
         const { service, added } = running(aPullPool(), {
           sandboxes: [sandbox],
+          host,
         });
 
         await expect(
@@ -367,14 +433,14 @@ describe('Runners', () => {
       ).resolves.toEqual({
         outcome: 'host-outdated',
         release: 'v0.0.9',
-        minimum: MIN_HOST_RELEASE.value,
+        minimum: MIN_HOST_RELEASE,
       });
       expect(added).toEqual([]);
     });
 
     it('starts one for a host on the host minimum', async () => {
       const { service } = running(aPullPool(), {
-        host: aHost({ release: MIN_HOST_RELEASE.value }),
+        host: aHost({ release: MIN_HOST_RELEASE }),
       });
 
       await expect(
@@ -465,8 +531,8 @@ describe('Runners', () => {
       poolId: POOL_ID.value,
       runnerId: RunnerId.of('pooled_1'),
       work: { kind: 'run' as const, id: 'run_1' },
-      runId: 'run_1',
-      taskId: 'task_1',
+      runId: RunId.of('run_1'),
+      taskId: TaskId.of('task_1'),
       labels: ['sandbox'],
       image: 'ghcr.io/acme/widgets:1',
       needsEgress: false,
@@ -611,7 +677,7 @@ describe('Runners', () => {
 
       expect(called[0]).toMatchObject({
         kind: 'check',
-        stackId: 'stack_1',
+        checkId: 'stack_1',
         runId: 'run_1',
         taskId: null,
       });
@@ -622,7 +688,7 @@ describe('Runners', () => {
 
       await service.provision(request, STARTED_AT);
 
-      expect(called[0]).toMatchObject({ kind: 'run', stackId: null });
+      expect(called[0]).toMatchObject({ kind: 'run', checkId: null });
     });
 
     it('releases the runner and says why when provision fails', async () => {
@@ -741,6 +807,6 @@ describe('Runners', () => {
       STARTED_AT,
     );
 
-    expect(saved[0]?.hasLeaseOn(RunnerWork.check('stack_1'))).toBe(true);
+    expect(saved[0]?.work?.equals(RunnerWork.check('stack_1'))).toBe(true);
   });
 });

@@ -1,5 +1,3 @@
-import type { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import type { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
 import {
   medianOf,
   percentileOf,
@@ -11,6 +9,7 @@ import {
   deltaOf,
   spendDeltaOf,
 } from '@insights/domain/value-objects/delta.vo';
+import type { RunFact } from '@insights/domain/value-objects/run-fact.vo';
 import type { Money } from '@insights/domain/value-objects/run-usage.vo';
 
 export interface RunTally {
@@ -33,18 +32,12 @@ export interface RunTally {
 }
 
 const count = (
-  records: readonly RunRecord[],
-  matches: (record: RunRecord) => boolean,
-): number => records.filter(matches).length;
+  facts: readonly RunFact[],
+  matches: (fact: RunFact) => boolean,
+): number => facts.filter(matches).length;
 
-export const runTally = (
-  records: readonly RunRecord[],
-  taskPullRequests: readonly TaskPullRequest[],
-): RunTally => {
-  const ran = records.filter((each) => each.ran);
-  const tasks = new Set(
-    ran.flatMap((each) => (each.taskId ? [each.taskId.value] : [])),
-  );
+export const runTally = (facts: readonly RunFact[]): RunTally => {
+  const ran = facts.filter((each) => each.ran);
   const spending = spendingOf(ran.map((each) => each.usage?.spend ?? null));
   const took = ran.flatMap((each) =>
     each.usage?.ms === null || each.usage?.ms === undefined
@@ -56,7 +49,7 @@ export const runTally = (
 
   return {
     runs: ran.length,
-    cancelled: count(records, (each) => each.hasEnded && !each.ran),
+    cancelled: count(facts, (each) => !each.ran),
     failed,
     failedRate: rateOf(failed, ran.length),
     stopped: count(ran, (each) => each.ending === 'stopped'),
@@ -65,9 +58,9 @@ export const runTally = (
     accepted: count(ran, (each) => each.firstHumanAction?.accepts === true),
     sentBack: count(ran, (each) => each.firstHumanAction?.sendsBack === true),
     passed: count(ran, (each) => each.passed !== null),
-    merged: taskPullRequests.filter(
-      (each) => each.merged && tasks.has(each.taskId.value),
-    ).length,
+    merged: new Set(
+      ran.filter((each) => each.merged).map((each) => each.taskId.value),
+    ).size,
     cost: spending.spend,
     unpriced: spending.unpriced,
     mixedCurrencies: spending.mixedCurrencies,

@@ -1,60 +1,19 @@
 import type {
-  CatalogCallResult,
-  CatalogDenial,
   CatalogRequest,
-  CatalogSkillEntitled,
-  CatalogToolEntitled,
   EntitledItems,
 } from '@catalog/application/contracts/catalog.contract';
-import type { CallMeterPort } from '@catalog/application/ports/call-meter.port';
-import type {
-  CatalogCallRequest,
-  CatalogPort,
-} from '@catalog/application/ports/catalog.port';
-import type { CatalogServicePort } from '@catalog/application/ports/catalog-service.port';
+import { CatalogEntitledMapper } from '@catalog/application/mappers/catalog-entitled.mapper';
+import type { CatalogEntitlementsPort } from '@catalog/application/ports/catalog.port';
 import type { WorkspacePlansPort } from '@catalog/application/ports/workspace-plans.port';
-import type {
-  CatalogSkill,
-  CatalogTool,
-} from '@catalog/domain/entities/catalog-item.entity';
-import type { CatalogRepository } from '@catalog/domain/repositories/catalog.repository';
-import {
-  type Denial,
-  resolveEntitled,
-  resolveEntitledFor,
-} from '@catalog/domain/services/entitlement-resolution';
-import { MeteredCall } from '@catalog/domain/value-objects/metered-call.vo';
+import type { CatalogItems } from '@catalog/domain/services/catalog-items';
+import { resolveEntitledFor } from '@catalog/domain/services/entitlement-resolution';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const toolEntitled = (tool: CatalogTool): CatalogToolEntitled => ({
-  id: tool.id.value,
-  description: tool.metadata.description,
-  inputs: tool.inputs.map((each) => ({
-    ...each,
-    schema: each.schema.written,
-  })),
-});
-
-const skillEntitled = (skill: CatalogSkill): CatalogSkillEntitled => ({
-  id: skill.id.value,
-  description: skill.metadata.description,
-  files: skill.files,
-  tools: skill.tools.map((each) => each.value),
-});
-
-const denialOf = (denial: Denial): CatalogDenial => ({
-  id: denial.id,
-  reason: denial.reason,
-  because: denial.detail,
-});
-
-export class CatalogEntitlements implements CatalogPort {
+export class CatalogEntitlements implements CatalogEntitlementsPort {
   constructor(
-    private readonly catalog: CatalogRepository,
+    private readonly catalog: CatalogItems,
     private readonly plans: WorkspacePlansPort,
-    private readonly meter: CallMeterPort,
-    private readonly service: CatalogServicePort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -70,49 +29,9 @@ export class CatalogEntitlements implements CatalogPort {
     );
 
     return {
-      tools: entitled.tools.map(toolEntitled),
-      skills: entitled.skills.map(skillEntitled),
-      denied: entitled.denied.map(denialOf),
+      tools: entitled.tools.map(CatalogEntitledMapper.toTool),
+      skills: entitled.skills.map(CatalogEntitledMapper.toSkill),
+      denied: entitled.denied.map(CatalogEntitledMapper.toDenial),
     };
-  }
-
-  async call(request: CatalogCallRequest): Promise<CatalogCallResult> {
-    const result = resolveEntitled(
-      request.id,
-      'tool',
-      this.catalog,
-      await this.plans.of(request.workspaceId),
-      this.clock.now(),
-    );
-
-    if (!result.entitled) {
-      return { kind: 'denied', denial: denialOf(result.denial) };
-    }
-
-    const tool = result.item;
-    const started = this.clock.now();
-    let succeeded = false;
-
-    try {
-      const output = await this.service.call(tool, request.inputs, {
-        workspaceId: request.workspaceId,
-        runId: request.runId,
-      });
-
-      succeeded = true;
-
-      return { kind: 'answered', output };
-    } finally {
-      await this.meter.record(
-        MeteredCall.of({
-          workspaceId: request.workspaceId,
-          runId: request.runId,
-          item: tool.id,
-          at: started,
-          ms: this.clock.now().getTime() - started.getTime(),
-          succeeded,
-        }),
-      );
-    }
   }
 }

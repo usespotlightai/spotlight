@@ -1,6 +1,4 @@
-import { ConnectionRefreshFailed } from '@integrations/domain/events/connection-refresh-failed.event';
 import { IntegrationConnected } from '@integrations/domain/events/integration-connected.event';
-import { IntegrationDisconnected } from '@integrations/domain/events/integration-disconnected.event';
 import { RefreshClaimedError } from '@integrations/domain/exceptions/refresh-claimed.error';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
@@ -14,6 +12,8 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const REFRESH_AHEAD_MS = 5 * 60 * 1000;
 
+const REFRESH_LEASE_MS = 30_000;
+
 interface State {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
@@ -26,6 +26,7 @@ interface State {
   readonly linkedAccount: string | null;
   readonly refreshFailedAt: Date | null;
   readonly refreshClaim: RefreshClaim | null;
+  readonly connectedAt: Date;
   readonly version: number;
 }
 
@@ -40,6 +41,7 @@ export class IntegrationConnection extends EventRecorder {
     integration: IntegrationKey;
     owner: ConnectionOwner;
     tokens: OAuthTokens;
+    at: Date;
   }): IntegrationConnection {
     const connection = new IntegrationConnection({
       workspaceId: input.workspaceId,
@@ -53,18 +55,11 @@ export class IntegrationConnection extends EventRecorder {
       linkedAccount: input.tokens.linkedAccount,
       refreshFailedAt: null,
       refreshClaim: null,
+      connectedAt: input.at,
       version: 0,
     });
 
-    connection.record(
-      new IntegrationConnected(
-        input.workspaceId,
-        input.teamId,
-        input.integration,
-        input.owner,
-        input.tokens.linkedAccount,
-      ),
-    );
+    connection.record(connection.connected());
 
     return connection;
   }
@@ -96,6 +91,10 @@ export class IntegrationConnection extends EventRecorder {
 
   static refreshHorizon(now: Date): Date {
     return new Date(now.getTime() + REFRESH_AHEAD_MS);
+  }
+
+  static get refreshLeaseMs(): number {
+    return REFRESH_LEASE_MS;
   }
 
   get workspaceId(): WorkspaceId {
@@ -142,6 +141,10 @@ export class IntegrationConnection extends EventRecorder {
     return this.state.refreshClaim;
   }
 
+  get connectedAt(): Date {
+    return this.state.connectedAt;
+  }
+
   get usable(): boolean {
     return this.state.refreshFailedAt === null;
   }
@@ -182,7 +185,28 @@ export class IntegrationConnection extends EventRecorder {
     return this.state.accessToken.equals(token);
   }
 
-  claimRefresh(now: Date, leaseMs: number): IntegrationConnection {
+  refreshesWith(token: AccessToken): boolean {
+    return this.state.refreshToken?.equals(token) ?? false;
+  }
+
+  reconnectedWith(tokens: OAuthTokens, at: Date): IntegrationConnection {
+    const reconnected = this.with({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt: tokens.expiresAt,
+      scopes: tokens.scopes,
+      linkedAccount: tokens.linkedAccount,
+      refreshFailedAt: null,
+      refreshClaim: null,
+      connectedAt: at,
+    });
+
+    reconnected.record(reconnected.connected());
+
+    return reconnected;
+  }
+
+  claimRefresh(now: Date): IntegrationConnection {
     if (!this.refreshable) {
       throw new InconsistentStateError(
         'integration connection',
@@ -194,7 +218,9 @@ export class IntegrationConnection extends EventRecorder {
       throw new RefreshClaimedError(this.integration.value);
     }
 
-    return this.with({ refreshClaim: RefreshClaim.from(now, leaseMs) });
+    return this.with({
+      refreshClaim: RefreshClaim.from(now, REFRESH_LEASE_MS),
+    });
   }
 
   refreshReleased(): IntegrationConnection {
@@ -220,28 +246,7 @@ export class IntegrationConnection extends EventRecorder {
       return this.refreshReleased();
     }
 
-    const failed = this.with({ refreshFailedAt: at, refreshClaim: null });
-
-    failed.record(
-      new ConnectionRefreshFailed(
-        this.teamId,
-        this.integration,
-        this.owner,
-        at,
-      ),
-    );
-
-    return failed;
-  }
-
-  disconnect(): IntegrationConnection {
-    const gone = this.with({});
-
-    gone.record(
-      new IntegrationDisconnected(this.teamId, this.integration, this.owner),
-    );
-
-    return gone;
+    return this.with({ refreshFailedAt: at, refreshClaim: null });
   }
 
   equals(other: IntegrationConnection): boolean {
@@ -249,6 +254,16 @@ export class IntegrationConnection extends EventRecorder {
       this.teamId.equals(other.teamId) &&
       this.integration.equals(other.integration) &&
       this.owner.equals(other.owner)
+    );
+  }
+
+  private connected(): IntegrationConnected {
+    return new IntegrationConnected(
+      this.workspaceId,
+      this.teamId,
+      this.integration,
+      this.owner,
+      this.linkedAccount,
     );
   }
 

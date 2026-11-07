@@ -30,7 +30,7 @@ const bodyOf = (call: ProvisionCall, spotlightUrl: string): string =>
     data: {
       kind: call.kind,
       runId: call.runId,
-      stackId: call.stackId,
+      stackId: call.checkId,
       taskId: call.taskId,
       workspaceId: call.workspaceId,
       pool: call.pool,

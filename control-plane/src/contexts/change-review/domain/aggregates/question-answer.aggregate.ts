@@ -10,6 +10,7 @@ import {
   type ModelCall,
   ModelUsage,
 } from '@shared-kernel/domain/value-objects/model-usage.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -29,7 +30,13 @@ export interface GradedReply {
 
 const MAX_REPLY = 4_000;
 
-export const MAX_FEEDBACK = 2_000;
+const MAX_FEEDBACK = 2_000;
+
+export const answersQuestion = (
+  answer: { readonly questionId: string; readonly asked: string },
+  question: { readonly id: string; readonly question: string },
+): boolean =>
+  question.id === answer.questionId && question.question === answer.asked;
 
 const replyOf = (raw: string | null): string | null => {
   const reply = raw?.trim() || null;
@@ -51,13 +58,8 @@ const gradedReply = (raw: string | null, graded: GradedReply | null) => {
     throw new InvalidAnswerError('without words has no grade');
   }
 
-  const feedback = graded?.grade.feedback.trim() || null;
-
-  if (feedback && feedback.length > MAX_FEEDBACK) {
-    throw new InvalidAnswerError(
-      `needs feedback of at most ${MAX_FEEDBACK} characters`,
-    );
-  }
+  const feedback =
+    graded?.grade.feedback.trim().slice(0, MAX_FEEDBACK).trimEnd() || null;
 
   return {
     reply,
@@ -70,6 +72,7 @@ export class QuestionAnswer extends EventRecorder {
   private constructor(
     readonly id: QuestionAnswerId,
     readonly workspaceId: WorkspaceId,
+    readonly taskId: TaskId | null,
     readonly stackId: ChangeStackId,
     readonly questionId: QuestionId,
     readonly personId: UserId,
@@ -92,6 +95,7 @@ export class QuestionAnswer extends EventRecorder {
   static given(input: {
     id: QuestionAnswerId;
     workspaceId: WorkspaceId;
+    taskId: TaskId | null;
     stackId: ChangeStackId;
     question: LayerQuestion;
     personId: UserId;
@@ -104,6 +108,7 @@ export class QuestionAnswer extends EventRecorder {
     return new QuestionAnswer(
       input.id,
       input.workspaceId,
+      input.taskId,
       input.stackId,
       input.question.id,
       input.personId,
@@ -121,6 +126,7 @@ export class QuestionAnswer extends EventRecorder {
   static rehydrate(input: {
     id: QuestionAnswerId;
     workspaceId: WorkspaceId;
+    taskId: TaskId | null;
     stackId: ChangeStackId;
     questionId: QuestionId;
     personId: UserId;
@@ -143,6 +149,7 @@ export class QuestionAnswer extends EventRecorder {
     return new QuestionAnswer(
       input.id,
       input.workspaceId,
+      input.taskId,
       input.stackId,
       input.questionId,
       input.personId,
@@ -158,7 +165,7 @@ export class QuestionAnswer extends EventRecorder {
   }
 
   answers(question: LayerQuestion): boolean {
-    return question.id === this.questionId && question.question === this.asked;
+    return answersQuestion(this, question);
   }
 
   refuseIfAnswered(question: LayerQuestion): void {
@@ -183,6 +190,7 @@ export class QuestionAnswer extends EventRecorder {
     return new QuestionAnswer(
       this.id,
       this.workspaceId,
+      this.taskId,
       this.stackId,
       this.questionId,
       this.personId,

@@ -1,6 +1,6 @@
-import type { JudgeCalibrationShape } from '@insights/application/ports/judge-calibration.port';
 import { QualifiedJudges } from '@insights/application/services/qualified-judges.service';
-import { TeamAccess } from '@insights/domain/services/team-access';
+import type { JudgeCalibrationShape } from '@insights/application/services/station-judge-reports.service';
+import { TeamAccess } from '@insights/domain/value-objects/team-access.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';

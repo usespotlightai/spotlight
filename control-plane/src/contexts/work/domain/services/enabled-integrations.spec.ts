@@ -1,6 +1,6 @@
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { describe, expect, it } from 'vitest';
 
 const declared = (tool: string, providedBy: string | null = null) =>

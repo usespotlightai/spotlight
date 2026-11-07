@@ -1,7 +1,7 @@
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface TeamMember {
+export interface ViewedTeam {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
 }
@@ -11,20 +11,33 @@ export interface ReviewedWork {
   readonly teamId: TeamId | null;
 }
 
+export interface TasklessRun {
+  readonly workspaceId: WorkspaceId;
+  readonly isReplay: boolean;
+  readonly isSearch: boolean;
+}
+
 export class TeamAccess {
   private constructor(
     private readonly workspaceId: WorkspaceId,
     private readonly teamId: TeamId,
   ) {}
 
-  static of(member: TeamMember): TeamAccess {
-    return new TeamAccess(member.workspaceId, member.teamId);
+  static of(team: ViewedTeam): TeamAccess {
+    return new TeamAccess(team.workspaceId, team.teamId);
   }
 
   allows(work: ReviewedWork): boolean {
     return (
       work.workspaceId.equals(this.workspaceId) &&
       (work.teamId?.equals(this.teamId) ?? false)
+    );
+  }
+
+  allowsTasklessRun(run: TasklessRun, ranFor: TeamId | null): boolean {
+    return (
+      (run.isReplay || run.isSearch) &&
+      this.allows({ workspaceId: run.workspaceId, teamId: ranFor })
     );
   }
 }

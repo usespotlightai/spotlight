@@ -1,3 +1,4 @@
+import type { BoundHost } from '@secrets/domain/value-objects/bound-host.vo';
 import type { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -7,14 +8,14 @@ export class SecretGrant {
     readonly runId: RunId,
     readonly workspaceId: WorkspaceId,
     readonly secretId: SecretId,
-    readonly host: string,
+    readonly host: BoundHost,
   ) {}
 
   static of(input: {
     runId: RunId;
     workspaceId: WorkspaceId;
     secretId: SecretId;
-    host: string;
+    host: BoundHost;
   }): SecretGrant {
     return new SecretGrant(
       input.runId,
@@ -28,7 +29,7 @@ export class SecretGrant {
     return (
       this.runId.equals(other.runId) &&
       this.secretId.equals(other.secretId) &&
-      this.host === other.host
+      this.host.equals(other.host)
     );
   }
 }

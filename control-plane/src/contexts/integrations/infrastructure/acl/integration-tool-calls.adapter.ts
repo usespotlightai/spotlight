@@ -1,12 +1,8 @@
-import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
-import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
-import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
-import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
-import type { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
-import type { PersonToolRules } from '@integrations/application/services/person-tool-rules.service';
+import type {
+  ResolveToolForRun,
+  RunTool,
+} from '@integrations/application/services/resolve-tool-for-run.service';
 import { IntegrationTaskViewMapper } from '@integrations/infrastructure/acl/integration-task-view.mapper';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type {
@@ -15,15 +11,36 @@ import type {
   RunAttemptDto,
 } from '@work/application/ports/integration-tool-calls.port';
 
+const toolOf = (found: RunTool): IntegrationTool => ({
+  declared: found.declared,
+  actingAs: found.actingAs
+    ? {
+        actsAs: found.actingAs.actsAs,
+        personId: found.actingAs.personId?.value ?? null,
+        linkedAccount: found.actingAs.linkedAccount,
+      }
+    : null,
+  personRule: found.personRule
+    ? {
+        rule: found.personRule.rule.name,
+        personId: found.personRule.personId.value,
+        personName: found.personRule.personName,
+      }
+    : null,
+  missing: found.missing
+    ? {
+        integration: found.missing.integration.value,
+        integrationName: found.missing.integrationName,
+        personId: found.missing.personId?.value ?? null,
+        because: found.missing.because,
+      }
+    : null,
+  defaultFor: (input) => found.defaultFor(input),
+  call: (inputs) => found.call(inputs),
+});
+
 export class IntegrationToolCalls implements IntegrationToolCallsPort {
-  constructor(
-    private readonly defined: DefinedIntegrationsPort,
-    private readonly runtime: IntegrationRuntimePort,
-    private readonly callAuthResolver: CallAuthResolver,
-    private readonly inferring: InferOutputSchemas,
-    private readonly personRules: PersonToolRules,
-    private readonly links: InboxLinksPort,
-  ) {}
+  constructor(private readonly tools: ResolveToolForRun) {}
 
   async resolve(
     tool: string,
@@ -31,91 +48,13 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
     run: RunAttemptDto,
     requester: string | null,
   ): Promise<IntegrationTool | null> {
-    const teamId = TeamId.of(task.teamId);
-    const definitions = await this.defined.ofTeam(teamId);
-    const resolved = await this.runtime.tool(
-      definitions,
+    const found = await this.tools.resolve(
       tool,
-      IntegrationTaskViewMapper.toView(
-        task,
-        await this.links.task(task.workspaceId, task.teamId, task.taskId),
-      ),
-    );
-
-    if (!resolved) {
-      return null;
-    }
-
-    const found = await this.callAuthResolver.connectionFor(
-      teamId,
-      resolved.integration,
+      IntegrationTaskViewMapper.toView(task, null),
+      run,
       requester ? UserId.of(requester) : null,
     );
 
-    if (found.kind === 'missing') {
-      return {
-        declared: resolved.declared,
-        actingAs: null,
-        personRule: null,
-        missing: {
-          integration: found.missing.integration.value,
-          integrationName: found.missing.integrationName,
-          personId: found.missing.personId?.value ?? null,
-          because: found.missing.because,
-        },
-        defaultFor: (input) => resolved.defaultFor(input),
-        call: async () => {
-          throw new InconsistentStateError(
-            'integration tool',
-            `${tool} was called without the connection it acts with`,
-          );
-        },
-      };
-    }
-
-    const personRule = await this.personRules.ruleFor(
-      teamId,
-      resolved.integration.key,
-      found.owner,
-      tool,
-    );
-
-    return {
-      declared: resolved.declared,
-      personRule: personRule
-        ? {
-            rule: personRule.rule.name,
-            personId: personRule.personId.value,
-            personName: personRule.personName,
-          }
-        : null,
-      actingAs: resolved.integration.requiresConnection
-        ? {
-            actsAs: found.owner.isPerson ? 'requester' : 'team',
-            personId: found.owner.personId?.value ?? null,
-            linkedAccount: found.connection?.linkedAccount ?? null,
-          }
-        : null,
-      missing: null,
-      defaultFor: (input) => resolved.defaultFor(input),
-      call: async (inputs) => {
-        const answer = await resolved.call(
-          inputs,
-          await this.callAuthResolver.forRun(
-            {
-              teamId,
-              workspaceId: task.workspaceId,
-              runId: run.runId,
-              attempt: run.attempt,
-              injectedSecrets: resolved.injectedSecrets,
-            },
-            found.connection,
-          ),
-        );
-        void this.inferring.infer(teamId, tool, answer);
-
-        return answer;
-      },
-    };
+    return found ? toolOf(found) : null;
   }
 }

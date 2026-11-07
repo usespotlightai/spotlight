@@ -2,14 +2,21 @@ import type {
   CatalogDenial,
   CatalogDenialReason,
 } from '@catalog/application/contracts/catalog.contract';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
-import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
@@ -28,24 +35,23 @@ import type {
   LifecycleHooksPort,
   ToolUsedHookEvent,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type {
   TaskViewDto,
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import { BuiltInTools } from '@work/application/services/built-in-tools.service';
+import { RunCatalog } from '@work/application/services/run-catalog.service';
 import { RunWorks } from '@work/application/services/run-works.service';
-import { StationCatalog } from '@work/application/services/station-catalog.service';
 import { ToolSources } from '@work/application/services/tool-sources.service';
 import { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
@@ -64,21 +70,18 @@ import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo'
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
@@ -89,27 +92,27 @@ import { describe, expect, it } from 'vitest';
 const NOW = new Date('2026-09-12T09:00:00.000Z');
 
 const delivery = (workspaceId = 'ws_1', backlogId = 'station_1') =>
-  Line.rehydrate({
+  lineMapOf({
     id: LineId.of('line_1'),
     workspaceId: WorkspaceId.of(workspaceId),
     teamId: TeamId.of('team_1'),
     key: LineKey.of('delivery'),
     name: LineName.of('Delivery'),
     stations: [
-      Station.of({
+      stationOf({
         id: StationId.of(backlogId),
         key: StationKey.of('backlog'),
         name: StationName.of('Backlog'),
         position: 0,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'backlog',
       }),
-      Station.of({
+      stationOf({
         id: StationId.of('station_completed'),
         key: StationKey.of('completed'),
         name: StationName.of('Completed'),
         position: 1,
-        color: StationColor.of('#a3a8b0'),
+        color: '#a3a8b0',
         kind: 'completed',
       }),
     ],
@@ -131,6 +134,7 @@ const task = () =>
 
 const chat = () =>
   Chat.start({
+    lines: [],
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_1'),
@@ -213,7 +217,7 @@ const LINE = {
   id: 'line_1',
   teamId: TeamId.of('team_1'),
   stationAt: () => null,
-} as unknown as Line;
+} as unknown as LineMap;
 
 const TASK_VIEW: TaskViewDto = {
   taskId: 'task_1',
@@ -249,6 +253,7 @@ const using = (
     task?: Task;
     approval?: ApprovalNeeded | null;
     failing?: boolean;
+    changedWhileCalling?: boolean;
     movedOnWhileCalling?: boolean;
     decision?: HookDecision;
     hooksDown?: boolean;
@@ -270,7 +275,7 @@ const using = (
     reason: over.denied?.reason ?? 'expired',
     because: 'denied here',
   });
-  const catalog = new StationCatalog({
+  const catalog = new RunCatalog({
     entitledTo: async (_workspace, named) =>
       over.denied?.when === 'before'
         ? {
@@ -307,6 +312,10 @@ const using = (
         inputs: ToolInputs.of(request.inputs),
       });
 
+      if (over.changedWhileCalling) {
+        current = Task.rehydrate({ ...current, version: current.version + 1 });
+      }
+
       return { kind: 'answered', output: 'Three pages.' };
     },
   });
@@ -314,7 +323,12 @@ const using = (
   const tasks = {
     find: async () => current,
     save: async (saved: Task) => {
-      current = saved;
+      if (over.changedWhileCalling && saved.version !== current.version) {
+        throw new TaskVersionConflictError(saved.id.value);
+      }
+      current = over.changedWhileCalling
+        ? Task.rehydrate({ ...saved, version: saved.version + 1 })
+        : saved;
     },
   } as unknown as TaskRepository;
   const linear = over.approval
@@ -420,7 +434,7 @@ const using = (
         findByStation: async (stationId: StationId) =>
           stationId.value === lineAt ? LINE : null,
         ofTeam: async () => [LINE],
-      } as unknown as LineRepository,
+      } as unknown as LineMapsPort,
       { of: async () => null },
       { now: () => NOW, sleep: async () => {} },
     ),
@@ -835,7 +849,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        station: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -850,7 +864,7 @@ describe('UseToolHandler', () => {
         ...approved.answer(
           NotePosition.of(approved.notes.length - 1),
           {
-            station: StationName.of('Backlog'),
+            station: null,
             body: TaskNoteBody.of('Approved.'),
             at: NOW,
             voice: Voice.person(UserId.of('user_1')),
@@ -883,7 +897,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        station: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -898,7 +912,7 @@ describe('UseToolHandler', () => {
         ...approved.answer(
           NotePosition.of(approved.notes.length - 1),
           {
-            station: StationName.of('Backlog'),
+            station: null,
             body: TaskNoteBody.of('Approved.'),
             at: NOW,
             voice: Voice.person(UserId.of('user_1')),
@@ -927,7 +941,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        station: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -938,7 +952,7 @@ describe('UseToolHandler', () => {
     const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: StationName.of('Backlog'),
+        station: null,
         body: TaskNoteBody.of('Approved.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -975,7 +989,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        station: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -986,7 +1000,7 @@ describe('UseToolHandler', () => {
     const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: StationName.of('Backlog'),
+        station: null,
         body: TaskNoteBody.of('Approved.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -1009,6 +1023,51 @@ describe('UseToolHandler', () => {
     ).toBe(true);
   });
 
+  it('hands the approval back on the task as it is now, where the task changed while the call failed', async () => {
+    const asked = task().clearFor(
+      ApprovalSubject.toolCall(
+        ToolCall.of(
+          Tool.of('linear.comment'),
+          ToolInputs.of({ issue: 'ENG-12', body: 'Fixed.' }),
+        ),
+      ),
+      NEEDS_APPROVAL,
+      {
+        station: null,
+        body: TaskNoteBody.of('Approve linear.comment?'),
+        at: NOW,
+        voice: Voice.station(RunId.of('run_1')),
+      },
+      RunId.of('run_1'),
+      null,
+    ).task;
+    const granted = asked.answer(
+      NotePosition.of(asked.notes.length - 1),
+      {
+        station: null,
+        body: TaskNoteBody.of('Approved.'),
+        at: NOW,
+        voice: Voice.person(UserId.of('user_1')),
+      },
+      'approved',
+    );
+
+    const { useTool, called, current } = using(claimed(['linear.comment']), {
+      approval: NEEDS_APPROVAL,
+      failing: true,
+      changedWhileCalling: true,
+      task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
+    });
+
+    await expect(
+      useTool('linear.comment', { body: 'Fixed.' }),
+    ).rejects.toMatchObject({ kind: 'upstream-error' });
+    expect(called).toHaveLength(1);
+    expect(
+      current().notes.find((note) => note.approval)?.approval?.grants,
+    ).toBe(true);
+  });
+
   it('does not call a tool the person rejected, in their own words, without asking again', async () => {
     const asked = task().clearFor(
       ApprovalSubject.toolCall(
@@ -1019,7 +1078,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        station: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -1030,7 +1089,7 @@ describe('UseToolHandler', () => {
     const rejected = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: StationName.of('Backlog'),
+        station: null,
         body: TaskNoteBody.of('Not before the release.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -1061,7 +1120,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        station: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -1070,7 +1129,7 @@ describe('UseToolHandler', () => {
       null,
     ).task;
     const talkedBack = asked.answer(NotePosition.of(asked.notes.length - 1), {
-      station: StationName.of('Backlog'),
+      station: null,
       body: TaskNoteBody.of('Mention the ticket too.'),
       at: NOW,
       voice: Voice.person(UserId.of('user_1')),
@@ -1101,7 +1160,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: StationName.of('Backlog'),
+        station: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -1112,7 +1171,7 @@ describe('UseToolHandler', () => {
     const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: StationName.of('Backlog'),
+        station: null,
         body: TaskNoteBody.of('Approved.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -1202,7 +1261,7 @@ describe('UseToolHandler', () => {
         ),
         NEEDS_APPROVAL,
         {
-          station: StationName.of('Backlog'),
+          station: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -1213,7 +1272,7 @@ describe('UseToolHandler', () => {
       const granted = asked.answer(
         NotePosition.of(asked.notes.length - 1),
         {
-          station: StationName.of('Backlog'),
+          station: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -1250,7 +1309,7 @@ describe('UseToolHandler', () => {
         ),
         NEEDS_APPROVAL,
         {
-          station: StationName.of('Backlog'),
+          station: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -1261,7 +1320,7 @@ describe('UseToolHandler', () => {
       const granted = asked.answer(
         NotePosition.of(asked.notes.length - 1),
         {
-          station: StationName.of('Backlog'),
+          station: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -1310,7 +1369,7 @@ describe('UseToolHandler', () => {
         ),
         NEEDS_APPROVAL,
         {
-          station: StationName.of('Backlog'),
+          station: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -1321,7 +1380,7 @@ describe('UseToolHandler', () => {
       const granted = asked.answer(
         NotePosition.of(asked.notes.length - 1),
         {
-          station: StationName.of('Backlog'),
+          station: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -1496,7 +1555,7 @@ describe('UseToolHandler', () => {
         ),
         NEEDS_APPROVAL,
         {
-          station: StationName.of('Backlog'),
+          station: null,
           body: TaskNoteBody.of('Approve?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),

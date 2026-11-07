@@ -14,10 +14,8 @@ import type { ProvisionFailures } from '@work/application/services/provision-fai
 import type { RunLeases } from '@work/application/services/run-leases.service';
 import type { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import { UnknownRunnerError } from '@work/domain/exceptions/unknown-runner.error';
-import type {
-  Claimant,
-  RunRepository,
-} from '@work/domain/repositories/run.repository';
+import type { RunRepository } from '@work/domain/repositories/run.repository';
+import type { Claimant } from '@work/domain/value-objects/claimant';
 import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 
 export class ClaimRunHandler

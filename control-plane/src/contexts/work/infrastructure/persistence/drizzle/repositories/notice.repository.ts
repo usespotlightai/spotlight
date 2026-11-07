@@ -10,6 +10,7 @@ import { NoticeExternalLink } from '@work/domain/value-objects/notice-external-l
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
+import { NoticeSubject } from '@work/domain/value-objects/notice-subject.vo';
 import { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
 import { notice } from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
 import { and, eq, isNull } from 'drizzle-orm';
@@ -23,7 +24,7 @@ const toNotice = (row: Row): Notice =>
     teamId: TeamId.of(row.teamId),
     addressee: row.addresseeId === null ? null : UserId.of(row.addresseeId),
     form: row.form,
-    subject: row.subject,
+    subject: NoticeSubject.of(row.subject),
     link: NoticeLink.of({ path: row.link, label: row.linkLabel }),
     externalLink:
       row.externalUrl !== null && row.externalLabel !== null
@@ -49,7 +50,7 @@ export class DrizzleNoticeRepository implements NoticeRepository {
       teamId: added.teamId.value,
       addresseeId: added.addressee?.value ?? null,
       form: added.form,
-      subject: added.subject,
+      subject: added.subject.value,
       link: added.link.path,
       linkLabel: added.link.label,
       externalUrl: added.externalLink?.url ?? null,
@@ -93,7 +94,7 @@ export class DrizzleNoticeRepository implements NoticeRepository {
     teamId: TeamId,
     addressee: UserId | null,
     form: NoticeForm,
-    subject: string,
+    subject: NoticeSubject,
   ): Promise<Notice | null> {
     const [row] = await this.context.db
       .select()
@@ -105,7 +106,7 @@ export class DrizzleNoticeRepository implements NoticeRepository {
             ? isNull(notice.addresseeId)
             : eq(notice.addresseeId, addressee.value),
           eq(notice.form, form),
-          eq(notice.subject, subject),
+          eq(notice.subject, subject.value),
         ),
       )
       .limit(1);
@@ -113,7 +114,28 @@ export class DrizzleNoticeRepository implements NoticeRepository {
     return row ? toNotice(row) : null;
   }
 
-  async deleteForTeam(teamId: TeamId): Promise<void> {
-    await this.context.db.delete(notice).where(eq(notice.teamId, teamId.value));
+  async ofTeam(teamId: TeamId): Promise<Notice[]> {
+    const rows = await this.context.db
+      .select()
+      .from(notice)
+      .where(eq(notice.teamId, teamId.value));
+
+    return rows.map(toNotice);
+  }
+
+  async remove(removed: Notice): Promise<void> {
+    const gone = await this.context.db
+      .delete(notice)
+      .where(
+        and(
+          eq(notice.id, removed.id.value),
+          eq(notice.version, removed.version),
+        ),
+      )
+      .returning({ id: notice.id });
+
+    if (gone.length === 0) {
+      throw new NoticeVersionConflictError(removed.id.value);
+    }
   }
 }

@@ -1,6 +1,8 @@
 import type { CreateSkillCommand } from '@configuration/application/commands/create-skill.command';
 import type { SkillCompilerPort } from '@configuration/application/ports/skill-compiler.port';
+import { SkillProblems } from '@configuration/application/rendering/skill-problems';
 import { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
+import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
 import { SkillAlreadyExistsError } from '@configuration/domain/exceptions/skill-already-exists.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
@@ -22,6 +24,7 @@ import { createIdempotently } from '@shared-kernel/application/services/create-i
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class CreateSkillHandler
   implements CommandHandlerPort<CreateSkillCommand, ResourceCreated | null>
@@ -38,8 +41,8 @@ export class CreateSkillHandler
 
   async execute(command: CreateSkillCommand): Promise<ResourceCreated | null> {
     try {
-      const permissions = await this.access.permissionsOnTeam(
-        command.teamId,
+      const permissions = await this.access.permissionsInWorkspaceOfTeam(
+        TeamId.of(command.teamId),
         command.actor.principal,
       );
       if (!permissions) {
@@ -76,9 +79,11 @@ export class CreateSkillHandler
         return await this.transaction.inTransaction(() =>
           createIdempotently(this.creates, create, async () => {
             const created = SkillDefinition.create({
-              ...compiled,
+              key: compiled.key,
+              files: compiled.files,
               id: SkillDefinitionId.of(this.ids.generate()),
               teamId: team.id,
+              reading: this.compiler,
               by: ChangeActor.of(command.actor, team.workspaceId),
             });
 
@@ -91,10 +96,14 @@ export class CreateSkillHandler
         if (error instanceof SkillAlreadyExistsError) {
           return {
             outcome: 'already-exists',
-            address: TeamAddress.of(
-              team.key,
-              compiled.skill.key.value,
-            ).toString(),
+            address: TeamAddress.of(team.key, compiled.key.value).toString(),
+          };
+        }
+
+        if (error instanceof InvalidSkillError) {
+          return {
+            outcome: 'invalid',
+            problems: [SkillProblems.invalid(compiled.key.value, error)],
           };
         }
 

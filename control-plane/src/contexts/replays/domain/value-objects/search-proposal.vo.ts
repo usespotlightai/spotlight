@@ -32,7 +32,7 @@ export class SearchProposal {
   }
 
   isNamed(name: CandidateName): boolean {
-    return this.name.value.toLowerCase() === name.value.toLowerCase();
+    return this.name.equals(name);
   }
 
   replayEnded(
@@ -61,6 +61,22 @@ export class SearchProposal {
   replaySpent(replayId: ReplayId, charge: ReplayCharge): SearchProposal {
     const replay = this.replay.is(replayId)
       ? this.replay.spentAs(charge)
+      : this.replay;
+
+    return replay === this.replay
+      ? this
+      : new SearchProposal(
+          this.candidateId,
+          this.name,
+          replay,
+          this.improved,
+          this.requestedBy,
+        );
+  }
+
+  replayStarted(replayId: ReplayId): SearchProposal {
+    const replay = this.replay.is(replayId)
+      ? this.replay.asStarted()
       : this.replay;
 
     return replay === this.replay

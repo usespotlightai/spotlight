@@ -5,21 +5,22 @@ import {
   CHANGE_STACK_READER,
   type ChangeStackReaderPort,
 } from '@change-review/application/ports/change-stack-reader.port';
+import {
+  BUILT_IN_LINES,
+  type LineOpening,
+} from '@lines/domain/services/built-in-lines';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
-import { DrizzleUsedPoolTokensRepository } from '@runners/infrastructure/persistence/drizzle/repositories/used-pool-tokens.repository';
+import { TokenHolder } from '@runners/domain/value-objects/token-holder.vo';
+import { DrizzleUsedTokens } from '@runners/infrastructure/persistence/drizzle/ledgers/used-tokens.ledger';
 import { POOL_TOKEN_HEADER } from '@runners/presentation/http/controllers/runner-pool-resource.controller';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import {
-  BUILT_IN_LINES,
-  type LineOpening,
-} from '@work/domain/services/built-in-lines';
+import { CONTROL_PLANE_SEQ } from '@work/application/contracts/run-journal.contract';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, inArray } from 'drizzle-orm';
 import {
@@ -519,16 +520,16 @@ describe('runner pools (e2e)', () => {
         tokenVersion: 2,
       }).expect(200);
       const context = new DrizzleContext(db);
-      const usedTokens = new DrizzleUsedPoolTokensRepository(context);
+      const usedTokens = new DrizzleUsedTokens(context);
 
       await expect(
         context.inTransaction(() =>
-          usedTokens.recordUse(
+          usedTokens.record(
             TokenHash.of(sha256Of(token)),
-            RunnerPoolId.of(randomUUID()),
+            TokenHolder.pool(RunnerPoolId.of(randomUUID())),
           ),
         ),
-      ).rejects.toBeInstanceOf(PoolTokenAlreadyUsedError);
+      ).resolves.toBe(false);
       expect(
         await db
           .select()
@@ -553,8 +554,8 @@ describe('runner pools (e2e)', () => {
 
       const used = await db
         .select()
-        .from(schema.poolToken)
-        .where(eq(schema.poolToken.poolId, made.body.id));
+        .from(schema.usedToken)
+        .where(eq(schema.usedToken.holderId, made.body.id));
 
       expect(used.map((each) => each.tokenHash).sort()).toEqual(
         [sha256Of(first), sha256Of(second)].sort(),
@@ -1086,11 +1087,15 @@ describe('runner pools (e2e)', () => {
 
       expect(failed.message).toContain('unreachable');
       expect(failed.provisionAttempts).toBe(5);
-      expect(steps.map((each) => [each.type, each.message, each.seq])).toEqual(
-        [-1, -2, -3, -4, -5].map((seq) => [
+      expect(
+        steps
+          .map((each) => [each.type, each.message, each.seq])
+          .sort((a, b) => Number(b[2]) - Number(a[2])),
+      ).toEqual(
+        [0, 1, 2, 3, 4].map((back) => [
           'provision.failed',
           'Provisioning failed · unreachable',
-          seq,
+          CONTROL_PLANE_SEQ - back,
         ]),
       );
     }, 30_000);

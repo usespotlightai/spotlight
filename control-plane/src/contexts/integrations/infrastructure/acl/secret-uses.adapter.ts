@@ -3,6 +3,7 @@ import type { DefinedIntegrationsPort } from '@integrations/application/ports/de
 import type { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type {
   NamedSecret,
+  SecretUse,
   SecretUser,
 } from '@secrets/application/ports/secret-uses.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -14,8 +15,8 @@ export class IntegrationSecretUses implements SecretUser {
     private readonly reader: IntegrationReader,
   ) {}
 
-  async usesOf(secret: NamedSecret): Promise<readonly string[]> {
-    const uses: string[] = [];
+  async usesOf(secret: NamedSecret): Promise<readonly SecretUse[]> {
+    const uses: SecretUse[] = [];
 
     for (const team of await this.teams.inWorkspace(
       WorkspaceId.of(secret.workspaceId),
@@ -28,7 +29,10 @@ export class IntegrationSecretUses implements SecretUser {
         if (
           integration.credentials.some((each) => each.value === secret.name)
         ) {
-          uses.push(`integration ${team.key}/${integration.key.value}`);
+          uses.push({
+            kind: 'integration',
+            key: `${team.key}/${integration.key.value}`,
+          });
         }
       }
     }

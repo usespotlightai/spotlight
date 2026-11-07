@@ -6,8 +6,8 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { RunChanges } from '@work/application/contracts/run-journal.contract';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { TouchedFiles } from '@work/application/services/touched-files';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const API = Repository.of('acme/api');
@@ -46,7 +46,7 @@ const touching = (input: {
     reviewedHead: null,
     pullRequest: input.pullRequest ?? null,
   } as unknown as Task;
-  const line = { repositories: { all: [API, WEB] } } as unknown as Line;
+  const line = { repositories: { all: [API, WEB] } } as unknown as LineMap;
 
   return { warn, onTask: () => files.onTask(task, line) };
 };

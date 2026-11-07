@@ -1,18 +1,18 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type { IntegrationToolCallsPort } from '@work/application/ports/integration-tool-calls.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
 import type { RunWorks } from '@work/application/services/run-works.service';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { Tool } from '@work/domain/value-objects/tool.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -59,7 +59,7 @@ const resolving = (options: { movedOn?: boolean } = {}) => {
 
   const tools = new IntegrationTools(
     { find: async () => ({}) } as unknown as TaskRepository,
-    { findByStation: async () => ({}) } as unknown as LineRepository,
+    { findByStation: async () => ({}) } as unknown as LineMapsPort,
     {
       of: async () => ({}) as IntegrationTaskViewDto,
     } as unknown as IntegrationTaskViews,

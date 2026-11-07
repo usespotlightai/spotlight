@@ -3,38 +3,37 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
+import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { SendMessageHandler } from '@work/application/commands/handlers/send-message.handler';
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { LiveTaskDraftsPort } from '@work/application/ports/live-task-drafts.port';
 import { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { TaskDraft } from '@work/domain/aggregates/task-draft.aggregate';
-import { Station } from '@work/domain/entities/station.entity';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import type { TaskDraftRepository } from '@work/domain/repositories/task-draft.repository';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
-import { LineId } from '@work/domain/value-objects/line-id.vo';
-import { LineKey } from '@work/domain/value-objects/line-key.vo';
-import { LineName } from '@work/domain/value-objects/line-name.vo';
+import {
+  lineMapOf,
+  routesOf,
+  stationOf,
+} from '@work/domain/value-objects/line-map.fake-spec';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { StationColor } from '@work/domain/value-objects/station-color.vo';
-import { StationId } from '@work/domain/value-objects/station-id.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
-import { StationRoutes } from '@work/domain/value-objects/station-routes.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -51,18 +50,18 @@ const station = (
   id: string,
   name: string,
   position: number,
-  extra: Partial<Parameters<typeof Station.of>[0]> = {},
+  extra: Partial<Parameters<typeof stationOf>[0]> = {},
 ) =>
-  Station.of({
+  stationOf({
     id: StationId.of(id),
     key: StationKey.of(name.toLowerCase().split(' ').join('-')),
     name: StationName.of(name),
     position,
-    color: StationColor.plain(),
+    color: '#a3a8b0',
     ...extra,
   });
 
-const line = Line.rehydrate({
+const line = lineMapOf({
   id: LineId.of('line_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
@@ -72,7 +71,7 @@ const line = Line.rehydrate({
     station('station_backlog', 'Backlog', 0, { kind: 'backlog' }),
     station('station_review', 'Code Review', 1, {
       harness: HarnessId.of('dev'),
-      routes: StationRoutes.of({ stations: [], ends: true }),
+      routes: routesOf({ stations: [], ends: true }),
     }),
     station('station_completed', 'Completed', 2, { kind: 'completed' }),
   ],
@@ -92,7 +91,7 @@ const run = Run.enqueue({
 });
 
 const stationNote = (body: string) => ({
-  station: StationName.of('Code Review'),
+  station: null,
   body: TaskNoteBody.of(body),
   at: NOW,
   voice: Voice.station(RUN),
@@ -117,7 +116,7 @@ const paused = () =>
 
 const interrupted = () =>
   handed().interrupt({
-    station: StationName.of('Code Review'),
+    station: null,
     body: TaskNoteBody.of(
       'The pull request was merged while Code Review was working. Close the task, or reply to carry on.',
     ),
@@ -128,7 +127,6 @@ const interrupted = () =>
 const OUTSIDER = 'outsider';
 
 let saved: Task | undefined;
-let draft: TaskDraft | null;
 let typed: string[];
 const dispatched: Task[] = [];
 const announced: number[] = [];
@@ -143,12 +141,6 @@ const sendMessage = (
   const access = {
     mayView: async (viewer: UserId) => viewer.value !== OUTSIDER,
   } as unknown as WorkspaceAccessPort;
-  const drafts: TaskDraftRepository = {
-    find: async () => draft,
-    save: async (each) => {
-      draft = each;
-    },
-  };
   const live: LiveTaskDraftsPort = {
     writers: async () => typed.map(UserId.of),
     sent: async (_taskId, next) => {
@@ -171,7 +163,7 @@ const sendMessage = (
         saved = each;
       }),
     } as unknown as TaskRepository,
-    { findByStation: vi.fn(async () => line) } as unknown as LineRepository,
+    { findByStation: vi.fn(async () => line) } as unknown as LineMapsPort,
     { inTransaction: (work) => work() } satisfies TransactionPort,
     dispatch,
     { now: () => NOW } as ClockPort,
@@ -180,7 +172,7 @@ const sendMessage = (
       takenIn: async () => undefined,
     } as unknown as FilesLoader,
     access,
-    new DraftSending(drafts, access, live, {
+    new DraftSending(access, live, {
       warn: () => undefined,
     } as unknown as LoggerPort),
   ).execute(
@@ -197,7 +189,6 @@ const sendMessage = (
 
 beforeEach(() => {
   saved = undefined;
-  draft = null;
   typed = ['teammate', OUTSIDER];
   dispatched.length = 0;
   announced.length = 0;
@@ -335,20 +326,21 @@ describe('SendMessageHandler', () => {
       draftGeneration: 0,
     });
 
-    expect(draft?.generation.value).toBe(1);
+    expect(saved?.draftGeneration.value).toBe(1);
     expect(announced).toEqual([1]);
   });
 
   it('refuses a second send of the same shared draft, adding nothing', async () => {
-    draft = TaskDraft.rehydrate({
-      taskId: TaskId.of('task_1'),
-      generation: DraftGeneration.of(1),
-    });
-
     await expect(
-      sendMessage(finished(), 'Rename it.', OWNER.value, 'run_2', {
-        draftGeneration: 0,
-      }),
+      sendMessage(
+        finished().sendDraft(DraftGeneration.of(0)),
+        'Rename it.',
+        OWNER.value,
+        'run_2',
+        {
+          draftGeneration: 0,
+        },
+      ),
     ).rejects.toMatchObject({ kind: 'conflict' });
     expect(saved).toBeUndefined();
     expect(announced).toEqual([]);

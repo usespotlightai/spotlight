@@ -29,7 +29,10 @@ import {
   NO_REGRESSIONS,
   regressionLimitOf,
 } from '@replays/domain/services/search-regressions';
-import { scoresOf } from '@replays/domain/services/search-scores';
+import {
+  heldOutPendingFor,
+  scoresOf,
+} from '@replays/domain/services/search-scores';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -172,7 +175,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       );
     }
 
-    const repository = Repository.of(named);
+    const repository = named;
     const found = await this.candidates.findMany([
       pullRequest.candidateId,
       search.seed.candidateId,
@@ -202,14 +205,12 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       );
     }
 
-    const module = (
-      await this.configs.filesIn(
-        pullRequest.workspaceId,
-        repository,
-        path.slice(0, Math.max(path.lastIndexOf('/'), 0)),
-        file.commit,
-      )
-    ).filter((each) => each.endsWith('.tf') && each !== path);
+    const besideFile = await this.configs.filesIn(
+      pullRequest.workspaceId,
+      repository,
+      path.slice(0, Math.max(path.lastIndexOf('/'), 0)),
+      file.commit,
+    );
     const edited = await this.editor.edited({
       file: { path, content: file.content },
       teamKey,
@@ -217,7 +218,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       stationKey: station.key,
       seed: seed.block,
       candidate: candidate.block,
-      module,
+      besideFile,
       read: async (other) =>
         (
           await this.configs.fileAt(
@@ -308,7 +309,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       objective: search.objective,
       stationKey,
       lineKey,
-      candidateName: pullRequest.candidateName,
+      candidateName: pullRequest.candidateName.value,
       hypothesis: candidate.search?.hypothesis.value ?? null,
       unchecked,
       changes: candidate.changedFrom.changes,
@@ -338,12 +339,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
         picked?.searchedGain ?? null,
         picked?.heldOutGain ?? null,
       ),
-      heldOutPending:
-        !picked?.heldOutGain &&
-        Boolean(picked?.heldOutReplayId) &&
-        [picked?.heldOutReplayId, scores.seed.heldOutReplayId].some(
-          (id) => id && !replayOf(id)?.endedAt,
-        ),
+      heldOutPending: heldOutPendingFor(scores, candidate.id, replays),
       currency: search.budget.ceiling.currency,
       searchedTasks: search.split.searchedTasks,
       heldOutTasks: search.split.heldOutTasks,

@@ -1,18 +1,16 @@
 import { RunOutcomes } from '@insights/application/services/run-outcomes.service';
 import { RunRecord } from '@insights/domain/aggregates/run-record.aggregate';
-import { TaskPullRequest } from '@insights/domain/aggregates/task-pull-request.aggregate';
+import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
+import { taskPullRequestOf } from '@insights/insights.fake-spec';
+import { PullRequestRecordsInMemory } from '@insights/pull-requests.fake-spec';
 import {
   endedRecord,
   FIRST_CONFIG,
   RunRecordsInMemory,
-  TaskPullRequestsInMemory,
-  TEAM,
+  StationFactsInMemory,
   WORKSPACE,
-} from '@insights/domain/runs.fake-spec';
-import { HumanAction } from '@insights/domain/value-objects/human-action.vo';
-import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+} from '@insights/runs.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
@@ -22,27 +20,18 @@ const AT = new Date('2026-09-30T11:00:00.000Z');
 describe('RunOutcomes', () => {
   it('tells Work how each ended run turned out, with the state of its task’s pull request', async () => {
     const records = new RunRecordsInMemory();
-    const taskPullRequests = new TaskPullRequestsInMemory();
+    const taskPullRequests = new PullRequestRecordsInMemory();
     await records.add(
       endedRecord('run_1', { visit: 2 })
         .recordCheck('passed', RECEIVED_AT)
         .recordAction(HumanAction.of('accepted', AT)),
     );
     await records.add(RunRecord.empty(RunId.of('run_2'), WORKSPACE));
-    await taskPullRequests.add(
-      TaskPullRequest.open({
-        taskId: TaskId.of('task_1'),
-        workspaceId: WORKSPACE,
-        teamId: TEAM,
-        pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/1'),
-        at: AT,
-      }),
-    );
+    await taskPullRequests.add(taskPullRequestOf('task_1', { openedAt: AT }));
 
-    const outcomes = await new RunOutcomes(records, taskPullRequests).of(
-      ['run_1', 'run_2', 'run_3'],
-      null,
-    );
+    const outcomes = await new RunOutcomes(
+      new StationFactsInMemory(records, { pullRequests: taskPullRequests }),
+    ).of(['run_1', 'run_2', 'run_3'], null);
 
     expect([...outcomes.keys()]).toEqual(['run_1']);
     expect(outcomes.get('run_1')).toEqual({
@@ -60,8 +49,7 @@ describe('RunOutcomes', () => {
 
   it('tells nothing for a query of no runs', async () => {
     const outcomes = await new RunOutcomes(
-      new RunRecordsInMemory(),
-      new TaskPullRequestsInMemory(),
+      new StationFactsInMemory(new RunRecordsInMemory()),
     ).of([], null);
 
     expect(outcomes.size).toBe(0);
@@ -69,10 +57,9 @@ describe('RunOutcomes', () => {
 
   it('tells a replay only what was known when the run it replays started', async () => {
     const records = new RunRecordsInMemory();
-    const taskPullRequests = new TaskPullRequestsInMemory();
+    const taskPullRequests = new PullRequestRecordsInMemory();
     const later = (hours: number) =>
       new Date(AT.getTime() + hours * 60 * 60_000);
-    const pullRequest = PullRequestUrl.of('https://github.com/acme/api/pull/1');
     await records.add(
       endedRecord('run_1', { visit: 2 })
         .recordCheck('passed', later(2))
@@ -80,16 +67,16 @@ describe('RunOutcomes', () => {
         .supersededByItsTask(later(4)),
     );
     await taskPullRequests.add(
-      TaskPullRequest.open({
-        taskId: TaskId.of('task_1'),
-        workspaceId: WORKSPACE,
-        teamId: TEAM,
-        pullRequest,
-        at: later(1),
-      }).close({ pullRequest, merged: true, at: later(5) }),
+      taskPullRequestOf('task_1', {
+        openedAt: later(1),
+        closedAt: later(5),
+        merged: true,
+      }),
     );
     const of = (asOf: Date) =>
-      new RunOutcomes(records, taskPullRequests)
+      new RunOutcomes(
+        new StationFactsInMemory(records, { pullRequests: taskPullRequests }),
+      )
         .of(['run_1'], asOf)
         .then((outcomes) => outcomes.get('run_1'));
 

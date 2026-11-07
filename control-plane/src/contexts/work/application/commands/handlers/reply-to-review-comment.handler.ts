@@ -3,12 +3,11 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { ReplyToReviewCommentCommand } from '@work/application/commands/reply-to-review-comment.command';
+import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunLoader } from '@work/application/services/run-loader.service';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
-import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ReviewCommentHandle } from '@work/domain/value-objects/review-comment-handle.vo';
-import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -18,7 +17,7 @@ export class ReplyToReviewCommentHandler
   constructor(
     private readonly runs: RunLoader,
     private readonly tasks: TaskRepository,
-    private readonly lines: LineRepository,
+    private readonly lines: LineMapsPort,
     private readonly reviewComments: ReviewCommentsPort,
     private readonly clock: ClockPort,
   ) {}
@@ -51,8 +50,7 @@ export class ReplyToReviewCommentHandler
 
       await this.tasks.save(
         task.recordReviewCommentReply(run.id, run.stationId, at, {
-          station:
-            line?.stationAt(task.stationId)?.name ?? StationName.unknown(),
+          station: line?.stationAt(task.stationId) ?? null,
           body: TaskNoteBody.of(command.body),
           at: this.clock.now(),
           voice: Voice.station(run.id),

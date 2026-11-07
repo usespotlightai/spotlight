@@ -1,10 +1,7 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { SetupChatView } from '@work/application/ports/chat-reader.port';
-import type {
-  Provisioning,
-  TeamProvisioningPort,
-} from '@work/application/ports/team-provisioning.port';
+import type { TeamWelcomesPort } from '@work/application/ports/team-welcomes.port';
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import type { SetupStatus } from '@work/application/services/setup-status.service';
@@ -16,7 +13,8 @@ type Options = {
   state?: Partial<SetupState>;
   hasEgressCapableRunner?: boolean;
   chat?: SetupChatView | null;
-  provisioning?: Provisioning;
+  origin?: 'sign-up' | 'configuration';
+  welcomed?: boolean;
   admin?: boolean;
 };
 
@@ -36,6 +34,7 @@ const handler = (options: Options = {}) => {
             workspaceId: 'ws_1',
             slug: 'acme',
             teamKey: 'platform',
+            origin: options.origin ?? 'sign-up',
           },
     ),
   } as unknown as WorkspaceReaderPort;
@@ -48,9 +47,9 @@ const handler = (options: Options = {}) => {
     }),
   } as unknown as SetupStatus;
 
-  const provisioning: TeamProvisioningPort = {
-    of: vi.fn().mockResolvedValue(options.provisioning ?? 'done'),
-  };
+  const welcomes = {
+    welcomed: vi.fn().mockResolvedValue(options.welcomed ?? true),
+  } as unknown as TeamWelcomesPort;
 
   const access = {
     permissionsIn: vi
@@ -58,7 +57,7 @@ const handler = (options: Options = {}) => {
       .mockResolvedValue({ isAdmin: options.admin ?? true }),
   } as unknown as WorkspaceAccessPort;
 
-  return new OnboardingHandler(workspaces, access, setup, provisioning);
+  return new OnboardingHandler(workspaces, access, setup, welcomes);
 };
 
 const read = (options: Options = {}) =>
@@ -72,11 +71,17 @@ describe('OnboardingHandler', () => {
     await expect(read({ member: false })).resolves.toBeNull();
   });
 
-  it('tells whether Spotlight has set the team up yet', async () => {
+  it('tells whether Spotlight has welcomed a team made at sign-up yet', async () => {
     await expect(read()).resolves.toMatchObject({ provisioning: 'done' });
-    await expect(read({ provisioning: 'pending' })).resolves.toMatchObject({
+    await expect(read({ welcomed: false })).resolves.toMatchObject({
       provisioning: 'pending',
     });
+  });
+
+  it('reads a team made by configuration as set up at once', async () => {
+    await expect(
+      read({ origin: 'configuration', welcomed: false }),
+    ).resolves.toMatchObject({ provisioning: 'done' });
   });
 
   it('offers the list as the things it names', async () => {

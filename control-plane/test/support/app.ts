@@ -1,15 +1,15 @@
 import type { Server } from 'node:http';
+import {
+  SESSION_READER,
+  type SessionReaderPort,
+} from '@identity/application/ports/session-reader.port';
 import type { INestApplication } from '@nestjs/common';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { ENV } from '@platform/config/config.constants';
 import { parseEnv } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 import { AutoSearches } from '@replays/application/services/auto-searches.service';
-import {
-  type AuthenticatedUser,
-  SESSION_READER,
-  type SessionReaderPort,
-} from '@shared-kernel/application/ports/session.port';
+import type { AuthenticatedUser } from '@shared-kernel/application/dto/authenticated-user.dto';
 import request from 'supertest';
 import { AppModule } from '@/app.module';
 import { configureApp } from '@/app.setup';

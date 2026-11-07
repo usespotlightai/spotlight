@@ -1,8 +1,9 @@
-import { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
-import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
-import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
-import { LeasedCheckDeleted } from '@change-review/domain/events/leased-check-deleted.event';
-import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
+import { LeasedStackCheckDeleted } from '@change-review/domain/events/leased-stack-check-deleted.event';
+import { StackCheckLayersFailed } from '@change-review/domain/events/stack-check-layers-failed.event';
+import { StackCheckReservationDropped } from '@change-review/domain/events/stack-check-reservation-dropped.event';
+import { StackChecked } from '@change-review/domain/events/stack-checked.event';
+import { InvalidStackCheckError } from '@change-review/domain/exceptions/invalid-stack-check.error';
 import { StackCheckNotLeasedError } from '@change-review/domain/exceptions/stack-check-not-leased.error';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
@@ -22,6 +23,7 @@ import {
   queueTimeout,
   WHOLE_STEP,
 } from '@change-review/domain/value-objects/stack-check.vo';
+import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import type { LayerId } from '@change-review/domain/value-objects/stack-ids';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -55,11 +57,10 @@ export interface PlannedCheck {
 
 export class StackCheck extends EventRecorder {
   private constructor(
-    readonly stackId: ChangeStackId,
+    readonly id: StackCheckId,
     readonly runId: RunId,
     readonly taskId: TaskId | null,
     readonly replay: boolean,
-    readonly recheck: boolean,
     readonly workspaceId: WorkspaceId,
     readonly request: CheckRequest,
     readonly status: StackCheckStatus,
@@ -86,11 +87,10 @@ export class StackCheck extends EventRecorder {
     now: Date;
   }): StackCheck {
     return new StackCheck(
-      input.stackId,
+      StackCheckId.first(input.stackId),
       input.runId,
       input.taskId,
       input.replay,
-      false,
       input.workspaceId,
       input.request,
       'waiting',
@@ -105,12 +105,28 @@ export class StackCheck extends EventRecorder {
     );
   }
 
+  static beginFor(stack: ChangeStack, now: Date): StackCheck | null {
+    if (!stack.request || stack.state !== 'ready') {
+      return null;
+    }
+
+    return StackCheck.begin({
+      stackId: stack.id,
+      runId: stack.runId,
+      taskId: stack.taskId,
+      replay: stack.replay,
+      workspaceId: stack.workspaceId,
+      request: stack.request,
+      entries: stack.entries(),
+      now,
+    });
+  }
+
   static rehydrate(input: {
-    stackId: ChangeStackId;
+    id: StackCheckId;
     runId: RunId;
     taskId: TaskId | null;
     replay: boolean;
-    recheck: boolean;
     workspaceId: WorkspaceId;
     request: CheckRequest;
     status: StackCheckStatus;
@@ -137,7 +153,7 @@ export class StackCheck extends EventRecorder {
         `has been redrafted ${input.redraftCount} times`,
       );
     }
-    if (input.recheck && (!input.replay || input.redraftCount > 0)) {
+    if (input.id.recheck && (!input.replay || input.redraftCount > 0)) {
       throw new InconsistentStateError(
         'change stack check',
         'is a recheck only of a replay’s change, and never redrafts it',
@@ -145,11 +161,10 @@ export class StackCheck extends EventRecorder {
     }
 
     return new StackCheck(
-      input.stackId,
+      input.id,
       input.runId,
       input.taskId,
       input.replay,
-      input.recheck,
       input.workspaceId,
       input.request,
       input.status,
@@ -164,19 +179,30 @@ export class StackCheck extends EventRecorder {
     );
   }
 
+  get stackId(): ChangeStackId {
+    return this.id.stackId;
+  }
+
+  get recheck(): boolean {
+    return this.id.recheck;
+  }
+
+  get recheckable(): boolean {
+    return this.replay && !this.recheck && this.hasWholeResult;
+  }
+
   rechecking(now: Date): StackCheck {
-    if (!this.replay || this.recheck || !this.hasWholeResult) {
-      throw InvalidChangeStackError.because(
-        'is checked again only once, as a replay’s change its first check passed or failed',
+    if (!this.recheckable) {
+      throw new InvalidStackCheckError(
+        'runs again only once, on a replay’s change that its first check passed or failed',
       );
     }
 
     return new StackCheck(
-      this.stackId,
+      StackCheckId.recheckOf(this.stackId),
       this.runId,
       this.taskId,
       this.replay,
-      true,
       this.workspaceId,
       this.request,
       'waiting',
@@ -249,12 +275,12 @@ export class StackCheck extends EventRecorder {
 
   claimedFor(runner: RunnerId, offer: RunnerOffer, now: Date): StackCheck {
     if (!this.claimableAt(now, runner)) {
-      throw InvalidChangeStackError.because(
-        'has no check waiting for a runner to claim',
+      throw new InvalidStackCheckError(
+        'is not waiting for a runner to claim it',
       );
     }
     if (!this.request.placement.matches(offer)) {
-      throw InvalidChangeStackError.because(
+      throw new InvalidStackCheckError(
         'needs runner labels that this runner does not have',
       );
     }
@@ -309,7 +335,7 @@ export class StackCheck extends EventRecorder {
 
   reservedFor(runner: RunnerId, pool: PoolId, now: Date): StackCheck {
     if (!this.provisionableAt(now)) {
-      throw InvalidChangeStackError.because(
+      throw new InvalidStackCheckError(
         'cannot be reserved for a runner to be provisioned while it is not waiting for one',
       );
     }
@@ -361,7 +387,7 @@ export class StackCheck extends EventRecorder {
 
   expireWait(now: Date): StackCheck {
     if (!this.waitExpiredAt(now)) {
-      throw InvalidChangeStackError.because(
+      throw new InvalidStackCheckError(
         'has not waited past its limit, so nobody failed to check it yet',
       );
     }
@@ -386,9 +412,20 @@ export class StackCheck extends EventRecorder {
     }
 
     const released = deleted.with({ claim: this.claim.released() });
-    released.record(new LeasedCheckDeleted(this.stackId));
+    released.record(new LeasedStackCheckDeleted(this.id));
 
     return released;
+  }
+
+  plannedFrom(stack: ChangeStack): PlannedCheck {
+    if (!stack.id.equals(this.stackId)) {
+      throw new InvalidStackCheckError('is planned only from its own stack');
+    }
+
+    return {
+      steps: stack.checkSteps(this.entries),
+      layers: stack.layers(),
+    };
   }
 
   recordResult(
@@ -410,7 +447,7 @@ export class StackCheck extends EventRecorder {
       problems.push('checks nothing without checking the whole change');
     }
     if (problems.length > 0 || !whole) {
-      throw InvalidChangeStackError.because(...problems);
+      throw new InvalidStackCheckError(problems.join('; '));
     }
 
     const trimmed = (step: CheckedStep): CheckedStep => ({
@@ -475,14 +512,13 @@ export class StackCheck extends EventRecorder {
 
     const checked = this.with({ status: 'checked' });
     checked.record(
-      new ChangeStackChecked(
-        this.stackId,
+      new StackChecked(
+        this.id,
         this.runId,
         this.taskId,
         this.workspaceId,
         this.outcome?.whole?.passed ?? null,
         this.replay,
-        this.recheck,
       ),
     );
 
@@ -496,7 +532,7 @@ export class StackCheck extends EventRecorder {
 
     const dropped = this.with({ reservation: null });
     dropped.record(
-      new CheckReservationDropped(this.stackId, this.reservation.runner),
+      new StackCheckReservationDropped(this.id, this.reservation.runner),
     );
 
     return dropped;
@@ -519,9 +555,9 @@ export class StackCheck extends EventRecorder {
 
     completed.record(
       redraft
-        ? new LayersFailedCheck(this.stackId, this.runId)
-        : new ChangeStackChecked(
-            this.stackId,
+        ? new StackCheckLayersFailed(this.id, this.runId)
+        : new StackChecked(
+            this.id,
             this.runId,
             this.taskId,
             this.workspaceId,
@@ -529,7 +565,6 @@ export class StackCheck extends EventRecorder {
               ? (outcome.whole?.passed ?? null)
               : null,
             this.replay,
-            this.recheck,
           ),
     );
 
@@ -538,7 +573,7 @@ export class StackCheck extends EventRecorder {
 
   private assertCheckable(now: Date, to: string): void {
     if (!this.checkableAt(now)) {
-      throw InvalidChangeStackError.because(
+      throw new InvalidStackCheckError(
         `cannot ${to} while it is ${this.statusAt(now)}`,
       );
     }
@@ -546,14 +581,14 @@ export class StackCheck extends EventRecorder {
 
   private assertCheckedBy(runner: RunnerId, now: Date): void {
     if (!this.beingCheckedBy(runner, now)) {
-      throw new StackCheckNotLeasedError(this.stackId.value);
+      throw new StackCheckNotLeasedError(this.id);
     }
   }
 
   private assertIn(status: StackCheckStatus, to: string): void {
     if (this.status !== status) {
-      throw InvalidChangeStackError.because(
-        `cannot ${to} while its check is ${this.status}`,
+      throw new InvalidStackCheckError(
+        `cannot ${to} while it is ${this.status}`,
       );
     }
   }
@@ -569,11 +604,10 @@ export class StackCheck extends EventRecorder {
     provisioning?: Provisioning;
   }): StackCheck {
     const next = new StackCheck(
-      this.stackId,
+      this.id,
       this.runId,
       this.taskId,
       this.replay,
-      this.recheck,
       this.workspaceId,
       this.request,
       change.status ?? this.status,

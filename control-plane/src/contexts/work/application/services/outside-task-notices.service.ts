@@ -1,3 +1,4 @@
+import type { BindableTaskEvent } from '@work/application/contracts/bindable-task-events.contract';
 import { HappenedMapper } from '@work/application/mappers/happened.mapper';
 import type { OutboundTaskNotifierPort } from '@work/application/ports/outbound-task-notifier.port';
 import type { TaskNoticesPort } from '@work/application/ports/task-notices.port';
@@ -11,7 +12,7 @@ export class OutsideTaskNotices implements OutboundTaskNotifierPort {
     private readonly notices: TaskNoticesPort,
   ) {}
 
-  async notify(task: Task, event: string): Promise<readonly Mark[]> {
+  async notify(task: Task, event: BindableTaskEvent): Promise<readonly Mark[]> {
     const view = await this.taskViews.of(task);
 
     return view

@@ -65,7 +65,6 @@ const definitions = (
 
   return {
     withId: read,
-    of: read,
     ofTeam: vi.fn(async () => []),
     save: vi.fn(async (_: SkillDefinition) => {
       if (over.throwing) {
@@ -234,7 +233,9 @@ describe('DeleteSkillHandler', () => {
 
   it('will not delete a skill that a station enables', async () => {
     const { remove, repository } = deleting(
-      StationUses.of([{ name: 'grafana', by: 'delivery/implementation' }]),
+      StationUses.of([
+        { name: 'grafana', line: 'delivery', station: 'implementation' },
+      ]),
     );
 
     expect(await remove()).toMatchObject({ outcome: 'in-use' });

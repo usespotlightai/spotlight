@@ -8,14 +8,15 @@ import type {
   CallSecretFetchesPort,
 } from '@secrets/application/ports/call-secret-fetches.port';
 import type {
-  RunSealingPort,
   SealingRecipient,
-} from '@secrets/application/ports/run-sealing.port';
+  SecretSealingPort,
+} from '@secrets/application/ports/secret-sealing.port';
 import { deniedFor } from '@secrets/application/services/denied-secrets';
 import type { SecretSources } from '@secrets/application/services/secret-sources.service';
 import type { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { NoSuchSecretError } from '@secrets/domain/exceptions/no-such-secret.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
+import { SecretTargets } from '@secrets/domain/value-objects/secret-targets.vo';
 import type { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
@@ -25,7 +26,7 @@ export class CallSecretFetches implements CallSecretFetchesPort {
   constructor(
     private readonly secrets: SecretRepository,
     private readonly sources: SecretSources,
-    private readonly sealing: RunSealingPort,
+    private readonly sealing: SecretSealingPort,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -34,6 +35,7 @@ export class CallSecretFetches implements CallSecretFetchesPort {
     const workspaceId = WorkspaceId.of(request.workspaceId);
     const secrets: FetchedSecret[] = [];
     const denied: DeniedSecret[] = [];
+    let targets = SecretTargets.none();
 
     for (const name of new Set(request.secrets)) {
       try {
@@ -46,6 +48,7 @@ export class CallSecretFetches implements CallSecretFetchesPort {
           throw new NoSuchSecretError(name);
         }
 
+        targets = targets.claim(secret.name, secret.injectedBindings());
         secrets.push(
           ...(await this.fetched(secret, recipient, request.callId)),
         );
@@ -80,13 +83,13 @@ export class CallSecretFetches implements CallSecretFetchesPort {
 
     return bindings.map((binding) => ({
       secret: secret.name.value,
-      host: binding.host,
+      host: binding.host.value,
       location: binding.target.location,
       name: binding.target.name,
       prefix: binding.prefix,
       sealed: value
         ? this.sealing.seal(value, recipient, {
-            runId: callId,
+            subject: callId,
             secretName: secret.name.value,
           })
         : null,

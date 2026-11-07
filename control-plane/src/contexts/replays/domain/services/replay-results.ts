@@ -1,4 +1,5 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import type { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
 import {
   type RateInterval,
   rateIntervalOf,
@@ -7,7 +8,6 @@ import type { Scoring } from '@replays/domain/services/entry-result';
 import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayEnding } from '@replays/domain/value-objects/replay-ending';
-import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface ReplayTotals {

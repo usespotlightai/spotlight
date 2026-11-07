@@ -1,3 +1,4 @@
+import { graphqlOperationWrites } from '@integrations/domain/services/operation-writes';
 import {
   describedAs,
   firstByName,
@@ -179,7 +180,7 @@ const operationOf = (
       required: isRequiredArgument(arg),
       description: arg.description?.trim() || null,
     })),
-    writes: operation === 'mutation',
+    writes: graphqlOperationWrites(operation),
     call: {
       kind: 'graphql',
       endpoint,

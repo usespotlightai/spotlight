@@ -63,7 +63,7 @@ const cohort = (
 
 const ready = (
   request = CheckRequest.of('npx tsc --noEmit', null),
-  facts = StackFacts.none(),
+  facts = StackFacts.of({ hunks: [], links: [], imports: [] }),
 ) => {
   const stack = ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
@@ -149,7 +149,7 @@ describe('ChangeStack, on the check it requests', () => {
     expect(redrafted.hasPendingJob).toBe(false);
     expect(kinds(redrafted)).toEqual([
       'change-stack.redrafted',
-      'change-stack.ready',
+      'change-stack.became-ready',
     ]);
   });
 
@@ -220,15 +220,14 @@ describe('ChangeStack, on the check it requests', () => {
       repository: null,
       base: null,
       diff: DIFF,
-      facts: StackFacts.none(),
+      facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
       request: CheckRequest.of('npx tsc --noEmit', null),
       now: NOW,
     }).propose([cohort('All', [['h1', 'h2', 'h3', 'h4', 'h5']])], LATER);
 
     expect(kinds(stack)).toEqual([
-      'change-stack.generation-started',
       'change-stack.completed',
-      'change-stack.ready',
+      'change-stack.became-ready',
     ]);
   });
 });

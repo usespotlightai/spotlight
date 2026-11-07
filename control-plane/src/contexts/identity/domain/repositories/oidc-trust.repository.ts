@@ -1,6 +1,6 @@
 import type { OidcTrust } from '@identity/domain/aggregates/oidc-trust.aggregate';
+import type { OidcTrustId } from '@identity/domain/value-objects/oidc-trust-id.vo';
 import type { OidcTrustKey } from '@identity/domain/value-objects/oidc-trust-key.vo';
-import type { OidcTrustId } from '@shared-kernel/domain/value-objects/oidc-trust-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export interface OidcTrustRepository {
@@ -11,6 +11,8 @@ export interface OidcTrustRepository {
   find(id: OidcTrustId): Promise<OidcTrust | null>;
 
   findLocked(id: OidcTrustId): Promise<OidcTrust | null>;
+
+  ofWorkspace(workspaceId: WorkspaceId): Promise<readonly OidcTrust[]>;
 
   findByKey(
     workspaceId: WorkspaceId,

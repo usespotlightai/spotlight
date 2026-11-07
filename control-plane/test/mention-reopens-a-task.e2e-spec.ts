@@ -1,36 +1,38 @@
 import { randomUUID } from 'node:crypto';
+import { Line } from '@lines/domain/aggregates/line.aggregate';
+import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
+import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import {
   HAPPENING_REACTIONS,
   type HappeningReactionsPort,
 } from '@work/application/ports/happening-reactions.port';
-import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { BUILT_IN_LINES } from '@work/domain/services/built-in-lines';
-import { LineRole } from '@work/domain/value-objects/line-role.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
-import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
-import { DrizzleLineRepository } from '@work/infrastructure/persistence/drizzle/repositories/line.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import { mapOf, projectStations } from './support/stations';
 import { createTeam } from './support/team';
 
 let app: INestApplication;
 let db: DrizzleDatabase;
 let team: Awaited<ReturnType<typeof createTeam>>;
-let line: Line;
+let line: LineMap;
 let tasks: DrizzleTaskRepository;
 let runs: DrizzleRunRepository;
 
@@ -62,7 +64,7 @@ const finishedAt = async (station: string, thread: string): Promise<Task> => {
     rank: TaskRank.of('i'),
     now: new Date(),
     newId: () => randomUUID(),
-  }).markedBy(Mark.of('slack.thread', thread));
+  }).markedBy(Mark.of('slack.thread', thread), new Date(0));
   const finished = Task.rehydrate({ ...added, finishedAt: new Date() });
 
   await tasks.add(finished);
@@ -110,14 +112,20 @@ beforeAll(async () => {
     throw new Error('Spotlight ships no delivery line');
   }
 
-  line = Line.create({
+  const created = Line.create({
     by: changeActorIn(),
     workspaceId: team.workspaceId,
     teamId: team.teamId,
     line: opening,
+    harness: HarnessId.of('claude-code'),
     newId: () => randomUUID(),
-  }).runsOn(HarnessId.of('claude-code'), null);
-  await app.get(DrizzleLineRepository).add(line);
+  });
+  await app.get(DrizzleLineRepository).add(created);
+  await projectStations(
+    db,
+    created.stations.map((each) => each.id.value),
+  );
+  line = mapOf(created);
 }, 60_000);
 
 afterAll(async () => {

@@ -14,6 +14,7 @@ import { NoticeExternalLink } from '@work/domain/value-objects/notice-external-l
 import { noticeForm } from '@work/domain/value-objects/notice-form';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
+import { NoticeSubject } from '@work/domain/value-objects/notice-subject.vo';
 import { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
 
 const EXTERNAL_LINK_CHECK = 'Open';
@@ -35,7 +36,7 @@ export class Notices implements NoticesPort {
       teamId: input.teamId,
       addressee: input.addressee,
       form,
-      subject: input.subject,
+      subject: NoticeSubject.of(input.subject),
       link: NoticeLink.of({ path: input.link, label: input.linkLabel }),
       externalLink: input.externalLink
         ? NoticeExternalLink.of(input.externalLink)
@@ -49,7 +50,7 @@ export class Notices implements NoticesPort {
 
     if (
       input.addressee !== null &&
-      !(await this.access.onTeam(input.teamId.value, input.addressee))
+      !(await this.access.inWorkspaceOfTeam(input.teamId, input.addressee))
     ) {
       return;
     }
@@ -80,7 +81,9 @@ export class Notices implements NoticesPort {
     }
   }
 
-  deleteForTeam(teamId: TeamId): Promise<void> {
-    return this.notices.deleteForTeam(teamId);
+  async deleteForTeam(teamId: TeamId): Promise<void> {
+    for (const notice of await this.notices.ofTeam(teamId)) {
+      await this.notices.remove(notice);
+    }
   }
 }

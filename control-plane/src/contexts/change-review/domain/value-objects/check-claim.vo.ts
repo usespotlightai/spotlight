@@ -1,4 +1,4 @@
-import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import { InvalidStackCheckError } from '@change-review/domain/exceptions/invalid-stack-check.error';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
@@ -93,7 +93,7 @@ export class CheckClaim implements CheckLease {
       );
     }
     if (leasedTooLongAt(this.claimedAt, now)) {
-      throw InvalidChangeStackError.because(
+      throw new InvalidStackCheckError(
         'has been leased for as long as a check may be leased',
       );
     }

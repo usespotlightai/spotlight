@@ -1,74 +1,153 @@
-import type {
-  IntegrationCursorsPort,
-  PollState,
-} from '@integrations/application/ports/integration-cursors.port';
+import { PollCursor } from '@integrations/domain/aggregates/poll-cursor.aggregate';
+import { ScheduleCursor } from '@integrations/domain/aggregates/schedule-cursor.aggregate';
+import { PollCursorVersionConflictError } from '@integrations/domain/exceptions/poll-cursor-version-conflict.error';
+import { ScheduleCursorVersionConflictError } from '@integrations/domain/exceptions/schedule-cursor-version-conflict.error';
+import type { PollCursorRepository } from '@integrations/domain/repositories/poll-cursor.repository';
+import type { ScheduleCursorRepository } from '@integrations/domain/repositories/schedule-cursor.repository';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-const same = (one: Date | null, other: Date | null): boolean =>
-  one?.getTime() === other?.getTime();
+export interface PollState {
+  readonly cursor: string | null;
+  readonly polledAt: Date | null;
+}
 
-export class FakeIntegrationCursors implements IntegrationCursorsPort {
-  private readonly stored = new Map<string, PollState>();
+export interface ScheduleState {
+  readonly ranAt: Date;
+}
+
+type Versioned<S> = S & { readonly version: number };
+
+const keyOf = (teamId: TeamId, integration: string): string =>
+  `${teamId.value}:${integration}`;
+
+class VersionedStore<S> {
+  private readonly stored = new Map<string, Versioned<S>>();
+
+  stateOf(teamId: TeamId, integration: string): S | undefined {
+    const found = this.stored.get(keyOf(teamId, integration));
+
+    if (!found) {
+      return undefined;
+    }
+
+    const { version: _version, ...state } = found;
+
+    return state as unknown as S;
+  }
+
+  versioned(teamId: TeamId, integration: string): Versioned<S> | undefined {
+    return this.stored.get(keyOf(teamId, integration));
+  }
+
+  setState(teamId: TeamId, integration: string, state: S): void {
+    const current = this.stored.get(keyOf(teamId, integration));
+
+    this.stored.set(keyOf(teamId, integration), {
+      ...state,
+      version: (current?.version ?? 0) + 1,
+    });
+  }
+
+  saved(
+    teamId: TeamId,
+    integration: string,
+    isNew: boolean,
+    version: number,
+    state: S,
+  ): boolean {
+    const current = this.stored.get(keyOf(teamId, integration));
+
+    if (isNew ? current !== undefined : current?.version !== version) {
+      return false;
+    }
+
+    this.setState(teamId, integration, state);
+
+    return true;
+  }
+}
+
+export class FakePollCursors implements PollCursorRepository {
+  private readonly store = new VersionedStore<PollState>();
 
   constructor(
     private readonly beforeRead: () => Promise<void> = async () => {},
   ) {}
 
   stateOf(teamId: TeamId, integration: string): PollState | undefined {
-    return this.stored.get(this.key(teamId, integration));
+    return this.store.stateOf(teamId, integration);
   }
 
   setState(teamId: TeamId, integration: string, state: PollState): void {
-    this.stored.set(this.key(teamId, integration), state);
+    this.store.setState(teamId, integration, state);
   }
 
-  async read(teamId: TeamId, integration: string): Promise<PollState> {
-    const state = this.stateOf(teamId, integration) ?? {
-      cursor: null,
-      ranAt: null,
-    };
+  async of(teamId: TeamId, integration: IntegrationKey): Promise<PollCursor> {
+    const found = this.store.versioned(teamId, integration.value);
     await this.beforeRead();
-    return state;
+
+    return found
+      ? PollCursor.rehydrate({ teamId, integration, ...found })
+      : PollCursor.start(teamId, integration);
   }
 
-  async claimTurn(
-    teamId: TeamId,
-    integration: string,
-    seen: PollState,
-    at: Date,
-  ): Promise<boolean> {
-    const current = this.stateOf(teamId, integration);
+  async save(cursor: PollCursor): Promise<void> {
+    const saved = this.store.saved(
+      cursor.teamId,
+      cursor.integration.value,
+      cursor.isNew,
+      cursor.version,
+      { cursor: cursor.cursor, polledAt: cursor.polledAt },
+    );
 
-    if (current && !same(current.ranAt, seen.ranAt)) {
-      return false;
+    if (!saved) {
+      throw new PollCursorVersionConflictError(cursor.integration.value);
     }
+  }
+}
 
-    this.setState(teamId, integration, {
-      cursor: current ? current.cursor : seen.cursor,
-      ranAt: at,
-    });
+export class FakeScheduleCursors implements ScheduleCursorRepository {
+  private readonly store = new VersionedStore<ScheduleState>();
 
-    return true;
+  constructor(
+    private readonly beforeRead: () => Promise<void> = async () => {},
+  ) {}
+
+  stateOf(teamId: TeamId, integration: string): ScheduleState | undefined {
+    return this.store.stateOf(teamId, integration);
   }
 
-  async advance(
+  setState(teamId: TeamId, integration: string, state: ScheduleState): void {
+    this.store.setState(teamId, integration, state);
+  }
+
+  async of(
     teamId: TeamId,
-    integration: string,
-    cursor: string | null,
-    claimedAt: Date,
-  ): Promise<boolean> {
-    const current = this.stateOf(teamId, integration);
+    integration: IntegrationKey,
+  ): Promise<ScheduleCursor> {
+    const found = this.store.versioned(teamId, integration.value);
+    await this.beforeRead();
 
-    if (!current || !same(current.ranAt, claimedAt)) {
-      return false;
-    }
-
-    this.setState(teamId, integration, { cursor, ranAt: claimedAt });
-
-    return true;
+    return found
+      ? ScheduleCursor.rehydrate({ teamId, integration, ...found })
+      : ScheduleCursor.start(teamId, integration);
   }
 
-  private key(teamId: TeamId, integration: string): string {
-    return `${teamId.value}:${integration}`;
+  async save(cursor: ScheduleCursor): Promise<void> {
+    const ranAt = cursor.ranAt;
+    const saved =
+      ranAt !== null &&
+      this.store.saved(
+        cursor.teamId,
+        cursor.integration.value,
+        cursor.isNew,
+        cursor.version,
+        { ranAt },
+      );
+
+    if (!saved) {
+      throw new ScheduleCursorVersionConflictError(cursor.integration.value);
+    }
   }
 }

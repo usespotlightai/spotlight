@@ -7,6 +7,7 @@ import type {
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
 import type { SetupState } from '@work/domain/services/setup-list';
+import { configuredBy } from '@work/domain/services/setup-list';
 
 export interface TeamSetup {
   readonly state: SetupState;
@@ -32,7 +33,7 @@ export class SetupStatus {
       state: {
         connectedToGitHub,
         hasHarness,
-        configured: chat?.pullRequest != null,
+        configured: configuredBy(chat),
       },
       hasEgressCapableRunner,
       chat,

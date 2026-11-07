@@ -1,8 +1,11 @@
 import type {
   EvidencePort,
   RunEvidence,
-  StationJudge,
 } from '@insights/application/ports/evidence.port';
+import type {
+  StationJudge,
+  StationJudgesPort,
+} from '@insights/application/ports/station-judges.port';
 import type {
   RunEvidencePort,
   StationJudgeSettings,
@@ -52,6 +55,10 @@ export class Evidence implements EvidencePort {
       }
     );
   }
+}
+
+export class StationJudges implements StationJudgesPort {
+  constructor(private readonly runs: RunEvidencePort) {}
 
   async judgeAt(stationId: string): Promise<StationJudge | null> {
     const judge = await this.runs.judgeAt(stationId);

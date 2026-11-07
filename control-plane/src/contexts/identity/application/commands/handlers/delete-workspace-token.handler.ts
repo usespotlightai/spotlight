@@ -2,6 +2,7 @@ import type { DeleteWorkspaceTokenCommand } from '@identity/application/commands
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
+import { WorkspaceTokenId } from '@identity/domain/value-objects/workspace-token-id.vo';
 import {
   forbiddenTo,
   type ResourceDeleted,
@@ -10,7 +11,6 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
-import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 
 export class DeleteWorkspaceTokenHandler
   implements

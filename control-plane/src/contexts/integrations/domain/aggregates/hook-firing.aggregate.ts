@@ -4,11 +4,13 @@ import {
   loopStopFor,
   RECENT_MS,
 } from '@integrations/domain/services/loop-guard';
+import type { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import {
   HookFailure,
   type HookFailureCode,
 } from '@integrations/domain/value-objects/hook-failure.vo';
+import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { deepFrozen } from '@shared-kernel/domain/deep-frozen';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -16,6 +18,13 @@ import type {
   CausalChain,
   CauseLink,
 } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export type HookStepOutcome =
   | {
@@ -34,7 +43,7 @@ export type HookStepOutcome =
       readonly name: string;
       readonly status: 'waiting';
       readonly call: string;
-      readonly until: string;
+      readonly until: Date;
     };
 
 export type HookFiringProgress =
@@ -46,6 +55,14 @@ export type HookFiringProgress =
 
 export type HookFiringState = HookFiringProgress['kind'];
 
+export interface HookFiringRepeats {
+  readonly hookId: HookDefinitionId;
+  readonly taskId: TaskId;
+  readonly linkKey: string;
+  readonly since: Date;
+  readonly before: { readonly firedAt: Date; readonly id: HookFiringId };
+}
+
 export const HOOK_FIRING_STATES = [
   'pending',
   'working',
@@ -55,13 +72,13 @@ export const HOOK_FIRING_STATES = [
 ] as const satisfies readonly HookFiringState[];
 
 interface Fired {
-  readonly id: string;
-  readonly hookId: string;
-  readonly workspaceId: string;
-  readonly teamId: string;
-  readonly taskId: string;
-  readonly runId: string | null;
-  readonly stationKey: string;
+  readonly id: HookFiringId;
+  readonly hookId: HookDefinitionId;
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly taskId: TaskId;
+  readonly runId: RunId | null;
+  readonly stationKey: StationKey;
   readonly on: HookEventName;
   readonly occurrence: string;
   readonly firedAt: Date;
@@ -80,6 +97,8 @@ interface State extends Fired {
 }
 
 const LEASE_MS = 10 * 60 * 1000;
+
+const WAIT_AGAIN_MS = 2_000;
 
 const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -128,7 +147,7 @@ export class HookFiring extends EventRecorder {
     if (state.progress.kind === 'failed' && state.failure === null) {
       throw new InconsistentStateError(
         'hook firing',
-        `failed for no reason (${state.id})`,
+        `failed for no reason (${state.id.value})`,
       );
     }
 
@@ -138,7 +157,7 @@ export class HookFiring extends EventRecorder {
     ) {
       throw new InconsistentStateError(
         'hook firing',
-        `was superseded without saying so (${state.id})`,
+        `was superseded without saying so (${state.id.value})`,
       );
     }
 
@@ -153,31 +172,31 @@ export class HookFiring extends EventRecorder {
     return new Date(now.getTime() - RETENTION_MS);
   }
 
-  get id(): string {
+  get id(): HookFiringId {
     return this.state.id;
   }
 
-  get hookId(): string {
+  get hookId(): HookDefinitionId {
     return this.state.hookId;
   }
 
-  get workspaceId(): string {
+  get workspaceId(): WorkspaceId {
     return this.state.workspaceId;
   }
 
-  get teamId(): string {
+  get teamId(): TeamId {
     return this.state.teamId;
   }
 
-  get taskId(): string {
+  get taskId(): TaskId {
     return this.state.taskId;
   }
 
-  get runId(): string | null {
+  get runId(): RunId | null {
     return this.state.runId;
   }
 
-  get stationKey(): string {
+  get stationKey(): StationKey {
     return this.state.stationKey;
   }
 
@@ -255,6 +274,36 @@ export class HookFiring extends EventRecorder {
     return new Date(this.state.firedAt.getTime() - RECENT_MS);
   }
 
+  get repeatsOf(): HookFiringRepeats {
+    return {
+      hookId: this.state.hookId,
+      taskId: this.state.taskId,
+      linkKey: this.state.link.key,
+      since: this.repeatsCountedSince,
+      before: { firedAt: this.state.firedAt, id: this.state.id },
+    };
+  }
+
+  get changesToRead(): {
+    readonly repository: Repository;
+    readonly pullRequest: PullRequestUrl;
+  } | null {
+    if (this.state.matched || this.state.on !== 'pull-request.merged') {
+      return null;
+    }
+
+    return {
+      repository: Repository.of(String(this.state.event.repository ?? '')),
+      pullRequest: PullRequestUrl.of(String(this.state.event.url ?? '')),
+    };
+  }
+
+  eventWithChanges(
+    changed: readonly string[],
+  ): Readonly<Record<string, unknown>> {
+    return { ...this.state.event, changed: [...changed] };
+  }
+
   claimed(now: Date): HookFiring {
     const { progress } = this.state;
     const due =
@@ -291,10 +340,34 @@ export class HookFiring extends EventRecorder {
     return this.with({ event: frozenEvent(event), matched: true });
   }
 
-  waitUntil(at: Date): HookFiring {
+  waitedOn(now: Date): HookFiring {
     this.guardWorking('wait');
 
-    return this.with({ progress: { kind: 'pending', dueAt: at } });
+    return this.with({
+      progress: {
+        kind: 'pending',
+        dueAt: new Date(now.getTime() + WAIT_AGAIN_MS),
+      },
+    });
+  }
+
+  hookBroken(hook: string, reason: string, now: Date): HookFiring {
+    return this.failedWith(
+      HookFailure.of('broken', `Hook ${hook} is broken. Reason: ${reason}`),
+      now,
+      false,
+    );
+  }
+
+  taskGone(now: Date): HookFiring {
+    return this.failedWith(
+      HookFailure.of(
+        'superseded',
+        'The task of this hook firing no longer exists.',
+      ),
+      now,
+      false,
+    );
   }
 
   loopStop(hook: string, recentRepeats: number): HookFailure | null {

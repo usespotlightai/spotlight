@@ -1,6 +1,6 @@
-import type { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
-import type { ChangeStackReady } from '@change-review/domain/events/change-stack-ready.event';
+import type { ChangeStackBecameReady } from '@change-review/domain/events/change-stack-became-ready.event';
 import type { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
+import type { StackChecked } from '@change-review/domain/events/stack-checked.event';
 import {
   CHANGE_CHECKED,
   type ChangeCheckedIntegrationEvent,
@@ -24,15 +24,15 @@ import {
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 
 export const CHANGE_REVIEW_EVENT_MAPPERS = [
-  mapping<ChangeStackChecked>(
-    'change-stack.checked',
+  mapping<StackChecked>(
+    'stack-check.checked',
     (
       event,
     ):
       | ChangeCheckedIntegrationEvent
       | ReplayChangeCheckedIntegrationEvent
       | ReplayChangeRecheckedIntegrationEvent => {
-      if (event.recheck) {
+      if (event.checkId.recheck) {
         return {
           kind: REPLAY_CHANGE_RECHECKED,
           runId: event.runId.value,
@@ -57,8 +57,8 @@ export const CHANGE_REVIEW_EVENT_MAPPERS = [
           };
     },
   ),
-  mapping<ChangeStackReady>(
-    'change-stack.ready',
+  mapping<ChangeStackBecameReady>(
+    'change-stack.became-ready',
     (event): ChangeStackReadyIntegrationEvent => {
       const changes = event.cohorts.filter((each) => each.kind === 'change');
 

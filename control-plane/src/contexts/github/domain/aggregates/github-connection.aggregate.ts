@@ -85,8 +85,8 @@ export class GitHubConnection extends EventRecorder {
     return disconnected;
   }
 
-  equals(other: GitHubConnection): boolean {
-    return this.workspaceId.equals(other.workspaceId);
+  disconnect(): GitHubConnection {
+    return this.installation ? this.disconnectFrom(this.installation) : this;
   }
 
   private with(installation: GitHubInstallation | null): GitHubConnection {

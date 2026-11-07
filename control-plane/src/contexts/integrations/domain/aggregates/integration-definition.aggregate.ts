@@ -1,4 +1,3 @@
-import type { Integration } from '@integrations/domain/entities/integration.entity';
 import { IntegrationCreated } from '@integrations/domain/events/integration-created.event';
 import { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
 import { IntegrationSpecRefreshed } from '@integrations/domain/events/integration-spec-refreshed.event';
@@ -8,10 +7,12 @@ import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/inte
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
+import type { Integration } from '@integrations/domain/value-objects/integration.vo';
 import type { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
 import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
 import { SpecRefreshDetail } from '@integrations/domain/value-objects/spec-refresh-detail.vo';
+import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
@@ -25,8 +26,9 @@ interface Props {
   readonly teamId: TeamId;
   readonly integration: IntegrationKey;
   readonly document: DefinitionDocument;
-  readonly tools: readonly string[];
+  readonly tools: readonly ToolName[];
   readonly reading: SpecFetchResult | null;
+  readonly relistsTools: boolean;
   readonly version: number;
 }
 
@@ -86,8 +88,17 @@ const guardRead = (
   }
 };
 
-const providedBy = (compiled: Compiled): readonly string[] =>
-  compiled.integration.tools.map((each) => each.tool);
+const providedBy = (compiled: Compiled): readonly ToolName[] =>
+  compiled.integration.tools.map((each) => ToolName.of(each.tool));
+
+const without = (
+  tools: readonly ToolName[],
+  kept: readonly ToolName[],
+): readonly ToolName[] =>
+  tools.filter((tool) => !kept.some((each) => each.equals(tool)));
+
+const relistsToolsOf = (compiled: Compiled): boolean =>
+  compiled.spec?.listsToolsOnRequest ?? false;
 
 export class IntegrationDefinition extends EventRecorder {
   private constructor(private readonly state: State) {
@@ -112,6 +123,7 @@ export class IntegrationDefinition extends EventRecorder {
       document: input.document,
       tools: providedBy(input),
       reading: input.reading,
+      relistsTools: relistsToolsOf(input),
       version: 0,
       deleted: false,
     });
@@ -177,15 +189,13 @@ export class IntegrationDefinition extends EventRecorder {
 
     const tools = providedBy(compiled);
 
-    this.guardUnused(
-      enabled,
-      this.tools.filter((each) => !tools.includes(each)),
-    );
+    this.guardUnused(enabled, without(this.tools, tools));
 
     const updated = this.with({
       document: compiled.document,
       tools,
       reading,
+      relistsTools: relistsToolsOf(compiled),
     });
 
     updated.record(
@@ -229,8 +239,12 @@ export class IntegrationDefinition extends EventRecorder {
     }
 
     const tools = providedBy(compiled);
-    const orphanedTools = this.tools.filter((each) => !tools.includes(each));
-    const refreshed = this.with({ tools, reading });
+    const orphanedTools = without(this.tools, tools);
+    const refreshed = this.with({
+      tools,
+      reading,
+      relistsTools: relistsToolsOf(compiled),
+    });
 
     refreshed.record(
       new IntegrationSpecRefreshed(
@@ -245,13 +259,38 @@ export class IntegrationDefinition extends EventRecorder {
           SpecRefreshDetail.of({
             hash: reading.hash?.value ?? null,
             problem: reading.problem,
-            orphanedTools,
+            orphanedTools: orphanedTools.map((each) => each.value),
           }),
         ),
       ),
     );
 
     return refreshed;
+  }
+
+  relistDue(before: Date): boolean {
+    const { reading, relistsTools } = this.state;
+
+    return (
+      relistsTools &&
+      reading !== null &&
+      reading.readAt.getTime() < before.getTime()
+    );
+  }
+
+  relistClaimed(now: Date, before: Date): IntegrationDefinition {
+    this.guardLive();
+
+    const { reading } = this.state;
+
+    if (!reading || !this.relistDue(before)) {
+      throw new InvalidIntegrationError(
+        this.integration.value,
+        'is not due to list its tools again',
+      );
+    }
+
+    return this.with({ reading: reading.readAgainAt(now) });
   }
 
   delete(enabled: ToolUses, by: ChangeActor): IntegrationDefinition {
@@ -309,12 +348,16 @@ export class IntegrationDefinition extends EventRecorder {
     return this.state.document;
   }
 
-  get tools(): readonly string[] {
+  get tools(): readonly ToolName[] {
     return this.state.tools;
   }
 
   get reading(): SpecFetchResult | null {
     return this.state.reading;
+  }
+
+  get relistsTools(): boolean {
+    return this.state.relistsTools;
   }
 
   get version(): number {
@@ -346,7 +389,7 @@ export class IntegrationDefinition extends EventRecorder {
     }
   }
 
-  private guardUnused(enabled: ToolUses, removed: readonly string[]): void {
+  private guardUnused(enabled: ToolUses, removed: readonly ToolName[]): void {
     const orphaned = enabled.ofAny(removed);
 
     if (!orphaned.isEmpty) {

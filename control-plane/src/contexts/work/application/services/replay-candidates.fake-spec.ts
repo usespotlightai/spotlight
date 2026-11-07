@@ -1,50 +1,24 @@
-import { Line } from '@work/domain/aggregates/line.aggregate';
-import {
-  Station,
-  type StationInput,
-} from '@work/domain/entities/station.entity';
-import type { StationId } from '@work/domain/value-objects/station-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { stationWith } from '@work/domain/value-objects/line-map.fake-spec';
+import { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { StationInput } from '@work/domain/value-objects/station.vo';
 
 export type CandidateChange = Omit<Partial<StationInput>, 'id'>;
 
 export const candidateOf = (
-  line: Line,
+  line: LineMap,
   stationId: StationId,
   changed: CandidateChange,
-): Line => {
+): LineMap => {
   const current = line.stationAt(stationId);
 
   if (!current) {
     throw new Error(`the line has no station ${stationId.value}`);
   }
 
-  const candidate = Station.of({
-    key: current.key,
-    name: current.name,
-    position: current.position,
-    color: current.color,
-    description: current.description,
-    harness: current.harness,
-    model: current.model,
-    effort: current.effort,
-    profile: current.profile,
-    agentPrompt: current.agentPrompt,
-    check: current.check,
-    placement: current.placement,
-    diffs: current.diffs,
-    decisions: current.decisions,
-    memories: current.memories,
-    judge: current.judge,
-    alerts: current.alerts,
-    kind: current.kind,
-    routes: current.routes,
-    tools: current.tools,
-    skills: current.skills,
-    ...changed,
-    id: current.id,
-  });
+  const candidate = stationWith(current, changed);
 
-  return Line.rehydrate({
+  return LineMap.of({
     id: line.id,
     workspaceId: line.workspaceId,
     teamId: line.teamId,
@@ -55,9 +29,10 @@ export const candidateOf = (
     ),
     reactions: line.reactions,
     role: line.role,
-    repositories: line.repositories.entries,
+    repositories: line.repositories,
     reviews: line.reviews,
     placement: line.placement,
-    version: line.version,
+    replayCheck: line.replayCheck,
+    source: line.source,
   });
 };

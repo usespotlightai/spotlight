@@ -20,6 +20,7 @@ import {
 } from '@runners/domain/value-objects/pool-access.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
+import { RotationVersion } from '@runners/domain/value-objects/rotation-version.vo';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { runnerPool } from '@runners/infrastructure/persistence/drizzle/schemas/runner.schema';
@@ -42,11 +43,11 @@ const written = (pool: RunnerPool) => {
     labels: [...pool.labels.values],
     maxRuns: pool.maxRuns?.value ?? null,
     tokenHash: access.mode === 'pull' ? access.tokenHash.value : null,
-    tokenVersion: access.mode === 'pull' ? access.tokenVersion : null,
+    tokenVersion: access.mode === 'pull' ? access.tokenVersion.value : null,
     provisionUrl: access.mode === 'push' ? access.url.value : null,
     provisionSecret: access.mode === 'push' ? access.secret.value : null,
     provisionSecretVersion:
-      access.mode === 'push' ? access.secretVersion : null,
+      access.mode === 'push' ? access.secretVersion.value : null,
     provisionEgress:
       access.mode === 'push' ? (access.egress?.value ?? null) : null,
     provisionEgressTraffic:
@@ -58,14 +59,17 @@ const written = (pool: RunnerPool) => {
 
 const accessOf = (row: Row): PoolAccess => {
   if (row.tokenHash) {
-    return PullAccess.of(TokenHash.of(row.tokenHash), row.tokenVersion);
+    return PullAccess.of(
+      TokenHash.of(row.tokenHash),
+      RotationVersion.of(row.tokenVersion),
+    );
   }
 
   if (row.provisionUrl && row.provisionSecret) {
     return PushAccess.of(
       ProvisionUrl.of(row.provisionUrl),
       EncryptedProvisionSecret.of(row.provisionSecret),
-      row.provisionSecretVersion,
+      RotationVersion.of(row.provisionSecretVersion),
       row.provisionEgress === null
         ? null
         : EgressReference.of(row.provisionEgress),

@@ -8,33 +8,36 @@ import {
 } from '@change-review/domain/services/redraft-request';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
+import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { WHOLE_STEP } from '@change-review/domain/value-objects/stack-check.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId, LayerId } from '@change-review/domain/value-objects/stack-ids';
-import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const changed = (path: string) =>
-  [
-    `diff --git a/${path} b/${path}`,
-    `--- a/${path}`,
-    `+++ b/${path}`,
-    '@@ -1 +1 @@',
-    '-before',
-    '+after',
-  ].join('\n');
-
-const { diff: DIFF } = new GitDiffReader().read(
+const DIFF = Diff.of(
   [
     'control-plane/src/application/dto/task.dto.ts',
     'control-plane/src/presentation/http/mappers/task.http.mapper.spec.ts',
-  ]
-    .map(changed)
-    .join('\n'),
+  ].map((path, at) => ({
+    path,
+    previousPath: null,
+    status: 'modified' as const,
+    binary: false,
+    hunks: [
+      {
+        id: HunkId.at(at + 1),
+        oldStart: 1,
+        oldLines: 1,
+        newStart: 1,
+        newLines: 1,
+        patch: '@@ -1 +1 @@\n-before\n+after',
+      },
+    ],
+  })),
 );
 
 const NOW = new Date('2026-09-16T10:00:00Z');
@@ -52,7 +55,7 @@ const stack = () =>
     repository: null,
     base: null,
     diff: DIFF,
-    facts: StackFacts.none(),
+    facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
     request: CheckRequest.of('npm test', null),
     now: NOW,
   }).propose(
@@ -147,7 +150,7 @@ describe('redraftRequestOf', () => {
       repository: null,
       base: null,
       diff: DIFF,
-      facts: StackFacts.none(),
+      facts: StackFacts.of({ hunks: [], links: [], imports: [] }),
       request: null,
       now: NOW,
     });

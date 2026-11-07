@@ -1,8 +1,17 @@
 import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { InvalidHookFiringTransitionError } from '@integrations/domain/exceptions/invalid-hook-firing-transition.error';
+import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
+import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-26T10:00:00.000Z');
@@ -25,13 +34,13 @@ const LOOP = HookFailure.of('loop', 'The hook audit was stopped: again');
 
 const fired = (cause = CausalChain.none().append(MOVED)) =>
   HookFiring.fire({
-    id: 'firing_1',
-    hookId: 'audit_id',
-    workspaceId: 'workspace_1',
-    teamId: 'team_1',
-    taskId: 'task_1',
-    runId: 'run_1',
-    stationKey: 'implementation',
+    id: HookFiringId.of('firing_1'),
+    hookId: HookDefinitionId.of('audit_id'),
+    workspaceId: WorkspaceId.of('workspace_1'),
+    teamId: TeamId.of('team_1'),
+    taskId: TaskId.of('task_1'),
+    runId: RunId.of('run_1'),
+    stationKey: StationKey.of('implementation'),
     on: 'task.moved',
     occurrence: 'moved_1',
     firedAt: NOW,
@@ -103,7 +112,7 @@ describe('HookFiring', () => {
     });
 
     it('is not claimed before it is due', () => {
-      const waiting = stored(working().waitUntil(later(2_000)));
+      const waiting = stored(working().waitedOn(NOW));
 
       expect(() => waiting.claimed(later(1_000))).toThrow(
         InvalidHookFiringTransitionError,
@@ -169,7 +178,7 @@ describe('HookFiring', () => {
     });
 
     it('waits on a host without spending an attempt', () => {
-      const waiting = working().waitUntil(later(2_000));
+      const waiting = working().waitedOn(NOW);
 
       expect(waiting.progress).toEqual({
         kind: 'pending',
@@ -192,7 +201,7 @@ describe('HookFiring', () => {
       expect(() => pending.recordStep([DONE_A])).toThrow(
         InvalidHookFiringTransitionError,
       );
-      expect(() => pending.waitUntil(NOW)).toThrow(
+      expect(() => pending.waitedOn(NOW)).toThrow(
         InvalidHookFiringTransitionError,
       );
       expect(() => pending.worked(NOW)).toThrow(
@@ -332,7 +341,7 @@ describe('HookFiring', () => {
     it('keeps its stop to notify again when something fails before the notice', () => {
       const stopped = working().stopForLoop(LOOP);
       const again = stopped.failedWith(
-        HookFailure.of('errored', 'db went away'),
+        HookFailure.of('unavailable', 'db went away'),
         NOW,
         true,
       );
@@ -349,7 +358,8 @@ describe('HookFiring', () => {
       });
 
       expect(
-        stopped.failedWith(HookFailure.of('errored', 'x'), NOW, true).failure,
+        stopped.failedWith(HookFailure.of('unavailable', 'x'), NOW, true)
+          .failure,
       ).toBe(LOOP);
     });
 
@@ -396,6 +406,62 @@ describe('HookFiring', () => {
           version: 1,
         }),
       ).toThrow(InconsistentStateError);
+    });
+  });
+
+  it('ends when its hook broke or its task is gone, saying why', () => {
+    const broken = working().hookBroken('audit', 'unreadable', NOW);
+    const gone = working().taskGone(NOW);
+
+    expect(broken.failure?.code).toBe('broken');
+    expect(broken.failure?.reason).toBe(
+      'Hook audit is broken. Reason: unreadable',
+    );
+    expect(gone.progress).toEqual({ kind: 'superseded', at: NOW });
+    expect(gone.failure?.code).toBe('superseded');
+  });
+
+  describe('reading what a merged pull request changed', () => {
+    const merged = (matched: boolean) =>
+      HookFiring.fire({
+        ...stateOf(fired()),
+        on: 'pull-request.merged',
+        event: {
+          url: 'https://github.com/acme/api/pull/7',
+          repository: 'acme/api',
+        },
+        matched,
+      });
+
+    it('reads the changes of a merged pull request it matches only later', () => {
+      const changes = merged(false).changesToRead;
+
+      expect(changes?.repository).toEqual(Repository.of('acme/api'));
+      expect(changes?.pullRequest).toEqual(
+        PullRequestUrl.of('https://github.com/acme/api/pull/7'),
+      );
+    });
+
+    it('reads nothing once it is matched, or for another event', () => {
+      expect(merged(true).changesToRead).toBeNull();
+      expect(fired().changesToRead).toBeNull();
+    });
+
+    it('hands over its event with what changed', () => {
+      expect(merged(false).eventWithChanges(['db/1.sql'])).toMatchObject({
+        repository: 'acme/api',
+        changed: ['db/1.sql'],
+      });
+    });
+  });
+
+  it('counts its repeats by its hook, task and link', () => {
+    expect(fired().repeatsOf).toEqual({
+      hookId: HookDefinitionId.of('audit_id'),
+      taskId: TaskId.of('task_1'),
+      linkKey: AUDIT.key,
+      since: new Date(NOW.getTime() - 10 * 60 * 1000),
+      before: { firedAt: NOW, id: HookFiringId.of('firing_1') },
     });
   });
 });

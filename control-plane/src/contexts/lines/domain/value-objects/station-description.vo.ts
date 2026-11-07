@@ -1,0 +1,18 @@
+import { InvalidStationDescriptionError } from '@lines/domain/exceptions/invalid-station-description.error';
+import { WrittenText } from '@lines/domain/value-objects/written-text';
+
+const MAX_LENGTH = 500;
+
+export class StationDescription {
+  private constructor(readonly value: string) {}
+
+  static of(written: string): StationDescription {
+    return new StationDescription(
+      WrittenText.of(written, MAX_LENGTH, InvalidStationDescriptionError),
+    );
+  }
+
+  equals(other: StationDescription): boolean {
+    return this.value === other.value;
+  }
+}

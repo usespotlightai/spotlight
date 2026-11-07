@@ -1,4 +1,3 @@
-import { MIN_HOST_RELEASE } from '@runners/application/contracts/least-host-release.contract';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import type {
   ProvisionAnswer,
@@ -14,6 +13,8 @@ import type {
   RunnersPort,
   StartedRunner,
 } from '@runners/application/ports/runners.port';
+import type { SandboxPlacementsPort } from '@runners/application/ports/sandbox-placements.port';
+import { occupancyOf } from '@runners/application/services/pool-occupancy';
 import { reviseRunner } from '@runners/application/services/runner-revisions';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
@@ -26,10 +27,12 @@ import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-p
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { SandboxRepository } from '@runners/domain/repositories/sandbox.repository';
 import { allowsUrl } from '@runners/domain/services/allows-url';
+import { egressAvailability } from '@runners/domain/services/egress-naming';
 import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
+import { HostRelease } from '@runners/domain/value-objects/host-release.vo';
 import type { PoolMode } from '@runners/domain/value-objects/pool-access.vo';
 import type { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
@@ -55,6 +58,11 @@ type Began<Through> =
 
 type Starting = (through: RunnerPool | RunnerTrust) => Runner;
 
+interface Entering {
+  readonly sandbox: SandboxId;
+  readonly host: HostId;
+}
+
 type Unusable = { readonly outcome: 'unusable'; readonly detail: string };
 
 type Answered = ProvisionAnswer | Unusable;
@@ -75,6 +83,7 @@ export class Runners implements RunnersPort {
     private readonly hosts: RunnerHostRepository,
     private readonly runners: RunnerRepository,
     private readonly sandboxes: SandboxRepository,
+    private readonly placements: SandboxPlacementsPort,
     private readonly egresses: EgressRepository,
     private readonly calls: ProvisionCallsPort,
     private readonly secrets: ProvisionSecretsPort,
@@ -128,12 +137,12 @@ export class Runners implements RunnersPort {
       return { outcome: 'host-unreported' };
     }
 
-    if (known.isOlderThan(MIN_HOST_RELEASE)) {
+    if (known.isOutdated) {
       this.refused(source, host, 'host-outdated');
       return {
         outcome: 'host-outdated',
-        release: known.report.release,
-        minimum: MIN_HOST_RELEASE.value,
+        release: known.report.release.value,
+        minimum: HostRelease.MINIMUM.value,
       };
     }
 
@@ -160,27 +169,23 @@ export class Runners implements RunnersPort {
         at,
         claimBy,
       });
-    const inSandbox = into
-      ? await this.sandboxes.find(SandboxId.of(into))
+    const entering: Entering | null = into
+      ? { sandbox: SandboxId.of(into), host: hostId }
       : null;
-
-    if (into && !inSandbox?.takesRunOn(hostId)) {
-      return { outcome: 'full' };
-    }
-
     const began =
       source.kind === 'trust'
         ? await this.beganThroughTrust(
             RunnerTrustId.of(source.id),
             'pull',
             starting,
+            entering,
           )
         : await this.beganThroughPool(
             RunnerPoolId.of(source.id),
             'pull',
             at,
             starting,
-            inSandbox !== null,
+            entering,
           );
 
     return began.outcome === 'began'
@@ -366,9 +371,9 @@ export class Runners implements RunnersPort {
       pool: pool.key.value,
       workspaceId: pool.workspaceId.value,
       kind: request.work.kind,
-      stackId: request.work.kind === 'check' ? request.work.id : null,
-      runId: request.runId,
-      taskId: request.taskId,
+      checkId: request.work.kind === 'check' ? request.work.id : null,
+      runId: request.runId.value,
+      taskId: request.taskId?.value ?? null,
       labels: request.labels,
       image: request.image,
       runnerId: request.runnerId.value,
@@ -386,40 +391,56 @@ export class Runners implements RunnersPort {
       return { outcome: 'found', url: null };
     }
 
-    if (!reference.egressId) {
-      const platform = this.settings.platformEgress;
+    const platform = this.settings.platformEgress;
+    const named = reference.egressId
+      ? await this.egresses.find(reference.egressId)
+      : null;
+    const availability = egressAvailability(reference, {
+      workspaceId: pool.workspaceId,
+      named,
+      platformStored: platform !== null,
+    });
 
-      return platform
-        ? { outcome: 'found', url: platform.url }
-        : {
-            outcome: 'unusable',
-            detail:
-              'Runner pool names the platform egress. This deployment has no platform egress.',
-          };
+    if (availability === 'no-platform-egress') {
+      return {
+        outcome: 'unusable',
+        detail:
+          'Runner pool names the platform egress. This deployment has no platform egress.',
+      };
     }
 
-    const named = await this.egresses.find(reference.egressId);
+    if (availability === 'not-in-workspace') {
+      return {
+        outcome: 'unusable',
+        detail: `Runner pool names egress ${reference.value}. This egress doesn’t exist in the pool’s workspace.`,
+      };
+    }
 
-    return named && !named.isDeleted && named.belongsTo(pool.workspaceId)
-      ? { outcome: 'found', url: named.url }
-      : {
-          outcome: 'unusable',
-          detail: `Runner pool names egress ${reference.value}. This egress doesn’t exist in the pool’s workspace.`,
-        };
+    return { outcome: 'found', url: named?.url ?? platform?.url ?? null };
   }
 
-  private async occupied(pool: RunnerPool, at: Date): Promise<number> {
-    const alive = await this.runners.aliveIn(pool.id, at);
+  private async takesRun(entering: Entering | null): Promise<boolean> {
+    if (!entering) {
+      return true;
+    }
 
-    return alive.length + (await this.sandboxes.idleInPool(pool.id));
+    const sandbox = await this.sandboxes.find(entering.sandbox);
+    const host = sandbox ? await this.hosts.find(entering.host) : null;
+
+    return !!sandbox && !!host && sandbox.takesRunOn(host);
   }
 
   private beganThroughTrust(
     id: RunnerTrustId,
     mode: PoolMode,
     starting: Starting,
+    entering: Entering | null,
   ): Promise<Began<RunnerTrust>> {
     return this.transaction.inTransaction(async () => {
+      if (!(await this.takesRun(entering))) {
+        return { outcome: 'full' };
+      }
+
       const trust = await this.trusts.find(id);
 
       if (trust?.capacity(mode) !== 'open') {
@@ -437,7 +458,7 @@ export class Runners implements RunnersPort {
     mode: PoolMode,
     at: Date,
     starting: (through: RunnerPool) => Runner,
-    slotHeld = false,
+    entering: Entering | null = null,
   ): Promise<Began<RunnerPool>> {
     return this.transaction.inTransaction(async () => {
       const pool = await this.pools.findForStart(id);
@@ -446,9 +467,19 @@ export class Runners implements RunnersPort {
         return { outcome: 'gone' };
       }
 
+      if (!(await this.takesRun(entering))) {
+        return { outcome: 'full' };
+      }
+
+      const occupancy = await occupancyOf(
+        this.runners,
+        this.placements,
+        pool.id,
+        at,
+      );
       const capacity = pool.capacity(
         mode,
-        slotHeld ? 0 : await this.occupied(pool, at),
+        entering ? occupancy.entering(entering.sandbox) : occupancy,
       );
 
       if (capacity !== 'open') {

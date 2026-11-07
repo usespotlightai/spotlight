@@ -1,10 +1,8 @@
 import type { StationAlertDto } from '@insights/application/dto/station-alert.dto';
+import type { StationFactsPort } from '@insights/application/ports/station-facts.port';
 import type { ReadStationAlertQuery } from '@insights/application/queries/read-station-alert.query';
 import type { InsightsAccess } from '@insights/application/services/insights-access.service';
 import { UnknownAlertError } from '@insights/domain/exceptions/unknown-alert.error';
-import type { RunRecordRepository } from '@insights/domain/repositories/run-record.repository';
-import type { StationAlertStateRepository } from '@insights/domain/repositories/station-alert-state.repository';
-import type { TaskPullRequestRepository } from '@insights/domain/repositories/task-pull-request.repository';
 import { alertDeltaOf } from '@insights/domain/services/alert-change';
 import { spendingOf } from '@insights/domain/services/measures';
 import { measureAround } from '@insights/domain/services/station-measures';
@@ -36,9 +34,7 @@ export class ReadStationAlertHandler
 {
   constructor(
     private readonly access: InsightsAccess,
-    private readonly alertStates: StationAlertStateRepository,
-    private readonly records: RunRecordRepository,
-    private readonly taskPullRequests: TaskPullRequestRepository,
+    private readonly facts: StationFactsPort,
     private readonly clock: ClockPort,
   ) {}
 
@@ -46,34 +42,28 @@ export class ReadStationAlertHandler
     try {
       const access = await this.access.accessFor(query.teamId, query.principal);
       const alertId = AlertId.of(query.alertId);
-      const alertState = await this.alertStates.ofAlert(alertId);
-      const firing = alertState?.firing(alertId);
+      const fired = await this.facts.firedAlert(alertId);
 
       if (
-        !alertState ||
-        !firing ||
-        !alertState.station.teamId.equals(access.teamId) ||
-        !alertState.station.workspaceId.equals(access.workspaceId)
+        !fired ||
+        !access.covers(fired.station.workspaceId, fired.station.teamId)
       ) {
         throw new UnknownAlertError(query.alertId);
       }
 
-      const { station } = alertState;
-      const records = await this.records.lastAtStation({
+      const { station, firing } = fired;
+      const facts = await this.facts.lastEndedAt({
         workspaceId: station.workspaceId,
         teamId: station.teamId,
         lineId: station.lineId,
         stationId: station.stationId,
         last: MAX_AROUND,
       });
-      const taskPullRequests = await this.taskPullRequests.forTasks(
-        records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
-      );
 
       return {
         alertId: firing.id.value,
-        lineId: station.lineId,
-        stationId: station.stationId,
+        lineId: station.lineId.value,
+        stationId: station.stationId.value,
         rule: ruleOf(firing.rule),
         value: firing.reading.value,
         baseline: firing.reading.baseline,
@@ -87,13 +77,12 @@ export class ReadStationAlertHandler
         ),
         resolvedAt: firing.resolvedAt?.toISOString() ?? null,
         currency:
-          spendingOf(records.map((each) => each.usage?.spend ?? null)).spend
+          spendingOf(facts.map((each) => each.usage?.spend ?? null)).spend
             ?.currency ?? null,
         series: measureAround(
           firing.rule,
           { runId: firing.runId, value: firing.reading.value },
-          records,
-          taskPullRequests,
+          facts,
         ).map((each) => ({
           runId: each.runId,
           endedAt: each.endedAt.toISOString(),

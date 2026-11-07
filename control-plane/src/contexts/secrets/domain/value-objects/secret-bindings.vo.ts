@@ -1,4 +1,5 @@
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
+import type { BoundHost } from '@secrets/domain/value-objects/bound-host.vo';
 import { SecretBinding } from '@secrets/domain/value-objects/secret-binding.vo';
 
 const MOST = 32;
@@ -40,10 +41,12 @@ export class SecretBindings {
     });
 
     bindings.forEach((binding, at) => {
-      if (bindings.slice(0, at).some((each) => each.host === binding.host)) {
+      if (
+        bindings.slice(0, at).some((each) => each.host.equals(binding.host))
+      ) {
         throw new InvalidSecretError(
           [FIELD, at, 'host'],
-          `binds ${binding.host} more than once`,
+          `binds ${binding.host.value} more than once`,
         );
       }
     });
@@ -55,12 +58,12 @@ export class SecretBindings {
     return this.all.find((each) => each.matches(url)) ?? null;
   }
 
-  on(host: string): SecretBinding | null {
-    return this.all.find((each) => each.host === host) ?? null;
+  on(host: BoundHost): SecretBinding | null {
+    return this.all.find((each) => each.host.equals(host)) ?? null;
   }
 
   get hosts(): readonly string[] {
-    return this.all.map((each) => each.host);
+    return this.all.map((each) => each.host.value);
   }
 
   get isEmpty(): boolean {

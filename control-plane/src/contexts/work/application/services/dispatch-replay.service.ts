@@ -12,10 +12,9 @@ import type { StationProfilesPort } from '@work/application/ports/station-profil
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import type { ReplayAnswers } from '@work/application/services/replay-answers.service';
-import type { StationCatalog } from '@work/application/services/station-catalog.service';
+import type { RunCatalog } from '@work/application/services/run-catalog.service';
 import { StationOrdering } from '@work/application/services/station-ordering';
 import type { StationSkills } from '@work/application/services/station-skills.service';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
@@ -30,11 +29,12 @@ import {
 import { REPLAY_PRIORITY } from '@work/domain/services/replay-priority';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 
 export interface ReplayInput {
   readonly original: RunId;
-  readonly candidate: Line;
+  readonly candidate: LineMap;
   readonly id?: RunId;
   readonly answer?: ReplayAnswer | null;
 }
@@ -53,7 +53,7 @@ export class DispatchReplay {
     private readonly tracing: TraceParentPort,
     builtInSkills: BuiltInSkillsPort,
     teamSkills: StationSkills,
-    catalog: StationCatalog,
+    catalog: RunCatalog,
     profiles: StationProfilesPort,
     private readonly memories: MemoriesBriefedBeforePort,
     private readonly files: AttachmentStorePort,
@@ -166,7 +166,7 @@ export class DispatchReplay {
 
   async planned(
     replayed: Run,
-    candidate: Line,
+    candidate: LineMap,
     id: RunId,
   ): Promise<ReplayPlan> {
     const plan = replayPlanFor({

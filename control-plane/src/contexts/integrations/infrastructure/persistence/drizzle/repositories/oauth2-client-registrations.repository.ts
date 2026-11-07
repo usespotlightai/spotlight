@@ -59,6 +59,7 @@ export class DrizzleOAuth2ClientRegistrations
           )
         : null,
       secretExpiresAt: registration.secretExpiresAt,
+      registeredAt: registration.registeredAt,
     };
 
     const saved = registration.isNew
@@ -77,7 +78,6 @@ export class DrizzleOAuth2ClientRegistrations
           .set({
             ...written,
             version: registration.version + 1,
-            registeredAt: new Date(),
           })
           .where(
             and(
@@ -98,10 +98,35 @@ export class DrizzleOAuth2ClientRegistrations
     }
   }
 
-  async deleteForTeam(teamId: TeamId): Promise<void> {
-    await this.context.db
-      .delete(oauth2ClientRegistration)
+  async ofTeam(teamId: TeamId): Promise<readonly OAuth2ClientRegistration[]> {
+    const rows = await this.context.db
+      .select()
+      .from(oauth2ClientRegistration)
       .where(eq(oauth2ClientRegistration.teamId, teamId.value));
+
+    return Promise.all(rows.map((row) => this.rehydrate(row)));
+  }
+
+  async remove(registration: OAuth2ClientRegistration): Promise<void> {
+    const removed = await this.context.db
+      .delete(oauth2ClientRegistration)
+      .where(
+        and(
+          eq(oauth2ClientRegistration.teamId, registration.teamId.value),
+          eq(
+            oauth2ClientRegistration.integration,
+            registration.integration.value,
+          ),
+          eq(oauth2ClientRegistration.version, registration.version),
+        ),
+      )
+      .returning({ integration: oauth2ClientRegistration.integration });
+
+    if (removed.length === 0) {
+      throw new OAuth2ClientRegistrationVersionConflictError(
+        registration.integration.value,
+      );
+    }
   }
 
   private async rehydrate(row: Row): Promise<OAuth2ClientRegistration> {
@@ -132,6 +157,7 @@ export class DrizzleOAuth2ClientRegistrations
           )
         : null,
       secretExpiresAt: row.secretExpiresAt,
+      registeredAt: row.registeredAt,
       version: row.version,
     });
   }

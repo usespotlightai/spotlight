@@ -5,13 +5,14 @@ import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
   LiveConfig,
   StationView,
+  ValidatedCandidate,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import type { CheckEvaluations } from '@replays/application/services/check-evaluations.service';
-import type { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
+import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
+import type { StartCheckReplays } from '@replays/application/services/start-check-replays.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
-import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { NoReplaySetError } from '@replays/domain/exceptions/no-replay-set.error';
@@ -19,15 +20,10 @@ import { ReplayCheckUnconfiguredError } from '@replays/domain/exceptions/replay-
 import { ReplaySetEmptyError } from '@replays/domain/exceptions/replay-set-empty.error';
 import { UnknownReplaySetError } from '@replays/domain/exceptions/unknown-replay-set.error';
 import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.error';
-import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
-import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import {
-  currentBaselineFor,
-  needsBaseline,
-} from '@replays/domain/services/baseline';
-import {
+  type ScoredLive,
   type ScoringField,
   scoredLive,
 } from '@replays/domain/services/live-scoring';
@@ -44,9 +40,17 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import type { IdempotentCreatesPort } from '@shared-kernel/application/ports/idempotent-creates.port';
+import type {
+  IdempotentCreate,
+  IdempotentCreatesPort,
+} from '@shared-kernel/application/ports/idempotent-creates.port';
+import type { IdempotentLookupsPort } from '@shared-kernel/application/ports/idempotent-lookups.port';
+import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { createIdempotently } from '@shared-kernel/application/services/create-idempotently';
+import {
+  createIdempotently,
+  lookupIdempotentCreate,
+} from '@shared-kernel/application/services/create-idempotently';
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-key.vo';
@@ -73,6 +77,11 @@ interface Gated {
   readonly set: ReplaySet;
 }
 
+interface Prepared {
+  readonly scored: ScoredLive;
+  readonly validated: Extract<ValidatedCandidate, { ok: true }>;
+}
+
 interface Planned {
   readonly station: unknown;
   readonly line: PlannedLine | null;
@@ -88,17 +97,18 @@ export class StartReplayCheckHandler
     private readonly access: ReplaysAccess,
     private readonly people: PeoplePort,
     private readonly work: WorkPort,
-    private readonly snapshots: LiveSnapshots,
+    private readonly snapshots: LiveCandidates,
+    private readonly replaying: StartCheckReplays,
     private readonly evaluations: CheckEvaluations,
-    private readonly candidates: CandidateRepository,
     private readonly sets: ReplaySetRepository,
-    private readonly replays: ReplayRepository,
     private readonly checks: ReplayCheckRepository,
     private readonly creates: IdempotentCreatesPort,
+    private readonly lookups: IdempotentLookupsPort,
     private readonly hash: HashPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
+    private readonly logger: LoggerPort,
   ) {}
 
   async execute(
@@ -128,46 +138,36 @@ export class StartReplayCheckHandler
         reference: PlannedReference.of(command.change.reference),
         repeats: command.repeats,
       };
-      let reused = false;
+      const create: IdempotentCreate = {
+        by: command.actor.principal.toString(),
+        key: IdempotencyKey.of(command.idempotencyKey),
+        request: {
+          replayCheck: 'start',
+          teamId: command.teamId,
+          lineId: command.change.lineId,
+          stationKey: command.change.stationKey,
+          station: command.change.station,
+          line: planned.line?.value ?? null,
+          reference: {
+            commit: planned.reference.commit,
+            pullRequest: planned.reference.pullRequest,
+          },
+          repeats: planned.repeats,
+        },
+      };
+      const earlier = await lookupIdempotentCreate(this.lookups, create);
+
+      if (earlier) {
+        return earlier;
+      }
 
       try {
-        const created = await this.transaction.inTransaction(() =>
-          createIdempotently(
-            this.creates,
-            {
-              by: command.actor.principal.toString(),
-              key: IdempotencyKey.of(command.idempotencyKey),
-              request: {
-                replayCheck: 'start',
-                teamId: command.teamId,
-                lineId: command.change.lineId,
-                stationKey: command.change.stationKey,
-                station: command.change.station,
-                line: planned.line?.value ?? null,
-                reference: {
-                  commit: planned.reference.commit,
-                  pullRequest: planned.reference.pullRequest,
-                },
-                repeats: planned.repeats,
-              },
-            },
-            async () => {
-              const started = await this.started(
-                await this.gated(station),
-                planned,
-                ChangeActor.of(command.actor, station.workspaceId),
-              );
-
-              reused = started.reused;
-
-              return started.id;
-            },
-          ),
+        return await this.startedOrReused(
+          create,
+          await this.gated(station),
+          planned,
+          ChangeActor.of(command.actor, station.workspaceId),
         );
-
-        return created.outcome === 'created' && reused && !created.replayed
-          ? { outcome: 'reused', id: created.id }
-          : created;
       } catch (error) {
         if (error instanceof CheckRejectedError) {
           return { outcome: 'invalid', problems: error.problems };
@@ -183,6 +183,73 @@ export class StartReplayCheckHandler
       }
     } catch (error) {
       rethrowAsApplicationError(error);
+    }
+  }
+
+  private async startedOrReused(
+    create: IdempotentCreate,
+    gated: Gated,
+    planned: Planned,
+    by: ChangeActor,
+  ): Promise<ReplayCheckStartedOutcome> {
+    const prepared = await this.prepared(gated, planned);
+    const reusable = await this.reusable(gated, prepared, planned);
+    const candidate = reusable
+      ? null
+      : this.candidateOf(gated, prepared, planned);
+    let started = false;
+
+    if (candidate) {
+      await this.snapshots.kept(candidate);
+    }
+
+    try {
+      const created = await this.transaction.inTransaction(() =>
+        createIdempotently(this.creates, create, async () => {
+          if (!candidate) {
+            return reusable?.value ?? '';
+          }
+
+          const id = await this.started(gated, prepared, planned, {
+            candidate,
+            by,
+          });
+
+          started = true;
+
+          return id;
+        }),
+      );
+
+      if (candidate && !started) {
+        await this.snapshots.release(candidate);
+      }
+      if (started && created.outcome === 'created') {
+        await this.replayStarted(ReplayCheckId.of(created.id), by);
+      }
+
+      return created.outcome === 'created' && reusable && !created.replayed
+        ? { outcome: 'reused', id: created.id }
+        : created;
+    } catch (error) {
+      if (candidate) {
+        await this.snapshots.release(candidate);
+      }
+      throw error;
+    }
+  }
+
+  private async replayStarted(
+    checkId: ReplayCheckId,
+    by: ChangeActor,
+  ): Promise<void> {
+    try {
+      await this.replaying.replayOf(checkId, by);
+    } catch (error) {
+      this.logger.warn(
+        { checkId: checkId.value, error },
+        'The replay of a new check could not start yet; Spotlight starts it from the check’s start event',
+      );
     }
   }
 
@@ -211,12 +278,8 @@ export class StartReplayCheckHandler
     return { station, address, live, threshold: live.threshold, set };
   }
 
-  private async started(
-    gated: Gated,
-    planned: Planned,
-    by: ChangeActor,
-  ): Promise<{ readonly id: string; readonly reused: boolean }> {
-    const { station, live, threshold } = gated;
+  private async prepared(gated: Gated, planned: Planned): Promise<Prepared> {
+    const { station, live } = gated;
     const scored = scoredLive(planned.station, live.block);
     const validated = await this.work.validate(
       station.lineId,
@@ -235,22 +298,18 @@ export class StartReplayCheckHandler
       throw new NothingToReplayError(scored.scoringPinnedToLive);
     }
 
-    const set = await this.sets.locked(gated.set.id);
+    return { scored, validated };
+  }
 
-    if (!set) {
-      throw new UnknownReplaySetError(gated.set.id.value);
-    }
-
-    set.stillAtItsStation();
-
-    const setEntries = this.hash.sha256(
-      set.runs
-        .map((each) => each.value)
-        .sort()
-        .join('\n'),
-    );
+  private async reusable(
+    gated: Gated,
+    { validated }: Prepared,
+    planned: Planned,
+  ): Promise<ReplayCheckId | null> {
+    const { set, threshold } = gated;
+    const setEntries = set.digestOfEntries((text) => this.hash.sha256(text));
     const earlier = await this.checks.matching(
-      station.stationId,
+      gated.station.stationId,
       validated.hashes,
       validated.liveHashes,
     );
@@ -267,14 +326,21 @@ export class StartReplayCheckHandler
           evaluation.result,
         )
       ) {
-        return { id: each.id.value, reused: true };
+        return each.id;
       }
     }
 
-    const at = this.clock.now();
-    const candidate = Candidate.plan({
+    return null;
+  }
+
+  private candidateOf(
+    gated: Gated,
+    { scored, validated }: Prepared,
+    planned: Planned,
+  ): Candidate {
+    return Candidate.plan({
       id: CandidateId.of(this.ids.generate()),
-      station,
+      station: gated.station,
       address: gated.address,
       block: StationBlock.of(scored.block),
       fingerprint: validated.fingerprint,
@@ -283,73 +349,52 @@ export class StartReplayCheckHandler
       changedFrom: validated.changedFrom,
       reference: planned.reference,
       line: planned.line,
-      at,
+      at: this.clock.now(),
     });
-    const setReplays = await this.replays.ofSet(set.id);
-    const wanting = needsBaseline(
-      set,
-      setReplays,
-      validated.liveHashes.scoring,
-      planned.repeats,
-    )
-      ? {
-          id: ReplayId.of(this.ids.generate()),
-          candidate: await this.snapshots.taken(set),
-          ceiling: threshold.ceiling,
-          repeats: planned.repeats,
-        }
-      : null;
-    const replayId = ReplayId.of(this.ids.generate());
+  }
 
-    await this.candidates.add(candidate);
-    await this.replays.add(
-      Replay.start({
-        id: replayId,
-        set,
-        candidate,
-        baseline: false,
-        ceiling: threshold.ceiling,
-        unpricedRate: threshold.unpricedRunIn(
-          set.entries.length * planned.repeats,
-        ),
-        repeats: planned.repeats,
-        pairwiseReferenceId: wanting
-          ? wanting.id
-          : (currentBaselineFor(
-              set,
-              setReplays,
-              validated.liveHashes.scoring,
-              planned.repeats,
-            )?.id ?? null),
-        at,
-        by,
-        wanting,
-      }),
+  private async started(
+    gated: Gated,
+    { scored, validated }: Prepared,
+    planned: Planned,
+    made: { readonly candidate: Candidate; readonly by: ChangeActor },
+  ): Promise<string> {
+    const set = await this.sets.locked(gated.set.id);
+
+    if (!set) {
+      throw new UnknownReplaySetError(gated.set.id.value);
+    }
+
+    set.stillAtItsStation();
+
+    const earlier = await this.checks.matching(
+      gated.station.stationId,
+      validated.hashes,
+      validated.liveHashes,
     );
-
     const check = ReplayCheck.start({
       id: ReplayCheckId.of(this.ids.generate()),
       station: set.station,
-      stationKey: station.key,
+      stationKey: gated.station.key,
       setId: set.id,
-      setEntries,
-      attempt: Math.max(0, ...earlier.map((each) => each.attempt)) + 1,
-      candidateId: candidate.id,
-      replayId,
+      setEntries: set.digestOfEntries((text) => this.hash.sha256(text)),
+      attempt: ReplayCheck.nextAttemptAfter(earlier),
+      candidateId: made.candidate.id,
+      replayId: ReplayId.of(this.ids.generate()),
       reference: planned.reference,
       liveFingerprint: validated.changedFrom.from,
       candidateFingerprint: validated.fingerprint,
       liveHashes: validated.liveHashes,
       candidateHashes: validated.hashes,
-      threshold,
+      threshold: gated.threshold,
       repeats: planned.repeats,
       scoringPinnedToLive: scored.scoringPinnedToLive,
-      createdAt: at,
-      by,
+      createdAt: this.clock.now(),
+      by: made.by,
     });
 
     await this.checks.add(check);
 
-    return { id: check.id.value, reused: false };
+    return check.id.value;
   }
 }

@@ -1,15 +1,31 @@
 import { ReadDeliveryHandler } from '@integrations/application/commands/handlers/read-delivery.handler';
 import { ReadDeliveryCommand } from '@integrations/application/commands/read-delivery.command';
-import type { StoredDelivery } from '@integrations/application/ports/delivery-queue.port';
+import type { ReceivedDelivery } from '@integrations/application/dto/received-delivery.dto';
 import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
 import { ProviderForDelivery } from '@integrations/application/services/provider-for-delivery.service';
 import { WebhookProviders } from '@integrations/application/services/webhook-providers.service';
+import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
+import type { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.vo';
+import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
 import { causationInMemory } from '@shared-kernel/application/ports/causation.fake-spec';
+import {
+  DomainError,
+  type RefusalKind,
+} from '@shared-kernel/domain/exceptions/domain-error';
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import { describe, expect, it, vi } from 'vitest';
+
+class Refused extends DomainError {
+  constructor(
+    readonly kind: RefusalKind,
+    message: string,
+  ) {
+    super(message);
+  }
+}
 
 const MERGED = 'github.pull_request.merged';
 
@@ -24,13 +40,13 @@ const payloadOf = (ourOwn = false): Happened => ({
   opens: null,
 });
 
-const stored: StoredDelivery = {
+const stored: ReceivedDelivery = {
   integration: 'github',
   to: null,
   id: 'delivery_1',
   headers: {},
   body: {},
-  attempts: 0,
+  causeFiringId: null,
 };
 
 const reading = (
@@ -41,8 +57,10 @@ const reading = (
   const causation = causationInMemory();
   const chains: string[] = [];
   const firings = {
-    chainOf: vi.fn(async (workspaceId: string, firingId: string) =>
-      workspaceId === 'ws_1' && firingId === 'firing_1' ? FIRED : null,
+    chainOf: vi.fn(async (workspaceId: WorkspaceId, firingId: HookFiringId) =>
+      workspaceId.value === 'ws_1' && firingId.value === 'firing_1'
+        ? FIRED
+        : null,
     ),
   } as unknown as HookFiringHistoryPort;
   react.mockImplementation(async () => {
@@ -93,7 +111,7 @@ describe('ReadDeliveryHandler', () => {
     await handler.execute(
       new ReadDeliveryCommand({
         ...stored,
-        headers: { 'spotlight-cause': 'firing_1' },
+        causeFiringId: 'firing_1',
       }),
     );
 
@@ -106,7 +124,7 @@ describe('ReadDeliveryHandler', () => {
     await handler.execute(
       new ReadDeliveryCommand({
         ...stored,
-        headers: { 'spotlight-cause': 'firing_elsewhere' },
+        causeFiringId: 'firing_elsewhere',
       }),
     );
     await handler.execute(new ReadDeliveryCommand(stored));
@@ -151,5 +169,52 @@ describe('ReadDeliveryHandler', () => {
       expect.objectContaining({ reason: 'no-workspace' }),
       'Ignored a delivery',
     );
+  });
+
+  it.each<[string, unknown, DeliveryFailure]>([
+    [
+      'a service that cannot be reached yet',
+      new UpstreamError('reading', 'it did not answer'),
+      DeliveryFailure.transient('reading: it did not answer'),
+    ],
+    [
+      'a service that refuses for good',
+      new UpstreamError('reading', 'it said no', 400, false),
+      DeliveryFailure.permanent('reading: it said no'),
+    ],
+    [
+      'a change made at the same time',
+      new Refused('conflict', 'changed meanwhile'),
+      DeliveryFailure.transient('changed meanwhile'),
+    ],
+    [
+      'a delivery that names no task',
+      new Refused('invalid', 'names no task'),
+      DeliveryFailure.permanent('names no task'),
+    ],
+  ])('says whether to read again after %s', async (_, thrown, failure) => {
+    const { handler, react } = reading([payloadOf()]);
+    react.mockRejectedValueOnce(thrown);
+
+    await expect(
+      handler.execute(new ReadDeliveryCommand(stored)),
+    ).resolves.toEqual(failure);
+  });
+
+  it('lets a failure it does not know through', async () => {
+    const { handler, react } = reading([payloadOf()]);
+    react.mockRejectedValueOnce(new TypeError('a bug'));
+
+    await expect(
+      handler.execute(new ReadDeliveryCommand(stored)),
+    ).rejects.toThrow('a bug');
+  });
+
+  it('has no failure for a delivery it read', async () => {
+    const { handler } = reading([payloadOf()]);
+
+    await expect(
+      handler.execute(new ReadDeliveryCommand(stored)),
+    ).resolves.toBeNull();
   });
 });

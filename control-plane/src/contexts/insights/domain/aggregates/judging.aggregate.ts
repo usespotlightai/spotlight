@@ -1,16 +1,17 @@
 import { RunJudged } from '@insights/domain/events/run-judged.event';
-import { InvalidScoreError } from '@insights/domain/exceptions/invalid-score.error';
+import { InvalidJudgingError } from '@insights/domain/exceptions/invalid-judging.error';
 import {
   groundedVerdict,
   type Verdict,
 } from '@insights/domain/services/grounded-verdict';
 import type { JudgeEvidence } from '@insights/domain/services/judge-evidence';
-import { JudgingFailure } from '@insights/domain/value-objects/judging-failure.vo';
+import { ConfigFingerprint } from '@insights/domain/value-objects/config-fingerprint.vo';
 import type { Rubric } from '@insights/domain/value-objects/rubric.vo';
 import type { RunLocation } from '@insights/domain/value-objects/run-location.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
+import { JudgingFailure } from '@shared-kernel/domain/value-objects/judging-failure.vo';
 import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -20,7 +21,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
     readonly runId: RunId,
     readonly workspaceId: WorkspaceId,
     readonly location: RunLocation,
-    readonly fingerprint: string | null,
+    readonly fingerprint: ConfigFingerprint | null,
     readonly rubric: Rubric,
     readonly queuedAt: Date,
     readonly job: PendingJob | null,
@@ -43,7 +44,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
       input.runId,
       input.workspaceId,
       input.location,
-      input.fingerprint,
+      ConfigFingerprint.optional(input.fingerprint),
       input.rubric,
       input.now,
       PendingJob.fresh(),
@@ -80,7 +81,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
       input.runId,
       input.workspaceId,
       input.location,
-      input.fingerprint,
+      ConfigFingerprint.optional(input.fingerprint),
       input.rubric,
       input.queuedAt,
       input.job,
@@ -100,10 +101,10 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
 
   leaseJob(now: Date): Judging {
     if (!this.job) {
-      throw InvalidScoreError.ofJudging('is already done');
+      throw new InvalidJudgingError('is already done');
     }
     if (!this.job.isDue(now) || this.job.exhausted) {
-      throw InvalidScoreError.ofJudging('cannot be retried yet');
+      throw new InvalidJudgingError('cannot be retried yet');
     }
 
     return this.with({ job: this.job.lease(now) });
@@ -140,7 +141,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
     }
 
     if (!input.evidence.isFor(this.runId)) {
-      throw InvalidScoreError.ofJudging('must use only its own run’s evidence');
+      throw new InvalidJudgingError('must use only its own run’s evidence');
     }
 
     const grounded = groundedVerdict(

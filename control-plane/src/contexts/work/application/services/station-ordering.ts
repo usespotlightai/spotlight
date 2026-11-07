@@ -16,10 +16,8 @@ import type {
 } from '@work/application/ports/harness-launch.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import { Attached } from '@work/application/rendering/attached';
-import type { StationCatalog } from '@work/application/services/station-catalog.service';
+import type { RunCatalog } from '@work/application/services/run-catalog.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
-import type { Line } from '@work/domain/aggregates/line.aggregate';
-import type { Station } from '@work/domain/entities/station.entity';
 import { BUILT_IN_SKILL_KEY_LIST } from '@work/domain/services/built-in-skills';
 import { skillsForTools } from '@work/domain/services/enabled-for-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
@@ -32,11 +30,13 @@ import { runCheckoutsOf } from '@work/domain/services/task-checkouts';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import {
   type ReadyProfile,
   withoutServers,
 } from '@work/domain/value-objects/ready-profile';
 import type { RunSpecParts } from '@work/domain/value-objects/run-spec.vo';
+import type { Station } from '@work/domain/value-objects/station.vo';
 import type { StationConfig } from '@work/domain/value-objects/station-config.vo';
 
 export interface Ordered {
@@ -72,7 +72,7 @@ const laidOut = (
   skillHomes: laid.skillHomes,
   attachments: Attached.shapes(laid.attachments),
   diffs: order.diffs,
-  ...(order.check ? { check: order.check.value } : {}),
+  ...(order.check ? { check: order.check } : {}),
   ...(prepared.setup ? { harnessSetup: prepared.setup } : {}),
   settingFiles: laid.settingFiles,
 });
@@ -104,21 +104,21 @@ export class StationOrdering {
     private readonly launch: HarnessLaunchPort,
     private readonly builtInSkills: BuiltInSkillsPort,
     private readonly teamSkills: StationSkills,
-    private readonly catalog: StationCatalog,
+    private readonly catalog: RunCatalog,
     private readonly profiles: StationProfilesPort,
     private readonly hash: ContentHashPort,
   ) {}
 
-  ordered(line: Line, at: OrderedAt): Promise<Ordered | null> {
+  ordered(line: LineMap, at: OrderedAt): Promise<Ordered | null> {
     return this.orderedAs(line, at, AS_A_TASK_RUN);
   }
 
-  orderedForReplay(line: Line, at: OrderedAt): Promise<Ordered | null> {
+  orderedForReplay(line: LineMap, at: OrderedAt): Promise<Ordered | null> {
     return this.orderedAs(line, at, AS_A_REPLAY);
   }
 
   private async orderedAs(
-    line: Line,
+    line: LineMap,
     at: OrderedAt,
     readying: Readying,
   ): Promise<Ordered | null> {
@@ -175,7 +175,7 @@ export class StationOrdering {
   }
 
   async profilesAt(
-    line: Line,
+    line: LineMap,
     station: Station | null,
   ): Promise<readonly ReadyProfile[]> {
     const shape = station?.profile
@@ -204,7 +204,7 @@ export class StationOrdering {
 
   configuredAs(
     { station, order, folders }: Ordered,
-    line: Line,
+    line: LineMap,
   ): StationConfig | null {
     return station
       ? StationConfigMapper.configuredAs(
