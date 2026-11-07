@@ -4,8 +4,7 @@ import {
   aggregateChildWriteViolations,
   childWritesIn,
 } from './aggregate-child-writes';
-import { KNOWN_AGGREGATE_CHILD_WRITES } from './aggregate-child-writes.known';
-import { ratchetProblems } from './known-violations';
+import { described } from './violation';
 
 const PATH = 'contexts/work/infrastructure/persistence/drizzle/fixture.ts';
 const TASK_SCHEMA =
@@ -51,11 +50,6 @@ describe('aggregate child writes', () => {
   });
 
   it('writes the child tables of an aggregate only beside its root', () => {
-    expect(
-      ratchetProblems(
-        aggregateChildWriteViolations(),
-        KNOWN_AGGREGATE_CHILD_WRITES,
-      ),
-    ).toEqual([]);
+    expect(described(aggregateChildWriteViolations())).toEqual([]);
   }, 60_000);
 });

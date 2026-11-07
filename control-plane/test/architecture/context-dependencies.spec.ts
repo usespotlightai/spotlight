@@ -5,9 +5,8 @@ import {
   reachableFrom,
   UPSTREAM_CONTEXTS,
 } from './context-dependencies';
-import { KNOWN_CONTEXT_DEPENDENCIES } from './context-dependencies.known';
-import { ratchetProblems } from './known-violations';
 import { CONTEXTS } from './source-index';
+import { described } from './violation';
 
 describe('context dependencies', () => {
   it('places every context in the context map', () => {
@@ -25,11 +24,6 @@ describe('context dependencies', () => {
   });
 
   it('imports and hears only upstream contexts', () => {
-    expect(
-      ratchetProblems(
-        contextDependencyViolations(),
-        KNOWN_CONTEXT_DEPENDENCIES,
-      ),
-    ).toEqual([]);
+    expect(described(contextDependencyViolations())).toEqual([]);
   }, 60_000);
 });

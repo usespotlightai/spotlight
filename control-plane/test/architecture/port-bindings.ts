@@ -1,6 +1,5 @@
 import ts from 'typescript';
 import { reachableFrom } from './context-dependencies';
-import type { Violation } from './known-violations';
 import {
   contextOf,
   descendants,
@@ -9,6 +8,7 @@ import {
   sourceFiles,
   withoutExtension,
 } from './source-index';
+import type { Violation } from './violation';
 
 const PORT = /^contexts\/([^/]+)\/application\/(?:ports|contracts)\//;
 

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join, matchesGlob } from 'node:path';
-import type { Violation } from './known-violations';
 import { SOURCE_ROOT, sourcePaths } from './source-index';
+import type { Violation } from './violation';
 
 type BiomeOverride = {
   readonly includes?: readonly string[];

@@ -1,11 +1,11 @@
 import ts from 'typescript';
-import type { Violation } from './known-violations';
 import {
   importsOf,
   type SourceFile,
   sourceFiles,
   withoutExtension,
 } from './source-index';
+import type { Violation } from './violation';
 
 const DOMAIN_ERROR = 'DomainError';
 const APPLICATION_ERROR = 'ApplicationError';

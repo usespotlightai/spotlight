@@ -9,7 +9,6 @@ import {
   KIND_PATTERN,
   publisherOfKind,
 } from './domain-event-kinds';
-import type { Violation } from './known-violations';
 import {
   contextOf,
   descendants,
@@ -19,6 +18,7 @@ import {
   sourceFile,
   sourceFiles,
 } from './source-index';
+import type { Violation } from './violation';
 
 const SANCTIONED_MATCHERS: ReadonlySet<string> = new Set([
   'shared-kernel/domain/events/configuration-changed#changesConfiguration',
