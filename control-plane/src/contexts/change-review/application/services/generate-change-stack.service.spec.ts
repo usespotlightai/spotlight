@@ -213,6 +213,7 @@ const generating = (
     outlines?: (readonly OutlinedCohort[] | Error)[];
     layers?: (request: CohortLayersRequest) => readonly ProposedLayer[] | Error;
     index?: SymbolIndexerPort['index'];
+    logger?: LoggerPort;
   } = {},
 ) => {
   const saved: ChangeStack[] = [];
@@ -286,7 +287,7 @@ const generating = (
       now: () => new Date('2026-09-16T10:00:00Z'),
       sleep: async () => undefined,
     },
-    QUIET,
+    over.logger ?? QUIET,
   );
 
   const generated = async (
@@ -1011,5 +1012,122 @@ describe('RedraftChangeStack', () => {
     expect(left.redrafting).toBe(false);
     expect(left.hasPendingJob).toBe(false);
     expect(left.cohorts[0]?.layers).toHaveLength(2);
+  });
+});
+
+describe('the problems a broken stack is settled with', () => {
+  const MOVED = ['moved one', 'moved two', 'moved three'];
+  const loggedProblems = () => {
+    const logged: string[][] = [];
+    const logger: LoggerPort = {
+      ...QUIET,
+      warn: (fields) => {
+        const problems = (fields as { problems?: string[] }).problems;
+        if (problems) {
+          logged.push(problems);
+        }
+      },
+    };
+    return { logged, logger };
+  };
+  const layersOf = (
+    { part }: CohortLayersRequest,
+    sizes: number[],
+  ): ProposedLayer[] => {
+    let at = 0;
+
+    return sizes.map((size, l) => {
+      const files =
+        l === sizes.length - 1
+          ? part.diff.files.slice(at)
+          : part.diff.files.slice(at, at + size);
+      at += size;
+
+      return {
+        title: `Layer ${l + 1}`,
+        summary: `Layer ${l + 1} of the cohort`,
+        dependsOn: [],
+        hunks: files.flatMap((file) =>
+          file.hunks.map((hunk) => ({ hunk: hunk.id })),
+        ),
+        notes: files.map((file) => ({
+          path: file.path,
+          note: 'Why it changes',
+        })),
+        questions: [],
+      };
+    });
+  };
+
+  it('names the moved code the model left apart in a redraft that joins layers', async () => {
+    const text = written(
+      ...Array.from({ length: 45 }, (_, at) =>
+        changed(`f${at + 1}.ts`, ['before'], [`line ${at + 1}`]),
+      ),
+      changed('f46.ts', MOVED, ['line 46']),
+      changed('f47.ts', ['before'], MOVED),
+      ...Array.from({ length: 43 }, (_, at) =>
+        changed(`f${at + 48}.ts`, ['before'], [`line ${at + 48}`]),
+      ),
+    );
+    const generated = generating({
+      outlines: [HALVES],
+      layers: (request) =>
+        layersOf(request, request.redraft ? [1, 1] : [2, 1, 1]),
+    });
+    await generated.generated({
+      diff: text,
+      repository: null,
+      base: null,
+      request: CheckRequest.of('npx tsc --noEmit', null),
+    });
+
+    const ready = generated.saved[generated.saved.length - 1] as ChangeStack;
+    const check = StackCheck.begin({
+      stackId: ready.id,
+      runId: ready.runId,
+      taskId: null,
+      replay: false,
+      workspaceId: ready.workspaceId,
+      request: CheckRequest.of('npx tsc --noEmit', null),
+      entries: ready.entries(),
+      now: new Date('2026-09-16T10:00:00Z'),
+    })
+      .claimedFor(
+        RunnerId.of('checker_1'),
+        RunnerOffer.none(),
+        new Date('2026-09-16T10:00:00Z'),
+      )
+      .recordResult(
+        RunnerId.of('checker_1'),
+        { steps: ready.checkSteps(ready.entries()), layers: ready.layers() },
+        [
+          { step: WHOLE_STEP, passed: true, output: '', durationMs: 1 },
+          {
+            step: LayerId.of('c2.l1'),
+            passed: false,
+            output: 'f46.ts(1,1): error TS2304',
+            durationMs: 1,
+          },
+        ],
+        new Date('2026-09-16T10:00:00Z'),
+      );
+    const { logged, logger } = loggedProblems();
+
+    await new RedraftChangeStack(
+      generated.stacks,
+      generated.generator,
+      {
+        now: () => new Date('2026-09-16T10:05:00Z'),
+        sleep: async () => undefined,
+      },
+      logger,
+    ).redrafted(ready.requestRedraft(), check);
+
+    expect(ready.layers()).toHaveLength(6);
+    expect(logged[logged.length - 1]).toEqual([
+      'h47 is code moved from h46, so they belong in the same layer',
+      'joins layers, leaving 5 where there were 6',
+    ]);
   });
 });

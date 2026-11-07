@@ -12,6 +12,7 @@ import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
 import { actsOutsideSpotlight } from '@change-review/domain/services/replay-isolation';
+import { changeLayerCount } from '@change-review/domain/services/stack-checks';
 import { StackProposal } from '@change-review/domain/services/stack-proposal';
 import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -59,13 +60,6 @@ const NOT_GENERATED = 'Spotlight couldn’t generate the change stack.';
 const TOO_LARGE = 'The change is too large for one change stack.';
 
 const BROKE_RULES = 'The generated stack did not assign every hunk in order.';
-
-const changeLayers = (
-  stack: readonly { kind: string; layers: readonly unknown[] }[],
-): number =>
-  stack
-    .filter((cohort) => cohort.kind === 'change')
-    .reduce((total, cohort) => total + cohort.layers.length, 0);
 
 const assignedHunks = (cohorts: readonly StackCohort[]): string[] =>
   cohorts.flatMap((cohort) =>
@@ -391,23 +385,11 @@ export class ChangeStack
       throw InvalidChangeStackError.because('is not being redrafted');
     }
 
-    const arrangedCohorts = arranged(this.diff, this.facts, cohorts);
-    const before = changeLayers(this.cohorts);
-    const after = changeLayers(arrangedCohorts);
-
-    const ready = StackProposal.validate({
+    const ready = StackProposal.accepted({
       diff: this.diff,
       facts: this.facts,
-      cohorts: arrangedCohorts,
-      also:
-        after < before
-          ? [
-              {
-                code: 'joined-layers',
-                message: `joins layers, leaving ${after} where there were ${before}`,
-              },
-            ]
-          : [],
+      cohorts: arranged(this.diff, this.facts, cohorts),
+      changeLayersAtLeast: changeLayerCount(this.cohorts),
     });
 
     const redrafted = this.with({
@@ -435,7 +417,7 @@ export class ChangeStack
   propose(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {
     this.assertGenerating();
 
-    const ready = StackProposal.validate({
+    const ready = StackProposal.accepted({
       diff: this.diff,
       facts: this.facts,
       cohorts: arranged(this.diff, this.facts, cohorts),

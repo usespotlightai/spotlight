@@ -1,7 +1,7 @@
 import type { StackProblem } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import type { DiffFacts } from '@change-review/domain/services/diff-facts';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
-import type { StackPart } from '@change-review/domain/services/stack-outline';
+import type { StackPart } from '@change-review/domain/services/stack-part';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {

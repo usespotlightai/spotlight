@@ -13,6 +13,8 @@ export const needsFileNotes = (kind: CohortKind): boolean => kind === 'change';
 
 export const MAX_QUESTIONS = 2;
 
+export const MAX_PROSE = 2_000;
+
 export const asksQuestions = (kind: CohortKind): boolean => kind === 'change';
 
 interface StackHunk {

@@ -1,6 +1,9 @@
 import { GenerationError } from '@change-review/application/errors/generation.error';
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
-import type { StackProblem } from '@change-review/domain/exceptions/invalid-change-stack.error';
+import {
+  InvalidChangeStackError,
+  type StackProblem,
+} from '@change-review/domain/exceptions/invalid-change-stack.error';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.vo';
 
@@ -68,4 +71,19 @@ export const settleBroken = (
     'A drafted change stack kept breaking its rules',
   );
   return stack.stopForBrokenRules(now);
+};
+
+export const problemsOfProposal = (
+  check: () => unknown,
+  found: readonly StackProblem[],
+): readonly StackProblem[] => {
+  try {
+    check();
+  } catch (error) {
+    if (error instanceof InvalidChangeStackError) {
+      return error.problems;
+    }
+    throw error;
+  }
+  return found;
 };

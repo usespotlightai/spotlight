@@ -1,19 +1,24 @@
-import {
-  InvalidChangeStackError,
-  type StackProblem,
-  shapeProblem,
-} from '@change-review/domain/exceptions/invalid-change-stack.error';
+import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import type { DiffFacts } from '@change-review/domain/services/diff-facts';
 import {
   derivedDependencies,
   factProblems,
 } from '@change-review/domain/services/fact-rules';
+import { mergedByLayer } from '@change-review/domain/services/layer-dependencies';
+import {
+  movedGroups,
+  withMovedCodeTogether,
+} from '@change-review/domain/services/moved-code';
+import { keptQuestions } from '@change-review/domain/services/shown-questions';
+import {
+  changeLayerCount,
+  layerCountProblems,
+  shapeProblems,
+} from '@change-review/domain/services/stack-checks';
+import { stackPartsOf } from '@change-review/domain/services/stack-part';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
-  asksQuestions,
   type LayerDependency,
-  MAX_QUESTIONS,
-  needsFileNotes,
   type ProposedCohort,
   type ProposedLayer,
   type StackCohort,
@@ -24,200 +29,21 @@ import {
   QuestionId,
 } from '@change-review/domain/value-objects/stack-ids';
 
-const MAX_TITLE = 120;
-
-const MAX_PROSE = 2_000;
-
-export const cohortHeaderProblems = (
-  cohort: { readonly title: string; readonly intent: string },
-  where: string,
-): string[] => [
-  ...(!cohort.title.trim() || cohort.title.length > MAX_TITLE
-    ? [`${where} needs a title of at most ${MAX_TITLE} characters`]
-    : []),
-  ...(!cohort.intent.trim() || cohort.intent.length > MAX_PROSE
-    ? [`${where} needs an intent of at most ${MAX_PROSE} characters`]
-    : []),
-];
-
-const noteProblems = (
-  diff: Diff,
-  layer: ProposedLayer,
-  at: string,
-  required: boolean,
-): string[] => {
-  const problems: string[] = [];
-  const touched = new Set(
-    layer.hunks.flatMap((entry) => {
-      const file = diff.fileOf(entry.hunk);
-      return file ? [file.path] : [];
-    }),
-  );
-  const noted = new Map<string, number>();
-
-  for (const { path, note } of layer.notes) {
-    noted.set(path, (noted.get(path) ?? 0) + 1);
-
-    if (!touched.has(path)) {
-      problems.push(`${at} notes ${path}, which none of its hunks touch`);
-    } else if (!note.trim() || note.length > MAX_PROSE) {
-      problems.push(
-        `${at} needs a note on ${path} of at most ${MAX_PROSE} characters`,
-      );
-    }
-  }
-
-  for (const [path, times] of noted) {
-    if (times > 1) {
-      problems.push(`${at} notes ${path} ${times} times`);
-    }
-  }
-
-  if (required) {
-    for (const path of touched) {
-      if (!noted.has(path)) {
-        problems.push(`${at} has no note on ${path}`);
-      }
-    }
-  }
-
-  return problems;
-};
-
-const keptQuestions = (
-  cohort: ProposedCohort,
-  l: number,
-): ProposedLayer['questions'] => {
-  const layer = cohort.layers[l];
-
-  if (!layer || !asksQuestions(cohort.kind)) {
-    return [];
-  }
-
-  const shown = new Set(
-    cohort.layers
-      .slice(0, l + 1)
-      .flatMap((each) => each.hunks.map((entry) => entry.hunk)),
-  );
-
-  return layer.questions
-    .filter(
-      (each) =>
-        each.question.trim() &&
-        each.question.length <= MAX_PROSE &&
-        each.answer.trim() &&
-        each.answer.length <= MAX_PROSE &&
-        each.hunks.length > 0 &&
-        each.hunks.every((hunk) => shown.has(hunk)),
-    )
-    .slice(0, MAX_QUESTIONS);
-};
-
-const shapeProblems = (
-  diff: Diff,
-  cohorts: readonly ProposedCohort[],
-): StackProblem[] => {
-  const problems: string[] = [];
-  const known = new Set(diff.hunks.map((hunk) => hunk.id));
-  const assigned = new Map<string, number>();
-
-  if (cohorts.length === 0) {
-    problems.push('has no cohorts');
-  }
-
-  cohorts.forEach((cohort, c) => {
-    const where = `cohort ${c + 1}`;
-
-    problems.push(...cohortHeaderProblems(cohort, where));
-    if (cohort.layers.length === 0) {
-      problems.push(`${where} has no layers`);
-    }
-
-    cohort.layers.forEach((layer, l) => {
-      const at = `${where}, layer ${l + 1}`;
-
-      if (!layer.title.trim() || layer.title.length > MAX_TITLE) {
-        problems.push(`${at} needs a title of at most ${MAX_TITLE} characters`);
-      }
-      if (!layer.summary.trim() || layer.summary.length > MAX_PROSE) {
-        problems.push(
-          `${at} needs a summary of at most ${MAX_PROSE} characters`,
-        );
-      }
-      if (layer.hunks.length === 0) {
-        problems.push(`${at} has no hunks`);
-      }
-
-      for (const entry of layer.hunks) {
-        if (!known.has(entry.hunk)) {
-          problems.push(`${at} names ${entry.hunk}, which is not in the diff`);
-        } else {
-          assigned.set(entry.hunk, (assigned.get(entry.hunk) ?? 0) + 1);
-        }
-      }
-
-      problems.push(
-        ...noteProblems(diff, layer, at, needsFileNotes(cohort.kind)),
-      );
-
-      for (const dependency of layer.dependsOn) {
-        if (
-          !Number.isInteger(dependency.layer) ||
-          dependency.layer < 1 ||
-          dependency.layer > l
-        ) {
-          problems.push(
-            `${at} depends on layer ${dependency.layer}, but a layer only depends on an earlier layer of its own cohort`,
-          );
-        }
-        if (dependency.because.every((symbol) => !symbol.trim())) {
-          problems.push(
-            `${at} depends on layer ${dependency.layer} without naming what it uses from it`,
-          );
-        }
-      }
-    });
-  });
-
-  for (const hunk of known) {
-    const times = assigned.get(hunk) ?? 0;
-
-    if (times === 0) {
-      problems.push(`leaves ${hunk} out`);
-    } else if (times > 1) {
-      problems.push(`assigns ${hunk} ${times} times`);
-    }
-  }
-
-  return problems.map(shapeProblem);
-};
-
 const mergedDependencies = (
   cohortId: CohortId,
   proposed: ProposedLayer['dependsOn'],
   derived: ReadonlyMap<number, ReadonlySet<string>> | undefined,
 ): LayerDependency[] => {
-  const merged = new Map<number, Set<string>>();
-
-  for (const dependency of proposed) {
-    const symbols = merged.get(dependency.layer) ?? new Set<string>();
-
-    for (const symbol of dependency.because) {
-      if (symbol.trim()) {
-        symbols.add(symbol.trim());
-      }
-    }
-    merged.set(dependency.layer, symbols);
-  }
-
-  for (const [layer, because] of derived ?? []) {
-    const symbols = merged.get(layer) ?? new Set<string>();
-
-    for (const symbol of because) {
-      symbols.add(symbol);
-    }
-    merged.set(layer, symbols);
-  }
+  const merged = mergedByLayer([
+    ...proposed.map((dependency) => ({
+      layer: dependency.layer,
+      because: dependency.because.flatMap((symbol) => symbol.trim() || []),
+    })),
+    ...[...(derived ?? [])].map(([layer, because]) => ({
+      layer,
+      because: [...because],
+    })),
+  ]);
 
   return [...merged.entries()]
     .sort(([a], [b]) => a - b)
@@ -271,23 +97,90 @@ const numbered = (
   });
 };
 
-export const StackProposal = {
-  validate(input: {
-    diff: Diff;
-    facts: DiffFacts;
-    cohorts: readonly ProposedCohort[];
-    also?: readonly StackProblem[];
-  }): StackCohort[] {
-    const problems = [
-      ...shapeProblems(input.diff, input.cohorts),
-      ...factProblems(input.cohorts, input.facts),
-      ...(input.also ?? []),
-    ];
+interface Proposal {
+  readonly diff: Diff;
+  readonly facts: DiffFacts;
+}
 
-    if (problems.length > 0) {
-      throw new InvalidChangeStackError(problems);
+const layerBudgetOf = (
+  cohorts: readonly ProposedCohort[],
+  changeLayersBefore: number | undefined,
+): number =>
+  changeLayersBefore === undefined
+    ? Number.POSITIVE_INFINITY
+    : Math.max(changeLayerCount(cohorts) - changeLayersBefore, 0);
+
+const repaired = (
+  proposal: Proposal,
+  cohorts: readonly ProposedCohort[],
+  layerBudget: number,
+): ProposedCohort[] => {
+  const moved = movedGroups(proposal.facts);
+  const partOf = stackPartsOf(proposal.diff, proposal.facts);
+  let budget = layerBudget;
+
+  return cohorts.map((cohort) => {
+    const counted = cohort.kind === 'change';
+    const repair = withMovedCodeTogether(
+      partOf,
+      moved,
+      cohort,
+      counted ? budget : Number.POSITIVE_INFINITY,
+    );
+
+    if (counted) {
+      budget = repair.layerBudget;
     }
-
-    return numbered(input.cohorts, input.facts);
-  },
+    return repair.cohort;
+  });
 };
+
+const checked = (
+  proposal: Proposal,
+  cohorts: readonly ProposedCohort[],
+  changeLayersBefore: number | undefined,
+  changeLayersAtLeast: number | undefined,
+): ProposedCohort[] => {
+  const problemsOf = (each: readonly ProposedCohort[]) => [
+    ...shapeProblems(proposal.diff, each),
+    ...factProblems(each, proposal.facts),
+    ...layerCountProblems(each, changeLayersAtLeast),
+  ];
+  const repairedCohorts = repaired(
+    proposal,
+    cohorts,
+    layerBudgetOf(cohorts, changeLayersBefore),
+  );
+
+  if (problemsOf(repairedCohorts).length > 0) {
+    throw new InvalidChangeStackError(problemsOf(cohorts));
+  }
+  return repairedCohorts;
+};
+
+const checkedCohort = (
+  input: Proposal & {
+    readonly cohort: ProposedCohort;
+    readonly changeLayersBefore?: number;
+  },
+): ProposedCohort =>
+  checked(input, [input.cohort], input.changeLayersBefore, undefined)[0] ??
+  input.cohort;
+
+const accepted = (
+  input: Proposal & {
+    readonly cohorts: readonly ProposedCohort[];
+    readonly changeLayersAtLeast?: number;
+  },
+): StackCohort[] =>
+  numbered(
+    checked(
+      input,
+      input.cohorts,
+      input.changeLayersAtLeast,
+      input.changeLayersAtLeast,
+    ),
+    input.facts,
+  );
+
+export const StackProposal = { checkedCohort, accepted };

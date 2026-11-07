@@ -1,6 +1,7 @@
 const STACK_PROBLEM_CODES = [
   'shape',
   'uses',
+  'removes',
   'tests',
   'moves',
   'migration',

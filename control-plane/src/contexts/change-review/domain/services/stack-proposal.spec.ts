@@ -78,7 +78,7 @@ const NOTED: FileNote[] = [
 ];
 
 const validated = (cohorts: ProposedCohort[]) =>
-  StackProposal.validate({ diff: DIFF, facts: NO_FACTS, cohorts });
+  StackProposal.accepted({ diff: DIFF, facts: NO_FACTS, cohorts });
 
 const problemsOf = (cohorts: ProposedCohort[]) => {
   try {
@@ -203,5 +203,156 @@ describe('StackProposal', () => {
     expect(cohort?.layers[0]?.questions[0]?.question).toBe(
       'What happens when the route gets no team?',
     );
+  });
+
+  it('puts moved code together in an incidental cohort whatever a redraft keeps', () => {
+    const facts = {
+      ...NO_FACTS,
+      links: [
+        {
+          kind: 'moves' as const,
+          from: HunkId.of('h2'),
+          to: HunkId.of('h1'),
+          because: ['src/invite.ts → src/invite.ts'],
+        },
+      ],
+    };
+    const layerOf = (id: string) => ({
+      title: `Move ${id}`,
+      summary: 'Moves code',
+      dependsOn: [],
+      hunks: [{ hunk: HunkId.of(id) }],
+      notes: [],
+      questions: [],
+    });
+    const incidental: ProposedCohort = {
+      kind: 'incidental',
+      title: 'Formatting',
+      intent: 'Formatting',
+      layers: [layerOf('h1'), layerOf('h2'), layerOf('h3')],
+    };
+
+    for (const changeLayersBefore of [undefined, 0]) {
+      expect(
+        StackProposal.checkedCohort({
+          diff: DIFF,
+          facts,
+          cohort: incidental,
+          changeLayersBefore,
+        }).layers.map((each) => each.hunks.map((entry) => entry.hunk)),
+      ).toEqual([['h2', 'h1'], ['h3']]);
+    }
+  });
+
+  it('puts moved code together across a diff at the size limit', () => {
+    const per = 20;
+    const cohorts = 100;
+    const id = (n: number) => HunkId.of(`h${n + 1}`);
+    const large = Diff.of(
+      Array.from({ length: per * cohorts }, (_, n) => ({
+        path: `src/f${n}.ts`,
+        previousPath: null,
+        status: 'modified' as const,
+        binary: false,
+        hunks: [hunk(`h${n + 1}`, 1)],
+      })),
+    );
+    const links = Array.from({ length: cohorts }, (_, c) => {
+      const at = (i: number) => id(c * per + i);
+
+      return [
+        { kind: 'moves' as const, from: at(5), to: at(0), because: ['a'] },
+        { kind: 'moves' as const, from: at(10), to: at(1), because: ['b'] },
+        { kind: 'moves' as const, from: at(15), to: at(2), because: ['c'] },
+        ...Array.from({ length: per - 5 }, (_, i) => ({
+          kind: 'uses' as const,
+          from: at(i + 5),
+          to: at(3),
+          because: ['Shared'],
+        })),
+      ];
+    }).flat();
+    const proposed: ProposedCohort[] = Array.from(
+      { length: cohorts },
+      (_, c) => ({
+        kind: 'change',
+        title: `Cohort ${c + 1}`,
+        intent: 'Moves code',
+        joinedBecause: 'One refactor',
+        layers: [0, 1, 2, 3].map((l) => {
+          const ns = Array.from({ length: 5 }, (_, i) => c * per + l * 5 + i);
+
+          return {
+            title: `Layer ${l + 1}`,
+            summary: 'Moves code',
+            dependsOn: [],
+            hunks: ns.map((n) => ({ hunk: id(n) })),
+            notes: ns.map((n) => ({ path: `src/f${n}.ts`, note: 'Why' })),
+            questions: [],
+          };
+        }),
+      }),
+    );
+    const stack = StackProposal.accepted({
+      diff: large,
+      facts: { ...NO_FACTS, links },
+      cohorts: proposed,
+    });
+
+    expect(stack[0]?.layers.map((each) => each.hunks.length)).toEqual([
+      2, 6, 6, 6,
+    ]);
+  });
+
+  it('tries every place for six moved groups in each cohort of a diff at the size limit', () => {
+    const per = 20;
+    const cohorts = 100;
+    const id = (n: number) => HunkId.of(`h${n + 1}`);
+    const large = Diff.of(
+      Array.from({ length: per * cohorts }, (_, n) => ({
+        path: `src/f${n}.ts`,
+        previousPath: null,
+        status: 'modified' as const,
+        binary: false,
+        hunks: [hunk(`h${n + 1}`, 1)],
+      })),
+    );
+    const links = Array.from({ length: cohorts }, (_, c) =>
+      Array.from({ length: 6 }, (_, g) => ({
+        kind: 'moves' as const,
+        from: id(c * per + 10 + g),
+        to: id(c * per + g),
+        because: ['a'],
+      })),
+    ).flat();
+    const proposed: ProposedCohort[] = Array.from(
+      { length: cohorts },
+      (_, c) => ({
+        kind: 'change',
+        title: `Cohort ${c + 1}`,
+        intent: 'Moves code',
+        joinedBecause: 'One refactor',
+        layers: [0, 1].map((l) => {
+          const ns = Array.from({ length: 10 }, (_, i) => c * per + l * 10 + i);
+
+          return {
+            title: `Layer ${l + 1}`,
+            summary: 'Moves code',
+            dependsOn: [],
+            hunks: ns.map((n) => ({ hunk: id(n) })),
+            notes: ns.map((n) => ({ path: `src/f${n}.ts`, note: 'Why' })),
+            questions: [],
+          };
+        }),
+      }),
+    );
+
+    const stack = StackProposal.accepted({
+      diff: large,
+      facts: { ...NO_FACTS, links },
+      cohorts: proposed,
+    });
+
+    expect(stack[0]?.layers.map((each) => each.hunks.length)).toEqual([4, 16]);
   });
 });

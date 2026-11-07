@@ -1,12 +1,10 @@
+import { withoutHunks } from '@change-review/domain/services/cohort-hunks';
 import type {
   DiffFacts,
   FileClass,
 } from '@change-review/domain/services/diff-facts';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
-import type {
-  ProposedCohort,
-  ProposedLayer,
-} from '@change-review/domain/value-objects/stack-cohort.vo';
+import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 
 const INCIDENTAL_CLASSES: Partial<Record<FileClass, string>> = {
   lockfile: 'lockfiles',
@@ -19,65 +17,13 @@ const listed = (words: readonly string[]): string =>
     ? (words[0] ?? '')
     : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
 
-const pathsOf = (diff: Diff, hunks: ProposedLayer['hunks']): Set<string> =>
-  new Set(hunks.flatMap((entry) => diff.fileOf(entry.hunk)?.path ?? []));
-
-const withoutHunks = (
-  diff: Diff,
-  cohort: ProposedCohort,
-  leaving: ReadonlySet<string>,
-): ProposedCohort | null => {
-  const remaining: { layer: ProposedLayer; from: number }[] = [];
-
-  cohort.layers.forEach((layer, place) => {
-    const hunks = layer.hunks.filter((entry) => !leaving.has(entry.hunk));
-
-    if (hunks.length > 0) {
-      const before = pathsOf(diff, layer.hunks);
-      const still = pathsOf(diff, hunks);
-      const notes = layer.notes.filter(
-        (each) => still.has(each.path) || !before.has(each.path),
-      );
-
-      const questions = layer.questions.flatMap((each) => {
-        const cited = each.hunks.filter((hunk) => !leaving.has(hunk));
-        return cited.length > 0 ? [{ ...each, hunks: cited }] : [];
-      });
-
-      remaining.push({
-        layer: { ...layer, hunks, notes, questions },
-        from: place + 1,
-      });
-    }
-  });
-
-  if (remaining.length === 0) {
-    return null;
-  }
-
-  const renumbered = new Map(
-    remaining.map(({ from }, place) => [from, place + 1]),
-  );
-
-  return {
-    ...cohort,
-    layers: remaining.map(({ layer }) => ({
-      ...layer,
-      dependsOn: layer.dependsOn.flatMap((dependency) => {
-        const layerNow = renumbered.get(dependency.layer);
-        return layerNow ? [{ ...dependency, layer: layerNow }] : [];
-      }),
-    })),
-  };
-};
-
 export const arranged = (
   diff: Diff,
   facts: DiffFacts,
   proposed: readonly ProposedCohort[],
 ): ProposedCohort[] => {
   const incidental = facts.hunks.filter((each) => each.incidental);
-  const leaving = new Set(incidental.map((each) => each.hunk));
+  const leaving = incidental.map((each) => each.hunk);
 
   const cohorts = proposed.flatMap((cohort) => {
     if (cohort.layers.length === 0) {
