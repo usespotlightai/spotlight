@@ -5,15 +5,13 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RecordRunImageHandler } from '@work/application/commands/handlers/record-run-image.handler';
 import { RecordRunImageCommand } from '@work/application/commands/runner.commands';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-25T09:00:00.000Z');
@@ -25,12 +23,12 @@ const claimed = () =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('claude-code'),
-    subject: RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(0)),
+    ...orderedFor.task('task_1', 0),
     spec: RunSpec.of({
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'work out what the request wants',
       handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task-task_1' },
+      resume: {},
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 

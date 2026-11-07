@@ -1,6 +1,7 @@
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { ChatDispatching } from '@work/application/services/chat-dispatch';
+import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
@@ -14,7 +15,10 @@ export class ChatOutcomes implements RunOutcomes {
   ) {}
 
   async onRunCompleted(event: RunCompleted): Promise<void> {
-    const chat = await this.waiting(event.runId, event.chatId);
+    const chat = await this.waiting(
+      event.runId,
+      WorkRequesters.chatOf(event.requester.parts),
+    );
 
     if (!chat) {
       return;
@@ -31,7 +35,10 @@ export class ChatOutcomes implements RunOutcomes {
   }
 
   async onRunExhausted(event: RunExhausted): Promise<void> {
-    const chat = await this.waiting(event.runId, event.chatId);
+    const chat = await this.waiting(
+      event.runId,
+      WorkRequesters.chatOf(event.requester.parts),
+    );
 
     if (chat) {
       await this.chats.save(chat.runEndedWithoutSession(event.runId));

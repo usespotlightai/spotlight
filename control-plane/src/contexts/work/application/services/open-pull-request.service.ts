@@ -14,6 +14,8 @@ import { PullRequestHookDeniedError } from '@work/domain/exceptions/pull-request
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import type { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
+import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 
 interface PullRequestFor {
   readonly runId: RunId;
@@ -22,7 +24,7 @@ interface PullRequestFor {
 }
 
 interface PullRequestInput {
-  readonly title: string;
+  readonly title: PullRequestTitle;
   readonly body: string | null;
   readonly repository: string | null;
 }
@@ -48,7 +50,7 @@ export class OpenPullRequest {
       await this.pullRequests.edit({
         workspaceId: task.workspaceId,
         pullRequest: task.pullRequest,
-        title: input.title,
+        title: input.title.value,
         body: input.body,
       });
 
@@ -61,7 +63,9 @@ export class OpenPullRequest {
       throw new UnknownStationError(target.stationId.value);
     }
 
-    const repository = line.opening(input.repository);
+    const repository = line.opening(
+      input.repository === null ? null : RepositoryName.of(input.repository),
+    );
     const taskView = await this.taskViews.of(
       target.taskId.value,
       target.runId.value,
@@ -75,7 +79,7 @@ export class OpenPullRequest {
         on: 'pull-request.opening',
         repository: repository.value,
         branch: task.branch.value,
-        title: input.title,
+        title: input.title.value,
         changed: await this.pullRequests.changedOn(
           task.workspaceId,
           repository,
@@ -92,7 +96,7 @@ export class OpenPullRequest {
       workspaceId: task.workspaceId,
       repository,
       branch: task.branch.value,
-      title: input.title,
+      title: input.title.value,
       body: input.body ?? '',
     });
 

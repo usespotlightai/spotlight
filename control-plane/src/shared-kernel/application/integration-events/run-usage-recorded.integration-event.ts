@@ -12,7 +12,14 @@ export type RunUsageRecordedIntegrationEvent = {
   readonly kind: typeof RUN_USAGE_RECORDED;
   readonly runId: string;
   readonly workspaceId: string;
-  readonly taskId: string | null;
+  readonly requester: {
+    readonly owner: string;
+    readonly kind: string;
+    readonly id: string;
+    readonly token: string | null;
+    readonly team: string | null;
+  };
+  readonly listed: boolean;
   readonly ms: number | null;
   readonly steps: number;
   readonly errors: number;
@@ -21,6 +28,11 @@ export type RunUsageRecordedIntegrationEvent = {
   readonly contextWindow: number | null;
   readonly cost: number | null;
   readonly currency: string | null;
+  readonly spentCosts: readonly {
+    readonly amount: number;
+    readonly currency: string;
+  }[];
+  readonly unpricedCalls: number;
   readonly inputTokens: number | null;
   readonly outputTokens: number | null;
   readonly cacheReadTokens: number | null;

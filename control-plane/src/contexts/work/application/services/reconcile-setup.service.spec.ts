@@ -11,9 +11,9 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import { listed } from '@work/application/rendering/setup-steps';
 import { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import type { SetupStatus } from '@work/application/services/setup-status.service';
-import { listed } from '@work/application/services/setup-steps';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { SetupState } from '@work/domain/services/setup-list';
@@ -69,7 +69,6 @@ const list = (): Task =>
   welcomeTask({
     line: DELIVERY,
     noteBody: TaskNoteBody.of(listed()),
-    at: DELIVERY.backlog,
     owner: OWNER,
     now: new Date('2026-01-01T00:00:00.000Z'),
     newId: nextId,
@@ -186,7 +185,7 @@ describe('ReconcileSetup', () => {
 
   it('leaves a conversation somebody else closed alone', async () => {
     const gone = list().closeConversation({
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Done here.'),
       at: NOW,
       voice: Voice.station(),

@@ -33,6 +33,7 @@ const oracles = () =>
     memory.replayRepository,
     memory.candidateRepository,
     work,
+    work,
     insights,
     IDS,
     CLOCK,

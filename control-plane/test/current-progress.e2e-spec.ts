@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { telemetryInMemory } from '@shared-kernel/application/ports/telemetry.fake-spec';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -8,13 +10,16 @@ import type {
   InboxItemSummary,
   InboxRunSummary,
 } from '@work/application/ports/inbox-reader.port';
+import { RunFacts } from '@work/application/services/run-facts.service';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/readers/task.reader';
+import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
+import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { aRunOf, endedAtFor } from './support/run-ended';
-import { aTurn } from './support/runs';
+import { aTurn, requestedBySpec, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
@@ -29,6 +34,16 @@ beforeAll(async () => {
 afterAll(async () => {
   await database?.close();
 });
+
+const progress = () => {
+  const context = new DrizzleContext(db);
+  const noEvents = { dispatch: async () => {} };
+
+  return new RunFacts(
+    new DrizzleRunRepository(context, noEvents, telemetryInMemory()),
+    new DrizzleWorkspaceArchiveRepository(context, noEvents),
+  );
+};
 
 type RunState = (typeof schema.run.$inferInsert)['state'];
 
@@ -75,15 +90,25 @@ const inboxWith = async (
   });
   if (state) {
     await db.insert(schema.run).values({
+      ...requestedByTask(taskId),
       id: runId,
       workspaceId,
       harness: 'dev',
-      taskId,
-      stationId,
       state,
       endedAt: endedAtFor(state),
       stopRequestedAt,
-      spec: {},
+      spec: {
+        command: { executable: 'sh', args: [] },
+        briefing: 'Fix the queue.',
+        handover: { options: ['done'], noteLimit: 0 },
+        resume: {},
+      },
+      ...(state === 'claimed'
+        ? {
+            claimedBy: 'runner_1',
+            leaseExpiresAt: new Date(Date.now() + 60_000),
+          }
+        : {}),
       ...(state === 'suspended' ? aTurn(turn) : {}),
     });
   }
@@ -125,17 +150,21 @@ const inboxWith = async (
     await db.insert(schema.taskNote).values(notes);
   }
 
-  const tasks = new DrizzleTaskReader(db, {
-    findMany: async () => new Map(),
-  } as never);
-  const reader = new DrizzleInboxReader(db, {
-    findMany: async () => new Map(),
-  } as never);
+  const tasks = new DrizzleTaskReader(
+    db,
+    { findMany: async () => new Map() } as never,
+    progress(),
+  );
+  const reader = new DrizzleInboxReader(
+    db,
+    { findMany: async () => new Map() } as never,
+    progress(),
+  );
 
   const entries = await reader.open({
     workspaceId,
     viewer: UserId.of(viewer),
-    teamsSeen: new Set(),
+    teamsSeen: new Set(['team_1']),
     teamsRead: new Set(),
   });
 
@@ -285,20 +314,34 @@ describe('the progress of a chat whose run waits to start', () => {
 
     if (state) {
       await db.insert(schema.run).values({
+        ...requestedBySpec(runId),
         id: runId,
         workspaceId: 'ws_1',
         harness: 'dev',
         state,
         endedAt: endedAtFor(state),
-        spec: {},
+        spec: {
+          command: { executable: 'sh', args: [] },
+          briefing: 'Fix the queue.',
+          handover: { options: ['done'], noteLimit: 0 },
+          resume: {},
+        },
+        ...(state === 'claimed'
+          ? {
+              claimedBy: 'runner_1',
+              leaseExpiresAt: new Date(Date.now() + 60_000),
+            }
+          : {}),
       });
     }
 
     const {
       items: [found],
-    } = await new DrizzleChatReader(db, {
-      find: async () => null,
-    } as never).startedBy(TeamId.of('team_1'), UserId.of(viewer), FIRST_PAGE);
+    } = await new DrizzleChatReader(
+      db,
+      { find: async () => null } as never,
+      progress(),
+    ).startedBy(TeamId.of('team_1'), UserId.of(viewer), FIRST_PAGE);
 
     return found?.progress;
   };

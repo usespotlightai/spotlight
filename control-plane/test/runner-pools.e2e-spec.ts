@@ -39,6 +39,7 @@ import { eventually } from './support/eventually';
 import { definitionOf } from './support/line-definition';
 import { E2E_LONG_POLL_MS } from './support/long-poll';
 import { deleteRunnersOf } from './support/runners';
+import { requestedBySpec } from './support/runs';
 import * as schema from './support/schema';
 import { listSetUp, seatTeam } from './support/team';
 
@@ -120,6 +121,7 @@ describe('runner pools (e2e)', () => {
     const id = randomUUID();
 
     await db.insert(schema.run).values({
+      ...requestedBySpec(id),
       id,
       workspaceId,
       harness: 'dev',
@@ -130,7 +132,7 @@ describe('runner pools (e2e)', () => {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        resume: { key: `task:${id}` },
+        resume: {},
       },
     });
 
@@ -1018,6 +1020,7 @@ describe('runner pools (e2e)', () => {
         }).expect(201);
         const withSecrets = randomUUID();
         await db.insert(schema.run).values({
+          ...requestedBySpec(withSecrets),
           id: withSecrets,
           workspaceId,
           harness: 'dev',
@@ -1027,7 +1030,7 @@ describe('runner pools (e2e)', () => {
             command: { executable: 'sh', args: [] },
             briefing: 'do the thing',
             handover: { options: [], noteLimit: 0 },
-            resume: { key: `task:${withSecrets}` },
+            resume: {},
             injectedSecrets: ['LINEAR_API_KEY'],
           },
         });
@@ -1122,9 +1125,9 @@ describe('runner pools (e2e)', () => {
         expect(sent.data).toMatchObject({
           kind: 'check',
           stackId,
-          taskId: null,
           labels: ['sandbox'],
         });
+        expect(sent.data).not.toHaveProperty('taskId');
 
         const oneRun = sent.data.runner.token as string;
         await http()

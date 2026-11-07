@@ -19,6 +19,10 @@ export class DraftGeneration {
     return new DraftGeneration(0);
   }
 
+  correcting(shown: number): DraftGeneration | null {
+    return Number.isInteger(shown) && shown >= this.value ? null : this;
+  }
+
   next(): DraftGeneration {
     return new DraftGeneration(this.value + 1);
   }

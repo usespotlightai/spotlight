@@ -26,6 +26,7 @@ export class InboxRequest extends EventRecorder {
     readonly form: InboxRequestForm,
     readonly about: InboxRequestSubject,
     readonly createdAt: Date,
+    readonly openedAt: Date,
     readonly reads: readonly InboxRequestRead[],
     readonly resolvedAt: Date | null,
     readonly version: number,
@@ -48,6 +49,7 @@ export class InboxRequest extends EventRecorder {
       input.form,
       input.about,
       input.now,
+      input.now,
       [],
       null,
       0,
@@ -61,21 +63,29 @@ export class InboxRequest extends EventRecorder {
     form: InboxRequestForm;
     about: InboxRequestSubject;
     createdAt: Date;
+    openedAt: Date;
     reads: readonly InboxRequestRead[];
     resolvedAt: Date | null;
     version: number;
   }): InboxRequest {
-    if (input.resolvedAt && input.resolvedAt < input.createdAt) {
+    if (input.openedAt < input.createdAt) {
       throw new InconsistentStateError(
         'inbox request',
-        'was resolved before it was created',
+        'was opened before it was created',
       );
     }
 
-    if (input.reads.some((each) => each.at < input.createdAt)) {
+    if (input.resolvedAt && input.resolvedAt < input.openedAt) {
       throw new InconsistentStateError(
         'inbox request',
-        'was read before it was created',
+        'was resolved before it was opened',
+      );
+    }
+
+    if (input.reads.some((each) => each.at < input.openedAt)) {
+      throw new InconsistentStateError(
+        'inbox request',
+        'was read before it was opened',
       );
     }
 
@@ -96,6 +106,7 @@ export class InboxRequest extends EventRecorder {
       input.form,
       input.about,
       input.createdAt,
+      input.openedAt,
       input.reads,
       input.resolvedAt,
       input.version,
@@ -171,6 +182,7 @@ export class InboxRequest extends EventRecorder {
       this.taskId,
       this.form,
       this.about,
+      this.createdAt,
       now,
       [],
       null,
@@ -192,6 +204,7 @@ export class InboxRequest extends EventRecorder {
       this.form,
       this.about,
       this.createdAt,
+      this.openedAt,
       change.reads ?? this.reads,
       change.resolvedAt ?? this.resolvedAt,
       this.version,

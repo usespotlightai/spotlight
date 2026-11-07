@@ -2,12 +2,9 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { connectionsInMemory } from '@work/application/ports/run-connections.fake-spec';
 import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
-import {
-  aSearchVisibility,
-  searchVisibilitiesInMemory,
-} from '@work/application/ports/search-visibility.fake-spec';
 import { ReadRunnerTraceHandler } from '@work/application/queries/handlers/read-runner-trace.handler';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
+import { historyAccessesOf } from '@work/application/services/history-accesses.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const reading = (
@@ -41,36 +38,31 @@ const reading = (
     return id ? TeamId.of(id) : null;
   });
 
-  const team = over.leasedBy === undefined ? 'team_1' : over.leasedBy;
-  const leasedRunFacts = vi.fn(async () =>
-    team
-      ? {
-          teamId: TeamId.of(team),
-          replaysFrom: over.replaysFrom ?? null,
-          isSearch: (over.hidden ?? null) !== null,
-        }
-      : null,
-  );
-  const visibilities = searchVisibilitiesInMemory();
-
-  if (Array.isArray(over.hidden)) {
-    visibilities.sees(
-      'run_1',
-      aSearchVisibility({ heldOutTasks: over.hidden }),
-    );
-  }
-
   return {
     runsForTask,
     teamOfTask,
     handler: new ReadRunnerTraceHandler(
+      historyAccessesOf({
+        team: over.leasedBy,
+        ...(over.replaysFrom ? { trialAsOf: over.replaysFrom } : {}),
+        ...(over.hidden === undefined || over.hidden === null
+          ? {}
+          : {
+              scope:
+                over.hidden === 'unseeable'
+                  ? null
+                  : {
+                      stationId: 'station_1',
+                      hiddenTaskIds: over.hidden,
+                      shownRunIds: [],
+                    },
+            }),
+      }),
       {
-        leasedRunFacts,
         teamOfTask,
         runsForTask,
         journalsForTask,
       } as unknown as RunnerTraceReaderPort,
-      visibilities,
       connectionsInMemory(),
     ),
   };
@@ -103,7 +95,7 @@ describe('ReadRunnerTraceHandler', () => {
     expect(runsForTask).not.toHaveBeenCalled();
   });
 
-  it('rejects a replay, which may not read what happened after the run it replays', async () => {
+  it('rejects a trial, which may not read what happened after the run it tries again', async () => {
     const { handler, runsForTask } = reading({
       replaysFrom: new Date('2026-09-20T00:00:00Z'),
     });
@@ -125,12 +117,10 @@ describe('ReadRunnerTraceHandler', () => {
     expect(seen.runsForTask).toHaveBeenCalledTimes(1);
   });
 
-  it('fails a search’s read when what it may see cannot be told', async () => {
+  it('says nothing to a search when what it may see cannot be told', async () => {
     const { handler, runsForTask } = reading({ hidden: 'unseeable' });
 
-    await expect(handler.execute(query())).rejects.toThrow(
-      'No search ran run_1',
-    );
+    expect(await handler.execute(query())).toBeNull();
     expect(runsForTask).not.toHaveBeenCalled();
   });
 

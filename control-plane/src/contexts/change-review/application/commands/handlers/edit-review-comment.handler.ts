@@ -18,7 +18,7 @@ export class EditReviewCommentHandler
 
   async execute(command: EditReviewCommentCommand): Promise<void> {
     try {
-      const { task, by } = await this.access.reviewing(
+      const { task, by } = await this.access.actingInReview(
         command.teamId,
         command.runId,
         command.viewerId,

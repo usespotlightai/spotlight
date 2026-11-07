@@ -4,6 +4,7 @@ import type { RunJournalReaderPort } from '@work/application/ports/run-journal-r
 import { lastWordsIn } from '@work/application/services/last-words';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { RunRouting } from '@work/application/services/run-routing.service';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
@@ -86,13 +87,14 @@ export class HandOver implements RunOutcomes {
   private async waiting(
     ended: RunCompleted | RunExhausted,
   ): Promise<WaitingTask | null> {
-    const revision = ended.subject?.revision ?? null;
+    const requested = WorkRequesters.decode(ended.requester.parts);
 
-    if (!ended.taskId || revision === null) {
+    if (!requested || !('task' in requested)) {
       return null;
     }
 
-    const task = await this.tasks.find(ended.taskId);
+    const { task: taskId, revision } = requested;
+    const task = await this.tasks.find(taskId);
     if (!task?.hasCurrentRun(ended.runId)) {
       return null;
     }

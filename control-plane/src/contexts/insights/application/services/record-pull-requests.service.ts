@@ -41,6 +41,7 @@ export interface PullRequestReviewed {
   readonly workspaceId: WorkspaceId;
   readonly pullRequest: PullRequestUrl;
   readonly taskId: TaskId;
+  readonly teamId: TeamId;
 }
 
 export class RecordPullRequests {
@@ -81,8 +82,15 @@ export class RecordPullRequests {
   reviewed(reviewed: PullRequestReviewed): Promise<void> {
     return this.changing(
       reviewed,
-      FactOwner.of(reviewed.workspaceId, { taskId: reviewed.taskId }),
-      (record) => record.recordReview(reviewed.taskId),
+      FactOwner.of(reviewed.workspaceId, {
+        teamId: reviewed.teamId,
+        taskId: reviewed.taskId,
+      }),
+      (record) =>
+        record.recordReview({
+          taskId: reviewed.taskId,
+          teamId: reviewed.teamId,
+        }),
     );
   }
 

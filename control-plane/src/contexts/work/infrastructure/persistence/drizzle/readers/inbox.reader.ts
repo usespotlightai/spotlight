@@ -11,6 +11,7 @@ import {
   notNewerThan,
   sortableTime,
 } from '@platform/persistence/drizzle/keyset';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
@@ -26,6 +27,10 @@ import type {
   InboxScope,
 } from '@work/application/ports/inbox-reader.port';
 import type { RunFacts } from '@work/application/ports/run-facts.port';
+import {
+  RUN_PROGRESS,
+  type RunProgressPort,
+} from '@work/application/ports/run-progress.port';
 import { inboxSectionOf } from '@work/application/read-models/inbox-section';
 import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
 import { Notice } from '@work/domain/aggregates/notice.aggregate';
@@ -64,7 +69,6 @@ import {
   inboxRequestRead,
 } from '@work/infrastructure/persistence/drizzle/schemas/inbox-request.schema';
 import { notice } from '@work/infrastructure/persistence/drizzle/schemas/notice.schema';
-import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   task,
   taskNote,
@@ -120,10 +124,14 @@ const floorOf = <T>(
   return rows.length === fetched && last ? at(last) : null;
 };
 
-const tasksWhere = (
+const inTeamsSeen = (scope: InboxScope): SQL =>
+  scope.teamsSeen.size > 0
+    ? inArray(workStation.teamId, [...scope.teamsSeen])
+    : sql`false`;
+
+const taskRowsWhere = (
   db: DrizzleDatabase,
-  workspaceId: string,
-  assignee: UserId | null,
+  scope: InboxScope,
   narrowedTo: SQL,
 ) => {
   const origin = alias(workStation, 'origin');
@@ -144,22 +152,47 @@ const tasksWhere = (
       createdAt: task.createdAt,
       finishedAt: task.finishedAt,
       working: task.currentRunId,
-      workingState: run.state,
-      workingStopRequestedAt: run.stopRequestedAt,
-      workingTurn: run.turn,
-      workingSince: run.queuedAt,
     })
     .from(task)
     .innerJoin(workStation, eq(workStation.stationId, task.stationId))
-    .leftJoin(run, eq(run.id, task.currentRunId))
     .leftJoin(origin, eq(origin.stationId, task.originStationId))
     .where(
       and(
-        eq(task.workspaceId, workspaceId),
-        assignee ? eq(task.assigneeId, assignee.value) : undefined,
+        eq(task.workspaceId, scope.workspaceId),
+        eq(task.assigneeId, scope.viewer.value),
+        inTeamsSeen(scope),
         narrowedTo,
       ),
     );
+};
+
+const tasksWhere = async (
+  db: DrizzleDatabase,
+  progress: RunProgressPort,
+  scope: InboxScope,
+  narrowedTo: SQL,
+) => {
+  const rows = await taskRowsWhere(db, scope, narrowedTo);
+  const ids = [
+    ...new Set(rows.flatMap((row) => (row.working ? [row.working] : []))),
+  ];
+  const facts = new Map(
+    (ids.length === 0 ? [] : await progress.progressOf(ids.map(RunId.of))).map(
+      (each) => [each.runId.value, each],
+    ),
+  );
+
+  return rows.map((row) => {
+    const working = row.working ? facts.get(row.working) : undefined;
+
+    return {
+      ...row,
+      workingState: working?.state ?? null,
+      workingStopRequested: working?.stopRequested ?? false,
+      workingTurn: working?.turn ?? null,
+      workingSince: working?.queuedAt ?? null,
+    };
+  });
 };
 
 const requestsWhere = (
@@ -174,8 +207,8 @@ const requestsWhere = (
       id: inboxRequest.id,
       form: inboxRequest.form,
       about: inboxRequest.about,
-      requestCreatedAt: inboxRequest.createdAt,
-      cursorAt: sortableTime(inboxRequest.createdAt),
+      requestOpenedAt: inboxRequest.openedAt,
+      cursorAt: sortableTime(inboxRequest.openedAt),
       readAt: inboxRequestRead.readAt,
       resolvedAt: inboxRequest.resolvedAt,
       taskId: task.id,
@@ -210,7 +243,7 @@ const requestsWhere = (
         narrowedTo,
       ),
     )
-    .orderBy(desc(inboxRequest.createdAt), desc(inboxRequest.id))
+    .orderBy(desc(inboxRequest.openedAt), desc(inboxRequest.id))
     .$dynamic();
 
   return limit === null ? query : query.limit(limit);
@@ -249,13 +282,13 @@ interface TaskContext {
 
 const workingOf = (row: {
   readonly workingState: RunState | null;
-  readonly workingStopRequestedAt: Date | null;
+  readonly workingStopRequested: boolean;
   readonly workingTurn: RunFacts['turn'];
 }) =>
   row.workingState
     ? {
         state: row.workingState,
-        stopRequested: row.workingStopRequestedAt !== null,
+        stopRequested: row.workingStopRequested,
         turn: row.workingTurn,
       }
     : null;
@@ -388,13 +421,14 @@ export class DrizzleInboxReader implements InboxReaderPort {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(PERSON_READER) private readonly people: PersonReaderPort,
+    @Inject(RUN_PROGRESS) private readonly progress: RunProgressPort,
   ) {}
 
   async open(scope: InboxScope): Promise<InboxEntrySummary[]> {
     const { workspaceId, viewer: userId } = scope;
 
     const [tasks, requests, notices] = await Promise.all([
-      this.openTasks(workspaceId, userId),
+      this.openTasks(scope),
       requestsWhere(
         this.db,
         workspaceId,
@@ -445,7 +479,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
     const conversationId = ConversationId.tryParse(itemId);
 
     return conversationId
-      ? this.conversationView(scope.workspaceId, scope.viewer, conversationId)
+      ? this.conversationView(scope, conversationId)
       : this.requestView(scope, itemId);
   }
 
@@ -472,12 +506,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
   ): Promise<{ items: readonly Keyed[]; next: Cursor | null }> {
     const fetched = limit + 1;
     const sources = await Promise.all([
-      this.resolvedConversations(
-        scope.workspaceId,
-        scope.viewer,
-        before,
-        fetched,
-      ),
+      this.resolvedConversations(scope, before, fetched),
       this.resolvedRequests(scope, before, fetched),
       this.resolvedNotices(scope, before, fetched),
     ]);
@@ -506,11 +535,11 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   private async resolvedConversations(
-    workspaceId: string,
-    userId: UserId,
+    scope: InboxScope,
     before: Cursor | null,
     fetched: number,
   ): Promise<Gathered> {
+    const { workspaceId, viewer: userId } = scope;
     const closing = await this.db
       .select({
         taskId: taskNote.taskId,
@@ -540,8 +569,8 @@ export class DrizzleInboxReader implements InboxReaderPort {
     const taskIds = [...new Set(closing.map((each) => each.taskId))];
     const rows = await tasksWhere(
       this.db,
-      workspaceId,
-      userId,
+      this.progress,
+      scope,
       inArray(task.id, taskIds),
     );
     const marks = await marksFor(this.db, taskIds);
@@ -613,7 +642,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       scope.viewer,
       and(
         isNotNull(inboxRequest.resolvedAt),
-        before ? notNewerThan(inboxRequest.createdAt, before) : undefined,
+        before ? notNewerThan(inboxRequest.openedAt, before) : undefined,
       ),
       fetched,
     );
@@ -647,13 +676,12 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   private async openTasks(
-    workspaceId: string,
-    userId: UserId,
+    scope: InboxScope,
   ): Promise<(InboxItemSummary | InboxRunSummary)[]> {
     const rows = await tasksWhere(
       this.db,
-      workspaceId,
-      userId,
+      this.progress,
+      scope,
       sql`(${isNull(task.finishedAt)} or ${task.unreadAsk})`,
     );
     const taskIds = rows.map((row) => row.taskId);
@@ -728,14 +756,13 @@ export class DrizzleInboxReader implements InboxReaderPort {
   }
 
   private async conversationView(
-    workspaceId: string,
-    userId: UserId,
+    scope: InboxScope,
     conversationId: ConversationId,
   ): Promise<InboxItemView | null> {
     const [row] = await tasksWhere(
       this.db,
-      workspaceId,
-      userId,
+      this.progress,
+      scope,
       eq(task.id, conversationId.taskId.value),
     );
 
@@ -864,7 +891,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
           originStation: currentStation,
           currentStation,
           createdAt: row.createdAt,
-          askedAt: row.requestCreatedAt,
+          askedAt: row.requestOpenedAt,
           resolved: row.resolvedAt !== null,
           section: inboxSectionOf({
             unread: InboxRequest.unread(row),

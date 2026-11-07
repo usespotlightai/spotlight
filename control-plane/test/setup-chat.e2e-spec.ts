@@ -107,14 +107,19 @@ describe('setting a team up as code (e2e)', () => {
     const chat = settingUp(runId);
 
     await chats().add(chat);
-    await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toEqual({
-      id: chat.id.value,
-      repository: 'acme/infra',
-      pullRequest: null,
-      ci: null,
-      startedById: owner,
-      startedBy: 'Ada',
-    });
+    await expect(
+      reader().setupChatsOf(TeamId.of(workspaceId)),
+    ).resolves.toEqual([
+      {
+        id: chat.id.value,
+        repository: 'acme/infra',
+        pullRequest: null,
+        ci: null,
+        startedById: owner,
+        startedBy: 'Ada',
+        startedAt: expect.any(Date),
+      },
+    ]);
 
     const found = await chats().find(chat.id);
     expect(found?.setup?.repository.value).toBe('acme/infra');
@@ -129,15 +134,19 @@ describe('setting a team up as code (e2e)', () => {
     );
 
     await expect(
-      reader().setupOf(TeamId.of(workspaceId)),
-    ).resolves.toMatchObject({
-      id: chat.id.value,
-      pullRequest: PULL_REQUEST,
-    });
+      reader().setupChatsOf(TeamId.of(workspaceId)),
+    ).resolves.toMatchObject([
+      {
+        id: chat.id.value,
+        pullRequest: PULL_REQUEST,
+      },
+    ]);
   });
 
   it('answers no setup chat for a team that started none', async () => {
-    await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toBeNull();
+    await expect(
+      reader().setupChatsOf(TeamId.of(workspaceId)),
+    ).resolves.toEqual([]);
   });
 
   it('lets a token issued for a run read the workspace until the run ends', async () => {
@@ -215,7 +224,9 @@ describe('setting a team up as code (e2e)', () => {
     }).expect(422);
 
     expect(JSON.stringify(rejected.body)).toContain("can't access acme/infra");
-    await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toBeNull();
+    await expect(
+      reader().setupChatsOf(TeamId.of(workspaceId)),
+    ).resolves.toEqual([]);
   });
 
   it('says who started the setup chat, and links it only for them', async () => {

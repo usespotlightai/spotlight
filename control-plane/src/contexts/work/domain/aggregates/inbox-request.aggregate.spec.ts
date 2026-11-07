@@ -51,14 +51,15 @@ describe('InboxRequest', () => {
     expect(resolved.resolve(NOW)).toBe(resolved);
   });
 
-  it('reopens unread once resolved, created again, and leaves an open inbox request as it is', () => {
+  it('reopens unread once resolved, opened again but created when it was, and leaves an open inbox request as it is', () => {
     const resolved = created().readBy(ADA, NOW).resolve(NOW);
     resolved.pullEvents();
 
     const reopened = resolved.reopen(LATER);
 
     expect(reopened.open).toBe(true);
-    expect(reopened.createdAt).toEqual(LATER);
+    expect(reopened.openedAt).toEqual(LATER);
+    expect(reopened.createdAt).toEqual(resolved.createdAt);
     expect(reopened.unreadBy(ADA)).toBe(true);
     expect(reopened.reopen(LATER)).toBe(reopened);
   });
@@ -93,15 +94,33 @@ describe('InboxRequest', () => {
         taskId: TaskId.of('task_1'),
         form: 'memories',
         about: InboxRequestSubject.of('run_1'),
-        createdAt: LATER,
+        createdAt: NOW,
+        openedAt: LATER,
         reads,
         resolvedAt: null,
         version: 1,
       });
 
-    it('rejects a read before it was created', () => {
+    it('rejects a read before it was opened', () => {
       expect(() =>
         rehydrated([InboxRequestRead.of({ by: ADA, at: NOW })]),
+      ).toThrow(InconsistentStateError);
+    });
+
+    it('rejects being opened before it was created', () => {
+      expect(() =>
+        InboxRequest.rehydrate({
+          id: InboxRequestId.of('request_1'),
+          workspaceId: WorkspaceId.of('ws_1'),
+          taskId: TaskId.of('task_1'),
+          form: 'memories',
+          about: InboxRequestSubject.of('run_1'),
+          createdAt: LATER,
+          openedAt: NOW,
+          reads: [],
+          resolvedAt: null,
+          version: 1,
+        }),
       ).toThrow(InconsistentStateError);
     });
 

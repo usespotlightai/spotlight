@@ -18,7 +18,7 @@ export interface LeftComment {
 
 export interface SubmittedVerdict {
   readonly verdict: string;
-  readonly body: string;
+  readonly body: string | null;
 }
 
 export interface PullRequestReviewingPort {

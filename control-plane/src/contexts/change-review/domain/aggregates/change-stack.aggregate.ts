@@ -3,9 +3,9 @@ import { ChangeStackBecameReady } from '@change-review/domain/events/change-stac
 import { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import { ChangeStackRedrafted } from '@change-review/domain/events/change-stack-redrafted.event';
 import { ChangeStackRedraftingEnded } from '@change-review/domain/events/change-stack-redrafting-ended.event';
-import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
+import { TrialStackCompleted } from '@change-review/domain/events/trial-stack-completed.event';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
+import { NoStackWithoutCheckoutsError } from '@change-review/domain/exceptions/no-stack-without-checkouts.error';
 import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
@@ -16,9 +16,9 @@ import {
   type RedraftRequest,
   redraftRequestOf,
 } from '@change-review/domain/services/redraft-request';
-import { actsOutsideSpotlight } from '@change-review/domain/services/replay-isolation';
 import { changeLayerCount } from '@change-review/domain/services/stack-checks';
 import { StackProposal } from '@change-review/domain/services/stack-proposal';
+import { actsOutsideSpotlight } from '@change-review/domain/services/trial-isolation';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { CommitSha } from '@change-review/domain/value-objects/commit-sha.vo';
@@ -129,12 +129,12 @@ const assertComplete = (
 const assertOneOwner = (stack: {
   taskId: TaskId | null;
   teamId: TeamId | null;
-  replay: boolean;
+  trial: boolean;
 }): void => {
-  if (stack.replay && stack.taskId) {
+  if (stack.trial && stack.taskId) {
     throw new InconsistentStateError(
       'change stack',
-      'is a replay’s, yet belongs to a task',
+      'is a trial’s, yet belongs to a task',
     );
   }
   if ((stack.taskId === null) === (stack.teamId === null)) {
@@ -154,7 +154,7 @@ export class ChangeStack
     readonly runId: RunId,
     readonly taskId: TaskId | null,
     readonly teamId: TeamId | null,
-    readonly replay: boolean,
+    readonly trial: boolean,
     readonly workspaceId: WorkspaceId,
     readonly repository: RepositoryName | null,
     readonly base: CommitSha | null,
@@ -176,8 +176,8 @@ export class ChangeStack
     runId: RunId;
     taskId: TaskId | null;
     teamOfRun: TeamId | null;
-    replay: boolean;
-    isSearch: boolean;
+    trial: boolean;
+    checkouts: number;
     workspaceId: WorkspaceId;
     repository: string | null;
     base: string | null;
@@ -186,14 +186,14 @@ export class ChangeStack
     request: CheckRequest | null;
     now: Date;
   }): ChangeStack {
-    if (input.isSearch) {
-      throw new NoStackForSearchesError();
+    if (input.checkouts === 0) {
+      throw new NoStackWithoutCheckoutsError();
     }
 
     const owner = {
       taskId: input.taskId,
       teamId: input.taskId ? null : input.teamOfRun,
-      replay: input.replay,
+      trial: input.trial,
     };
     assertOneOwner(owner);
 
@@ -202,7 +202,7 @@ export class ChangeStack
       input.runId,
       owner.taskId,
       owner.teamId,
-      input.replay,
+      input.trial,
       input.workspaceId,
       input.repository?.trim() ? RepositoryName.of(input.repository) : null,
       input.base?.trim() ? baseOf(input.base) : null,
@@ -223,7 +223,7 @@ export class ChangeStack
     runId: RunId;
     taskId: TaskId | null;
     teamId: TeamId | null;
-    replay: boolean;
+    trial: boolean;
     workspaceId: WorkspaceId;
     repository: RepositoryName | null;
     base: CommitSha | null;
@@ -245,7 +245,7 @@ export class ChangeStack
       input.runId,
       input.taskId,
       input.teamId,
-      input.replay,
+      input.trial,
       input.workspaceId,
       input.repository,
       input.base,
@@ -465,11 +465,9 @@ export class ChangeStack
       job: PendingJob.fresh(),
     });
 
-    completed.record(
-      new ChangeStackCompleted(this.id, this.runId, this.replay),
-    );
+    completed.record(new ChangeStackCompleted(this.id, this.runId, this.trial));
     completed.recordReady(now);
-    completed.recordReplayCompleted();
+    completed.recordTrialCompleted();
     return completed;
   }
 
@@ -477,10 +475,10 @@ export class ChangeStack
     return arranged(this.diff, this.facts, DraftedStack.cohorts(cohorts));
   }
 
-  private recordReplayCompleted(): void {
-    if (this.replay) {
+  private recordTrialCompleted(): void {
+    if (this.trial) {
       this.record(
-        new ReplayStackCompleted(this.id, this.runId, this.workspaceId),
+        new TrialStackCompleted(this.id, this.runId, this.workspaceId),
       );
     }
   }
@@ -514,7 +512,7 @@ export class ChangeStack
       job: PendingJob.fresh(),
     });
 
-    failed.recordReplayCompleted();
+    failed.recordTrialCompleted();
 
     return failed;
   }
@@ -537,7 +535,7 @@ export class ChangeStack
       this.runId,
       this.taskId,
       this.teamId,
-      this.replay,
+      this.trial,
       this.workspaceId,
       this.repository,
       this.base,

@@ -4,13 +4,13 @@ import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type {
   HookFailureNotice,
   HookFailureReport,
   TaskNotesFromHooksPort,
 } from '@work/application/ports/task-notes-from-hooks.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -71,7 +71,7 @@ export class TaskNotesFromHooks implements TaskNotesFromHooksPort {
 
       await this.tasks.save(
         task.addMessage({
-          station: line?.stationAt(task.stationId) ?? null,
+          line,
           body: noteBody,
           at: this.clock.now(),
           voice: Voice.station(),
@@ -116,7 +116,7 @@ export class TaskNotesFromHooks implements TaskNotesFromHooksPort {
       const failed = task.failed(
         TaskFailure.fromHook(report.hook, report.code),
         {
-          station: firedAt,
+          line,
           body: TaskNoteBody.fromHook(report.hook, report.reason),
           at: this.clock.now(),
           voice: Voice.station(),

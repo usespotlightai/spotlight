@@ -6,4 +6,8 @@ export class DeferredMove {
   static moveTo(to: StationId): DeferredMove {
     return new DeferredMove(to);
   }
+
+  equals(other: DeferredMove): boolean {
+    return this.to.equals(other.to);
+  }
 }

@@ -1,7 +1,7 @@
 import { CHANGE_REVIEW_EVENT_MAPPERS } from '@change-review/application/integration-events/change-review.event-mappers';
 import { ChangeStackBecameReady } from '@change-review/domain/events/change-stack-became-ready.event';
-import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
 import { StackChecked } from '@change-review/domain/events/stack-checked.event';
+import { TrialStackCompleted } from '@change-review/domain/events/trial-stack-completed.event';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -68,7 +68,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a replay’s checked change as its own, never as a task’s', () => {
+  it('publishes a trial’s checked change as its own, never as a task’s', () => {
     const checked = new StackChecked(
       StackCheckId.of(ChangeStackId.of('stack_1'), false),
       RunId.of('replay_1'),
@@ -84,7 +84,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       ).map((each) => each.map(checked, new Date())),
     ).toEqual([
       {
-        kind: 'change-review.replay-change-checked.v1',
+        kind: 'change-review.trial-change-checked.v1',
         runId: 'replay_1',
         workspaceId: 'ws_1',
         passed: true,
@@ -92,7 +92,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes a recheck of a replay’s change apart from its first check', () => {
+  it('publishes a recheck of a trial’s change apart from its first check', () => {
     const rechecked = new StackChecked(
       StackCheckId.of(ChangeStackId.of('stack_1'), true),
       RunId.of('replay_1'),
@@ -108,7 +108,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       ).map((each) => each.map(rechecked, new Date())),
     ).toEqual([
       {
-        kind: 'change-review.replay-change-rechecked.v1',
+        kind: 'change-review.trial-change-rechecked.v1',
         runId: 'replay_1',
         workspaceId: 'ws_1',
         passed: false,
@@ -116,8 +116,8 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
     ]);
   });
 
-  it('publishes that a replay’s stack completed, so its replay can take it up', () => {
-    const completed = new ReplayStackCompleted(
+  it('publishes that a trial’s stack completed, so its trial can take it up', () => {
+    const completed = new TrialStackCompleted(
       ChangeStackId.of('stack_1'),
       RunId.of('replay_1'),
       WorkspaceId.of('ws_1'),
@@ -129,7 +129,7 @@ describe('CHANGE_REVIEW_EVENT_MAPPERS', () => {
       ).map((each) => each.map(completed, new Date())),
     ).toEqual([
       {
-        kind: 'change-review.replay-stack-completed.v1',
+        kind: 'change-review.trial-stack-completed.v1',
         runId: 'replay_1',
         workspaceId: 'ws_1',
       },

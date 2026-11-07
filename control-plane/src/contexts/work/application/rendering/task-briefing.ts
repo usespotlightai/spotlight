@@ -1,6 +1,6 @@
 import {
-  DONE,
-  REVIEW,
+  HANDOVER_TO_A_PERSON,
+  HANDOVER_TO_FINISH,
 } from '@shared-kernel/domain/value-objects/handover-word';
 import { SkillKey } from '@shared-kernel/domain/value-objects/skill-key.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -16,6 +16,7 @@ import { Learned } from '@work/application/rendering/learned';
 import { SpotlightCli } from '@work/application/rendering/spotlight-cli';
 import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
 import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
+import { skillFolderOf } from '@work/domain/services/skill-folder';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
 import type {
   BriefedReviewComment,
@@ -42,15 +43,15 @@ const closing = (line: LineMap, stationId: StationId): string => {
     'Run this, from anywhere in the workspace:',
     `\`\`\`\n${HANDOVER_COMMAND} --next "…" --note "…"\n\`\`\``,
     `\`--next\` names a station to pass the task to, by its key: ${named}. Name somewhere else and the command rejects it and tells you what would have worked, so read what it says and run it again.`,
-    `To put the task in front of a person instead of a station, use \`--next "${REVIEW}"\`. That is not a station — it is a person, whatever any station is called — and it is what to use whenever you are unsure.`,
+    `To put the task in front of a person instead of a station, use \`--next "${HANDOVER_TO_A_PERSON}"\`. That is not a station — it is a person, whatever any station is called — and it is what to use whenever you are unsure.`,
     offered.some((each) => each.kind === 'done')
-      ? `Where the work is finished and nothing follows it, use \`--next "${DONE}"\`. That closes the task at its current station: nobody is asked anything, and no station takes it up again. Use it only when there is genuinely nothing left, not to get out of naming somewhere.`
+      ? `Where the work is finished and nothing follows it, use \`--next "${HANDOVER_TO_FINISH}"\`. That closes the task at its current station: nobody is asked anything, and no station takes it up again. Use it only when there is genuinely nothing left, not to get out of naming somewhere.`
       : null,
     `\`--note\` is what the next station, or the person, needs to know. Write it in Markdown. Pipe a long note in, as \`${HANDOVER_COMMAND} --next "…" < note.md\`.`,
     `To show something the note cannot say in words, such as a screenshot, add \`--attach <file>\` for each file, up to ${MAX_HANDOVER_ATTACHMENTS}. The files go on the note.`,
     'Running nothing puts the task in front of a person.',
     'Nobody is watching this terminal. If you need a decision, a missing detail, or an answer before you can finish, do not ask here and wait: hand the task over with `--next "' +
-      REVIEW +
+      HANDOVER_TO_A_PERSON +
       '"` and put the question in the note. Nobody sees a question at the terminal, and the task does not move until someone notices.',
   ]
     .filter(Boolean)
@@ -95,7 +96,7 @@ const listing = (
         skills
           .map(
             (each) =>
-              `- \`${listedIn}/${SkillKey.of(each.key).folder}/${SKILL_FILE}\` — ${each.description}`,
+              `- \`${listedIn}/${skillFolderOf(SkillKey.of(each.key))}/${SKILL_FILE}\` — ${each.description}`,
           )
           .join('\n'),
       ].join('\n\n')

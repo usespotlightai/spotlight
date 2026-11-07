@@ -21,8 +21,7 @@ const generating = (
   over: {
     claimed?: boolean;
     checking?: CheckingPlan | null;
-    replay?: boolean;
-    isSearch?: boolean;
+    trial?: boolean;
   } = {},
 ) => {
   const begin = vi.fn(async () => ({}) as never);
@@ -31,13 +30,14 @@ const generating = (
     run: async () => ({
       id: RunId.of(RUN),
       workspaceId: WorkspaceId.of('ws_1'),
-      taskId: over.replay ? null : TaskId.of('task_1'),
+      taskId: over.trial ? null : TaskId.of('task_1'),
       checking: over.checking ?? null,
       ended: false,
       completed: false,
       decisions: false,
-      isReplay: over.replay === true,
-      isSearch: over.isSearch === true,
+      trial: over.trial === true,
+      isolated: over.trial === true,
+      checkouts: 1,
     }),
     wasClaimedBy: async () => over.claimed !== false,
     teamOfRun: async () => TeamId.of('team_1'),
@@ -87,8 +87,8 @@ describe('GenerateRunChangeStackHandler', () => {
         id: RunId.of(RUN),
         taskId: TaskId.of('task_1'),
         teamOfRun: null,
-        isReplay: false,
-        isSearch: false,
+        trial: false,
+        checkouts: 1,
         workspaceId: WorkspaceId.of('ws_1'),
       },
       {
@@ -157,8 +157,8 @@ describe('GenerateRunChangeStackHandler', () => {
     expect(begin).not.toHaveBeenCalled();
   });
 
-  it('generates a replay’s change as the replay’s own, with the check its run was dispatched with', async () => {
-    const { handler, begin } = generating({ checking, replay: true });
+  it('generates a trial’s change as the trial’s own, with the check its run was dispatched with', async () => {
+    const { handler, begin } = generating({ checking, trial: true });
 
     await handler.execute(handed());
 
@@ -167,8 +167,8 @@ describe('GenerateRunChangeStackHandler', () => {
         id: RunId.of(RUN),
         taskId: null,
         teamOfRun: TeamId.of('team_1'),
-        isReplay: true,
-        isSearch: false,
+        trial: true,
+        checkouts: 1,
         workspaceId: WorkspaceId.of('ws_1'),
       },
       expect.objectContaining({

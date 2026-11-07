@@ -8,8 +8,7 @@ import type {
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
-import { Voice } from '@work/domain/value-objects/voice.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 
 const ATTEMPTS = 3;
 
@@ -25,7 +24,7 @@ export class ConnectionsMade implements ConnectionAsksPort {
     const waiting = await this.tasks.awaitingConnection(
       made.teamId,
       made.personId,
-      made.integration,
+      IntegrationName.of(made.integration),
     );
 
     for (const task of waiting) {
@@ -37,20 +36,13 @@ export class ConnectionsMade implements ConnectionAsksPort {
     for (let attempt = 1; ; attempt++) {
       const task = await this.tasks.find(taskId);
       const line = task ? await this.lines.findByStation(task.stationId) : null;
-      const asked = task?.openConversation
-        ? task.notes[task.openConversation.from]
-        : undefined;
       const answered =
-        task && asked
-          ? task.connectionMade(made.teamId, made.integration, made.personId, {
-              station: line?.stationAt(task.stationId) ?? null,
-              body: TaskNoteBody.of(
-                `Connected ${asked.connectionAsk?.integrationName ?? made.integration}.`,
-              ),
-              at: this.clock.now(),
-              voice: Voice.person(made.personId),
-            })
-          : null;
+        task?.connectionMade(
+          made.teamId,
+          IntegrationName.of(made.integration),
+          made.personId,
+          { line, at: this.clock.now() },
+        ) ?? null;
 
       if (!answered) {
         return;

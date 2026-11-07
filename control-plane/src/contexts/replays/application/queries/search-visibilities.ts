@@ -13,6 +13,7 @@ import {
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export type VisibleBlock = Readonly<Record<string, unknown>>;
@@ -35,13 +36,26 @@ export interface VisibleCandidate {
   readonly runs: readonly VisibleRun[];
 }
 
-export interface SearchVisibility {
+export interface SearchScope {
   readonly stationId: string;
   readonly heldOutTasks: readonly string[];
   readonly shownOriginals: readonly string[];
+}
+
+export interface SearchVisibility extends SearchScope {
   readonly candidates: readonly VisibleCandidate[];
   readonly seedBlock: VisibleBlock;
 }
+
+const scopeOf = (search: Search): SearchScope => ({
+  stationId: search.station.stationId.value,
+  heldOutTasks: [
+    ...new Set(search.split.heldOut.map((each) => each.taskId.value)),
+  ],
+  shownOriginals: [
+    ...new Set(search.visibleOriginals.map((each) => each.value)),
+  ],
+});
 
 const runsOf = (
   replay: Replay | undefined,
@@ -76,6 +90,12 @@ export class SearchVisibilities {
     private readonly replays: ReplayRepository,
   ) {}
 
+  async scopeOf(searchId: SearchId): Promise<SearchScope | null> {
+    const search = await this.searches.find(searchId);
+
+    return search ? scopeOf(search) : null;
+  }
+
   async of(runId: string): Promise<SearchVisibility> {
     const search = await this.searches.ranAs(RunId.of(runId));
 
@@ -95,11 +115,7 @@ export class SearchVisibilities {
       replays.find((each) => each.id.equals(id));
 
     return {
-      stationId: search.station.stationId.value,
-      heldOutTasks: [
-        ...new Set(search.split.heldOut.map((each) => each.taskId.value)),
-      ],
-      shownOriginals: [...shown],
+      ...scopeOf(search),
       candidates: [
         {
           name: SEED_NAME,

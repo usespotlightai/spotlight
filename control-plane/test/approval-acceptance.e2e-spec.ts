@@ -23,6 +23,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -105,23 +106,33 @@ beforeAll(async () => {
     runIds.set(name, runId);
 
     await db.insert(schema.run).values({
+      ...requestedByTask(taskId.value, { teamId: team.teamId.value }),
       id: runId.value,
       workspaceId: team.workspaceId.value,
       harness: 'dev',
-      taskId: taskId.value,
-      taskRevision: 0,
-      stationId: team.stationId.value,
       state: 'completed',
       spec: {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        resume: { key: 'task:station' },
+        resume: {},
       },
       createdAt: ago(130),
+      queuedAt: ago(130),
       startedAt: ago(125),
       endedAt: ago(120),
     });
+    await db.insert(schema.dispatch).values(
+      aDispatch({
+        runId: runId.value,
+        workspaceId: team.workspaceId.value,
+        teamId: team.teamId.value,
+        taskId: taskId.value,
+        stationId: team.stationId.value,
+        orderedAt: ago(130),
+        endedAt: ago(120),
+      }),
+    );
 
     const ended: RunEndedIntegrationEvent = {
       kind: RUN_ENDED,

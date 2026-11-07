@@ -1,13 +1,14 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { ProposalAcceptances } from '@work/application/ports/proposal-acceptances.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { AttachmentCopies } from '@work/application/services/attachment-copies';
 import type { CreateTask } from '@work/application/services/create-task';
-import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
+import { ProposalAlreadyOpenedError } from '@work/domain/exceptions/proposal-already-opened.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { Placement } from '@work/domain/services/placement';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
@@ -43,29 +44,35 @@ export class CreateTaskFromProposal implements ProposalAcceptances {
       (place) => `${event.chatId.value}-${event.position.value}-task-${place}`,
     );
 
-    await this.createTask.create({
-      task: Task.add({
-        line,
-        at: station.id,
-        title: event.title,
-        description: event.description,
-        attachments,
-        rank: Placement.entering(
-          'opened',
-          (await this.placements.placementsAt(station.id)).map(
-            (each) => each.rank,
+    try {
+      await this.createTask.create({
+        task: Task.add({
+          line,
+          at: station.id,
+          title: event.title,
+          description: event.description,
+          attachments,
+          rank: Placement.entering(
+            'opened',
+            (await this.placements.placementsAt(station.id)).map(
+              (each) => each.rank,
+            ),
           ),
-        ),
-        createdBy: event.acceptedBy,
-        proposedIn: ProposalOrigin.of({
-          chatId: event.chatId,
-          position: event.position,
+          createdBy: event.acceptedBy,
+          proposedIn: ProposalOrigin.of({
+            chatId: event.chatId,
+            position: event.position,
+          }),
+          now: this.clock.now(),
+          newId: () => this.ids.generate(),
         }),
-        now: this.clock.now(),
-        newId: () => this.ids.generate(),
-      }),
-      line,
-    });
+        line,
+      });
+    } catch (error) {
+      if (!(error instanceof ProposalAlreadyOpenedError)) {
+        throw error;
+      }
+    }
   }
 
   async onTaskOpened(event: TaskOpened): Promise<void> {

@@ -2,23 +2,19 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
 import { CompleteRunCommand } from '@work/application/commands/runner.commands';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { RunSuspended } from '@work/domain/events/run-suspended.event';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
-import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-17T09:00:00.000Z');
@@ -28,16 +24,12 @@ const leased = () =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject: RunSubject.task(
-      TaskId.of('task_1'),
-      StationId.of('station_1'),
-      TaskRevision.of(0),
-    ),
+    ...orderedFor.task('task_1', 0),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task:station' },
+      resume: {},
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
@@ -96,12 +88,12 @@ const chatRun = () =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject: RunSubject.chat(ChatId.of('chat_1')),
+    ...orderedFor.chat('chat_1'),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'chat-chat_1' },
+      resume: {},
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
@@ -137,7 +129,6 @@ describe('CompleteRunHandler', () => {
       run?.turnAt(1)?.report.handover?.attachments.map((each) => each.id.value),
     ).toEqual(['file_light']);
     expect(run?.spec.value.resume).toEqual({
-      key: 'task:station',
       sessionId: 'session_1',
       resumeSession: true,
     });

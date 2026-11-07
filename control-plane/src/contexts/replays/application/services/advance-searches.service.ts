@@ -1,8 +1,8 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
 import type { CancelSearch } from '@replays/application/services/cancel-search.service';
 import type { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import type { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import type { RecordSearchProgress } from '@replays/application/services/record-search-progress.service';
+import type { SearchRunDispatching } from '@replays/application/services/search-run-dispatch.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
@@ -22,7 +22,7 @@ export class AdvanceSearches implements PendingJobsPort {
   constructor(
     private readonly searches: SearchRepository,
     private readonly replays: ReplayRepository,
-    private readonly work: WorkPort,
+    private readonly searchRuns: SearchRunDispatching,
     private readonly dispatching: DispatchSearchIteration,
     private readonly holdingOut: HoldOutSearch,
     private readonly recording: RecordSearchProgress,
@@ -58,7 +58,7 @@ export class AdvanceSearches implements PendingJobsPort {
     }
     if (!fresh.isActive) {
       if (fresh.activeRun) {
-        await this.work.cancelSearchRun(fresh.activeRun);
+        await this.searchRuns.cancelSearchRun(fresh.activeRun);
       }
       await this.cancellingSearches.leftOver(
         fresh,
@@ -68,7 +68,7 @@ export class AdvanceSearches implements PendingJobsPort {
   }
 
   private async runsOf(search: Search): Promise<readonly SeenRun[]> {
-    const runs = await this.work.searchRunStatuses(runsToSee(search));
+    const runs = await this.searchRuns.searchRunStatuses(runsToSee(search));
     const at = this.clock.now();
     const unclaimed = search.isActive
       ? unclaimedTooLong(search, runs, at)
@@ -78,7 +78,8 @@ export class AdvanceSearches implements PendingJobsPort {
       return runs;
     }
 
-    const cancellation = await this.work.cancelUnclaimedSearchRun(unclaimed);
+    const cancellation =
+      await this.searchRuns.cancelUnclaimedSearchRun(unclaimed);
 
     return cancellation.outcome === 'cancelled'
       ? cancelledUnclaimed(runs, unclaimed, cancellation.started, at)

@@ -64,12 +64,14 @@ const DIGEST = `sha256:${'c'.repeat(64)}`;
 describe('the repositories a line works', () => {
   it('reads each one it names', () => {
     expect(
-      read(['acme/api', 'acme/web']).repositories.all.map((each) => each.value),
+      read(['acme/api', 'acme/web']).repositories.entries.map(
+        (each) => each.repository.value,
+      ),
     ).toEqual(['acme/api', 'acme/web']);
   });
 
   it('reads a line that names none', () => {
-    expect(read().repositories.isEmpty).toBe(true);
+    expect(read().repositories.entries).toEqual([]);
   });
 
   it('reads the image a repository is worked in and how its checkout is made ready', () => {
@@ -144,7 +146,7 @@ describe('the repositories a line works', () => {
   it('reads a line whose checking station works only repositories that say how they are made ready', () => {
     expect(
       read([{ name: 'acme/api', setup: 'npm ci' }], CHECKING_STATIONS)
-        .repositories.all,
+        .repositories.entries,
     ).toHaveLength(1);
   });
 });

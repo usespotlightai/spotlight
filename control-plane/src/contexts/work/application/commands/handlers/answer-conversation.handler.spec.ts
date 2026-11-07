@@ -1,4 +1,3 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -19,13 +18,17 @@ import { AnswerConversationCommand } from '@work/application/commands/answer-con
 import { AnswerConversationHandler } from '@work/application/commands/handlers/answer-conversation.handler';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ConversationLoader } from '@work/application/services/conversation-loader.service';
 import { DraftSending } from '@work/application/services/draft-sending.service';
 import { FilesLoader } from '@work/application/services/files-loader.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
+import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
+import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
+import { UnknownCoAuthorError } from '@work/domain/exceptions/unknown-co-author.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
@@ -94,7 +97,7 @@ const waiting = () =>
   }).askedAbout(
     {
       voice: Voice.station(),
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Which queue should I drain?'),
       at: NOW,
     },
@@ -127,7 +130,7 @@ const asking = () =>
       NEEDS_APPROVAL,
       {
         voice: Voice.station(RunId.of('run_1')),
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
       },
@@ -189,14 +192,15 @@ const store = {
 
 const files = new FilesLoader(store);
 
-const sending = new DraftSending(
-  { mayView: async () => true } as unknown as WorkspaceAccessPort,
-  {
-    writers: async () => [UserId.of('user_2')],
-    sent: async () => undefined,
-  },
-  { warn: () => undefined } as unknown as LoggerPort,
-);
+const sending = (access: WorkAccess) =>
+  new DraftSending(
+    access,
+    {
+      writers: async () => [UserId.of('user_2')],
+      sent: async () => undefined,
+    },
+    { warn: () => undefined } as unknown as LoggerPort,
+  );
 
 const answer = (
   found: Task,
@@ -205,15 +209,16 @@ const answer = (
     'user_1',
     'Cap it at 500.',
   ),
+  access = workAccessSeeing(() => true),
 ) =>
   new AnswerConversationHandler(
-    new ConversationLoader(tasks(found), lines()),
+    new ConversationLoader(tasks(found), lines(), access),
     tasks(found),
     dispatch,
     transaction,
     clock,
     files,
-    sending,
+    sending(access),
   ).execute(command);
 
 describe('AnswerConversation', () => {
@@ -246,6 +251,40 @@ describe('AnswerConversation', () => {
 
     const last = saved?.notes[saved.notes.length - 1];
     expect(last?.voice.coAuthors.map((each) => each.value)).toEqual(['user_2']);
+  });
+
+  it('refuses the person it was put to once they are no longer on the team, saving nothing', async () => {
+    await expect(
+      answer(
+        waiting(),
+        undefined,
+        workAccessSeeing(() => true, { onTeam: () => false }),
+      ),
+    ).rejects.toMatchObject({
+      refusal: expect.any(TeamMembershipRequiredError),
+    });
+    expect(saved).toBeUndefined();
+  });
+
+  it('names no co-author who is not on the team', async () => {
+    await expect(
+      answer(
+        waiting(),
+        new AnswerConversationCommand(
+          'task_1:0',
+          'user_1',
+          'Cap it at 500.',
+          [],
+          null,
+          null,
+          ['user_2'],
+        ),
+        workAccessSeeing(() => true, {
+          onTeam: (_, viewer) => viewer.value === 'user_1',
+        }),
+      ),
+    ).rejects.toMatchObject({ refusal: expect.any(UnknownCoAuthorError) });
+    expect(saved).toBeUndefined();
   });
 
   it('takes files alone as an answer, naming them in the trail', async () => {

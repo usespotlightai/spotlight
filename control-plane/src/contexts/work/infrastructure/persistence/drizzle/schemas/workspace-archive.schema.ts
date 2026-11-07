@@ -16,9 +16,7 @@ export const workspaceArchive = pgTable(
   {
     id: text('id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
-    resumeKey: text('resume_key').notNull(),
-    taskId: text('task_id'),
-    chatId: text('chat_id'),
+    workspaceKey: text('workspace_key').notNull(),
     grantedToRunId: text('granted_to_run_id'),
     grantedToSandboxId: text('granted_to_sandbox_id'),
     size: bigint('size', { mode: 'number' }).notNull(),
@@ -29,13 +27,12 @@ export const workspaceArchive = pgTable(
   },
   (table) => [
     check('workspace_archive_size_not_negative', sql`${table.size} >= 0`),
-    index('workspace_archive_resume_idx').on(
+    index('workspace_archive_key_idx').on(
       table.workspaceId,
-      table.resumeKey,
+      table.workspaceKey,
       table.completedAt,
     ),
-    index('workspace_archive_task_idx').on(table.taskId),
-    index('workspace_archive_chat_idx').on(table.chatId),
+    index('workspace_archive_granted_idx').on(table.grantedAt, table.id),
     index('workspace_archive_granted_to_run_idx').on(table.grantedToRunId),
     foreignKey({
       name: 'workspace_archive_granted_to_run_fk',

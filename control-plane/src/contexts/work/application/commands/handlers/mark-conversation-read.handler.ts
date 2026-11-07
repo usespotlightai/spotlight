@@ -16,7 +16,7 @@ export class MarkConversationReadHandler
 
   async execute(command: MarkConversationReadCommand): Promise<void> {
     try {
-      const { item, task } = await this.conversations.putTo(
+      const { item, task } = await this.conversations.seenBy(
         command.conversationId,
         command.readBy,
       );

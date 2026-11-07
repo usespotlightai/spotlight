@@ -1,6 +1,7 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
+import type { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 
 export interface LineRepository {
   readonly repository: Repository;
@@ -43,16 +44,18 @@ export class LineRepositories {
     return this.all.some((each) => each.equals(repository));
   }
 
-  named(name: string): Repository | null {
-    return this.all.find((each) => each.name === name) ?? null;
+  named(name: RepositoryName): Repository | null {
+    return this.all.find((each) => name.names(each)) ?? null;
   }
 
-  opening(name: string | null): Repository {
+  opening(name: RepositoryName | null): Repository {
     if (name) {
       const named = this.named(name);
 
       if (!named) {
-        throw new NoRepositoryError(`Line has no repository named ${name}.`);
+        throw new NoRepositoryError(
+          `Line has no repository named ${name.value}.`,
+        );
       }
 
       return named;

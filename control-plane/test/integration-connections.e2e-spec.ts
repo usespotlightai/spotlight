@@ -21,6 +21,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
@@ -277,7 +278,7 @@ describe('tasks waiting on a connection', () => {
     );
     const runId = RunId.of(randomUUID());
     const newNote = {
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Set up.'),
       at: NOW,
       voice: Voice.station(),
@@ -291,28 +292,49 @@ describe('tasks waiting on a connection', () => {
         { ...newNote, body: TaskNoteBody.of('Connect Linear.') },
         ConnectionAsk.of({
           teamId,
-          integration: 'linear',
+          integration: IntegrationName.of('linear'),
           integrationName: 'Linear',
           personId: owner,
         }),
       ).task,
     );
 
-    const waiting = await tasks.awaitingConnection(teamId, owner, 'linear');
+    const waiting = await tasks.awaitingConnection(
+      teamId,
+      owner,
+      IntegrationName.of('linear'),
+    );
     expect(waiting.map((each) => each.id.value)).toEqual([list.id.value]);
-    expect(await tasks.awaitingConnection(teamId, owner, 'notion')).toEqual([]);
     expect(
-      await tasks.awaitingConnection(TeamId.of(randomUUID()), owner, 'linear'),
+      await tasks.awaitingConnection(
+        teamId,
+        owner,
+        IntegrationName.of('notion'),
+      ),
+    ).toEqual([]);
+    expect(
+      await tasks.awaitingConnection(
+        TeamId.of(randomUUID()),
+        owner,
+        IntegrationName.of('linear'),
+      ),
     ).toEqual([]);
 
-    const answered = waiting[0]?.connectionMade(teamId, 'linear', owner, {
-      ...newNote,
-      body: TaskNoteBody.of('Connected Linear.'),
-      voice: Voice.person(owner),
-    });
+    const answered = waiting[0]?.connectionMade(
+      teamId,
+      IntegrationName.of('linear'),
+      owner,
+      { line: null, at: NOW },
+    );
     await tasks.save(answered as Task);
 
-    expect(await tasks.awaitingConnection(teamId, owner, 'linear')).toEqual([]);
+    expect(
+      await tasks.awaitingConnection(
+        teamId,
+        owner,
+        IntegrationName.of('linear'),
+      ),
+    ).toEqual([]);
     const read = (await tasks.find(list.id)) as Task;
     expect(read.notes.find((each) => each.connectionAsk)?.form).toBe(
       'connection',

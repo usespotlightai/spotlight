@@ -4,5 +4,6 @@ export type PullRequestReviewTakenIntegrationEvent = {
   readonly kind: typeof PULL_REQUEST_REVIEW_TAKEN;
   readonly taskId: string;
   readonly workspaceId: string;
+  readonly teamId: string;
   readonly url: string;
 };

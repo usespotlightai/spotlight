@@ -3,6 +3,7 @@ import {
   type RunState,
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
+import { requestedBySpec, requestedByTask } from './runs';
 import * as schema from './schema';
 
 export const endedAtFor = (state: RunState, at = new Date()): Date | null =>
@@ -23,14 +24,14 @@ export const aRunOf = async (
     id: run.id,
     workspaceId: run.workspaceId,
     harness: 'dev',
-    taskId: run.taskId ?? null,
+    ...(run.taskId ? requestedByTask(run.taskId) : requestedBySpec(run.id)),
     state,
     endedAt: endedAtFor(state),
     spec: {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'do the thing',
       handover: { options: ['Spec'], noteLimit: 4_000 },
-      ...(run.taskId ? { resume: { key: `task-${run.taskId}` } } : {}),
+      resume: {},
     },
   });
 

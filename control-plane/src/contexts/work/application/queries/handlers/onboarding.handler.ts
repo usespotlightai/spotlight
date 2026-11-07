@@ -1,32 +1,40 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { OnboardingDto } from '@work/application/dto/onboarding.dto';
+import type {
+  OnboardingDto,
+  ProvisioningName,
+} from '@work/application/dto/onboarding.dto';
 import type { TeamWelcomesPort } from '@work/application/ports/team-welcomes.port';
 import type { OnboardingQuery } from '@work/application/queries/onboarding.query';
+import { shownFor } from '@work/application/rendering/setup-steps';
 import type { SetupStatus } from '@work/application/services/setup-status.service';
-import { shownFor } from '@work/application/services/setup-steps';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { ChatAccess } from '@work/domain/services/chat-access';
 import { mayStartSetup } from '@work/domain/services/setup-list';
-import { provisioningOf } from '@work/domain/services/team-provisioning';
+import {
+  type Provisioning,
+  provisioningOf,
+} from '@work/domain/services/team-provisioning';
+
+const PROVISIONING_NAME: Record<Provisioning, ProvisioningName> = {
+  pending: 'pending',
+  done: 'done',
+};
 
 export class OnboardingHandler
   implements QueryHandlerPort<OnboardingQuery, OnboardingDto | null>
 {
   constructor(
-    private readonly workspaces: WorkspaceReaderPort,
-    private readonly access: WorkspaceAccessPort,
+    private readonly access: WorkAccess,
     private readonly setup: SetupStatus,
     private readonly welcomes: TeamWelcomesPort,
   ) {}
 
   async execute(query: OnboardingQuery): Promise<OnboardingDto | null> {
     try {
-      const team = await this.workspaces.findTeamForMember(
+      const team = await this.access.seenTeam(
         TeamId.of(query.teamId),
         UserId.of(query.viewerId),
       );
@@ -37,22 +45,22 @@ export class OnboardingHandler
 
       const { teamId, workspaceId } = team;
       const provisioning = provisioningOf({
-        madeAtSignUp: team.origin === 'sign-up',
+        origin: team.origin,
         welcomed: await this.welcomes.welcomed(teamId),
       });
       const setup = await this.setup.of(workspaceId, teamId);
-      const permissions = await this.access.permissionsIn(
+      const viewerIsAdmin = await this.access.isAdminOf(
         workspaceId,
-        PersonPrincipal.of(UserId.of(query.viewerId)),
+        UserId.of(query.viewerId),
       );
 
       const { chat } = setup;
 
       return {
-        provisioning,
+        provisioning: PROVISIONING_NAME[provisioning],
         steps: shownFor(setup.state),
         canSetUp: mayStartSetup(setup.state, setup.hasEgressCapableRunner),
-        viewerIsAdmin: permissions?.isAdmin ?? false,
+        viewerIsAdmin,
         setupChat: chat && {
           id: ChatAccess.readableBy(
             UserId.of(chat.startedById),

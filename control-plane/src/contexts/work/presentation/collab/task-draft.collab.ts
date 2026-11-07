@@ -18,6 +18,7 @@ import {
   JoinTaskDraftQuery,
   ReadTaskDraftQuery,
 } from '@work/application/queries/task-draft.queries';
+import { generationToShow } from '@work/application/services/draft-generations';
 import { applyUpdate, type Doc } from 'yjs';
 
 const metaOf = (doc: Doc) => doc.getMap<number | string>(TASK_DRAFT_PARTS.meta);
@@ -61,8 +62,10 @@ export class TaskDraftCollab implements CollabDocuments, OnModuleInit {
       applyUpdate(doc, stored.state);
     }
 
-    if (generationOf(doc) < stored.generation) {
-      metaOf(doc).set(TASK_DRAFT_META.generation, stored.generation);
+    const generation = generationToShow(generationOf(doc), stored.generation);
+
+    if (generation !== null) {
+      metaOf(doc).set(TASK_DRAFT_META.generation, generation);
     }
   }
 

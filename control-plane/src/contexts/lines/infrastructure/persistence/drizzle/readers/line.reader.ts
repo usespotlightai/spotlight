@@ -1,11 +1,3 @@
-import {
-  TEAM_DIRECTORY,
-  type TeamDirectoryPort,
-} from '@identity/application/ports/team-directory.port';
-import {
-  WORKSPACE_ACCESS,
-  type WorkspaceAccessPort,
-} from '@identity/application/ports/workspace-access.port';
 import { LineMapper } from '@lines/application/mappers/line.mapper';
 import type {
   LineDetail,
@@ -16,10 +8,6 @@ import type {
 } from '@lines/application/ports/line-reader.port';
 import type { StationKind } from '@lines/domain/entities/station.entity';
 import { LineSearchPolicy } from '@lines/domain/value-objects/search-policy.vo';
-import {
-  lineSearchOf,
-  stationSearchOf,
-} from '@lines/infrastructure/lines/search-rows';
 import {
   type ConfigSourceRow,
   type LineSearchRow,
@@ -33,12 +21,15 @@ import {
   station,
   stationSkill,
 } from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
+import {
+  lineSearchOf,
+  stationSearchOf,
+} from '@lines/infrastructure/persistence/drizzle/search-rows';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { eq } from 'drizzle-orm';
 
 const STATION_COLUMNS = {
@@ -106,20 +97,9 @@ const hasStation = (row: Row): row is Row & StationRow =>
 
 @Injectable()
 export class DrizzleLineReader implements LineReaderPort {
-  constructor(
-    @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
-    @Inject(WORKSPACE_ACCESS) private readonly access: WorkspaceAccessPort,
-    @Inject(TEAM_DIRECTORY) private readonly teams: TeamDirectoryPort,
-  ) {}
+  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async listForTeamMember(
-    teamId: TeamId,
-    userId: UserId,
-  ): Promise<LineDetail[] | null> {
-    if (!(await this.visible(teamId, userId))) {
-      return null;
-    }
-
+  async ofTeam(teamId: TeamId): Promise<LineDetail[]> {
     const rows = await this.db
       .select({
         lineId: line.id,
@@ -166,12 +146,6 @@ export class DrizzleLineReader implements LineReaderPort {
       .orderBy(stationSkill.position);
 
     return group(rows, reactions, repositories, skills);
-  }
-
-  private async visible(teamId: TeamId, userId: UserId): Promise<boolean> {
-    const found = await this.teams.find(teamId);
-
-    return found !== null && this.access.mayView(userId, found.workspaceId);
   }
 }
 

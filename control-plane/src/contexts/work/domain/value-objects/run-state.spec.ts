@@ -2,7 +2,6 @@ import {
   isStopping,
   progressOfCurrentRun,
   resumable,
-  takenUpOnAnswer,
 } from '@work/domain/value-objects/run-state';
 import { describe, expect, it } from 'vitest';
 
@@ -68,23 +67,6 @@ describe('resumable', () => {
   it('does not take up a run that is not suspended', () => {
     expect(resumable('claimed', false)).toBe(false);
     expect(resumable('completed', false)).toBe(false);
-  });
-});
-
-describe('takenUpOnAnswer', () => {
-  it("takes up the task's current run once nobody owes an answer", () => {
-    expect(
-      takenUpOnAnswer('run_1', { currentRunId: 'run_1', awaitsPerson: false }),
-    ).toBe(true);
-  });
-
-  it('takes up no run while a person owes an answer, nor a run the task left', () => {
-    expect(
-      takenUpOnAnswer('run_1', { currentRunId: 'run_1', awaitsPerson: true }),
-    ).toBe(false);
-    expect(
-      takenUpOnAnswer('run_1', { currentRunId: 'run_2', awaitsPerson: false }),
-    ).toBe(false);
   });
 });
 

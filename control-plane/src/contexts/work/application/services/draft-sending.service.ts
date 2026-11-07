@@ -1,23 +1,23 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LiveTaskDraftsPort } from '@work/application/ports/live-task-drafts.port';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { UnknownCoAuthorError } from '@work/domain/exceptions/unknown-co-author.error';
 import { CoAuthors } from '@work/domain/value-objects/co-authors.vo';
 import type { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 
 export class DraftSending {
   constructor(
-    private readonly access: WorkspaceAccessPort,
+    private readonly access: WorkAccess,
     private readonly live: LiveTaskDraftsPort,
     private readonly logger: LoggerPort,
   ) {}
 
   async coAuthors(
     taskId: TaskId,
-    workspaceId: WorkspaceId,
+    teamId: TeamId,
     ids: readonly string[],
   ): Promise<UserId[]> {
     const named = CoAuthors.named(ids.map(UserId.of));
@@ -29,7 +29,7 @@ export class DraftSending {
     const wrote = named.whoWrote(await this.writersOf(taskId));
 
     for (const each of wrote) {
-      if (!(await this.access.mayView(each, workspaceId))) {
+      if (!(await this.access.standingOn(teamId, each)).actsOnTasks) {
         throw new UnknownCoAuthorError(each.value);
       }
     }

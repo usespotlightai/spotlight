@@ -14,6 +14,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { EGRESS_TOKEN_HEADER } from '@runners/presentation/http/controllers/egress-resource.controller';
+import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 import {
   DrizzleRunConnections,
   MAX_ERRORS_PER_RUN,
@@ -31,6 +32,7 @@ import {
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf, deleteRunsOf } from './support/runners';
+import { requestedBySpec } from './support/runs';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -146,6 +148,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     const id = randomUUID();
 
     await db.insert(schema.run).values({
+      ...requestedBySpec(id),
       id,
       workspaceId,
       harness: 'dev',
@@ -155,7 +158,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        resume: { key: `task:${id}` },
+        resume: {},
         injectedSecrets,
       },
     });
@@ -447,20 +450,27 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
       runId: string,
       second: number,
       part: Partial<typeof schema.runConnection.$inferInsert>,
-    ) => ({
-      runId,
-      attempt: 1,
-      host: 'example.com',
-      port: 443,
-      bytesOut: 0,
-      bytesIn: 0,
-      ms: 1,
-      outcome: 'passthrough',
-      status: null,
-      reason: null,
-      at: at(second),
-      ...part,
-    });
+    ) => {
+      const parts = {
+        host: 'example.com',
+        port: 443,
+        bytesOut: 0,
+        bytesIn: 0,
+        ms: 1,
+        outcome: 'passthrough',
+        status: null,
+        reason: null,
+        at: at(second),
+        ...part,
+      };
+
+      return {
+        runId,
+        attempt: 1,
+        ...parts,
+        error: RunConnection.of(parts).error,
+      };
+    };
 
     await db.insert(schema.runConnection).values([
       ...Array.from({ length: MAX_ERRORS_PER_RUN + 1 }, (_, each) =>

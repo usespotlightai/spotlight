@@ -8,7 +8,6 @@ import type {
   RecordStartingPointCommand,
   ReportedCheckout,
 } from '@work/application/commands/runner.commands';
-import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { InvalidStartingPointError } from '@work/domain/exceptions/invalid-starting-point.error';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import { UnknownRunnerError } from '@work/domain/exceptions/unknown-runner.error';
@@ -63,7 +62,7 @@ export class RecordStartingPointHandler
       const restored =
         command.archiveId === null
           ? null
-          : await this.restored(run, WorkspaceArchiveId.of(command.archiveId));
+          : await this.restored(WorkspaceArchiveId.of(command.archiveId));
 
       await this.runs.save(
         run.startsFrom(
@@ -78,10 +77,7 @@ export class RecordStartingPointHandler
     }
   }
 
-  private async restored(
-    run: Run,
-    id: WorkspaceArchiveId,
-  ): Promise<RestoredArchive> {
+  private async restored(id: WorkspaceArchiveId): Promise<RestoredArchive> {
     const archive = await this.archives.find(id);
 
     if (!archive) {
@@ -90,6 +86,6 @@ export class RecordStartingPointHandler
       );
     }
 
-    return archive.restoreInto(run.workspaceId, run.restoresFrom);
+    return archive.restored;
   }
 }

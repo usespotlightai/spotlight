@@ -1,6 +1,7 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import { PLAIN_STATION_COLOR } from '@lines/application/contracts/line-view.contract';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
@@ -520,7 +521,7 @@ type TrailNote = {
   taskId: string;
   position: number;
   kind: TaskNoteKind;
-  runId: string | null;
+  runId: RunId | null;
 };
 
 export const reviewsBy = async (
@@ -553,14 +554,14 @@ export const reviewsBy = async (
       taskId: row.taskId,
       position: row.position,
       kind: row.kind,
-      runId: row.runId,
+      runId: row.runId === null ? null : RunId.of(row.runId),
     });
     trails.set(row.taskId, notes);
   }
 
   for (const [taskId, trail] of trails) {
-    for (const [runId, reviewed] of reviewsIn(trail)) {
-      review.set(runId, {
+    for (const reviewed of reviewsIn(trail)) {
+      review.set(reviewed.runId.value, {
         state: reviewed.state,
         conversationId: ConversationId.of({
           taskId: TaskId.of(taskId),

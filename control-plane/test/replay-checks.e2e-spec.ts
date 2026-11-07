@@ -22,7 +22,7 @@ import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
 import { deleteRunnersOf } from './support/runners';
-import { aDispatch } from './support/runs';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -172,9 +172,7 @@ const anOriginal = async (): Promise<string> => {
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: BUILD,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     exitCode: 0,
@@ -190,7 +188,7 @@ const anOriginal = async (): Promise<string> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship', 'review'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
     startedFromArchiveId: archiveId,
@@ -220,8 +218,7 @@ const anOriginal = async (): Promise<string> => {
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
+    workspaceKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),

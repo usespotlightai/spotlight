@@ -1,4 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import type { LineDefinitionStation } from '@lines/application/contracts/line-definition.contract';
+import {
+  LINE_RESOURCES,
+  type LineResourcesPort,
+} from '@lines/application/ports/line-resources.port';
 import type { INestApplication } from '@nestjs/common';
 import {
   PEOPLE,
@@ -188,4 +193,20 @@ export const replayOf = async (
   }
 
   return found;
+};
+
+export const writtenStation = async (
+  app: INestApplication,
+  lineId: string,
+  key: string,
+): Promise<LineDefinitionStation> => {
+  const station = (
+    await app.get<LineResourcesPort>(LINE_RESOURCES).withId(lineId)
+  )?.definition.stations.find((each) => each.key === key);
+
+  if (!station) {
+    throw new Error(`Line ${lineId} defines no station ${key}.`);
+  }
+
+  return station;
 };

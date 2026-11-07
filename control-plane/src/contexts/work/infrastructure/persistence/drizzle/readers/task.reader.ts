@@ -10,6 +10,10 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { Page } from '@work/application/dto/page.dto';
+import {
+  RUN_PROGRESS,
+  type RunProgressPort,
+} from '@work/application/ports/run-progress.port';
 import type {
   TaskListing,
   TaskNoteSummary,
@@ -35,13 +39,14 @@ export class DrizzleTaskReader implements TaskReaderPort {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(PERSON_READER) private readonly people: PersonReaderPort,
+    @Inject(RUN_PROGRESS) private readonly progress: RunProgressPort,
   ) {}
 
   async listForTeam(
     teamId: TeamId,
     listing: TaskListing,
   ): Promise<Page<TaskSummary>> {
-    if (listing.state === 'open') {
+    if (listing.state === 'board') {
       return {
         items: await this.summariesIn(
           teamId,
@@ -125,7 +130,7 @@ export class DrizzleTaskReader implements TaskReaderPort {
         ),
       ),
       progressOfCurrentRuns(
-        this.db,
+        this.progress,
         rows.map((row) => row.currentRunId),
         true,
       ),

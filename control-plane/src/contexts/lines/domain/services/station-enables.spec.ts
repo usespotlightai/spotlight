@@ -113,9 +113,9 @@ describe('what a station enables', () => {
       'pull-request',
       'catalog.web-search@1.1.0',
     ]);
-    expect(enabling.skills.map((each) => each.folder)).toEqual([
+    expect(enabling.skills.map((each) => each.value)).toEqual([
       'frontend',
-      'spotlight-catalog-research',
+      'catalog.research@1.0.0',
     ]);
   });
 

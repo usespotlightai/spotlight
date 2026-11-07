@@ -14,8 +14,7 @@ const edit = {
   stationKey: 'build',
   seed: StationBlock.of({ key: 'build', model: 'sonnet' }),
   candidate: StationBlock.of({ key: 'build', model: 'opus' }),
-  besideFile: ['main.tf'],
-  read: async () => null,
+  configFiles: [{ path: 'prompts/build.md', content: 'Build it.\n' }],
 };
 
 describe('ConfigurationStationSourceEditor', () => {

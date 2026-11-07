@@ -1,6 +1,6 @@
 import type { PageRequest } from '@work/application/dto/page.dto';
 
-export const TASK_LIST_STATES = ['open', 'completed'] as const;
+export const TASK_LIST_STATES = ['board', 'completed-station'] as const;
 
 export type TaskListState = (typeof TASK_LIST_STATES)[number];
 

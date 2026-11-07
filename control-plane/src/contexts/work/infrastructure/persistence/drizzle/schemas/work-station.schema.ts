@@ -26,3 +26,8 @@ export const workStation = pgTable(
     index('work_station_line_idx').on(table.lineId),
   ],
 );
+
+export const workLine = pgTable('work_line', {
+  lineId: text('line_id').primaryKey(),
+  lineVersion: integer('line_version').notNull(),
+});

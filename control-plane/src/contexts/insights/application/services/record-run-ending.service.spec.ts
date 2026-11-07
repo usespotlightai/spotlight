@@ -57,6 +57,7 @@ const recording = (runs: readonly EndedRun[]) => {
   const work: WorkPort = {
     unfinishedRuns: async () => [],
     traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
+    taskRunOf: async () => null,
     endedRun: async (runId) =>
       runs.find((each) => each.runId === runId) ?? null,
     configsInOrder: async () => [],

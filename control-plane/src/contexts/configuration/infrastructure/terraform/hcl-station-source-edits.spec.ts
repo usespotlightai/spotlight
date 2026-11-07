@@ -55,8 +55,7 @@ const edited = (
     seed,
     candidate: { ...SEED, ...candidate },
     fields: STATION_SOURCE_FIELDS,
-    besideFile: [],
-    read: async (path) => (path === 'prompts/build.md' ? 'Build it.\n' : null),
+    configFiles: [{ path: 'prompts/build.md', content: 'Build it.\n' }],
   });
 
 describe('HclStationSourceEdits', () => {
@@ -93,8 +92,7 @@ describe('HclStationSourceEdits', () => {
       seed: SEED,
       candidate: { ...SEED, model: 'opus' },
       fields: ['prompt'],
-      besideFile: [],
-      read: async () => 'Build it.\n',
+      configFiles: [{ path: 'prompts/build.md', content: 'Build it.\n' }],
     });
 
     expect(answer).toEqual({ ok: true, files: [], unchecked: [] });

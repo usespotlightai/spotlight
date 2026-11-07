@@ -34,6 +34,7 @@ import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
+import { RunRequester } from '@work/domain/value-objects/run-requester.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import {
@@ -45,7 +46,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { aDispatch } from './support/runs';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -54,11 +55,20 @@ const CONFIG = 'a'.repeat(64);
 const PULL = 'https://github.com/acme/api/pull/42';
 const MINUTE = 60_000;
 
+const taskRequester = (task: TaskId): RunRequester =>
+  RunRequester.of({
+    owner: 'work',
+    kind: 'task',
+    id: task.value,
+    token: '0',
+    team: null,
+  });
+
 const SPEC = {
   command: { executable: 'sh', args: [] },
   briefing: 'do the thing',
   handover: { options: [], noteLimit: 0 },
-  resume: { key: 'task:station' },
+  resume: {},
 };
 
 const NOW = Date.now();
@@ -122,9 +132,7 @@ beforeAll(async () => {
     id: RUN.value,
     workspaceId: workspaceId.value,
     harness: 'dev',
-    taskId: TASK.value,
-    taskRevision: 0,
-    stationId: team.stationId.value,
+    ...requestedByTask(TASK.value, { teamId: team.teamId.value }),
     state: 'completed',
     spec: SPEC,
     createdAt: ago(300),
@@ -135,6 +143,7 @@ beforeAll(async () => {
     aDispatch({
       runId: RUN.value,
       workspaceId: workspaceId.value,
+      teamId: team.teamId.value,
       taskId: TASK.value,
       stationId: team.stationId.value,
       fingerprint: CONFIG,
@@ -245,7 +254,9 @@ beforeAll(async () => {
       new RunUsageRecorded(
         RUN,
         workspaceId,
-        TASK,
+        taskRequester(TASK),
+        true,
+        1,
         58 * MINUTE,
         30,
         1,
@@ -253,6 +264,8 @@ beforeAll(async () => {
         50_000,
         200_000,
         Money.of(1.25, 'USD'),
+        [Money.of(1.25, 'USD')],
+        0,
         Tokens.of({ input: 2_000, output: 1_000, cacheRead: 90_000 }),
         ToolUse.of({
           servers: [
@@ -937,9 +950,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       id: cancelled.value,
       workspaceId: team.workspaceId.value,
       harness: 'dev',
-      taskId: task.value,
-      taskRevision: 0,
-      stationId: team.stationId.value,
+      ...requestedByTask(task.value, { teamId: team.teamId.value }),
       state: 'failed',
       spec: SPEC,
       createdAt: ago(120),
@@ -949,6 +960,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       aDispatch({
         runId: cancelled.value,
         workspaceId: team.workspaceId.value,
+        teamId: team.teamId.value,
         taskId: task.value,
         stationId: team.stationId.value,
         fingerprint: CONFIG,
@@ -1015,9 +1027,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       id: runId.value,
       workspaceId: team.workspaceId.value,
       harness: 'dev',
-      taskId: task.value,
-      taskRevision: 0,
-      stationId: team.stationId.value,
+      ...requestedByTask(task.value, { teamId: team.teamId.value }),
       state: seed.outcome,
       spec: SPEC,
       createdAt: ago(100),
@@ -1028,6 +1038,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
       aDispatch({
         runId: runId.value,
         workspaceId: team.workspaceId.value,
+        teamId: team.teamId.value,
         taskId: task.value,
         stationId: team.stationId.value,
         fingerprint: CONFIG,
@@ -1075,7 +1086,9 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
         new RunUsageRecorded(
           runId,
           team.workspaceId,
-          task,
+          taskRequester(task),
+          true,
+          1,
           MINUTE,
           4,
           0,
@@ -1083,6 +1096,8 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
           null,
           null,
           null,
+          [],
+          0,
           Tokens.UNREPORTED,
           ToolUse.of({ servers: seed.servers, skills: [] }),
         ),

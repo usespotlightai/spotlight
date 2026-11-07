@@ -73,14 +73,14 @@ const CALL = ApprovalSubject.toolCall(
 );
 
 const asking = (body = 'Approve linear.comment?') => ({
-  station: null,
+  line: null,
   body: TaskNoteBody.of(body),
   at: NOW,
   voice: Voice.station(RUN),
 });
 
 const person = (body: string, who = 'user_1') => ({
-  station: null,
+  line: null,
   body: TaskNoteBody.of(body),
   at: NOW,
   voice: Voice.person(UserId.of(who)),
@@ -286,10 +286,10 @@ describe('deciding an approval', () => {
     expect(approval?.decided?.reason).toBe('Not before the release.');
   });
 
-  it('marks the person’s answer as the approval’s, from the aggregate itself', () => {
+  it('marks the person’s answer as a decision, from the aggregate itself', () => {
     const { task } = decided('approved');
 
-    expect(task.notes[task.notes.length - 1]?.form).toBe('approval');
+    expect(task.notes[task.notes.length - 1]?.form).toBe('decision');
   });
 
   it('rejects a second decision as a conflict, not a fault', () => {
@@ -377,7 +377,7 @@ describe('deciding an approval', () => {
       asked.answer(
         at,
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('yes'),
           at: NOW,
           voice: Voice.world(),

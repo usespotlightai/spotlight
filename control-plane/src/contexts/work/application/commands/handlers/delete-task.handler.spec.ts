@@ -1,4 +1,3 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -15,7 +14,9 @@ import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-ta
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { LineLoader } from '@work/application/services/line-loader.service';
+import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
+import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
   lineMapOf,
@@ -81,22 +82,10 @@ const tasks = (found: Task | null = existing()) =>
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const access = (teamId = 'team_1') =>
-  ({
-    inWorkspaceOfTeam: vi.fn(async (requested: TeamId) =>
-      requested.value === teamId
-        ? {
-            teamId: requested,
-            workspaceId: WorkspaceId.of('ws_1'),
-            slug: 'acme',
-            viewer: UserId.of('user_1'),
-            isAdmin: false,
-          }
-        : null,
-    ),
-  }) as unknown as WorkspaceAccessPort;
+  workAccessSeeing((requested) => requested.value === teamId);
 
-const lines = (teamId = 'team_1') =>
-  new LineLoader(access(), {
+const lines = (teamId = 'team_1', seen = access()) =>
+  new LineLoader(seen, {
     findByStation: vi.fn(
       async () => ({ teamId: TeamId.of(teamId) }) as LineMap,
     ),
@@ -176,6 +165,26 @@ describe('DeleteTaskHandler', () => {
       .execute(new DeleteTaskCommand('team_1', 'task_missing', 'user_1'))
       .catch(() => undefined);
 
+    expect(stored.remove).not.toHaveBeenCalled();
+  });
+
+  it('refuses a workspace member who sees the team but is not on it, and takes nothing away', async () => {
+    const stored = tasks();
+
+    await expect(
+      new DeleteTaskHandler(
+        stored,
+        lines(
+          'team_1',
+          workAccessSeeing((requested) => requested.value === 'team_1', {
+            onTeam: () => false,
+          }),
+        ),
+        inOneTransaction(),
+      ).execute(new DeleteTaskCommand('team_1', 'task_1', 'user_1')),
+    ).rejects.toMatchObject({
+      refusal: expect.any(TeamMembershipRequiredError),
+    });
     expect(stored.remove).not.toHaveBeenCalled();
   });
 

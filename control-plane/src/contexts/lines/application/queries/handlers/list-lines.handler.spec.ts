@@ -1,3 +1,4 @@
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type {
   LineDetail,
   LineReaderPort,
@@ -75,12 +76,19 @@ const board: LineDetail = {
   search: LINE_SEARCH,
 };
 
-const reader = (result: LineDetail[] | null): LineReaderPort => ({
-  listForTeamMember: vi.fn().mockResolvedValue(result),
+const reader = (result: LineDetail[]): LineReaderPort => ({
+  ofTeam: vi.fn().mockResolvedValue(result),
 });
 
-const handle = (lines: LineReaderPort, teamId = 'team_1') =>
-  new ListLinesHandler(lines).execute(new ListLinesQuery(teamId, 'user_1'));
+const access = (sees = true) =>
+  ({
+    inWorkspaceOfTeam: vi.fn().mockResolvedValue(sees ? {} : null),
+  }) as unknown as WorkspaceAccessPort;
+
+const handle = (lines: LineReaderPort, teamId = 'team_1', viewer = access()) =>
+  new ListLinesHandler(viewer, lines).execute(
+    new ListLinesQuery(teamId, 'user_1'),
+  );
 
 describe('ListLinesHandler', () => {
   it('hands back each line with its stations', async () => {
@@ -132,19 +140,22 @@ describe('ListLinesHandler', () => {
     ]);
   });
 
-  it('calls the reader on behalf of the caller, not the team alone', async () => {
-    const lines = reader([board]);
+  it('asks whether the caller sees the team before it reads', async () => {
+    const viewer = access();
 
-    await handle(lines);
+    await handle(reader([board]), 'team_1', viewer);
 
-    expect(lines.listForTeamMember).toHaveBeenCalledWith(
+    expect(viewer.inWorkspaceOfTeam).toHaveBeenCalledWith(
       expect.objectContaining({ value: 'team_1' }),
       expect.objectContaining({ value: 'user_1' }),
     );
   });
 
-  it('passes absence through, so the caller can answer not found', async () => {
-    await expect(handle(reader(null))).resolves.toBeNull();
+  it('answers nothing to a caller who does not see the team, and reads nothing', async () => {
+    const lines = reader([board]);
+
+    await expect(handle(lines, 'team_1', access(false))).resolves.toBeNull();
+    expect(lines.ofTeam).not.toHaveBeenCalled();
   });
 
   it('reports an unusable team id as invalid input', async () => {

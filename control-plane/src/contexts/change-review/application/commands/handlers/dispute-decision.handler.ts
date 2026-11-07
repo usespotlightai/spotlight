@@ -24,17 +24,12 @@ export class DisputeDecisionHandler
 
   async execute(command: DisputeDecisionCommand): Promise<void> {
     try {
-      const deciding = await this.access.task(
+      const { task, by } = await this.access.actingOnTask(
         command.teamId,
         command.taskId,
         command.viewerId,
+        () => new UnknownDecisionError(),
       );
-
-      if (!deciding) {
-        throw new UnknownDecisionError();
-      }
-
-      const { task, by } = deciding;
 
       await this.transaction.inTransaction(async () => {
         const set = await this.sets.forTask(task.id);

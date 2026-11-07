@@ -206,12 +206,14 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       );
     }
 
-    const besideFile = await this.configs.filesIn(
-      pullRequest.workspaceId,
-      repository,
-      path.slice(0, Math.max(path.lastIndexOf('/'), 0)),
-      file.commit,
-    );
+    const configFiles = (
+      await this.configs.filesUnder(
+        pullRequest.workspaceId,
+        repository,
+        path.slice(0, Math.max(path.lastIndexOf('/'), 0)),
+        file.commit,
+      )
+    ).filter((each) => each.path !== path);
     const edited = await this.editor.edited({
       file: { path, content: file.content },
       teamKey,
@@ -219,16 +221,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
       stationKey: station.key,
       seed: seed.block,
       candidate: candidate.block,
-      besideFile,
-      read: async (other) =>
-        (
-          await this.configs.fileAt(
-            pullRequest.workspaceId,
-            repository,
-            other,
-            file.commit,
-          )
-        )?.content ?? null,
+      configFiles,
     });
 
     if (!edited.ok) {

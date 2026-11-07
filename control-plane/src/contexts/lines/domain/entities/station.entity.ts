@@ -1,4 +1,5 @@
 import { InvalidStationChangeError } from '@lines/domain/exceptions/invalid-station-change.error';
+import { idleStationProblem } from '@lines/domain/services/idle-station';
 import {
   skillsProblem,
   toolsProblem,
@@ -82,6 +83,7 @@ export abstract class Station {
 
   static of(input: StationInput): Station {
     Station.guardWhatItEnables(input.tools ?? [], input.skills ?? []);
+    Station.guardIdleSettings(input);
 
     const ends = [
       input.id,
@@ -120,16 +122,12 @@ export abstract class Station {
     }
   }
 
-  get isBacklog(): boolean {
-    return this.kind === 'backlog';
-  }
+  private static guardIdleSettings(input: StationInput): void {
+    const problem = idleStationProblem(input);
 
-  get isCompleted(): boolean {
-    return this.kind === 'completed';
-  }
-
-  get isAgentStation(): boolean {
-    return this.kind === 'work';
+    if (problem) {
+      throw new InvalidStationChangeError(problem.reason);
+    }
   }
 
   private static guardWhatItEnables(

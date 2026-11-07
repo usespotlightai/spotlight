@@ -20,10 +20,9 @@ const repositoryConfig = (name: string, image?: string, setup?: string) =>
 
 describe('LineRepositories', () => {
   it('keeps the repositories it is given', () => {
-    expect(of('acme/api', 'acme/web').all.map((each) => each.value)).toEqual([
-      'acme/api',
-      'acme/web',
-    ]);
+    expect(
+      of('acme/api', 'acme/web').entries.map((each) => each.repository.value),
+    ).toEqual(['acme/api', 'acme/web']);
   });
 
   it('rejects two repositories that share a name', () => {
@@ -59,11 +58,15 @@ describe('LineRepositories', () => {
       repositoryConfig('acme/web'),
     ]);
 
-    expect(repositories.setupOf(Repository.of('acme/api'))?.value).toBe(
-      'npm ci',
-    );
-    expect(repositories.setupOf(Repository.of('acme/web'))).toBeNull();
-    expect(repositories.setupOf(Repository.of('acme/docs'))).toBeNull();
+    expect(
+      repositories.entries.map((each) => [
+        each.repository.value,
+        each.setup?.value ?? null,
+      ]),
+    ).toEqual([
+      ['acme/api', 'npm ci'],
+      ['acme/web', null],
+    ]);
   });
 
   it('equals repositories worked alike, whatever their order', () => {

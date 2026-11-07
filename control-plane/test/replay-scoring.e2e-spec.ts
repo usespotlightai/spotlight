@@ -38,10 +38,6 @@ import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
-import {
-  REPLAY_CANDIDATES,
-  type ReplayCandidatesPort,
-} from '@work/application/ports/replay-candidates.port';
 import type { JournalEntry } from '@work/application/ports/run-journal.port';
 import {
   WORKSPACE_ARCHIVE_STORE,
@@ -56,8 +52,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
-import { plannedCandidate, replayOf, startedReplay } from './support/replays';
-import { aDispatch } from './support/runs';
+import {
+  plannedCandidate,
+  replayOf,
+  startedReplay,
+  writtenStation,
+} from './support/replays';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -258,9 +259,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: BUILD,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     exitCode: 0,
@@ -276,7 +275,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
     startedFromArchiveId: archiveId,
@@ -305,8 +304,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
+    workspaceKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -356,16 +354,11 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
   return { taskId, runId };
 };
 
-const proposed = async (prompt: string): Promise<string> => {
-  const live = await app
-    .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
-    .live(DELIVERY, BUILD);
-
-  return plannedCandidate(app, DELIVERY, 'build', {
-    ...live?.station,
+const proposed = async (prompt: string): Promise<string> =>
+  plannedCandidate(app, DELIVERY, 'build', {
+    ...(await writtenStation(app, DELIVERY, 'build')),
     prompt,
   });
-};
 
 interface Claimed {
   readonly token: string;
@@ -803,10 +796,10 @@ describe('a replay at a station that checks and judges', () => {
     expect(
       (
         await db
-          .select({ replay: schema.changeStack.replay })
+          .select({ trial: schema.changeStack.trial })
           .from(schema.changeStack)
           .where(inArray(schema.changeStack.runId, replayRuns))
-      ).map((each) => each.replay),
+      ).map((each) => each.trial),
     ).toEqual([true, true, true, true]);
   }, 120_000);
 });
@@ -830,9 +823,7 @@ describe('a task run’s change', () => {
     await db.insert(schema.run).values({
       id: runId,
       workspaceId: team.workspaceId.value,
-      taskId,
-      taskRevision: 0,
-      stationId: BUILD,
+      ...requestedByTask(taskId, { teamId: team.teamId.value }),
       harness: 'claude-code',
       state: 'queued',
       spec: {
@@ -847,7 +838,7 @@ describe('a task run’s change', () => {
         command: { executable: 'claude-agent-acp', args: [] },
         briefing: 'Retry uploads.',
         handover: { options: ['ship'], noteLimit: 0 },
-        resume: { key: `task-${taskId}` },
+        resume: {},
         diffs: true,
         check: 'npm test',
       },
@@ -877,7 +868,7 @@ describe('a task run’s change', () => {
 
       expect(stack?.checkCommand).toBe('npm test');
       expect(stack?.checkSetup).toBe('npm ci');
-      expect(stack?.replay).toBe(false);
+      expect(stack?.trial).toBe(false);
     } finally {
       await db
         .update(schema.station)

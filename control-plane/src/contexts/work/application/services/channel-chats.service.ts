@@ -1,5 +1,4 @@
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
-import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -16,18 +15,21 @@ import type {
   ChannelNoticeDto,
   ChannelNoticesPort,
 } from '@work/application/ports/channel-notices.port';
+import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
-import type { ChatDispatching } from '@work/application/services/chat-dispatch';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { EmptyChatMessageError } from '@work/domain/exceptions/empty-chat-message.error';
 import { MixedRunnerImagesError } from '@work/domain/exceptions/mixed-runner-images.error';
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
+import { UnknownChatHarnessError } from '@work/domain/exceptions/unknown-chat-harness.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatReply } from '@work/domain/value-objects/chat-reply.vo';
+import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
 
 export interface ChannelAnswer {
   readonly workspaceId: WorkspaceId;
@@ -44,7 +46,7 @@ export class ChannelChats {
     private readonly chats: ChatRepository,
     private readonly lines: LineMapsPort,
     private readonly members: MemberDirectoryPort,
-    private readonly workspaces: WorkspaceReaderPort,
+    private readonly access: Pick<WorkAccess, 'seesTeam'>,
     private readonly launch: HarnessLaunchPort,
     private readonly defaultHarness: HarnessId,
     private readonly dispatch: ChatDispatching,
@@ -215,6 +217,12 @@ export class ChannelChats {
     return null;
   }
 
+  private catalogue(): HarnessCatalogue {
+    return HarnessCatalogue.of(
+      this.launch.catalogue().map((each) => HarnessId.of(each.id)),
+    );
+  }
+
   private async started(
     workspaceId: WorkspaceId,
     teamId: TeamId,
@@ -235,24 +243,21 @@ export class ChannelChats {
       return refused(ChannelReplies.unknownPerson);
     }
 
-    if (!(await this.workspaces.findTeamForMember(teamId, speaker))) {
+    if (!(await this.access.seesTeam(teamId, speaker))) {
       return refused(ChannelReplies.notInTeam);
     }
 
     try {
       const body = ChatMessageBody.fromInput(said, attachments);
-      const harness = happened.chat.harness ?? this.defaultHarness.value;
-
-      if (!this.launch.catalogue().some((each) => each.id === harness)) {
-        return refused(ChannelReplies.unknownHarness(harness));
-      }
-
+      const harness = this.catalogue().chosen(
+        happened.chat.harness ?? this.defaultHarness.value,
+      );
       const lines = await this.lines.ofTeam(teamId);
       const chat = Chat.start({
         workspaceId,
         teamId,
         startedBy: speaker,
-        harness: HarnessId.of(harness),
+        harness,
         repositories: lines.flatMap((line) => line.repositories.all),
         lines,
         body,
@@ -272,6 +277,14 @@ export class ChannelChats {
 
       if (error instanceof MixedRunnerImagesError) {
         return refused(ChannelReplies.mixedImages);
+      }
+
+      if (error instanceof UnknownChatHarnessError) {
+        return refused(
+          ChannelReplies.unknownHarness(
+            happened.chat.harness ?? this.defaultHarness.value,
+          ),
+        );
       }
 
       throw error;

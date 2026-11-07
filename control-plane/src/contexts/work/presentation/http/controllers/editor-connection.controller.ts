@@ -9,6 +9,7 @@ import { CommandBus } from '@nestjs/cqrs';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOperation,
   ApiTags,
@@ -54,6 +55,10 @@ export class EditorConnectionController {
   @ApiBadRequestResponse({ description: 'No task and no chat, or both' })
   @ApiNotFoundResponse({
     description: 'No such task or chat that the caller may open in an editor',
+  })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
   })
   async connect(
     @Body() body: ConnectEditorRequestDto,

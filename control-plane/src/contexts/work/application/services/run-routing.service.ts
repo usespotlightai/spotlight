@@ -1,13 +1,25 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { NewNote, Task } from '@work/domain/aggregates/task.aggregate';
 import { Placement } from '@work/domain/services/placement';
 import { routeAfterRun } from '@work/domain/services/route-after-run';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
+
+const lineOf = (task: Task, line: LineMap | null): LineMap => {
+  if (!line) {
+    throw new InconsistentStateError(
+      'task',
+      `${task.id.value} is at a station of no line`,
+    );
+  }
+
+  return line;
+};
 
 export class RunRouting {
   constructor(
@@ -18,12 +30,11 @@ export class RunRouting {
 
   newNoteOf(
     handover: ResolvedHandover,
-    task: Task,
     line: LineMap | null,
     run: RunId,
   ): NewNote {
     return {
-      station: line?.stationAt(task.stationId) ?? null,
+      line,
       body: handover.body,
       at: this.clock.now(),
       voice: Voice.station(run),
@@ -37,7 +48,7 @@ export class RunRouting {
     line: LineMap | null,
     run: RunId,
   ): Promise<Task> {
-    const newNote = this.newNoteOf(handover, task, line, run);
+    const newNote = this.newNoteOf(handover, line, run);
     const routing = routeAfterRun(handover, line, task);
 
     if (routing.kind === 'finish') {
@@ -47,14 +58,14 @@ export class RunRouting {
     if (routing.kind === 'detach') {
       return (
         routing.failure
-          ? task.failed(routing.failure, newNote, run, line)
+          ? task.failed(routing.failure, newNote, run, lineOf(task, line))
           : task
       ).leaveRun(run, newNote.at);
     }
 
     if (routing.kind === 'ask') {
       return routing.failure
-        ? task.failed(routing.failure, newNote, run, line)
+        ? task.failed(routing.failure, newNote, run, lineOf(task, line))
         : task.askedAbout(newNote, run);
     }
 

@@ -98,6 +98,7 @@ export interface SetupChatView {
   readonly ci: SetupCiView | null;
   readonly startedById: string;
   readonly startedBy: string;
+  readonly startedAt: Date;
 }
 
 export interface ChatReaderPort {
@@ -113,5 +114,5 @@ export interface ChatReaderPort {
     viewerId: UserId,
   ): Promise<ChatView | null>;
 
-  setupOf(teamId: TeamId): Promise<SetupChatView | null>;
+  setupChatsOf(teamId: TeamId): Promise<readonly SetupChatView[]>;
 }

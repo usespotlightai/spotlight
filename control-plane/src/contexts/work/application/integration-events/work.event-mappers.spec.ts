@@ -10,18 +10,17 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
 import { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
-import { ReplayRunUsageRecorded } from '@work/domain/events/replay-run-usage-recorded.event';
 import { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
-import { SearchRunUsageRecorded } from '@work/domain/events/search-run-usage-recorded.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
@@ -38,11 +37,8 @@ import {
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { SearchId } from '@work/domain/value-objects/search-id.vo';
-import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
+import { RunRequester } from '@work/domain/value-objects/run-requester.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
 import { describe, expect, it } from 'vitest';
@@ -74,11 +70,7 @@ const dispatchEnded = (
 const TASK = TaskId.of('task_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 const RUN = RunId.of('run_1');
-const SUBJECT = RunSubject.task(
-  TASK,
-  StationId.of('station_1'),
-  TaskRevision.of(0),
-);
+const SUBJECT = orderedFor.task('task_1', 0).requester;
 
 describe('WORK_EVENT_MAPPERS', () => {
   it('publishes a task opening, on which team and line, by whom and when', () => {
@@ -138,6 +130,7 @@ describe('WORK_EVENT_MAPPERS', () => {
         new PullRequestReviewTaken(
           TASK,
           WORKSPACE,
+          TeamId.of('team_1'),
           PullRequestUrl.of('https://github.com/acme/api/pull/1'),
         ),
       ),
@@ -146,18 +139,27 @@ describe('WORK_EVENT_MAPPERS', () => {
         kind: 'work.pull-request-review-taken.v1',
         taskId: 'task_1',
         workspaceId: 'ws_1',
+        teamId: 'team_1',
         url: 'https://github.com/acme/api/pull/1',
       },
     ]);
   });
 
-  it('publishes what a run cost once its usage is recorded', () => {
+  it('publishes what a run cost once its usage is recorded, with who asked for it and whether it is listed', () => {
     expect(
       published(
         new RunUsageRecorded(
           RUN,
           WORKSPACE,
-          TASK,
+          RunRequester.of({
+            owner: 'replays',
+            kind: 'search',
+            id: 'search_1',
+            token: '2',
+            team: TeamId.of('team_1'),
+          }),
+          false,
+          1,
           60_000,
           12,
           1,
@@ -165,6 +167,8 @@ describe('WORK_EVENT_MAPPERS', () => {
           40_000,
           200_000,
           Money.of(0.42, 'USD'),
+          [Money.of(0.42, 'USD'), Money.of(0.1, 'EUR')],
+          1,
           Tokens.of({ input: 1_200, output: 900, cacheRead: 80_000 }),
           ToolUse.of({
             servers: [
@@ -185,7 +189,14 @@ describe('WORK_EVENT_MAPPERS', () => {
         kind: 'work.run-usage-recorded.v1',
         runId: 'run_1',
         workspaceId: 'ws_1',
-        taskId: 'task_1',
+        requester: {
+          owner: 'replays',
+          kind: 'search',
+          id: 'search_1',
+          token: '2',
+          team: 'team_1',
+        },
+        listed: false,
         ms: 60_000,
         steps: 12,
         errors: 1,
@@ -194,6 +205,11 @@ describe('WORK_EVENT_MAPPERS', () => {
         contextWindow: 200_000,
         cost: 0.42,
         currency: 'USD',
+        spentCosts: [
+          { amount: 0.42, currency: 'USD' },
+          { amount: 0.1, currency: 'EUR' },
+        ],
+        unpricedCalls: 1,
         inputTokens: 1_200,
         outputTokens: 900,
         cacheReadTokens: 80_000,
@@ -208,71 +224,6 @@ describe('WORK_EVENT_MAPPERS', () => {
           },
         ],
         skillsRead: ['our-migrations'],
-      },
-    ]);
-  });
-
-  it('publishes what a replay cost as a replay’s usage, naming the run it replayed', () => {
-    expect(
-      published(
-        new ReplayRunUsageRecorded(
-          RUN,
-          WORKSPACE,
-          RunId.of('run_0'),
-          60_000,
-          12,
-          8,
-          Money.of(0.42, 'USD'),
-          Tokens.of({ input: 1_200, output: 900 }),
-        ),
-      ),
-    ).toEqual([
-      {
-        kind: 'work.replay-run-usage-recorded.v1',
-        runId: 'run_1',
-        replayOf: 'run_0',
-        workspaceId: 'ws_1',
-        ms: 60_000,
-        steps: 12,
-        changedLines: 8,
-        cost: 0.42,
-        currency: 'USD',
-        inputTokens: 1_200,
-        outputTokens: 900,
-        cacheReadTokens: null,
-        cacheWriteTokens: null,
-      },
-    ]);
-  });
-
-  it('publishes what a search run cost as a search’s usage, naming its search', () => {
-    expect(
-      published(
-        new SearchRunUsageRecorded(
-          RUN,
-          WORKSPACE,
-          SearchId.of('search_1'),
-          30_000,
-          9,
-          [Money.of(0.12, 'USD')],
-          2,
-          Tokens.of({ input: 800, output: 400 }),
-        ),
-      ),
-    ).toEqual([
-      {
-        kind: 'work.search-run-usage-recorded.v1',
-        runId: 'run_1',
-        searchId: 'search_1',
-        workspaceId: 'ws_1',
-        ms: 30_000,
-        steps: 9,
-        spentCosts: [{ amount: 0.12, currency: 'USD' }],
-        unpricedCalls: 2,
-        inputTokens: 800,
-        outputTokens: 400,
-        cacheReadTokens: null,
-        cacheWriteTokens: null,
       },
     ]);
   });
@@ -382,8 +333,14 @@ describe('WORK_EVENT_MAPPERS', () => {
         new TaskMoved(
           TASK,
           WORKSPACE,
-          StationKey.of('implementation'),
-          StationKey.of('code-review'),
+          {
+            id: StationId.of('station_implementation'),
+            key: StationKey.of('implementation'),
+          },
+          {
+            id: StationId.of('station_code_review'),
+            key: StationKey.of('code-review'),
+          },
           new Date('2026-09-26T09:00:00Z'),
         ),
       ),
@@ -408,12 +365,12 @@ describe('WORK_EVENT_MAPPERS', () => {
     expect(ended(dispatchEnded('cancelled'))).toBe('cancelled');
   });
 
-  it('leaves the end of a task, chat or raw run to its dispatch', () => {
-    const completed = (subject: RunSubject | null) =>
+  it('leaves the end of a task or chat run to its dispatch', () => {
+    const completed = (requester: RunRequester) =>
       new RunCompleted(
         RUN,
         WORKSPACE,
-        subject,
+        requester,
         RunOutcome.of({ exitCode: 1, failed: true }),
         null,
         null,
@@ -425,27 +382,21 @@ describe('WORK_EVENT_MAPPERS', () => {
       );
 
     expect(published(completed(SUBJECT))).toEqual([]);
-    expect(published(completed(RunSubject.chat(ChatId.of('chat_1'))))).toEqual(
+    expect(published(completed(orderedFor.chat('chat_1').requester))).toEqual(
       [],
     );
-    expect(published(completed(null))).toEqual([]);
     expect(
       published(
         new RunExhausted(RUN, WORKSPACE, SUBJECT, 3, 3, false, null, true),
       ),
     ).toEqual([]);
     expect(
-      published(new RunCancelled(RUN, WORKSPACE, null, 1, false, false)),
+      published(new RunCancelled(RUN, WORKSPACE, SUBJECT, 1, false, false)),
     ).toEqual([]);
   });
 
-  it('publishes a replay’s end as a replay’s, never as a run’s', () => {
-    const replay = RunSubject.replay(
-      RunId.of('run_0'),
-      TaskId.of('task_1'),
-      StationId.of('station_1'),
-      TeamId.of('team_1'),
-    );
+  it('publishes the end of a run another requester ordered, with that requester', () => {
+    const replay = orderedFor.isolated('replay', 'run_1').requester;
 
     expect(
       published(
@@ -465,16 +416,26 @@ describe('WORK_EVENT_MAPPERS', () => {
       ),
     ).toEqual([
       {
-        kind: 'work.replay-ended.v1',
+        kind: 'work.requested-run-ended.v1',
         runId: 'run_1',
-        replayOf: 'run_0',
         workspaceId: 'ws_1',
+        requester: {
+          owner: 'replays',
+          kind: 'replay',
+          id: 'run_1',
+          token: null,
+          team: 'team_1',
+        },
+        attempt: 1,
+        ending: 'completed',
         outcome: 'completed',
         failure: null,
         stopped: false,
-        asked: true,
-        next: 'review',
-        note: 'Over to you.',
+        started: true,
+        askedAPerson: true,
+        handsOver: true,
+        report: { next: 'review', note: 'Over to you.' },
+        endedAt: '2026-10-02T09:30:00.000Z',
       },
     ]);
     expect(
@@ -491,102 +452,48 @@ describe('WORK_EVENT_MAPPERS', () => {
         ),
       ),
     ).toEqual([
-      {
-        kind: 'work.replay-ended.v1',
-        runId: 'run_1',
-        replayOf: 'run_0',
-        workspaceId: 'ws_1',
+      expect.objectContaining({
+        kind: 'work.requested-run-ended.v1',
+        ending: 'exhausted',
         outcome: 'exhausted',
         failure: 'runner-lost',
-        stopped: false,
-        asked: false,
-        next: null,
-        note: null,
-      },
-    ]);
-    expect(
-      published(new RunCancelled(RUN, WORKSPACE, replay, 1, false, false)).map(
-        (each) => each.kind,
-      ),
-    ).toEqual(['work.replay-ended.v1']);
-  });
-
-  it('publishes a search run’s end as a search’s, never as a run’s or a replay’s', () => {
-    const search = RunSubject.search(
-      SearchId.of('search_1'),
-      SearchIteration.of(2),
-      StationId.of('station_1'),
-      TeamId.of('team_1'),
-    );
-
-    expect(
-      published(
-        new RunCompleted(
-          RUN,
-          WORKSPACE,
-          search,
-          RunOutcome.of({ exitCode: 0, failed: false }),
-          null,
-          Handover.of({ next: 'review' }),
-          null,
-          1,
-          true,
-          true,
-          true,
-        ),
-      ),
-    ).toEqual([
-      {
-        kind: 'work.search-run-ended.v1',
-        runId: 'run_1',
-        searchId: 'search_1',
-        iteration: 2,
-        workspaceId: 'ws_1',
-        teamId: 'team_1',
-        stationId: 'station_1',
-        outcome: 'completed',
-        failure: null,
-        asked: true,
-        stopped: false,
-        started: true,
-        endedAt: '2026-10-02T09:30:00.000Z',
-      },
+        askedAPerson: false,
+        handsOver: false,
+        report: null,
+        attempt: 3,
+      }),
     ]);
     expect(
       published(
-        new RunExhausted(
+        new RunCancelled(
           RUN,
           WORKSPACE,
-          search,
-          3,
-          3,
+          orderedFor.isolated('search', 'search_1').requester,
+          2,
           false,
-          'runner-lost',
           true,
         ),
       ),
     ).toEqual([
       expect.objectContaining({
-        kind: 'work.search-run-ended.v1',
-        outcome: 'exhausted',
-        failure: 'runner-lost',
-        asked: false,
-      }),
-    ]);
-    expect(
-      published(new RunCancelled(RUN, WORKSPACE, search, 1, false, false)),
-    ).toEqual([
-      expect.objectContaining({
-        kind: 'work.search-run-ended.v1',
+        ending: 'cancelled',
         outcome: 'cancelled',
-        started: false,
+        started: true,
+        requester: expect.objectContaining({ kind: 'search', id: 'search_1' }),
       }),
     ]);
     expect(
-      published(new RunCancelled(RUN, WORKSPACE, search, 2, false, true)),
-    ).toEqual([
-      expect.objectContaining({ outcome: 'cancelled', started: true }),
-    ]);
+      published(
+        new RunCancelled(
+          RUN,
+          WORKSPACE,
+          orderedFor.spec().requester,
+          1,
+          false,
+          false,
+        ),
+      ).map((each) => each.kind),
+    ).toEqual(['work.requested-run-ended.v1']);
   });
 
   it('says which station a dispatched run worked at, which failure ended it and whether a person stopped it', () => {

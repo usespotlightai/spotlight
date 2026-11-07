@@ -20,15 +20,12 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
 import { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
-import type { LineSource } from '@work/domain/value-objects/line-source';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
-import type { ReplayThreshold } from '@work/domain/value-objects/replay-threshold';
 import {
   ReviewIntake,
   type ReviewSkips,
   type ReviewStart,
 } from '@work/domain/value-objects/review-intake.vo';
-import type { SearchSettings } from '@work/domain/value-objects/search-settings';
 import {
   Station,
   type StationInput,
@@ -68,7 +65,6 @@ export const stationOf = (input: {
   decisions?: boolean;
   memories?: boolean;
   judge?: JudgeSettings | null;
-  search?: SearchSettings | null;
   tools?: readonly Tool[];
   skills?: readonly SkillKey[];
 }): Station =>
@@ -140,8 +136,6 @@ export const lineMapOf = (input: {
   repositories?: readonly RepositorySpec[];
   reviews?: ReviewIntake | null;
   placement?: RunnerPlacement;
-  replayCheck?: ReplayThreshold | null;
-  source?: LineSource | null;
   version?: number;
 }): LineMap =>
   LineMap.of({
@@ -178,7 +172,6 @@ export const stationWith = (
     decisions: station.decisions,
     memories: station.memories,
     judge: station.judge,
-    search: station.search,
     tools: station.tools,
     skills: station.skills,
     ...part,

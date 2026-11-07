@@ -72,7 +72,7 @@ const line = lineMapOf({
 });
 
 const newNote = (body: string, voice: Voice) => ({
-  station: null,
+  line: null,
   body: TaskNoteBody.of(body),
   at: NOW,
   voice,
@@ -145,7 +145,7 @@ describe('a task put to a person by its current run', () => {
       'The default one.',
     ]);
     expect(
-      task.acknowledgeUpTo(NotePosition.of(1), NOW).unacknowledged,
+      task.acknowledgeUpTo(RUN, NotePosition.of(1), NOW).unacknowledged,
     ).toHaveLength(0);
   });
 

@@ -10,13 +10,15 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ConnectEditorCommand } from '@work/application/commands/connect-editor.command';
 import type { TaskWorkspacesPort } from '@work/application/ports/task-workspaces.port';
+import type { WorkAccess } from '@work/application/services/work-access.service';
+import { WorkRequesters } from '@work/application/services/work-requesters';
+import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 
 interface Found {
   readonly workspaceId: WorkspaceId;
-  readonly key: ResumeKey;
+  readonly key: string;
 }
 
 export class ConnectEditorHandler
@@ -27,6 +29,7 @@ export class ConnectEditorHandler
     private readonly chats: ChatRepository,
     private readonly access: WorkspaceAccessPort,
     private readonly leases: EditorLeasesPort,
+    private readonly teams: WorkAccess,
   ) {}
 
   async execute(command: ConnectEditorCommand): Promise<EditorLease | null> {
@@ -34,7 +37,7 @@ export class ConnectEditorHandler
       const viewer = UserId.of(command.viewerId);
       const found =
         command.target.kind === 'task'
-          ? await this.ofTask(command.target.id)
+          ? await this.ofTask(viewer, command.target.id)
           : await this.ofChat(viewer, command.target.id);
 
       if (!found || !(await this.access.mayView(viewer, found.workspaceId))) {
@@ -52,18 +55,28 @@ export class ConnectEditorHandler
         }
       }
 
-      return await this.leases.hold(found.workspaceId.value, found.key.value);
+      return await this.leases.hold(found.workspaceId.value, found.key);
     } catch (error) {
       rethrowAsApplicationError(error);
     }
   }
 
-  private async ofTask(taskId: string): Promise<Found | null> {
-    const workspaceId = await this.tasks.workspaceOf(TaskId.of(taskId));
+  private async ofTask(viewer: UserId, taskId: string): Promise<Found | null> {
+    const id = TaskId.of(taskId);
+    const [workspaceId, teamId] = await Promise.all([
+      this.tasks.workspaceOf(id),
+      this.tasks.teamOf(id),
+    ]);
 
-    return workspaceId
-      ? { workspaceId, key: ResumeKey.forTask(TaskId.of(taskId)) }
-      : null;
+    if (!workspaceId || !teamId) {
+      return null;
+    }
+
+    (await this.teams.standingOn(teamId, viewer)).assertActsOnTasks(
+      () => new UnknownTaskError(taskId),
+    );
+
+    return { workspaceId, key: WorkRequesters.taskWorkspaceKey(id) };
   }
 
   private async ofChat(viewer: UserId, chatId: string): Promise<Found | null> {
@@ -72,7 +85,7 @@ export class ConnectEditorHandler
     return chat?.isStartedBy(viewer)
       ? {
           workspaceId: chat.workspaceId,
-          key: ResumeKey.forChat(ChatId.of(chatId)),
+          key: WorkRequesters.chatWorkspaceKey(ChatId.of(chatId)),
         }
       : null;
   }

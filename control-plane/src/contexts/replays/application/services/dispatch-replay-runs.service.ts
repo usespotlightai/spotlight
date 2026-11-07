@@ -1,4 +1,4 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { ReplayRunDispatching } from '@replays/application/services/replay-run-dispatch.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
 import { DispatchSlotTakenError } from '@replays/domain/exceptions/dispatch-slot-taken.error';
@@ -22,7 +22,7 @@ export class DispatchReplayRuns implements PendingJobsPort {
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
     private readonly searches: SearchRepository,
-    private readonly work: WorkPort,
+    private readonly replayRuns: ReplayRunDispatching,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -104,7 +104,7 @@ export class DispatchReplayRuns implements PendingJobsPort {
       );
     }
 
-    const queued = await this.work.dispatch({
+    const queued = await this.replayRuns.dispatch({
       run,
       original: entry.original,
       workspaceId: replay.workspaceId,
@@ -122,7 +122,7 @@ export class DispatchReplayRuns implements PendingJobsPort {
     );
 
     if (queued.queued && updated && !updated.isDispatching) {
-      await this.work.cancel(run, false);
+      await this.replayRuns.cancel(run, false);
     }
   }
 
@@ -138,7 +138,7 @@ export class DispatchReplayRuns implements PendingJobsPort {
       return;
     }
 
-    const cancelled = await this.work.cancel(run, leaveRunAsIs);
+    const cancelled = await this.replayRuns.cancel(run, leaveRunAsIs);
 
     await this.changed(replay, (fresh, now) => {
       if (cancelled.queued) {

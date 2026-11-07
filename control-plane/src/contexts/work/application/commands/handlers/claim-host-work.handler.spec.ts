@@ -18,7 +18,6 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ClaimHostWorkHandler } from '@work/application/commands/handlers/claim-host-work.handler';
 import { ClaimHostWorkCommand } from '@work/application/commands/runner.commands';
@@ -31,11 +30,10 @@ import { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import { LongPoll } from '@work/application/services/long-poll';
 import type { RunLeases } from '@work/application/services/run-leases.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
+import { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-24T09:00:00.000Z');
@@ -47,12 +45,12 @@ const queued = (harness = 'claude-code') =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of(harness),
-    subject: RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(0)),
+    ...orderedFor.task('task_1', 0),
     spec: RunSpec.of({
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'work out what the request wants',
       handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task-task_1' },
+      resume: {},
     }),
   });
 
@@ -364,7 +362,12 @@ describe('ClaimHostWorkHandler', () => {
     await handler.execute(pull());
 
     expect(sandboxes.holdForRun).toHaveBeenCalledWith(
-      { workspaceId: 'ws_1', key: 'task-task_1', hostId: HOST, runId: 'run_1' },
+      {
+        workspaceId: 'ws_1',
+        key: 'work/task-task_1',
+        hostId: HOST,
+        runId: 'run_1',
+      },
       NOW,
     );
   });
@@ -372,7 +375,7 @@ describe('ClaimHostWorkHandler', () => {
   it('leaves the runs of keys that ready sandboxes keep to those sandboxes', async () => {
     const { handler, claimNext } = pulling({
       run: taken(),
-      liveKeys: ['task-task_2', 'chat-chat_1'],
+      liveKeys: ['work/task-task_2', 'work/chat-chat_1'],
     });
 
     await handler.execute(pull());
@@ -380,7 +383,10 @@ describe('ClaimHostWorkHandler', () => {
     expect(claimNext).toHaveBeenCalledWith(
       expect.objectContaining({
         sandbox: {
-          avoiding: [ResumeKey.of('task-task_2'), ResumeKey.of('chat-chat_1')],
+          avoiding: [
+            WorkspaceKey.parse('work/task-task_2'),
+            WorkspaceKey.parse('work/chat-chat_1'),
+          ],
         },
       }),
       NOW,
@@ -391,7 +397,7 @@ describe('ClaimHostWorkHandler', () => {
     const live: SandboxTakingRuns = {
       id: 'sandbox_7',
       workspaceId: 'ws_1',
-      key: 'task-task_1',
+      key: 'work/task-task_1',
     };
     const into = () =>
       new ClaimHostWorkCommand(
@@ -425,7 +431,7 @@ describe('ClaimHostWorkHandler', () => {
       );
       expect(claimNext).toHaveBeenCalledWith(
         expect.objectContaining({
-          sandbox: { into: ResumeKey.of('task-task_1') },
+          sandbox: { into: WorkspaceKey.parse('work/task-task_1') },
         }),
         NOW,
       );
@@ -433,7 +439,7 @@ describe('ClaimHostWorkHandler', () => {
         'sandbox_7',
         {
           workspaceId: 'ws_1',
-          key: 'task-task_1',
+          key: 'work/task-task_1',
           hostId: HOST,
           runId: 'run_1',
         },
@@ -497,7 +503,10 @@ describe('ClaimHostWorkHandler', () => {
   });
 
   describe('a sandbox requested with no run', () => {
-    const requested: RequestedSandbox = { id: 'sandbox_r', key: 'task-task_1' };
+    const requested: RequestedSandbox = {
+      id: 'sandbox_r',
+      key: 'work/task-task_1',
+    };
 
     it('is started when no run waits, with its own token and the hosts it may reach, and the runner is let go', async () => {
       const { handler, runners, sandboxes, claimCheck } = pulling({
@@ -575,7 +584,7 @@ describe('ClaimHostWorkHandler', () => {
       expect(claimNext).toHaveBeenCalledTimes(1);
       expect(claimNext).toHaveBeenCalledWith(
         expect.objectContaining({
-          sandbox: { into: ResumeKey.of('task-task_1') },
+          sandbox: { into: WorkspaceKey.parse('work/task-task_1') },
         }),
         NOW,
       );

@@ -10,6 +10,7 @@ import {
   TRACE_PARENT_VAR,
 } from '@work/application/contracts/run-spec.contract';
 import { toolManifestOf } from '@work/application/mappers/tool-manifest.mapper';
+import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { ControlPlaneReleasePort } from '@work/application/ports/control-plane-release.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
@@ -22,12 +23,16 @@ import {
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Attached } from '@work/application/rendering/attached';
 import { ChatBriefing } from '@work/application/rendering/chat-briefing';
-import type { ChatDispatching } from '@work/application/services/chat-dispatch';
+import type {
+  ChatToolExtensions,
+  OfferedChatTool,
+} from '@work/application/services/chat-tool-extensions.service';
 import {
   type OrderedRun,
   runOrderOf,
 } from '@work/application/services/ordered-run';
 import { chatWords } from '@work/application/services/remembering-words';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { builtInToolsForChat } from '@work/domain/services/built-in-tools';
 import {
@@ -41,7 +46,10 @@ import {
   REMOTE_VIA_GIT_PROXY,
   RunSpec,
 } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import {
+  CHAT_RUN_API_LIFETIME_MS,
+  CHAT_RUN_API_SCOPES,
+} from '@work/domain/value-objects/spotlight-api-grant.vo';
 
 export class DispatchChat implements ChatDispatching {
   constructor(
@@ -56,6 +64,7 @@ export class DispatchChat implements ChatDispatching {
     private readonly savepoint: SavepointPort,
     private readonly spotlightUrl: string,
     private readonly controlPlane: ControlPlaneReleasePort,
+    private readonly extensions: ChatToolExtensions,
   ) {}
 
   async takenUp(chat: Chat): Promise<Chat> {
@@ -115,17 +124,27 @@ export class DispatchChat implements ChatDispatching {
             );
             return NOTHING_REMEMBERED;
           });
+    const offered = await this.extensions.offeredTo(chat);
     const briefing = resume.sessionId
       ? ChatBriefing.followUp(chat, handed)
-      : await this.briefed(chat, memories.briefed, memories.folder);
+      : await this.briefed(chat, memories.briefed, memories.folder, offered);
 
     const order = runOrderOf({
       id,
       workspaceId: chat.workspaceId,
       harness: chat.harness,
       priority: CHAT_PRIORITY,
-      subject: RunSubject.chat(chat.id),
-      team: chat.teamId,
+      requester: WorkRequesters.chat(chat.id, chat.teamId),
+      policy: WorkRequesters.chatPolicy,
+      workspace: WorkRequesters.chatWorkspace(chat.id),
+      apiGrant: chat.setup
+        ? {
+            actingFor: chat.startedBy.value,
+            scopes: [...CHAT_RUN_API_SCOPES],
+            lifetimeMs: CHAT_RUN_API_LIFETIME_MS,
+          }
+        : null,
+      tags: {},
       placement,
       refusals: [],
       spec: RunSpec.of({
@@ -144,10 +163,12 @@ export class DispatchChat implements ChatDispatching {
         briefing,
         handover: { options: [], noteLimit: 0 },
         resume: RunSpecContract.resumeOf(resume),
-        manifest: builtInToolsForChat({
-          settingUp: chat.setup !== null,
-          improving: chat.targetStation !== null,
-        }).map((each) => toolManifestOf(each.declared)),
+        manifest: [
+          ...builtInToolsForChat({ settingUp: chat.setup !== null }).map(
+            (each) => each.declared,
+          ),
+          ...offered.map((each) => each.declared),
+        ].map(toolManifestOf),
         attachments: Attached.shapes(chat.sharedAttachments),
         ...(chat.setup ? { spotlightApi: true } : {}),
       }),
@@ -168,6 +189,7 @@ export class DispatchChat implements ChatDispatching {
     chat: Chat,
     memories: readonly BriefedMemory[],
     memoryFolder: MemoryFolder | null,
+    offered: readonly OfferedChatTool[],
   ): Promise<string> {
     const team = await this.teams.find(chat.teamId);
     const lines = await this.lines.ofTeam(chat.teamId);
@@ -180,6 +202,7 @@ export class DispatchChat implements ChatDispatching {
       memoryFolder,
       spotlightUrl: this.spotlightUrl,
       release: Release.published(this.controlPlane.release),
+      extensions: offered.flatMap((each) => each.briefing ?? []),
     });
   }
 

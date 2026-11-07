@@ -1,107 +1,47 @@
-import type { RunSpendReaderPort } from '@work/application/ports/run-spend-reader.port';
-import type { RunToolsReaderPort } from '@work/application/ports/run-tools-reader.port';
-import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { RunFactsPort } from '@work/application/ports/run-facts.port';
 import type { RunUsageWriterPort } from '@work/application/ports/run-usage-writer.port';
-import { ReplayRunUsageRecorded } from '@work/domain/events/replay-run-usage-recorded.event';
+import { RecordedRunUsage } from '@work/domain/entities/recorded-run-usage.entity';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
-import { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
-import { SearchRunUsageRecorded } from '@work/domain/events/search-run-usage-recorded.event';
-import { agentSpendOf } from '@work/domain/services/agent-spend';
-import { Tokens } from '@work/domain/value-objects/tokens.vo';
-import { ToolUse } from '@work/domain/value-objects/tool-use.vo';
-
-type UsageRecorded =
-  | RunUsageRecorded
-  | ReplayRunUsageRecorded
-  | SearchRunUsageRecorded;
+import { RunRequester } from '@work/domain/value-objects/run-requester.vo';
 
 export class RecordRunUsage {
   constructor(
+    private readonly facts: RunFactsPort,
     private readonly usages: RunUsageWriterPort,
-    private readonly written: RunUsageReaderPort,
-    private readonly tools: RunToolsReaderPort,
-    private readonly spends: RunSpendReaderPort,
+    private readonly launch: HarnessLaunchPort,
   ) {}
 
-  onRunCompleted(event: RunCompleted): Promise<readonly UsageRecorded[]> {
-    return this.usageRecorded(event);
+  onRunCompleted(event: RunCompleted): Promise<void> {
+    return this.record(event.runId);
   }
 
-  onRunExhausted(event: RunExhausted): Promise<readonly UsageRecorded[]> {
-    return this.usageRecorded(event);
+  onRunExhausted(event: RunExhausted): Promise<void> {
+    return this.record(event.runId);
   }
 
-  private async usageRecorded(
-    event: RunCompleted | RunExhausted,
-  ): Promise<readonly UsageRecorded[]> {
-    await this.usages.ensure([event.runId]);
+  private async record(runId: RunId): Promise<void> {
+    const [facts] = await this.facts.of([runId]);
+    const read = facts?.ended ? await this.usages.readingsOf(runId) : null;
 
-    const searchId = event.subject?.searchId;
-
-    if (searchId) {
-      const usage = (await this.written.forRuns([event.runId])).get(
-        event.runId.value,
-      );
-      const spend = agentSpendOf(await this.spends.spendOf(event.runId));
-
-      return [
-        new SearchRunUsageRecorded(
-          event.runId,
-          event.workspaceId,
-          searchId,
-          usage?.ms ?? null,
-          usage?.steps ?? 0,
-          spend.spentCosts,
-          spend.unpricedCalls,
-          usage?.tokens ?? Tokens.UNREPORTED,
-        ),
-      ];
+    if (!facts || !read) {
+      return;
     }
 
-    const replayOf = event.subject?.replayOf;
-
-    if (replayOf) {
-      const usage = (await this.written.forRuns([event.runId])).get(
-        event.runId.value,
-      );
-
-      return [
-        new ReplayRunUsageRecorded(
-          event.runId,
-          event.workspaceId,
-          replayOf,
-          usage?.ms ?? null,
-          usage?.steps ?? 0,
-          usage?.changedLines ?? null,
-          usage?.cost ?? null,
-          usage?.tokens ?? Tokens.UNREPORTED,
-        ),
-      ];
-    }
-
-    const usage = (await this.written.forRuns([event.runId])).get(
-      event.runId.value,
+    await this.usages.record(
+      RecordedRunUsage.of({
+        run: {
+          id: facts.runId,
+          workspaceId: facts.workspaceId,
+          requester: RunRequester.of({ ...facts.requester, team: facts.team }),
+          listed: facts.policy.listed,
+          attempt: read.attempt,
+        },
+        readings: read.readings,
+        skillHomes: this.launch.skillHomes(),
+      }),
     );
-    const tools = usage ? await this.tools.toolsFor(event.runId) : null;
-
-    return usage
-      ? [
-          new RunUsageRecorded(
-            event.runId,
-            event.workspaceId,
-            event.taskId,
-            usage.ms,
-            usage.steps,
-            usage.errors,
-            usage.changedLines,
-            usage.contextTokens,
-            usage.contextWindow,
-            usage.cost,
-            usage.tokens,
-            tools ?? ToolUse.NONE,
-          ),
-        ]
-      : [];
   }
 }

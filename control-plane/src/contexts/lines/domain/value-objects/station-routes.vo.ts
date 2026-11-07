@@ -17,10 +17,6 @@ export class StationRoutes {
     return new StationRoutes([], false);
   }
 
-  routesTo(stationId: StationId): boolean {
-    return this.stations.some((each) => each.equals(stationId));
-  }
-
   equals(other: StationRoutes): boolean {
     return (
       this.ends === other.ends &&

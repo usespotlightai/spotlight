@@ -1,3 +1,4 @@
+import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { LineDto } from '@lines/application/dto/line.dto';
 import { LineMapper } from '@lines/application/mappers/line.mapper';
 import type { LineReaderPort } from '@lines/application/ports/line-reader.port';
@@ -10,16 +11,25 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 export class ListLinesHandler
   implements QueryHandlerPort<ListLinesQuery, LineDto[] | null>
 {
-  constructor(private readonly lines: LineReaderPort) {}
+  constructor(
+    private readonly access: WorkspaceAccessPort,
+    private readonly lines: LineReaderPort,
+  ) {}
 
   async execute(query: ListLinesQuery): Promise<LineDto[] | null> {
     try {
-      const found = await this.lines.listForTeamMember(
-        TeamId.of(query.teamId),
-        UserId.of(query.viewerId),
-      );
+      const teamId = TeamId.of(query.teamId);
 
-      return found ? found.map(LineMapper.detailToDto) : null;
+      if (
+        !(await this.access.inWorkspaceOfTeam(
+          teamId,
+          UserId.of(query.viewerId),
+        ))
+      ) {
+        return null;
+      }
+
+      return (await this.lines.ofTeam(teamId)).map(LineMapper.detailToDto);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

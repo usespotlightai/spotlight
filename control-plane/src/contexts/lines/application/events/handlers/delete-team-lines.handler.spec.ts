@@ -1,5 +1,5 @@
 import { DeleteTeamLines } from '@lines/application/events/handlers/delete-team-lines.handler';
-import type { StationHoldersPort } from '@lines/application/ports/station-holders.port';
+import type { StationDeletionGuardPort } from '@lines/application/ports/station-deletion-guard.port';
 import { ApplyLines } from '@lines/application/services/apply-lines.service';
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import type { LineRepository } from '@lines/domain/repositories/line.repository';
@@ -53,10 +53,9 @@ const deleting = (tasks: number) => {
     new ApplyLines(
       lines,
       {
-        hold: vi.fn(async () => undefined),
         lockedTaskCountsAt: vi.fn(tally),
         release: vi.fn(async () => 'released' as const),
-      } satisfies StationHoldersPort,
+      } satisfies StationDeletionGuardPort,
       { generate: () => 'id' },
     ),
     { inTransaction: (work) => work() },

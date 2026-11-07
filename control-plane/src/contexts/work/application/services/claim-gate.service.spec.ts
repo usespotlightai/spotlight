@@ -1,7 +1,6 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   BeforeHookEvent,
@@ -14,31 +13,27 @@ import type {
 import { ClaimGate } from '@work/application/services/claim-gate.service';
 import { TaskRunStartGate } from '@work/application/services/task-run-start-gate.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
 const RUNNER = RunnerId.of('runner_1');
 const REASON = 'The hook core/freeze denied the run: deploys are frozen.';
 
-const claimed = (
-  subject = RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(0)),
-) =>
+const claimed = (ordering = orderedFor.task('task_1', 0)) =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject,
+    ...ordering,
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task:station' },
+      resume: {},
     }),
   }).claim(RUNNER, NOW);
 
@@ -153,7 +148,7 @@ describe('ClaimGate', () => {
 
     expect(
       await hooks.mayStart(
-        claimed(RunSubject.chat(ChatId.of('chat_1'))),
+        claimed(orderedFor.chat('chat_1')),
         RUNNER,
         POLL_UNTIL,
       ),

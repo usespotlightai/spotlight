@@ -1,19 +1,32 @@
-import type {
-  ArchiveFacts,
-  ArchiveRemovalCutoffs,
-} from '@work/domain/aggregates/workspace-archive.aggregate';
+import type { ArchiveRemovalCutoffs } from '@work/domain/aggregates/workspace-archive.aggregate';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import type { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 
 export const ARCHIVE_REFERENCES = Symbol('ARCHIVE_REFERENCES');
 
+export interface ArchiveCursor {
+  readonly grantedAt: Date;
+  readonly id: WorkspaceArchiveId;
+}
+
 export interface ArchiveDue {
   readonly id: WorkspaceArchiveId;
-  readonly facts: ArchiveFacts;
+  readonly workspaceKey: WorkspaceKey;
+  readonly grantedAt: Date;
+  readonly supersededAt: Date | null;
+  readonly lastStartedFromAt: Date | null;
+  readonly pinned: boolean;
+}
+
+export interface ArchivesDue {
+  readonly due: readonly ArchiveDue[];
+  readonly next: ArchiveCursor | null;
 }
 
 export interface ArchiveReferencesPort {
   due(
     cutoffs: ArchiveRemovalCutoffs,
+    after: ArchiveCursor | null,
     limit: number,
-  ): Promise<readonly ArchiveDue[]>;
+  ): Promise<ArchivesDue>;
 }

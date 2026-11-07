@@ -1,4 +1,3 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -18,14 +17,13 @@ import { SendMessageHandler } from '@work/application/commands/handlers/send-mes
 import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { LiveTaskDraftsPort } from '@work/application/ports/live-task-drafts.port';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
-import { RunFacts } from '@work/application/services/run-facts.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
-import { Run } from '@work/domain/aggregates/run.aggregate';
+import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import {
@@ -33,8 +31,6 @@ import {
   routesOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -78,21 +74,8 @@ const line = lineMapOf({
   ],
 });
 
-const run = Run.enqueue({
-  id: RUN,
-  workspaceId: WorkspaceId.of('ws_1'),
-  harness: HarnessId.of('dev'),
-  spec: RunSpec.of({
-    command: { executable: 'sh', args: [] },
-    briefing: 'Review the change.',
-    handover: { options: ['done'], noteLimit: 0 },
-    resume: { key: `task_1:${REVIEW.value}` },
-  }),
-  subject: RunSubject.task(TaskId.of('task_1'), REVIEW, TaskRevision.of(0)),
-});
-
 const stationNote = (body: string) => ({
-  station: null,
+  line: null,
   body: TaskNoteBody.of(body),
   at: NOW,
   voice: Voice.station(RUN),
@@ -117,7 +100,7 @@ const paused = () =>
 
 const interrupted = () =>
   handed().interrupt({
-    station: null,
+    line: null,
     body: TaskNoteBody.of(
       'The pull request was merged while Code Review was working. Close the task, or reply to carry on.',
     ),
@@ -126,6 +109,7 @@ const interrupted = () =>
   });
 
 const OUTSIDER = 'outsider';
+const BYSTANDER = 'bystander';
 
 let saved: Task | undefined;
 let typed: string[];
@@ -139,9 +123,10 @@ const sendMessage = (
   runnerFor: string | null = 'run_2',
   shared: { coAuthors?: string[]; draftGeneration?: number | null } = {},
 ) => {
-  const access = {
-    mayView: async (viewer: UserId) => viewer.value !== OUTSIDER,
-  } as unknown as WorkspaceAccessPort;
+  const access = workAccessSeeing(
+    (_teamId, viewer) => viewer.value !== OUTSIDER,
+    { onTeam: (_teamId, viewer) => viewer.value !== BYSTANDER },
+  );
   const live: LiveTaskDraftsPort = {
     writers: async () => typed.map(UserId.of),
     sent: async (_taskId, next) => {
@@ -157,9 +142,17 @@ const sendMessage = (
   };
 
   return new SendMessageHandler(
-    new RunFacts({
-      findById: vi.fn(async () => run),
-    } as unknown as RunRepository),
+    {
+      find: vi.fn(async () => ({
+        workspaceId: WorkspaceId.of('ws_1'),
+        subject: {
+          kind: 'task',
+          taskId: TaskId.of('task_1'),
+          revision: TaskRevision.of(0),
+          stationId: REVIEW,
+        },
+      })),
+    } as unknown as DispatchRepository,
     {
       find: vi.fn(async () => task),
       save: vi.fn(async (each: Task) => {
@@ -192,7 +185,7 @@ const sendMessage = (
 
 beforeEach(() => {
   saved = undefined;
-  typed = ['teammate', OUTSIDER];
+  typed = ['teammate', OUTSIDER, BYSTANDER];
   dispatched.length = 0;
   announced.length = 0;
 });
@@ -286,6 +279,14 @@ describe('SendMessageHandler', () => {
     expect(dispatched).toEqual([]);
   });
 
+  it('refuses a workspace member who sees the team but is not on it, starting nothing', async () => {
+    await expect(
+      sendMessage(finished(), 'Rename it.', BYSTANDER),
+    ).rejects.toMatchObject({ kind: 'not-allowed' });
+    expect(saved).toBeUndefined();
+    expect(dispatched).toEqual([]);
+  });
+
   it('names the people who wrote the shared draft with the sender', async () => {
     await sendMessage(finished(), 'Rename it.', OWNER.value, 'run_2', {
       coAuthors: ['teammate', OWNER.value],
@@ -310,6 +311,15 @@ describe('SendMessageHandler', () => {
     await expect(
       sendMessage(finished(), 'Rename it.', OWNER.value, 'run_2', {
         coAuthors: [OUTSIDER],
+      }),
+    ).rejects.toMatchObject({ kind: 'invalid' });
+    expect(saved).toBeUndefined();
+  });
+
+  it('rejects a co-author who is not on the team', async () => {
+    await expect(
+      sendMessage(finished(), 'Rename it.', OWNER.value, 'run_2', {
+        coAuthors: [BYSTANDER],
       }),
     ).rejects.toMatchObject({ kind: 'invalid' });
     expect(saved).toBeUndefined();

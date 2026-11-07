@@ -160,7 +160,7 @@ describe('sandbox editors (e2e)', () => {
       }
     }
     await eventually(async () => {
-      const left = await sandboxOf(`task-${taskId()}`);
+      const left = await sandboxOf(`work/task-${taskId()}`);
       return !left || left.leases.length === 0 ? true : null;
     }, 10_000);
     await db
@@ -182,7 +182,7 @@ describe('sandbox editors (e2e)', () => {
     await asking({ workspace: team.slug }).expect(400);
     await asking({ task: taskId(), chat: randomUUID() }).expect(400);
     await asking({ task: taskId(), workspace: `not-${team.slug}` }).expect(404);
-    expect(await sandboxOf(`task-${taskId()}`)).toBeNull();
+    expect(await sandboxOf(`work/task-${taskId()}`)).toBeNull();
   });
 
   it('refuses a socket with no session, another site’s page, no lease, an unknown lease, and a second socket on one lease', async () => {
@@ -209,7 +209,7 @@ describe('sandbox editors (e2e)', () => {
 
     first.close();
     await eventually(async () => {
-      const found = await sandboxOf(`task-${taskId()}`);
+      const found = await sandboxOf(`work/task-${taskId()}`);
       return found?.leases.length === 0 ? true : null;
     });
     expect(await refusal(editor(ticket))).toBe(404);
@@ -225,7 +225,7 @@ describe('sandbox editors (e2e)', () => {
     await opening(cli);
 
     const held = await eventually(async () => {
-      const found = await sandboxOf(`task-${taskId()}`);
+      const found = await sandboxOf(`work/task-${taskId()}`);
       return found?.leases.length === 2 ? found : null;
     });
     expect(held).toMatchObject({ hostId: null, state: 'open' });
@@ -234,7 +234,7 @@ describe('sandbox editors (e2e)', () => {
     cookie.close();
     cli.close();
     await eventually(async () => {
-      const found = await sandboxOf(`task-${taskId()}`);
+      const found = await sandboxOf(`work/task-${taskId()}`);
       return found?.leases.length === 0 ? true : null;
     });
   });
@@ -300,7 +300,7 @@ describe('sandbox editors (e2e)', () => {
 
     expect(answer).toMatch(/^HTTP\/1\.1 400/);
     await eventually(async () => {
-      const found = await sandboxOf(`task-${taskId()}`);
+      const found = await sandboxOf(`work/task-${taskId()}`);
       return found && found.leases.length === 0 ? true : null;
     });
   });

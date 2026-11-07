@@ -16,7 +16,7 @@ export class Lines implements LinesPort {
   constructor(private readonly lines: LinesViewPort) {}
 
   async ofTeam(teamId: TeamId): Promise<readonly TeamLine[]> {
-    return (await this.lines.ofTeam(teamId.value)).map((line) => ({
+    return (await this.lines.ofTeam(teamId)).map((line) => ({
       id: LineId.of(line.id),
       name: line.name,
       stations: line.stations

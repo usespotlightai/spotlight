@@ -65,6 +65,7 @@ const createInboxRequest = async (
     form,
     about: RUN,
     createdAt: new Date(),
+    openedAt: new Date(),
   });
 
   return requestId;
@@ -273,6 +274,7 @@ describe('who is told which memories a run used on a deleted team’s line', () 
       form: 'memories',
       about: RUN,
       createdAt: new Date(),
+      openedAt: new Date(),
     });
     await db.delete(schema.team).where(eq(schema.team.id, teamId));
   });

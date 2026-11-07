@@ -25,18 +25,16 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { InvalidRunOrderError } from '@work/domain/exceptions/invalid-run-order.error';
 import { RunAlreadyExistsError } from '@work/domain/exceptions/run-already-exists.error';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ClaimOrder } from '@work/domain/services/claim-order';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
-import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type {
   Claimant,
   SandboxRouting,
@@ -45,24 +43,32 @@ import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
-import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import { RunApiGrant } from '@work/domain/value-objects/run-api-grant.vo';
+import { RunExtensions } from '@work/domain/value-objects/run-extensions.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
+import { RunPolicy } from '@work/domain/value-objects/run-policy.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
+import {
+  type RequesterOwner,
+  RunRequester,
+} from '@work/domain/value-objects/run-requester.vo';
 import {
   LEASED_RUN_STATES,
   type RunState,
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { RunTags } from '@work/domain/value-objects/run-tags.vo';
 import {
   RunTurn,
   type RunTurnState,
 } from '@work/domain/value-objects/run-turn.vo';
-import { SearchId } from '@work/domain/value-objects/search-id.vo';
-import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
 import { StartingPoint } from '@work/domain/value-objects/starting-point.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
+import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import {
+  RunWorkspace,
+  WorkspaceKey,
+} from '@work/domain/value-objects/workspace-key.vo';
 import { placementMatches } from '@work/infrastructure/persistence/drizzle/placement-matches';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
@@ -72,7 +78,6 @@ import {
   eq,
   gt,
   inArray,
-  isNotNull,
   isNull,
   lt,
   lte,
@@ -84,17 +89,20 @@ import {
 const injectsNoSecrets = sql`coalesce(jsonb_array_length(${run.spec} -> 'injectedSecrets'), 0) = 0
   AND coalesce((${run.spec} ->> 'spotlightApi')::boolean, false) = false`;
 
-const noEarlierRunStillLeased = sql`NOT EXISTS (
+const noEarlierRunStillLeased = sql`(NOT ${run.exclusive} OR NOT EXISTS (
   SELECT 1 FROM ${run} AS earlier
-  WHERE (earlier.task_id = ${run.taskId} OR earlier.chat_id = ${run.chatId})
+  WHERE earlier.requester_owner = ${run.requesterOwner}
+    AND earlier.requester_kind = ${run.requesterKind}
+    AND earlier.requester_id = ${run.requesterId}
+    AND earlier.exclusive
     AND earlier.id <> ${run.id}
     AND earlier.state IN (${sql.join(
       LEASED_RUN_STATES.map((each) => sql`${each}`),
       sql`, `,
     )})
-)`;
+))`;
 
-const resumeKeyOf = sql`coalesce(${run.spec} -> 'resume' ->> 'key', '')`;
+const keyOf = sql`coalesce(${run.workspaceKey}, '')`;
 
 const routedBy = (routing: SandboxRouting | undefined): SQL => {
   if (!routing) {
@@ -102,31 +110,18 @@ const routedBy = (routing: SandboxRouting | undefined): SQL => {
   }
 
   if ('into' in routing) {
-    return sql`${resumeKeyOf} = ${routing.into.value}`;
+    return sql`${keyOf} = ${routing.into.value}`;
   }
 
   return routing.avoiding.length === 0
     ? sql`true`
-    : sql`${resumeKeyOf} NOT IN (${sql.join(
+    : sql`${keyOf} NOT IN (${sql.join(
         routing.avoiding.map((each) => sql`${each.value}`),
         sql`, `,
       )})`;
 };
 
 type Row = typeof run.$inferSelect;
-
-const kindOf = (claimed: Run): string => {
-  if (claimed.replayOf) {
-    return 'replay';
-  }
-  if (claimed.subject?.searchId) {
-    return 'search';
-  }
-  if (claimed.chatId) {
-    return 'chat';
-  }
-  return claimed.taskId ? 'task' : 'other';
-};
 
 interface Selected {
   readonly run: Row;
@@ -156,19 +151,10 @@ export class DrizzleRunRepository implements RunRepository {
           workspaceId: added.workspaceId.value,
           harness: added.harness.value,
           priority: added.priority.value,
-          taskId: added.taskId?.value ?? null,
-          stationId: added.stationId?.value ?? null,
-          chatId: added.chatId?.value ?? null,
-          replayOfRunId: added.replayOf?.value ?? null,
-          replayedTaskId: added.subject?.replayedTaskId?.value ?? null,
-          ranForTeamId: added.ranFor?.value ?? null,
-          teamId: added.team?.value ?? null,
+          ...orderedOf(added),
           orderFingerprint: added.orderFingerprint,
-          searchId: added.subject?.searchId?.value ?? null,
-          searchIteration: added.subject?.iteration?.value ?? null,
-          taskRevision: added.subject?.revision?.value ?? null,
           state: added.state,
-          spec: RunSpecContract.toWire(added.spec),
+          spec: added.spec.value,
           exitCode: added.outcome?.exitCode ?? null,
           message: added.outcome?.message ?? null,
           failure: added.outcome?.failure?.code ?? null,
@@ -177,6 +163,7 @@ export class DrizzleRunRepository implements RunRepository {
           placementImage: added.placement.image?.value ?? null,
           endedAt: endedAtFor(added.state, sql`now()`),
           askedAPerson: added.askedAPerson,
+          ...(added.queuedAt ? { queuedAt: added.queuedAt } : {}),
           traceparent: activeTraceparent(),
           ...startOf(added),
           ...reservationOf(added),
@@ -237,7 +224,7 @@ export class DrizzleRunRepository implements RunRepository {
         this.telemetry.measure(
           'spotlight.runs.claim_wait_seconds',
           Math.max(0, Number(row?.waited ?? 0)),
-          { 'spotlight.run.kind': kindOf(claimed) },
+          { 'spotlight.run.kind': claimed.requester.kind },
         );
       });
 
@@ -251,13 +238,13 @@ export class DrizzleRunRepository implements RunRepository {
 
   async newestWithKey(
     workspaceId: WorkspaceId,
-    key: ResumeKey,
+    key: WorkspaceKey,
   ): Promise<Run | null> {
     const [row] = await this.selected()
       .where(
         and(
           eq(run.workspaceId, workspaceId.value),
-          sql`${resumeKeyOf} = ${key.value}`,
+          eq(run.workspaceKey, key.value),
         ),
       )
       .orderBy(desc(run.createdAt), desc(run.id))
@@ -268,13 +255,13 @@ export class DrizzleRunRepository implements RunRepository {
 
   async queuedWithKey(
     workspaceId: WorkspaceId,
-    key: ResumeKey,
+    key: WorkspaceKey,
   ): Promise<readonly Run[]> {
     const rows = await this.selected().where(
       and(
         eq(run.workspaceId, workspaceId.value),
         eq(run.state, 'queued'),
-        sql`${resumeKeyOf} = ${key.value}`,
+        eq(run.workspaceKey, key.value),
       ),
     );
 
@@ -314,7 +301,7 @@ export class DrizzleRunRepository implements RunRepository {
           saved.state,
           saved.endedAt ?? sql`coalesce(${run.endedAt}, now())`,
         ),
-        spec: RunSpecContract.toWire(saved.spec),
+        spec: saved.spec.value,
         suspendedAttempts: [...saved.suspendedAttempts],
         askedAPerson: saved.askedAPerson,
         ...turnOf(saved),
@@ -345,7 +332,8 @@ export class DrizzleRunRepository implements RunRepository {
     return rows.map(toRun);
   }
 
-  async turnsOfTasksSuspendedBefore(
+  async turnsSuspendedBefore(
+    owner: RequesterOwner,
     turn: RunTurnState,
     before: Date,
     after: { readonly suspendedAt: Date; readonly id: RunId } | null,
@@ -355,7 +343,7 @@ export class DrizzleRunRepository implements RunRepository {
       .where(
         and(
           eq(run.turn, turn),
-          isNotNull(run.taskId),
+          eq(run.requesterOwner, owner.value),
           lt(run.suspendedAt, before),
           after
             ? or(
@@ -389,7 +377,7 @@ export class DrizzleRunRepository implements RunRepository {
       readonly skip: number;
       readonly max: number;
       readonly withSecrets: boolean;
-      readonly avoiding: readonly ResumeKey[];
+      readonly avoiding: readonly WorkspaceKey[];
     },
   ): Promise<readonly Run[]> {
     const rows = await this.selected()
@@ -431,6 +419,66 @@ export class DrizzleRunRepository implements RunRepository {
     return rows.map(toRun);
   }
 }
+
+const orderedOf = (added: Run) => {
+  const { requester, policy, workspace } = added;
+
+  return {
+    requesterOwner: requester.owner.value,
+    requesterKind: requester.kind,
+    requesterId: requester.id,
+    requesterToken: requester.token,
+    teamId: requester.team?.value ?? null,
+    ...policy.parts,
+    workspaceKey: workspace?.key.value ?? null,
+    workspaceRejoinable: workspace?.rejoinable ?? null,
+    workspaceRestores: workspace?.restores ?? null,
+    restoreArchiveId: added.restore?.value ?? null,
+    extensions: added.extensions.value,
+    tags: added.tags.value,
+    apiGrant: added.apiGrant?.parts ?? null,
+  };
+};
+
+const storedAs = <T>(id: string, read: () => T): T => {
+  try {
+    return read();
+  } catch (error) {
+    if (error instanceof InvalidRunOrderError) {
+      throw new InconsistentStateError(
+        'run',
+        `has an order that no longer reads: ${error.message} (${id})`,
+      );
+    }
+
+    throw error;
+  }
+};
+
+const apiGrantFrom = (row: Row): RunApiGrant | null => {
+  const grant = row.apiGrant;
+
+  return grant ? storedAs(row.id, () => RunApiGrant.of(grant)) : null;
+};
+
+const workspaceFrom = (row: Row): RunWorkspace | null => {
+  if (row.workspaceKey === null) {
+    return null;
+  }
+
+  if (row.workspaceRejoinable === null || row.workspaceRestores === null) {
+    throw new InconsistentStateError(
+      'run',
+      `names a workspace without saying how it is used (${row.id})`,
+    );
+  }
+
+  return RunWorkspace.of({
+    key: WorkspaceKey.parse(row.workspaceKey),
+    rejoinable: row.workspaceRejoinable,
+    restores: row.workspaceRestores,
+  });
+};
 
 const startOf = (saving: Run) => ({
   startedFromArchiveId: saving.startedFrom?.archive?.value ?? null,
@@ -560,21 +608,28 @@ const toRun = ({ run: row }: Selected): Run =>
     workspaceId: WorkspaceId.of(row.workspaceId),
     harness: HarnessId.of(row.harness),
     priority: RunPriority.of(row.priority),
-    subject: RunSubject.rehydrate({
-      taskId: row.taskId ? TaskId.of(row.taskId) : null,
-      stationId: row.stationId ? StationId.of(row.stationId) : null,
-      chatId: row.chatId ? ChatId.of(row.chatId) : null,
-      revision:
-        row.taskRevision === null ? null : TaskRevision.of(row.taskRevision),
-      replayOf: row.replayOfRunId ? RunId.of(row.replayOfRunId) : null,
-      replayedTaskId: row.replayedTaskId ? TaskId.of(row.replayedTaskId) : null,
-      ranFor: row.ranForTeamId ? TeamId.of(row.ranForTeamId) : null,
-      searchId: row.searchId ? SearchId.of(row.searchId) : null,
-      iteration:
-        row.searchIteration === null
-          ? null
-          : SearchIteration.of(row.searchIteration),
+    requester: RunRequester.of({
+      owner: row.requesterOwner,
+      kind: row.requesterKind,
+      id: row.requesterId,
+      token: row.requesterToken,
+      team: row.teamId ? TeamId.of(row.teamId) : null,
     }),
+    policy: RunPolicy.of({
+      holdsTurn: row.holdsTurn,
+      gated: row.gated,
+      actsBeyondItself: row.actsBeyondItself,
+      asks: row.asks,
+      listed: row.listed,
+      exclusive: row.exclusive,
+    }),
+    workspace: workspaceFrom(row),
+    restore: row.restoreArchiveId
+      ? WorkspaceArchiveId.of(row.restoreArchiveId)
+      : null,
+    extensions: storedAs(row.id, () => RunExtensions.of(row.extensions)),
+    tags: storedAs(row.id, () => RunTags.of(row.tags)),
+    apiGrant: apiGrantFrom(row),
     spec: RunSpecContract.from(row.spec),
     placement: RunnerPlacement.ofLabelGroups(
       row.placement,
@@ -606,8 +661,8 @@ const toRun = ({ run: row }: Selected): Run =>
     startedFrom: startFrom(row),
     askedAPerson: row.askedAPerson,
     version: row.version,
-    team: row.teamId ? TeamId.of(row.teamId) : null,
     orderFingerprint: row.orderFingerprint,
     turn: turnFrom(row),
     endedAt: row.endedAt,
+    queuedAt: row.queuedAt,
   });

@@ -11,7 +11,6 @@ import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ClaimRunHandler } from '@work/application/commands/handlers/claim-run.handler';
 import { ClaimRunCommand } from '@work/application/commands/runner.commands';
@@ -26,11 +25,10 @@ import { LongPoll } from '@work/application/services/long-poll';
 import type { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import type { RunLeases } from '@work/application/services/run-leases.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
+import { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-08-31T09:00:00.000Z');
@@ -39,7 +37,7 @@ const spec = RunSpec.of({
   command: { executable: 'claude-agent-acp', args: ['--acp'] },
   briefing: 'work out what the request wants',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  resume: { key: 'task-task_1' },
+  resume: {},
 });
 
 const waiting = (harness = 'claude-code') =>
@@ -47,7 +45,7 @@ const waiting = (harness = 'claude-code') =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of(harness),
-    subject: RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(0)),
+    ...orderedFor.task('task_1', 0),
     spec,
   });
 
@@ -181,7 +179,7 @@ describe('ClaimRunHandler', () => {
       command: { executable: 'claude-agent-acp', args: ['--acp'] },
       briefing: 'work out what the request wants',
       handover: { options: ['Spec'], noteLimit: 4_000 },
-      resume: { key: 'task-task_1' },
+      resume: { key: 'work/task-task_1' },
     });
   });
 
@@ -221,12 +219,12 @@ describe('ClaimRunHandler', () => {
     const claimNext = vi.fn(async () => queued());
 
     await claiming(claimNext, undefined, {
-      liveKeys: ['task-task_1'],
+      liveKeys: ['work/task-task_1'],
     }).execute(new ClaimRunCommand('runner_1'));
 
     expect(claimNext).toHaveBeenCalledWith(
       expect.objectContaining({
-        sandbox: { avoiding: [ResumeKey.of('task-task_1')] },
+        sandbox: { avoiding: [WorkspaceKey.parse('work/task-task_1')] },
       }),
       NOW,
     );

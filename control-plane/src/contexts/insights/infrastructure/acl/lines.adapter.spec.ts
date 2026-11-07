@@ -44,9 +44,9 @@ const linesWith = (lines: readonly LineView[]) => {
     error: () => undefined,
   };
   const port = {
-    findByStation: async (stationId: string) =>
+    findByStation: async (stationId: { value: string }) =>
       lines.find((line) =>
-        line.stations.some((each) => each.id === stationId),
+        line.stations.some((each) => each.id === stationId.value),
       ) ?? null,
     ofTeam: async () => lines,
   } as unknown as LinesPort;

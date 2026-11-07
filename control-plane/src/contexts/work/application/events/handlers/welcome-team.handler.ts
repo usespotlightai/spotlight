@@ -6,8 +6,12 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { LinesNotOpenYetError } from '@work/application/errors/lines-not-open-yet.error';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TeamWelcomesPort } from '@work/application/ports/team-welcomes.port';
-import { listed } from '@work/application/services/setup-steps';
+import { listed } from '@work/application/rendering/setup-steps';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import {
+  type TeamOrigin,
+  welcomes,
+} from '@work/domain/services/team-provisioning';
 import { welcomeTask } from '@work/domain/services/welcome-task';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 
@@ -16,6 +20,7 @@ export const WELCOME_TEAM = 'work.welcome-team';
 export interface NewTeam {
   readonly teamId: TeamId;
   readonly owner: UserId;
+  readonly origin: TeamOrigin;
 }
 
 export class WelcomeTeam {
@@ -28,16 +33,15 @@ export class WelcomeTeam {
   ) {}
 
   async welcome(team: NewTeam): Promise<void> {
-    if (await this.welcomes.welcomed(team.teamId)) {
+    if (!welcomes(team.origin) || (await this.welcomes.welcomed(team.teamId))) {
       return;
     }
 
     const delivery = (await this.lines.ofTeam(team.teamId)).find(
       (each) => each.key.value === WELCOME_LINE_KEY,
     );
-    const first = delivery?.stations[0];
 
-    if (!delivery || !first) {
+    if (!delivery) {
       throw new LinesNotOpenYetError(team.teamId.value);
     }
 
@@ -45,7 +49,6 @@ export class WelcomeTeam {
       welcomeTask({
         line: delivery,
         noteBody: TaskNoteBody.of(listed()),
-        at: first,
         owner: team.owner,
         now: this.clock.now(),
         newId: () => this.ids.generate(),

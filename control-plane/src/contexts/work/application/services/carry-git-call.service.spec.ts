@@ -19,8 +19,16 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { CarryGitCall } from '@work/application/services/carry-git-call.service';
-import { runWorksOver } from '@work/application/services/run-works.fake-spec';
+import {
+  aChatDispatch,
+  aRunFor,
+  aTaskDispatch,
+  dispatchesOf,
+  type RunRequested,
+  runWorksOver,
+} from '@work/application/services/run-works.fake-spec';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
+import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -28,15 +36,14 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 import {
   lineMapOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -110,57 +117,75 @@ const lineWorking = (repositories: readonly string[]): LineMap => {
   return { repositories: { all: repos } } as unknown as LineMap;
 };
 
-const COMMIT = 'c'.repeat(40);
+interface Claimed {
+  readonly run: Run;
+  readonly requested: RunRequested;
+}
 
-const REPLAY = RunSubject.replay(
-  RunId.of('run_0'),
-  TaskId.of('task_1'),
-  StationId.of('station_1'),
-  TeamId.of('team_1'),
-);
+const RUN = RunId.of('run_1');
 
-const specFor = (subject: RunSubject) =>
-  RunSpec.of({
-    command: { executable: 'sh', args: [] },
-    briefing: 'do the thing',
-    handover: { options: [], noteLimit: 4_000 },
-    resume: { key: 'task:station' },
-    ...(subject.isReplay
-      ? {
-          checkouts: [
-            { remote: 'spotlight:repository', path: 'widgets', ref: COMMIT },
-          ],
-          replay: {
-            archive: null,
-            checkouts: [
-              { path: 'widgets', commit: COMMIT, repository: 'acme/widgets' },
-            ],
-            movesOnAfter: [],
-          },
-        }
-      : {}),
-  });
+const enqueued = (requested: RunRequested = 'task'): Claimed => ({
+  run: aRunFor(RUN, 'dev', requested),
+  requested,
+});
 
-const enqueued = (
-  subject: RunSubject = RunSubject.task(
-    TaskId.of('task_1'),
-    StationId.of('station_1'),
-    TaskRevision.of(0),
+const claimedBy = (
+  runner: string,
+  requested: RunRequested = 'task',
+): Claimed => {
+  const { run } = enqueued(requested);
+
+  return { run: run.claim(RunnerId.of(runner), NOW), requested };
+};
+
+const TRIAL = Dispatch.trialOrdered({
+  order: DispatchOrder.of({}),
+  id: RUN,
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: null,
+  subject: {
+    kind: 'trial',
+    basedOn: RunId.of('run_0'),
+    taskId: TaskId.of('task_1'),
+    stationId: StationId.of('station_1'),
+    asOf: NOW,
+    repositories: [{ path: 'widgets', repository: 'acme/widgets' }],
+    followUp: null,
+  },
+  configuredAs: StationConfig.rehydrate(
+    {
+      prompt: null,
+      harness: 'dev',
+      model: null,
+      effort: null,
+      profile: null,
+      image: null,
+      repositories: [],
+      skills: [],
+      tools: [],
+      decisions: false,
+      memories: false,
+    },
+    'f'.repeat(64),
   ),
-) =>
-  Run.enqueue({
-    id: RunId.of('run_1'),
-    workspaceId: WorkspaceId.of('ws_1'),
-    harness: HarnessId.of('dev'),
-    subject,
-    spec: specFor(subject),
-  });
+  now: NOW,
+});
 
-const claimedBy = (runner: string, subject?: RunSubject) =>
-  enqueued(subject).claim(RunnerId.of(runner), NOW);
+const dispatchOf = (requested: RunRequested) => {
+  switch (requested) {
+    case 'task':
+      return aTaskDispatch(RUN, TaskId.of('task_1'), StationId.of('station_1'));
+    case 'chat':
+      return aChatDispatch(RUN, ChatId.of('chat_1'));
+    case 'trial':
+      return TRIAL;
+    default:
+      return null;
+  }
+};
 
 const carrying = (
-  run: Run | null,
+  claimed: Claimed | null,
   existing: Task | null,
   repositories: readonly string[] = ['acme/widgets'],
   checking = false,
@@ -171,13 +196,19 @@ const carrying = (
 
   const service = new CarryGitCall(
     runWorksOver(
-      { findById: vi.fn(async () => run) } as unknown as RunRepository,
+      {
+        findById: vi.fn(async () => claimed?.run ?? null),
+      } as unknown as RunRepository,
       { find: vi.fn(async () => existing) } as unknown as TaskRepository,
       { find: vi.fn(async () => chat()) } as unknown as ChatRepository,
       {
         findByStation: vi.fn(async () => lineWorking(repositories)),
       } as unknown as LineMapsPort,
-      { of: async () => null },
+      dispatchesOf(
+        ...[claimed && dispatchOf(claimed.requested)].filter(
+          (each): each is Dispatch => Boolean(each),
+        ),
+      ),
       { now: () => new Date(), sleep: async () => {} },
     ),
     {
@@ -211,10 +242,7 @@ describe('CarryGitCall', () => {
   });
 
   it('carries a chat’s call to a repository of the chat', async () => {
-    const { service, git } = carrying(
-      claimedBy('runner_1', RunSubject.chat(ChatId.of('chat_1'))),
-      null,
-    );
+    const { service, git } = carrying(claimedBy('runner_1', 'chat'), null);
 
     await service.carry(
       'run_1',
@@ -232,10 +260,7 @@ describe('CarryGitCall', () => {
   });
 
   it('carries no push from a chat that sets nothing up', async () => {
-    const { service, git } = carrying(
-      claimedBy('runner_1', RunSubject.chat(ChatId.of('chat_1'))),
-      null,
-    );
+    const { service, git } = carrying(claimedBy('runner_1', 'chat'), null);
 
     await expect(
       service.carry('run_1', 'runner_1', 'planning', 'git-receive-pack', call),
@@ -289,7 +314,7 @@ describe('CarryGitCall', () => {
 
   describe('a replay', () => {
     it('fetches the repositories it checks out', async () => {
-      const { service, git } = carrying(claimedBy('runner_1', REPLAY), null);
+      const { service, git } = carrying(claimedBy('runner_1', 'trial'), null);
 
       await service.carry(
         'run_1',
@@ -307,7 +332,7 @@ describe('CarryGitCall', () => {
     });
 
     it('is never let near a push', async () => {
-      const { service, git } = carrying(claimedBy('runner_1', REPLAY), null);
+      const { service, git } = carrying(claimedBy('runner_1', 'trial'), null);
 
       await expect(
         service.carry('run_1', 'runner_1', 'widgets', 'git-receive-pack', call),
@@ -316,7 +341,7 @@ describe('CarryGitCall', () => {
     });
 
     it('allows no repository it does not check out', async () => {
-      const { service, git } = carrying(claimedBy('runner_1', REPLAY), null, [
+      const { service, git } = carrying(claimedBy('runner_1', 'trial'), null, [
         'acme/widgets',
         'acme/gadgets',
       ]);
@@ -403,7 +428,7 @@ describe('CarryGitCall', () => {
   describe('a runner that leases a check of a replay', () => {
     it('reads the repository the replay checked out, though its line no longer works it', async () => {
       const { service, git } = carrying(
-        claimedBy('runner_1', REPLAY),
+        claimedBy('runner_1', 'trial'),
         null,
         [],
         true,
@@ -426,7 +451,7 @@ describe('CarryGitCall', () => {
 
     it('is never let near a push', async () => {
       const { service, git } = carrying(
-        claimedBy('runner_1', REPLAY),
+        claimedBy('runner_1', 'trial'),
         null,
         undefined,
         true,
@@ -440,7 +465,7 @@ describe('CarryGitCall', () => {
 
     it('allows no repository the replay did not check out', async () => {
       const { service, git } = carrying(
-        claimedBy('runner_1', REPLAY),
+        claimedBy('runner_1', 'trial'),
         null,
         ['acme/widgets', 'acme/gadgets'],
         true,

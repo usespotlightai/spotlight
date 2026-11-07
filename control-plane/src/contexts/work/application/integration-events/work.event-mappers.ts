@@ -11,13 +11,10 @@ import {
   type PullRequestReviewTakenIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-review-taken.integration-event';
 import {
-  REPLAY_ENDED,
-  type ReplayEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-ended.integration-event';
-import {
-  REPLAY_RUN_USAGE_RECORDED,
-  type ReplayRunUsageRecordedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-run-usage-recorded.integration-event';
+  REQUESTED_RUN_ENDED,
+  type RequestedRunEndedIntegrationEvent,
+  type RequestedRunEnding,
+} from '@shared-kernel/application/integration-events/requested-run-ended.integration-event';
 import {
   RUN_BRIEFED,
   type RunBriefedIntegrationEvent,
@@ -35,14 +32,6 @@ import {
   RUN_USAGE_RECORDED,
   type RunUsageRecordedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/run-usage-recorded.integration-event';
-import {
-  SEARCH_RUN_ENDED,
-  type SearchRunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/search-run-ended.integration-event';
-import {
-  SEARCH_RUN_USAGE_RECORDED,
-  type SearchRunUsageRecordedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/search-run-usage-recorded.integration-event';
 import {
   TASK_ACTED_ON,
   type TaskActedOnIntegrationEvent,
@@ -76,18 +65,17 @@ import {
   type TaskPassedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-passed.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { DispatchBriefed } from '@work/domain/events/dispatch-briefed.event';
 import type { DispatchEnded } from '@work/domain/events/dispatch-ended.event';
 import type { DispatchSuperseded } from '@work/domain/events/dispatch-superseded.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
-import type { ReplayRunUsageRecorded } from '@work/domain/events/replay-run-usage-recorded.event';
 import type { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
-import type { SearchRunUsageRecorded } from '@work/domain/events/search-run-usage-recorded.event';
 import type { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
@@ -99,60 +87,42 @@ import type { TaskPassed } from '@work/domain/events/task-passed.event';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
 
 interface Ending {
+  readonly ending: RequestedRunEnding;
+  readonly outcome: RunEnding;
   readonly failure: string | null;
   readonly stopped: boolean;
-  readonly asked: boolean;
+  readonly handsOver: boolean;
   readonly handover: Handover | null;
 }
 
-const PLAIN_ENDING: Ending = {
-  failure: null,
-  stopped: false,
-  asked: false,
-  handover: null,
-};
-
-type RunTrialEnded =
-  | ReplayEndedIntegrationEvent
-  | SearchRunEndedIntegrationEvent;
-
-const ended = (
+const requestedRunEnded = (
   event: RunCompleted | RunExhausted | RunCancelled,
   at: Date,
-  outcome: RunEnding,
-  ending: Ending = PLAIN_ENDING,
-): RunTrialEnded | null =>
-  event.subject?.match<RunTrialEnded | null>({
-    task: () => null,
-    chat: () => null,
-    replay: (original) => ({
-      kind: REPLAY_ENDED,
-      runId: event.runId.value,
-      replayOf: original.value,
-      workspaceId: event.workspaceId.value,
-      outcome,
-      failure: ending.failure,
-      stopped: ending.stopped,
-      asked: ending.asked,
-      next: ending.handover?.next || null,
-      note: ending.handover?.note || null,
-    }),
-    search: (searchId, iteration, stationId, teamId) => ({
-      kind: SEARCH_RUN_ENDED,
-      runId: event.runId.value,
-      searchId: searchId.value,
-      iteration: iteration.value,
-      workspaceId: event.workspaceId.value,
-      teamId: teamId.value,
-      stationId: stationId?.value ?? null,
-      outcome,
-      failure: ending.failure,
-      asked: ending.asked,
-      stopped: ending.stopped,
-      started: event.started,
-      endedAt: at.toISOString(),
-    }),
-  }) ?? null;
+  ending: Ending,
+): RequestedRunEndedIntegrationEvent | null =>
+  event.requester.owner.value === WorkRequesters.owner
+    ? null
+    : {
+        kind: REQUESTED_RUN_ENDED,
+        runId: event.runId.value,
+        workspaceId: event.workspaceId.value,
+        requester: event.requester.parts,
+        attempt: event.attempt,
+        ending: ending.ending,
+        outcome: ending.outcome,
+        failure: ending.failure,
+        stopped: ending.stopped,
+        started: event.started,
+        askedAPerson: event.asked,
+        handsOver: ending.handsOver,
+        report: ending.handover
+          ? {
+              next: ending.handover.next || null,
+              note: ending.handover.note || null,
+            }
+          : null,
+        endedAt: at.toISOString(),
+      };
 
 export const WORK_EVENT_MAPPERS = [
   mapping<DispatchBriefed>(
@@ -182,6 +152,7 @@ export const WORK_EVENT_MAPPERS = [
       kind: PULL_REQUEST_REVIEW_TAKEN,
       taskId: event.taskId.value,
       workspaceId: event.workspaceId.value,
+      teamId: event.teamId.value,
       url: event.url.value,
     }),
   ),
@@ -221,30 +192,39 @@ export const WORK_EVENT_MAPPERS = [
       kind: TASK_MOVED,
       taskId: event.taskId.value,
       workspaceId: event.workspaceId.value,
-      from: event.from.value,
-      to: event.to.value,
+      from: event.from.key.value,
+      to: event.to.key.value,
       at: event.at.toISOString(),
     }),
   ),
   mapping<RunCompleted>('run.completed', (event, at) =>
-    ended(event, at, event.outcome.failed ? 'failed' : 'completed', {
+    requestedRunEnded(event, at, {
+      ending: 'completed',
+      outcome: event.outcome.failed ? 'failed' : 'completed',
       failure: event.outcome.failure?.code ?? null,
       stopped: event.outcome.stopped,
-      asked: event.asked === true,
+      handsOver: event.outcome.handsOver,
       handover: event.handover,
     }),
   ),
   mapping<RunExhausted>('run.exhausted', (event, at) =>
-    ended(event, at, 'exhausted', {
-      ...PLAIN_ENDING,
+    requestedRunEnded(event, at, {
+      ending: 'exhausted',
+      outcome: 'exhausted',
       failure: event.failure,
-      asked: event.asked === true,
+      stopped: false,
+      handsOver: false,
+      handover: null,
     }),
   ),
   mapping<RunCancelled>('run.cancelled', (event, at) =>
-    ended(event, at, 'cancelled', {
-      ...PLAIN_ENDING,
-      asked: event.asked === true,
+    requestedRunEnded(event, at, {
+      ending: 'cancelled',
+      outcome: 'cancelled',
+      failure: null,
+      stopped: false,
+      handsOver: false,
+      handover: null,
     }),
   ),
   mapping<DispatchEnded>(
@@ -291,7 +271,14 @@ export const WORK_EVENT_MAPPERS = [
       kind: RUN_USAGE_RECORDED,
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
-      taskId: event.taskId?.value ?? null,
+      requester: {
+        owner: event.requester.owner.value,
+        kind: event.requester.kind,
+        id: event.requester.id,
+        token: event.requester.token,
+        team: event.requester.team?.value ?? null,
+      },
+      listed: event.listed,
       ms: event.ms,
       steps: event.steps,
       errors: event.errors,
@@ -300,6 +287,11 @@ export const WORK_EVENT_MAPPERS = [
       contextWindow: event.contextWindow,
       cost: event.cost?.amount ?? null,
       currency: event.cost?.currency ?? null,
+      spentCosts: event.spentCosts.map((each) => ({
+        amount: each.amount,
+        currency: each.currency,
+      })),
+      unpricedCalls: event.unpricedCalls,
       inputTokens: event.tokens.input,
       outputTokens: event.tokens.output,
       cacheReadTokens: event.tokens.cacheRead,
@@ -312,44 +304,6 @@ export const WORK_EVENT_MAPPERS = [
         lastCallFailed: each.lastCallFailed,
       })),
       skillsRead: [...event.tools.skills],
-    }),
-  ),
-  mapping<ReplayRunUsageRecorded>(
-    'replay-run.usage-recorded',
-    (event): ReplayRunUsageRecordedIntegrationEvent => ({
-      kind: REPLAY_RUN_USAGE_RECORDED,
-      runId: event.runId.value,
-      replayOf: event.replayOf.value,
-      workspaceId: event.workspaceId.value,
-      ms: event.ms,
-      steps: event.steps,
-      changedLines: event.changedLines,
-      cost: event.cost?.amount ?? null,
-      currency: event.cost?.currency ?? null,
-      inputTokens: event.tokens.input,
-      outputTokens: event.tokens.output,
-      cacheReadTokens: event.tokens.cacheRead,
-      cacheWriteTokens: event.tokens.cacheWrite,
-    }),
-  ),
-  mapping<SearchRunUsageRecorded>(
-    'search-run.usage-recorded',
-    (event): SearchRunUsageRecordedIntegrationEvent => ({
-      kind: SEARCH_RUN_USAGE_RECORDED,
-      runId: event.runId.value,
-      searchId: event.searchId.value,
-      workspaceId: event.workspaceId.value,
-      ms: event.ms,
-      steps: event.steps,
-      spentCosts: event.spentCosts.map((each) => ({
-        amount: each.amount,
-        currency: each.currency,
-      })),
-      unpricedCalls: event.unpricedCalls,
-      inputTokens: event.tokens.input,
-      outputTokens: event.tokens.output,
-      cacheReadTokens: event.tokens.cacheRead,
-      cacheWriteTokens: event.tokens.cacheWrite,
     }),
   ),
   mapping<TaskPassed>(

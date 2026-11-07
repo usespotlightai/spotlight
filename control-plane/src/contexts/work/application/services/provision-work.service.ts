@@ -17,7 +17,6 @@ import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type {
   CheckProvisioningPort,
   WaitingCheck,
@@ -32,7 +31,7 @@ import {
   poolChoiceFor,
 } from '@work/domain/services/pool-choice';
 import { poolCouldTake } from '@work/domain/services/pool-fit';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 
 const MAX_AT_ONCE = 20;
 
@@ -184,7 +183,7 @@ export class ProvisionWork {
             skip,
             max: PAGE,
             withSecrets: pools.some((offered) => offered.egress),
-            avoiding: held.map((each) => ResumeKey.of(each)),
+            avoiding: held.map((each) => WorkspaceKey.parse(each)),
           })
           .then((runs) => runs.map((run) => this.provisionableRun(run))),
       (skip: number) =>
@@ -286,8 +285,8 @@ export class ProvisionWork {
     return {
       key: `run:${queued.id.value}`,
       ids: {
+        ...queued.tags.value,
         workspaceId: queued.workspaceId.value,
-        taskId: queued.taskId?.value,
         runId: queued.id.value,
       },
       placement: queued.placement,
@@ -345,7 +344,7 @@ export class ProvisionWork {
         this.provisioned(pool, runnerId, {
           work: { kind: 'run', id: reserved.id.value },
           runId: reserved.id,
-          taskId: reserved.taskId ?? null,
+          tags: reserved.tags.value,
           placement: reserved.placement,
           needsEgress: reserved.injectsSecrets,
           claimBy: reservation.until,
@@ -386,7 +385,7 @@ export class ProvisionWork {
         this.provisioned(pool, runnerId, {
           work: { kind: 'check', id: check.stackId },
           runId: RunId.of(check.runId),
-          taskId: null,
+          tags: {},
           placement: check.placement,
           needsEgress: false,
           claimBy: until,
@@ -411,7 +410,7 @@ export class ProvisionWork {
     reserved: {
       readonly work: LeasedWork;
       readonly runId: RunId;
-      readonly taskId: TaskId | null;
+      readonly tags: Readonly<Record<string, string>>;
       readonly placement: RunnerPlacement;
       readonly needsEgress: boolean;
       readonly claimBy: Date;
@@ -423,7 +422,7 @@ export class ProvisionWork {
         runnerId,
         work: reserved.work,
         runId: reserved.runId,
-        taskId: reserved.taskId,
+        tags: reserved.tags,
         labels: reserved.placement.requiredLabels,
         image: reserved.placement.image?.value ?? null,
         needsEgress: reserved.needsEgress,

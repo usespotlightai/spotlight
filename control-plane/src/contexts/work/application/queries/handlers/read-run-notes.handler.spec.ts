@@ -5,6 +5,10 @@ import type {
 import type { RunUsage } from '@work/application/ports/run-usage-reader.port';
 import { ReadRunNotesHandler } from '@work/application/queries/handlers/read-run-notes.handler';
 import { ReadRunNotesQuery } from '@work/application/queries/read-run-notes.query';
+import {
+  inWorkspace,
+  runAccessWhere,
+} from '@work/application/services/run-access.fake-spec';
 import { Money } from '@work/domain/value-objects/money.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -49,10 +53,11 @@ const reading = (
       listForTask: vi.fn(),
       listForTeam: vi.fn(),
       findForTeam: vi.fn(),
-      notesFor: vi.fn().mockResolvedValue(found),
+      notesFor: vi.fn().mockResolvedValue(found && inWorkspace(found)),
       configFor: vi.fn(),
     } satisfies RunReaderPort,
     { forRuns: async () => new Map(usages) },
+    runAccessWhere(true),
   ).execute(new ReadRunNotesQuery(RUN_ID, 'user_1'));
 
 describe('ReadRunNotesHandler', () => {

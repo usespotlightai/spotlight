@@ -6,6 +6,7 @@ import type { RunJournalReaderPort } from '@work/application/ports/run-journal-r
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import { lastWordsIn } from '@work/application/services/last-words';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import type {
   Chat,
   NumberedProposal,
@@ -45,7 +46,9 @@ export class NotifyChannel implements RunOutcomes {
   }
 
   async onRunCompleted(event: RunCompleted): Promise<void> {
-    const chat = await this.fromChannel(event.chatId);
+    const chat = await this.fromChannel(
+      WorkRequesters.chatOf(event.requester.parts),
+    );
 
     if (!chat) {
       return;
@@ -64,7 +67,9 @@ export class NotifyChannel implements RunOutcomes {
   }
 
   async onRunExhausted(event: RunExhausted): Promise<void> {
-    const chat = await this.fromChannel(event.chatId);
+    const chat = await this.fromChannel(
+      WorkRequesters.chatOf(event.requester.parts),
+    );
 
     if (chat) {
       await this.post(chat, 'chat.replied', ChannelReplies.failed);

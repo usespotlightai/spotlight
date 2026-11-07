@@ -4,15 +4,19 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { Runs } from '@work/application/services/runs.service';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
+import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -20,7 +24,6 @@ import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -30,7 +33,7 @@ const spec = RunSpec.of({
   command: { executable: 'claude-agent-acp', args: ['--acp'] },
   briefing: 'work out what the request wants',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  resume: { key: 'task-task_1' },
+  resume: {},
 });
 
 const claimedRun = () =>
@@ -39,11 +42,7 @@ const claimedRun = () =>
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('claude-code'),
     spec,
-    subject: RunSubject.task(
-      TaskId.of('task_1'),
-      StationId.of('station_1'),
-      TaskRevision.of(0),
-    ),
+    ...orderedFor.task('task_1', 0),
   }).claim(RunnerId.of('runner_1'), NOW);
 
 const taskAssignedTo = (userId: string) =>
@@ -55,7 +54,7 @@ const taskAssignedTo = (userId: string) =>
 const dispatched = Dispatch.ordered({
   id: RunId.of('run_1'),
   workspaceId: WorkspaceId.of('ws_1'),
-  teamId: null,
+  teamId: TeamId.of('team_1'),
   subject: {
     kind: 'task',
     taskId: TaskId.of('task_1'),
@@ -67,7 +66,11 @@ const dispatched = Dispatch.ordered({
   now: NOW,
 }).enqueuedAsRun();
 
-const stopping = (run: Run, task: Task | null) => {
+const stopping = (
+  run: Run,
+  task: Task | null,
+  access = workAccessSeeing(() => true),
+) => {
   let current = run;
   const save = vi.fn(async (saved: Run) => {
     current = saved;
@@ -86,6 +89,7 @@ const stopping = (run: Run, task: Task | null) => {
     } satisfies DispatchRepository,
     { find: vi.fn(async () => task) } as unknown as TaskRepository,
     { take } as unknown as TakeTurn,
+    access,
   );
 
   return { handler, save, take, current: () => current };
@@ -146,6 +150,21 @@ describe('StopRunHandler', () => {
     await expect(
       handler.execute(new StopRunCommand('run_1', 'someone_else')),
     ).rejects.toThrow();
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('refuses the person it is assigned to once they are no longer on the team', async () => {
+    const { handler, save } = stopping(
+      claimedRun(),
+      taskAssignedTo('user_1'),
+      workAccessSeeing(() => true, { onTeam: () => false }),
+    );
+
+    await expect(
+      handler.execute(new StopRunCommand('run_1', 'user_1')),
+    ).rejects.toMatchObject({
+      refusal: expect.any(TeamMembershipRequiredError),
+    });
     expect(save).not.toHaveBeenCalled();
   });
 

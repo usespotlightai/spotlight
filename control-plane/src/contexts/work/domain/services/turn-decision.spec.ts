@@ -97,7 +97,7 @@ const approvalAsked = () =>
     ),
     ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
     {
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Approve?'),
       at: NOW,
       voice: Voice.station(RUN),
@@ -152,7 +152,7 @@ describe('TurnDecision', () => {
 
   it('resumes at once, to read them, when messages came in during the turn', () => {
     const answered = approvalAsked().answer(NotePosition.of(0), {
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Yes.'),
       at: NOW,
       voice: Voice.person(UserId.of('user_1')),
@@ -163,7 +163,7 @@ describe('TurnDecision', () => {
 
   it('checks out the repositories its line gained when it resumes at once', () => {
     const answered = approvalAsked().answer(NotePosition.of(0), {
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Yes.'),
       at: NOW,
       voice: Voice.person(UserId.of('user_1')),

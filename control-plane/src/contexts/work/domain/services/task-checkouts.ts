@@ -2,6 +2,7 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Branch } from '@work/domain/value-objects/branch.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
+import type { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import {
   REMOTE_VIA_GIT_PROXY,
   type RunCheckout,
@@ -34,11 +35,11 @@ export const repositoriesForTask = (
   repositoriesReviewedOrAll(task?.reviewedHead?.repository ?? null, line);
 
 export const repositoryForTaskNamed = (
-  name: string,
+  name: RepositoryName,
   task: Task | null,
   line: LineMap,
 ): Repository | null =>
-  repositoriesForTask(task, line).find((each) => each.name === name) ?? null;
+  repositoriesForTask(task, line).find((each) => name.names(each)) ?? null;
 
 export const checkoutsOf = (
   task: Task,

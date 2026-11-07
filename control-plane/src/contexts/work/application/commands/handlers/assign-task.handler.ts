@@ -1,7 +1,3 @@
-import type {
-  TeamDirectoryPort,
-  TeamProfile,
-} from '@identity/application/ports/team-directory.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -9,67 +5,51 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AssignTaskCommand } from '@work/application/commands/assign-task.command';
-import type { TaskDto } from '@work/application/dto/task.dto';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { TaskReaderPort } from '@work/application/ports/task-reader.port';
-import { taskAsRead } from '@work/application/services/task-as-read';
-import { NotATeamMemberError } from '@work/domain/exceptions/not-a-team-member.error';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
-const isOn = (team: TeamProfile, userId: UserId): boolean =>
-  team.members.some((each) => each.equals(userId));
-
 export class AssignTaskHandler
-  implements CommandHandlerPort<AssignTaskCommand, TaskDto>
+  implements CommandHandlerPort<AssignTaskCommand, void>
 {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly teams: TeamDirectoryPort,
+    private readonly access: WorkAccess,
     private readonly transaction: TransactionPort,
-    private readonly reader: TaskReaderPort,
     private readonly lines: LineMapsPort,
   ) {}
 
-  async execute(command: AssignTaskCommand): Promise<TaskDto> {
+  async execute(command: AssignTaskCommand): Promise<void> {
     try {
-      return await this.assign(command);
+      await this.assign(command);
     } catch (error) {
       rethrowAsApplicationError(error);
     }
   }
 
-  private async assign(command: AssignTaskCommand): Promise<TaskDto> {
-    const assigned = await this.transaction.inTransaction(async () => {
-      const team = await this.teams.find(TeamId.of(command.teamId));
+  private async assign(command: AssignTaskCommand): Promise<void> {
+    const teamId = TeamId.of(command.teamId);
 
-      if (!team || !isOn(team, UserId.of(command.viewerId))) {
-        throw new UnknownTaskError(command.taskId);
-      }
+    (
+      await this.access.standingOn(teamId, UserId.of(command.viewerId))
+    ).assertActsOnTasks(() => new UnknownTaskError(command.taskId));
 
-      const assignee = command.assigneeId
-        ? UserId.of(command.assigneeId)
-        : null;
+    const members = await this.access.membersOf(teamId);
 
-      if (assignee && !isOn(team, assignee)) {
-        throw new NotATeamMemberError();
-      }
-
+    await this.transaction.inTransaction(async () => {
       const task = await this.tasks.find(TaskId.of(command.taskId));
-
       const line = task ? await this.lines.findByStation(task.stationId) : null;
 
-      if (!task || !line?.teamId.equals(team.id)) {
+      if (!task || !members || !line?.teamId.equals(teamId)) {
         throw new UnknownTaskError(command.taskId);
       }
 
-      const assigned = assignee ? task.assign(assignee) : task.unassign();
-
-      await this.tasks.save(assigned);
-
-      return assigned;
+      await this.tasks.save(
+        command.assigneeId
+          ? task.assign(UserId.of(command.assigneeId), members)
+          : task.unassign(),
+      );
     });
-
-    return taskAsRead(this.reader, command, assigned.id);
   }
 }

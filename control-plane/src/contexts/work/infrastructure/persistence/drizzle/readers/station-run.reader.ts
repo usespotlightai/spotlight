@@ -1,8 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
+import {
+  RUN_FACTS,
+  type RunFacts,
+  type RunFactsPort,
+} from '@work/application/ports/run-facts.port';
+import {
+  RUN_JOURNALS,
+  type RunJournalsPort,
+} from '@work/application/ports/run-journals.port';
 import type {
   EndedRunRow,
   KeyedStation,
@@ -14,15 +24,9 @@ import type {
   TracedWanted,
   UnfinishedRunRow,
 } from '@work/application/ports/station-run-reader.port';
-import { TERMINAL_RUN_STATES } from '@work/domain/value-objects/run-state';
-import {
-  type TaskRunState,
-  taskRunStateOf,
-} from '@work/domain/value-objects/task-run-state';
-import { journalsOfRuns } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
+import { taskRunStateOf } from '@work/domain/value-objects/task-run-state';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
-import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import {
   task,
   taskNote,
@@ -35,100 +39,130 @@ import {
   gte,
   inArray,
   isNotNull,
+  isNull,
   lt,
+  ne,
   notInArray,
-  or,
-  sql,
+  type SQL,
 } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
-
-const replayed = alias(run, 'replayed');
 
 const MOST_UNFINISHED = 200;
 
+const ended = isNotNull(dispatch.endedAt);
+
 @Injectable()
 export class DrizzleStationRunReader implements StationRunReaderPort {
-  constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
+  constructor(
+    @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
+    @Inject(RUN_FACTS) private readonly facts: RunFactsPort,
+    @Inject(RUN_JOURNALS) private readonly journals: RunJournalsPort,
+  ) {}
 
   async endedRun(runId: string): Promise<EndedRunRow | null> {
     const [row] = await this.db
       .select({
-        runId: run.id,
-        workspaceId: run.workspaceId,
+        runId: dispatch.id,
+        workspaceId: dispatch.workspaceId,
         teamId: workStation.teamId,
         lineId: workStation.lineId,
         stationId: workStation.stationId,
-        taskId: run.taskId,
+        taskId: dispatch.taskId,
         fingerprint: dispatch.stationFingerprint,
-        earlier: sql<TaskRunState[]>`array(
-          select case when earlier_dispatch.superseded then 'superseded' else earlier.state::text end
-          from ${run} as earlier
-          left join ${dispatch} as earlier_dispatch on earlier_dispatch.id = earlier.id
-          where earlier.task_id = ${run.taskId}
-            and earlier.station_id = ${run.stationId}
-            and earlier.created_at < ${run.createdAt}
-        )`,
-        harness: run.harness,
         config: dispatch.stationConfig,
-        reviewing: sql<string | null>`${dispatch.briefedTask}->>'reviewing'`,
-        queuedAt: run.createdAt,
-        startedAt: run.startedAt,
-        endedAt: run.endedAt,
+        briefedTask: dispatch.briefedTask,
+        orderedAt: dispatch.orderedAt,
       })
-      .from(run)
-      .innerJoin(workStation, eq(workStation.stationId, run.stationId))
-      .leftJoin(dispatch, eq(dispatch.id, run.id))
+      .from(dispatch)
+      .innerJoin(workStation, eq(workStation.stationId, dispatch.stationId))
       .where(
-        and(
-          eq(run.id, runId),
-          isNotNull(run.taskId),
-          isNotNull(run.endedAt),
-          inArray(run.state, [...TERMINAL_RUN_STATES]),
-        ),
+        and(eq(dispatch.id, runId), eq(dispatch.kind, 'task'), ended) as SQL,
       )
       .limit(1);
 
-    return row?.taskId && row.endedAt
-      ? { ...row, taskId: row.taskId, endedAt: row.endedAt }
-      : null;
+    if (!row?.taskId) {
+      return null;
+    }
+
+    const earlier = await this.db
+      .select({ runId: dispatch.id, superseded: dispatch.superseded })
+      .from(dispatch)
+      .where(
+        and(
+          eq(dispatch.kind, 'task'),
+          isNull(dispatch.refused),
+          eq(dispatch.taskId, row.taskId),
+          eq(dispatch.stationId, row.stationId),
+          lt(dispatch.orderedAt, row.orderedAt),
+        ),
+      );
+    const facts = await this.factsOf([
+      row.runId,
+      ...earlier.map((each) => each.runId),
+    ]);
+    const run = facts.get(row.runId);
+
+    if (!run?.ended || !run.endedAt) {
+      return null;
+    }
+
+    const { briefedTask, orderedAt, ...ran } = row;
+
+    return {
+      ...ran,
+      taskId: row.taskId,
+      earlier: earlier.flatMap((each) => {
+        const was = facts.get(each.runId);
+        return was ? [taskRunStateOf(was.state, each.superseded)] : [];
+      }),
+      harness: run.harness.value,
+      reviewing: briefedTask?.reviewing ?? null,
+      queuedAt: orderedAt,
+      startedAt: run.startedAt,
+      endedAt: run.endedAt,
+    };
   }
 
   async unfinishedOfTeam(teamId: TeamId): Promise<readonly UnfinishedRunRow[]> {
     const rows = await this.db
       .select({
-        runId: run.id,
+        runId: dispatch.id,
         lineId: workStation.lineId,
         stationId: workStation.stationId,
         taskId: task.id,
         openedBy: task.createdById,
-        harness: run.harness,
         config: dispatch.stationConfig,
-        state: run.state,
-        stopRequestedAt: run.stopRequestedAt,
-        queuedAt: run.createdAt,
-        startedAt: run.startedAt,
+        queuedAt: dispatch.orderedAt,
       })
-      .from(run)
-      .innerJoin(task, eq(task.id, run.taskId))
-      .innerJoin(workStation, eq(workStation.stationId, run.stationId))
-      .leftJoin(dispatch, eq(dispatch.id, run.id))
+      .from(dispatch)
+      .innerJoin(task, eq(task.id, dispatch.taskId))
+      .innerJoin(workStation, eq(workStation.stationId, dispatch.stationId))
       .where(
         and(
-          eq(workStation.teamId, teamId.value),
-          notInArray(run.state, [...TERMINAL_RUN_STATES]),
-          or(
-            inArray(run.state, ['queued', 'claimed']),
-            isNotNull(run.stopRequestedAt),
-          ),
+          eq(dispatch.teamId, teamId.value),
+          eq(dispatch.kind, 'task'),
+          isNull(dispatch.refused),
+          isNull(dispatch.endedAt),
         ),
       )
-      .orderBy(desc(run.createdAt), desc(run.id))
+      .orderBy(desc(dispatch.orderedAt), desc(dispatch.id))
       .limit(MOST_UNFINISHED);
+    const facts = await this.factsOf(rows.map((row) => row.runId));
 
-    return rows.map(({ stopRequestedAt, ...row }) => ({
-      ...row,
-      stopRequested: stopRequestedAt !== null,
-    }));
+    return rows.flatMap((row) => {
+      const run = facts.get(row.runId);
+
+      return run && !run.ended
+        ? [
+            {
+              ...row,
+              harness: run.harness.value,
+              state: run.state,
+              stopRequested: run.stopRequested,
+              startedAt: run.startedAt,
+            },
+          ]
+        : [];
+    });
   }
 
   async configsNamed(
@@ -180,51 +214,22 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
     stationId: string,
     wanted: StationRunsWanted,
   ): Promise<readonly StationRunRow[]> {
-    const rows = await this.db
-      .select({
-        runId: run.id,
-        taskId: run.taskId,
-        title: task.title,
-        fingerprint: dispatch.stationFingerprint,
-        state: run.state,
-        superseded: sql<boolean>`coalesce(${dispatch.superseded}, false)`,
-        attempt: run.attempt,
-        harness: run.harness,
-        startedAt: run.createdAt,
-        endedAt: run.endedAt,
-      })
-      .from(run)
-      .innerJoin(task, eq(task.id, run.taskId))
-      .leftJoin(dispatch, eq(dispatch.id, run.id))
-      .where(
-        and(
-          eq(run.stationId, stationId),
-          inArray(run.state, [...TERMINAL_RUN_STATES]),
-          isNotNull(run.endedAt),
-          wanted.fingerprint === null
-            ? undefined
-            : eq(dispatch.stationFingerprint, wanted.fingerprint),
-          wanted.since === null ? undefined : gte(run.createdAt, wanted.since),
-          wanted.until === null ? undefined : lt(run.endedAt, wanted.until),
-          wanted.excluding.length === 0
-            ? undefined
-            : notInArray(run.taskId, [...wanted.excluding]),
-        ),
-      )
-      .orderBy(desc(run.createdAt))
-      .limit(wanted.max);
-
-    return rows.flatMap(({ superseded, ...row }) =>
-      row.taskId && row.endedAt
-        ? [
-            {
-              ...row,
-              state: taskRunStateOf(row.state, superseded),
-              taskId: row.taskId,
-              endedAt: row.endedAt,
-            },
-          ]
-        : [],
+    return this.endedWhere(
+      and(
+        eq(dispatch.kind, 'task'),
+        eq(dispatch.stationId, stationId),
+        wanted.fingerprint === null
+          ? undefined
+          : eq(dispatch.stationFingerprint, wanted.fingerprint),
+        wanted.since === null
+          ? undefined
+          : gte(dispatch.orderedAt, wanted.since),
+        wanted.until === null ? undefined : lt(dispatch.endedAt, wanted.until),
+        wanted.excluding.length === 0
+          ? undefined
+          : notInArray(dispatch.taskId, [...wanted.excluding]),
+      ) as SQL,
+      wanted.max,
     );
   }
 
@@ -232,55 +237,68 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
     stationId: string,
     runIds: readonly string[],
   ): Promise<readonly StationRunRow[]> {
-    if (runIds.length === 0) {
-      return [];
-    }
+    return runIds.length === 0
+      ? []
+      : this.endedWhere(
+          and(
+            inArray(dispatch.id, [...runIds]),
+            ne(dispatch.kind, 'chat'),
+            eq(dispatch.stationId, stationId),
+          ) as SQL,
+          null,
+        );
+  }
 
-    const rows = await this.db
+  private async endedWhere(
+    which: SQL,
+    limit: number | null,
+  ): Promise<readonly StationRunRow[]> {
+    const query = this.db
       .select({
-        runId: run.id,
+        runId: dispatch.id,
         taskId: task.id,
         title: task.title,
         fingerprint: dispatch.stationFingerprint,
-        state: run.state,
-        superseded: sql<boolean>`coalesce(${dispatch.superseded}, false)`,
-        attempt: run.attempt,
-        harness: run.harness,
-        startedAt: run.createdAt,
-        endedAt: run.endedAt,
+        superseded: dispatch.superseded,
+        startedAt: dispatch.orderedAt,
       })
-      .from(run)
-      .leftJoin(dispatch, eq(dispatch.id, run.id))
-      .leftJoin(replayed, eq(replayed.id, run.replayOfRunId))
-      .innerJoin(
-        task,
-        eq(task.id, sql`coalesce(${run.taskId}, ${replayed.taskId})`),
-      )
-      .where(
-        and(
-          inArray(run.id, [...runIds]),
-          eq(run.stationId, stationId),
-          inArray(run.state, [...TERMINAL_RUN_STATES]),
-          isNotNull(run.endedAt),
-        ),
-      )
-      .orderBy(desc(run.createdAt));
+      .from(dispatch)
+      .innerJoin(task, eq(task.id, dispatch.taskId))
+      .where(and(which, ended))
+      .orderBy(desc(dispatch.orderedAt), desc(dispatch.id));
+    const rows = await (limit === null ? query : query.limit(limit));
+    const facts = await this.factsOf(rows.map((row) => row.runId));
 
-    return rows.flatMap(({ superseded, ...row }) =>
-      row.endedAt
+    return rows.flatMap(({ superseded, ...row }) => {
+      const run = facts.get(row.runId);
+
+      return run?.ended && run.endedAt
         ? [
             {
               ...row,
-              state: taskRunStateOf(row.state, superseded),
-              endedAt: row.endedAt,
+              state: taskRunStateOf(run.state, superseded),
+              attempt: run.attempt,
+              harness: run.harness.value,
+              endedAt: run.endedAt,
             },
           ]
-        : [],
-    );
+        : [];
+    });
+  }
+
+  private async factsOf(
+    runIds: readonly string[],
+  ): Promise<ReadonlyMap<string, RunFacts>> {
+    const found =
+      runIds.length === 0
+        ? []
+        : await this.facts.of([...new Set(runIds)].map(RunId.of));
+
+    return new Map(found.map((each) => [each.runId.value, each]));
   }
 
   journalsOf(runIds: readonly string[]): Promise<readonly RunJournal[]> {
-    return journalsOfRuns(this.db, runIds);
+    return this.journals.ofRuns(runIds.map(RunId.of));
   }
 
   async traced(wanted: TracedWanted): Promise<TracedRows> {

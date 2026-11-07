@@ -24,6 +24,7 @@ export const inboxRequest = pgTable(
     form: inboxRequestForm('form').notNull(),
     about: text('about').notNull(),
     createdAt: timestamptz('created_at').notNull(),
+    openedAt: timestamptz('opened_at').notNull(),
     resolvedAt: timestamptz('resolved_at'),
     version: integer('version').notNull().default(0),
   },
@@ -37,9 +38,9 @@ export const inboxRequest = pgTable(
       table.workspaceId,
       table.resolvedAt,
     ),
-    index('inbox_request_workspace_created_idx').on(
+    index('inbox_request_workspace_opened_idx').on(
       table.workspaceId,
-      table.createdAt,
+      table.openedAt,
       table.id,
     ),
   ],

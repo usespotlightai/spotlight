@@ -19,18 +19,19 @@ export class DeleteTaskHandler
   async execute(command: DeleteTaskCommand): Promise<void> {
     try {
       await this.transaction.inTransaction(async () => {
+        const unknown = () => new UnknownTaskError(command.taskId);
         const found = await this.tasks.find(TaskId.of(command.taskId));
 
-        if (
-          !found ||
-          !(await this.lines.findByStation(
-            command.teamId,
-            found.stationId,
-            command.viewerId,
-          ))
-        ) {
-          throw new UnknownTaskError(command.taskId);
+        if (!found) {
+          throw unknown();
         }
+
+        await this.lines.atStation(
+          command.teamId,
+          found.stationId,
+          command.viewerId,
+          unknown,
+        );
 
         await this.tasks.remove(found.deleted());
       });

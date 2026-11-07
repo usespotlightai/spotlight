@@ -1,0 +1,17 @@
+export const UNTRIALABLE_REASONS = [
+  'unknown-run',
+  'not-a-task-run',
+  'task-gone',
+  'still-running',
+  'no-starting-point',
+  'no-briefing',
+  'archive-gone',
+  'attachments-gone',
+  'answer-gone',
+  'repository-gone',
+  'not-at-the-station',
+  'candidate-unfit',
+  'cannot-start',
+] as const;
+
+export type UntrialableReason = (typeof UNTRIALABLE_REASONS)[number];

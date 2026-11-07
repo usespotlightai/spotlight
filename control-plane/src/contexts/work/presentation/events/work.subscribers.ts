@@ -42,7 +42,6 @@ import type { NotifyChannel } from '@work/application/events/handlers/notify-cha
 import type { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
 import type { OrderChatRun } from '@work/application/events/handlers/order-chat-run.handler';
 import type { OrderTaskRun } from '@work/application/events/handlers/order-task-run.handler';
-import type { RecordRunUsage } from '@work/application/events/handlers/record-run-usage.handler';
 import type { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
 import type { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-answered-run.handler';
 import {
@@ -54,9 +53,9 @@ import {
   NOTICED_TASK_EVENT_KINDS,
   type NoticedTaskEvent,
 } from '@work/application/mappers/bindable-task-event.mapper';
+import type { ProposalAcceptances } from '@work/application/ports/proposal-acceptances.port';
 import type { Notices } from '@work/application/services/notices.service';
 import type { PauseMarks } from '@work/application/services/pause-marks.service';
-import type { ProposalAcceptances } from '@work/application/services/proposal-acceptances';
 import type { ReconcileSetup } from '@work/application/services/reconcile-setup.service';
 import type { RunOutcomes } from '@work/application/services/run-outcomes';
 import type { RunnerLeases } from '@work/application/services/runner-leases.service';
@@ -90,6 +89,7 @@ import type { ToolUsed } from '@work/domain/events/tool-used.event';
 const newTeam = (event: TeamCreatedIntegrationEvent): NewTeam => ({
   teamId: TeamId.of(event.teamId),
   owner: UserId.of(event.ownerId),
+  origin: event.origin,
 });
 
 const leaseOf = (event: {
@@ -101,9 +101,6 @@ const leaseOf = (event: {
   runId: event.runId.value,
   attempt: event.attempt,
 });
-
-const signedUp = (event: TeamCreatedIntegrationEvent): boolean =>
-  event.origin === 'sign-up';
 
 const reactingToOutcomes = (
   name: string,
@@ -131,7 +128,6 @@ export const workSubscribers = (reactions: {
   pauseMarks: PauseMarks;
   chatOutcomes: RunOutcomes;
   channel: NotifyChannel;
-  usages: RecordRunUsage;
   welcoming: WelcomeTeam;
   acceptances: ProposalAcceptances;
   outsideTools: NotifyOutsideTools;
@@ -202,7 +198,7 @@ export const workSubscribers = (reactions: {
   ),
   subscribing<ToolUsed>(
     'work.fire-hooks-after-tool-used',
-    ['run.tool-used'],
+    ['tool.used'],
     (event) => reactions.toolUsedHooks.on(event),
   ),
   subscribing<RunLeaseExpired | RunSuspended>(
@@ -236,11 +232,13 @@ export const workSubscribers = (reactions: {
     'work.delete-chats-of-deleted-team',
     [TEAM_DELETED],
     (event) => reactions.deletingChats.deleteForTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'work.delete-notices-of-deleted-team',
     [TEAM_DELETED],
     (event) => reactions.notices.deleteForTeam(TeamId.of(event.teamId)),
+    { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(
     'work.forget-welcome-of-deleted-team',
@@ -282,21 +280,10 @@ export const workSubscribers = (reactions: {
     (event) => reactions.channel.onProposalDismissed(event),
     { callsOut: true },
   ),
-  subscribing<RunCompleted>(
-    'work.record-run-usage.completed',
-    ['run.completed'],
-    (event) => reactions.usages.onRunCompleted(event),
-  ),
-  subscribing<RunExhausted>(
-    'work.record-run-usage.exhausted',
-    ['run.exhausted'],
-    (event) => reactions.usages.onRunExhausted(event),
-  ),
   subscribing<TeamCreatedIntegrationEvent>(
     WELCOME_TEAM,
     [TEAM_CREATED],
-    async (event) =>
-      signedUp(event) && reactions.welcoming.welcome(newTeam(event)),
+    (event) => reactions.welcoming.welcome(newTeam(event)),
   ),
   subscribing<WorkspaceConnectedIntegrationEvent>(
     'work.reconcile-setup-on-connection',
@@ -314,6 +301,7 @@ export const workSubscribers = (reactions: {
     'work.create-task-from-proposal',
     ['chat.proposal-accepted'],
     (event) => reactions.acceptances.onProposalAccepted(event),
+    { callsOut: true },
   ),
   subscribing<TaskOpened>(
     'work.complete-accepted-proposal',
@@ -387,6 +375,7 @@ export const workSubscribers = (reactions: {
     'work.delete-inbox-requests-of-deleted-task',
     ['task.deleted'],
     (event) => reactions.taskInboxRequests.on(event),
+    { callsOut: true },
   ),
   subscribing<TaskDeleted>(
     'work.delete-draft-of-deleted-task',

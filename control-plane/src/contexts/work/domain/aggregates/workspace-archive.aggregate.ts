@@ -8,14 +8,10 @@ import { InvalidWorkspaceArchiveTransitionError } from '@work/domain/exceptions/
 import { WorkspaceArchiveNotUploadedError } from '@work/domain/exceptions/workspace-archive-not-uploaded.error';
 import type { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import type { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
-import type {
-  ArchiveHolder,
-  HolderState,
-} from '@work/domain/value-objects/archive-holder.vo';
 import type { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
-import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import type { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 
 const RETENTION_AFTER_RELEASE_MS = 7 * 24 * 60 * 60_000;
 const RETENTION_AFTER_SUPERSEDED_MS = 60 * 60_000;
@@ -34,6 +30,11 @@ export interface ArchiveRemovalCutoffs {
   readonly startedFromBy: Date;
 }
 
+export interface HolderState {
+  readonly released: boolean;
+  readonly changedAt: Date;
+}
+
 export interface ArchiveFacts {
   readonly holder: HolderState | null;
   readonly supersededAt: Date | null;
@@ -44,8 +45,7 @@ export interface ArchiveFacts {
 interface State {
   readonly id: WorkspaceArchiveId;
   readonly workspaceId: WorkspaceId;
-  readonly resumeKey: ResumeKey;
-  readonly holder: ArchiveHolder;
+  readonly workspaceKey: WorkspaceKey;
   readonly grantedTo: ArchiveGrantee;
   readonly size: ArchiveSize;
   readonly digest: ArchiveDigest;
@@ -67,16 +67,16 @@ export class WorkspaceArchive extends EventRecorder {
   static grant(input: {
     id: WorkspaceArchiveId;
     workspaceId: WorkspaceId;
-    resumeKey: ResumeKey | null;
-    holder: ArchiveHolder | null;
+    workspaceKey: WorkspaceKey | null;
+    held: boolean;
     grantee: ArchiveGrantee;
     size: ArchiveSize;
     digest: ArchiveDigest;
     at: Date;
   }): WorkspaceArchive {
-    const { resumeKey, holder } = input;
+    const { workspaceKey, held } = input;
 
-    if (!resumeKey || !holder) {
+    if (!workspaceKey || !held) {
       throw new InvalidWorkspaceArchiveError(
         'is stored only for work that continues in a later run',
       );
@@ -86,8 +86,7 @@ export class WorkspaceArchive extends EventRecorder {
       {
         id: input.id,
         workspaceId: input.workspaceId,
-        resumeKey,
-        holder,
+        workspaceKey,
         grantedTo: input.grantee,
         size: input.size,
         digest: input.digest,
@@ -136,12 +135,8 @@ export class WorkspaceArchive extends EventRecorder {
     return this.state.workspaceId;
   }
 
-  get resumeKey(): ResumeKey {
-    return this.state.resumeKey;
-  }
-
-  get holder(): ArchiveHolder {
-    return this.state.holder;
+  get workspaceKey(): WorkspaceKey {
+    return this.state.workspaceKey;
   }
 
   get grantedTo(): ArchiveGrantee {
@@ -172,23 +167,18 @@ export class WorkspaceArchive extends EventRecorder {
     return this.state.version;
   }
 
-  restoreInto(
-    workspaceId: WorkspaceId,
-    resumeKey: ResumeKey | null,
-  ): RestoredArchive {
-    const restored = RestoredArchive.of(
-      this.state.id,
-      this.state.workspaceId,
-      this.state.resumeKey,
-    );
-
-    if (!this.isCompleted || !restored.restores(workspaceId, resumeKey)) {
+  get restored(): RestoredArchive {
+    if (!this.isCompleted) {
       throw new InvalidStartingPointError(
-        `names archive ${this.state.id.value}, which the run did not restore`,
+        `names archive ${this.state.id.value}, which was never completed`,
       );
     }
 
-    return restored;
+    return RestoredArchive.of(
+      this.state.id,
+      this.state.workspaceId,
+      this.state.workspaceKey,
+    );
   }
 
   isAvailableIn(workspaceId: WorkspaceId): boolean {
@@ -262,7 +252,7 @@ export class WorkspaceArchive extends EventRecorder {
       return true;
     }
 
-    if (this.isReleasedBy(facts.holder)) {
+    if (facts.holder.released) {
       const since = Math.max(
         completedAt.getTime(),
         facts.holder.changedAt.getTime(),
@@ -272,10 +262,6 @@ export class WorkspaceArchive extends EventRecorder {
     }
 
     return false;
-  }
-
-  private isReleasedBy(now: HolderState): boolean {
-    return now.kind === 'task' ? now.finished : !now.conversing;
   }
 
   remove(now: Date, facts: ArchiveFacts): WorkspaceArchive {

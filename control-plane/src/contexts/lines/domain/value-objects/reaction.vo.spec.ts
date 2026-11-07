@@ -8,31 +8,8 @@ const REVIEW = StationId.of('station_review');
 const SPEC = StationId.of('station_spec');
 
 describe('Reaction', () => {
-  it('applies wherever the task is when it names no station', () => {
-    const anywhere = Reaction.of({ happening: COMMENTED, to: REVIEW });
-
-    expect(anywhere.isEverywhere).toBe(true);
-    expect(anywhere.appliesAt(REVIEW)).toBe(true);
-    expect(anywhere.appliesAt(SPEC)).toBe(true);
-  });
-
-  it('applies only where it says when it names a station', () => {
-    const fromSpec = Reaction.of({
-      happening: COMMENTED,
-      from: SPEC,
-      to: REVIEW,
-    });
-
-    expect(fromSpec.isEverywhere).toBe(false);
-    expect(fromSpec.appliesAt(SPEC)).toBe(true);
-    expect(fromSpec.appliesAt(REVIEW)).toBe(false);
-  });
-
-  it('takes a null from as wherever it is', () => {
-    expect(
-      Reaction.of({ happening: COMMENTED, from: null, to: REVIEW })
-        .isEverywhere,
-    ).toBe(true);
+  it('takes a missing from as wherever it is', () => {
+    expect(Reaction.of({ happening: COMMENTED, to: REVIEW }).from).toBeNull();
   });
 
   it('is the same rule as one saying the same thing', () => {

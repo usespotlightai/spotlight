@@ -94,7 +94,7 @@ export class TakeTurn {
       await this.tasks.save(
         task.awaitTurn({
           turn: awaited,
-          note: this.routing.newNoteOf(decision.handover, task, line, runId),
+          note: this.routing.newNoteOf(decision.handover, line, runId),
           session: turn.session,
           runner: turn.reportedBy,
         }),

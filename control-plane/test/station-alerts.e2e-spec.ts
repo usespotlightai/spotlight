@@ -8,10 +8,6 @@ import { EventOutbox } from '@platform/events/event-outbox';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import {
-  LINE_CHANGED,
-  type LineChangedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/line-changed.integration-event';
-import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
@@ -28,16 +24,16 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { aDispatch } from './support/runs';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
-import { insertStations } from './support/stations';
+import { insertStations, lineChangedOf } from './support/stations';
 import { createTeam } from './support/team';
 
 const SPEC = {
   command: { executable: 'sh', args: [] },
   briefing: 'do the thing',
   handover: { options: [], noteLimit: 0 },
-  resume: { key: 'task:station' },
+  resume: {},
 };
 
 const MINUTE = 60_000;
@@ -73,9 +69,7 @@ const ranAndEnded = async (minutesAgo: number) => {
     id: runId,
     workspaceId: team.workspaceId.value,
     harness: 'dev',
-    taskId: team.list.id.value,
-    taskRevision: 0,
-    stationId: watched,
+    ...requestedByTask(team.list.id.value, { teamId: team.teamId.value }),
     state: 'completed',
     spec: SPEC,
     createdAt: ago(minutesAgo + 5),
@@ -86,6 +80,7 @@ const ranAndEnded = async (minutesAgo: number) => {
     aDispatch({
       runId,
       workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
       taskId: team.list.id.value,
       stationId: watched,
       fingerprint: 'a'.repeat(64),
@@ -336,13 +331,7 @@ describe('a station alert (e2e)', () => {
       .update(schema.station)
       .set({ alerts: [] })
       .where(eq(schema.station.id, watched));
-    const updated: LineChangedIntegrationEvent = {
-      kind: LINE_CHANGED,
-      lineId: team.line.id.value,
-      workspaceId: team.workspaceId.value,
-      teamId: team.teamId.value,
-      stationIds: [watched],
-    };
+    const updated = await lineChangedOf(db, team.line.id.value, [watched]);
     await app.get(EventOutbox).record([updated as never]);
 
     const [recovered] = await eventuallyFound(async () => {

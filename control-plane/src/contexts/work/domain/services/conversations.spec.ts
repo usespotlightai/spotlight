@@ -1,3 +1,4 @@
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
 import {
   awaitsAPerson,
@@ -151,18 +152,23 @@ describe('pendingIn', () => {
 describe('reviewsIn', () => {
   const note = (kind: TaskNoteKind, runId: string | null = null) => ({
     kind,
-    runId,
+    runId: runId === null ? null : RunId.of(runId),
   });
 
+  const reviewed = (notes: readonly ReturnType<typeof note>[]) =>
+    reviewsIn(notes).map(
+      ({ runId, ...review }) => [runId.value, review] as const,
+    );
+
   it('keeps the answer pending where nobody has given one', () => {
-    expect([...reviewsIn([note('asked', 'run_1')])]).toEqual([
+    expect([...reviewed([note('asked', 'run_1')])]).toEqual([
       ['run_1', { from: 0, state: 'pending' }],
     ]);
   });
 
   it('points a later ask at the conversation it joined', () => {
     expect([
-      ...reviewsIn([
+      ...reviewed([
         note('asked', 'run_1'),
         note('answered'),
         note('asked', 'run_2'),
@@ -175,7 +181,7 @@ describe('reviewsIn', () => {
 
   it('opens a new one where the task moved on in between', () => {
     expect([
-      ...reviewsIn([
+      ...reviewed([
         note('asked', 'run_1'),
         note('passed'),
         note('asked', 'run_2'),
@@ -187,31 +193,33 @@ describe('reviewsIn', () => {
   });
 
   it('counts as answered once a person answers, before the task moves on', () => {
-    expect([...reviewsIn([note('asked', 'run_1'), note('answered')])]).toEqual([
+    expect([...reviewed([note('asked', 'run_1'), note('answered')])]).toEqual([
       ['run_1', { from: 0, state: 'answered' }],
     ]);
   });
 
   it('counts an asking as answered once the task moves on from it without an answer', () => {
     expect([
-      ...reviewsIn([note('asked', 'run_1'), note('passed', 'run_2')]),
+      ...reviewed([note('asked', 'run_1'), note('passed', 'run_2')]),
     ]).toEqual([['run_1', { from: 0, state: 'answered' }]]);
   });
 
   it('keeps each run apart', () => {
-    const reviews = reviewsIn([
-      note('asked', 'run_1'),
-      note('answered'),
-      note('passed', 'run_2'),
-      note('asked', 'run_3'),
-    ]);
+    const reviews = new Map(
+      reviewed([
+        note('asked', 'run_1'),
+        note('answered'),
+        note('passed', 'run_2'),
+        note('asked', 'run_3'),
+      ]) as [string, unknown][],
+    );
 
-    expect(reviews.get('run_1')?.state).toBe('answered');
+    expect(reviews.get('run_1')).toEqual({ from: 0, state: 'answered' });
     expect(reviews.get('run_3')).toEqual({ from: 3, state: 'pending' });
   });
 
   it('finds nothing where no run asked', () => {
-    expect([...reviewsIn([note('passed', 'run_1')])]).toEqual([]);
+    expect([...reviewed([note('passed', 'run_1')])]).toEqual([]);
   });
 });
 

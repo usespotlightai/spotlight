@@ -1,3 +1,4 @@
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Anchor } from '@work/domain/value-objects/anchor.vo';
 import type { HappeningPayload } from '@work/domain/value-objects/happening-payload';
@@ -15,7 +16,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 
 interface OutcomeNote {
-  readonly station: Station | null;
+  readonly line: LineMap;
   readonly body: TaskNoteBody;
   readonly anchor: Anchor | null;
 }
@@ -54,6 +55,9 @@ const spotlights = (
   branchTask !== null ||
   (pullRequestTask !== null && !pullRequestTask.reviewing);
 
+export const movedTo = (outcome: Outcome): StationId | null =>
+  outcome.kind === 'moves' ? outcome.to.id : null;
+
 export const ReactionFor = {
   happened(input: {
     task: Task;
@@ -72,12 +76,11 @@ export const ReactionFor = {
     const here = input.line.stationAt(input.task.stationId);
 
     const note = (
-      station: Station | null,
       body = TaskNoteBody.receivedHappening(
         input.payload.summary,
         input.anchor,
       ),
-    ): OutcomeNote => ({ station, body, anchor: input.anchor });
+    ): OutcomeNote => ({ line: input.line, body, anchor: input.anchor });
 
     if (rule) {
       const destination = input.line.stationAt(rule.to);
@@ -87,17 +90,14 @@ export const ReactionFor = {
       }
 
       if (!destination.id.equals(input.task.stationId)) {
-        const station = here;
-
         if (input.task.movableByHappeningTo(input.line, destination.id)) {
-          return { kind: 'moves', to: destination, ...note(station) };
+          return { kind: 'moves', to: destination, ...note() };
         }
 
         return input.line.completed.id.equals(destination.id)
           ? {
               kind: 'interrupts',
               ...note(
-                station,
                 TaskNoteBody.interrupted(
                   input.payload.summary,
                   here?.name ?? null,
@@ -108,7 +108,6 @@ export const ReactionFor = {
               kind: 'deferredMove',
               to: destination,
               ...note(
-                station,
                 TaskNoteBody.deferredMove(
                   input.payload.summary,
                   input.anchor,
@@ -124,12 +123,12 @@ export const ReactionFor = {
       return {
         kind: 'answers',
         to: NotePosition.of(pending.from),
-        ...note(here),
+        ...note(),
       };
     }
 
     return rule && here && !(input.payload.answers && !input.anchor)
-      ? { kind: 'stays', ...note(here) }
+      ? { kind: 'stays', ...note() }
       : { kind: 'nothing' };
   },
 

@@ -1,7 +1,9 @@
-import { threadAt } from '@work/domain/services/station-thread';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { inThreadAt } from '@work/domain/services/station-thread';
 import { describe, expect, it } from 'vitest';
 
-describe('threadAt', () => {
+describe('inThreadAt', () => {
   const trail = [
     {
       runId: 'run_1',
@@ -51,7 +53,19 @@ describe('threadAt', () => {
     notes: readonly (typeof trail)[number][],
     stationId: string | null,
     runId: string,
-  ) => threadAt(notes, stationId, runId).map((each) => each.body);
+  ) =>
+    notes
+      .filter((each) =>
+        inThreadAt(
+          {
+            runId: each.runId === null ? null : RunId.of(each.runId),
+            stationId: StationId.of(each.stationId),
+          },
+          stationId === null ? null : StationId.of(stationId),
+          RunId.of(runId),
+        ),
+      )
+      .map((each) => each.body);
 
   it('takes every note at the station of the run', () => {
     expect(bodies(trail, 'station_implementation', 'run_2')).toEqual([
@@ -126,6 +140,6 @@ describe('threadAt', () => {
   });
 
   it('finds nothing in an empty trail', () => {
-    expect(threadAt([], 'station_triage', 'run_1')).toEqual([]);
+    expect(bodies([], 'station_triage', 'run_1')).toEqual([]);
   });
 });

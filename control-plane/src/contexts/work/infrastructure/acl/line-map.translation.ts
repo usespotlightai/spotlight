@@ -54,19 +54,6 @@ const stationOf = (view: StationView): Station =>
     decisions: view.decisions,
     memories: view.memories,
     judge: view.judge && JudgeSettings.of(view.judge),
-    search: view.search && {
-      enabled: view.search.enabled,
-      monthlyCeiling: view.search.monthlyCeiling,
-      currency: view.search.currency,
-      ceiling: view.search.ceiling,
-      periodMilliseconds: view.search.periodMilliseconds,
-      onAlert: view.search.onAlert,
-      cooldownMilliseconds: view.search.cooldownMilliseconds,
-      agent: view.search.agent && { ...view.search.agent },
-      iterations: view.search.iterations,
-      repeats: view.search.repeats,
-      objective: view.search.objective,
-    },
     tools: view.tools.map(Tool.of),
     skills: view.skills.map(SkillKey.of),
   });
@@ -96,9 +83,4 @@ export const lineMapOf = (view: LineView): LineMap =>
     ),
     reviews: view.reviews && ReviewIntake.of(view.reviews),
     placement: RunnerPlacement.of(view.runners),
-    replayCheck: view.replayCheck && { ...view.replayCheck },
-    source: view.source && {
-      repository: Repository.of(view.source.repository),
-      path: view.source.path,
-    },
   });

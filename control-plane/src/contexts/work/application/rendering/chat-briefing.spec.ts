@@ -22,6 +22,7 @@ import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 import { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
+import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import {
   lineMapOf,
   stationOf,
@@ -62,6 +63,7 @@ const brief = (
   memoryFolder: MemoryFolder | null = null,
   lines: readonly LineMap[] = [],
   release: Release | null = null,
+  extensions: readonly string[] = [],
 ) =>
   ChatBriefing.brief({
     chat,
@@ -71,6 +73,7 @@ const brief = (
     memoryFolder,
     spotlightUrl: 'https://app.usespotlight.ai/',
     release,
+    extensions,
   });
 
 const DELIVERY = lineMapOf({
@@ -111,8 +114,11 @@ const DELIVERY = lineMapOf({
 const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
   const handed = chat
     .assignRun(RunId.of('run_1'), NOW)
-    .endRun(RunId.of('run_1'))
-    .addMessage({
+    .runEnded(RunId.of('run_1'), {
+      session: HarnessSession.of('session_1'),
+      claimedBy: null,
+    })
+    .chat.addMessage({
       by: LEON,
       body: ChatMessageBody.fromInput('And this one?'),
       traces,
@@ -151,35 +157,13 @@ const IMPLEMENTATION = TargetStation.rehydrate({
 });
 
 describe('ChatBriefing', () => {
-  it('briefs a chat that targets a station to read its history first', () => {
-    const briefed = brief(targetStationChat(), [], null, [DELIVERY]);
+  it('briefs a chat with what its offered tool extensions say', () => {
+    const briefed = brief(targetStationChat(), [], null, [DELIVERY], null, [
+      '## Improving a station\n\nRead its history first.',
+    ]);
 
     expect(briefed).toContain('## Improving a station');
-    expect(briefed).toContain('the Building station');
-    expect(briefed).toContain(
-      'spotlight history --line delivery --station implementation --last 30',
-    );
-    expect(briefed).toContain('Propose one change at a time');
-    expect(briefed).toContain('prompts/<team>/delivery/implementation.md');
-  });
-
-  it('briefs a chat that targets a station to test its change with the tool, and to show a diff only when the tool cannot start', () => {
-    const briefed = brief(targetStationChat(), [], null, [DELIVERY]);
-
-    expect(briefed).toContain(
-      'spotlight tools call test-station-change --name <slug> --hypothesis "…" < station.json',
-    );
-    expect(briefed).toContain('Add `--mode search` only when the person asks');
-    expect(briefed).toContain(
-      'Show a Terraform diff only when the tool cannot start',
-    );
-  });
-
-  it('tells the agent when the station it was to improve is gone', () => {
-    const briefed = brief(targetStationChat());
-
-    expect(briefed).toContain('no longer on the team');
-    expect(briefed).not.toContain('spotlight history --line');
+    expect(briefed).toContain('Read its history first.');
   });
 
   it('says nothing of a target station where none was shared', () => {

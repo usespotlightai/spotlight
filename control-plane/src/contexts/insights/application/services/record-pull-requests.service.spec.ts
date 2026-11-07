@@ -123,12 +123,13 @@ describe('recording every pull request', () => {
       workspaceId: WORKSPACE,
       pullRequest: PULL,
       taskId: TaskId.of('task_2'),
+      teamId: TEAM,
     });
 
     expect(repositories.deletions.locks).toEqual([
       `${WORKSPACE.value} ${TEAM.value} ${TASK.value}`,
       WORKSPACE.value,
-      `${WORKSPACE.value} task_2`,
+      `${WORKSPACE.value} ${TEAM.value} task_2`,
       WORKSPACE.value,
     ]);
   });
@@ -228,7 +229,7 @@ describe('deleting a task’s or a team’s pull requests', () => {
     await repositories.pullRequests.add(
       PullRequestRecord.noted(WORKSPACE, people)
         .seenAs(seenOf({ number: 8 }))
-        .recordReview(TASK),
+        .recordReview({ taskId: TASK, teamId: TEAM }),
     );
     const scope = DeletionScope.ofTask(WORKSPACE, TASK);
 

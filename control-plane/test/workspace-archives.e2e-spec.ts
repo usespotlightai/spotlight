@@ -2,25 +2,28 @@ import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { WorkspaceArchiveStorePort } from '@work/application/ports/workspace-archive-store.port';
+import { ArchiveHolders } from '@work/application/services/archive-holders.service';
+import { RemoveReleasedArchives } from '@work/application/services/remove-released-archives.service';
 import {
+  type ArchiveFacts,
   type StoredArchive,
   WorkspaceArchive,
 } from '@work/domain/aggregates/workspace-archive.aggregate';
 import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
-import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
-import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 import { DrizzleArchiveReferences } from '@work/infrastructure/persistence/drizzle/readers/archive-references.reader';
+import { DrizzleWorkArchiveHolders } from '@work/infrastructure/persistence/drizzle/readers/work-archive-holders.reader';
 import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persistence/drizzle/repositories/workspace-archive.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { aRunOf } from './support/run-ended';
+import { requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
@@ -39,6 +42,7 @@ let database: TestDatabase;
 let db: DrizzleDatabase;
 let archives: DrizzleWorkspaceArchiveRepository;
 let references: DrizzleArchiveReferences;
+let holders: ArchiveHolders;
 let stationId: string;
 let otherStationId: string;
 
@@ -49,6 +53,8 @@ beforeAll(async () => {
     dispatch: async () => {},
   });
   references = new DrizzleArchiveReferences(db);
+  holders = new ArchiveHolders();
+  holders.register(new DrizzleWorkArchiveHolders(db));
 
   const lineId = randomUUID();
   stationId = randomUUID();
@@ -130,25 +136,22 @@ const aChat = async (
   return id;
 };
 
-const forTask = (taskId: string): ArchiveHolder => ({
-  kind: 'task',
-  taskId: TaskId.of(taskId),
-});
+const forTask = (taskId: string): WorkspaceKey =>
+  WorkspaceKey.of('work', `task-${taskId}`);
+
+const forChat = (chatId: string): WorkspaceKey =>
+  WorkspaceKey.of('work', `chat-${chatId}`);
 
 const archived = async (
-  holder: ArchiveHolder,
+  key: WorkspaceKey,
   times: { grantedAt: Date; completedAt?: Date },
 ): Promise<WorkspaceArchive> => {
-  const key =
-    holder.kind === 'task'
-      ? ResumeKey.forTask(TaskId.of(holder.taskId.value))
-      : ResumeKey.forChat(ChatId.of(holder.chatId.value));
   const grantee = await aRunOf(db, { id: randomUUID(), workspaceId: 'ws_1' });
   const granted = WorkspaceArchive.grant({
     id: WorkspaceArchiveId.of(randomUUID()),
     workspaceId: WorkspaceId.of('ws_1'),
-    resumeKey: key,
-    holder,
+    workspaceKey: key,
+    held: true,
     grantee: ArchiveGrantee.run(RunId.of(grantee)),
     size: STORED.size,
     digest: STORED.digest,
@@ -166,12 +169,41 @@ const archived = async (
   return (await archives.find(granted.id)) as WorkspaceArchive;
 };
 
-const dueNow = async () =>
-  new Map(
-    (await references.due(WorkspaceArchive.removalCutoffs(NOW), 500)).map(
-      (each) => [each.id.value, each.facts],
-    ),
+const factsNow = async () => {
+  const page = await references.due(
+    WorkspaceArchive.removalCutoffs(NOW),
+    null,
+    500,
   );
+  const held = await holders.stateOf(page.due.map((each) => each.workspaceKey));
+
+  return new Map(
+    page.due.map((each) => [
+      each.id.value,
+      {
+        holder: held.get(each.workspaceKey.value) ?? null,
+        supersededAt: each.supersededAt,
+        lastStartedFromAt: each.lastStartedFromAt,
+        pinned: each.pinned,
+      },
+    ]),
+  );
+};
+
+const dueNow = async () => {
+  const facts = await factsNow();
+  const due = new Map<string, ArchiveFacts>();
+
+  for (const [id, each] of facts) {
+    const archive = await archives.find(WorkspaceArchiveId.of(id));
+
+    if (archive?.removableAt(NOW, each)) {
+      due.set(id, each);
+    }
+  }
+
+  return due;
+};
 
 describe('storing workspace archives', () => {
   it('finds the newest completed archive of a piece of work, and nothing incomplete', async () => {
@@ -188,7 +220,7 @@ describe('storing workspace archives', () => {
 
     const found = await archives.newestCompleted(
       WorkspaceId.of('ws_1'),
-      ResumeKey.forTask(TaskId.of(taskId)),
+      forTask(taskId),
     );
 
     expect(found?.id.value).toBe(newer.id.value);
@@ -254,22 +286,22 @@ describe('storing workspace archives', () => {
       grantedAt: ago(10 * DAY),
       completedAt: ago(10 * DAY),
     });
-    const releasedOfAChat = await archived(
-      { kind: 'chat', chatId: ChatId.of(leftItsConversation) },
-      { grantedAt: ago(10 * DAY), completedAt: ago(10 * DAY) },
-    );
+    const releasedOfAChat = await archived(forChat(leftItsConversation), {
+      grantedAt: ago(10 * DAY),
+      completedAt: ago(10 * DAY),
+    });
     const ofADeletedTask = await archived(forTask(deleted), {
       grantedAt: ago(HOUR),
       completedAt: ago(HOUR),
     });
-    const ofADeletedChat = await archived(
-      { kind: 'chat', chatId: ChatId.of(deletedChat) },
-      { grantedAt: ago(HOUR), completedAt: ago(HOUR) },
-    );
-    const ofAChat = await archived(
-      { kind: 'chat', chatId: ChatId.of(await aChat()) },
-      { grantedAt: ago(30 * DAY), completedAt: ago(30 * DAY) },
-    );
+    const ofADeletedChat = await archived(forChat(deletedChat), {
+      grantedAt: ago(HOUR),
+      completedAt: ago(HOUR),
+    });
+    const ofAChat = await archived(forChat(await aChat()), {
+      grantedAt: ago(30 * DAY),
+      completedAt: ago(30 * DAY),
+    });
     const neverCompleted = await archived(forTask(carryingOn), {
       grantedAt: ago(2 * DAY),
     });
@@ -280,13 +312,11 @@ describe('storing workspace archives', () => {
     const due = await dueNow();
 
     expect(due.get(releasedLongAgo.id.value)?.holder).toEqual({
-      kind: 'task',
-      finished: true,
+      released: true,
       changedAt: ago(9 * DAY),
     });
     expect(due.get(releasedOfAChat.id.value)?.holder).toEqual({
-      kind: 'chat',
-      conversing: false,
+      released: true,
       changedAt: ago(8 * DAY),
     });
     expect(due.get(ofADeletedTask.id.value)?.holder).toBeNull();
@@ -321,6 +351,7 @@ describe('storing workspace archives', () => {
         harness: 'dev',
         state: 'completed',
         endedAt: new Date(),
+        ...requestedByTask(randomUUID()),
         spec: {},
         startedFromArchiveId: archive.id.value,
         startedFromCheckouts: [],
@@ -407,5 +438,53 @@ describe('storing workspace archives', () => {
     expect(due.get(superseded.id.value)?.supersededAt).toEqual(ago(2 * HOUR));
     expect(due.has(current.id.value)).toBe(false);
     expect(due.has(justSuperseded.id.value)).toBe(false);
+  });
+
+  it('removes the archive of a task finished past the retention, and keeps the archive of a task opened again', async () => {
+    const removedFromStore: string[] = [];
+    const failures: unknown[] = [];
+    const store: WorkspaceArchiveStorePort = {
+      grantUpload: async () => {
+        throw new Error('nothing is uploaded here');
+      },
+      stored: async () => null,
+      grantDownload: async () => {
+        throw new Error('nothing is downloaded here');
+      },
+      remove: async (archive) => {
+        removedFromStore.push(archive.id.value);
+      },
+    };
+    const removal = new RemoveReleasedArchives(
+      references,
+      holders,
+      archives,
+      store,
+      { now: () => NOW, sleep: async () => {} },
+      {
+        debug: () => {},
+        info: () => {},
+        warn: () => {},
+        error: (fields) => failures.push(fields),
+      },
+    );
+    const finished = await archived(
+      forTask(
+        await aTask({ finishedAt: ago(9 * DAY), updatedAt: ago(9 * DAY) }),
+      ),
+      { grantedAt: ago(10 * DAY), completedAt: ago(10 * DAY) },
+    );
+    const reopened = await archived(
+      forTask(await aTask({ finishedAt: null, updatedAt: ago(DAY) })),
+      { grantedAt: ago(10 * DAY), completedAt: ago(10 * DAY) },
+    );
+
+    await removal.processDue();
+
+    expect(failures).toEqual([]);
+    expect(await archives.find(finished.id)).toBeNull();
+    expect(removedFromStore).toContain(finished.id.value);
+    expect(await archives.find(reopened.id)).not.toBeNull();
+    expect(removedFromStore).not.toContain(reopened.id.value);
   });
 });

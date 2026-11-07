@@ -85,6 +85,7 @@ const of = (stations: Station[], reactions: Reaction[] = []) =>
     name: LineName.of('Default'),
     stations,
     reactions,
+    version: 0,
   });
 
 const lineOf = (stations: Station[], reactions: Reaction[] = []) =>
@@ -135,15 +136,16 @@ describe('Line', () => {
   it('runs every work station it creates on the harness it seeds with, and the rest on none', () => {
     for (const station of created().stations) {
       expect(station.harness?.value ?? null).toBe(
-        station.isAgentStation ? 'dev' : null,
+        station.kind === 'work' ? 'dev' : null,
       );
     }
   });
 
   it('creates each station with what it is there to do', () => {
-    expect(created().agentStations[0]?.agentPrompt?.value).toBe(
-      BUILT_IN_STATIONS[1]?.agentPrompt?.value,
-    );
+    expect(
+      created().stations.filter((each) => each.kind === 'work')[0]?.agentPrompt
+        ?.value,
+    ).toBe(BUILT_IN_STATIONS[1]?.agentPrompt?.value);
   });
 
   it('gives the line and each of its stations an identity of its own', () => {
@@ -165,7 +167,7 @@ describe('Line', () => {
       const line = created();
 
       expect(kindOf(line, 'backlog').name.value).toBe('Backlog');
-      expect(kindOf(line, 'backlog').isBacklog).toBe(true);
+      expect(kindOf(line, 'backlog').kind).toBe('backlog');
     });
 
     it('puts it first, where a task waits to be started', () => {
@@ -175,7 +177,11 @@ describe('Line', () => {
     it('leaves it out of the stations work moves through', () => {
       const line = created();
 
-      expect(line.agentStations.map((each) => each.name.value)).toEqual(
+      expect(
+        line.stations
+          .filter((each) => each.kind === 'work')
+          .map((each) => each.name.value),
+      ).toEqual(
         BUILT_IN_STATIONS.filter((each) => each.kind === 'work').map(
           (each) => each.name.value,
         ),
@@ -202,7 +208,7 @@ describe('Line', () => {
       const line = created();
 
       expect(kindOf(line, 'completed').name.value).toBe('Completed');
-      expect(kindOf(line, 'completed').isCompleted).toBe(true);
+      expect(kindOf(line, 'completed').kind).toBe('completed');
     });
 
     it('puts it last, where a merged task lands', () => {
@@ -214,7 +220,11 @@ describe('Line', () => {
     it('leaves it out of the stations work moves through', () => {
       const line = created();
 
-      expect(line.agentStations.map((each) => each.name.value)).toEqual(
+      expect(
+        line.stations
+          .filter((each) => each.kind === 'work')
+          .map((each) => each.name.value),
+      ).toEqual(
         BUILT_IN_STATIONS.filter((each) => each.kind === 'work').map(
           (each) => each.name.value,
         ),
@@ -387,7 +397,7 @@ describe('Line, what it records of its changes', () => {
         LineRepositoryConfig.of(Repository.of('acme/api'), {
           setup: RepositorySetup.of('npm ci'),
         }),
-      ]).repositories.all,
+      ]).repositories.entries,
     ).toHaveLength(1);
   });
 
@@ -449,6 +459,16 @@ describe('Line, what it records of its changes', () => {
             { resource: 'line', id: line.id.value, key: line.key.value },
             changeActorIn(),
           ),
+          0,
+          line.name,
+          line.stations.map((each) => ({
+            id: each.id,
+            key: each.key,
+            name: each.name,
+            kind: each.kind,
+            color: each.color,
+            position: each.position,
+          })),
         ),
       ]);
     });
@@ -477,6 +497,16 @@ describe('Line, what it records of its changes', () => {
             changeActorIn(),
           ),
           line.stations.map((each) => each.id),
+          4,
+          line.name,
+          line.stations.map((each) => ({
+            id: each.id,
+            key: each.key,
+            name: each.name,
+            kind: each.kind,
+            color: each.color,
+            position: each.position,
+          })),
         ),
       );
     });
@@ -586,8 +616,13 @@ describe('Line, what it records of its changes', () => {
             changeActorIn(),
           ),
           line.stations.map((each) => each.id),
+          4,
+          line.name,
         ),
       ]);
+      expect(() => deleted.delete(new Map(), changeActorIn())).toThrow(
+        /after it was deleted/,
+      );
       expect(() =>
         deleted.update(
           {
@@ -627,6 +662,7 @@ describe('a line’s search policy', () => {
       key: LineKey.of('delivery'),
       name: LineName.of('Delivery'),
       search,
+      version: 0,
       stations: [
         Station.of({
           id: StationId.of('station_backlog'),

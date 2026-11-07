@@ -6,8 +6,6 @@ import type {
   SearchPolicySummary,
   StationSummary,
 } from '@lines/application/ports/line-reader.port';
-import type { Line } from '@lines/domain/aggregates/line.aggregate';
-import type { Station } from '@lines/domain/entities/station.entity';
 import type {
   LineSearchPolicy,
   SearchPolicy,
@@ -62,75 +60,11 @@ export const LineMapper = {
     };
   },
 
-  stationToDto(station: Station, line: LineSearchPolicy): StationDto {
-    return {
-      id: station.id.value,
-      key: station.key.value,
-      name: station.name.value,
-      position: station.position,
-      color: station.color.value,
-      description: station.description?.value ?? null,
-      harness: station.harness?.value ?? null,
-      model: station.model?.value ?? null,
-      effort: station.effort?.value ?? null,
-      agentPrompt: station.agentPrompt?.value ?? null,
-      judge: station.judge
-        ? {
-            rubric: station.judge.rubric,
-            claims: [...station.judge.claims],
-            passThreshold: station.judge.passThreshold,
-            sample: station.judge.sample,
-            minAgreement: station.judge.minAgreement,
-          }
-        : null,
-      alerts: station.alerts.map((each) => ({
-        measure: each.measure,
-        risesBy: each.risesBy,
-        above: each.above,
-        fallsBy: each.fallsBy,
-        below: each.below,
-        over: each.over,
-      })),
-      search: LineMapper.searchToSummary(line.resolvedFor(station)),
-      kind: station.kind,
-      skills: station.skills.map((each) => each.value),
-    };
-  },
-
   repositoryToSummary(repository: Repository): RepositorySummary {
     return {
       fullName: repository.value,
       host: repository.host,
       url: repository.url,
-    };
-  },
-
-  lineToDto(line: Line): LineDto {
-    return {
-      id: line.id.value,
-      key: line.key.value,
-      name: line.name.value,
-      stations: line.stations.map((each) =>
-        LineMapper.stationToDto(each, line.searchPolicy),
-      ),
-      reactions: line.reactions.map((each) => ({
-        happening: each.happening.value,
-        from: each.from?.value ?? null,
-        to: each.to.value,
-      })),
-      repositories: line.repositories.all.map(LineMapper.repositoryToSummary),
-      source: line.source
-        ? { repository: line.source.repository.value, path: line.source.path }
-        : null,
-      replayCheck: line.replayCheck
-        ? {
-            maxRegressions: line.replayCheck.maxRegressions,
-            ceiling: line.replayCheck.ceiling,
-            currency: line.replayCheck.currency,
-            minGain: line.replayCheck.minGain,
-          }
-        : null,
-      search: LineMapper.lineSearchToSummary(line.searchPolicy),
     };
   },
 

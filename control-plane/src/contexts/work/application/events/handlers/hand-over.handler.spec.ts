@@ -9,7 +9,6 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -18,11 +17,13 @@ import type { RunJournal } from '@work/application/contracts/run-journal.contrac
 import { HandOver } from '@work/application/events/handlers/hand-over.handler';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { lastWordsIn } from '@work/application/services/last-words';
 import { RunRouting } from '@work/application/services/run-routing.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
@@ -41,10 +42,8 @@ import {
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
@@ -56,7 +55,7 @@ const aSpec = (executable = 'sh') =>
     command: { executable, args: [] },
     briefing: 'do the thing',
     handover: { options: [], noteLimit: 4_000 },
-    resume: { key: 'task:station' },
+    resume: {},
   });
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
@@ -116,9 +115,7 @@ const queued = (taskId: string | null = 'task_1') =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject: taskId
-      ? RunSubject.task(TaskId.of(taskId), null, TaskRevision.of(0))
-      : null,
+    ...(taskId ? orderedFor.task(taskId, 0) : orderedFor.spec()),
     spec: aSpec(),
   });
 
@@ -233,7 +230,8 @@ const routedAsItsTurn = async (
   routing: RunRouting,
   journals: readonly RunJournal[],
 ) => {
-  const task = ended.taskId ? await stored.find(ended.taskId) : null;
+  const taskId = WorkRequesters.taskOf(ended.requester.parts);
+  const task = taskId ? await stored.find(taskId) : null;
 
   if (!task?.hasCurrentRun(ended.runId)) {
     return;
@@ -314,7 +312,7 @@ describe('HandOver', () => {
       id: RunId.of('run_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       harness: HarnessId.of('dev'),
-      subject: RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(3)),
+      ...orderedFor.task('task_1', 3),
       spec: aSpec(),
     })
       .claim(runner, NOW)
@@ -327,7 +325,7 @@ describe('HandOver', () => {
 
   it('keeps a failure on a finished task from the inbox', async () => {
     const finished = task().finishHere(RunId.of('run_1'), line(), {
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Done by hand.'),
       at: NOW,
       voice: Voice.station(RunId.of('run_1')),
@@ -429,7 +427,7 @@ describe('HandOver', () => {
   describe('a run that ends while its task waits on a person', () => {
     const asked = () =>
       task().putToAPerson(RunId.of('run_1'), {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -462,7 +460,7 @@ describe('HandOver', () => {
 
     const deferredWhileAsked = () =>
       asked().deferMove(line(), StationId.of('station_4'), {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('The checks failed on the pull request.'),
         at: NOW,
         voice: Voice.world(),
@@ -506,7 +504,7 @@ describe('HandOver', () => {
   describe('a move deferred while the run was in progress', () => {
     const deferred = (to = 'station_4') =>
       task().deferMove(line(), StationId.of(to), {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('The checks failed on the pull request.'),
         at: NOW,
         voice: Voice.world(),
@@ -567,7 +565,7 @@ describe('HandOver', () => {
         ),
         ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -579,7 +577,7 @@ describe('HandOver', () => {
       return asked.answer(
         NotePosition.of(1),
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),

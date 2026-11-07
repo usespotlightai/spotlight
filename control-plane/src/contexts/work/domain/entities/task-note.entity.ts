@@ -33,6 +33,7 @@ export const TASK_NOTE_FORMS = [
   'setup',
   'resolved',
   'approval',
+  'decision',
   'failure',
   'connection',
 ] as const;
@@ -93,6 +94,34 @@ export class TaskNote {
           `has form ${form} but carries a ${payload}`,
         );
       }
+    }
+
+    if (form === 'failure' && carried.failure === null) {
+      throw new InconsistentStateError(
+        'task note',
+        'has form failure but carries no failure',
+      );
+    }
+
+    if (form === 'connection' && carried.connection === null) {
+      throw new InconsistentStateError(
+        'task note',
+        'has form connection but carries no connection ask',
+      );
+    }
+
+    if (form === 'approval' && carried.approval === null) {
+      throw new InconsistentStateError(
+        'task note',
+        'has form approval but carries no approval',
+      );
+    }
+
+    if (form === 'decision' && input.kind !== 'answered') {
+      throw new InconsistentStateError(
+        'task note',
+        `records a decision on a ${input.kind} note`,
+      );
     }
 
     if (input.deferredMove && input.kind !== 'message') {

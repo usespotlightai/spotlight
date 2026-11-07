@@ -1,6 +1,6 @@
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
-import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { UseToolCommand } from '@work/application/commands/use-tool.command';
@@ -15,9 +15,11 @@ import type {
   TaskViewDto,
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
+import type { ToolUsesPort } from '@work/application/ports/tool-uses.port';
 import type { RunWorks } from '@work/application/services/run-works.service';
 import type { ToolSources } from '@work/application/services/tool-sources.service';
-import { ToolUsed } from '@work/domain/events/tool-used.event';
+import { WorkRequesters } from '@work/application/services/work-requesters';
+import { RecordedToolUse } from '@work/domain/entities/recorded-tool-use.entity';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import { ToolApprovalDismissedError } from '@work/domain/exceptions/tool-approval-dismissed.error';
 import { ToolAwaitsApprovalError } from '@work/domain/exceptions/tool-awaits-approval.error';
@@ -42,7 +44,8 @@ export class UseToolHandler
     private readonly taskViews: TaskViewsPort,
     private readonly hooks: LifecycleHooksPort,
     private readonly ids: IdGeneratorPort,
-    private readonly events: DomainEventDispatcher,
+    private readonly uses: ToolUsesPort,
+    private readonly clock: ClockPort,
   ) {}
 
   async execute(command: UseToolCommand): Promise<ToolAnswerDto> {
@@ -53,7 +56,7 @@ export class UseToolHandler
         command.runnerId,
       );
 
-      if (!run.manifest.includes(tool.value)) {
+      if (!run.policy.actsBeyondItself || !run.manifest.includes(tool.value)) {
         throw new ToolNotEnabledError(tool.value);
       }
 
@@ -188,8 +191,10 @@ export class UseToolHandler
   }
 
   private taskViewOf(run: LeasedRun): Promise<TaskViewDto | null> {
-    return run.policy.actsBeyondItself && run.subject?.kind === 'task'
-      ? this.taskViews.of(run.subject.taskId.value, run.runId.value)
+    const task = WorkRequesters.taskOf(run.requester);
+
+    return task
+      ? this.taskViews.of(task.value, run.runId.value)
       : Promise.resolve(null);
   }
 
@@ -201,21 +206,23 @@ export class UseToolHandler
     failed: boolean,
     actingAs: ToolActingAs | null,
   ): Promise<void> {
-    if (run.subject?.kind !== 'task') {
-      return;
-    }
+    const use = RecordedToolUse.of({
+      run: {
+        id: run.runId,
+        attempt: run.attempt,
+        task: WorkRequesters.taskOf(run.requester),
+      },
+      useId: this.ids.generate(),
+      tool,
+      inputs,
+      output,
+      failed,
+      actingAs,
+      at: this.clock.now(),
+    });
 
-    await this.events.dispatch([
-      new ToolUsed(
-        run.runId,
-        run.subject.taskId,
-        tool,
-        inputs,
-        output,
-        failed,
-        this.ids.generate(),
-        actingAs,
-      ),
-    ]);
+    if (use) {
+      await this.uses.record(use);
+    }
   }
 }

@@ -1,15 +1,16 @@
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { FingerprintedConfig } from '@work/application/contracts/station-config.contract';
-import type {
-  StationRunReaderPort,
-  TracedWanted,
-} from '@work/application/ports/station-run-reader.port';
+import type { StationRunReaderPort } from '@work/application/ports/station-run-reader.port';
 import type {
   EndedStationRun,
   StationRunsPort,
+  StationTaskRun,
+  TracedRunsWanted,
   TracedWork,
   UnfinishedStationRun,
 } from '@work/application/ports/station-runs.port';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import { visitAfter } from '@work/domain/services/station-visit';
 import { reviewedOrAll } from '@work/domain/services/task-checkouts';
 import { progressOf } from '@work/domain/value-objects/run-state';
@@ -23,7 +24,23 @@ const shortened = (text: string | null | undefined): string | null => {
 };
 
 export class StationRuns implements StationRunsPort {
-  constructor(private readonly reader: StationRunReaderPort) {}
+  constructor(
+    private readonly reader: StationRunReaderPort,
+    private readonly dispatches: DispatchRepository,
+  ) {}
+
+  async taskRunOf(runId: string): Promise<StationTaskRun | null> {
+    const dispatch = await this.dispatches.find(RunId.of(runId));
+    const subject = dispatch?.subject;
+
+    return subject?.kind === 'task' && dispatch?.teamId
+      ? {
+          runId,
+          taskId: subject.taskId.value,
+          teamId: dispatch.teamId.value,
+        }
+      : null;
+  }
 
   async ended(runId: string): Promise<EndedStationRun | null> {
     const found = await this.reader.endedRun(runId);
@@ -68,7 +85,7 @@ export class StationRuns implements StationRunsPort {
     });
   }
 
-  async traced(wanted: TracedWanted): Promise<TracedWork> {
+  async traced(wanted: TracedRunsWanted): Promise<TracedWork> {
     const rows = await this.reader.traced(wanted);
 
     return {

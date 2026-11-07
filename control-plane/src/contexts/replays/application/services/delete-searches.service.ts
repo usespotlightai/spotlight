@@ -1,4 +1,4 @@
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { SearchRunDispatching } from '@replays/application/services/search-run-dispatch.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import type { SearchDeleted } from '@replays/domain/events/search-deleted.event';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
@@ -10,7 +10,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 export class DeleteSearches {
   constructor(
     private readonly searches: SearchRepository,
-    private readonly work: WorkPort,
+    private readonly searchRuns: SearchRunDispatching,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
   ) {}
@@ -25,7 +25,7 @@ export class DeleteSearches {
 
   async cancelRunOf(event: SearchDeleted): Promise<void> {
     if (event.runToCancel) {
-      await this.work.cancelSearchRun(event.runToCancel);
+      await this.searchRuns.cancelSearchRun(event.runToCancel);
     }
   }
 

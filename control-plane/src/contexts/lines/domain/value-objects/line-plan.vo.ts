@@ -2,6 +2,7 @@ import type { StationKind } from '@lines/domain/entities/station.entity';
 import { DuplicateRepositoryError } from '@lines/domain/exceptions/duplicate-repository.error';
 import { InvalidLinePlanError } from '@lines/domain/exceptions/invalid-line-plan.error';
 import { MixedRunnerImagesError } from '@lines/domain/exceptions/mixed-runner-images.error';
+import { idleStationProblem } from '@lines/domain/services/idle-station';
 import {
   reactionsProblem,
   searchProblem,
@@ -73,27 +74,11 @@ type InvalidStation = {
   readonly reason: string;
 } | null;
 
-const NOTHING_RUNS: Readonly<Record<Exclude<StationKind, 'work'>, string>> = {
-  backlog: 'is a backlog',
-  completed: 'is the completed station',
-};
-
 const stationProblem = (station: StationPlan): InvalidStation => {
-  if (station.kind !== 'work') {
-    const idle = NOTHING_RUNS[station.kind];
+  const idle = idleStationProblem(station);
 
-    if (station.judge) {
-      return { rule: 'judge', reason: `${idle} and has no runs to judge` };
-    }
-    if (station.alerts.length > 0) {
-      return {
-        rule: 'alerts',
-        reason: `${idle} and has no runs to alert on`,
-      };
-    }
-    if (station.search) {
-      return { rule: 'search', reason: `${idle} and has no runs to improve` };
-    }
+  if (idle) {
+    return { rule: idle.setting, reason: idle.reason };
   }
 
   const skills = skillsProblem(station.skills);
@@ -248,9 +233,5 @@ export class LinePlan {
       input.search ?? null,
       input.source ?? null,
     );
-  }
-
-  names(key: StationKey): boolean {
-    return this.stations.some((each) => each.key.equals(key));
   }
 }

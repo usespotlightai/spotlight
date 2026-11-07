@@ -38,6 +38,7 @@ type Journal interface {
 	ReplyToReviewComment(ctx context.Context, runID string, reply protocol.ReviewCommentReply) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
 	History(ctx context.Context, runID string, request protocol.HistoryRequest) (json.RawMessage, error)
+	SearchView(ctx context.Context, runID string) (json.RawMessage, error)
 	RecallMemories(ctx context.Context, runID, words string) (json.RawMessage, error)
 	RecallMemory(ctx context.Context, runID, handle string) (json.RawMessage, error)
 	Remember(ctx context.Context, runID string, remembered protocol.RememberRequest) (json.RawMessage, error)
@@ -252,7 +253,7 @@ func (s *Sandbox) Execute(ctx context.Context, run protocol.Run, opts Options) e
 	})
 
 	channel.Histories(func(ctx context.Context, request protocol.HistoryRequest) (json.RawMessage, error) {
-		return opts.Journal.History(ctx, run.ID, request)
+		return history(ctx, opts.Journal, run, request)
 	})
 
 	channel.Memories(

@@ -23,7 +23,7 @@ interface ServerCallsReceived {
 export interface RunUsageReceived {
   readonly runId: string;
   readonly workspaceId: string;
-  readonly taskId: string | null;
+  readonly listed: boolean;
   readonly ms: number | null;
   readonly steps: number;
   readonly errors: number;
@@ -49,7 +49,11 @@ export class RecordRunUsageSummary {
   ) {}
 
   async usageRecorded(event: RunUsageReceived): Promise<void> {
-    if (!event.taskId) {
+    const taskRun = event.listed
+      ? await this.work.taskRunOf(event.runId)
+      : null;
+
+    if (!taskRun) {
       return;
     }
 
@@ -79,10 +83,8 @@ export class RecordRunUsageSummary {
     });
 
     const workspaceId = WorkspaceId.of(event.workspaceId);
-    const taskId = event.taskId ? TaskId.of(event.taskId) : null;
-    const run = await this.work.endedRun(event.runId);
-    const teamId = run ? TeamId.of(run.teamId) : null;
-
+    const taskId = TaskId.of(taskRun.taskId);
+    const teamId = TeamId.of(taskRun.teamId);
     const runId = RunId.of(event.runId);
 
     await this.transaction.inTransaction(() =>

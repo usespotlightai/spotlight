@@ -1,10 +1,10 @@
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
 import type { AttachmentSummary } from '@work/application/ports/attachment-reader.port';
 import type { InboxNote } from '@work/application/ports/inbox-reader.port';
+import type { RunsInWorkspace } from '@work/application/ports/viewed-runs';
 import type { ReviewState } from '@work/domain/services/conversations';
 import type { Progress } from '@work/domain/value-objects/run-state';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
@@ -31,6 +31,7 @@ export interface TaskRunSummary {
   readonly exitCode: number | null;
   readonly startedAt: Date;
   readonly updatedAt: Date;
+  readonly endedAt: Date | null;
   readonly harness: string;
   readonly image: string | null;
   readonly station: RunStationSummary | null;
@@ -82,21 +83,15 @@ export interface RunConfigSummary {
 export const RUN_READER = Symbol('RUN_READER');
 
 export interface RunReaderPort {
-  listForTask(taskId: TaskId, viewerId: UserId): Promise<TaskRunSummary[]>;
+  listForTask(
+    taskId: TaskId,
+  ): Promise<RunsInWorkspace<TaskRunSummary[]> | null>;
 
-  listForTeam(
-    teamId: TeamId,
-    viewerId: UserId,
-    page: PageRequest,
-  ): Promise<Page<TeamRunSummary>>;
+  listForTeam(teamId: TeamId, page: PageRequest): Promise<Page<TeamRunSummary>>;
 
-  findForTeam(
-    teamId: TeamId,
-    runId: RunId,
-    viewerId: UserId,
-  ): Promise<TeamRunSummary | null>;
+  findForTeam(teamId: TeamId, runId: RunId): Promise<TeamRunSummary | null>;
 
-  notesFor(runId: RunId, viewerId: UserId): Promise<RunNotesSummary | null>;
+  notesFor(runId: RunId): Promise<RunsInWorkspace<RunNotesSummary> | null>;
 
-  configFor(runId: RunId, viewerId: UserId): Promise<RunConfigSummary | null>;
+  configFor(runId: RunId): Promise<RunsInWorkspace<RunConfigSummary> | null>;
 }

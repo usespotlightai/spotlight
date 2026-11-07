@@ -80,37 +80,17 @@ import {
   type PullRequestReopenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/pull-request-reopened.integration-event';
 import {
-  REPLAY_CHANGE_CHECKED,
-  type ReplayChangeCheckedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-change-checked.integration-event';
-import {
-  REPLAY_CHANGE_RECHECKED,
-  type ReplayChangeRecheckedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-change-rechecked.integration-event';
-import {
-  REPLAY_ENDED,
-  type ReplayEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-ended.integration-event';
-import {
-  REPLAY_RUN_USAGE_RECORDED,
-  type ReplayRunUsageRecordedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-run-usage-recorded.integration-event';
-import {
-  REPLAY_STACK_COMPLETED,
-  type ReplayStackCompletedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/replay-stack-completed.integration-event';
+  REQUESTED_RUN_ENDED,
+  type RequestedRunEndedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/requested-run-ended.integration-event';
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
 import {
-  SEARCH_RUN_ENDED,
-  type SearchRunEndedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/search-run-ended.integration-event';
-import {
-  SEARCH_RUN_USAGE_RECORDED,
-  type SearchRunUsageRecordedIntegrationEvent,
-} from '@shared-kernel/application/integration-events/search-run-usage-recorded.integration-event';
+  RUN_USAGE_RECORDED,
+  type RunUsageRecordedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/run-usage-recorded.integration-event';
 import {
   STATION_ALERT_FIRED,
   type StationAlertFiredIntegrationEvent,
@@ -119,6 +99,18 @@ import {
   TEAM_DELETED,
   type TeamDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/team-deleted.integration-event';
+import {
+  TRIAL_CHANGE_CHECKED,
+  type TrialChangeCheckedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/trial-change-checked.integration-event';
+import {
+  TRIAL_CHANGE_RECHECKED,
+  type TrialChangeRecheckedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/trial-change-rechecked.integration-event';
+import {
+  TRIAL_STACK_COMPLETED,
+  type TrialStackCompletedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/trial-stack-completed.integration-event';
 import {
   type DomainEventSubscriber,
   subscribing,
@@ -167,6 +159,16 @@ export interface ReplaysReactions {
   readonly following: FollowConfigPullRequests;
 }
 
+const REPLAYS = 'replays';
+
+const requestedAs = (
+  event: {
+    readonly requester: { readonly owner: string; readonly kind: string };
+  },
+  kind: 'replay' | 'search',
+): boolean =>
+  event.requester.owner === REPLAYS && event.requester.kind === kind;
+
 const spentOf = (event: {
   readonly spentCosts: readonly { amount: number; currency: string }[];
   readonly unpricedCalls: number;
@@ -179,24 +181,34 @@ const spentOf = (event: {
 export const replaysSubscribers = (
   reactions: ReplaysReactions,
 ): readonly DomainEventSubscriber[] => [
-  subscribing<ReplayEndedIntegrationEvent>(
+  subscribing<RequestedRunEndedIntegrationEvent>(
     'replays.record-replay-run-ended',
-    [REPLAY_ENDED],
-    (event) =>
-      reactions.ending.ended({
+    [REQUESTED_RUN_ENDED],
+    async (event) => {
+      if (!requestedAs(event, 'replay')) {
+        return;
+      }
+
+      await reactions.ending.ended({
         runId: event.runId,
         outcome: runResultOf(event.outcome),
         failure: event.failure,
         stopped: event.stopped,
-        asked: event.asked,
-        next: event.next,
-      }),
+        askedAPerson: event.askedAPerson,
+        handsOver: event.handsOver,
+        next: event.report?.next ?? null,
+      });
+    },
   ),
-  subscribing<ReplayRunUsageRecordedIntegrationEvent>(
+  subscribing<RunUsageRecordedIntegrationEvent>(
     'replays.record-replay-run-usage',
-    [REPLAY_RUN_USAGE_RECORDED],
-    (event) =>
-      reactions.recordingUsage.usageRecorded({
+    [RUN_USAGE_RECORDED],
+    async (event) => {
+      if (!requestedAs(event, 'replay')) {
+        return;
+      }
+
+      await reactions.recordingUsage.usageRecorded({
         runId: event.runId,
         ms: event.ms,
         steps: event.steps,
@@ -209,13 +221,14 @@ export const replaysSubscribers = (
           cacheRead: event.cacheReadTokens,
           cacheWrite: event.cacheWriteTokens,
         },
-      }),
+      });
+    },
   ),
   subscribing<
-    ReplayStackCompletedIntegrationEvent | ReplayChangeCheckedIntegrationEvent
+    TrialStackCompletedIntegrationEvent | TrialChangeCheckedIntegrationEvent
   >(
     'replays.record-replay-change-reviewed',
-    [REPLAY_STACK_COMPLETED, REPLAY_CHANGE_CHECKED],
+    [TRIAL_STACK_COMPLETED, TRIAL_CHANGE_CHECKED],
     (event) => reactions.reviewing.reviewed(event.runId),
   ),
   subscribing<ReplayJudgingRequested>(
@@ -298,9 +311,9 @@ export const replaysSubscribers = (
     (event) => reactions.requestingRecheck.requested(event),
     { callsOut: true },
   ),
-  subscribing<ReplayChangeRecheckedIntegrationEvent>(
+  subscribing<TrialChangeRecheckedIntegrationEvent>(
     'replays.record-calibration-run-rechecked',
-    [REPLAY_CHANGE_RECHECKED],
+    [TRIAL_CHANGE_RECHECKED],
     (event) => reactions.reviewing.rechecked(event.runId),
   ),
   subscribing<
@@ -388,21 +401,32 @@ export const replaysSubscribers = (
     ['replay.ended'],
     (event) => reactions.searching.replayEnded(event),
   ),
-  subscribing<SearchRunEndedIntegrationEvent>(
+  subscribing<RequestedRunEndedIntegrationEvent>(
     'replays.record-search-run-ended',
-    [SEARCH_RUN_ENDED],
-    (event) =>
-      reactions.searching.runEnded({
+    [REQUESTED_RUN_ENDED],
+    async (event) => {
+      if (!requestedAs(event, 'search')) {
+        return;
+      }
+
+      await reactions.searching.runEnded({
         runId: event.runId,
         outcome: runResultOf(event.outcome),
-        asked: event.asked,
+        asked: event.askedAPerson,
         started: event.started,
-      }),
+      });
+    },
   ),
-  subscribing<SearchRunUsageRecordedIntegrationEvent>(
+  subscribing<RunUsageRecordedIntegrationEvent>(
     'replays.record-search-run-usage',
-    [SEARCH_RUN_USAGE_RECORDED],
-    (event) => reactions.searching.usageRecorded(event.runId, spentOf(event)),
+    [RUN_USAGE_RECORDED],
+    async (event) => {
+      if (!requestedAs(event, 'search')) {
+        return;
+      }
+
+      await reactions.searching.usageRecorded(event.runId, spentOf(event));
+    },
   ),
   subscribing<SearchIterationRequested>(
     'replays.dispatch-search-iteration',

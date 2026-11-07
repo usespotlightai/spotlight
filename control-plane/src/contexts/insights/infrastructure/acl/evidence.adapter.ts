@@ -2,25 +2,7 @@ import type {
   EvidencePort,
   RunEvidence,
 } from '@insights/application/ports/evidence.port';
-import type {
-  StationJudge,
-  StationJudgesPort,
-} from '@insights/application/ports/station-judges.port';
-import type {
-  RunEvidencePort,
-  StationJudgeSettings,
-} from '@work/application/ports/run-evidence.port';
-
-const judgeOf = (judge: StationJudgeSettings): StationJudge => ({
-  teamId: judge.teamId,
-  lineId: judge.lineId,
-  rubric: judge.rubric,
-  claims: judge.claims,
-  passThreshold: judge.passThreshold,
-  rubricVersion: judge.rubricVersion,
-  sample: judge.sample,
-  minAgreement: judge.minAgreement,
-});
+import type { RunEvidencePort } from '@work/application/ports/run-evidence.port';
 
 export class Evidence implements EvidencePort {
   constructor(private readonly runs: RunEvidencePort) {}
@@ -53,26 +35,6 @@ export class Evidence implements EvidencePort {
           lines: each.lines,
         })),
       }
-    );
-  }
-}
-
-export class StationJudges implements StationJudgesPort {
-  constructor(private readonly runs: RunEvidencePort) {}
-
-  async judgeAt(stationId: string): Promise<StationJudge | null> {
-    const judge = await this.runs.judgeAt(stationId);
-
-    return judge && judgeOf(judge);
-  }
-
-  async judgesOnTeam(
-    teamId: string,
-  ): Promise<ReadonlyMap<string, StationJudge>> {
-    const judges = await this.runs.judgesOnTeam(teamId);
-
-    return new Map(
-      [...judges].map(([stationId, judge]) => [stationId, judgeOf(judge)]),
     );
   }
 }

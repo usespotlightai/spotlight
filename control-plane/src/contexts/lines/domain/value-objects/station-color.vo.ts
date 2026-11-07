@@ -23,10 +23,6 @@ export class StationColor {
     return new StationColor(PLAIN);
   }
 
-  static maybe(raw: string | null | undefined): StationColor | null {
-    return raw ? StationColor.of(raw) : null;
-  }
-
   equals(other: StationColor): boolean {
     return this.value === other.value;
   }

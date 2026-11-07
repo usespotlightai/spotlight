@@ -55,7 +55,7 @@ export class AgentReviews implements PullRequestReviewingPort {
         task: await this.reviewed(on),
         author: ReviewAuthor.agent(on.runId),
         verdict: verdict.verdict,
-        body: verdict.body,
+        body: verdict.body ?? '',
       })
     ).value;
   }

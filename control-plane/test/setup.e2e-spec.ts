@@ -124,7 +124,7 @@ describe('the open setup lists of a team', () => {
 
     await tasks.save(
       list.answer(NotePosition.of(0), {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Working on it.'),
         at: NOW,
         voice: Voice.station(),
@@ -156,7 +156,9 @@ describe('the open setup lists of a team', () => {
 describe('the inbox item of a setup list', () => {
   const inbox = (state: 'open' | 'resolved' = 'open') =>
     new ListInboxHandler(
-      new DrizzleInboxReader(db, new DrizzlePersonReader(db)),
+      new DrizzleInboxReader(db, new DrizzlePersonReader(db), {
+        progressOf: async () => [],
+      }),
       new WorkAccess(
         access(db),
         new WorkspaceReader(

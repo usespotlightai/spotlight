@@ -6,26 +6,20 @@ import type {
   RunOutcomesPort,
 } from '@work/application/ports/run-outcomes.port';
 import type { RunUsageReaderPort } from '@work/application/ports/run-usage-reader.port';
-import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
-import {
-  aSearchVisibility,
-  BUILD_BLOCK,
-} from '@work/application/ports/search-visibility.fake-spec';
-import type {
-  SearchVisibility,
-  SearchVisibilityPort,
-} from '@work/application/ports/search-visibility.port';
 import type {
   KeyedStation,
   StationRunReaderPort,
   StationRunRow,
   StationRunsWanted,
 } from '@work/application/ports/station-run-reader.port';
+import type { TraceScope } from '@work/application/ports/trace-scopes.port';
 import { ReadRunnerHistoryHandler } from '@work/application/queries/handlers/read-runner-history.handler';
 import {
   type HistoryWanted,
   ReadRunnerHistoryQuery,
 } from '@work/application/queries/read-runner-history.query';
+import { historyAccessesOf } from '@work/application/services/history-accesses.fake-spec';
+import { StationRunHistories } from '@work/application/services/station-run-histories.service';
 import { Money } from '@work/domain/value-objects/money.vo';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
@@ -115,24 +109,23 @@ const outcomeOf = (
 });
 
 const reading = ({
-  team = TeamId.of('team_1'),
+  team = 'team_1',
   keyed = [IMPLEMENTATION],
   runs = [ran('run_3'), ran('run_2'), ran('run_1')],
   outcomes = [] as RunOutcomeShape[],
-  replaysFrom = null,
-  visibility = null,
+  replaysFrom,
+  scope,
   among = [],
 }: {
-  team?: TeamId | null;
+  team?: string | null;
   replaysFrom?: Date | null;
   keyed?: KeyedStation[];
   runs?: StationRunRow[];
   outcomes?: RunOutcomeShape[];
-  visibility?: SearchVisibility | 'unseeable' | null;
+  scope?: TraceScope | null;
   among?: StationRunRow[];
 } = {}) => {
   const requested: StationRunsWanted[] = [];
-  const visible: string[] = [];
   const stationsKeyed = vi.fn().mockResolvedValue(keyed);
   const stations: StationRunReaderPort = {
     unfinishedOfTeam: async () => [],
@@ -148,27 +141,6 @@ const reading = ({
     endedAmong: async (_station, runIds) =>
       among.filter((each) => runIds.includes(each.runId)),
     journalsOf: async (ids) => ids.map(journal),
-  };
-  const traces = {
-    leasedRunFacts: vi
-      .fn()
-      .mockResolvedValue(
-        team
-          ? { teamId: team, replaysFrom, isSearch: visibility !== null }
-          : null,
-      ),
-  } as unknown as RunnerTraceReaderPort;
-  const visibilities: SearchVisibilityPort = {
-    of: async (runId) => {
-      visible.push(runId);
-      if (visibility === 'unseeable') {
-        throw new Error('no search ran this');
-      }
-      if (!visibility) {
-        throw new Error('requested the visibility of a run that is no search');
-      }
-      return visibility;
-    },
   };
   const outcomesPort: RunOutcomesPort = {
     of: async () => new Map(outcomes.map((each) => [each.runId, each])),
@@ -196,15 +168,17 @@ const reading = ({
   return {
     requested,
     stationsKeyed,
-    visible,
     read: (wanted: Partial<HistoryWanted> = {}) =>
       new ReadRunnerHistoryHandler(
-        traces,
+        historyAccessesOf({
+          team,
+          ...(replaysFrom === undefined ? {} : { trialAsOf: replaysFrom }),
+          ...(scope === undefined ? {} : { scope }),
+        }),
         stations,
         outcomesPort,
         usages,
-        visibilities,
-        connectionsInMemory(),
+        new StationRunHistories(stations, usages, connectionsInMemory()),
       ).execute(
         new ReadRunnerHistoryQuery('run_0', 'runner_1', {
           station: 'implementation',
@@ -305,7 +279,7 @@ describe('ReadRunnerHistoryHandler', () => {
     ).toEqual(['run_2']);
   });
 
-  it('shows a replay only the runs that ended before the run it replays started', async () => {
+  it('shows a trial only the runs that ended before the run it tries again started', async () => {
     const started = new Date('2026-09-20T00:00:00Z');
     const history = reading({ replaysFrom: started });
 
@@ -323,51 +297,23 @@ describe('ReadRunnerHistoryHandler', () => {
   });
 
   describe('for a search run', () => {
-    const VISIBILITY = aSearchVisibility({
+    const SCOPE: TraceScope = {
       stationId: 'station_1',
-      heldOutTasks: ['task_of_run_2'],
-      shownOriginals: ['run_1', 'run_9'],
-      candidates: [
-        {
-          name: 'shorter-prompt',
-          fingerprint: 'c'.repeat(64),
-          hypothesis: 'Less to read, fewer wrong turns.',
-          block: BUILD_BLOCK,
-          runs: [
-            {
-              runId: 'run_c',
-              original: 'run_9',
-              repeat: 1,
-              succeeded: false,
-              reasons: ['check-failed'],
-              verdict: 'fail',
-              guidance: 'Run the migration before the tests.',
-            },
-            {
-              runId: 'run_hidden_c',
-              original: 'run_2',
-              repeat: 1,
-              succeeded: true,
-              reasons: [],
-              verdict: null,
-              guidance: null,
-            },
-          ],
-        },
-      ],
-    });
+      hiddenTaskIds: ['task_of_run_2'],
+      shownRunIds: ['run_1', 'run_9'],
+    };
 
     it('reads only the searched station, never another by the same key', async () => {
       expect(
         await reading({
-          visibility: VISIBILITY,
+          scope: SCOPE,
           keyed: [{ ...IMPLEMENTATION, stationId: 'station_other' }],
         }).read(),
       ).toEqual({ kind: 'unknown' });
       expect(
         (
           await reading({
-            visibility: VISIBILITY,
+            scope: SCOPE,
             keyed: [
               IMPLEMENTATION,
               { ...IMPLEMENTATION, stationId: 'station_other', lineKey: 'x' },
@@ -378,11 +324,10 @@ describe('ReadRunnerHistoryHandler', () => {
     });
 
     it('leaves out every run of a held-out task, telling the store to skip them too', async () => {
-      const history = reading({ visibility: VISIBILITY });
+      const history = reading({ scope: SCOPE });
       const answer = await history.read();
 
       expect(history.requested[0]?.excluding).toEqual(['task_of_run_2']);
-      expect(history.visible).toEqual(['run_0']);
       expect(
         answer.kind === 'found' &&
           answer.history.runs.map((each) => each.taskId),
@@ -391,7 +336,7 @@ describe('ReadRunnerHistoryHandler', () => {
 
     it('always shows the originals it searches, even beyond the runs requested', async () => {
       const answer = await reading({
-        visibility: VISIBILITY,
+        scope: SCOPE,
         among: [ran('run_9')],
       }).read({ last: 1 });
 
@@ -401,64 +346,18 @@ describe('ReadRunnerHistoryHandler', () => {
       ).toEqual(['run_3', 'run_9']);
     });
 
-    it('lists each candidate’s replay runs with their changes, cost and result, but none of a held-out task', async () => {
-      const answer = await reading({
-        visibility: VISIBILITY,
-        among: [
-          { ...ran('run_c'), taskId: 'task_of_run_9' },
-          { ...ran('run_hidden_c'), taskId: 'task_of_run_2' },
-        ],
-      }).read();
-
-      if (answer.kind !== 'found') {
-        throw new Error('expected a history');
-      }
-
-      expect(answer.history.seedBlock).toEqual(BUILD_BLOCK);
-      expect(answer.history.candidates).toHaveLength(1);
-
-      const [candidate] = answer.history.candidates;
-
-      expect(candidate).toMatchObject({
-        candidateName: 'shorter-prompt',
-        fingerprint: 'c'.repeat(64),
-        hypothesis: 'Less to read, fewer wrong turns.',
-        block: BUILD_BLOCK,
+    it('answers nothing rather than an unfiltered history when the search cannot be seen', async () => {
+      expect(await reading({ scope: null }).read()).toEqual({
+        kind: 'unknown',
       });
-      expect(candidate?.runs).toHaveLength(1);
-      expect(candidate?.runs[0]).toMatchObject({
-        runId: 'run_c',
-        original: 'run_9',
-        repeat: 1,
-        taskId: 'task_of_run_9',
-        succeeded: false,
-        reasons: ['check-failed'],
-        verdict: 'fail',
-        guidance: 'Run the migration before the tests.',
-        usage: { cost: 0.42, currency: 'USD' },
-        changes: [
-          { path: 'src/queue.ts', before: 'old', after: 'new', omitted: false },
-        ],
-      });
-      expect(answer.history.configs.map((each) => each.fingerprint)).toContain(
-        'c'.repeat(64),
-      );
-    });
-
-    it('fails rather than show an unfiltered history when the search cannot be seen', async () => {
-      await expect(reading({ visibility: 'unseeable' }).read()).rejects.toThrow(
-        'no search ran this',
-      );
     });
   });
 
-  it('lists no candidates and requests no visibility for a run that is no search', async () => {
+  it('skips nothing for a run that acts beyond itself', async () => {
     const history = reading();
-    const answer = await history.read();
 
-    expect(answer.kind === 'found' && answer.history.candidates).toEqual([]);
-    expect(answer.kind === 'found' && answer.history.seedBlock).toBeNull();
-    expect(history.visible).toEqual([]);
+    await history.read();
+
     expect(history.requested[0]?.excluding).toEqual([]);
   });
 });

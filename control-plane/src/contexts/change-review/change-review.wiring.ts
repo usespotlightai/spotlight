@@ -60,7 +60,6 @@ import {
   PEOPLE,
   type PeoplePort,
 } from '@change-review/application/ports/people.port';
-import { REPLAY_RECHECKS } from '@change-review/application/ports/replay-rechecks.port';
 import {
   REVIEW_DELIVERIES,
   type ReviewDeliveriesPort,
@@ -79,6 +78,7 @@ import {
   SYMBOL_INDEXER,
   type SymbolIndexerPort,
 } from '@change-review/application/ports/symbol-indexer.port';
+import { TRIAL_RECHECKS } from '@change-review/application/ports/trial-rechecks.port';
 import {
   WORK,
   type WorkPort,
@@ -111,7 +111,7 @@ import { PostChangeStackComment } from '@change-review/application/services/post
 import { PostDecisionsComment } from '@change-review/application/services/post-decisions-comment.service';
 import { ProvisionChangeStackChecks } from '@change-review/application/services/provision-change-stack-checks.service';
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
-import { RecheckReplayChanges } from '@change-review/application/services/recheck-replay-changes.service';
+import { RecheckTrialChanges } from '@change-review/application/services/recheck-trial-changes.service';
 import { RedraftChangeStack } from '@change-review/application/services/redraft-change-stack.service';
 import { RequestDecisions } from '@change-review/application/services/request-decisions.service';
 import { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
@@ -193,6 +193,10 @@ import { PayloadTypes } from '@platform/events/payload-types';
 import { modelEndpointOf } from '@platform/llm/model-endpoint-of';
 import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
+  RUNNERS,
+  type RunnersPort,
+} from '@runners/application/ports/runners.port';
+import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
@@ -217,18 +221,18 @@ import {
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
 import { CHECK_ACCESS } from '@work/application/ports/check-access.port';
-import {
-  CHECK_ENDINGS,
-  type CheckEndingsPort,
-} from '@work/application/ports/check-endings.port';
 import { CHECK_PROVISIONING } from '@work/application/ports/check-provisioning.port';
 import { CHECK_WORK } from '@work/application/ports/check-work.port';
 import { PULL_REQUEST_REVIEWING } from '@work/application/ports/pull-request-reviewing.port';
 import { TASK_DECISIONS } from '@work/application/ports/task-decisions.port';
 import {
-  WORK_LOOKUP,
-  type WorkLookupPort,
-} from '@work/application/ports/work-lookup.port';
+  WORK_RUN_LOOKUP,
+  type WorkRunLookupPort,
+} from '@work/application/ports/work-run-lookup.port';
+import {
+  WORK_TASK_LOOKUP,
+  type WorkTaskLookupPort,
+} from '@work/application/ports/work-task-lookup.port';
 
 const CHANGE_REVIEW_EVENTS = Symbol('CHANGE_REVIEW_EVENTS');
 
@@ -255,13 +259,15 @@ const upstream: Provider[] = [
   },
   {
     provide: WORK,
-    inject: [WORK_LOOKUP],
-    useFactory: (work: WorkLookupPort) => new Work(work),
+    inject: [WORK_RUN_LOOKUP, WORK_TASK_LOOKUP],
+    useFactory: (runs: WorkRunLookupPort, tasks: WorkTaskLookupPort) =>
+      new Work(runs, tasks),
   },
   {
     provide: CHECK_RUNNERS,
-    inject: [CHECK_ENDINGS],
-    useFactory: (endings: CheckEndingsPort) => new CheckRunners(endings),
+    inject: [RUNNERS, CLOCK],
+    useFactory: (runners: RunnersPort, clock: ClockPort) =>
+      new CheckRunners(runners, clock),
   },
 ];
 
@@ -301,13 +307,13 @@ const adapters: Provider[] = [
   },
   { provide: RUN_CHANGE_CHECKS, useClass: DrizzleRunChangeChecksReader },
   {
-    provide: REPLAY_RECHECKS,
+    provide: TRIAL_RECHECKS,
     inject: [DrizzleStackCheckRepository, TRANSACTION, CLOCK],
     useFactory: (
       checks: DrizzleStackCheckRepository,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new RecheckReplayChanges(checks, transaction, clock),
+    ) => new RecheckTrialChanges(checks, transaction, clock),
   },
   {
     provide: StackCheckReactions,

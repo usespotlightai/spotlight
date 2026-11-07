@@ -13,8 +13,9 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import { OPEN_RUN_STATES } from '@work/domain/value-objects/run-state';
+import { claimableAt } from '@work/domain/value-objects/run-waiting';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import { and, count, eq, inArray, isNull, lte, min, or } from 'drizzle-orm';
+import { count, eq, inArray } from 'drizzle-orm';
 
 @Injectable()
 export class RunGauges implements OnModuleInit, OnModuleDestroy {
@@ -47,22 +48,29 @@ export class RunGauges implements OnModuleInit, OnModuleDestroy {
 
   private async read() {
     const now = this.clock.now();
-    const [byState, [oldest]] = await Promise.all([
+    const [byState, queued] = await Promise.all([
       this.db
         .select({ state: run.state, runs: count() })
         .from(run)
         .where(inArray(run.state, [...OPEN_RUN_STATES]))
         .groupBy(run.state),
       this.db
-        .select({ queuedAt: min(run.queuedAt) })
+        .select({
+          state: run.state,
+          queuedAt: run.queuedAt,
+          claimableFrom: run.claimableFrom,
+          reservedUntil: run.reservedUntil,
+        })
         .from(run)
-        .where(
-          and(
-            eq(run.state, 'queued'),
-            or(isNull(run.claimableFrom), lte(run.claimableFrom, now)),
-          ),
-        ),
+        .where(eq(run.state, 'queued')),
     ]);
+    const oldest = queued
+      .filter((each) => claimableAt(each, now))
+      .reduce<Date | null>(
+        (first, each) =>
+          first === null || each.queuedAt < first ? each.queuedAt : first,
+        null,
+      );
     const counted = new Map(byState.map((each) => [each.state, each.runs]));
 
     return {
@@ -71,7 +79,7 @@ export class RunGauges implements OnModuleInit, OnModuleDestroy {
         attributes: { 'spotlight.run.state': state },
       })),
       'spotlight.runs.oldest_queued_age_seconds': [
-        { value: ageInSeconds(oldest?.queuedAt ?? null, now) },
+        { value: ageInSeconds(oldest, now) },
       ],
     };
   }

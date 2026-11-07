@@ -62,4 +62,22 @@ describe('ChatMessage', () => {
       }),
     ).toThrow(InconsistentStateError);
   });
+
+  it('is a message only when a person sent it', () => {
+    expect(() =>
+      ChatMessage.rehydrate({
+        position: MessagePosition.of(0),
+        kind: 'message',
+        body: ChatMessageBody.of('Split it.'),
+        at: NOW,
+        author: null,
+        runId: RUN,
+        attachments: [],
+        traces: [],
+        proposal: null,
+        acknowledgedAt: null,
+        acknowledgedBy: null,
+      }),
+    ).toThrow(InconsistentStateError);
+  });
 });

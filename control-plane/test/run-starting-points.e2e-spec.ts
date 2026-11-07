@@ -10,17 +10,16 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
-import { DrizzleBriefedTasks } from '@work/infrastructure/persistence/drizzle/readers/briefed-tasks.reader';
+import type { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
+import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/drizzle/repositories/dispatch.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -35,7 +34,7 @@ const RUNNER = RunnerId.of('runner_1');
 
 let database: TestDatabase;
 let runs: DrizzleRunRepository;
-let briefedTasks: DrizzleBriefedTasks;
+let dispatches: DrizzleDispatchRepository;
 
 beforeAll(async () => {
   database = await openDatabase('run_starting_points');
@@ -46,7 +45,9 @@ beforeAll(async () => {
     },
     telemetryInMemory(),
   );
-  briefedTasks = new DrizzleBriefedTasks(database.db);
+  dispatches = new DrizzleDispatchRepository(new DrizzleContext(database.db), {
+    dispatch: async () => {},
+  });
 
   const lineId = randomUUID();
   await database.db.insert(schema.line).values({
@@ -100,13 +101,13 @@ const aTaskRun = (taskId = TaskId.of(randomUUID())): Run =>
     id: RunId.of(randomUUID()),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject: RunSubject.task(taskId, StationId.of(STATION), TaskRevision.of(1)),
+    ...orderedFor.task(taskId.value, 1),
     spec: RunSpec.of({
       checkouts: [{ remote: 'spotlight:repository', path: 'api' }],
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      resume: { key: ResumeKey.forTask(taskId).value },
+      resume: {},
       startingPoint: true,
     }),
   });
@@ -128,7 +129,7 @@ describe('a task run’s starting point', () => {
     );
 
     const found = await runs.findById(run.id);
-    const read = await briefedTasks.of(run.id);
+    const read = (await dispatches.find(run.id))?.briefedTask;
 
     expect(read?.equals(briefed)).toBe(true);
     expect(read?.parts).toEqual(briefed.parts);
@@ -166,7 +167,7 @@ describe('a task run’s starting point', () => {
           restored: RestoredArchive.of(
             archive,
             run.workspaceId,
-            run.resumeKey as ResumeKey,
+            run.workspaceKey as WorkspaceKey,
           ),
           checkouts,
         },

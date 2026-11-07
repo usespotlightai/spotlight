@@ -14,6 +14,8 @@ import { DrizzleTaskReader } from '@work/infrastructure/persistence/drizzle/read
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { runFactsOver } from './support/run-facts';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
@@ -148,14 +150,16 @@ const aLine = async () => {
   };
 };
 
-const inboxOf = (workspaceId: string) => {
-  const reader = new DrizzleInboxReader(db, {
-    findMany: async () => new Map(),
-  } as never);
+const inboxOf = (workspaceId: string, teamId: string) => {
+  const reader = new DrizzleInboxReader(
+    db,
+    { findMany: async () => new Map() } as never,
+    runFactsOver(db),
+  );
   const scope = (viewer: UserId) => ({
     workspaceId,
     viewer,
-    teamsSeen: new Set<string>(),
+    teamsSeen: new Set([teamId]),
     teamsRead: new Set<string>(),
   });
 
@@ -173,9 +177,11 @@ const inboxOf = (workspaceId: string) => {
 };
 
 const boardOf = (_workspaceId: string) => {
-  const reader = new DrizzleTaskReader(db, {
-    findMany: async () => new Map(),
-  } as never);
+  const reader = new DrizzleTaskReader(
+    db,
+    { findMany: async () => new Map() } as never,
+    runFactsOver(db),
+  );
 
   return {
     listForTeamMember: (
@@ -203,7 +209,7 @@ describe('the inbox, open and resolved', () => {
       { kind: 'passed', at: at(3) },
     ]);
 
-    const inbox = inboxOf(line.workspaceId);
+    const inbox = inboxOf(line.workspaceId, line.teamId);
     const viewer = UserId.of(line.viewer);
 
     const open = (await inbox.openForWorkspaceMember('acme', viewer)) ?? [];
@@ -256,7 +262,7 @@ describe('the inbox, open and resolved', () => {
     ]);
 
     const open =
-      (await inboxOf(line.workspaceId).openForWorkspaceMember(
+      (await inboxOf(line.workspaceId, line.teamId).openForWorkspaceMember(
         'acme',
         UserId.of(line.viewer),
       )) ?? [];
@@ -291,7 +297,10 @@ describe('the inbox, open and resolved', () => {
       })),
     );
 
-    const resolved = await inboxOf(line.workspaceId).resolvedForWorkspaceMember(
+    const resolved = await inboxOf(
+      line.workspaceId,
+      line.teamId,
+    ).resolvedForWorkspaceMember(
       'acme',
       UserId.of(line.viewer),
       pageAfter(null, 1),
@@ -319,7 +328,10 @@ describe('the inbox, open and resolved', () => {
       { kind: 'asked', at: at(4) },
     ]);
 
-    const page = await inboxOf(line.workspaceId).resolvedForWorkspaceMember(
+    const page = await inboxOf(
+      line.workspaceId,
+      line.teamId,
+    ).resolvedForWorkspaceMember(
       'acme',
       UserId.of(line.viewer),
       pageAfter(null, 10),
@@ -345,7 +357,7 @@ describe('the inbox, open and resolved', () => {
 
     for (const before of ['not-a-cursor', rankCursor]) {
       await expect(
-        inboxOf(line.workspaceId).resolvedForWorkspaceMember(
+        inboxOf(line.workspaceId, line.teamId).resolvedForWorkspaceMember(
           'acme',
           UserId.of(line.viewer),
           pageAfter(before, 1),
@@ -364,11 +376,10 @@ describe('the inbox, open and resolved', () => {
       { kind: 'passed', at: at(2) },
     ]);
 
-    const found = await inboxOf(line.workspaceId).itemForWorkspaceMember(
-      'acme',
-      UserId.of(line.viewer),
-      `${taskId}:0`,
-    );
+    const found = await inboxOf(
+      line.workspaceId,
+      line.teamId,
+    ).itemForWorkspaceMember('acme', UserId.of(line.viewer), `${taskId}:0`);
 
     expect(found?.resolved).toBe(true);
     expect(found?.notes.map((each) => each.body)).toEqual([
@@ -385,7 +396,7 @@ describe('the inbox, open and resolved', () => {
     await line.addNotes(taskId, [{ kind: 'asked', at: at(0) }]);
 
     expect(
-      await inboxOf(line.workspaceId).itemForWorkspaceMember(
+      await inboxOf(line.workspaceId, line.teamId).itemForWorkspaceMember(
         'acme',
         UserId.of(`someone-else-${randomUUID()}`),
         `${taskId}:0`,
@@ -413,15 +424,15 @@ describe('the board, open and completed', () => {
     const viewer = UserId.of(line.viewer);
 
     const open = await board.listForTeamMember(team, viewer, {
-      state: 'open',
+      state: 'board',
     });
     const first = await board.listForTeamMember(team, viewer, {
-      state: 'completed',
+      state: 'completed-station',
       lineId: null,
       page: pageAfter(null, 2),
     });
     const second = await board.listForTeamMember(team, viewer, {
-      state: 'completed',
+      state: 'completed-station',
       lineId: null,
       page: pageAfter(first?.next ?? null, 2),
     });
@@ -445,34 +456,43 @@ describe('the runs of a team', () => {
         id,
         workspaceId: line.workspaceId,
         harness: 'dev',
-        taskId,
-        stationId: line.work,
+        ...requestedByTask(taskId, { teamId: line.teamId }),
         state: 'completed' as const,
-        spec: {},
+        spec: {
+          command: { executable: 'sh', args: [] },
+          briefing: 'Fix the queue.',
+          handover: { options: ['done'], noteLimit: 0 },
+          resume: {},
+        },
         createdAt: at(minute),
         endedAt: at(minute),
       })),
     );
+    await db.insert(schema.dispatch).values(
+      runIds.map((runId, minute) =>
+        aDispatch({
+          runId,
+          workspaceId: line.workspaceId,
+          teamId: line.teamId,
+          taskId,
+          stationId: line.work,
+          orderedAt: at(minute),
+        }),
+      ),
+    );
 
+    const facts = runFactsOver(db);
     const runs = new DrizzleRunReader(
       db,
-      { viewableBy: async () => new Set([line.workspaceId]) } as never,
       { findMany: async () => new Map() } as never,
+      facts,
+      facts,
     );
     const team = TeamId.of(line.teamId);
-    const viewer = UserId.of(line.viewer);
 
-    const first = await runs.listForTeam(team, viewer, pageAfter(null, 2));
-    const second = await runs.listForTeam(
-      team,
-      viewer,
-      pageAfter(first.next, 2),
-    );
-    const one = await runs.findForTeam(
-      team,
-      RunId.of(runIds[0] as string),
-      viewer,
-    );
+    const first = await runs.listForTeam(team, pageAfter(null, 2));
+    const second = await runs.listForTeam(team, pageAfter(first.next, 2));
+    const one = await runs.findForTeam(team, RunId.of(runIds[0] as string));
 
     expect(first.items.map((each) => each.id)).toEqual([runIds[2], runIds[1]]);
     expect(second.items.map((each) => each.id)).toEqual([runIds[0]]);

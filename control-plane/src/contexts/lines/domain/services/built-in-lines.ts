@@ -407,6 +407,11 @@ const GITHUB_REACTIONS: readonly ReactionOpening[] = [
   },
 ];
 
+export type TeamOrigin = 'sign-up' | 'configuration';
+
+export const getsBuiltInLines = (origin: TeamOrigin): boolean =>
+  origin === 'sign-up';
+
 export const BUILT_IN_LINES: readonly LineOpening[] = [
   {
     key: LineKey.of('delivery'),

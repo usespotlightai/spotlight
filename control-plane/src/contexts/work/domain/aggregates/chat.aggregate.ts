@@ -35,15 +35,15 @@ import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import type { ChatRefusal } from '@work/domain/value-objects/chat-refusal.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import type { ConfigFolder } from '@work/domain/value-objects/config-folder.vo';
+import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import type { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import type { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { SpotlightApiGrant } from '@work/domain/value-objects/spotlight-api-grant.vo';
 import type { TargetStation } from '@work/domain/value-objects/target-station.vo';
 import type { TaskDescription } from '@work/domain/value-objects/task-description.vo';
@@ -249,6 +249,16 @@ export class Chat extends EventRecorder {
     return this.messages.filter((message) => message.unacknowledged);
   }
 
+  toolRefusal(declared: DeclaredTool): ChatRefusal | null {
+    return declared.approval
+      ? { kind: 'approval-needs-a-task', tool: declared.tool }
+      : null;
+  }
+
+  connectionAskRefusal(integrationName: string): ChatRefusal {
+    return { kind: 'connection-needs-a-task', integrationName };
+  }
+
   get allAttachments(): readonly Attachment[] {
     return this.messages.flatMap((message) => message.attachments);
   }
@@ -299,10 +309,6 @@ export class Chat extends EventRecorder {
 
   get fromChannel(): boolean {
     return this.marks.length > 0;
-  }
-
-  get ambientMarks(): readonly Mark[] {
-    return this.marks.filter((each) => !each.finds).map((each) => each.mark);
   }
 
   get proposals(): readonly NumberedProposal[] {
@@ -452,13 +458,16 @@ export class Chat extends EventRecorder {
     return { chat: recorded, followsUp: recorded.wantsFollowUp };
   }
 
-  endRun(runId: RunId): Chat {
+  private endRun(runId: RunId): Chat {
     return this.currentRunId?.equals(runId)
       ? this.with({ currentRunId: null })
       : this;
   }
 
-  recordSession(sessionId: HarnessSession, runnerId: RunnerId | null): Chat {
+  private recordSession(
+    sessionId: HarnessSession,
+    runnerId: RunnerId | null,
+  ): Chat {
     return this.with({ sessionId, runnerId });
   }
 
@@ -490,7 +499,6 @@ export class Chat extends EventRecorder {
 
   resume(): Resume {
     return Resume.of({
-      key: ResumeKey.forChat(this.id),
       sessionId: this.sessionId,
     });
   }

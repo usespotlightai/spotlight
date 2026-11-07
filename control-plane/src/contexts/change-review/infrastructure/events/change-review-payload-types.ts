@@ -7,7 +7,6 @@ import { DecisionsRecorded } from '@change-review/domain/events/decisions-record
 import { IncludedCommentPosted } from '@change-review/domain/events/included-comment-posted.event';
 import { IncludedCommentReturned } from '@change-review/domain/events/included-comment-returned.event';
 import { LeasedStackCheckDeleted } from '@change-review/domain/events/leased-stack-check-deleted.event';
-import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
 import { ReviewCommentDeleted } from '@change-review/domain/events/review-comment-deleted.event';
 import { ReviewCommentEdited } from '@change-review/domain/events/review-comment-edited.event';
 import { ReviewCommentReplied } from '@change-review/domain/events/review-comment-replied.event';
@@ -16,6 +15,7 @@ import { ReviewSubmitted } from '@change-review/domain/events/review-submitted.e
 import { StackCheckLayersFailed } from '@change-review/domain/events/stack-check-layers-failed.event';
 import { StackCheckReservationDropped } from '@change-review/domain/events/stack-check-reservation-dropped.event';
 import { StackChecked } from '@change-review/domain/events/stack-checked.event';
+import { TrialStackCompleted } from '@change-review/domain/events/trial-stack-completed.event';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckClaim } from '@change-review/domain/value-objects/check-claim.vo';
@@ -41,6 +41,7 @@ import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
 import { StackCheckId } from '@change-review/domain/value-objects/stack-check-id.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { StackProgress } from '@change-review/domain/value-objects/stack-progress.vo';
+import { TeamStanding } from '@change-review/domain/value-objects/team-standing.vo';
 import { WorkspacePath } from '@change-review/domain/value-objects/workspace-path.vo';
 
 export const CHANGE_REVIEW_PAYLOAD_TYPES = [
@@ -59,7 +60,7 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   StackProgress,
   StackCheckId,
   StackChecked,
-  ReplayStackCompleted,
+  TrialStackCompleted,
   ChangeStackRedrafted,
   ChangeStackRedraftingEnded,
   ChangeStackCompleted,
@@ -88,4 +89,5 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   DecisionsRecorded,
   DecisionDisputeId,
   DecisionDisputed,
+  TeamStanding,
 ] as const;

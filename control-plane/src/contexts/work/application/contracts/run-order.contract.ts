@@ -1,27 +1,5 @@
+import type { JsonValue } from '@shared-kernel/domain/json-value';
 import type { RunSpecShape } from '@work/application/contracts/run-spec.contract';
-
-export type RunOrderSubjectContract =
-  | {
-      readonly kind: 'task';
-      readonly taskId: string;
-      readonly stationId: string | null;
-      readonly revision: number;
-    }
-  | { readonly kind: 'chat'; readonly chatId: string }
-  | {
-      readonly kind: 'replay';
-      readonly replayOf: string;
-      readonly taskId: string;
-      readonly stationId: string;
-      readonly teamId: string;
-    }
-  | {
-      readonly kind: 'search';
-      readonly searchId: string;
-      readonly iteration: number;
-      readonly stationId: string | null;
-      readonly teamId: string;
-    };
 
 export interface RunPlacementContract {
   readonly labelGroups: readonly (readonly string[])[];
@@ -32,6 +10,24 @@ export interface RunRefusalContract {
   readonly description: string;
 }
 
+export type WorkspaceRestores = 'always' | 'when-continuing';
+
+export interface RunWorkspaceContract {
+  readonly key: string;
+  readonly rejoinable: boolean;
+  readonly restores: WorkspaceRestores;
+}
+
+export interface RunRestoreContract {
+  readonly archive: string;
+}
+
+export interface RunApiGrantContract {
+  readonly actingFor: string;
+  readonly scopes: readonly string[];
+  readonly lifetimeMs: number;
+}
+
 export interface RunOrderContract {
   readonly runId: string;
   readonly workspaceId: string;
@@ -39,10 +35,18 @@ export interface RunOrderContract {
   readonly priority: number;
   readonly placement: RunPlacementContract;
   readonly spec: RunSpecShape;
-  readonly subject: RunOrderSubjectContract | null;
-  readonly team: string | null;
+  readonly requester: RunRequesterContract;
+  readonly policy: RunPolicyContract;
+  readonly workspace: RunWorkspaceContract | null;
+  readonly restore: RunRestoreContract | null;
+  readonly extensions: Readonly<Record<string, JsonValue>>;
+  readonly apiGrant: RunApiGrantContract | null;
+  readonly tags: Readonly<Record<string, string>>;
   readonly refusal: readonly RunRefusalContract[] | null;
 }
+
+export const workspaceKeyOf = (owner: string, name: string): string =>
+  `${owner}/${name}`;
 
 export interface RunRequesterContract {
   readonly owner: string;

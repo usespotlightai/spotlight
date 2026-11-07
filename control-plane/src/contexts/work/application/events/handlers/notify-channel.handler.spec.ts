@@ -18,6 +18,7 @@ import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatRunNotStarted } from '@work/domain/events/chat-run-not-started.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
@@ -33,7 +34,6 @@ import { MessagePosition } from '@work/domain/value-objects/message-position.vo'
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -73,7 +73,7 @@ const proposing = () =>
       at: NOW,
     });
 
-const subject = (chat: Chat) => RunSubject.chat(chat.id);
+const subject = (chat: Chat) => orderedFor.chat(chat.id.value).requester;
 
 const notifying = (chat: Chat) => {
   const notify = vi.fn(

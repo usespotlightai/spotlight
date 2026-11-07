@@ -1,5 +1,6 @@
 import type { InsightsPort } from '@replays/application/ports/insights.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
+import type { ReplayRunDispatching } from '@replays/application/services/replay-run-dispatch.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
@@ -26,6 +27,7 @@ export class StartOracleReplay {
     private readonly replays: ReplayRepository,
     private readonly candidates: CandidateRepository,
     private readonly work: WorkPort,
+    private readonly replayRuns: ReplayRunDispatching,
     private readonly insights: InsightsPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -140,7 +142,7 @@ export class StartOracleReplay {
 
       return answer ? [{ run, answer }] : [];
     });
-    const answerable = await this.work.answerable(queries);
+    const answerable = await this.replayRuns.answerable(queries);
 
     return queries.filter((each) =>
       answerable.some((run) => run.equals(each.run)),

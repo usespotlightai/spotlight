@@ -13,7 +13,6 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   FetchRunSecretsCommand,
@@ -22,15 +21,12 @@ import {
 import { FetchRunSecretsHandler } from '@work/application/commands/handlers/fetch-run-secrets.handler';
 import { FetchSharedRunSecretsHandler } from '@work/application/commands/handlers/fetch-shared-run-secrets.handler';
 import { EgressSecretFetches } from '@work/application/services/egress-secret-fetches.service';
-import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import type { ChatRepository } from '@work/domain/repositories/chat.repository';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { RunApiGrant } from '@work/domain/value-objects/run-api-grant.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { SpotlightApiGrant } from '@work/domain/value-objects/spotlight-api-grant.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-25T12:00:00.000Z');
@@ -61,21 +57,23 @@ const leasedRun = (
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of(workspace),
     harness: HarnessId.of('dev'),
-    subject: over.spotlightApi ? RunSubject.chat(ChatId.of('chat_1')) : null,
+    ...(over.spotlightApi ? orderedFor.chat('chat_1') : orderedFor.spec()),
+    apiGrant: over.spotlightApi
+      ? RunApiGrant.of({
+          actingFor: 'user_1',
+          scopes: ['plan'],
+          lifetimeMs: 60 * 60 * 1_000,
+        })
+      : null,
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task:station' },
+      resume: {},
       injectedSecrets: over.injectedSecrets ?? ['LINEAR_API_KEY', 'GONE'],
       ...(over.spotlightApi ? { spotlightApi: true } : {}),
     }),
   }).claim(RunnerId.of(by), NOW);
-
-const CHAT = {
-  apiGrantAt: (now: Date) =>
-    SpotlightApiGrant.forChatRun(UserId.of('user_1'), now),
-} as unknown as Chat;
 
 const leaseExpiredRun = () => {
   const leased = leasedRun();
@@ -125,7 +123,6 @@ const fetching = (
       endedFor: async () => undefined,
     },
     { hosts: () => ['storage.example.com'] },
-    { find: async () => CHAT } as unknown as ChatRepository,
     {
       issueFor: async (wanted) => {
         issued.push(wanted);

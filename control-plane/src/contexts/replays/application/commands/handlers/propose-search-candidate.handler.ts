@@ -7,6 +7,7 @@ import type {
   WorkPort,
 } from '@replays/application/ports/work.port';
 import type { LiveCandidates } from '@replays/application/services/live-candidates.service';
+import type { SearchRunDispatching } from '@replays/application/services/search-run-dispatch.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { SearchRunNotActiveError } from '@replays/domain/exceptions/search-run-not-active.error';
@@ -42,6 +43,7 @@ export class ProposeSearchCandidateHandler
   constructor(
     private readonly people: PeoplePort,
     private readonly work: WorkPort,
+    private readonly searchRuns: SearchRunDispatching,
     private readonly searches: SearchRepository,
     private readonly candidates: CandidateRepository,
     private readonly snapshots: LiveCandidates,
@@ -55,7 +57,10 @@ export class ProposeSearchCandidateHandler
   ): Promise<SearchCandidateProposed> {
     try {
       const run = RunId.of(command.runId);
-      const leased = await this.work.leasedSearchRun(run, command.runnerId);
+      const leased = await this.searchRuns.leasedSearchRun(
+        run,
+        command.runnerId,
+      );
       const seen = leased ? await this.searches.find(leased.searchId) : null;
 
       if (!seen) {

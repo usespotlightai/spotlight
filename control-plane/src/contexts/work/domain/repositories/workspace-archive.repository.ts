@@ -1,7 +1,7 @@
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
-import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import type { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 
 export interface WorkspaceArchiveRepository {
   add(archive: WorkspaceArchive): Promise<void>;
@@ -12,6 +12,6 @@ export interface WorkspaceArchiveRepository {
 
   newestCompleted(
     workspaceId: WorkspaceId,
-    resumeKey: ResumeKey,
+    workspaceKey: WorkspaceKey,
   ): Promise<WorkspaceArchive | null>;
 }

@@ -18,6 +18,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -438,11 +439,12 @@ describe('a catalog call (e2e)', () => {
         id,
         workspaceId: WorkspaceId.of(workspace),
         harness: HarnessId.of('dev'),
+        ...orderedFor.spec(id.value),
         spec: RunSpec.of({
           command: { executable: 'sh', args: [] },
           briefing: 'Search the web.',
           handover: { options: [], noteLimit: 0 },
-          resume: { key: 'task:station' },
+          resume: {},
           catalog: ['catalog.web-search@1.1.0'],
         }),
       }).refused(

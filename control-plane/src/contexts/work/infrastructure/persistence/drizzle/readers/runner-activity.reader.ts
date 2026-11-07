@@ -1,37 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   LeasedRun,
-  LeasedRunKind,
   RunnerActivityReaderPort,
 } from '@work/application/ports/runner-activity-reader.port';
-import { LEASED_RUN_STATES } from '@work/domain/value-objects/run-state';
-import { chat } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
+import { isLeasedState } from '@work/domain/value-objects/run-state';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
-import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
-
-const kindOf = (row: {
-  taskId: string | null;
-  chatId: string | null;
-  searchId: string | null;
-  replayOfRunId: string | null;
-}): LeasedRunKind => {
-  if (row.chatId) {
-    return 'chat';
-  }
-  if (row.searchId) {
-    return 'search';
-  }
-  if (row.replayOfRunId) {
-    return 'replay';
-  }
-
-  return row.taskId ? 'task' : 'spec';
-};
+import { and, eq, isNotNull, isNull } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
@@ -41,58 +19,57 @@ export class DrizzleRunnerActivityReader implements RunnerActivityReaderPort {
     const rows = await this.db
       .select({
         id: run.id,
+        workspaceId: run.workspaceId,
         state: run.state,
         claimedBy: run.claimedBy,
-        taskId: run.taskId,
-        chatId: run.chatId,
-        searchId: run.searchId,
-        replayOfRunId: run.replayOfRunId,
-        ranForTeamId: run.ranForTeamId,
-        lineTeamId: workStation.teamId,
-        chatTeamId: chat.teamId,
-        taskTitle: task.title,
-        chatTitle: chat.title,
+        teamId: run.teamId,
+        requesterOwner: run.requesterOwner,
+        requesterKind: run.requesterKind,
+        requesterId: run.requesterId,
+        requesterToken: run.requesterToken,
+        holdsTurn: run.holdsTurn,
+        gated: run.gated,
+        actsBeyondItself: run.actsBeyondItself,
+        asks: run.asks,
+        listed: run.listed,
+        exclusive: run.exclusive,
       })
       .from(run)
-      .leftJoin(task, eq(task.id, run.taskId))
-      .leftJoin(
-        workStation,
-        eq(
-          workStation.stationId,
-          sql`coalesce(${run.stationId}, ${task.stationId})`,
-        ),
-      )
-      .leftJoin(chat, eq(chat.id, run.chatId))
       .where(
         and(
           eq(run.workspaceId, workspaceId.value),
-          inArray(run.state, [...LEASED_RUN_STATES]),
           isNotNull(run.claimedBy),
+          isNull(run.endedAt),
         ),
       );
 
-    return rows.flatMap((row) => {
-      if (!row.claimedBy) {
-        return [];
-      }
-
-      const kind = kindOf(row);
-
-      return [
-        {
-          runnerId: row.claimedBy,
-          runId: row.id,
-          state: row.state,
-          kind,
-          teamId: row.chatTeamId ?? row.lineTeamId ?? row.ranForTeamId,
-          title:
-            kind === 'chat'
-              ? row.chatTitle
-              : kind === 'task'
-                ? row.taskTitle
-                : null,
-        },
-      ];
-    });
+    return rows.flatMap((row) =>
+      row.claimedBy && isLeasedState(row.state)
+        ? [
+            {
+              runnerId: row.claimedBy,
+              runId: RunId.of(row.id),
+              workspaceId: WorkspaceId.of(row.workspaceId),
+              state: row.state,
+              requester: {
+                owner: row.requesterOwner,
+                kind: row.requesterKind,
+                id: row.requesterId,
+                token: row.requesterToken,
+                team: row.teamId,
+              },
+              policy: {
+                holdsTurn: row.holdsTurn,
+                gated: row.gated,
+                actsBeyondItself: row.actsBeyondItself,
+                asks: row.asks,
+                listed: row.listed,
+                exclusive: row.exclusive,
+              },
+              teamId: row.teamId,
+            },
+          ]
+        : [],
+    );
   }
 }

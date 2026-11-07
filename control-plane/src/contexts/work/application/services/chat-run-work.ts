@@ -4,6 +4,7 @@ import type { GitService } from '@work/application/ports/git-gateway.port';
 import type { ConnectionMissingDto } from '@work/application/ports/integration-tool-calls.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
 import type { LeasedRun } from '@work/application/ports/run-leases.port';
+import { ChatRefused } from '@work/application/rendering/chat-refused';
 import type {
   Cleared,
   ConnectionAsked,
@@ -55,11 +56,10 @@ export class ChatRunWork implements RunWork {
   }
 
   async clearFor(declared: DeclaredTool): Promise<Cleared> {
-    return declared.approval
-      ? {
-          kind: 'dismissed',
-          reason: `${declared.tool.value} has to be approved by a person on a task, and a chat has nobody to put it to.`,
-        }
+    const refusal = this.chat.toolRefusal(declared);
+
+    return refusal
+      ? { kind: 'dismissed', reason: ChatRefused.text(refusal) }
       : { kind: 'approved', edited: null, returned: async () => {} };
   }
 
@@ -69,7 +69,9 @@ export class ChatRunWork implements RunWork {
   ): Promise<ConnectionAsked> {
     return {
       kind: 'denied',
-      reason: `${missing.integrationName} acts as each person who starts a task, and a chat has no task to ask anyone to connect it on`,
+      reason: ChatRefused.text(
+        this.chat.connectionAskRefusal(missing.integrationName),
+      ),
     };
   }
 

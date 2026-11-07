@@ -42,14 +42,18 @@ import {
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
 import {
-  REPLAY_CANDIDATES,
-  type ReplayCandidatesPort,
-} from '@work/application/ports/replay-candidates.port';
+  STATION_CONFIG_CANDIDATES,
+  type StationConfigCandidatesPort,
+} from '@work/application/ports/station-config-candidates.port';
 import {
   WORKSPACE_ARCHIVE_STORE,
   type WorkspaceArchiveStorePort,
 } from '@work/application/ports/workspace-archive-store.port';
-import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
+import { ArchiveHolders } from '@work/application/services/archive-holders.service';
+import {
+  type ArchiveFacts,
+  WorkspaceArchive,
+} from '@work/domain/aggregates/workspace-archive.aggregate';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
@@ -59,9 +63,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { keptSet, runEnded } from './support/kept-sets';
-import { plannedCandidate, replayOf, startedReplay } from './support/replays';
+import {
+  plannedCandidate,
+  replayOf,
+  startedReplay,
+  writtenStation,
+} from './support/replays';
 import { deleteRunnersOf } from './support/runners';
-import { aDispatch } from './support/runs';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -158,9 +167,7 @@ const anOriginal = async (
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     exitCode: 0,
@@ -176,7 +183,7 @@ const anOriginal = async (
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship', 'review'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
     ...(input.startedFrom === false
@@ -210,8 +217,7 @@ const anOriginal = async (
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
+    workspaceKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -547,13 +553,33 @@ describe('a replay set', () => {
     const original = await anOriginal();
     const setId = await createSet(original);
     const references = app.get<ArchiveReferencesPort>(ARCHIVE_REFERENCES);
+    const holders = app.get(ArchiveHolders);
     const archives = app.get(DrizzleWorkspaceArchiveRepository);
     const archiveId = WorkspaceArchiveId.of(original.archiveId);
     const at = new Date(Date.now() + 60 * DAY);
-    const due = async () =>
-      (await references.due(WorkspaceArchive.removalCutoffs(at), 5_000)).find(
-        (each) => each.id.equals(archiveId),
+    const factsOf = async (): Promise<ArchiveFacts> => {
+      const page = await references.due(
+        WorkspaceArchive.removalCutoffs(at),
+        null,
+        5_000,
       );
+      const due = page.due.find((each) => each.id.equals(archiveId));
+
+      if (!due) {
+        throw new Error(`Archive ${archiveId.value} is not due.`);
+      }
+
+      const held = await holders.stateOf([due.workspaceKey]);
+
+      return {
+        holder: held.get(due.workspaceKey.value) ?? null,
+        supersededAt: due.supersededAt,
+        lastStartedFromAt: due.lastStartedFromAt,
+        pinned: due.pinned,
+      };
+    };
+    const removable = async () =>
+      (await archives.find(archiveId))?.removableAt(at, await factsOf());
 
     await eventually(async () => {
       const held = await db
@@ -564,39 +590,39 @@ describe('a replay set', () => {
       return held.some((each) => each.runId === original.runId);
     });
 
-    expect(await due()).toBeUndefined();
+    expect((await factsOf()).pinned).toBe(true);
+    expect(await removable()).toBe(false);
 
     await createSet(await anOriginal());
 
-    await eventually(async () => (await due()) !== undefined);
+    await eventually(async () => !(await factsOf()).pinned);
 
-    const facts = (await due())?.facts;
-    expect(facts?.pinned).toBe(false);
-    expect(
-      (await archives.find(archiveId))?.removableAt(at, facts ?? never()),
-    ).toBe(true);
+    expect(await removable()).toBe(true);
     expect((await setOf())?.includes(RunId.of(original.runId))).toBe(false);
   });
 });
 
 describe('a candidate', () => {
   it('is checked as the line resource checks a station, and fingerprinted as runs are', async () => {
-    const candidates = app.get<ReplayCandidatesPort>(REPLAY_CANDIDATES);
+    const candidates = app.get<StationConfigCandidatesPort>(
+      STATION_CONFIG_CANDIDATES,
+    );
     const live = await candidates.live(DELIVERY, BUILD);
+    const station = await writtenStation(app, DELIVERY, 'build');
 
-    expect(live?.station.key).toBe('build');
-    expect(live?.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(live?.lineKey).toBe('delivery');
+    expect(live?.config.fingerprint).toMatch(/^[0-9a-f]{64}$/);
 
     const wrongKey = await candidates.validate(DELIVERY, BUILD, {
-      ...live?.station,
+      ...station,
       key: 'ship',
     });
     const badHarness = await candidates.validate(DELIVERY, BUILD, {
-      ...live?.station,
+      ...station,
       harness: 'no-such-harness',
     });
     const badPrompt = await candidates.validate(DELIVERY, BUILD, {
-      ...live?.station,
+      ...station,
       prompt: 42,
     });
 
@@ -614,45 +640,37 @@ describe('a candidate', () => {
     }
 
     const changed = await candidates.validate(DELIVERY, BUILD, {
-      ...live?.station,
+      ...station,
       prompt: 'Build it, then drain the queue.',
     });
-    expect(changed?.ok && changed.fingerprint).not.toBe(live?.fingerprint);
-    expect(changed?.ok && changed.live).toBe(live?.fingerprint);
+    expect(changed?.ok && changed.candidate.fingerprint).not.toBe(
+      live?.config.fingerprint,
+    );
+    expect(changed?.ok && changed.live.fingerprint).toBe(
+      live?.config.fingerprint,
+    );
     expect(changed?.ok && changed.changes).toEqual([
       { part: 'prompt', name: null, kind: 'changed', was: null, now: null },
     ]);
-    expect(await candidates.validate(DELIVERY, BUILD, live?.station)).toEqual({
+    expect(await candidates.validate(DELIVERY, BUILD, station)).toEqual({
       ok: true,
-      fingerprint: live?.fingerprint,
-      hashes: live?.hashes,
-      liveHashes: live?.hashes,
-      live: live?.fingerprint,
+      candidate: live?.config,
+      live: live?.config,
       changes: [],
-      scoring: { checksChanges: false, judge: null, rubricVersion: null },
-      station: live?.station,
     });
-    expect(
-      changed?.ok && { ...changed.station, prompt: live?.station.prompt },
-    ).toEqual(live?.station);
-    expect(live?.scoring).toEqual({
-      checksChanges: false,
+    expect(live?.config).toMatchObject({
+      check: null,
       judge: null,
-      rubricVersion: null,
+      rubricHash: null,
     });
   });
 });
 
-const proposed = async (prompt: string): Promise<string> => {
-  const live = await app
-    .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
-    .live(DELIVERY, BUILD);
-
-  return plannedCandidate(app, DELIVERY, 'build', {
-    ...live?.station,
+const proposed = async (prompt: string): Promise<string> =>
+  plannedCandidate(app, DELIVERY, 'build', {
+    ...(await writtenStation(app, DELIVERY, 'build')),
     prompt,
   });
-};
 
 describe('a replay', () => {
   it('replays a set under a candidate beside a baseline of the live config, two runs of the team at a time, and compares them task by task', async () => {
@@ -685,7 +703,7 @@ describe('a replay', () => {
         const ofCandidate = entry?.replayId === id;
         const failsAt = ofCandidate && entry?.originalRunId === second.runId;
 
-        expect((await runRow(each.runId))?.replayOfRunId).toBe(
+        expect((await dispatchRow(each.runId))?.basedOnRunId).toBe(
           entry?.originalRunId,
         );
         await finishes(each, ofCandidate ? 0.1 : 0.2, failsAt);
@@ -762,8 +780,13 @@ describe('a replay', () => {
     const run = await runRow(runId ?? '');
 
     expect(run?.state).toBe('completed');
-    expect(run?.replayOfRunId).toBe(original.runId);
-    expect(run?.taskId).toBeNull();
+    expect(run).toMatchObject({
+      requesterOwner: 'replays',
+      requesterKind: 'replay',
+      requesterId: runId,
+      listed: false,
+    });
+    expect((await dispatchRow(runId ?? ''))?.basedOnRunId).toBe(original.runId);
     expect(
       (run?.spec as { briefing?: string } | undefined)?.briefing,
     ).toBeTruthy();
@@ -961,7 +984,7 @@ describe('a replay set whose station leaves its line', () => {
     );
     await eventually(async () => (await startingPointHoldsOf()).length === 0);
 
-    expect((await runRow(replayRun as string))?.stationId).toBe(POLISH);
+    expect((await dispatchRow(replayRun as string))?.stationId).toBe(POLISH);
 
     const otherTeam = randomUUID();
     const otherReader = randomUUID();
@@ -1037,7 +1060,3 @@ describe('a team that is deleted', () => {
     }, 60_000);
   });
 });
-
-const never = (): never => {
-  throw new Error('there were no facts');
-};

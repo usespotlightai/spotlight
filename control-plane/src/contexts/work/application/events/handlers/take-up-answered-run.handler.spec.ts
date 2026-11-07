@@ -8,6 +8,7 @@ import { TakeUpAnsweredRun } from '@work/application/events/handlers/take-up-ans
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { Runs } from '@work/application/services/runs.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
@@ -17,8 +18,6 @@ import { AwaitedTurn } from '@work/domain/value-objects/awaited-turn.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Sha256ContentHash } from '@work/infrastructure/hashing/sha256-content-hash';
 import { describe, expect, it } from 'vitest';
 
@@ -32,16 +31,12 @@ const suspended = () =>
     id: RUN,
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject: RunSubject.task(
-      TASK,
-      StationId.of('station_1'),
-      TaskRevision.of(0),
-    ),
+    ...orderedFor.task(TASK.value, 0),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      resume: { key: 'task-task_1' },
+      resume: {},
     }),
   })
     .claim(RUNNER, NOW)

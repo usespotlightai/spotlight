@@ -39,17 +39,6 @@ describe('RunnerLeases', () => {
     expect(workEnded).toHaveBeenCalledWith({ kind: 'run', id: 'run_1' }, NOW);
   });
 
-  it('tells the pools a check has ended', async () => {
-    const { endings, workEnded } = ending();
-
-    await endings.checkEnded('stack_1');
-
-    expect(workEnded).toHaveBeenCalledWith(
-      { kind: 'check', id: 'stack_1' },
-      NOW,
-    );
-  });
-
   it('tells the pools a runner’s reservation was dropped', async () => {
     const { endings, reservationDropped } = ending();
 

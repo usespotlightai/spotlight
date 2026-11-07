@@ -32,4 +32,8 @@ export class NoticeLink {
 
     return new NoticeLink(input.path, label);
   }
+
+  equals(other: NoticeLink): boolean {
+    return this.path === other.path && this.label === other.label;
+  }
 }

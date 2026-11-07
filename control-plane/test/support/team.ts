@@ -12,7 +12,7 @@ import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { listed } from '@work/application/services/setup-steps';
+import { listed } from '@work/application/rendering/setup-steps';
 import { welcomeTask } from '@work/domain/services/welcome-task';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import type { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
@@ -67,6 +67,7 @@ export const listSetUp = async (
       teamId: TeamId.of(teamId),
       key: LineKey.of('default'),
       name: LineName.of('Default'),
+      version: 0,
       stations: [
         Station.of({
           id: StationId.of(stationId),
@@ -91,7 +92,6 @@ export const listSetUp = async (
   const list = welcomeTask({
     line,
     noteBody: TaskNoteBody.of(listed()),
-    at: line.backlog,
     owner: UserId.of(owner),
     now: NOW,
     newId: () => randomUUID(),

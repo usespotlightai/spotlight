@@ -5,7 +5,6 @@ import type {
 } from '@work/application/ports/team-memories.port';
 import { Attached } from '@work/application/rendering/attached';
 import { ConfiguringSpotlight } from '@work/application/rendering/configuring-spotlight';
-import { ImproveStation } from '@work/application/rendering/improve-station';
 import { Learned } from '@work/application/rendering/learned';
 import { SettingUp } from '@work/application/rendering/setting-up';
 import { SpotlightCli } from '@work/application/rendering/spotlight-cli';
@@ -112,6 +111,7 @@ export const ChatBriefing = {
     memoryFolder: MemoryFolder | null;
     spotlightUrl: string;
     release: Release | null;
+    extensions: readonly string[];
   }): string {
     const messages = input.chat.messages.filter(
       (message) => message.kind === 'message',
@@ -132,9 +132,7 @@ export const ChatBriefing = {
             input.release,
           )
         : null,
-      input.chat.targetStation
-        ? ImproveStation.section(input.chat.targetStation, input.lines)
-        : null,
+      ...input.extensions,
       Learned.section(input.memories),
       Learned.rest({
         folder: input.memoryFolder,

@@ -58,7 +58,7 @@ const seeing = (sees = true): WorkAccess =>
 
 const handle = (tasks: TaskReaderPort, access = seeing()) =>
   new ListTasksHandler(tasks, access).execute(
-    new ListTasksQuery('team_1', 'user_1', 'open', null, FIRST_PAGE),
+    new ListTasksQuery('team_1', 'user_1', 'board', null, FIRST_PAGE),
   );
 
 describe('ListTasksHandler', () => {
@@ -79,7 +79,7 @@ describe('ListTasksHandler', () => {
     await handle(tasks);
 
     expect(tasks.listForTeam).toHaveBeenCalledWith(expect.anything(), {
-      state: 'open',
+      state: 'board',
     });
   });
 
@@ -87,11 +87,17 @@ describe('ListTasksHandler', () => {
     const tasks = reader([]);
 
     await new ListTasksHandler(tasks, seeing()).execute(
-      new ListTasksQuery('team_1', 'user_1', 'completed', 'line_1', FIRST_PAGE),
+      new ListTasksQuery(
+        'team_1',
+        'user_1',
+        'completed-station',
+        'line_1',
+        FIRST_PAGE,
+      ),
     );
 
     expect(tasks.listForTeam).toHaveBeenCalledWith(expect.anything(), {
-      state: 'completed',
+      state: 'completed-station',
       lineId: 'line_1',
       page: FIRST_PAGE,
     });

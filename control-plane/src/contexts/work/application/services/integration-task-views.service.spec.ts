@@ -140,7 +140,7 @@ describe('IntegrationTaskViews', () => {
   it('carries the question whose answer is pending', async () => {
     const asked = task().askedAbout(
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Which queue should I drain?'),
         at: NOW,
         voice: Voice.station(),
@@ -158,7 +158,7 @@ describe('IntegrationTaskViews', () => {
   it('carries the files of the question, for an integration to send', async () => {
     const asked = task().askedAbout(
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Here are the screenshots.'),
         at: NOW,
         voice: Voice.station(),
@@ -194,7 +194,7 @@ describe('IntegrationTaskViews', () => {
       ),
       ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of(
           ApprovalAsked.body(
             DeclaredTool.of({

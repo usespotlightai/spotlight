@@ -3,9 +3,7 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { RunFactsPort } from '@work/application/ports/run-facts.port';
 import type {
   LeasedAttempt,
   LeasedRun,
@@ -13,15 +11,20 @@ import type {
 } from '@work/application/ports/run-leases.port';
 import type { RunsPort } from '@work/application/ports/runs.port';
 import { ChatRunWork } from '@work/application/services/chat-run-work';
-import { ReplayRunWork } from '@work/application/services/replay-run-work';
+import { IsolatedRunWork } from '@work/application/services/isolated-run-work';
 import type { RunWork } from '@work/application/services/run-work';
-import { SearchRunWork } from '@work/application/services/search-run-work';
 import { TaskRunWork } from '@work/application/services/task-run-work';
+import { TrialRunWork } from '@work/application/services/trial-run-work';
+import type { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
+import type { ChatMessage } from '@work/domain/entities/chat-message.entity';
+import type { TaskNote } from '@work/domain/entities/task-note.entity';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
-import type { RunRepository } from '@work/domain/repositories/run.repository';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { repositoryForTaskNamed } from '@work/domain/services/task-checkouts';
-import { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { trialRepositoryNamed } from '@work/domain/value-objects/dispatch-subject.vo';
+import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 
 export interface LeasedRunWork {
   readonly run: LeasedRun;
@@ -33,16 +36,26 @@ export interface CheckedRepository {
   readonly repository: Repository;
 }
 
+export interface PendingMessage {
+  readonly position: number;
+  readonly body: string;
+  readonly attachments: readonly Attachment[];
+}
+
+const pendingOf = (message: TaskNote | ChatMessage): PendingMessage => ({
+  position: message.position.value,
+  body: message.body.value,
+  attachments: message.attachments,
+});
+
 export class RunWorks {
   constructor(
     private readonly leases: RunLeasesPort,
-    private readonly facts: RunFactsPort,
     private readonly runCommands: RunsPort,
-    private readonly runs: RunRepository,
     private readonly tasks: TaskRepository,
     private readonly chats: ChatRepository,
     private readonly lines: LineMapsPort,
-    private readonly briefedTasks: BriefedTasksPort,
+    private readonly dispatches: DispatchRepository,
     private readonly clock: ClockPort,
   ) {}
 
@@ -64,6 +77,38 @@ export class RunWorks {
     return run ? this.workOf(run) : null;
   }
 
+  async pendingFor(
+    runId: string,
+    runnerId: string,
+  ): Promise<readonly PendingMessage[] | null> {
+    const run = await this.leases.leasedBy(
+      RunId.of(runId),
+      RunnerId.of(runnerId),
+    );
+
+    if (!run) {
+      return null;
+    }
+
+    const subject = (await this.dispatches.find(run.runId))?.subject;
+
+    if (subject?.kind === 'task') {
+      const task = await this.tasks.find(subject.taskId);
+
+      return task?.hasCurrentRun(run.runId)
+        ? task.unacknowledged.map(pendingOf)
+        : [];
+    }
+
+    if (subject?.kind === 'chat') {
+      const chat = await this.chats.find(subject.chatId);
+
+      return chat ? chat.unacknowledged.map(pendingOf) : [];
+    }
+
+    return [];
+  }
+
   async stillOn(leased: LeasedAttempt, runnerId: string): Promise<void> {
     await this.leases.assertStillOn(
       leased.runId,
@@ -76,57 +121,77 @@ export class RunWorks {
     runId: RunId,
     name: string,
   ): Promise<CheckedRepository | null> {
-    const [run] = await this.facts.of([runId]);
-    const subject = run?.subject;
+    const dispatch = await this.dispatches.find(runId);
+    const subject = dispatch?.subject;
 
-    if (subject?.kind === 'replay') {
-      const replayed = (await this.runs.findById(runId))?.replayedRepository(
-        name,
-      );
-
-      return run && replayed
-        ? { workspaceId: run.workspaceId, repository: replayed }
-        : null;
+    if (!dispatch || !subject || subject.kind === 'chat') {
+      return null;
     }
 
-    if (!run || subject?.kind !== 'task' || !subject.stationId) {
-      return null;
+    if (subject.kind === 'trial') {
+      const tried = trialRepositoryNamed(subject.repositories, name);
+
+      return tried
+        ? { workspaceId: dispatch.workspaceId, repository: tried }
+        : null;
     }
 
     const task = await this.tasks.find(subject.taskId);
     const line = await this.lines.findByStation(subject.stationId);
-    const repository = line ? repositoryForTaskNamed(name, task, line) : null;
+    const named = RepositoryName.parsed(name);
+    const repository =
+      line && named ? repositoryForTaskNamed(named, task, line) : null;
 
-    return repository ? { workspaceId: run.workspaceId, repository } : null;
+    return repository
+      ? { workspaceId: dispatch.workspaceId, repository }
+      : null;
   }
 
   private async workOf(run: LeasedRun): Promise<RunWork | null> {
-    const subject = run.subject;
+    const dispatch = await this.dispatches.find(run.runId);
 
-    switch (subject?.kind) {
+    if (dispatch) {
+      return this.dispatchedWork(run, dispatch);
+    }
+
+    return run.policy.actsBeyondItself
+      ? null
+      : new IsolatedRunWork(run, this.runCommands);
+  }
+
+  private async dispatchedWork(
+    run: LeasedRun,
+    dispatch: Dispatch,
+  ): Promise<RunWork | null> {
+    const subject = dispatch.subject;
+
+    switch (subject.kind) {
       case 'task': {
         const task = await this.tasks.find(subject.taskId);
 
         return task?.hasCurrentRun(run.runId)
-          ? new TaskRunWork(run, task, this.tasks, this.lines, this.clock)
+          ? new TaskRunWork(
+              run,
+              task,
+              subject.stationId,
+              this.tasks,
+              this.lines,
+              this.clock,
+            )
           : null;
       }
       case 'chat': {
-        const chat = await this.chats.find(ChatId.of(subject.chatId));
+        const chat = await this.chats.find(subject.chatId);
 
         return chat ? new ChatRunWork(run, chat, this.chats) : null;
       }
-      case 'replay':
-        return new ReplayRunWork(
+      case 'trial':
+        return new TrialRunWork(
           run,
-          await this.briefedTasks.of(subject.replayOf),
-          this.runs,
+          (await this.dispatches.find(subject.basedOn))?.briefedTask ?? null,
+          subject.repositories,
           this.runCommands,
         );
-      case 'search':
-        return new SearchRunWork(run, this.runCommands);
-      default:
-        return null;
     }
   }
 }

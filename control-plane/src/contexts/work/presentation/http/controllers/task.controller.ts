@@ -16,6 +16,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -112,14 +113,14 @@ export class TaskController {
   @ApiOperation({
     operationId: 'listTasks',
     summary:
-      'The tasks at a team’s stations in board order: every open task, or a page of completed tasks',
+      'The tasks at a team’s stations in board order: every task not at a completed station, or a page of the tasks at completed stations',
   })
   @ApiQuery({
     name: 'state',
     required: false,
     enum: TASK_LIST_STATES,
     description:
-      '`open` (the default) gives every task not at a completed station, in one page',
+      '`board` (the default) gives every task not at a completed station, in one page; `completed-station` gives a page of the tasks at completed stations',
   })
   @ApiQuery({
     name: 'lineId',
@@ -146,7 +147,7 @@ export class TaskController {
       new ListTasksQuery(
         teamId,
         user.id,
-        state ?? 'open',
+        state ?? 'board',
         lineId ?? null,
         pageRequestOf(before, limit),
       ),
@@ -171,6 +172,14 @@ export class TaskController {
     @Param('teamId') teamId: string,
     @Param('taskId') taskId: string,
     @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TaskResponseDto> {
+    return this.readBack(teamId, taskId, user);
+  }
+
+  private async readBack(
+    teamId: string,
+    taskId: string,
+    user: AuthenticatedUser,
   ): Promise<TaskResponseDto> {
     const found = await this.queryBus.execute<ReadTaskQuery, TaskDto | null>(
       new ReadTaskQuery(teamId, taskId, user.id),
@@ -384,6 +393,10 @@ export class TaskController {
   @ApiConflictResponse({
     description: 'The task has moved on from that station',
   })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async sendMessage(
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -411,6 +424,10 @@ export class TaskController {
   @ApiNoContentResponse({ description: 'The run received a stop request' })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
   @ApiConflictResponse({ description: 'The run is no longer in progress' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async stop(
     @Param('runId') runId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -472,6 +489,10 @@ export class TaskController {
   @ApiNoContentResponse({ description: 'The task is gone' })
   @ApiNotFoundResponse({ description: 'No such task for this caller' })
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async remove(
     @Param('teamId') teamId: string,
     @Param('taskId') taskId: string,
@@ -497,6 +518,10 @@ export class TaskController {
   @ApiUnprocessableEntityResponse({
     description: 'Invalid title or description',
   })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async add(
     @Param('teamId') teamId: string,
     @Param('lineId') lineId: string,
@@ -504,7 +529,7 @@ export class TaskController {
     @Body() body: AddTaskRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TaskResponseDto> {
-    const added = await this.commandBus.execute<AddTaskCommand, TaskDto>(
+    const added = await this.commandBus.execute<AddTaskCommand, string>(
       new AddTaskCommand(
         teamId,
         lineId,
@@ -516,7 +541,7 @@ export class TaskController {
       ),
     );
 
-    return TaskHttpMapper.toResponse(added);
+    return this.readBack(teamId, added, user);
   }
 
   @Post('lines/:lineId/tasks/:taskId/move')
@@ -538,6 +563,10 @@ export class TaskController {
       'A person may only start a task from the backlog, park it back there, or close it',
   })
   @HttpCode(HttpStatus.OK)
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async move(
     @Param('teamId') teamId: string,
     @Param('lineId') lineId: string,
@@ -545,7 +574,7 @@ export class TaskController {
     @Body() body: MoveTaskRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TaskResponseDto> {
-    const moved = await this.commandBus.execute<MoveTaskCommand, TaskDto>(
+    await this.commandBus.execute<MoveTaskCommand, void>(
       new MoveTaskCommand(
         teamId,
         lineId,
@@ -557,7 +586,7 @@ export class TaskController {
       ),
     );
 
-    return TaskHttpMapper.toResponse(moved);
+    return this.readBack(teamId, taskId, user);
   }
 
   @Put('tasks/:taskId/assignee')
@@ -572,16 +601,20 @@ export class TaskController {
   @ApiOkResponse({ type: TaskResponseDto })
   @ApiNotFoundResponse({ description: 'No such task for this caller' })
   @HttpCode(HttpStatus.OK)
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async assign(
     @Param('teamId') teamId: string,
     @Param('taskId') taskId: string,
     @Body() body: AssignTaskRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TaskResponseDto> {
-    const assigned = await this.commandBus.execute<AssignTaskCommand, TaskDto>(
+    await this.commandBus.execute<AssignTaskCommand, void>(
       new AssignTaskCommand(teamId, taskId, body.assigneeId ?? null, user.id),
     );
 
-    return TaskHttpMapper.toResponse(assigned);
+    return this.readBack(teamId, taskId, user);
   }
 }

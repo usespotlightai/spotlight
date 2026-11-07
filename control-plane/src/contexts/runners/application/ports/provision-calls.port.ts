@@ -19,7 +19,7 @@ export interface ProvisionCall {
   readonly kind: 'run' | 'check';
   readonly checkId: string | null;
   readonly runId: string;
-  readonly taskId: string | null;
+  readonly tags: Readonly<Record<string, string>>;
   readonly labels: readonly string[];
   readonly image: string | null;
   readonly runnerId: string;

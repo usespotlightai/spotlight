@@ -116,14 +116,16 @@ export class Dispatch extends EventRecorder {
     return refused;
   }
 
-  static trialOrdered(input: Ordering): Dispatch {
+  static trialOrdered(
+    input: Ordering & { readonly order: DispatchOrder },
+  ): Dispatch {
     if (input.subject.kind !== 'trial') {
       throw new InvalidDispatchTransitionError(
         `Run ${input.id.value} works a task or a chat. Order it with ordered.`,
       );
     }
 
-    return Dispatch.created(input, null);
+    return Dispatch.created(input, input.order);
   }
 
   private static workedBy(input: Ordering): Ordering {

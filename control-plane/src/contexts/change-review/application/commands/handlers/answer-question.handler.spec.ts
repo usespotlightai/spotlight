@@ -6,12 +6,14 @@ import type { TeamWorkAccess } from '@change-review/application/services/team-wo
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import type { QuestionAnswer } from '@change-review/domain/aggregates/question-answer.aggregate';
 import { QuestionAnswerVersionConflictError } from '@change-review/domain/exceptions/question-answer-version-conflict.error';
+import { TeamMembershipRequiredError } from '@change-review/domain/exceptions/team-membership-required.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { QuestionAnswerRepository } from '@change-review/domain/repositories/question-answer.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
+import { TeamStanding } from '@change-review/domain/value-objects/team-standing.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -45,8 +47,8 @@ const asking = (question = 'Who signs when the member has left?') =>
     runId: RunId.of('run-1'),
     taskId: TaskId.of('task-1'),
     teamOfRun: TeamId.of('team_1'),
-    replay: false,
-    isSearch: false,
+    trial: false,
+    checkouts: 1,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,
@@ -86,6 +88,7 @@ const RUN = { id: RunId.of('run-1') } as RunForReview;
 const answering = (
   over: {
     run?: RunForReview | null;
+    onTeam?: boolean;
     earlier?: QuestionAnswer | null;
     answeredMeanwhile?: QuestionAnswer;
     graderAvailable?: boolean;
@@ -101,7 +104,16 @@ const answering = (
 
   const handler = new AnswerQuestionHandler(
     {
-      run: async () => (over.run === undefined ? RUN : over.run),
+      actingOnRun: async (
+        _teamId: string,
+        _runId: string,
+        _viewerId: string,
+        unseen: () => Error,
+      ) =>
+        TeamStanding.of({ readsTeam: over.onTeam !== false }).actingOn(
+          over.run === undefined ? RUN : over.run,
+          unseen,
+        ),
     } as unknown as TeamWorkAccess,
     { find: async () => asking() } as unknown as ChangeStackRepository,
     {
@@ -238,6 +250,19 @@ describe('AnswerQuestionHandler', () => {
     await expect(handler.execute(answer('Again.'))).rejects.toMatchObject({
       kind: 'conflict',
     });
+    expect(grade).not.toHaveBeenCalled();
+  });
+
+  it('refuses a workspace member outside the team, and records nothing', async () => {
+    const { handler, added, saved, grade } = answering({ onTeam: false });
+
+    await expect(
+      handler.execute(answer('The integration.')),
+    ).rejects.toMatchObject({
+      refusal: expect.any(TeamMembershipRequiredError),
+    });
+    expect(added).toEqual([]);
+    expect(saved).toEqual([]);
     expect(grade).not.toHaveBeenCalled();
   });
 

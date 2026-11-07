@@ -68,7 +68,7 @@ const asked = () =>
     newId: () => 'task_1',
   }).askedAbout(
     {
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Here are the screenshots.'),
       at: NOW,
       voice: Voice.station(),

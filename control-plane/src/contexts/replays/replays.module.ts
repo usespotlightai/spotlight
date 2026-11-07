@@ -4,26 +4,22 @@ import { GitHubModule } from '@github/github.module';
 import { IdentityModule } from '@identity/identity.module';
 import { STATION_CONFIG_PULL_REQUESTS } from '@insights/application/ports/station-config-pull-requests.port';
 import { InsightsModule } from '@insights/insights.module';
+import { LinesModule } from '@lines/lines.module';
 import { Module } from '@nestjs/common';
 import { contextBindings } from '@platform/bindings/context-bindings';
 import {
   REPLAYS_CONTROLLERS,
   REPLAYS_PROVIDERS,
 } from '@replays/replays.wiring';
-import { SEARCH_VISIBILITY } from '@work/application/ports/search-visibility.port';
-import { STATION_CHANGE_TESTS } from '@work/application/ports/station-change-tests.port';
 import { WorkModule } from '@work/work.module';
 
-const BINDINGS = contextBindings([
-  SEARCH_VISIBILITY,
-  STATION_CHANGE_TESTS,
-  STATION_CONFIG_PULL_REQUESTS,
-]);
+const BINDINGS = contextBindings([STATION_CONFIG_PULL_REQUESTS]);
 
 @Module({
   imports: [
     IdentityModule,
     GitHubModule,
+    LinesModule,
     WorkModule,
     ChangeReviewModule,
     InsightsModule,

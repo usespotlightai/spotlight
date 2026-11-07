@@ -23,6 +23,10 @@ import type {
   ChatView,
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
+import {
+  RUN_PROGRESS,
+  type RunProgressPort,
+} from '@work/application/ports/run-progress.port';
 import { ChatAccess } from '@work/domain/services/chat-access';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { Progress } from '@work/domain/value-objects/run-state';
@@ -61,41 +65,46 @@ export class DrizzleChatReader implements ChatReaderPort {
   constructor(
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(PERSON_READER) private readonly people: PersonReaderPort,
+    @Inject(RUN_PROGRESS) private readonly progress: RunProgressPort,
   ) {}
 
-  async setupOf(teamId: TeamId): Promise<SetupChatView | null> {
+  async setupChatsOf(teamId: TeamId): Promise<readonly SetupChatView[]> {
     const rows = await this.db
       .select({
         id: chat.id,
         setup: chat.setup,
         startedById: chat.startedById,
+        createdAt: chat.createdAt,
       })
       .from(chat)
       .where(and(eq(chat.teamId, teamId.value), isNotNull(chat.setup)))
       .orderBy(desc(chat.createdAt));
-    const opened = rows.find((each) => each.setup?.pullRequest);
-    const latest = opened ?? rows[0];
+    const starters = new Map(
+      await Promise.all(
+        [...new Set(rows.map((each) => each.startedById))].map(
+          async (id) =>
+            [id, (await this.people.find(UserId.of(id)))?.name ?? ''] as const,
+        ),
+      ),
+    );
 
-    if (!latest) {
-      return null;
-    }
+    return rows.map((row) => {
+      const ci = row.setup?.ci ?? null;
 
-    const starter = await this.people.find(UserId.of(latest.startedById));
-
-    const ci = latest.setup?.ci ?? null;
-
-    return {
-      id: latest.id,
-      repository: latest.setup?.repository ?? '',
-      pullRequest: latest.setup?.pullRequest ?? null,
-      ci: ci && {
-        defaultBranch: ci.defaultBranch,
-        defaultBranchProtected: ci.defaultBranchProtected,
-        variables: ci.variables,
-      },
-      startedById: latest.startedById,
-      startedBy: starter?.name ?? '',
-    };
+      return {
+        id: row.id,
+        repository: row.setup?.repository ?? '',
+        pullRequest: row.setup?.pullRequest ?? null,
+        ci: ci && {
+          defaultBranch: ci.defaultBranch,
+          defaultBranchProtected: ci.defaultBranchProtected,
+          variables: ci.variables,
+        },
+        startedById: row.startedById,
+        startedBy: starters.get(row.startedById) ?? '',
+        startedAt: row.createdAt,
+      };
+    });
   }
 
   async startedBy(
@@ -118,7 +127,7 @@ export class DrizzleChatReader implements ChatReaderPort {
       .limit(page.limit + 1);
 
     const progressOf = await progressOfCurrentRuns(
-      this.db,
+      this.progress,
       rows.map((row) => row.chat.currentRunId),
       false,
     );
@@ -159,7 +168,7 @@ export class DrizzleChatReader implements ChatReaderPort {
         .where(eq(chatAttachment.chatId, row.id))
         .orderBy(asc(chatAttachment.place)),
       this.people.find(UserId.of(row.startedById)).then((found) => [found]),
-      progressOfCurrentRuns(this.db, [row.currentRunId], false),
+      progressOfCurrentRuns(this.progress, [row.currentRunId], false),
     ]);
 
     const proposedAt = messages.flatMap((each) =>

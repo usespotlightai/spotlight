@@ -1,5 +1,3 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { SetupChatView } from '@work/application/ports/chat-reader.port';
@@ -7,6 +5,7 @@ import type { TeamWelcomesPort } from '@work/application/ports/team-welcomes.por
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import type { SetupStatus } from '@work/application/services/setup-status.service';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { SETUP_STEPS, type SetupState } from '@work/domain/services/setup-list';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -27,8 +26,8 @@ const nothing: SetupState = {
 };
 
 const handler = (options: Options = {}) => {
-  const workspaces = {
-    findTeamForMember: vi.fn().mockResolvedValue(
+  const access = {
+    seenTeam: vi.fn().mockResolvedValue(
       options.member === false
         ? null
         : {
@@ -39,7 +38,8 @@ const handler = (options: Options = {}) => {
             origin: options.origin ?? 'sign-up',
           },
     ),
-  } as unknown as WorkspaceReaderPort;
+    isAdminOf: vi.fn().mockResolvedValue(options.admin ?? true),
+  } as unknown as WorkAccess;
 
   const setup = {
     of: vi.fn().mockResolvedValue({
@@ -53,13 +53,7 @@ const handler = (options: Options = {}) => {
     welcomed: vi.fn().mockResolvedValue(options.welcomed ?? true),
   } as unknown as TeamWelcomesPort;
 
-  const access = {
-    permissionsIn: vi
-      .fn()
-      .mockResolvedValue({ isAdmin: options.admin ?? true }),
-  } as unknown as WorkspaceAccessPort;
-
-  return new OnboardingHandler(workspaces, access, setup, welcomes);
+  return new OnboardingHandler(access, setup, welcomes);
 };
 
 const read = (options: Options = {}) =>
@@ -138,6 +132,7 @@ describe('OnboardingHandler', () => {
           ci,
           startedById: 'user_1',
           startedBy: 'Ada',
+          startedAt: new Date(0),
         },
       }),
     ).resolves.toMatchObject({
@@ -153,6 +148,7 @@ describe('OnboardingHandler', () => {
       ci: null,
       startedById: 'user_2',
       startedBy: 'Grace',
+      startedAt: new Date(0),
     };
 
     await expect(read({ chat })).resolves.toMatchObject({

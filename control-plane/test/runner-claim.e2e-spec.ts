@@ -21,6 +21,7 @@ import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/r
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { requestedBySpec } from './support/runs';
 import * as schema from './support/schema';
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');
@@ -59,11 +60,12 @@ const queue = async (workspaceId: string, placement: string[][] = []) => {
     harness: 'dev',
     state: 'queued',
     placement,
+    ...requestedBySpec(id),
     spec: {
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 0 },
-      resume: { key: 'task:station' },
+      resume: {},
     },
   });
 
@@ -174,7 +176,7 @@ describe('claiming a run', () => {
     expect(telemetry.measured[telemetry.measured.length - 1]).toEqual({
       metric: 'spotlight.runs.claim_wait_seconds',
       value: 90,
-      attributes: { 'spotlight.run.kind': 'other' },
+      attributes: { 'spotlight.run.kind': 'spec' },
     });
   });
 });
@@ -377,7 +379,7 @@ describe('deleting the checks of a deleted task', () => {
       runId: RunId.of(randomUUID()),
       taskId,
       teamId: null,
-      replay: false,
+      trial: false,
       workspaceId: WorkspaceId.of(randomUUID()),
       request: CheckRequest.of('npm test', null),
       entries: [],
@@ -439,7 +441,7 @@ describe('a runner reaching git for a run whose check it leases', () => {
       runId,
       taskId: null,
       teamId: null,
-      replay: false,
+      trial: false,
       workspaceId: WorkspaceId.of(randomUUID()),
       request: CheckRequest.of('npm test', null),
       entries: [],

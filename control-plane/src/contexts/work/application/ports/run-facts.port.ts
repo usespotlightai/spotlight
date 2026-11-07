@@ -1,8 +1,7 @@
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
@@ -13,29 +12,6 @@ import type {
 import type { RunTurnState } from '@work/domain/value-objects/run-turn.vo';
 
 export const RUN_FACTS = Symbol('RUN_FACTS');
-
-export type RunSubjectFacts =
-  | {
-      readonly kind: 'task';
-      readonly taskId: TaskId;
-      readonly stationId: StationId | null;
-      readonly revision: number;
-    }
-  | { readonly kind: 'chat'; readonly chatId: string }
-  | {
-      readonly kind: 'replay';
-      readonly replayOf: RunId;
-      readonly taskId: TaskId;
-      readonly stationId: StationId | null;
-      readonly teamId: TeamId;
-    }
-  | {
-      readonly kind: 'search';
-      readonly searchId: string;
-      readonly iteration: number;
-      readonly stationId: StationId | null;
-      readonly teamId: TeamId;
-    };
 
 export type RunStateFact =
   | 'queued'
@@ -59,8 +35,29 @@ export interface RunFacts {
   readonly requester: RunRequesterContract;
   readonly policy: RunPolicyContract;
   readonly team: TeamId | null;
-  readonly subject: RunSubjectFacts | null;
   readonly checkouts: readonly string[];
+  readonly check: string | null;
+  readonly setups: ReadonlyMap<string, string>;
+  readonly placement: RunnerPlacement;
+  readonly queuedAt: Date;
+  readonly startedAt: Date | null;
+  readonly endedAt: Date | null;
+  readonly started: boolean;
+  readonly askedAPerson: boolean;
+  readonly failed: boolean;
+  readonly exitCode: number | null;
+  readonly image: string | null;
+  readonly startedFrom: RunStartedFromFact | null;
+}
+
+export interface RunStartedFromFact {
+  readonly archiveId: string | null;
+  readonly archiveStored: boolean;
+  readonly at: Date;
+  readonly checkouts: readonly {
+    readonly path: string;
+    readonly commit: string;
+  }[];
 }
 
 export interface RunFactsPort {

@@ -14,6 +14,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiConflictResponse,
   ApiExtraModels,
+  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -288,6 +289,10 @@ export class InboxController {
     description:
       'Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with',
   })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async answer(
     @Param('itemId') itemId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -342,6 +347,10 @@ export class InboxController {
   @ApiNoContentResponse({ description: 'It is resolved' })
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
   @ApiConflictResponse({ description: 'The conversation is already closed' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async resolveInboxItem(
     @Param('itemId') itemId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -361,6 +370,10 @@ export class InboxController {
   @ApiParam({ name: 'requestId', type: String, example: 'request_1' })
   @ApiNoContentResponse({ description: 'It is resolved' })
   @ApiNotFoundResponse({ description: 'No such inbox request for this caller' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async resolveInboxRequest(
     @Param('requestId') requestId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -384,6 +397,10 @@ export class InboxController {
     description:
       'The conversation is not the last one, or a person did not resolve it',
   })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async reopenInboxItem(
     @Param('itemId') itemId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -403,6 +420,10 @@ export class InboxController {
   @ApiParam({ name: 'requestId', type: String, example: 'request_1' })
   @ApiNoContentResponse({ description: 'It is open again' })
   @ApiNotFoundResponse({ description: 'No such inbox request for this caller' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async reopenInboxRequest(
     @Param('requestId') requestId: string,
     @CurrentUser() user: AuthenticatedUser,
@@ -441,6 +462,10 @@ export class InboxController {
   @ApiParam({ name: 'noticeId', type: String })
   @ApiNoContentResponse({ description: 'It is resolved' })
   @ApiNotFoundResponse({ description: 'No such notice for this caller' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async resolveNotice(
     @Param('slug') slug: string,
     @Param('noticeId') noticeId: string,
@@ -461,6 +486,10 @@ export class InboxController {
   @ApiParam({ name: 'noticeId', type: String })
   @ApiNoContentResponse({ description: 'It is open again' })
   @ApiNotFoundResponse({ description: 'No such notice for this caller' })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   async reopenNotice(
     @Param('slug') slug: string,
     @Param('noticeId') noticeId: string,

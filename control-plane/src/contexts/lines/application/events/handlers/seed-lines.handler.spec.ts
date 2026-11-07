@@ -2,15 +2,10 @@ import {
   type SeededTeam,
   SeedLines,
 } from '@lines/application/events/handlers/seed-lines.handler';
-import type {
-  HeldLine,
-  StationHoldersPort,
-} from '@lines/application/ports/station-holders.port';
 import type { Line } from '@lines/domain/aggregates/line.aggregate';
 import type { LineRepository } from '@lines/domain/repositories/line.repository';
 import { BUILT_IN_LINES } from '@lines/domain/services/built-in-lines';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineRole } from '@shared-kernel/domain/value-objects/line-role.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -25,31 +20,26 @@ const ids = (): IdGeneratorPort => {
 const created: SeededTeam = {
   workspaceId: WorkspaceId.of('ws_1'),
   teamId: TeamId.of('team_1'),
+  origin: 'sign-up',
 };
 
 const seeding = (existing: Line[] = []) => {
   const seeded: Line[] = [...existing];
-  const transactions = vi.fn(<T>(work: () => Promise<T>) => work());
-  const held: HeldLine[] = [];
   const seeder = new SeedLines(
     {
       add: vi.fn(async (line: Line) => void seeded.push(line)),
       ofTeam: vi.fn(async () => [...seeded]),
     } as unknown as LineRepository,
-    {
-      hold: vi.fn(async (line: HeldLine) => void held.push(line)),
-    } as unknown as StationHoldersPort,
-    { inTransaction: transactions } as TransactionPort,
     ids(),
     HarnessId.of('claude-code'),
   );
 
-  return { seeder, seeded, held, transactions };
+  return { seeder, seeded };
 };
 
 describe('SeedLines', () => {
-  it('opens every line a team starts with, for that team, each in its own transaction', async () => {
-    const { seeder, seeded, transactions } = seeding();
+  it('opens every line a team starts with, for that team', async () => {
+    const { seeder, seeded } = seeding();
 
     await seeder.seed(created);
 
@@ -59,17 +49,14 @@ describe('SeedLines', () => {
     expect(seeded.every((line) => line.teamId.equals(created.teamId))).toBe(
       true,
     );
-    expect(transactions).toHaveBeenCalledTimes(BUILT_IN_LINES.length);
   });
 
-  it('lets the holders hold the stations of every line it opens', async () => {
-    const { seeder, seeded, held } = seeding();
+  it('opens no line for a team made by configuration', async () => {
+    const { seeder, seeded } = seeding();
 
-    await seeder.seed(created);
+    await seeder.seed({ ...created, origin: 'configuration' });
 
-    expect(held.map((line) => line.lineId)).toEqual(
-      seeded.map((line) => line.id.value),
-    );
+    expect(seeded).toEqual([]);
   });
 
   it('opens no line twice when told again', async () => {
@@ -89,7 +76,7 @@ describe('SeedLines', () => {
     for (const line of seeded) {
       for (const station of line.stations) {
         expect(station.harness?.value ?? null).toBe(
-          station.isAgentStation ? 'claude-code' : null,
+          station.kind === 'work' ? 'claude-code' : null,
         );
       }
     }

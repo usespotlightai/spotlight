@@ -1,5 +1,4 @@
 import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
-import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -16,6 +15,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ReceivedHappening } from '@work/application/mappers/happened.mapper';
 import type { ChannelNoticesPort } from '@work/application/ports/channel-notices.port';
+import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
@@ -23,13 +23,13 @@ import {
   type ChannelAnswer,
   ChannelChats,
 } from '@work/application/services/channel-chats.service';
-import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { ChatMark } from '@work/domain/value-objects/chat-mark.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
+import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -90,7 +90,10 @@ const proposingChat = () =>
       description: null,
       at: NOW,
     })
-    .endRun(RunId.of('run_1'));
+    .runEnded(RunId.of('run_1'), {
+      session: HarnessSession.of('session_1'),
+      claimedBy: null,
+    }).chat;
 
 const channels = ({
   existing = null as Chat | null,
@@ -134,13 +137,7 @@ const channels = ({
             : null,
       ),
     } satisfies MemberDirectoryPort,
-    {
-      findTeamForMember: vi.fn(async () =>
-        member
-          ? { teamId: TeamId.of('team_1'), workspaceId: WorkspaceId.of('ws_1') }
-          : null,
-      ),
-    } as unknown as WorkspaceReaderPort,
+    { seesTeam: vi.fn(async () => member) },
     {
       catalogue: () => [{ id: 'claude-code' }, { id: 'codex' }],
     } as unknown as HarnessLaunchPort,

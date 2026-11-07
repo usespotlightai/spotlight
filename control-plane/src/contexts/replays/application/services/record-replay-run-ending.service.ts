@@ -1,5 +1,6 @@
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
+import type { ReplayRunClaimRepository } from '@replays/domain/repositories/replay-run-claim.repository';
 import { reviewOf } from '@replays/domain/value-objects/change-checks.vo';
 import type { RunResult } from '@replays/domain/value-objects/replay-ending';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
@@ -12,20 +13,27 @@ export interface ReplayRunEnded {
   readonly outcome: RunResult;
   readonly failure: string | null;
   readonly stopped: boolean;
-  readonly asked: boolean;
+  readonly askedAPerson: boolean;
+  readonly handsOver: boolean;
   readonly next: string | null;
 }
 
 export class RecordReplayRunEnding {
   constructor(
     private readonly replays: ReplayRepository,
+    private readonly claims: ReplayRunClaimRepository,
     private readonly changes: ChangeReviewPort,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
 
-  ended(event: ReplayRunEnded): Promise<void> {
+  async ended(event: ReplayRunEnded): Promise<void> {
     const run = RunId.of(event.runId);
+    const claim = await this.claims.find(run);
+    const asked =
+      event.askedAPerson ||
+      (claim?.askedAPersonAfter(event.handsOver, event.next) ??
+        event.handsOver);
 
     return this.transaction.inTransaction(async () => {
       const replay = await this.replays.ranAs(run);
@@ -42,7 +50,7 @@ export class RecordReplayRunEnding {
             result: event.outcome,
             failure: event.failure,
             stopped: event.stopped,
-            asked: event.asked,
+            asked,
             next: event.next,
             at: now,
           }),

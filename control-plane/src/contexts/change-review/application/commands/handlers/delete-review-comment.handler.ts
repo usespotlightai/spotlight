@@ -16,7 +16,7 @@ export class DeleteReviewCommentHandler
 
   async execute(command: DeleteReviewCommentCommand): Promise<void> {
     try {
-      const { task, by } = await this.access.reviewing(
+      const { task, by } = await this.access.actingInReview(
         command.teamId,
         command.runId,
         command.viewerId,

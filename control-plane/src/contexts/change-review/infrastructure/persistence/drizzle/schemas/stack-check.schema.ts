@@ -30,7 +30,7 @@ export const stackCheck = pgTable(
     runId: text('run_id').notNull(),
     taskId: text('task_id'),
     teamId: text('team_id'),
-    replay: boolean('replay').notNull().default(false),
+    trial: boolean('trial').notNull().default(false),
     workspaceId: text('workspace_id').notNull(),
     command: text('command').notNull(),
     setup: text('setup'),

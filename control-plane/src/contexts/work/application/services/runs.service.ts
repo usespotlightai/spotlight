@@ -27,16 +27,23 @@ import { RunOrderConflictError } from '@work/domain/exceptions/run-order-conflic
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
+import { RunApiGrant } from '@work/domain/value-objects/run-api-grant.vo';
+import { RunExtensions } from '@work/domain/value-objects/run-extensions.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
+import { RunPolicy } from '@work/domain/value-objects/run-policy.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
+import { RunRequester } from '@work/domain/value-objects/run-requester.vo';
 import type { RunCheckout } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { RunTags } from '@work/domain/value-objects/run-tags.vo';
+import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import {
+  RunWorkspace,
+  WorkspaceKey,
+} from '@work/domain/value-objects/workspace-key.vo';
 
 const SAVE_ATTEMPTS = 3;
 
 const ENQUEUED: RunEnqueueing = { outcome: 'enqueued' };
-
-const startedBefore = (run: Run): boolean => run.attempt > 1;
 
 export class Runs implements RunsPort {
   constructor(
@@ -87,14 +94,31 @@ export class Runs implements RunsPort {
         workspaceId: WorkspaceId.of(order.workspaceId),
         harness: HarnessId.of(order.harness),
         priority: RunPriority.of(order.priority),
-        subject: order.subject ? RunSubject.fromValues(order.subject) : null,
+        requester: RunRequester.of({
+          ...order.requester,
+          team: order.requester.team ? TeamId.of(order.requester.team) : null,
+        }),
+        policy: RunPolicy.of(order.policy),
+        workspace: order.workspace
+          ? RunWorkspace.of({
+              key: WorkspaceKey.parse(order.workspace.key),
+              rejoinable: order.workspace.rejoinable,
+              restores: order.workspace.restores,
+            })
+          : null,
+        restore: order.restore
+          ? WorkspaceArchiveId.of(order.restore.archive)
+          : null,
+        extensions: RunExtensions.of(order.extensions),
+        tags: RunTags.of(order.tags),
+        apiGrant: order.apiGrant ? RunApiGrant.of(order.apiGrant) : null,
         placement: RunnerPlacement.ofLabelGroups(
           order.placement.labelGroups,
           order.placement.image ? RunnerImage.of(order.placement.image) : null,
         ),
         spec: RunSpecContract.received(order.spec),
-        team: order.team ? TeamId.of(order.team) : null,
         orderFingerprint: fingerprint,
+        queuedAt: this.clock.now(),
       });
     } catch (error) {
       if (error instanceof DomainError && error.kind === 'invalid') {
@@ -197,7 +221,7 @@ export class Runs implements RunsPort {
       was: run.hasEnded
         ? 'ended'
         : (run.state as Exclude<RunCancellation['was'], 'ended' | 'unknown'>),
-      started: startedBefore(run),
+      started: run.hasStarted,
     };
   }
 
@@ -221,7 +245,7 @@ export class Runs implements RunsPort {
 
     await this.runs.save(run.cancelQueued(reason));
 
-    return { outcome: 'cancelled', started: startedBefore(run) };
+    return { outcome: 'cancelled', started: run.hasStarted };
   }
 
   async askedAPerson(lease: RunLease): Promise<void> {

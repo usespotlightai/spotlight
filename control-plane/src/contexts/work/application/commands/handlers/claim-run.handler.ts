@@ -16,7 +16,7 @@ import type { RunLeases } from '@work/application/services/run-leases.service';
 import { UnknownRunnerError } from '@work/domain/exceptions/unknown-runner.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { Claimant } from '@work/domain/value-objects/claimant';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 
 export class ClaimRunHandler
   implements CommandHandlerPort<ClaimRunCommand, ClaimedWorkDto | null>
@@ -95,7 +95,7 @@ export class ClaimRunHandler
         const claimed = await this.runs.claimNext(
           {
             ...claimant,
-            sandbox: { avoiding: held.map((each) => ResumeKey.of(each)) },
+            sandbox: { avoiding: held.map((each) => WorkspaceKey.parse(each)) },
           },
           this.clock.now(),
         );

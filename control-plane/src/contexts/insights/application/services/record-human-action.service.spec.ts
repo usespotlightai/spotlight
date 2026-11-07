@@ -35,6 +35,7 @@ const workOfTeam = (teamId: string): WorkPort => ({
       teamId,
       taskId: 'task_1',
     }) as EndedRun,
+  taskRunOf: async (runId) => ({ runId, teamId, taskId: 'task_1' }),
   configsInOrder: async () => [],
 });
 
@@ -292,7 +293,7 @@ describe('recording how a run used its tools', () => {
   const usage = (runId: string) => ({
     runId,
     workspaceId: 'ws_1',
-    taskId: 'task_1',
+    listed: true,
     ms: 1_000,
     steps: 3,
     errors: 0,
@@ -342,5 +343,27 @@ describe('recording how a run used its tools', () => {
         'grafana',
       ),
     ).toBe(true);
+  });
+  it('keeps nothing of a run that is not listed, nor of a run that works no task', async () => {
+    const records = new RunRecordsInMemory();
+    const noTask: WorkPort = {
+      ...workOfTeam('team_1'),
+      taskRunOf: async () => null,
+    };
+
+    await new RecordRunUsageSummary(
+      workOfTeam('team_1'),
+      records,
+      new FactRecorder(deletionsInMemory()),
+      inTransaction,
+    ).usageRecorded({ ...usage('run_7'), listed: false });
+    await new RecordRunUsageSummary(
+      noTask,
+      records,
+      new FactRecorder(deletionsInMemory()),
+      inTransaction,
+    ).usageRecorded(usage('run_8'));
+
+    expect(records.stored.size).toBe(0);
   });
 });

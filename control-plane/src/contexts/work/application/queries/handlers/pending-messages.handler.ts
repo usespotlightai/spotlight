@@ -1,23 +1,19 @@
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { PendingMessageDto } from '@work/application/dto/pending-message.dto';
-import type { LeasedRunReaderPort } from '@work/application/ports/leased-run-reader.port';
 import type { PendingMessagesQuery } from '@work/application/queries/pending-messages.query';
 import { Attached } from '@work/application/rendering/attached';
+import type { RunWorks } from '@work/application/services/run-works.service';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 
 export class PendingMessagesHandler
   implements QueryHandlerPort<PendingMessagesQuery, PendingMessageDto[]>
 {
-  constructor(private readonly leasedRuns: LeasedRunReaderPort) {}
+  constructor(private readonly works: RunWorks) {}
 
   async execute(query: PendingMessagesQuery): Promise<PendingMessageDto[]> {
     try {
-      const runId = RunId.of(query.runId);
-      const runner = RunnerId.of(query.runnerId);
-      const pending = await this.leasedRuns.pendingFor(runId, runner);
+      const pending = await this.works.pendingFor(query.runId, query.runnerId);
 
       if (!pending) {
         throw new UnknownRunError(

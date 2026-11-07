@@ -19,6 +19,7 @@ import {
   FakeInsights,
   FakeWork,
   IDS,
+  InMemoryReplayRunClaims,
   InMemoryReplays,
   STATION_VIEW,
   TRANSACTION,
@@ -428,6 +429,7 @@ describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
     });
     await new RecordReplayRunEnding(
       memory.replayRepository,
+      new InMemoryReplayRunClaims(),
       new FakeChangeReview(),
       TRANSACTION,
       CLOCK,
@@ -436,7 +438,8 @@ describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
       outcome: 'completed',
       failure: null,
       stopped: false,
-      asked: false,
+      askedAPerson: false,
+      handsOver: false,
       next: 'ship',
     });
 
@@ -449,6 +452,7 @@ describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
   it('pass over a run no replay handed out', async () => {
     await new RecordReplayRunEnding(
       memory.replayRepository,
+      new InMemoryReplayRunClaims(),
       new FakeChangeReview(),
       TRANSACTION,
       CLOCK,
@@ -457,7 +461,8 @@ describe('RecordReplayRunEnding and RecordReplayRunUsage', () => {
       outcome: 'completed',
       failure: null,
       stopped: false,
-      asked: false,
+      askedAPerson: false,
+      handsOver: false,
       next: null,
     });
 
@@ -559,6 +564,7 @@ describe('scoring a replayed task', () => {
   const ending = () =>
     new RecordReplayRunEnding(
       memory.replayRepository,
+      new InMemoryReplayRunClaims(),
       changes,
       TRANSACTION,
       CLOCK,
@@ -588,7 +594,8 @@ describe('scoring a replayed task', () => {
       outcome: 'completed',
       failure: null,
       stopped: false,
-      asked: false,
+      askedAPerson: false,
+      handsOver: false,
       next: 'ship',
     });
 

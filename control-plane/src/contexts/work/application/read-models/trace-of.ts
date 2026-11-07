@@ -37,6 +37,7 @@ export interface RunToTrace {
   readonly attempt: number;
   readonly startedAt: Date;
   readonly updatedAt: Date;
+  readonly endedAt: Date | null;
 }
 
 export const tracedRunsOf = (
@@ -53,7 +54,7 @@ export const tracedRunsOf = (
     state: run.state,
     attempt: run.attempt,
     startedAt: run.startedAt,
-    endedAt: run.updatedAt,
+    endedAt: run.endedAt ?? run.updatedAt,
     journal: byRun.get(run.id) ?? null,
     connections: connectionsOf(errors, run.id, run.attempt),
   }));

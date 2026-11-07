@@ -1,3 +1,7 @@
+import type {
+  StationChangeTestOutcome,
+  StationChangeTestRequest,
+} from '@replays/application/contracts/station-change-tests.contract';
 import { CheckSearchReadiness } from '@replays/application/services/check-search-readiness.service';
 import {
   FakeWork,
@@ -40,10 +44,6 @@ import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type {
-  StationChangeTestOutcome,
-  StationChangeTestRequest,
-} from '@work/application/ports/station-change-tests.port';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 const DAY = 24 * 60 * 60 * 1000;

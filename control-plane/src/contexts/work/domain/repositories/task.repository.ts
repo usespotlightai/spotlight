@@ -4,6 +4,7 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
+import type { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import type { Mark } from '@work/domain/value-objects/mark.vo';
 
 export const TASK_REPOSITORY = Symbol('TASK_REPOSITORY');
@@ -36,6 +37,6 @@ export interface TaskRepository {
   awaitingConnection(
     teamId: TeamId,
     personId: UserId,
-    integration: string,
+    integration: IntegrationName,
   ): Promise<readonly Task[]>;
 }

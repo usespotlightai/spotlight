@@ -28,8 +28,7 @@ export interface StationSourceEditRequest {
   readonly seed: LineDefinitionStation;
   readonly candidate: LineDefinitionStation;
   readonly fields: readonly StationSourceField[];
-  readonly besideFile: readonly string[];
-  readonly read: (path: string) => Promise<string | null>;
+  readonly configFiles: readonly StationSourceFile[];
 }
 
 export type StationSourceEditFailureCode =

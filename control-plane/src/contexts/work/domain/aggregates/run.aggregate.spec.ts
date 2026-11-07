@@ -7,27 +7,29 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
+import { InvalidRunOrderError } from '@work/domain/exceptions/invalid-run-order.error';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
+import { RunActsOnlyOnItselfError } from '@work/domain/exceptions/run-acts-only-on-itself.error';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
-import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
+import { RunApiGrant } from '@work/domain/value-objects/run-api-grant.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
+import type { RunSpecParts } from '@work/domain/value-objects/run-spec.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
+import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const aSpec = (executable = 'sh') =>
@@ -35,7 +37,7 @@ const aSpec = (executable = 'sh') =>
     command: { executable, args: [] },
     briefing: 'do the thing',
     handover: { options: [], noteLimit: 4_000 },
-    resume: { key: 'task:station' },
+    resume: {},
   });
 
 const at = (iso: string) => new Date(iso);
@@ -48,6 +50,7 @@ const queued = () =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
+    ...orderedFor.spec(),
     spec: aSpec('sh'),
   });
 
@@ -62,7 +65,7 @@ const onAttempt = (attempt: number, leaseUntil: Date) =>
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
     priority: RunPriority.normal,
-    subject: null,
+    ...orderedFor.spec(),
     spec: aSpec(),
     state: 'claimed',
     claimedBy: RunnerId.of('runner_1'),
@@ -356,11 +359,12 @@ describe('Run', () => {
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('dev'),
+        ...orderedFor.spec(),
         spec: RunSpec.of({
           command: { executable: 'sh', args: [] },
           briefing: 'do the thing',
           handover: { options: [], noteLimit: 4_000 },
-          resume: { key: 'task:station' },
+          resume: {},
           manifest: tools.map((name) => ({
             name,
             description: name,
@@ -389,14 +393,14 @@ describe('Run', () => {
 
   describe('knowing which workspace to restore', () => {
     const working = (
-      subject: RunSubject | null,
-      resume: { key: string; sessionId?: string },
+      ordered: ReturnType<typeof orderedFor.task>,
+      resume: { sessionId?: string },
     ) =>
       Run.enqueue({
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('dev'),
-        subject,
+        ...ordered,
         spec: RunSpec.of({
           command: { executable: 'sh', args: [] },
           briefing: 'do the thing',
@@ -405,33 +409,116 @@ describe('Run', () => {
         }),
       });
 
-    const aTask = RunSubject.task(
-      TaskId.of('task_1'),
-      StationId.of('station_1'),
-      TaskRevision.of(1),
-    );
-    const aChat = RunSubject.chat(ChatId.of('chat_1'));
+    const newestOf = (run: Run) => {
+      const source = run.restoresFrom;
 
-    it('restores a task’s workspace whether or not a conversation carries on', () => {
-      expect(working(aTask, { key: 'task-task_1' }).restoresFrom?.value).toBe(
-        'task-task_1',
+      return source && 'newestOf' in source ? source.newestOf.value : null;
+    };
+
+    it('restores a workspace that always restores whether or not a conversation carries on', () => {
+      expect(newestOf(working(orderedFor.task('task_1'), {}))).toBe(
+        'work/task-task_1',
       );
       expect(
-        working(aTask, { key: 'task-task_1', sessionId: 'session_1' })
-          .restoresFrom?.value,
-      ).toBe('task-task_1');
+        newestOf(
+          working(orderedFor.task('task_1'), { sessionId: 'session_1' }),
+        ),
+      ).toBe('work/task-task_1');
     });
 
-    it('restores a chat’s workspace only to carry its conversation on', () => {
-      expect(working(aChat, { key: 'chat-chat_1' }).restoresFrom).toBeNull();
+    it('restores a workspace that restores when continuing only to carry its conversation on', () => {
+      expect(working(orderedFor.chat('chat_1'), {}).restoresFrom).toBeNull();
       expect(
-        working(aChat, { key: 'chat-chat_1', sessionId: 'session_1' })
-          .restoresFrom?.value,
-      ).toBe('chat-chat_1');
+        newestOf(
+          working(orderedFor.chat('chat_1'), { sessionId: 'session_1' }),
+        ),
+      ).toBe('work/chat-chat_1');
     });
 
-    it('restores nothing for work that does not carry on', () => {
-      expect(working(null, { key: ' ' }).restoresFrom).toBeNull();
+    it('restores nothing for work without a workspace', () => {
+      expect(working(orderedFor.spec(), {}).restoresFrom).toBeNull();
+    });
+
+    it('restores exactly the archive it was ordered to, before any of its key', () => {
+      const run = Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        ...orderedFor.isolated(),
+        restore: WorkspaceArchiveId.of('archive_1'),
+        spec: aSpec(),
+      });
+
+      expect(run.restoresFrom).toEqual({
+        archive: WorkspaceArchiveId.of('archive_1'),
+      });
+    });
+  });
+
+  describe('choosing the archive to restore', () => {
+    const candidate = (
+      id: string,
+      key: string,
+      completedAt: Date | null,
+      workspace = 'ws_1',
+    ) => ({
+      id: WorkspaceArchiveId.of(id),
+      workspaceKey: WorkspaceKey.parse(key),
+      completedAt,
+      isAvailableIn: (workspaceId: WorkspaceId) =>
+        completedAt !== null && workspaceId.value === workspace,
+    });
+
+    const ofTask = () =>
+      Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        ...orderedFor.task('task_1'),
+        spec: aSpec(),
+      });
+
+    it('takes the newest completed archive of its workspace in its own workspace', () => {
+      const chosen = ofTask().archiveToRestore([
+        candidate('older', 'work/task-task_1', at('2026-08-20T00:00:00Z')),
+        candidate('newer', 'work/task-task_1', at('2026-08-21T00:00:00Z')),
+        candidate('other', 'work/task-task_2', at('2026-08-22T00:00:00Z')),
+        candidate(
+          'elsewhere',
+          'work/task-task_1',
+          at('2026-08-23T00:00:00Z'),
+          'ws_2',
+        ),
+      ]);
+
+      expect(chosen?.id.value).toBe('newer');
+    });
+
+    it('takes the exact archive it was ordered to only while it is stored in its workspace', () => {
+      const exact = Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        ...orderedFor.isolated(),
+        restore: WorkspaceArchiveId.of('archive_1'),
+        spec: aSpec(),
+      });
+
+      expect(
+        exact.archiveToRestore([
+          candidate('archive_1', 'work/task-task_9', noon),
+        ])?.id.value,
+      ).toBe('archive_1');
+      expect(
+        exact.archiveToRestore([
+          candidate('archive_1', 'work/task-task_9', noon, 'ws_2'),
+        ]),
+      ).toBeNull();
+      expect(
+        exact.archiveToRestore([
+          candidate('archive_1', 'work/task-task_9', null),
+        ]),
+      ).toBeNull();
     });
   });
 
@@ -441,11 +528,12 @@ describe('Run', () => {
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('dev'),
+        ...orderedFor.spec(),
         spec: RunSpec.of({
           command: { executable: 'sh', args: [] },
           briefing: 'do the thing',
           handover: { options: [], noteLimit: 4_000 },
-          resume: { key: 'task:station' },
+          resume: {},
           injectedSecrets: ['LINEAR_API_KEY'],
         }),
       });
@@ -486,23 +574,29 @@ describe('Run', () => {
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('dev'),
+        ...orderedFor.chat(),
+        apiGrant: RunApiGrant.of({
+          actingFor: 'user_1',
+          scopes: ['plan'],
+          lifetimeMs: 60_000,
+        }),
         spec: RunSpec.of({
           command: { executable: 'sh', args: [] },
           briefing: 'set up',
           handover: { options: [], noteLimit: 4_000 },
-          resume: { key: 'chat:chat_1' },
+          resume: {},
           spotlightApi: true,
         }),
       });
 
       expect(usingApi.provisionableAt(noon)).toBe(false);
       expect(usingApi.provisionableAt(noon, true)).toBe(true);
-      expect(usingApi.claim(runner(), noon).usesSpotlightApiFor(runner())).toBe(
-        true,
-      );
       expect(
-        usingApi.claim(runner(), noon).usesSpotlightApiFor(runner('runner_2')),
-      ).toBe(false);
+        usingApi.claim(runner(), noon).apiGrantFor(runner()),
+      ).not.toBeNull();
+      expect(
+        usingApi.claim(runner(), noon).apiGrantFor(runner('runner_2')),
+      ).toBeNull();
     });
 
     it('injects nothing that its spec does not name', () => {
@@ -1155,6 +1249,7 @@ describe('Run', () => {
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('dev'),
+        ...orderedFor.spec(),
         spec: aSpec('sh'),
         placement: RunnerPlacement.anywhere().in(
           RunnerImage.of('ghcr.io/acme/widgets:main'),
@@ -1193,50 +1288,109 @@ describe('Run', () => {
     });
   });
 
-  describe('resuming a workspace', () => {
-    const resuming = (key: string, subject: RunSubject | null) =>
+  describe('keeping to its order', () => {
+    const ordered = (
+      ordering: ReturnType<typeof orderedFor.task>,
+      spec: Partial<RunSpecParts> = {},
+      extra: { apiGrant?: RunApiGrant | null } = {},
+    ) =>
       Run.enqueue({
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('dev'),
-        subject,
+        ...ordering,
+        ...extra,
         spec: RunSpec.of({
           command: { executable: 'sh', args: [] },
           briefing: 'do the thing',
           handover: { options: [], noteLimit: 4_000 },
-          resume: { key, sessionId: 'session_1' },
+          resume: {},
+          ...spec,
         }),
       });
-    const ofTask = (id: string) =>
-      RunSubject.task(TaskId.of(id), null, TaskRevision.of(0));
 
-    it('resumes the workspace of its own task or chat', () => {
-      expect(
-        resuming('task-task_1', ofTask('task_1')).restoresFrom?.value,
-      ).toBe('task-task_1');
-      expect(
-        resuming('chat-chat_1', RunSubject.chat(ChatId.of('chat_1')))
-          .restoresFrom?.value,
-      ).toBe('chat-chat_1');
-    });
-
-    it('refuses to resume the workspace of another task or chat', () => {
-      expect(() => resuming('task-task_2', ofTask('task_1'))).toThrow(
-        InvalidRunTransitionError,
-      );
+    it('refuses a workspace of another requester', () => {
       expect(() =>
-        resuming('chat-chat_2', RunSubject.chat(ChatId.of('chat_1'))),
-      ).toThrow(InvalidRunTransitionError);
+        ordered({
+          ...orderedFor.spec(),
+          workspace: orderedFor.task('task_1').workspace,
+        }),
+      ).toThrow(InvalidRunOrderError);
     });
 
-    it('refuses a run of no task or chat that names one’s workspace', () => {
-      expect(() => resuming('task-task_1', null)).toThrow(
+    it('refuses to act beyond itself when its policy keeps it to itself', () => {
+      for (const spec of [
+        { injectedSecrets: ['LINEAR_API_KEY'] },
+        {
+          manifest: [
+            {
+              name: 'pull-request',
+              description: '',
+              inputs: [],
+              approval: null,
+            },
+          ],
+        },
+        { catalog: ['linear.comment'] },
+        { resume: { sessionId: 'session_1' } },
+        { startingPoint: true },
+        {
+          harnessSetup: {
+            files: [],
+            mcpServers: [{ name: 'm', command: 'x', args: [], env: [] }],
+            askKinds: [],
+          },
+        },
+      ] satisfies Partial<RunSpecParts>[]) {
+        expect(() => ordered(orderedFor.isolated(), spec)).toThrow(
+          InvalidRunOrderError,
+        );
+      }
+
+      expect(ordered(orderedFor.isolated()).policy.actsBeyondItself).toBe(
+        false,
+      );
+    });
+
+    it('grants Spotlight’s API exactly when its spec uses it', () => {
+      const grant = RunApiGrant.of({
+        actingFor: 'user_1',
+        scopes: ['plan'],
+        lifetimeMs: 60_000,
+      });
+
+      expect(() => ordered(orderedFor.chat(), { spotlightApi: true })).toThrow(
+        InvalidRunOrderError,
+      );
+      expect(() => ordered(orderedFor.chat(), {}, { apiGrant: grant })).toThrow(
+        InvalidRunOrderError,
+      );
+      expect(
+        ordered(orderedFor.chat(), { spotlightApi: true }, { apiGrant: grant })
+          .apiGrant,
+      ).toBe(grant);
+    });
+
+    it('records that it asked a person only when its policy records asks', () => {
+      const leased = ordered(orderedFor.task()).claim(runner(), noon);
+
+      expect(() => leased.askedAPersonBy(runner())).toThrow(
         InvalidRunTransitionError,
       );
-      expect(() => resuming('chat-chat_1', null)).toThrow(
-        InvalidRunTransitionError,
-      );
-      expect(resuming('scratch', null).restoresFrom?.value).toBe('scratch');
+      expect(
+        ordered(orderedFor.isolated())
+          .claim(runner(), noon)
+          .askedAPersonBy(runner()).askedAPerson,
+      ).toBe(true);
+    });
+
+    it('refuses to act beyond itself for a run that keeps to itself', () => {
+      expect(() =>
+        ordered(orderedFor.isolated()).mayActBeyondItself('push'),
+      ).toThrow(RunActsOnlyOnItselfError);
+      expect(() =>
+        ordered(orderedFor.task()).mayActBeyondItself('push'),
+      ).not.toThrow();
     });
   });
 });

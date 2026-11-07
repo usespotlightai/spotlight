@@ -23,7 +23,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
-import { aDispatch } from './support/runs';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -146,11 +146,9 @@ const aTaskWithLeasedRun = async (
     currentRunId: runId,
   });
   await db.insert(schema.run).values({
+    ...requestedByTask(taskId, { revision: 0 }),
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: at,
     harness: 'dev',
     state: 'queued',
     placement: [['linux']],
@@ -158,7 +156,7 @@ const aTaskWithLeasedRun = async (
       command: { executable: 'sh', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['review', 'ship', 'done'], noteLimit: 0 },
-      resume: { key: `${taskId}:${at}` },
+      resume: {},
     },
   });
   await db.insert(schema.dispatch).values(
@@ -386,12 +384,9 @@ describe('a run that asks a person', () => {
     const requeued = await runIn(runId, 'queued');
     expect(requeued?.attempt).toBe(2);
     expect(requeued?.spec).toMatchObject({
-      resume: {
-        key: `${taskId}:${BUILD}`,
-        sessionId: 'session_1',
-        resumeSession: true,
-      },
+      resume: { sessionId: 'session_1', resumeSession: true },
     });
+    expect(requeued?.workspaceKey).toBe(`work/task-${taskId}`);
     expect((await taskRow(taskId))?.currentRunId).toBe(runId);
     expect((await inboxItemOf(taskId)).progress).toBe('queued');
 
@@ -651,10 +646,15 @@ describe('a message in a run chat', () => {
     expect((await runRow(runId))?.state).toBe('completed');
 
     const queued = await runIn(next, 'queued');
-    expect(queued?.stationId).toBe(DEPLOY);
+    const [dispatched] = await db
+      .select()
+      .from(schema.dispatch)
+      .where(eq(schema.dispatch.id, next));
+    expect(dispatched?.stationId).toBe(DEPLOY);
+    expect(queued?.workspaceKey).toBe(`work/task-${taskId}`);
     expect(queued?.spec).toMatchObject({
       briefing: expect.stringContaining('Deploy the docs with it too.'),
-      resume: { key: `task-${taskId}`, sessionId: 'session_1' },
+      resume: { sessionId: 'session_1' },
     });
 
     await claimed(next);
@@ -726,7 +726,6 @@ describe('a run queued while an earlier run of its task is still leased', () => 
       await db.insert(schema.run).values({
         ...(earlier as typeof schema.run.$inferInsert),
         id: next,
-        stationId: station,
         state: 'queued',
         claimedBy: null,
         leaseExpiresAt: null,
@@ -735,6 +734,15 @@ describe('a run queued while an earlier run of its task is still leased', () => 
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      await db.insert(schema.dispatch).values(
+        aDispatch({
+          runId: next,
+          workspaceId: team.workspaceId.value,
+          teamId: team.teamId.value,
+          taskId,
+          stationId: station,
+        }),
+      );
       await db
         .update(schema.task)
         .set({ currentRunId: next })

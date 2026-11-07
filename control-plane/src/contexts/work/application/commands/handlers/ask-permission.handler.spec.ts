@@ -15,11 +15,16 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { AskPermissionHandler } from '@work/application/commands/handlers/ask-permission.handler';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import { runWorksOver } from '@work/application/services/run-works.fake-spec';
+import {
+  aChatDispatch,
+  aRunFor,
+  aTaskDispatch,
+  runWorksOver,
+} from '@work/application/services/run-works.fake-spec';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { ApprovalDecision } from '@work/domain/value-objects/approval.vo';
@@ -32,11 +37,8 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { describe, expect, it } from 'vitest';
@@ -88,26 +90,8 @@ const PUSH = {
   input: { command: 'git push origin main', description: 'Push the fix' },
 };
 
-const runOf = (
-  id: string,
-  subject = RunSubject.task(
-    TaskId.of('task_1'),
-    IMPLEMENTING,
-    TaskRevision.of(0),
-  ),
-) =>
-  Run.enqueue({
-    id: RunId.of(id),
-    workspaceId: WorkspaceId.of('ws_1'),
-    harness: HarnessId.of('claude-code'),
-    subject,
-    spec: RunSpec.of({
-      command: { executable: 'claude-agent-acp', args: [] },
-      briefing: 'do the thing',
-      handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task:station' },
-    }),
-  }).claim(RunnerId.of('runner_1'), NOW);
+const runOf = (id: string) =>
+  aRunFor(RunId.of(id), 'claude-code').claim(RunnerId.of('runner_1'), NOW);
 
 const withRun = (runId: string) =>
   Task.rehydrate({
@@ -123,9 +107,9 @@ const withRun = (runId: string) =>
     currentRunId: RunId.of(runId),
   });
 
-const asking = (start: Task, subject?: RunSubject) => {
+const asking = (start: Task, inChat = false) => {
   let current = start;
-  let run = runOf('run_1', subject);
+  let run = runOf('run_1');
 
   const handler = new AskPermissionHandler(
     runWorksOver(
@@ -150,7 +134,12 @@ const asking = (start: Task, subject?: RunSubject) => {
           }).assignRun(RunId.of('run_1'), NOW),
       } as unknown as ChatRepository,
       { findByStation: async () => LINE } as unknown as LineMapsPort,
-      { of: async () => null },
+      {
+        find: async (id: RunId) =>
+          inChat
+            ? aChatDispatch(id, ChatId.of('chat_1'))
+            : aTaskDispatch(id, TaskId.of('task_1'), IMPLEMENTING),
+      } as unknown as DispatchRepository,
       { now: () => NOW, sleep: async () => {} },
     ),
     {
@@ -174,7 +163,7 @@ const asking = (start: Task, subject?: RunSubject) => {
       current = current.answer(
         at,
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of(
             decision === 'approved' ? 'Go ahead.' : 'Not today.',
           ),
@@ -261,10 +250,7 @@ describe('AskPermissionHandler', () => {
   });
 
   it('refuses a chat, which has nobody to ask', async () => {
-    const { ask } = asking(
-      withRun('run_1'),
-      RunSubject.chat(ChatId.of('chat_1')),
-    );
+    const { ask } = asking(withRun('run_1'), true);
 
     await expect(ask()).resolves.toBe('reject');
   });

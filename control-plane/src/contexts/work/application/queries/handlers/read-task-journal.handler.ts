@@ -7,17 +7,23 @@ import type { RunJournalDto } from '@work/application/dto/run-journal.dto';
 import { RunJournalMapper } from '@work/application/mappers/run-journal.mapper';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { ReadTaskJournalQuery } from '@work/application/queries/read-task-journal.query';
+import type { RunAccess } from '@work/application/services/run-access.service';
 
 export class ReadTaskJournalHandler
   implements QueryHandlerPort<ReadTaskJournalQuery, RunJournalDto[] | null>
 {
-  constructor(private readonly journals: RunJournalReaderPort) {}
+  constructor(
+    private readonly journals: RunJournalReaderPort,
+    private readonly access: RunAccess,
+  ) {}
 
   async execute(query: ReadTaskJournalQuery): Promise<RunJournalDto[] | null> {
     try {
-      const entries = await this.journals.ofTaskRun(
-        TaskId.of(query.taskId),
-        RunId.of(query.runId),
+      const entries = await this.access.shownInWorkspace(
+        await this.journals.ofTaskRun(
+          TaskId.of(query.taskId),
+          RunId.of(query.runId),
+        ),
         UserId.of(query.viewerId),
       );
 

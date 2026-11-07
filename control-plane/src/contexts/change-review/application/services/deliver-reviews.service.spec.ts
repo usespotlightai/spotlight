@@ -162,6 +162,7 @@ const delivering = (over: {
     {
       find: async () => ({ name: 'Ada', image: null }),
       viewerOf: async () => null,
+      readsTeam: async () => false,
     },
     github,
     { now: () => NOW, sleep: async () => {} },

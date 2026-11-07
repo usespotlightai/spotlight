@@ -20,10 +20,6 @@ import {
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
 import {
-  REPLAY_CANDIDATES,
-  type ReplayCandidatesPort,
-} from '@work/application/ports/replay-candidates.port';
-import {
   WORKSPACE_ARCHIVE_STORE,
   type WorkspaceArchiveStorePort,
 } from '@work/application/ports/workspace-archive-store.port';
@@ -35,7 +31,8 @@ import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { type SearchPolicyTerms, searchStarted } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
-import { aDispatch } from './support/runs';
+import { writtenStation } from './support/replays';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { searchReadOf } from './support/search-read';
 import { insertStations } from './support/stations';
@@ -152,9 +149,7 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     exitCode: 0,
@@ -170,7 +165,7 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
     startedFromArchiveId: archiveId,
@@ -199,8 +194,7 @@ const anOriginal = async (stationId = BUILD): Promise<Original> => {
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
+    workspaceKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -250,7 +244,16 @@ const replayRow = async (id: string) => {
 };
 
 const searchRunsOf = (searchId: string) =>
-  db.select().from(schema.run).where(eq(schema.run.searchId, searchId));
+  db
+    .select()
+    .from(schema.run)
+    .where(
+      and(
+        eq(schema.run.requesterOwner, 'replays'),
+        eq(schema.run.requesterKind, 'search'),
+        eq(schema.run.requesterId, searchId),
+      ),
+    );
 
 const queuedReplayRuns = async () =>
   db
@@ -260,7 +263,8 @@ const queuedReplayRuns = async () =>
       and(
         eq(schema.run.workspaceId, team.workspaceId.value),
         eq(schema.run.state, 'queued'),
-        isNotNull(schema.run.replayOfRunId),
+        eq(schema.run.requesterOwner, 'replays'),
+        eq(schema.run.requesterKind, 'replay'),
       ),
     );
 
@@ -441,7 +445,8 @@ const leasedSearchRun = async (
     const runs = await searchRunsOf(searchId);
 
     return runs.some(
-      (each) => each.state === 'queued' && each.searchIteration === iteration,
+      (each) =>
+        each.state === 'queued' && each.requesterToken === String(iteration),
     );
   }, WITHIN);
 
@@ -451,7 +456,10 @@ const leasedSearchRun = async (
     .from(schema.run)
     .where(eq(schema.run.id, assignment?.runId ?? ''));
 
-  expect(row?.searchId).toBe(searchId);
+  expect(row).toMatchObject({
+    requesterKind: 'search',
+    requesterId: searchId,
+  });
 
   return assignment as Claimed;
 };
@@ -484,17 +492,7 @@ const endedSearchRun = async ({ token, runId }: Claimed, failed = false) => {
     .expect(204);
 };
 
-const liveBlock = async () => {
-  const live = await app
-    .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
-    .live(DELIVERY, BUILD);
-
-  if (!live) {
-    throw new Error('the build station is not live');
-  }
-
-  return live.station;
-};
+const liveBlock = () => writtenStation(app, DELIVERY, 'build');
 
 const proposing = (assignment: Claimed, body: object) =>
   bearing(assignment.token).post(

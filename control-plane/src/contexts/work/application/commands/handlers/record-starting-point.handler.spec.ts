@@ -1,7 +1,6 @@
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RecordStartingPointHandler } from '@work/application/commands/handlers/record-starting-point.handler';
 import {
@@ -25,8 +24,8 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
@@ -145,8 +144,8 @@ describe('RecordStartingPointHandler', () => {
       WorkspaceArchive.grant({
         id: WorkspaceArchiveId.of('archive_of_another_task'),
         workspaceId: WorkspaceId.of('ws_1'),
-        resumeKey: ResumeKey.forTask(TaskId.of('task_2')),
-        holder: { kind: 'task', taskId: TaskId.of('task_2') },
+        workspaceKey: WorkspaceKey.of('work', 'task-task_2'),
+        held: true,
         grantee: ArchiveGrantee.run(RunId.of('run_2')),
         size: ArchiveSize.of(1_024),
         digest: ArchiveDigest.of(SHA256),
@@ -189,7 +188,7 @@ describe('RecordStartingPointHandler', () => {
     ).rejects.toMatchObject({ kind: 'conflict' });
   });
 
-  it('rejects a run that works no task', async () => {
+  it('rejects a run that reports no starting point', async () => {
     const { record } = await setUp(
       aLeasedRun({ restoresWorkspace: false, checkouts: ['api'] }),
     );

@@ -1,6 +1,7 @@
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   TaskNote,
   type TaskNoteForm,
@@ -12,10 +13,11 @@ import {
   openSetupList,
   SETUP_STEPS,
   type SetupState,
+  setupChatOf,
   setupDoneNote,
   TAKEN,
 } from '@work/domain/services/setup-list';
-import { stationOf } from '@work/domain/value-objects/line-map.fake-spec';
+import { deliveryLineOf } from '@work/domain/value-objects/line-map.fake-spec';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -50,6 +52,15 @@ const note = (
     kind,
     form,
   });
+
+const LINE = deliveryLineOf({
+  workspaceId: WorkspaceId.of('ws_1'),
+  teamId: TeamId.of('team_1'),
+  newId: (() => {
+    let next = 0;
+    return () => `id_${++next}`;
+  })(),
+});
 
 describe('the setup list', () => {
   it.each(Object.keys(done) as (keyof SetupState)[])(
@@ -88,22 +99,15 @@ describe('setupDoneNote', () => {
     expect(newNote?.at).toBe(NOW);
   });
 
-  it('says so at the station the task is at', () => {
-    const backlog = stationOf({
-      id: StationId.of('station_backlog'),
-      key: StationKey.of('backlog'),
-      name: StationName.of('Backlog'),
-      position: 0,
-      kind: 'backlog',
-    });
+  it('says so on the line the task is on', () => {
     const newNote = setupDoneNote(
       [note('asked', 'setup', 'Backlog')],
       done,
       NOW,
-      backlog,
+      LINE,
     );
 
-    expect(newNote?.station).toBe(backlog);
+    expect(newNote?.line).toBe(LINE);
   });
 
   it('closes nothing while a step is still to be taken', () => {
@@ -177,8 +181,40 @@ describe('starting and finishing setup', () => {
   });
 
   it('is configured once its setup chat opened a pull request', () => {
-    expect(configuredBy({ pullRequest: 'https://x/1' })).toBe(true);
-    expect(configuredBy({ pullRequest: null })).toBe(false);
+    expect(
+      configuredBy({ pullRequest: 'https://x/1', startedAt: new Date(0) }),
+    ).toBe(true);
+    expect(configuredBy({ pullRequest: null, startedAt: new Date(0) })).toBe(
+      false,
+    );
     expect(configuredBy(null)).toBe(false);
+  });
+});
+
+describe("the team's setup chat", () => {
+  const chat = (id: string, day: number, pullRequest: string | null) => ({
+    id,
+    pullRequest,
+    startedAt: new Date(`2026-10-0${day}T09:00:00.000Z`),
+  });
+
+  it('is the newest chat that opened its pull request', () => {
+    expect(
+      setupChatOf([
+        chat('newest', 3, null),
+        chat('opened', 2, 'https://github.com/acme/infra/pull/2'),
+        chat('opened-first', 1, 'https://github.com/acme/infra/pull/1'),
+      ])?.id,
+    ).toBe('opened');
+  });
+
+  it('is the newest chat while none opened a pull request', () => {
+    expect(
+      setupChatOf([chat('older', 1, null), chat('newer', 2, null)])?.id,
+    ).toBe('newer');
+  });
+
+  it('is none for a team that started no setup chat', () => {
+    expect(setupChatOf([])).toBeNull();
   });
 });

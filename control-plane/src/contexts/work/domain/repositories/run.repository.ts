@@ -3,8 +3,9 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Claimant } from '@work/domain/value-objects/claimant';
-import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import type { RequesterOwner } from '@work/domain/value-objects/run-requester.vo';
 import type { RunTurnState } from '@work/domain/value-objects/run-turn.vo';
+import type { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 
 export interface RunRepository {
   add(run: Run): Promise<void>;
@@ -14,11 +15,14 @@ export interface RunRepository {
 
   findById(id: RunId): Promise<Run | null>;
 
-  newestWithKey(workspaceId: WorkspaceId, key: ResumeKey): Promise<Run | null>;
+  newestWithKey(
+    workspaceId: WorkspaceId,
+    key: WorkspaceKey,
+  ): Promise<Run | null>;
 
   queuedWithKey(
     workspaceId: WorkspaceId,
-    key: ResumeKey,
+    key: WorkspaceKey,
   ): Promise<readonly Run[]>;
 
   expiredLeases(now: Date): Promise<readonly Run[]>;
@@ -34,13 +38,14 @@ export interface RunRepository {
       readonly skip: number;
       readonly max: number;
       readonly withSecrets: boolean;
-      readonly avoiding: readonly ResumeKey[];
+      readonly avoiding: readonly WorkspaceKey[];
     },
   ): Promise<readonly Run[]>;
 
   withExpiredReservations(now: Date): Promise<readonly Run[]>;
 
-  turnsOfTasksSuspendedBefore(
+  turnsSuspendedBefore(
+    owner: RequesterOwner,
     turn: RunTurnState,
     before: Date,
     after: { readonly suspendedAt: Date; readonly id: RunId } | null,

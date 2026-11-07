@@ -31,8 +31,10 @@ import { RunFacts } from '@work/application/services/run-facts.service';
 import { RunRouting } from '@work/application/services/run-routing.service';
 import { Runs } from '@work/application/services/runs.service';
 import { TakeTurn } from '@work/application/services/take-turn.service';
+import { InMemoryArchives } from '@work/application/services/workspace-archives.fake-spec';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
@@ -50,7 +52,6 @@ import {
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -66,16 +67,12 @@ const leased = () =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject: RunSubject.task(
-      TaskId.of('task_1'),
-      StationId.of('station_1'),
-      TaskRevision.of(0),
-    ),
+    ...orderedFor.task('task_1', 0),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task:station' },
+      resume: {},
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
@@ -237,7 +234,7 @@ const turning = (over: Turning = {}) => {
     },
   } as unknown as TaskRepository;
   const facade = new Runs(store, new Sha256ContentHash(), clock);
-  const facts = new RunFacts(store);
+  const facts = new RunFacts(store, new InMemoryArchives());
   const dispatches: DispatchRepository = {
     find: async () => dispatched(),
     add: async () => undefined,
@@ -378,13 +375,13 @@ describe('TakeTurn', () => {
     it('resumes the run at once, asking nothing, when messages came in during the turn (R1)', async () => {
       const answeredAlready = claimedByTheRun()
         .putToAPerson(RUN, {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Approve?'),
           at: NOW,
           voice: Voice.station(RUN),
         })
         .answer(NotePosition.of(0), {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Yes.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -413,7 +410,7 @@ describe('TakeTurn', () => {
       const asked = claimedByTheRun().awaitTurn({
         turn: AwaitedTurn.of(RUN, 1),
         note: {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Which queue?'),
           at: NOW,
           voice: Voice.station(RUN),

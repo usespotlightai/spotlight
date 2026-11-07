@@ -1,8 +1,8 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   type ArchiveFacts,
+  type HolderState,
   WorkspaceArchive,
 } from '@work/domain/aggregates/workspace-archive.aggregate';
 import {
@@ -19,25 +19,21 @@ import { InvalidWorkspaceArchiveTransitionError } from '@work/domain/exceptions/
 import { WorkspaceArchiveNotUploadedError } from '@work/domain/exceptions/workspace-archive-not-uploaded.error';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
-import type { HolderState } from '@work/domain/value-objects/archive-holder.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
-import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const HOUR = 60 * 60_000;
 const DAY = 24 * HOUR;
 
 const carryingOn: HolderState = {
-  kind: 'task',
-  finished: false,
+  released: false,
   changedAt: later(0),
 };
 
 const conversing: HolderState = {
-  kind: 'chat',
-  conversing: true,
+  released: false,
   changedAt: later(0),
 };
 
@@ -56,14 +52,12 @@ const factsOf = (holder: HolderState): ArchiveFacts => ({
 });
 
 const finished = factsOf({
-  kind: 'task',
-  finished: true,
+  released: true,
   changedAt: later(2 * DAY),
 });
 
 const leftItsConversation = factsOf({
-  kind: 'chat',
-  conversing: false,
+  released: true,
   changedAt: later(2 * DAY),
 });
 
@@ -83,8 +77,8 @@ describe('WorkspaceArchive', () => {
       WorkspaceArchive.grant({
         id: WorkspaceArchiveId.of('archive_1'),
         workspaceId: WorkspaceId.of('ws_1'),
-        resumeKey: ResumeKey.forChat(ChatId.of('chat_1')),
-        holder: { kind: 'chat', chatId: ChatId.of('chat_1') },
+        workspaceKey: WorkspaceKey.of('work', 'chat-chat_1'),
+        held: true,
         grantee: ArchiveGrantee.run(RunId.of('run_1')),
         size: ArchiveSize.of(1_024),
         digest: ArchiveDigest.of(SHA256),
@@ -92,10 +86,10 @@ describe('WorkspaceArchive', () => {
         ...part,
       });
 
-    expect(() => granted({ resumeKey: null })).toThrow(
+    expect(() => granted({ workspaceKey: null })).toThrow(
       InvalidWorkspaceArchiveError,
     );
-    expect(() => granted({ holder: null })).toThrow(
+    expect(() => granted({ held: false })).toThrow(
       InvalidWorkspaceArchiveError,
     );
     expect(granted({}).isCompleted).toBe(false);
@@ -305,32 +299,16 @@ describe('WorkspaceArchive', () => {
     });
   });
 
-  it('vouches for itself as restored into a run of the same workspace and work, once completed', () => {
-    const work = ResumeKey.forTask(TaskId.of('task_1'));
-    const restored = aCompletedArchive().restoreInto(
-      WorkspaceId.of('ws_1'),
-      work,
-    );
+  it('vouches for itself as restored, with its workspace and key, once completed', () => {
+    const restored = aCompletedArchive().restored;
 
     expect(restored.id.value).toBe('archive_1');
-    expect(restored.restores(WorkspaceId.of('ws_1'), work)).toBe(true);
+    expect(restored.workspaceId.value).toBe('ws_1');
+    expect(restored.workspaceKey.value).toBe('work/task-task_1');
   });
 
-  it('does not vouch for a restore it could not have been', () => {
-    const work = ResumeKey.forTask(TaskId.of('task_1'));
-
-    for (const attempt of [
-      () => anArchive().restoreInto(WorkspaceId.of('ws_1'), work),
-      () => aCompletedArchive().restoreInto(WorkspaceId.of('ws_2'), work),
-      () =>
-        aCompletedArchive().restoreInto(
-          WorkspaceId.of('ws_1'),
-          ResumeKey.forTask(TaskId.of('task_2')),
-        ),
-      () => aCompletedArchive().restoreInto(WorkspaceId.of('ws_1'), null),
-    ]) {
-      expect(attempt).toThrow(InvalidStartingPointError);
-    }
+  it('does not vouch for a restore before it was completed', () => {
+    expect(() => anArchive().restored).toThrow(InvalidStartingPointError);
   });
 
   it('is discarded when removed once no later run will restore it', () => {
@@ -365,7 +343,7 @@ describe('WorkspaceArchive', () => {
     expect(anArchive().removableAt(later(DAY), owned)).toBe(true);
     expect(
       aCompletedArchive().removableAt(later(8 * DAY), {
-        holder: { kind: 'task', finished: true, changedAt: later(DAY) },
+        holder: { released: true, changedAt: later(DAY) },
         supersededAt: null,
         lastStartedFromAt: null,
         pinned: false,

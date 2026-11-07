@@ -24,19 +24,19 @@ export class ReplyToReviewCommentHandler
 
   async execute(command: ReplyToReviewCommentCommand): Promise<void> {
     try {
-      const { run, task } = await this.runs.forRunner(
+      const { run, worked } = await this.runs.actingBeyondItself(
         command.runId,
         command.runnerId,
+        'reply to a review comment',
       );
 
-      run.mayActBeyondItself('reply to a review comment');
-
-      if (!task) {
+      if (!worked) {
         throw new NoRepositoryError();
       }
 
+      const { task } = worked;
       const at = ReviewCommentHandle.of(command.handle);
-      const toReply = task.reviewCommentToReplyFrom(run.id, run.stationId, at);
+      const toReply = task.reviewCommentToReplyFrom(run.runId, worked.at, at);
       const line = await this.lines.findByStation(task.stationId);
       // Post to the host before you record the reply. Then the trail never has a reply that the pull request does not have.
       await this.reviewComments.reply({
@@ -49,11 +49,11 @@ export class ReplyToReviewCommentHandler
       });
 
       await this.tasks.save(
-        task.recordReviewCommentReply(run.id, run.stationId, at, {
-          station: line?.stationAt(task.stationId) ?? null,
+        task.recordReviewCommentReply(run.runId, worked.at, at, {
+          line,
           body: TaskNoteBody.of(command.body),
           at: this.clock.now(),
-          voice: Voice.station(run.id),
+          voice: Voice.station(run.runId),
         }),
       );
     } catch (error) {

@@ -4,6 +4,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
@@ -27,7 +28,7 @@ describe('workSubscribers', () => {
       new RunCancelled(
         RunId.of('run_1'),
         WorkspaceId.of('ws_1'),
-        null,
+        orderedFor.spec().requester,
         2,
         false,
         false,
@@ -94,7 +95,14 @@ describe('workSubscribers', () => {
     const workspace = WorkspaceId.of('ws_1');
 
     await named('work.revoke-tokens-of-ended-run')?.handle(
-      new RunCancelled(run, workspace, null, 2, false, false),
+      new RunCancelled(
+        run,
+        workspace,
+        orderedFor.spec().requester,
+        2,
+        false,
+        false,
+      ),
     );
     await named('work.revoke-tokens-of-ended-attempt')?.handle(
       new RunSuspended(
@@ -195,7 +203,14 @@ describe('workSubscribers', () => {
       new RunLeaseExpired(run, workspace, RunnerId.of('runner_1'), at, 1),
     );
     await ended?.handle(
-      new RunCancelled(run, workspace, null, 2, false, false),
+      new RunCancelled(
+        run,
+        workspace,
+        orderedFor.spec().requester,
+        2,
+        false,
+        false,
+      ),
     );
 
     expect(ended?.kinds).toEqual([

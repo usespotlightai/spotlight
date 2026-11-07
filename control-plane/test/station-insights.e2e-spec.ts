@@ -134,6 +134,11 @@ const endedRun = (
 
 const work: WorkPort = {
   endedRun: async (runId) => ended.get(runId) ?? null,
+  taskRunOf: async (runId) => {
+    const run = ended.get(runId);
+
+    return run ? { runId, taskId: run.taskId, teamId: run.teamId } : null;
+  },
   unfinishedRuns: async () => [],
   traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
   configsInOrder: async (fingerprints) =>
@@ -198,7 +203,14 @@ const runEnded = async (
     kind: RUN_USAGE_RECORDED,
     runId,
     workspaceId: WORKSPACE,
-    taskId,
+    requester: {
+      owner: 'work',
+      kind: 'task',
+      id: taskId,
+      token: '0',
+      team: 'team_1',
+    },
+    listed: true,
     ms: 60_000,
     steps: 20,
     errors: 1,
@@ -207,6 +219,8 @@ const runEnded = async (
     contextWindow: null,
     cost: 0.4,
     currency: 'USD',
+    spentCosts: [{ amount: 0.4, currency: 'USD' }],
+    unpricedCalls: 0,
     inputTokens: null,
     outputTokens: null,
     cacheReadTokens: null,

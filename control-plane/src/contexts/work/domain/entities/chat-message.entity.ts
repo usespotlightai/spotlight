@@ -103,6 +103,26 @@ export class ChatMessage {
       );
     }
 
+    if (
+      input.kind === 'proposed' &&
+      (input.runId === null || input.author !== null)
+    ) {
+      throw new InconsistentStateError(
+        'chat message',
+        'is a proposal not made by a run',
+      );
+    }
+
+    if (
+      input.kind === 'message' &&
+      (input.author === null || input.runId !== null)
+    ) {
+      throw new InconsistentStateError(
+        'chat message',
+        'is a message not sent by a person',
+      );
+    }
+
     if (input.acknowledgedBy && !input.acknowledgedAt) {
       throw new InconsistentStateError(
         'chat message',

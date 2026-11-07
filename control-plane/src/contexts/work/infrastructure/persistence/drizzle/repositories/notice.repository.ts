@@ -1,9 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import {
+  UNIQUE_VIOLATION,
+  violates,
+} from '@platform/persistence/drizzle/violations';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Notice } from '@work/domain/aggregates/notice.aggregate';
+import { NoticeAlreadySentError } from '@work/domain/exceptions/notice-already-sent.error';
 import { NoticeVersionConflictError } from '@work/domain/exceptions/notice-version-conflict.error';
 import type { NoticeRepository } from '@work/domain/repositories/notice.repository';
 import { NoticeExternalLink } from '@work/domain/value-objects/notice-external-link.vo';
@@ -44,6 +49,18 @@ export class DrizzleNoticeRepository implements NoticeRepository {
   constructor(private readonly context: DrizzleContext) {}
 
   async add(added: Notice): Promise<void> {
+    try {
+      await this.inserted(added);
+    } catch (error) {
+      if (violates(error, UNIQUE_VIOLATION, 'notice_subject_idx')) {
+        throw new NoticeAlreadySentError(added.subject.value);
+      }
+
+      throw error;
+    }
+  }
+
+  private async inserted(added: Notice): Promise<void> {
     await this.context.db.insert(notice).values({
       id: added.id.value,
       workspaceId: added.workspaceId.value,

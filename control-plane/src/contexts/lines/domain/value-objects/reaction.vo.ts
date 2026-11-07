@@ -16,14 +16,6 @@ export class Reaction {
     return new Reaction(input.happening, input.from ?? null, input.to);
   }
 
-  appliesAt(stationId: StationId): boolean {
-    return this.from === null || this.from.equals(stationId);
-  }
-
-  get isEverywhere(): boolean {
-    return this.from === null;
-  }
-
   equals(other: Reaction): boolean {
     return (
       this.happening.equals(other.happening) &&

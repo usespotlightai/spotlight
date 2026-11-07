@@ -30,8 +30,8 @@ export class ClaimsTaken {
     );
     this.logger.info(
       {
+        ...claimed.tags.value,
         workspaceId: claimed.workspaceId.value,
-        taskId: claimed.taskId?.value,
         runId: claimed.id.value,
         runnerId: runner.value,
         attempt: claimed.attempt,

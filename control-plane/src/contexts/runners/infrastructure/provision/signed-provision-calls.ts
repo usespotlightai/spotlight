@@ -28,10 +28,10 @@ const bodyOf = (call: ProvisionCall, spotlightUrl: string): string =>
     type: 'work.provision',
     timestamp: call.at.toISOString(),
     data: {
+      ...call.tags,
       kind: call.kind,
       runId: call.runId,
       stackId: call.checkId,
-      taskId: call.taskId,
       workspaceId: call.workspaceId,
       pool: call.pool,
       labels: call.labels,

@@ -79,6 +79,8 @@ const counted = (field: string, value: number): number => {
 };
 
 export class RunConnection {
+  static readonly RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
   private constructor(
     readonly host: string,
     readonly port: number,

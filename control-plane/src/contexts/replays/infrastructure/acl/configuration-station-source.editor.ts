@@ -54,8 +54,7 @@ export class ConfigurationStationSourceEditor
       seed: edit.seed.value as LineDefinitionStation,
       candidate: edit.candidate.value as LineDefinitionStation,
       fields: SEARCHABLE_FIELDS.map((each) => SOURCE_FIELDS[each]),
-      besideFile: edit.besideFile,
-      read: edit.read,
+      configFiles: edit.configFiles,
     });
 
     return edited.ok

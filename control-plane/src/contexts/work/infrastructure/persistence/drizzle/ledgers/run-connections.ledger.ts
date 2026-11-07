@@ -6,38 +6,21 @@ import type {
   RunConnectionsPort,
 } from '@work/application/ports/run-connections.port';
 import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
-import {
-  AUTH_FAILED_STATUSES,
-  RunConnection,
-  SERVER_ERROR,
-  STOPPED_OUTCOMES,
-} from '@work/domain/value-objects/run-connection.vo';
+import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 import { runConnection } from '@work/infrastructure/persistence/drizzle/schemas/run-connection.schema';
 import {
   and,
   asc,
   eq,
   getTableColumns,
-  gte,
   inArray,
+  isNotNull,
   lt,
   lte,
-  or,
   sql,
 } from 'drizzle-orm';
 
 export const MAX_ERRORS_PER_RUN = 500;
-
-const isError = or(
-  inArray(runConnection.outcome, [...STOPPED_OUTCOMES]),
-  and(
-    eq(runConnection.outcome, 'injected'),
-    or(
-      inArray(runConnection.status, [...AUTH_FAILED_STATUSES]),
-      gte(runConnection.status, SERVER_ERROR),
-    ),
-  ),
-);
 
 @Injectable()
 export class DrizzleRunConnections implements RunConnectionsPort {
@@ -63,6 +46,7 @@ export class DrizzleRunConnections implements RunConnectionsPort {
         outcome: each.outcome,
         status: each.status,
         reason: each.reason,
+        error: each.error,
         at: each.at,
       })),
     );
@@ -98,7 +82,12 @@ export class DrizzleRunConnections implements RunConnectionsPort {
             ),
         })
         .from(runConnection)
-        .where(and(inArray(runConnection.runId, [...runIds]), isError)),
+        .where(
+          and(
+            inArray(runConnection.runId, [...runIds]),
+            isNotNull(runConnection.error),
+          ),
+        ),
     );
 
     const rows = await this.context.db

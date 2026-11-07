@@ -24,7 +24,8 @@ import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/driz
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
-import { aDispatch, aTurn } from './support/runs';
+import { runFactsOver, runJournalsOver } from './support/run-facts';
+import { aDispatch, aTurn, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
@@ -41,15 +42,13 @@ beforeAll(async () => {
   dispatches = new DrizzleDispatchRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
-  stationRuns = new DrizzleStationRunReader(db);
+  const facts = runFactsOver(db);
+  stationRuns = new DrizzleStationRunReader(db, facts, runJournalsOver(db));
   runReader = new DrizzleRunReader(
     db,
-    {
-      mayView: async () => true,
-      viewableBy: async (_viewer: UserId, workspaces: readonly WorkspaceId[]) =>
-        new Set(workspaces.map((each) => each.value)),
-    } as never,
     { named: async () => new Map() } as never,
+    facts,
+    facts,
   );
   chats = new DrizzleChatRepository(new DrizzleContext(db), {
     dispatch: async () => {},
@@ -78,7 +77,7 @@ const SPEC = {
   command: { executable: 'sh', args: [] },
   briefing: 'do the thing',
   handover: { options: [], noteLimit: 0 },
-  resume: { key: 'task:station' },
+  resume: {},
 };
 
 const lineOf = async (teamId: string, key = 'delivery') => {
@@ -101,8 +100,17 @@ const lineOf = async (teamId: string, key = 'delivery') => {
     position: 1,
   });
 
+  teamOf.set(stationId, teamId);
+
   return { lineId, stationId };
 };
+
+const teamOf = new Map<string, string>();
+
+const leased = (state: RunState) =>
+  state === 'claimed'
+    ? { claimedBy: 'runner_1', leaseExpiresAt: new Date(Date.now() + 60_000) }
+    : {};
 
 const ran = async (
   stationId: string,
@@ -136,10 +144,9 @@ const ran = async (
     id: runId,
     workspaceId: 'ws_1',
     harness: 'dev',
-    taskId,
-    taskRevision: 0,
-    stationId,
+    ...requestedByTask(taskId, { teamId: teamOf.get(stationId) ?? null }),
     state,
+    ...leased(state),
     spec: SPEC,
     createdAt: at,
     updatedAt: at,
@@ -150,6 +157,7 @@ const ran = async (
     aDispatch({
       runId,
       workspaceId: 'ws_1',
+      teamId: teamOf.get(stationId) ?? null,
       taskId,
       stationId,
       fingerprint,
@@ -227,16 +235,14 @@ describe('the station config a run ran with', () => {
         id,
         workspaceId: 'ws_1',
         harness: 'dev',
-        taskId: first.taskId,
-        taskRevision: 0,
-        stationId,
+        ...requestedByTask(first.taskId),
         state: 'failed',
         spec: SPEC,
         createdAt: new Date(at),
         endedAt: new Date(at),
       });
     }
-    await db.insert(schema.dispatch).values(
+    await db.insert(schema.dispatch).values([
       aDispatch({
         runId: superseded,
         workspaceId: 'ws_1',
@@ -246,7 +252,16 @@ describe('the station config a run ran with', () => {
         endedAt: new Date('2026-09-02T00:00:00Z'),
         superseded: true,
       }),
-    );
+      aDispatch({
+        runId: second,
+        workspaceId: 'ws_1',
+        taskId: first.taskId,
+        stationId,
+        orderedAt: new Date('2026-09-03T00:00:00Z'),
+        endedAt: new Date('2026-09-03T00:00:00Z'),
+        outcome: 'failed',
+      }),
+    ]);
 
     expect((await stationRuns.endedRun(first.runId))?.earlier).toEqual([]);
     expect((await stationRuns.endedRun(second))?.earlier).toEqual([
@@ -265,7 +280,7 @@ describe('the station config a run ran with', () => {
     expect(await stationRuns.endedRun(runId)).toBeNull();
   });
 
-  it('reads the team’s unfinished runs newest first, with whether a stop was asked for', async () => {
+  it('reads the team’s open runs newest first, with whether a stop was asked for', async () => {
     const { lineId, stationId } = await lineOf('team_10');
     const other = await lineOf('team_11');
     const queued = await ran(stationId, {
@@ -285,7 +300,7 @@ describe('the station config a run ran with', () => {
       .update(schema.run)
       .set({ stopRequestedAt: new Date('2026-09-04T00:00:00Z') })
       .where(eq(schema.run.id, stopping.runId));
-    await ran(stationId, {
+    const suspended = await ran(stationId, {
       state: 'suspended',
       at: new Date('2026-09-05T00:00:00Z'),
     });
@@ -303,11 +318,12 @@ describe('the station config a run ran with', () => {
     expect(
       unfinished.map((each) => [each.runId, each.state, each.stopRequested]),
     ).toEqual([
+      [suspended.runId, 'suspended', false],
       [stopping.runId, 'claimed', true],
       [claimed.runId, 'claimed', false],
       [queued.runId, 'queued', false],
     ]);
-    expect(unfinished[2]).toMatchObject({
+    expect(unfinished[3]).toMatchObject({
       lineId,
       stationId,
       taskId: queued.taskId,
@@ -316,7 +332,7 @@ describe('the station config a run ran with', () => {
       config: null,
       queuedAt: new Date('2026-09-01T00:00:00Z'),
     });
-    expect(unfinished[1]?.config).toEqual(PARTS);
+    expect(unfinished[2]?.config).toEqual(PARTS);
   });
 
   it('reads what traces show of tasks and runs: titles, stations with their line’s count, and the newest note of each task’s runs', async () => {
@@ -472,10 +488,7 @@ describe('the station config a run ran with', () => {
       at: new Date('2026-09-02T00:00:00Z'),
     });
 
-    const found = await runReader.configFor(
-      RunId.of(after.runId),
-      UserId.of('user_1'),
-    );
+    const found = (await runReader.configFor(RunId.of(after.runId)))?.found;
 
     expect(found?.ran?.fingerprint).toBe('1'.repeat(64));
     expect(found?.before?.runId).toBe(before.runId);

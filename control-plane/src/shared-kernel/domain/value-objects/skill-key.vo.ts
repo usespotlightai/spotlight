@@ -1,7 +1,5 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  CATALOG_INTEGRATION,
-  catalogReferenceParts,
   isCatalogReference,
   isSlug,
   MAX_SLUG_LENGTH,
@@ -34,12 +32,6 @@ export class SkillKey {
 
   get unversioned(): string {
     return unversioned(this.value);
-  }
-
-  get folder(): string {
-    return this.catalogued
-      ? `spotlight-${CATALOG_INTEGRATION}-${catalogReferenceParts(this.value).name}`
-      : this.value;
   }
 
   equals(other: SkillKey): boolean {

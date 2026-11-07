@@ -58,6 +58,7 @@ const listing = (over: { mayView?: boolean } = {}) => {
     {
       find: async () => ({ name: 'Maya Chen', image: null }),
       viewerOf: async () => null,
+      readsTeam: async () => false,
     },
   );
 

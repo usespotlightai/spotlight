@@ -164,10 +164,15 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
           each.workspaceId.equals(scope.workspaceId) &&
           (scope.kind === 'workspace' ||
             (scope.kind === 'team' &&
-              (each.owner?.teamId.equals(scope.teamId) ?? false)) ||
+              ((each.owner?.teamId.equals(scope.teamId) ?? false) ||
+                each.reviewTasks.some((task) =>
+                  task.teamId.equals(scope.teamId),
+                ))) ||
             (scope.kind === 'task' &&
               ((each.owner?.taskId.equals(scope.taskId) ?? false) ||
-                each.reviewTasks.some((task) => task.equals(scope.taskId))))),
+                each.reviewTasks.some((task) =>
+                  task.taskId.equals(scope.taskId),
+                )))),
       )
       .slice(0, max);
   }

@@ -18,7 +18,6 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   CheckProvisioningPort,
@@ -28,12 +27,12 @@ import type {
 import { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import { ProvisionWork } from '@work/application/services/provision-work.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
+import { RunTags } from '@work/domain/value-objects/run-tags.vo';
+import { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOON = new Date('2026-09-24T12:00:00.000Z');
@@ -50,12 +49,13 @@ const waiting = (
     id: RunId.of(id),
     workspaceId: WorkspaceId.of(workspace),
     harness: HarnessId.of('dev'),
-    subject: RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(0)),
+    ...orderedFor.task('task_1', 0),
+    tags: RunTags.of({ taskId: 'task_1' }),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task:station' },
+      resume: {},
       ...(injectedSecrets.length > 0 ? { injectedSecrets } : {}),
     }),
     placement: RunnerPlacement.of(placement).in(image),
@@ -116,7 +116,7 @@ const provisioning = (
         readonly skip: number;
         readonly max: number;
         readonly withSecrets: boolean;
-        readonly avoiding: readonly ResumeKey[];
+        readonly avoiding: readonly WorkspaceKey[];
       },
     ) =>
       [...stored.values()]
@@ -337,7 +337,7 @@ describe('ProvisionWork', () => {
       NOON,
       0,
       {},
-      ['task-task_1'],
+      ['work/task-task_1'],
     );
 
     await provisioner.due();
@@ -345,7 +345,9 @@ describe('ProvisionWork', () => {
     expect(awaitingProvision).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
       NOON,
-      expect.objectContaining({ avoiding: [ResumeKey.of('task-task_1')] }),
+      expect.objectContaining({
+        avoiding: [WorkspaceKey.parse('work/task-task_1')],
+      }),
     );
   });
 
@@ -382,7 +384,7 @@ describe('ProvisionWork', () => {
         runnerId: RunnerId.of('pooled_1'),
         work: { kind: 'run', id: 'run_1' },
         runId: RunId.of('run_1'),
-        taskId: TaskId.of('task_1'),
+        tags: { taskId: 'task_1' },
         labels: ['gpu'],
         image: null,
         needsEgress: false,
@@ -705,7 +707,7 @@ describe('ProvisionWork', () => {
           runnerId: RunnerId.of('pooled_1'),
           work: { kind: 'check', id: 'stack_1' },
           runId: RunId.of('run_of_stack_1'),
-          taskId: null,
+          tags: {},
           labels: ['gpu'],
           image: null,
           needsEgress: false,

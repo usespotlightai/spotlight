@@ -6,6 +6,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
 import { RenewLeaseCommand } from '@work/application/commands/runner.commands';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
@@ -21,11 +22,12 @@ const working = () =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
+    ...orderedFor.spec(),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      resume: { key: 'task_1:station_1' },
+      resume: {},
     }),
   }).claim(RUNNER, NOW);
 

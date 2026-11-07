@@ -36,10 +36,6 @@ import {
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
 import {
-  REPLAY_CANDIDATES,
-  type ReplayCandidatesPort,
-} from '@work/application/ports/replay-candidates.port';
-import {
   WORKSPACE_ARCHIVE_STORE,
   type WorkspaceArchiveStorePort,
 } from '@work/application/ports/workspace-archive-store.port';
@@ -55,7 +51,8 @@ import {
 } from './auto-searches';
 import { eventually } from './eventually';
 import { keptSet } from './kept-sets';
-import { aDispatch } from './runs';
+import { writtenStation } from './replays';
+import { aDispatch, requestedByTask } from './runs';
 import * as schema from './schema';
 import { searchReadOf } from './search-read';
 import { insertStations } from './stations';
@@ -174,10 +171,10 @@ const repositoryContents: RepositoryContentsPort = {
           defaultBranch: 'main',
         };
   },
-  filesIn: async (_workspace, _repository, directory) =>
-    [...github.files.keys()].filter(
-      (path) => path.slice(0, Math.max(path.lastIndexOf('/'), 0)) === directory,
-    ),
+  filesUnder: async (_workspace, _repository, directory) =>
+    [...github.files.entries()]
+      .filter(([path]) => !directory || path.startsWith(`${directory}/`))
+      .map(([path, content]) => ({ path, content })),
   committed: async (_workspace, _repository, commit) => {
     github.commits.push(commit);
     return `commit_${github.commits.length + 1}`;
@@ -295,9 +292,7 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     exitCode: 0,
@@ -313,7 +308,7 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
     startedFromArchiveId: archiveId,
@@ -342,8 +337,7 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
+    workspaceKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -505,7 +499,16 @@ export const originalsOf = async (replayId: string) =>
     .sort();
 
 export const searchRunsOf = async (searchId: string) =>
-  await db.select().from(schema.run).where(eq(schema.run.searchId, searchId));
+  await db
+    .select()
+    .from(schema.run)
+    .where(
+      and(
+        eq(schema.run.requesterOwner, 'replays'),
+        eq(schema.run.requesterKind, 'search'),
+        eq(schema.run.requesterId, searchId),
+      ),
+    );
 
 const queuedReplayRuns = async () =>
   db
@@ -515,7 +518,8 @@ const queuedReplayRuns = async () =>
       and(
         eq(schema.run.workspaceId, team.workspaceId.value),
         eq(schema.run.state, 'queued'),
-        isNotNull(schema.run.replayOfRunId),
+        eq(schema.run.requesterOwner, 'replays'),
+        eq(schema.run.requesterKind, 'replay'),
       ),
     );
 
@@ -716,7 +720,8 @@ export const leasedSearchRun = async (
     const runs = await searchRunsOf(searchId);
 
     return runs.some(
-      (each) => each.state === 'queued' && each.searchIteration === iteration,
+      (each) =>
+        each.state === 'queued' && each.requesterToken === String(iteration),
     );
   }, WITHIN);
 
@@ -726,7 +731,7 @@ export const leasedSearchRun = async (
     .from(schema.run)
     .where(eq(schema.run.id, assignment?.runId ?? ''));
 
-  expect(row?.searchId).toBe(searchId);
+  expect(row?.requesterId).toBe(searchId);
 
   return assignment as Claimed;
 };
@@ -763,17 +768,7 @@ export const endedSearchRun = async (
     .expect(204);
 };
 
-export const liveBlock = async () => {
-  const live = await app
-    .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
-    .live(DELIVERY, BUILD);
-
-  if (!live) {
-    throw new Error('the build station is not live');
-  }
-
-  return live.station;
-};
+export const liveBlock = () => writtenStation(app, DELIVERY, 'build');
 
 export const proposing = (assignment: Claimed, body: object) =>
   bearing(assignment.token).post(

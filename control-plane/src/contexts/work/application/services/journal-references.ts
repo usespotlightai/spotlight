@@ -1,15 +1,15 @@
 import type { RunJournal } from '@work/application/contracts/run-journal.contract';
+import type { FilesUnder } from '@work/application/ports/work-run-lookup.port';
 
 const escaped = (text: string): string =>
   text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export const referencesUnder = (
   journal: RunJournal,
-  folder: string,
-  file: RegExp,
+  under: FilesUnder,
 ): string[] => {
   const pattern = new RegExp(
-    `${escaped(folder)}/(?:[^\\n"'\`&|;<>]*?/)?${file.source}(?![\\w/-])`,
+    `${escaped(under.folder)}/(?:[^\\n"'\`&|;<>]*?/)?[\\w.-]+?${escaped(under.extension)}(?![\\w/-])`,
     'g',
   );
   const found = new Set<string>();

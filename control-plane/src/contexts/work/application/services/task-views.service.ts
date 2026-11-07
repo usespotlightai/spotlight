@@ -11,6 +11,7 @@ import type {
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import { correlatedTask } from '@work/application/services/correlated-task';
+import type { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -25,6 +26,7 @@ export class TaskViews implements TaskViewsPort {
     private readonly workspaces: WorkspaceReaderPort,
     private readonly links: TaskLinksPort,
     private readonly dispatches: DispatchRepository,
+    private readonly views: IntegrationTaskViews,
   ) {}
 
   async of(taskId: string, runId: string | null): Promise<TaskViewDto | null> {
@@ -78,25 +80,14 @@ export class TaskViews implements TaskViewsPort {
       return null;
     }
 
-    const station = line.stationAt(stationId);
     const slug = await this.workspaces.slugOf(task.workspaceId);
 
     return {
-      taskId: task.id.value,
-      workspaceId: task.workspaceId.value,
-      teamId: line.teamId.value,
-      title: task.title.value,
+      ...(await this.views.seen(task, line, stationId)),
       url: slug
         ? this.links.taskPage(slug, line.teamId.value, task.id.value)
         : '',
-      line: line.key.value,
-      station: station?.name.value ?? '',
-      stationKey: station?.key.value ?? '',
-      marks: Object.fromEntries(
-        task.marks.map((mark) => [mark.kind, mark.value]),
-      ),
       repositories: repositoriesForTask(task, line).map((each) => each.value),
-      pullRequest: task.pullRequest?.value ?? null,
       runId,
     };
   }

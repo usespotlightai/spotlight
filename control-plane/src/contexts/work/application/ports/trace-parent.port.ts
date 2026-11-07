@@ -1,7 +1,7 @@
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import type { RunRequesterContract } from '@work/application/contracts/run-order.contract';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import type { SearchId } from '@work/domain/value-objects/search-id.vo';
 
 export const TRACE_PARENT = Symbol('TRACE_PARENT');
 
@@ -10,5 +10,8 @@ export interface TraceParentPort {
 
   forChat(chatId: ChatId, runId: RunId): string;
 
-  forSearch(searchId: SearchId, runId: RunId): string;
+  of(
+    requester: Pick<RunRequesterContract, 'kind' | 'id'>,
+    runId: RunId,
+  ): string;
 }

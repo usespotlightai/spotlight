@@ -93,8 +93,10 @@ class FakeConfigs implements ConfigRepositoryPort {
       : null;
   }
 
-  async filesIn() {
-    return ['teams/core/delivery.tf', 'teams/core/skills.tf', 'README.md'];
+  async filesUnder() {
+    return ['teams/core/delivery.tf', 'teams/core/skills.tf', 'README.md'].map(
+      (path) => ({ path, content: 'resource "spotlight_line" "x" {}\n' }),
+    );
   }
 
   async committed(
@@ -403,10 +405,9 @@ describe('picking a search candidate', () => {
       lineKey: 'delivery',
       stationKey: 'build',
       file: { path: 'teams/core/delivery.tf' },
-      besideFile: [
-        'teams/core/delivery.tf',
-        'teams/core/skills.tf',
-        'README.md',
+      configFiles: [
+        expect.objectContaining({ path: 'teams/core/skills.tf' }),
+        expect.objectContaining({ path: 'README.md' }),
       ],
     });
   });

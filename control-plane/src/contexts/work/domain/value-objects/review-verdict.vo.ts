@@ -24,4 +24,8 @@ export class ReviewVerdict {
 
     return new ReviewVerdict(verdict);
   }
+
+  equals(other: ReviewVerdict): boolean {
+    return this.value === other.value;
+  }
 }

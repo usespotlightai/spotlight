@@ -1,14 +1,11 @@
-import type { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
-
-const PASSED_FROM_STATION = 'station';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 
 export interface RunOfTask {
   readonly openedFrom: TaskOrigin;
-  readonly originStationId: string | null;
-  readonly ranAt: string;
+  readonly originStationId: StationId | null;
+  readonly ranAt: StationId;
 }
 
-export const originOfRun = (run: RunOfTask): string =>
-  run.originStationId === run.ranAt
-    ? run.openedFrom.value
-    : PASSED_FROM_STATION;
+export const originOfRun = (run: RunOfTask): TaskOrigin =>
+  run.originStationId?.equals(run.ranAt) ? run.openedFrom : TaskOrigin.passed();

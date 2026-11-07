@@ -20,18 +20,23 @@ export class NoticeExternalLink {
     readonly label: string,
   ) {}
 
+  static allows(raw: string): boolean {
+    const url = parsed(raw);
+
+    return (
+      raw.length <= MAX_LENGTH &&
+      url !== null &&
+      url.origin === ORIGIN &&
+      url.pathname.length >= 2 &&
+      url.username === '' &&
+      url.password === ''
+    );
+  }
+
   static of(input: { url: string; label: string }): NoticeExternalLink {
-    const url = parsed(input.url);
     const label = input.label.trim();
 
-    if (
-      input.url.length > MAX_LENGTH ||
-      !url ||
-      url.origin !== ORIGIN ||
-      url.pathname.length < 2 ||
-      url.username !== '' ||
-      url.password !== ''
-    ) {
+    if (!NoticeExternalLink.allows(input.url)) {
       throw new InvalidNoticeExternalLinkError(
         `must be a ${ORIGIN}/ address, at most ${MAX_LENGTH} characters`,
       );
@@ -42,6 +47,10 @@ export class NoticeExternalLink {
       );
     }
 
-    return new NoticeExternalLink(url.href, label);
+    return new NoticeExternalLink(new URL(input.url).href, label);
+  }
+
+  equals(other: NoticeExternalLink): boolean {
+    return this.url === other.url && this.label === other.label;
   }
 }

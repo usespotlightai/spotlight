@@ -116,6 +116,7 @@ describe('ReactionFor, with a review request', () => {
         pullRequestTask: taskOn(review).reviews(
           PULL,
           { outside: false },
+          review,
           new Date(0),
         ),
       }).kind,
@@ -126,6 +127,7 @@ describe('ReactionFor, with a review request', () => {
     const underway = taskOn(review).reviews(
       PULL,
       { outside: false },
+      review,
       new Date(0),
     );
 

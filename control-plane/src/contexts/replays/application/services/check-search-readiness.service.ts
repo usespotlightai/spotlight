@@ -1,5 +1,5 @@
 import type { HashPort } from '@replays/application/ports/hash.port';
-import type { WorkPort } from '@replays/application/ports/work.port';
+import type { SearchRunDispatching } from '@replays/application/services/search-run-dispatch.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
@@ -54,7 +54,7 @@ export class CheckSearchReadiness {
   constructor(
     private readonly sets: ReplaySetRepository,
     private readonly healths: SetHealths,
-    private readonly work: WorkPort,
+    private readonly searchRuns: SearchRunDispatching,
     private readonly hash: HashPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -133,6 +133,6 @@ export class CheckSearchReadiness {
   ): SearchAgent | null {
     const agent = policy.agent ?? stationAgent;
 
-    return agent && !this.work.agentProblem(agent) ? agent : null;
+    return agent && !this.searchRuns.agentProblem(agent) ? agent : null;
   }
 }

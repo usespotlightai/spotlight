@@ -21,8 +21,8 @@ const ready = () =>
     runId: RunId.of('run-1'),
     taskId: null,
     teamOfRun: TeamId.of('team_1'),
-    replay: false,
-    isSearch: false,
+    trial: false,
+    checkouts: 1,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,
@@ -76,7 +76,7 @@ const posting = (
   over: {
     pullRequest?: string | null;
     failing?: 'run' | 'task' | 'connection' | 'upsert';
-    replay?: boolean;
+    trial?: boolean;
   } = {},
 ) => {
   const upserted: StickyComment[] = [];
@@ -123,8 +123,9 @@ const posting = (
           ended: false,
           completed: false,
           decisions: false,
-          isReplay: over.replay ?? false,
-          isSearch: false,
+          trial: over.trial ?? false,
+          isolated: over.trial ?? false,
+          checkouts: 1,
         };
       },
       wasClaimedBy: async () => true,
@@ -184,8 +185,8 @@ describe('PostChangeStackComment', () => {
     );
   });
 
-  it('never comments for a replay, whatever its run says of a task', async () => {
-    const { poster, upserted } = posting({ replay: true });
+  it('never comments for a trial, whatever its run says of a task', async () => {
+    const { poster, upserted } = posting({ trial: true });
 
     await poster.ofRun(RunId.of('run-1'));
 

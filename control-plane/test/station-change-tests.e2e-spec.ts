@@ -10,13 +10,9 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import {
-  REPLAY_CANDIDATES,
-  type ReplayCandidatesPort,
-} from '@work/application/ports/replay-candidates.port';
+import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { BuiltInTools } from '@work/application/services/built-in-tools.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
-import { TEST_STATION_CHANGE } from '@work/domain/services/built-in-tools';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { TargetStation } from '@work/domain/value-objects/target-station.vo';
@@ -26,6 +22,7 @@ import { and, desc, eq, isNull } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { dueNow, policyAt, scheduleOf } from './support/auto-searches';
 import { eventually } from './support/eventually';
+import { writtenStation } from './support/replays';
 import * as schema from './support/schema';
 import {
   anOriginal,
@@ -103,6 +100,8 @@ interface Answer {
   readonly next: string;
 }
 
+const TEST_STATION_CHANGE = Tool.of('test-station-change');
+
 const tested = async (
   chatId: ChatId,
   inputs: Record<string, string>,
@@ -130,10 +129,7 @@ const change = async (name: string, prompt = 'Build it, in order.\n') => ({
 });
 
 const polishChange = async (name: string) => {
-  const live = await app
-    .get<ReplayCandidatesPort>(REPLAY_CANDIDATES)
-    .live(DELIVERY, POLISH);
-  const block = live?.station ?? {};
+  const block = await writtenStation(app, DELIVERY, 'polish');
 
   return {
     name,

@@ -16,8 +16,9 @@ export interface RunForReview {
   readonly ended: boolean;
   readonly completed: boolean;
   readonly decisions: boolean;
-  readonly isReplay: boolean;
-  readonly isSearch: boolean;
+  readonly trial: boolean;
+  readonly isolated: boolean;
+  readonly checkouts: number;
 }
 
 export const REASONED_STEP_KINDS = [

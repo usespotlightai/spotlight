@@ -1,6 +1,5 @@
 import type { DeliveryReactionsPort } from '@integrations/application/ports/delivery-reactions.port';
-import type { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
-import { deliveryFailureOf } from '@integrations/infrastructure/webhooks/delivery-failures';
+import { DeliveryFailure } from '@integrations/domain/value-objects/delivery-failure.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
@@ -15,18 +14,19 @@ export class WorkDeliveryReactions implements DeliveryReactionsPort {
     happenings: readonly Happened[],
     receivedAs: string,
   ): Promise<DeliveryFailure | null> {
-    try {
-      await this.reactions.react(workspaceId, teamId, happenings, receivedAs);
+    const reaction = await this.reactions.react(
+      workspaceId,
+      teamId,
+      happenings,
+      receivedAs,
+    );
 
+    if (reaction.kind === 'reacted') {
       return null;
-    } catch (error) {
-      const failure = deliveryFailureOf(error);
-
-      if (!failure) {
-        throw error;
-      }
-
-      return failure;
     }
+
+    return reaction.transient
+      ? DeliveryFailure.transient(reaction.reason)
+      : DeliveryFailure.permanent(reaction.reason);
   }
 }

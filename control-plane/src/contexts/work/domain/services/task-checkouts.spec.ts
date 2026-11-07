@@ -21,6 +21,7 @@ import {
   repositoryOf,
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
+import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
@@ -67,7 +68,12 @@ const added = () =>
   });
 
 const reviewing = (url: string) =>
-  added().reviews(PullRequestUrl.of(url), { outside: false }, new Date(0));
+  added().reviews(
+    PullRequestUrl.of(url),
+    { outside: false },
+    LINE,
+    new Date(0),
+  );
 
 const names = (repositories: readonly Repository[]) =>
   repositories.map((each) => each.value);
@@ -111,8 +117,12 @@ describe('the repositories a task works on', () => {
         setup: 'npm ci',
       },
     ]);
-    expect(repositoryForTaskNamed('api', task, LINE)).toEqual(API);
-    expect(repositoryForTaskNamed('web', task, LINE)).toBeNull();
+    expect(
+      repositoryForTaskNamed(RepositoryName.of('api'), task, LINE),
+    ).toEqual(API);
+    expect(
+      repositoryForTaskNamed(RepositoryName.of('web'), task, LINE),
+    ).toBeNull();
   });
 
   it('are sent to a runner through Spotlight’s git proxy, never by a host address', () => {
@@ -159,6 +169,8 @@ describe('the repositories a task works on', () => {
       'acme/api',
       'acme/web',
     ]);
-    expect(repositoryForTaskNamed('web', null, LINE)).toEqual(WEB);
+    expect(
+      repositoryForTaskNamed(RepositoryName.of('web'), null, LINE),
+    ).toEqual(WEB);
   });
 });

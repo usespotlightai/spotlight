@@ -1,9 +1,7 @@
 import { DuplicateRepositoryError } from '@lines/domain/exceptions/duplicate-repository.error';
 import { MixedRunnerImagesError } from '@lines/domain/exceptions/mixed-runner-images.error';
 import type { LineRepositoryConfig } from '@lines/domain/value-objects/line-repository-config.vo';
-import type { RepositorySetup } from '@lines/domain/value-objects/repository-setup.vo';
 import { distinct } from '@shared-kernel/domain/distinct';
-import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 
 export class LineRepositories {
@@ -35,21 +33,6 @@ export class LineRepositories {
 
   static none(): LineRepositories {
     return new LineRepositories([], null);
-  }
-
-  get all(): readonly Repository[] {
-    return this.entries.map((each) => each.repository);
-  }
-
-  get isEmpty(): boolean {
-    return this.entries.length === 0;
-  }
-
-  setupOf(repository: Repository): RepositorySetup | null {
-    return (
-      this.entries.find((each) => each.repository.equals(repository))?.setup ??
-      null
-    );
   }
 
   equals(other: LineRepositories): boolean {

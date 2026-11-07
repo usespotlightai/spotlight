@@ -22,10 +22,10 @@ import {
 } from '@work/application/ports/team-memories.port';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { DrizzleDispatchRepository } from '@work/infrastructure/persistence/drizzle/repositories/dispatch.repository';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
@@ -203,17 +203,13 @@ describe('briefing runs with what the team remembers', () => {
         id: runId,
         workspaceId: team.workspaceId,
         harness: HarnessId.of('codex'),
-        subject: RunSubject.task(
-          team.list.id,
-          team.stationId,
-          TaskRevision.of(0),
-        ),
+        ...orderedFor.task(team.list.id.value, 0, team.teamId),
         spec: RunSpec.of({
           checkouts: [],
           command: { executable: 'codex-acp', args: [] },
           briefing: 'Fix the queue.',
           handover: { options: [], noteLimit: 0 },
-          resume: { key: 'task_1' },
+          resume: {},
         }),
       }),
     );
@@ -341,17 +337,13 @@ describe('briefing runs with what the team remembers', () => {
         id: runId,
         workspaceId: team.workspaceId,
         harness: HarnessId.of('claude-code'),
-        subject: RunSubject.task(
-          team.list.id,
-          team.stationId,
-          TaskRevision.of(0),
-        ),
+        ...orderedFor.task(team.list.id.value, 0, team.teamId),
         spec: RunSpec.of({
           checkouts: [],
           command: { executable: 'claude-agent-acp', args: [] },
           briefing: 'Fix the queue.',
           handover: { options: [], noteLimit: 0 },
-          resume: { key: 'task_2' },
+          resume: {},
         }),
       }),
     );

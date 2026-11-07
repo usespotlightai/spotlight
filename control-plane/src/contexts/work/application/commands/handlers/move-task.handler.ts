@@ -6,12 +6,9 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { MoveTaskCommand } from '@work/application/commands/move-task.command';
-import type { TaskDto } from '@work/application/dto/task.dto';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import type { TaskReaderPort } from '@work/application/ports/task-reader.port';
 import type { LineLoader } from '@work/application/services/line-loader.service';
-import { taskAsRead } from '@work/application/services/task-as-read';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -21,7 +18,7 @@ import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 export class MoveTaskHandler
-  implements CommandHandlerPort<MoveTaskCommand, TaskDto>
+  implements CommandHandlerPort<MoveTaskCommand, void>
 {
   constructor(
     private readonly tasks: TaskRepository,
@@ -30,10 +27,9 @@ export class MoveTaskHandler
     private readonly transaction: TransactionPort,
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
-    private readonly reader: TaskReaderPort,
   ) {}
 
-  async execute(command: MoveTaskCommand): Promise<TaskDto> {
+  async execute(command: MoveTaskCommand): Promise<void> {
     try {
       return await this.move(command);
     } catch (error) {
@@ -41,10 +37,10 @@ export class MoveTaskHandler
     }
   }
 
-  private async move(command: MoveTaskCommand): Promise<TaskDto> {
+  private async move(command: MoveTaskCommand): Promise<void> {
     const stationId = StationId.of(command.stationId);
 
-    const placed = await this.transaction.inTransaction(async () => {
+    await this.transaction.inTransaction(async () => {
       const line = await this.lines.onTeam(
         command.teamId,
         command.lineId,
@@ -84,7 +80,6 @@ export class MoveTaskHandler
         after?.rank ?? null,
       );
 
-      const from = line.stationAt(task.stationId);
       const stayed = task.stationId.equals(stationId);
       const moved = stayed
         ? task.reorderTo(rank)
@@ -93,7 +88,7 @@ export class MoveTaskHandler
             stationId,
             rank,
             {
-              station: from,
+              line,
               body: TaskNoteBody.movedTo(station.name),
               at: this.clock.now(),
               voice: Voice.station(),
@@ -109,10 +104,6 @@ export class MoveTaskHandler
       const placed = runId ? moved.assignRun(runId, line) : moved;
 
       await this.tasks.save(placed);
-
-      return placed;
     });
-
-    return taskAsRead(this.reader, command, placed.id);
   }
 }

@@ -1,4 +1,5 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
+import type { ConnectionError } from '@work/domain/value-objects/run-connection.vo';
 import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { bigint, index, integer, pgTable, text } from 'drizzle-orm/pg-core';
 
@@ -20,6 +21,7 @@ export const runConnection = pgTable(
     outcome: text('outcome').notNull(),
     status: integer('status'),
     reason: text('reason'),
+    error: text('error').$type<ConnectionError>(),
     at: timestamptz('at').notNull(),
   },
   (table) => [

@@ -1,22 +1,30 @@
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  RUN_SUBJECT_KINDS,
-  type RunSubjectKind,
-} from '@work/domain/value-objects/run-subject.vo';
+import type {
+  RunPolicyContract,
+  RunRequesterContract,
+} from '@work/application/contracts/run-order.contract';
 
-export const LEASED_RUN_KINDS = [...RUN_SUBJECT_KINDS, 'spec'] as const;
+export const LEASED_RUN_KINDS = [
+  'task',
+  'chat',
+  'replay',
+  'search',
+  'spec',
+] as const;
 
-export type LeasedRunKind = RunSubjectKind | 'spec';
+export type LeasedRunKind = (typeof LEASED_RUN_KINDS)[number];
 
 export const RUNNER_ACTIVITY_READER = Symbol('RUNNER_ACTIVITY_READER');
 
 export interface LeasedRun {
   readonly runnerId: string;
-  readonly runId: string;
+  readonly runId: RunId;
+  readonly workspaceId: WorkspaceId;
   readonly state: string;
-  readonly kind: LeasedRunKind;
+  readonly requester: RunRequesterContract;
+  readonly policy: RunPolicyContract;
   readonly teamId: string | null;
-  readonly title: string | null;
 }
 
 export interface RunnerActivityReaderPort {

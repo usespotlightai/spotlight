@@ -15,18 +15,22 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
+import { RunExtensions } from '@work/domain/value-objects/run-extensions.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
+import { RunPolicy } from '@work/domain/value-objects/run-policy.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
+import { RunRequester } from '@work/domain/value-objects/run-requester.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import {
+  RunWorkspace,
+  WorkspaceKey,
+} from '@work/domain/value-objects/workspace-key.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp } from './support/app';
 
@@ -40,23 +44,38 @@ const replayRun = (id = 'run_1') =>
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
     priority: RunPriority.of(-1),
-    subject: RunSubject.replay(
-      RunId.of('run_0'),
-      TaskId.of('task_1'),
-      StationId.of('station_1'),
-      TeamId.of('team_1'),
-    ),
-    spec: RunSpec.of({
-      checkouts: [{ remote: 'spotlight:repository', path: 'api', ref: COMMIT }],
-      command: { executable: 'sh', args: [] },
-      briefing: 'Fix the queue.',
-      handover: { options: ['review'], noteLimit: 0 },
-      resume: { key: 'replay-run_1' },
+    requester: RunRequester.of({
+      owner: 'replays',
+      kind: 'replay',
+      id,
+      team: TeamId.of('team_1'),
+    }),
+    policy: RunPolicy.of({
+      holdsTurn: false,
+      gated: false,
+      actsBeyondItself: false,
+      asks: 'recorded',
+      listed: false,
+      exclusive: false,
+    }),
+    workspace: RunWorkspace.of({
+      key: WorkspaceKey.of('replays', `replay-${id}`),
+      rejoinable: false,
+      restores: 'when-continuing',
+    }),
+    extensions: RunExtensions.of({
       replay: {
         archive: 'archive_1',
         checkouts: [{ path: 'api', commit: COMMIT, repository: 'acme/api' }],
         movesOnAfter: ['build', 'done'],
       },
+    }),
+    spec: RunSpec.of({
+      checkouts: [{ remote: 'spotlight:repository', path: 'api', ref: COMMIT }],
+      command: { executable: 'sh', args: [] },
+      briefing: 'Fix the queue.',
+      handover: { options: ['review'], noteLimit: 0 },
+      resume: {},
     }),
   });
 
@@ -95,7 +114,14 @@ const scored = (ended: ReplayRunEnded) =>
     {
       unreplayableReason: null,
       notRun: false,
-      end: RunEnd.of({ ...ended, result: ended.outcome, at: NOW }),
+      end: RunEnd.of({
+        result: ended.outcome,
+        failure: ended.failure,
+        stopped: ended.stopped,
+        asked: ended.askedAPerson,
+        next: ended.next,
+        at: NOW,
+      }),
       measures: null,
       checks: null,
       judging: null,

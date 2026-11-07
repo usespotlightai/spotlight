@@ -4,7 +4,7 @@ import { GrantRunAttachmentUploadHandler } from '@work/application/commands/hand
 import { GrantRunAttachmentUploadCommand } from '@work/application/commands/runner.commands';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
+import { RunActsOnlyOnItselfError } from '@work/domain/exceptions/run-acts-only-on-itself.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -16,7 +16,7 @@ const runOf = ({ leased = true, replay = false } = {}) =>
     isLeasedBy: () => leased,
     mayActBeyondItself: (what: string) => {
       if (replay) {
-        throw new NotAllowedInReplayError(what);
+        throw new RunActsOnlyOnItselfError(what);
       }
     },
   }) as unknown as Run;

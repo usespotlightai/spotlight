@@ -56,7 +56,7 @@ import { searchStarted } from './support/auto-searches';
 import { eventually } from './support/eventually';
 import { keptSet } from './support/kept-sets';
 import { replayOf } from './support/replays';
-import { aDispatch } from './support/runs';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -268,9 +268,7 @@ const anOriginal = async (): Promise<Original> => {
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: BUILD,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     exitCode: 0,
@@ -286,7 +284,7 @@ const anOriginal = async (): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
     startedFromArchiveId: archiveId,
@@ -315,8 +313,7 @@ const anOriginal = async (): Promise<Original> => {
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
+    workspaceKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -780,7 +777,13 @@ const turnedOff = async (id: string): Promise<void> => {
     const queued = await db
       .select({ id: schema.run.id })
       .from(schema.run)
-      .where(and(eq(schema.run.searchId, id), eq(schema.run.state, 'queued')));
+      .where(
+        and(
+          eq(schema.run.requesterKind, 'search'),
+          eq(schema.run.requesterId, id),
+          eq(schema.run.state, 'queued'),
+        ),
+      );
 
     return queued.length === 0;
   });

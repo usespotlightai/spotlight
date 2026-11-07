@@ -4,6 +4,10 @@ import type {
 } from '@work/application/ports/run-reader.port';
 import { ListTaskRunsHandler } from '@work/application/queries/handlers/list-task-runs.handler';
 import { ListTaskRunsQuery } from '@work/application/queries/list-task-runs.query';
+import {
+  inWorkspace,
+  runAccessWhere,
+} from '@work/application/services/run-access.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 
 const summary = (over: Partial<TaskRunSummary> = {}): TaskRunSummary => ({
@@ -14,6 +18,7 @@ const summary = (over: Partial<TaskRunSummary> = {}): TaskRunSummary => ({
   exitCode: 0,
   startedAt: new Date('2026-08-28T16:32:47.877Z'),
   updatedAt: new Date('2026-08-28T16:33:25.712Z'),
+  endedAt: new Date('2026-08-28T16:33:25.712Z'),
   harness: 'claude-code',
   image: null,
   station: {
@@ -29,7 +34,7 @@ const summary = (over: Partial<TaskRunSummary> = {}): TaskRunSummary => ({
 });
 
 const reading = (found: TaskRunSummary[]) => {
-  const listForTask = vi.fn().mockResolvedValue(found);
+  const listForTask = vi.fn().mockResolvedValue(inWorkspace(found));
   const runs = {
     listForTask,
     listForTeam: vi.fn(),
@@ -45,9 +50,10 @@ describe('ListTaskRunsHandler', () => {
   it('carries the station a run worked, not the one its task is at now', async () => {
     const { runs } = reading([summary()]);
 
-    const [only] = await new ListTaskRunsHandler(runs).execute(
-      new ListTaskRunsQuery('task_1', 'user_1'),
-    );
+    const [only] = await new ListTaskRunsHandler(
+      runs,
+      runAccessWhere(true),
+    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
 
     expect(only?.station).toEqual({
       id: 'station_3',
@@ -63,9 +69,10 @@ describe('ListTaskRunsHandler', () => {
     const pinned = `ghcr.io/acme/widgets@sha256:${'a'.repeat(64)}`;
     const { runs } = reading([summary({ image: pinned }), summary()]);
 
-    const [ran, unreported] = await new ListTaskRunsHandler(runs).execute(
-      new ListTaskRunsQuery('task_1', 'user_1'),
-    );
+    const [ran, unreported] = await new ListTaskRunsHandler(
+      runs,
+      runAccessWhere(true),
+    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
 
     expect(ran?.image).toBe(pinned);
     expect(unreported?.image).toBeNull();
@@ -74,9 +81,10 @@ describe('ListTaskRunsHandler', () => {
   it('leaves a run dispatched to no station without one', async () => {
     const { runs } = reading([summary({ station: null })]);
 
-    const [only] = await new ListTaskRunsHandler(runs).execute(
-      new ListTaskRunsQuery('task_1', 'user_1'),
-    );
+    const [only] = await new ListTaskRunsHandler(
+      runs,
+      runAccessWhere(true),
+    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
 
     expect(only?.station).toBeNull();
   });
@@ -84,24 +92,31 @@ describe('ListTaskRunsHandler', () => {
   it('requests only the runs of the task the viewer named', async () => {
     const { runs, listForTask } = reading([]);
 
-    await new ListTaskRunsHandler(runs).execute(
+    await new ListTaskRunsHandler(runs, runAccessWhere(true)).execute(
       new ListTaskRunsQuery('task_1', 'user_1'),
     );
 
-    const [taskId, viewerId] = listForTask.mock.calls[0] as [
-      { value: string },
-      { value: string },
-    ];
+    const [taskId] = listForTask.mock.calls[0] as [{ value: string }];
     expect(taskId.value).toBe('task_1');
-    expect(viewerId.value).toBe('user_1');
+  });
+
+  it('lists no runs to a viewer who cannot see the workspace of the task', async () => {
+    const { runs } = reading([summary()]);
+
+    expect(
+      await new ListTaskRunsHandler(runs, runAccessWhere(false)).execute(
+        new ListTaskRunsQuery('task_1', 'user_1'),
+      ),
+    ).toEqual([]);
   });
 
   it('carries the times as ISO strings', async () => {
     const { runs } = reading([summary()]);
 
-    const [found] = await new ListTaskRunsHandler(runs).execute(
-      new ListTaskRunsQuery('task_1', 'user_1'),
-    );
+    const [found] = await new ListTaskRunsHandler(
+      runs,
+      runAccessWhere(true),
+    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
 
     expect(found?.startedAt).toBe('2026-08-28T16:32:47.877Z');
     expect(found?.updatedAt).toBe('2026-08-28T16:33:25.712Z');
@@ -110,9 +125,10 @@ describe('ListTaskRunsHandler', () => {
   it('keeps a missing exit code missing', async () => {
     const { runs } = reading([summary({ state: 'queued', exitCode: null })]);
 
-    const [found] = await new ListTaskRunsHandler(runs).execute(
-      new ListTaskRunsQuery('task_1', 'user_1'),
-    );
+    const [found] = await new ListTaskRunsHandler(
+      runs,
+      runAccessWhere(true),
+    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
 
     expect(found?.exitCode).toBeNull();
   });
@@ -122,9 +138,10 @@ describe('ListTaskRunsHandler', () => {
       summary({ review: { state: 'pending', conversationId: 'task_1:5' } }),
     ]);
 
-    const [found] = await new ListTaskRunsHandler(runs).execute(
-      new ListTaskRunsQuery('task_1', 'user_1'),
-    );
+    const [found] = await new ListTaskRunsHandler(
+      runs,
+      runAccessWhere(true),
+    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
 
     expect(found?.review).toEqual({
       state: 'pending',
@@ -137,9 +154,10 @@ describe('ListTaskRunsHandler', () => {
       summary({ state: 'claimed', stopRequested: true }),
     ]);
 
-    const [only] = await new ListTaskRunsHandler(runs).execute(
-      new ListTaskRunsQuery('task_1', 'user_1'),
-    );
+    const [only] = await new ListTaskRunsHandler(
+      runs,
+      runAccessWhere(true),
+    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
 
     expect(only?.progress).toBe('stopping');
   });
@@ -150,9 +168,10 @@ describe('ListTaskRunsHandler', () => {
       summary({ id: 'run_2', state: 'suspended', takenUpOnAnswer: false }),
     ]);
 
-    const found = await new ListTaskRunsHandler(runs).execute(
-      new ListTaskRunsQuery('task_1', 'user_1'),
-    );
+    const found = await new ListTaskRunsHandler(
+      runs,
+      runAccessWhere(true),
+    ).execute(new ListTaskRunsQuery('task_1', 'user_1'));
 
     expect(found.map((each) => each.progress)).toEqual(['queued', null]);
   });
@@ -161,7 +180,7 @@ describe('ListTaskRunsHandler', () => {
     const { runs } = reading([]);
 
     await expect(
-      new ListTaskRunsHandler(runs).execute(
+      new ListTaskRunsHandler(runs, runAccessWhere(true)).execute(
         new ListTaskRunsQuery('task_1', 'stranger'),
       ),
     ).resolves.toEqual([]);

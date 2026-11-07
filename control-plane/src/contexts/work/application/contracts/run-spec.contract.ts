@@ -14,9 +14,7 @@ import {
   type RunFile,
   type RunHarnessSetup,
   type RunMcpServer,
-  type RunReplay,
   type RunResume,
-  type RunSearch,
   RunSpec,
   type RunSpecParts,
   type RunToolApproval,
@@ -40,6 +38,18 @@ export const SKILL_FOLDER_LIMITS = {
 } as const;
 
 type Json = Record<string, unknown>;
+
+const UNORDERABLE = [
+  'apiGrant',
+  'restore',
+  'extensions',
+  'injectedSecrets',
+] as const;
+
+export interface OrderedSpec {
+  readonly spec: RunSpec;
+  readonly key: string | null;
+}
 
 const unreadable = (what: string): never => {
   throw new InvalidRunSpecError(`must describe ${what}`);
@@ -249,41 +259,9 @@ const parsedResume = (raw: unknown): RunResume => {
         );
 
   return {
-    key: stringAt(input.key, 'where to carry on'),
     ...(sessionId !== undefined ? { sessionId } : {}),
     ...(resumeSession ? { resumeSession } : {}),
   };
-};
-
-const replayOf = (raw: unknown): RunReplay => {
-  const input = objectAt(raw, 'what it replays');
-
-  return {
-    archive:
-      input.archive === null
-        ? null
-        : stringAt(input.archive, 'the archive a replay starts from'),
-    checkouts: listAt(input.checkouts, 'what a replay checks out', (each) => {
-      const checkout = objectAt(each, 'what a replay checks out');
-
-      return {
-        path: stringAt(checkout.path, 'what a replay checks out'),
-        commit: stringAt(checkout.commit, 'what a replay checks out'),
-        repository: stringAt(checkout.repository, 'what a replay checks out'),
-      };
-    }),
-    movesOnAfter: listAt(
-      input.movesOnAfter,
-      'what a replay moves on after',
-      (each) => stringAt(each, 'what a replay moves on after'),
-    ),
-  };
-};
-
-const searchOf = (raw: unknown): RunSearch => {
-  objectAt(raw, 'what it searches');
-
-  return {};
 };
 
 const handoverOf = (raw: unknown) => {
@@ -343,10 +321,6 @@ const read = (raw: unknown): RunSpec => {
   const diffs = input.diffs;
   const check = optionalStringAt(input.check, 'what checks its change');
   const startingPoint = input.startingPoint;
-  const replay =
-    input.replay === undefined ? undefined : replayOf(input.replay);
-  const search =
-    input.search === undefined ? undefined : searchOf(input.search);
   const harnessSetup =
     input.harnessSetup === undefined
       ? undefined
@@ -381,30 +355,37 @@ const read = (raw: unknown): RunSpec => {
     ...(settingFiles ? { settingFiles } : {}),
     ...(injectedSecrets ? { injectedSecrets } : {}),
     ...(spotlightApi ? { spotlightApi } : {}),
-    ...(replay ? { replay } : {}),
-    ...(search ? { search } : {}),
   });
 };
 
 export const RunSpecContract = {
-  ordered(raw: unknown, command: RunCommand): RunSpec {
+  ordered(raw: unknown, command: RunCommand): OrderedSpec {
     const input = objectAt(raw, 'the run');
     const handover = input.handover as Json | undefined;
     const resume = input.resume as Json | undefined;
+    const ignored = UNORDERABLE.filter((field) => input[field] !== undefined);
 
-    return read({
-      checkouts: input.checkouts,
-      command,
-      briefing: input.briefing ?? '',
-      handover: {
-        options: handover?.options ?? [],
-        noteLimit: handover?.noteLimit ?? 0,
-      },
-      resume: {
-        key: resume?.key ?? '',
-        sessionId: resume?.sessionId,
-      },
-    });
+    if (ignored.length > 0) {
+      throw new InvalidRunSpecError(
+        `must not ask for ${ignored.join(', ')}, which only Spotlight orders`,
+      );
+    }
+
+    const key = optionalStringAt(resume?.key, 'where to carry on');
+
+    return {
+      spec: read({
+        checkouts: input.checkouts,
+        command,
+        briefing: input.briefing ?? '',
+        handover: {
+          options: handover?.options ?? [],
+          noteLimit: handover?.noteLimit ?? 0,
+        },
+        resume: { sessionId: resume?.sessionId },
+      }),
+      key: key && key.trim() !== '' ? key.trim() : null,
+    };
   },
 
   checkoutFoldersIn(raw: unknown): readonly string[] {
@@ -417,7 +398,6 @@ export const RunSpecContract = {
 
   resumeOf(resume: Resume): RunResume {
     return {
-      key: resume.key.value,
       ...(resume.sessionId ? { sessionId: resume.sessionId.value } : {}),
     };
   },

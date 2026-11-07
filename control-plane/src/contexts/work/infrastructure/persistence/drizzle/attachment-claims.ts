@@ -1,6 +1,6 @@
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
+import { AttachmentHeldElsewhereError } from '@work/domain/exceptions/attachment-held-elsewhere.error';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { attachmentClaim } from '@work/infrastructure/persistence/drizzle/schemas/attachment.schema';
 import { sql } from 'drizzle-orm';
@@ -40,6 +40,10 @@ export const claimAttachments = async (
     .returning({ id: attachmentClaim.id });
 
   if (claimed.length < ids.length) {
-    throw new InvalidAttachmentError('is already attached elsewhere');
+    const held = new Set(claimed.map((each) => each.id));
+
+    throw new AttachmentHeldElsewhereError(
+      ids.filter((each) => !held.has(each)),
+    );
   }
 };

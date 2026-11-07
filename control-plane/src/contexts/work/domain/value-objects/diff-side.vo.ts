@@ -20,4 +20,8 @@ export class DiffSide {
 
     return new DiffSide(side);
   }
+
+  equals(other: DiffSide): boolean {
+    return this.value === other.value;
+  }
 }

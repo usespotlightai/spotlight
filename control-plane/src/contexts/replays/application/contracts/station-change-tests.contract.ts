@@ -29,6 +29,27 @@ export type StationChangeRefusal =
   | RequestRefusal
   | SetSkipReason;
 
+export const STATION_CHANGE_REFUSALS = [
+  'station-gone',
+  'not-replayable',
+  'search-off',
+  'no-replay-set',
+  'result-pending',
+  'search-running',
+  'request-limit',
+  'pull-request-open',
+  'monthly-ceiling',
+  'no-scoring',
+  'no-agent',
+  'set-too-small',
+  'no-fresh-held-out',
+  'ceiling-too-low',
+  'noisy',
+  'judge-unstable',
+  'flaky-checks',
+  'no-headroom',
+] as const satisfies readonly StationChangeRefusal[];
+
 export interface StationChangeTestScope {
   readonly mode: StationChangeTestMode;
   readonly searchedTasks: number;

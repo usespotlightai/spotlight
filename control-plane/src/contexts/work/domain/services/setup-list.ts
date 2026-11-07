@@ -4,7 +4,7 @@ import {
   conversationsOf,
   stillOpen,
 } from '@work/domain/services/conversations';
-import type { Station } from '@work/domain/value-objects/station.vo';
+import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
@@ -29,9 +29,27 @@ export const mayStartSetup = (
   hasEgressCapableRunner: boolean,
 ): boolean => state.connectedToGitHub && hasEgressCapableRunner;
 
-export const configuredBy = (
-  setupChat: { readonly pullRequest: unknown } | null,
-): boolean => setupChat?.pullRequest != null;
+export interface SetupChatCandidate {
+  readonly pullRequest: string | null;
+  readonly startedAt: Date;
+}
+
+export const setupChatOf = <C extends SetupChatCandidate>(
+  chats: readonly C[],
+): C | null => {
+  const newestFirst = [...chats].sort(
+    (a, b) => b.startedAt.getTime() - a.startedAt.getTime(),
+  );
+
+  return (
+    newestFirst.find((each) => each.pullRequest !== null) ??
+    newestFirst[0] ??
+    null
+  );
+};
+
+export const configuredBy = (setupChat: SetupChatCandidate | null): boolean =>
+  setupChat !== null && setupChat.pullRequest !== null;
 
 const setUp = (state: SetupState): boolean =>
   SETUP_STEPS.every((step) => TAKEN[step](state));
@@ -52,7 +70,7 @@ export const setupDoneNote = (
   notes: readonly TaskNote[],
   state: SetupState,
   at: Date,
-  station: Station | null,
+  line: LineMap | null,
 ): NewNote | null => {
   const opened = openSetupList(notes);
 
@@ -61,7 +79,7 @@ export const setupDoneNote = (
   }
 
   return {
-    station,
+    line,
     body: TaskNoteBody.of(ALL_DONE),
     form: 'resolved',
     at,

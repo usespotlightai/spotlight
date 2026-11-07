@@ -1,4 +1,7 @@
-import { PullRequestRecord } from '@insights/domain/aggregates/pull-request-record.aggregate';
+import {
+  PullRequestRecord,
+  type ReviewTask,
+} from '@insights/domain/aggregates/pull-request-record.aggregate';
 import { PullRequestRecordVersionConflictError } from '@insights/domain/exceptions/pull-request-record-version-conflict.error';
 import type { PullRequestRecordRepository } from '@insights/domain/repositories/pull-request-record.repository';
 import type { DeletionScope } from '@insights/domain/value-objects/deletion-scope.vo';
@@ -14,11 +17,26 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, arrayContains, eq, isNull, lt, or, sql } from 'drizzle-orm';
+
+const reviewTasksOf = (row: PullRequestRow): readonly ReviewTask[] => {
+  if (row.reviewTaskIds.length !== row.reviewTeamIds.length) {
+    throw new InconsistentStateError(
+      'pull request record',
+      'holds review tasks without their teams',
+    );
+  }
+
+  return row.reviewTaskIds.map((taskId, at) => ({
+    taskId: TaskId.of(taskId),
+    teamId: TeamId.of(row.reviewTeamIds[at] as string),
+  }));
+};
 
 const toRecord = (row: PullRequestRow): PullRequestRecord =>
   PullRequestRecord.rehydrate({
@@ -33,7 +51,7 @@ const toRecord = (row: PullRequestRow): PullRequestRecord =>
             openedAt: row.ownerOpenedAt,
           }
         : null,
-    reviewTasks: row.reviewTaskIds.map((each) => TaskId.of(each)),
+    reviewTasks: reviewTasksOf(row),
     githubPurgedAt: row.githubPurgedAt,
     version: row.version,
   });
@@ -74,7 +92,8 @@ const columnsOf = (record: PullRequestRecord) => {
     ownerTaskId: record.owner?.taskId.value ?? null,
     ownerTeamId: record.owner?.teamId.value ?? null,
     ownerOpenedAt: record.owner?.openedAt ?? null,
-    reviewTaskIds: record.reviewTasks.map((each) => each.value),
+    reviewTaskIds: record.reviewTasks.map((each) => each.taskId.value),
+    reviewTeamIds: record.reviewTasks.map((each) => each.teamId.value),
     githubPurgedAt: record.githubPurgedAt,
   };
 };
@@ -214,7 +233,12 @@ export class DrizzlePullRequestRecordRepository
                 ]),
               )
             : scope.kind === 'team'
-              ? eq(pullRequestRecord.ownerTeamId, scope.teamId.value)
+              ? or(
+                  eq(pullRequestRecord.ownerTeamId, scope.teamId.value),
+                  arrayContains(pullRequestRecord.reviewTeamIds, [
+                    scope.teamId.value,
+                  ]),
+                )
               : undefined,
         ),
       )

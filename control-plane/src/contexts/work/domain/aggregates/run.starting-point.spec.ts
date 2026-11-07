@@ -2,23 +2,19 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run, type RunStart } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { InvalidStartingPointError } from '@work/domain/exceptions/invalid-starting-point.error';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
-import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
 import { StartingPoint } from '@work/domain/value-objects/starting-point.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-10-01T09:00:00.000Z');
@@ -30,18 +26,12 @@ const OTHER = RunnerId.of('runner_2');
 const API = 'a'.repeat(40);
 const WEB = 'b'.repeat(40);
 
-const ofTask = RunSubject.task(
-  TaskId.of('task_1'),
-  StationId.of('station_1'),
-  TaskRevision.of(1),
-);
-
-const queued = (subject: RunSubject | null = ofTask) =>
+const queued = (reports = true) =>
   Run.enqueue({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject,
+    ...orderedFor.task('task_1', 1),
     spec: RunSpec.of({
       checkouts: [
         { remote: 'spotlight:repository', path: 'web' },
@@ -50,25 +40,21 @@ const queued = (subject: RunSubject | null = ofTask) =>
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      resume: { key: 'task-task_1' },
+      resume: {},
+      ...(reports ? { startingPoint: true } : {}),
     }),
   });
 
-const claimed = (subject?: RunSubject | null) =>
-  queued(subject).claim(RUNNER, NOW);
+const claimed = (reports?: boolean) => queued(reports).claim(RUNNER, NOW);
 
 const on = (attempt = 1) => RunAttempt.of(RunId.of('run_1'), attempt);
 
 const archiveOf = (
   id: string,
   workspace = 'ws_1',
-  resume = ResumeKey.forTask(TaskId.of('task_1')),
+  key = WorkspaceKey.of('work', 'task-task_1'),
 ) =>
-  RestoredArchive.of(
-    WorkspaceArchiveId.of(id),
-    WorkspaceId.of(workspace),
-    resume,
-  );
+  RestoredArchive.of(WorkspaceArchiveId.of(id), WorkspaceId.of(workspace), key);
 
 const restored = (
   archive: RestoredArchive | null = archiveOf('archive_1'),
@@ -103,7 +89,7 @@ describe('where a run started', () => {
   it('rejects an archive of another workspace or another piece of work', () => {
     for (const elsewhere of [
       archiveOf('archive_1', 'ws_2'),
-      archiveOf('archive_1', 'ws_1', ResumeKey.forTask(TaskId.of('task_2'))),
+      archiveOf('archive_1', 'ws_1', WorkspaceKey.of('work', 'task-task_2')),
     ]) {
       expect(() =>
         claimed().startsFrom(on(), RUNNER, restored(elsewhere), NOW),
@@ -170,17 +156,9 @@ describe('where a run started', () => {
     );
   });
 
-  it('is recorded only for a run that works a task', () => {
+  it('is recorded only for a run that reports where it started', () => {
     expect(() =>
-      claimed(RunSubject.chat(ChatId.of('chat_1'))).startsFrom(
-        on(),
-        RUNNER,
-        restored(null),
-        NOW,
-      ),
-    ).toThrow(InvalidRunTransitionError);
-    expect(() =>
-      claimed(null).startsFrom(on(), RUNNER, restored(null), NOW),
+      claimed(false).startsFrom(on(), RUNNER, restored(null), NOW),
     ).toThrow(InvalidRunTransitionError);
   });
 
@@ -206,18 +184,15 @@ describe('where a run started', () => {
   });
 
   describe('rehydrated', () => {
-    const rehydrated = (
-      subject: RunSubject | null,
-      startedFrom: StartingPoint,
-    ) => {
-      const run = queued();
+    const rehydrated = (reports: boolean, startedFrom: StartingPoint) => {
+      const run = queued(reports);
 
       return Run.rehydrate({
         id: run.id,
         workspaceId: run.workspaceId,
         harness: run.harness,
+        ...orderedFor.task('task_1', 1),
         priority: run.priority,
-        subject,
         spec: run.spec,
         state: 'queued',
         claimedBy: null,
@@ -239,15 +214,11 @@ describe('where a run started', () => {
       });
 
     it('cannot have started on an attempt it has not made', () => {
-      expect(() => rehydrated(ofTask, point(2))).toThrow(
-        InconsistentStateError,
-      );
+      expect(() => rehydrated(true, point(2))).toThrow(InconsistentStateError);
     });
 
-    it('cannot have started from somewhere when it works no task', () => {
-      expect(() =>
-        rehydrated(RunSubject.chat(ChatId.of('chat_1')), point(1)),
-      ).toThrow(InconsistentStateError);
+    it('cannot have started from somewhere when it reports no starting point', () => {
+      expect(() => rehydrated(false, point(1))).toThrow(InconsistentStateError);
     });
   });
 });

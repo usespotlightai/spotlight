@@ -8,6 +8,7 @@ import { ConfigRepositoryError } from '@replays/application/errors/config-reposi
 import type {
   ConfigCommit,
   ConfigFile,
+  ConfigFileContent,
   ConfigPullRequestAt,
   ConfigPullRequestOpening,
   ConfigPullRequestStatus,
@@ -62,14 +63,14 @@ export class ConfigRepository implements ConfigRepositoryPort {
       : null;
   }
 
-  async filesIn(
+  async filesUnder(
     workspaceId: WorkspaceId,
     repository: Repository,
     directory: string,
     commit: string,
-  ): Promise<readonly string[]> {
+  ): Promise<readonly ConfigFileContent[]> {
     return withRepositoryErrors(() =>
-      this.contents.filesIn(workspaceId, repository, directory, commit),
+      this.contents.filesUnder(workspaceId, repository, directory, commit),
     );
   }
 

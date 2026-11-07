@@ -1,17 +1,21 @@
 import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { RecordedRunUsage } from '@work/domain/entities/recorded-run-usage.entity';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
+import { RunRequester } from '@work/domain/value-objects/run-requester.vo';
 import { DrizzleRunJournal } from '@work/infrastructure/persistence/drizzle/ledgers/run-journal.ledger';
 import { DrizzleRunUsages } from '@work/infrastructure/persistence/drizzle/ledgers/run-usages.ledger';
 import { DrizzleRunEventReader } from '@work/infrastructure/persistence/drizzle/readers/run-event.reader';
-import { journalsOfChatRun } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
+import { DrizzleRunJournals } from '@work/infrastructure/persistence/drizzle/readers/run-journals';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
+import { requestedByChat } from './support/runs';
 import * as schema from './support/schema';
 
 let database: TestDatabase;
@@ -19,15 +23,45 @@ let db: DrizzleDatabase;
 let journal: DrizzleRunJournal;
 let events: DrizzleRunEventReader;
 let runUsages: DrizzleRunUsages;
+const usageRecorded: DomainEvent[] = [];
+
+const recordUsage = async (runId: RunId) => {
+  const read = await runUsages.readingsOf(runId);
+
+  if (!read) {
+    throw new Error(`no run ${runId.value}`);
+  }
+
+  await runUsages.record(
+    RecordedRunUsage.of({
+      run: {
+        id: runId,
+        workspaceId: WorkspaceId.of('ws_1'),
+        requester: RunRequester.of({
+          owner: 'work',
+          kind: 'chat',
+          id: 'chat_1',
+          team: null,
+        }),
+        listed: true,
+        attempt: read.attempt,
+      },
+      readings: read.readings,
+      skillHomes: ['.claude/skills'],
+    }),
+  );
+};
 
 beforeAll(async () => {
   database = await openDatabase('run_journal_attempts');
   db = database.db;
   journal = new DrizzleRunJournal(new DrizzleContext(db));
   events = new DrizzleRunEventReader(db);
-  runUsages = new DrizzleRunUsages(db, {
-    skillHomes: () => ['.claude/skills'],
-  } as unknown as HarnessLaunchPort);
+  runUsages = new DrizzleRunUsages(new DrizzleContext(db), {
+    dispatch: async (events) => {
+      usageRecorded.push(...events);
+    },
+  });
 }, 60_000);
 
 afterAll(async () => {
@@ -58,7 +92,7 @@ const chatRun = async () => {
     id: runId,
     workspaceId: 'ws_1',
     harness: 'dev',
-    chatId,
+    ...requestedByChat(chatId),
     state: 'claimed',
     spec: {},
   });
@@ -121,13 +155,13 @@ describe('journalling a run that was tried again', () => {
   });
 
   it('reads the journal of the attempt the run is on', async () => {
-    const { chatId, runId } = await chatRun();
+    const { runId } = await chatRun();
 
     await journal.append(RunAttempt.of(runId, 1), hooks('one-a', 'one-b'));
     await requeued(runId, 2);
     await journal.append(RunAttempt.of(runId, 2), hooks('two-a'));
 
-    const [read, ...more] = await journalsOfChatRun(db, chatId, runId);
+    const [read, ...more] = await new DrizzleRunJournals(db).ofRuns([runId]);
 
     expect(more).toEqual([]);
     expect(read?.attempt).toBe(2);
@@ -139,14 +173,18 @@ describe('journalling a run that was tried again', () => {
 
     await journal.append(RunAttempt.of(runId, 1), hooks('one-a', 'one-b'));
     await finished(runId);
-    await runUsages.ensure([runId]);
+    await recordUsage(runId);
 
     expect((await runUsages.forRuns([runId])).get(runId.value)?.steps).toBe(2);
+
+    const raised = usageRecorded.length;
+    await recordUsage(runId);
+    expect(usageRecorded.length).toBe(raised);
 
     await requeued(runId, 2);
     await journal.append(RunAttempt.of(runId, 2), hooks('two-a'));
     await finished(runId);
-    await runUsages.ensure([runId]);
+    await recordUsage(runId);
 
     expect((await runUsages.forRuns([runId])).get(runId.value)?.steps).toBe(1);
   });
@@ -194,7 +232,7 @@ describe('recording the usage of a run that paused for a person', () => {
       messageChunk(2, 53),
     ]);
     await finished(runId);
-    await runUsages.ensure([runId]);
+    await recordUsage(runId);
 
     const recordedUsage = (await runUsages.forRuns([runId])).get(runId.value);
 
@@ -242,7 +280,7 @@ describe('recording the tokens a run used', () => {
       }),
     ]);
     await finished(runId);
-    await runUsages.ensure([runId]);
+    await recordUsage(runId);
 
     const recordedUsage = (await runUsages.forRuns([runId])).get(runId.value);
 
@@ -261,7 +299,7 @@ describe('recording the tokens a run used', () => {
       turned(1, { inputTokens: 10, outputTokens: 20, totalTokens: 30 }),
     ]);
     await finished(runId);
-    await runUsages.ensure([runId]);
+    await recordUsage(runId);
 
     const [stored] = await db
       .select({

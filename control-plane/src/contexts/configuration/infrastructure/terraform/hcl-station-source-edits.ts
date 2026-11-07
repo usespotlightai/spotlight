@@ -27,6 +27,9 @@ import {
 
 const TERRAFORM_FILE = '.tf';
 
+const directoryOf = (path: string): string =>
+  path.slice(0, Math.max(path.lastIndexOf('/'), 0));
+
 const UNSET: Readonly<Record<StationSourceField, HclLiteral>> = {
   prompt: null,
   harness: null,
@@ -204,6 +207,9 @@ export class HclStationSourceEdits implements StationSourceEditsPort {
       throw error;
     }
 
+    const contents = new Map(
+      request.configFiles.map((each) => [each.path, each.content]),
+    );
     const edited = await editedHclBlock({
       file: request.file,
       owner: {
@@ -218,10 +224,14 @@ export class HclStationSourceEdits implements StationSourceEditsPort {
       block: { type: 'station', key: request.stationKey },
       fields,
       blocks: [judge],
-      module: request.besideFile.filter(
-        (each) => each.endsWith(TERRAFORM_FILE) && each !== request.file.path,
-      ),
-      read: request.read,
+      module: request.configFiles
+        .map((each) => each.path)
+        .filter(
+          (each) =>
+            each.endsWith(TERRAFORM_FILE) &&
+            directoryOf(each) === directoryOf(request.file.path),
+        ),
+      read: async (path) => contents.get(path) ?? null,
     });
 
     return edited.ok

@@ -15,6 +15,7 @@ import {
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf, deleteRunsOf } from './support/runners';
+import { requestedBySpec } from './support/runs';
 import * as schema from './support/schema';
 import { opened, recipient } from './support/sealing';
 import { seatTeam } from './support/team';
@@ -48,6 +49,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     const id = randomUUID();
 
     await db.insert(schema.run).values({
+      ...requestedBySpec(id),
       id,
       workspaceId,
       harness: 'dev',
@@ -57,7 +59,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',
         handover: { options: [], noteLimit: 0 },
-        resume: { key: `task:${id}` },
+        resume: {},
         injectedSecrets,
       },
     });

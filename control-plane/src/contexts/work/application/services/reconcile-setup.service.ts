@@ -70,12 +70,7 @@ export class ReconcileSetup {
       }
 
       const { state } = await this.setup.of(task.workspaceId, line.teamId);
-      const newNote = setupDoneNote(
-        task.notes,
-        state,
-        this.clock.now(),
-        line.stationAt(task.stationId),
-      );
+      const newNote = setupDoneNote(task.notes, state, this.clock.now(), line);
 
       if (newNote) {
         await this.tasks.save(task.closeConversation(newNote));

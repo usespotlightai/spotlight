@@ -22,6 +22,12 @@ export interface EndedRun {
   readonly endedAt: Date;
 }
 
+export interface TaskRun {
+  readonly runId: string;
+  readonly taskId: string;
+  readonly teamId: string;
+}
+
 export interface ConfigPart {
   readonly part: string;
   readonly name: string | null;
@@ -87,6 +93,8 @@ export interface TracedWanted {
 
 export interface WorkPort {
   endedRun(runId: string): Promise<EndedRun | null>;
+
+  taskRunOf(runId: string): Promise<TaskRun | null>;
 
   unfinishedRuns(teamId: string): Promise<readonly UnfinishedRun[]>;
 

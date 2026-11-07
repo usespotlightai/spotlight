@@ -27,12 +27,7 @@ import {
   sourceRow,
   stationColumnsOf,
   toolRowsOf,
-} from '@lines/infrastructure/lines/line-rows.of';
-import {
-  lineSearchOf,
-  lineSearchRow,
-  stationSearchOf,
-} from '@lines/infrastructure/lines/search-rows';
+} from '@lines/infrastructure/persistence/drizzle/line-rows.of';
 import {
   line,
   lineReaction,
@@ -42,6 +37,11 @@ import {
   stationSkill,
   stationTool,
 } from '@lines/infrastructure/persistence/drizzle/schemas/line.schema';
+import {
+  lineSearchOf,
+  lineSearchRow,
+  stationSearchOf,
+} from '@lines/infrastructure/persistence/drizzle/search-rows';
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
@@ -196,6 +196,7 @@ export class DrizzleLineRepository implements LineRepository {
         search: lineSearchRow(added.search),
         source: sourceRow(added.source),
         runners: [...added.placement.requiredLabels],
+        version: added.version,
       });
     } catch (error) {
       if (violates(error, UNIQUE_VIOLATION, 'line_team_key')) {

@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  DONE,
-  REVIEW,
+  HANDOVER_TO_A_PERSON,
+  HANDOVER_TO_FINISH,
 } from '@shared-kernel/domain/value-objects/handover-word';
 import {
   isSlug,
@@ -9,8 +9,8 @@ import {
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 const RESERVED: ReadonlyMap<string, string> = new Map([
-  [REVIEW, 'hand its task over to a person'],
-  [DONE, 'finish its task'],
+  [HANDOVER_TO_A_PERSON, 'hand its task over to a person'],
+  [HANDOVER_TO_FINISH, 'finish its task'],
 ]);
 
 export class StationKey {

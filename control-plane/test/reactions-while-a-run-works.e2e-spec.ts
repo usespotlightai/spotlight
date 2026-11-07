@@ -21,13 +21,10 @@ import {
   type HappeningReactionsPort,
 } from '@work/application/ports/happening-reactions.port';
 import {
-  LEASED_RUN_READER,
-  type LeasedRunReaderPort,
-} from '@work/application/ports/leased-run-reader.port';
-import {
   TASK_NOTES_FROM_HOOKS,
   type TaskNotesFromHooksPort,
 } from '@work/application/ports/task-notes-from-hooks.port';
+import { RunWorks } from '@work/application/services/run-works.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
@@ -205,7 +202,7 @@ const approvalRequested = async (task: Task, runId: RunId) => {
     ),
     ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
     {
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Approve linear.comment?'),
       at: new Date(),
       voice: Voice.station(runId),
@@ -293,8 +290,8 @@ describe('a happening that would move a task while a run works on it (e2e)', () 
     await changesRequested(task);
 
     const pending = await app
-      .get<LeasedRunReaderPort>(LEASED_RUN_READER)
-      .pendingFor(runId, RUNNER);
+      .get(RunWorks)
+      .pendingFor(runId.value, RUNNER.value);
     expect(pending?.map((each) => each.body)).toEqual([
       DEFERRED_MOVE_TO_CODE_REVIEW,
     ]);

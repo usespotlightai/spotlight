@@ -1,3 +1,4 @@
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
   TaskNoteForm,
   TaskNoteKind,
@@ -123,12 +124,16 @@ const answeredAfter = <T extends { kind: TaskNoteKind }>(
 const containing = (cut: readonly Conversation[], at: number) =>
   cut.find((each) => each.from <= at && (each.to === null || at <= each.to));
 
+export interface RunReview extends Review {
+  readonly runId: RunId;
+}
+
 export const reviewsIn = <
-  T extends { kind: TaskNoteKind; runId: string | null },
+  T extends { kind: TaskNoteKind; runId: RunId | null },
 >(
   notes: readonly T[],
-): Map<string, Review> => {
-  const reviews = new Map<string, Review>();
+): readonly RunReview[] => {
+  const reviews = new Map<string, RunReview>();
   const cut = conversationsOf(notes.map((each) => each.kind));
 
   notes.forEach((note, at) => {
@@ -139,14 +144,15 @@ export const reviewsIn = <
     const conversation = containing(cut, at);
 
     if (conversation) {
-      reviews.set(note.runId, {
+      reviews.set(note.runId.value, {
+        runId: note.runId,
         from: conversation.from,
         state: answeredAfter(notes, at) ? 'answered' : 'pending',
       });
     }
   });
 
-  return reviews;
+  return [...reviews.values()];
 };
 
 export const awaitsAPerson = <T extends { kind: TaskNoteKind }>(

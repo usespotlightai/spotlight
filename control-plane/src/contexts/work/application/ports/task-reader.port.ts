@@ -32,9 +32,9 @@ export interface TaskSummary {
 }
 
 export type TaskListing =
-  | { readonly state: 'open' }
+  | { readonly state: 'board' }
   | {
-      readonly state: 'completed';
+      readonly state: 'completed-station';
       readonly lineId: string | null;
       readonly page: PageRequest;
     };

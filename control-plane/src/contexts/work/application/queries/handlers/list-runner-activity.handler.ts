@@ -1,12 +1,20 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { RunnerActivityDto } from '@work/application/dto/runner-activity.dto';
-import type { RunnerActivityReaderPort } from '@work/application/ports/runner-activity-reader.port';
+import { requesterRefOf } from '@work/application/ports/run-requester-labels.port';
+import type { RunViewersPort } from '@work/application/ports/run-viewers.port';
+import {
+  LEASED_RUN_KINDS,
+  type LeasedRunKind,
+  type RunnerActivityReaderPort,
+} from '@work/application/ports/runner-activity-reader.port';
 import type { ListRunnerActivityQuery } from '@work/application/queries/list-runner-activity.query';
+import type { RunRequesterLabels } from '@work/application/services/run-requester-labels.service';
+
+const kindOf = (kind: string): LeasedRunKind =>
+  LEASED_RUN_KINDS.find((each) => each === kind) ?? 'spec';
 
 export class ListRunnerActivityHandler
   implements
@@ -15,6 +23,8 @@ export class ListRunnerActivityHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly activity: RunnerActivityReaderPort,
+    private readonly labels: RunRequesterLabels,
+    private readonly viewers: RunViewersPort,
   ) {}
 
   async execute(
@@ -29,39 +39,25 @@ export class ListRunnerActivityHandler
       }
 
       const leased = await this.activity.leasedIn(membership.workspaceId);
-
-      const teams = [
-        ...new Set(
-          leased.flatMap((each) => (each.teamId ? [each.teamId] : [])),
-        ),
-      ];
-      const reads = new Set(
-        (
-          await Promise.all(
-            teams.map(async (teamId) =>
-              (await this.access.permissionsAsTeamReader(
-                TeamId.of(teamId),
-                PersonPrincipal.of(viewer),
-              ))
-                ? [teamId]
-                : [],
-            ),
-          )
-        ).flat(),
-      );
+      const [labels, readable] = await Promise.all([
+        this.labels.labelsOf(leased.map((each) => each.requester)),
+        this.viewers.readableAmong(leased, viewer),
+      ]);
 
       return leased.map((each) => {
-        const readable = each.teamId !== null && reads.has(each.teamId);
+        const reads = readable.has(each.runId.value);
 
         return {
           runnerId: each.runnerId,
           currentRun: {
-            id: each.runId,
+            id: each.runId.value,
             state: each.state,
-            kind: each.kind,
+            kind: kindOf(each.requester.kind),
             teamId: each.teamId,
-            readable,
-            title: readable ? each.title : null,
+            readable: reads,
+            title: reads
+              ? (labels.get(requesterRefOf(each.requester))?.title ?? null)
+              : null,
           },
         };
       });

@@ -72,15 +72,15 @@ const readyStack = (input: {
   id: string;
   runId: RunId;
   taskId: TaskId | null;
-  replay: boolean;
+  trial: boolean;
 }) =>
   ChangeStack.startGeneration({
     id: ChangeStackId.of(input.id),
     runId: input.runId,
     taskId: input.taskId,
     teamOfRun: TEAM,
-    replay: input.replay,
-    isSearch: false,
+    trial: input.trial,
+    checkouts: 1,
     workspaceId: WORKSPACE,
     repository: null,
     base: null,
@@ -182,7 +182,7 @@ afterAll(async () => {
   await database?.close();
 });
 
-describe('reading a replay’s change that was checked again', () => {
+describe('reading a trial’s change that was checked again', () => {
   const RUN = RunId.of('replay_1');
 
   beforeAll(async () => {
@@ -190,7 +190,7 @@ describe('reading a replay’s change that was checked again', () => {
       id: 'replay_stack',
       runId: RUN,
       taskId: null,
-      replay: true,
+      trial: true,
     });
     await stacks.add(stack);
     const first = await checkedOnce(stack);
@@ -223,7 +223,7 @@ describe('deleting the change review of a task', () => {
       id: 'task_stack',
       runId: RUN,
       taskId: TASK,
-      replay: false,
+      trial: false,
     });
     await stacks.add(stack);
     await checks.add(StackCheck.beginFor(stack, NOW) as StackCheck);
@@ -324,7 +324,7 @@ describe('deleting the change review of a task', () => {
   });
 });
 
-describe('deleting the team that owned a replay’s change', () => {
+describe('deleting the team that owned a trial’s change', () => {
   const RUN = RunId.of('replay_of_deleted_team');
 
   beforeAll(async () => {
@@ -332,7 +332,7 @@ describe('deleting the team that owned a replay’s change', () => {
       id: 'team_stack',
       runId: RUN,
       taskId: null,
-      replay: true,
+      trial: true,
     });
     await stacks.add(stack);
     await checks.add(StackCheck.beginFor(stack, NOW) as StackCheck);

@@ -9,7 +9,6 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { FetchedEgressSecrets } from '@work/application/dto/egress-secrets.dto';
 import type { SandboxHostsPort } from '@work/application/ports/sandbox-hosts.port';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 
@@ -35,7 +34,6 @@ export class EgressSecretFetches {
     private readonly runSecretFetches: RunSecretFetchesPort,
     private readonly grants: RunGrantsPort,
     private readonly hosts: SandboxHostsPort,
-    private readonly chats: ChatRepository,
     private readonly runTokens: RunTokensPort,
     private readonly clock: ClockPort,
     private readonly controlPlaneHost: string,
@@ -124,7 +122,7 @@ export class EgressSecretFetches {
           injectedSecrets: run
             .injectedSecretsFor(runner)
             .map((each) => each.value),
-          usesSpotlightApi: run.usesSpotlightApiFor(runner),
+          usesSpotlightApi: run.apiGrantFor(runner) !== null,
         }
       : null;
   }
@@ -146,9 +144,7 @@ export class EgressSecretFetches {
     attempt: RunAttempt,
     recipient: string,
   ): Promise<{ sealed: string; tokenId: string } | null> {
-    const chat = run.chatId ? await this.chats.find(run.chatId) : null;
-
-    if (!chat) {
+    if (!run.apiGrant) {
       return null;
     }
 
@@ -157,7 +153,7 @@ export class EgressSecretFetches {
       run.id.value,
       attempt.number,
     );
-    const grant = chat.apiGrantAt(this.clock.now());
+    const grant = run.apiGrant.issuedAt(this.clock.now());
     const token = await this.runTokens.issueFor({
       workspaceId: run.workspaceId.value,
       runId: run.id.value,

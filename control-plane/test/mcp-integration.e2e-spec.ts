@@ -25,12 +25,14 @@ import {
   type TeamIntegrationsPort,
 } from '@work/application/ports/team-integrations.port';
 import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -200,11 +202,9 @@ const aClaimedRun = async (): Promise<{
     currentRunId: runId,
   });
   await db.insert(schema.run).values({
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: BUILD,
     harness: 'dev',
     state: 'queued',
     placement: [['linux']],
@@ -212,7 +212,7 @@ const aClaimedRun = async (): Promise<{
       command: { executable: 'sh', args: [] },
       briefing: 'Tidy the tracker.',
       handover: { options: ['review', 'done'], noteLimit: 0 },
-      resume: { key: `${taskId}:${BUILD}` },
+      resume: {},
       manifest: TOOLS.map((name) => ({
         name,
         description: name,
@@ -222,6 +222,15 @@ const aClaimedRun = async (): Promise<{
       })),
     },
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      taskId,
+      stationId: BUILD,
+    }),
+  );
 
   await http()
     .put(`/api/hosts/${HOST}`)
@@ -263,7 +272,7 @@ const toolsUsed = async (runId: string) =>
       .from(schema.eventOutbox)
       .where(
         and(
-          eq(schema.eventOutbox.kind, 'run.tool-used'),
+          eq(schema.eventOutbox.kind, 'tool.used'),
           sql`${schema.eventOutbox.payload}->'runId'->>'value' = ${runId}`,
         ),
       )
@@ -411,7 +420,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
       }),
     ]);
     expect(enabledIntegrations(declared)).toEqual([
-      { name: 'Tracker', tools: 2 },
+      { integration: IntegrationName.of('tracker'), name: 'Tracker', tools: 2 },
     ]);
   });
 
@@ -483,6 +492,12 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     });
 
     expect(JSON.stringify(journalled)).toContain('tracker.search-issues');
+    expect(
+      await db
+        .select({ tool: schema.toolUse.tool, failed: schema.toolUse.failed })
+        .from(schema.toolUse)
+        .where(eq(schema.toolUse.runId, runId)),
+    ).toEqual([{ tool: 'tracker.search-issues', failed: false }]);
 
     const inferred = await eventually(async () => {
       const [found] = await app

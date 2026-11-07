@@ -1,4 +1,5 @@
 import { Station } from '@lines/domain/entities/station.entity';
+import type { LaidOutStation } from '@lines/domain/events/laid-out-station';
 import { LineCreated } from '@lines/domain/events/line-created.event';
 import { LineDeleted } from '@lines/domain/events/line-deleted.event';
 import { LineUpdated } from '@lines/domain/events/line-updated.event';
@@ -162,6 +163,9 @@ export class Line extends EventRecorder {
         created.teamId,
         created.key,
         ConfigurationChange.created(created.whatChanged, input.by),
+        created.version,
+        created.name,
+        created.laidOut,
       ),
     );
 
@@ -169,9 +173,9 @@ export class Line extends EventRecorder {
   }
 
   static rehydrate(
-    input: LineIdentity & LineLayout & { version?: number },
+    input: LineIdentity & LineLayout & { version: number },
   ): Line {
-    return Line.build(input, input, input.version ?? 0);
+    return Line.build(input, input, input.version);
   }
 
   private static build(
@@ -291,6 +295,9 @@ export class Line extends EventRecorder {
             ]),
           ).values(),
         ],
+        this.version + 1,
+        updated.name,
+        updated.laidOut,
       ),
     );
 
@@ -321,6 +328,7 @@ export class Line extends EventRecorder {
   }
 
   delete(taskCounts: TaskCounts, by: ChangeActor): Line {
+    this.guardNotDeleted();
     this.guardNothingStranded(this.stations, taskCounts);
 
     const deleted = new Line(
@@ -351,19 +359,25 @@ export class Line extends EventRecorder {
         this.key,
         ConfigurationChange.deleted(this.whatChanged, by),
         this.stations.map((each) => each.id),
+        this.version + 1,
+        this.name,
       ),
     );
 
     return deleted;
   }
 
-  private changed(part: Partial<LineLayout>): Line {
+  private guardNotDeleted(): void {
     if (this.isDeleted) {
       throw new InconsistentStateError(
         'line',
         'was changed after it was deleted',
       );
     }
+  }
+
+  private changed(part: Partial<LineLayout>): Line {
+    this.guardNotDeleted();
 
     const next = Line.build(
       this,
@@ -393,6 +407,17 @@ export class Line extends EventRecorder {
     return this.search ?? LineSearchPolicy.DEFAULT;
   }
 
+  private get laidOut(): readonly LaidOutStation[] {
+    return this.stations.map((each) => ({
+      id: each.id,
+      key: each.key,
+      name: each.name,
+      kind: each.kind,
+      color: each.color,
+      position: each.position,
+    }));
+  }
+
   private get whatChanged() {
     return {
       resource: 'line' as const,
@@ -419,16 +444,8 @@ export class Line extends EventRecorder {
     }
   }
 
-  get agentStations(): readonly Station[] {
-    return this.stations.filter((each) => each.isAgentStation);
-  }
-
   stationAt(stationId: StationId): Station | null {
     return this.stations.find((each) => each.id.equals(stationId)) ?? null;
-  }
-
-  stationKeyed(key: StationKey): Station | null {
-    return this.stations.find((each) => each.key.equals(key)) ?? null;
   }
 
   equals(other: Line): boolean {

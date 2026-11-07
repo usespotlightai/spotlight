@@ -17,16 +17,15 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
-import { HappeningHeldError } from '@work/application/errors/happening-held.error';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
 import type { RunFactsPort } from '@work/application/ports/run-facts.port';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import type { ChannelChats } from '@work/application/services/channel-chats.service';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
@@ -45,8 +44,13 @@ import type { Station } from '@work/domain/value-objects/station.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const TEAMMATES = {
+  membersOf: async () => TeamMembers.of([UserId.of('user_9')]),
+};
 
 const NO_RUNS = { of: async () => [] } as unknown as RunFactsPort;
 
@@ -144,6 +148,12 @@ const taskAt = (stationId = 'station_2') =>
     newId: () => 'task_1',
   });
 
+const landedAt = (stationId: string) =>
+  Task.rehydrate({
+    ...taskAt('station_2'),
+    stationId: StationId.of(stationId),
+  });
+
 let saved: Task | undefined;
 const dispatched: Task[] = [];
 
@@ -222,6 +232,7 @@ const receive = (
     logger,
     channels,
     NO_RUNS,
+    TEAMMATES,
   ).react(
     WorkspaceId.of('ws_1'),
     null,
@@ -259,6 +270,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     );
     const happenings = [news(CHANGES_REQUESTED, 'Handle the empty case.')];
 
@@ -295,6 +307,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     );
     const happenings = [news(COMMENTED, 'Still retries.')];
 
@@ -320,6 +333,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     );
     const happenings = [news(COMMENTED, 'Still retries.')];
 
@@ -380,7 +394,7 @@ describe('ReactToHappenings', () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Addressed all three comments. Look again?'),
         at: NOW,
       },
@@ -401,7 +415,7 @@ describe('ReactToHappenings', () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Which repository should this live in?'),
         at: NOW,
       },
@@ -436,6 +450,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     expect(saved?.notes.map((each) => each.kind)).toEqual([
@@ -454,7 +469,7 @@ describe('ReactToHappenings', () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Which repository should this live in?'),
         at: NOW,
       },
@@ -476,6 +491,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -511,7 +527,7 @@ describe('ReactToHappenings', () => {
       .assignRun(RunId.of('run_1'), line())
       .putToAPerson(RunId.of('run_1'), {
         voice: Voice.station(RunId.of('run_1')),
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Which repository should this live in?'),
         at: NOW,
       });
@@ -531,6 +547,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -569,7 +586,7 @@ describe('ReactToHappenings', () => {
       taskAt().askedAbout(
         {
           voice: Voice.station(),
-          station: null,
+          line: null,
           body: TaskNoteBody.of('What does the queue look like now?'),
           at: NOW,
         },
@@ -611,6 +628,7 @@ describe('ReactToHappenings', () => {
         logger,
         channels,
         NO_RUNS,
+        TEAMMATES,
       ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     it('takes a reply that is only a file as the answer, and keeps the file', async () => {
@@ -645,7 +663,7 @@ describe('ReactToHappenings', () => {
     const asked = taskAt().askedAbout(
       {
         voice: Voice.station(),
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Which queue should I drain?'),
         at: NOW,
       },
@@ -676,6 +694,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -711,6 +730,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     ).react(
       WorkspaceId.of('ws_1'),
       null,
@@ -748,7 +768,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('leaves a task that has landed at the end of the line alone', async () => {
-    await receive(MERGED, taskAt('station_3'));
+    await receive(MERGED, landedAt('station_3'));
 
     expect(saved).toBeUndefined();
   });
@@ -814,7 +834,7 @@ describe('ReactToHappenings', () => {
       const task = taskAt(stationId)
         .assignRun(RunId.of('run_1'), line())
         .putToAPerson(RunId.of('run_1'), {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Which queue should I drain?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -981,6 +1001,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     ).react(WorkspaceId.of('ws_1'), null, [news(MERGED, null)], 'received-as');
 
     expect(stored.findByCorrelation).toHaveBeenCalledWith(
@@ -1059,6 +1080,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
@@ -1142,6 +1164,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(byEmail).toHaveBeenCalledWith(
@@ -1149,6 +1172,87 @@ describe('ReactToHappenings', () => {
       'dev@acme.test',
     );
     expect(added?.assignee?.value).toBe('user_9');
+  });
+
+  it('leaves an opened task unassigned where the member matched by email is not on its team', async () => {
+    const ISSUE_CREATED = Happening.of('linear.issue.created');
+    const issueMark = Mark.of('linear.issue', 'ISS-1');
+
+    let next = 0;
+    const opening = deliveryLineOf({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      newId: () => `id_${++next}`,
+    });
+
+    let added: Task | undefined;
+    const stored = {
+      add: vi.fn(async (each: Task) => {
+        added = each;
+      }),
+      save: vi.fn(),
+      find: vi.fn(async () => null),
+      remove: vi.fn(),
+      placementsAt: vi.fn(async () => []),
+      findByCorrelation: vi.fn(async () => []),
+      holdingMark: vi.fn(async () => []),
+      settingUpFor: vi.fn(async () => null),
+      settingUpIn: vi.fn(async () => []),
+      settingUp: vi.fn(async () => []),
+      withTurnAnsweredBetween: vi.fn(async () => []),
+      awaitingConnection: vi.fn(async () => []),
+    } satisfies TaskRepository & TaskPlacementsPort;
+
+    const running = {
+      find: vi.fn(async () => opening),
+      findByStation: vi.fn(async () => opening),
+      ofWorkspace: vi.fn(async () => [opening]),
+      ofTeam: vi.fn(async () => []),
+      candidate: vi.fn(),
+    } satisfies LineMapsPort;
+
+    const byEmail = vi.fn(async () => UserId.of('user_9'));
+
+    const filed: Happened = {
+      happening: ISSUE_CREATED.value,
+      summary: 'An issue was filed.',
+      answers: false,
+      state: 'raised',
+      correlationKeys: { branch: null, marks: [issueMark] },
+      message: null,
+      ourOwn: false,
+      opens: {
+        lineRole: 'delivery',
+        station: null,
+        title: 'Drain the retry queue',
+        description: null,
+        assignEmail: 'dev@acme.test',
+        marks: [issueMark],
+      },
+    };
+
+    await new ReactToHappenings(
+      stored,
+      stored,
+      running,
+      dispatch,
+      transaction,
+      clock,
+      ids,
+      { byEmail },
+      files,
+      processedEventsInMemory(),
+      logger,
+      channels,
+      NO_RUNS,
+      { membersOf: async () => TeamMembers.of([]) },
+    ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
+
+    expect(byEmail).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      'dev@acme.test',
+    );
+    expect(added?.assignee).toBeNull();
   });
 
   it('leaves an opened task unassigned where no member has the email', async () => {
@@ -1220,6 +1324,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(added?.assignee).toBeNull();
@@ -1301,6 +1406,7 @@ describe('ReactToHappenings', () => {
       logger,
       channels,
       NO_RUNS,
+      TEAMMATES,
     ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
@@ -1358,6 +1464,7 @@ describe('ReactToHappenings with a word for a chat', () => {
       logger,
       chatting as unknown as ChannelChats,
       NO_RUNS,
+      TEAMMATES,
     );
 
     return { reactions, chatting, refusal };
@@ -1424,7 +1531,9 @@ describe('ReactToHappenings with a word for a chat', () => {
     });
 
     it('refuses a task at the completed station, and leaves it alone', async () => {
-      const { reactions, chatting } = reacting(finishedAt('station_3'));
+      const { reactions, chatting } = reacting(
+        Task.rehydrate({ ...landedAt('station_3'), finishedAt: NOW }),
+      );
 
       await reactions.react(WorkspaceId.of('ws_1'), null, [mention()], null);
 
@@ -1501,11 +1610,12 @@ describe('a happening for a task whose run’s turn is still being decided (R18)
         logger,
         channels,
         runs,
+        TEAMMATES,
       ),
     };
   };
 
-  it('is held back with a conflict, so the delivery comes again once the turn is decided', async () => {
+  it('is held back as a transient failure, so the delivery comes again once the turn is decided', async () => {
     const { reactions, stored } = reacting(turnFor('pending', 60_000));
 
     await expect(
@@ -1515,7 +1625,7 @@ describe('a happening for a task whose run’s turn is still being decided (R18)
         [news(CHANGES_REQUESTED, 'Handle the empty case.')],
         'delivery_1',
       ),
-    ).rejects.toBeInstanceOf(HappeningHeldError);
+    ).resolves.toMatchObject({ kind: 'failed', transient: true });
     expect(stored.save).not.toHaveBeenCalled();
   });
 

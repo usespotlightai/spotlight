@@ -113,8 +113,8 @@ const stack = () =>
     runId: RunId.of('run-1'),
     taskId: null,
     teamOfRun: TeamId.of('team_1'),
-    replay: false,
-    isSearch: false,
+    trial: false,
+    checkouts: 1,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: null,
     base: null,
@@ -138,7 +138,7 @@ const waiting = () => {
     runId: ready.runId,
     taskId: null,
     teamId: null,
-    replay: false,
+    trial: false,
     workspaceId: ready.workspaceId,
     request: CheckRequest.of('npx tsc --noEmit', null),
     entries: ready.entries(),
@@ -180,7 +180,7 @@ const rehydrated = ({
     runId: RunId.of('run-1'),
     taskId: null,
     teamId: null,
-    replay: false,
+    trial: false,
     workspaceId: WorkspaceId.of('workspace-1'),
     request: CheckRequest.of('npx tsc --noEmit', null),
     status: 'waiting',
@@ -218,8 +218,8 @@ describe('StackCheck', () => {
           runId: RunId.of('run-1'),
           taskId: null,
           teamOfRun: TeamId.of('team_1'),
-          replay: false,
-          isSearch: false,
+          trial: false,
+          checkouts: 1,
           workspaceId: WorkspaceId.of('workspace-1'),
           repository: null,
           base: null,
@@ -244,8 +244,8 @@ describe('StackCheck', () => {
           runId: RunId.of('run-1'),
           taskId: null,
           teamOfRun: TeamId.of('team_1'),
-          replay: false,
-          isSearch: false,
+          trial: false,
+          checkouts: 1,
           workspaceId: WorkspaceId.of('workspace-1'),
           repository: null,
           base: null,
@@ -488,7 +488,7 @@ describe('StackCheck', () => {
         runId: RunId.of('run-1'),
         taskId: null,
         teamId: null,
-        replay: false,
+        trial: false,
         workspaceId: WorkspaceId.of('workspace-1'),
         request: CheckRequest.of(
           'npx tsc --noEmit',
@@ -1136,14 +1136,14 @@ describe('StackCheck', () => {
 });
 
 describe('StackCheck, rechecked', () => {
-  const replayed = () => {
+  const trialCheck = () => {
     const ready = stack();
     const check = StackCheck.begin({
       stackId: ready.id,
       runId: ready.runId,
       taskId: null,
       teamId: null,
-      replay: true,
+      trial: true,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
       entries: ready.entries(),
@@ -1155,7 +1155,7 @@ describe('StackCheck, rechecked', () => {
   };
 
   const passedOnce = () => {
-    const checked = replayed().recordResult(
+    const checked = trialCheck().recordResult(
       RUNNER,
       planned(),
       [step(WHOLE_STEP, true), step('c1.l1', true)],
@@ -1166,7 +1166,7 @@ describe('StackCheck, rechecked', () => {
     return checked;
   };
 
-  it('checks a replay’s change again, from scratch, under the same request and layers, and leaves the first check as it was', () => {
+  it('checks a trial’s change again, from scratch, under the same request and layers, and leaves the first check as it was', () => {
     const first = passedOnce();
     const again = first.rechecking(WAIT_EXPIRED);
 
@@ -1199,14 +1199,16 @@ describe('StackCheck, rechecked', () => {
     ).toEqual([{ kind: 'stack-check.checked', recheck: true }]);
   });
 
-  it('is recheckable only as a replay’s first check that found something', () => {
+  it('is recheckable only as a trial’s first check that found something', () => {
     expect(passedOnce().recheckable).toBe(true);
-    expect(replayed().recheckable).toBe(false);
+    expect(trialCheck().recheckable).toBe(false);
     expect(passedOnce().rechecking(LATER).recheckable).toBe(false);
   });
 
-  it('rechecks only a replay’s change whose first check found something, and only once', () => {
-    expect(() => replayed().rechecking(LATER)).toThrow(InvalidStackCheckError);
+  it('rechecks only a trial’s change whose first check found something, and only once', () => {
+    expect(() => trialCheck().rechecking(LATER)).toThrow(
+      InvalidStackCheckError,
+    );
     expect(() =>
       checking()
         .recordResult(RUNNER, planned(), [step(WHOLE_STEP, true)], LATER)
@@ -1220,8 +1222,8 @@ describe('StackCheck, rechecked', () => {
   it('does not come back as a recheck of a task’s change, or as one that redrafted', () => {
     expect(() => rehydrated({ recheck: true })).toThrow(InconsistentStateError);
     expect(() =>
-      rehydrated({ recheck: true, replay: true, redraftCount: 1 }),
+      rehydrated({ recheck: true, trial: true, redraftCount: 1 }),
     ).toThrow(InconsistentStateError);
-    expect(rehydrated({ recheck: true, replay: true }).recheck).toBe(true);
+    expect(rehydrated({ recheck: true, trial: true }).recheck).toBe(true);
   });
 });

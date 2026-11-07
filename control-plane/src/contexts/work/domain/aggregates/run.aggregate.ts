@@ -4,15 +4,12 @@ import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.v
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import { ProvisionFailure } from '@shared-kernel/domain/value-objects/provision-failure.vo';
 import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
-import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { RunnerReservation } from '@shared-kernel/domain/value-objects/runner-reservation.vo';
 import type { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
-import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -23,43 +20,44 @@ import { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import { RunPaused } from '@work/domain/events/run-paused.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import { RunSuspended } from '@work/domain/events/run-suspended.event';
+import { InvalidRunOrderError } from '@work/domain/exceptions/invalid-run-order.error';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { InvalidStartingPointError } from '@work/domain/exceptions/invalid-starting-point.error';
-import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
-import { NotAllowedInSearchError } from '@work/domain/exceptions/not-allowed-in-search.error';
+import { RunActsOnlyOnItselfError } from '@work/domain/exceptions/run-acts-only-on-itself.error';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
-import { policyOf } from '@work/domain/services/policy-of';
-import { requesterOf } from '@work/domain/services/requester-of';
-import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
-import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import type { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
 import type { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
-import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import { RunApiGrant } from '@work/domain/value-objects/run-api-grant.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
+import { RunExtensions } from '@work/domain/value-objects/run-extensions.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import type { RunPolicy } from '@work/domain/value-objects/run-policy.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import type { RunRequester } from '@work/domain/value-objects/run-requester.vo';
-import type {
-  RunCheckout,
-  RunSpec,
+import {
+  actsBeyondItselfIn,
+  type RunCheckout,
+  type RunSpec,
 } from '@work/domain/value-objects/run-spec.vo';
 import {
   LEASED_RUN_STATES,
   type RunState,
   TERMINAL_RUN_STATES,
 } from '@work/domain/value-objects/run-state';
-import type { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { RunTags } from '@work/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@work/domain/value-objects/run-turn.vo';
 import type { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
 import {
   type ReportedStart,
   StartingPoint,
 } from '@work/domain/value-objects/starting-point.vo';
-import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import type {
+  RunWorkspace,
+  WorkspaceKey,
+} from '@work/domain/value-objects/workspace-key.vo';
 
 const LEASE_DURATION_MS = 60_000;
 
@@ -78,13 +76,52 @@ const endingIn = (outcome: RunOutcome): RunState =>
 const isLeased = (state: RunState): boolean =>
   (LEASED_RUN_STATES as readonly RunState[]).includes(state);
 
+export interface RunOrdered {
+  readonly requester: RunRequester;
+  readonly policy: RunPolicy;
+  readonly workspace: RunWorkspace | null;
+  readonly restore: WorkspaceArchiveId | null;
+  readonly extensions: RunExtensions;
+  readonly tags: RunTags;
+  readonly apiGrant: RunApiGrant | null;
+}
+
+export interface RestoreCandidate {
+  readonly id: WorkspaceArchiveId;
+  readonly workspaceKey: WorkspaceKey;
+  readonly completedAt: Date | null;
+  isAvailableIn(workspaceId: WorkspaceId): boolean;
+}
+
+export type RestoreSource =
+  | { readonly archive: WorkspaceArchiveId }
+  | { readonly newestOf: WorkspaceKey };
+
+const orderProblem = (ordered: RunOrdered, spec: RunSpec): string | null => {
+  const { requester, policy, workspace, apiGrant } = ordered;
+
+  if (workspace && !workspace.key.owner.equals(requester.owner)) {
+    return `names workspace ${workspace.key.value}, which belongs to another requester than ${requester.owner.value}`;
+  }
+
+  if ((apiGrant !== null) !== spec.injectsSpotlightApi) {
+    return 'must grant Spotlight’s API exactly when its spec uses it';
+  }
+
+  const beyond = policy.actsBeyondItself
+    ? null
+    : actsBeyondItselfIn(spec.value);
+
+  return beyond ? `acts only on itself, yet ${beyond}` : null;
+};
+
 export class Run extends EventRecorder {
   private constructor(
     readonly id: RunId,
     readonly workspaceId: WorkspaceId,
     readonly harness: HarnessId,
     readonly priority: RunPriority,
-    readonly subject: RunSubject | null,
+    readonly ordered: RunOrdered,
     readonly spec: RunSpec,
     readonly placement: RunnerPlacement,
     readonly state: RunState,
@@ -102,10 +139,10 @@ export class Run extends EventRecorder {
     readonly startedFrom: StartingPoint | null = null,
     readonly askedAPerson: boolean = false,
     readonly version: number = 0,
-    readonly team: TeamId | null = null,
     readonly orderFingerprint: string | null = null,
     readonly turn: RunTurn | null = null,
     readonly endedAt: Date | null = null,
+    readonly queuedAt: Date | null = null,
   ) {
     super();
   }
@@ -115,18 +152,31 @@ export class Run extends EventRecorder {
     workspaceId: WorkspaceId;
     harness: HarnessId;
     priority?: RunPriority;
-    subject?: RunSubject | null;
+    requester: RunRequester;
+    policy: RunPolicy;
+    workspace?: RunWorkspace | null;
+    restore?: WorkspaceArchiveId | null;
+    extensions?: RunExtensions;
+    tags?: RunTags;
+    apiGrant?: RunApiGrant | null;
     spec: RunSpec;
     placement?: RunnerPlacement;
-    team?: TeamId | null;
     orderFingerprint?: string | null;
+    queuedAt?: Date;
   }): Run {
-    const run = new Run(
+    const ordered = Run.orderedFrom(input);
+    const problem = orderProblem(ordered, input.spec);
+
+    if (problem) {
+      throw new InvalidRunOrderError(problem);
+    }
+
+    return new Run(
       input.id,
       input.workspaceId,
       input.harness,
       input.priority ?? RunPriority.normal,
-      input.subject ?? null,
+      ordered,
       input.spec,
       input.placement ?? RunnerPlacement.anywhere(),
       'queued',
@@ -144,31 +194,31 @@ export class Run extends EventRecorder {
       null,
       false,
       0,
-      input.team ?? input.subject?.ranFor ?? null,
       input.orderFingerprint ?? null,
+      null,
+      null,
+      input.queuedAt ?? null,
     );
+  }
 
-    if (run.isReplay !== run.spec.isReplay) {
-      throw new InvalidRunTransitionError(
-        `Run ${run.id.value} and its spec disagree on what it replays.`,
-      );
-    }
-
-    if (run.isSearch !== run.spec.isSearch) {
-      throw new InvalidRunTransitionError(
-        `Run ${run.id.value} and its spec disagree on whether it searches.`,
-      );
-    }
-
-    const resumeKey = run.spec.resumeKey;
-
-    if (resumeKey && !resumeKey.belongsTo(run.subject)) {
-      throw new InvalidRunTransitionError(
-        `Run ${run.id.value} cannot resume ${resumeKey.value}. That workspace belongs to another task, chat, replay or search.`,
-      );
-    }
-
-    return run;
+  private static orderedFrom(input: {
+    requester: RunRequester;
+    policy: RunPolicy;
+    workspace?: RunWorkspace | null;
+    restore?: WorkspaceArchiveId | null;
+    extensions?: RunExtensions;
+    tags?: RunTags;
+    apiGrant?: RunApiGrant | null;
+  }): RunOrdered {
+    return {
+      requester: input.requester,
+      policy: input.policy,
+      workspace: input.workspace ?? null,
+      restore: input.restore ?? null,
+      extensions: input.extensions ?? RunExtensions.none(),
+      tags: input.tags ?? RunTags.none(),
+      apiGrant: input.apiGrant ?? null,
+    };
   }
 
   static rehydrate(input: {
@@ -176,7 +226,13 @@ export class Run extends EventRecorder {
     workspaceId: WorkspaceId;
     harness: HarnessId;
     priority: RunPriority;
-    subject: RunSubject | null;
+    requester: RunRequester;
+    policy: RunPolicy;
+    workspace?: RunWorkspace | null;
+    restore?: WorkspaceArchiveId | null;
+    extensions?: RunExtensions;
+    tags?: RunTags;
+    apiGrant?: RunApiGrant | null;
     spec: RunSpec;
     placement?: RunnerPlacement;
     state: RunState;
@@ -194,19 +250,21 @@ export class Run extends EventRecorder {
     startedFrom?: StartingPoint | null;
     askedAPerson?: boolean;
     version?: number;
-    team?: TeamId | null;
     orderFingerprint?: string | null;
     turn?: RunTurn | null;
     endedAt?: Date | null;
+    queuedAt?: Date | null;
   }): Run {
-    Run.guardReconstituted(input);
+    const ordered = Run.orderedFrom(input);
+
+    Run.guardReconstituted({ ...input, ordered });
 
     return new Run(
       input.id,
       input.workspaceId,
       input.harness,
       input.priority,
-      input.subject,
+      ordered,
       input.spec,
       input.placement ?? RunnerPlacement.anywhere(),
       input.state,
@@ -224,10 +282,10 @@ export class Run extends EventRecorder {
       input.startedFrom ?? null,
       input.askedAPerson ?? false,
       input.version ?? 0,
-      input.team ?? null,
       input.orderFingerprint ?? null,
       input.turn ?? null,
       input.endedAt ?? null,
+      input.queuedAt ?? null,
     );
   }
 
@@ -236,11 +294,10 @@ export class Run extends EventRecorder {
     claimedBy: RunnerId | null;
     leaseExpiresAt: Date | null;
     attempt: number;
-    subject: RunSubject | null;
+    ordered: RunOrdered;
     spec: RunSpec;
     startedFrom?: StartingPoint | null;
     askedAPerson?: boolean;
-    team?: TeamId | null;
     turn?: RunTurn | null;
   }): void {
     if (input.attempt < 1) {
@@ -252,38 +309,21 @@ export class Run extends EventRecorder {
         'holds a turn only while it is suspended, and always then',
       );
     }
-    if (
-      input.subject?.ranFor &&
-      input.team &&
-      !input.subject.ranFor.equals(input.team)
-    ) {
+    const problem = orderProblem(input.ordered, input.spec);
+
+    if (problem) {
+      throw new InconsistentStateError('run', problem);
+    }
+    if (input.askedAPerson && input.ordered.policy.asks !== 'recorded') {
       throw new InconsistentStateError(
         'run',
-        'works for a team other than the one its replay or search is for',
+        'recorded that it asked a person though its requester takes its asks',
       );
     }
-    if ((input.subject?.isReplay ?? false) !== input.spec.isReplay) {
+    if (input.startedFrom && !input.spec.reportsStartingPoint) {
       throw new InconsistentStateError(
         'run',
-        'replays a run with a spec that does not say what it replays, or the other way round',
-      );
-    }
-    if ((input.subject?.isSearch ?? false) !== input.spec.isSearch) {
-      throw new InconsistentStateError(
-        'run',
-        'searches with a spec that does not say it searches, or the other way round',
-      );
-    }
-    if (input.askedAPerson && !input.subject?.leavesNothingBehind) {
-      throw new InconsistentStateError(
-        'run',
-        'asked a person itself though it is no replay or search',
-      );
-    }
-    if (input.startedFrom && !input.subject?.taskId) {
-      throw new InconsistentStateError(
-        'run',
-        'started from somewhere though it works no task',
+        'started from somewhere though it reports no starting point',
       );
     }
     if (input.startedFrom && input.startedFrom.attempt > input.attempt) {
@@ -313,64 +353,94 @@ export class Run extends EventRecorder {
   }
 
   get requester(): RunRequester {
-    return requesterOf(this.id, this.subject, this.team);
+    return this.ordered.requester;
   }
 
   get policy(): RunPolicy {
-    return policyOf(this.subject);
+    return this.ordered.policy;
   }
 
-  get taskId(): TaskId | null {
-    return this.subject?.taskId ?? null;
+  get team(): TeamId | null {
+    return this.ordered.requester.team;
   }
 
-  get stationId(): StationId | null {
-    return this.subject?.stationId ?? null;
+  get workspace(): RunWorkspace | null {
+    return this.ordered.workspace;
   }
 
-  get chatId(): ChatId | null {
-    return this.subject?.chatId ?? null;
+  get restore(): WorkspaceArchiveId | null {
+    return this.ordered.restore;
   }
 
-  get isReplay(): boolean {
-    return this.subject?.isReplay ?? false;
+  get extensions(): RunExtensions {
+    return this.ordered.extensions;
   }
 
-  get replayOf(): RunId | null {
-    return this.subject?.replayOf ?? null;
+  get tags(): RunTags {
+    return this.ordered.tags;
   }
 
-  get isSearch(): boolean {
-    return this.subject?.isSearch ?? false;
+  get apiGrant(): RunApiGrant | null {
+    return this.ordered.apiGrant;
   }
 
-  get leavesNothingBehind(): boolean {
-    return this.subject?.leavesNothingBehind ?? false;
-  }
-
-  get restoresArchive(): WorkspaceArchiveId | null {
-    const archive = this.spec.replay?.archive ?? null;
-
-    return archive ? WorkspaceArchiveId.of(archive) : null;
-  }
-
-  get resumeKey(): ResumeKey | null {
-    return this.spec.resumeKey;
+  get workspaceKey(): WorkspaceKey | null {
+    return this.ordered.workspace?.key ?? null;
   }
 
   get sandboxIsRejoinable(): boolean {
-    return this.resumeKey?.isRejoinable ?? false;
+    return this.ordered.workspace?.rejoinable ?? false;
   }
 
-  get archiveHolder(): ArchiveHolder | null {
-    return this.subject?.archiveHolder ?? null;
+  get restoresFrom(): RestoreSource | null {
+    if (this.ordered.restore) {
+      return { archive: this.ordered.restore };
+    }
+
+    const workspace = this.ordered.workspace;
+
+    return workspace?.restoresWhen(this.spec.continuesASession)
+      ? { newestOf: workspace.key }
+      : null;
   }
 
-  get restoresFrom(): ResumeKey | null {
-    const restores =
-      this.archiveHolder?.kind === 'task' || this.spec.continuesASession;
+  archiveToRestore<A extends RestoreCandidate>(
+    candidates: readonly A[],
+  ): A | null {
+    const source = this.restoresFrom;
 
-    return restores ? this.spec.resumeKey : null;
+    if (!source) {
+      return null;
+    }
+
+    const available = candidates.filter((each) =>
+      each.isAvailableIn(this.workspaceId),
+    );
+
+    if ('archive' in source) {
+      return available.find((each) => each.id.equals(source.archive)) ?? null;
+    }
+
+    return (
+      available
+        .filter((each) => each.workspaceKey.equals(source.newestOf))
+        .sort(
+          (a, b) =>
+            (b.completedAt?.getTime() ?? 0) - (a.completedAt?.getTime() ?? 0),
+        )[0] ?? null
+    );
+  }
+
+  restored(archive: RestoredArchive): boolean {
+    const source = this.restoresFrom;
+
+    if (!source || !archive.workspaceId.equals(this.workspaceId)) {
+      return false;
+    }
+
+    return 'archive' in source
+      ? archive.id.equals(source.archive)
+      : archive.workspaceKey.equals(source.newestOf);
   }
 
   claim(by: RunnerId, now: Date): Run {
@@ -498,7 +568,7 @@ export class Run extends EventRecorder {
       new RunCompleted(
         this.id,
         this.workspaceId,
-        this.subject,
+        this.requester,
         outcome,
         null,
         null,
@@ -567,7 +637,7 @@ export class Run extends EventRecorder {
       new RunExhausted(
         this.id,
         this.workspaceId,
-        this.subject,
+        this.requester,
         this.attempt,
         this.expiredLeases,
         this.askedAPerson,
@@ -644,15 +714,15 @@ export class Run extends EventRecorder {
     this.assertStillOn(attempt, by);
     this.requireClaimedBy(by, 'record the start of');
 
-    if (!this.taskId) {
+    if (!this.spec.reportsStartingPoint) {
       throw new InvalidRunTransitionError(
-        `Run ${this.id.value} works no task. It cannot record a starting point.`,
+        `Run ${this.id.value} reports no starting point.`,
       );
     }
 
     const { restored } = started;
 
-    if (restored && !restored.restores(this.workspaceId, this.restoresFrom)) {
+    if (restored && !this.restored(restored)) {
       throw new InvalidStartingPointError(
         `names archive ${restored.id.value}, which run ${this.id.value} did not restore`,
       );
@@ -714,15 +784,13 @@ export class Run extends EventRecorder {
       state: endingIn(outcome),
       outcome,
       leaseExpiresAt: null,
-      askedAPerson:
-        this.askedAPerson || this.replayAsksAfter(outcome, report.handover),
     });
 
     ended.record(
       new RunCompleted(
         this.id,
         this.workspaceId,
-        this.subject,
+        this.requester,
         outcome,
         by,
         report.handover ?? null,
@@ -737,58 +805,18 @@ export class Run extends EventRecorder {
     return ended;
   }
 
-  private replayAsksAfter(
-    outcome: RunOutcome,
-    handover: Handover | null,
-  ): boolean {
-    const replay = this.spec.replay;
-
-    if (!replay || !outcome.handsOver) {
-      return false;
-    }
-
-    return !(
-      handover && replay.movesOnAfter.includes(handover.next.toLowerCase())
-    );
-  }
-
-  replayedRepository(name: string): Repository | null {
-    const checkout = this.spec.replay?.checkouts.find(
-      (each) => each.path === name,
-    );
-
-    return checkout ? Repository.of(checkout.repository) : null;
-  }
-
-  get replayedRepositories(): readonly Repository[] {
-    return (this.spec.replay?.checkouts ?? []).map((each) =>
-      Repository.of(each.repository),
-    );
-  }
-
-  get ranFor(): TeamId | null {
-    return this.subject?.ranFor ?? null;
-  }
-
-  get firesHooks(): boolean {
-    return !this.leavesNothingBehind;
-  }
-
   mayActBeyondItself(what: string): void {
-    if (this.isReplay) {
-      throw new NotAllowedInReplayError(what);
-    }
-    if (this.isSearch) {
-      throw new NotAllowedInSearchError(what);
+    if (!this.policy.actsBeyondItself) {
+      throw new RunActsOnlyOnItselfError(what);
     }
   }
 
   askedAPersonBy(by: RunnerId): Run {
     this.requireClaimedBy(by, 'ask a person on');
 
-    if (!this.leavesNothingBehind) {
+    if (this.policy.asks !== 'recorded') {
       throw new InvalidRunTransitionError(
-        `Run ${this.id.value} must ask a person through its task or chat.`,
+        `Run ${this.id.value} must ask a person through its requester.`,
       );
     }
 
@@ -899,7 +927,7 @@ export class Run extends EventRecorder {
       new RunCompleted(
         this.id,
         this.workspaceId,
-        this.subject,
+        this.requester,
         this.outcome,
         turn.reportedBy,
         null,
@@ -940,7 +968,7 @@ export class Run extends EventRecorder {
       new RunCompleted(
         this.id,
         this.workspaceId,
-        this.subject,
+        this.requester,
         outcome,
         by,
         null,
@@ -968,7 +996,7 @@ export class Run extends EventRecorder {
       new RunCompleted(
         this.id,
         this.workspaceId,
-        this.subject,
+        this.requester,
         outcome,
         null,
         null,
@@ -1026,7 +1054,7 @@ export class Run extends EventRecorder {
       new RunCompleted(
         this.id,
         this.workspaceId,
-        this.subject,
+        this.requester,
         outcome,
         null,
         null,
@@ -1074,7 +1102,7 @@ export class Run extends EventRecorder {
       new RunCompleted(
         this.id,
         this.workspaceId,
-        this.subject,
+        this.requester,
         outcome,
         this.turn?.reportedBy ?? this.claimedBy,
         null,
@@ -1103,7 +1131,7 @@ export class Run extends EventRecorder {
       new RunCancelled(
         this.id,
         this.workspaceId,
-        this.subject,
+        this.requester,
         this.attempt,
         this.askedAPerson,
         this.hasStarted,
@@ -1186,9 +1214,7 @@ export class Run extends EventRecorder {
   }
 
   get injectsSecrets(): boolean {
-    return (
-      this.spec.injectedSecrets.length > 0 || this.spec.injectsSpotlightApi
-    );
+    return this.spec.injectedSecrets.length > 0 || this.apiGrant !== null;
   }
 
   isLeasedBy(runner: RunnerId): boolean {
@@ -1203,8 +1229,8 @@ export class Run extends EventRecorder {
     return this.isLeasedBy(runner) ? this.spec.injectedSecrets : [];
   }
 
-  usesSpotlightApiFor(runner: RunnerId): boolean {
-    return this.isLeasedBy(runner) && this.spec.injectsSpotlightApi;
+  apiGrantFor(runner: RunnerId): RunApiGrant | null {
+    return this.isLeasedBy(runner) ? this.apiGrant : null;
   }
 
   isEnabled(tool: Tool): boolean {
@@ -1247,7 +1273,7 @@ export class Run extends EventRecorder {
       this.workspaceId,
       this.harness,
       this.priority,
-      this.subject,
+      this.ordered,
       part.spec ?? this.spec,
       this.placement,
       part.state ?? this.state,
@@ -1269,10 +1295,10 @@ export class Run extends EventRecorder {
       part.startedFrom !== undefined ? part.startedFrom : this.startedFrom,
       part.askedAPerson ?? this.askedAPerson,
       this.version,
-      this.team,
       this.orderFingerprint,
       part.turn !== undefined ? part.turn : this.turn,
       part.endedAt !== undefined ? part.endedAt : this.endedAt,
+      this.queuedAt,
     );
 
     next.inheritEvents(this);

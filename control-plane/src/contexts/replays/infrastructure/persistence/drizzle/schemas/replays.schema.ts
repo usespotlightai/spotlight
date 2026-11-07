@@ -15,6 +15,7 @@ import type { FailureCauseKind } from '@replays/domain/value-objects/failure-cau
 import { PAIR_ORDERS } from '@replays/domain/value-objects/pair-order';
 import { REFLECTION_RESULTS } from '@replays/domain/value-objects/reflection-result';
 import { RUN_RESULTS } from '@replays/domain/value-objects/replay-ending';
+import { REPLAY_RUN_CLAIMS } from '@replays/domain/value-objects/replay-run-claimed';
 import {
   REPLAY_STATES,
   type ReplayStopReason,
@@ -831,5 +832,27 @@ export const sideBySideJudging = pgTable(
       .on(table.queuedAt)
       .where(sql`${table.pending}`),
     index('side_by_side_judging_team_idx').on(table.teamId),
+  ],
+);
+
+export const replayRunClaimed = pgEnum('replay_run_claimed', REPLAY_RUN_CLAIMS);
+
+export const replayRunClaim = pgTable(
+  'replay_run_claim',
+  {
+    runId: text('run_id').primaryKey(),
+    claimedAs: replayRunClaimed('claimed_as').notNull(),
+    unreplayableReason: unreplayableReason('unreplayable_reason'),
+    reason: text('reason'),
+    trialFingerprint: text('trial_fingerprint'),
+    movesOnAfter: jsonb('moves_on_after').$type<string[]>(),
+    claimedAt: timestamptz('claimed_at').defaultNow().notNull(),
+    version: integer('version').notNull().default(0),
+  },
+  (table) => [
+    check(
+      'replay_run_claim_unreplayable_reason',
+      sql`(${table.claimedAs} = 'unreplayable') = (${table.unreplayableReason} is not null)`,
+    ),
   ],
 );

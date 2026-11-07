@@ -1,19 +1,23 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   JournalStep,
   RunJournal,
 } from '@work/application/contracts/run-journal.contract';
-import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
-import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { RunFactsPort } from '@work/application/ports/run-facts.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import { RunEvidences } from '@work/application/services/run-evidences.service';
+import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
-import type { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
-import { judgeOf } from '@work/domain/value-objects/line-map.fake-spec';
+import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
+import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
+import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject.vo';
+import { StationConfig } from '@work/domain/value-objects/station-config.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
+import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -73,30 +77,83 @@ const journal: RunJournal = {
   egressEnforcement: null,
 };
 
-const TASK_RUN = {
-  runId: RunId.of('run_1'),
-  subject: {
-    kind: 'task',
-    taskId: TaskId.of('task_1'),
-    stationId: null,
-    revision: 0,
-  },
-  checkouts: ['api'],
-};
+const TASK_RUN = { runId: RunId.of('run_1'), checkouts: ['api'] };
 
-const REPLAY = {
-  runId: RunId.of('replay_1'),
-  subject: {
-    kind: 'replay',
-    replayOf: RunId.of('run_1'),
-    taskId: TaskId.of('task_1'),
-    stationId: null,
-    teamId: TeamId.of('team_1'),
-  },
-  checkouts: ['api'],
-};
+const REPLAY = { runId: RunId.of('replay_1'), checkouts: ['api'] };
 
-const evidences = (judge: JudgeSettings | null = null) =>
+const BRIEFED = BriefedTask.of({
+  stationId: StationId.of('station_1'),
+  title: 'Retry uploads, as briefed',
+  description: 'They failed then.',
+  reviewing: null,
+  attachments: [],
+  notes: [],
+  openReviewComments: [],
+});
+
+const CONFIG = StationConfig.rehydrate(
+  {
+    prompt: null,
+    harness: 'dev',
+    model: null,
+    effort: null,
+    profile: null,
+    image: null,
+    repositories: [],
+    skills: [],
+    tools: [],
+    decisions: false,
+    memories: false,
+  },
+  'f'.repeat(64),
+);
+
+const dispatchOf = (id: RunId, subject: DispatchSubject): Dispatch =>
+  Dispatch.trialOrdered({
+    id,
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: null,
+    subject,
+    configuredAs: CONFIG,
+    briefedTask: BRIEFED,
+    order: DispatchOrder.of({}),
+    now: new Date('2026-09-30T09:00:00.000Z'),
+  });
+
+const DISPATCHES = new Map<string, Dispatch>([
+  [
+    'run_1',
+    Dispatch.ordered({
+      id: TASK_RUN.runId,
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: null,
+      subject: {
+        kind: 'task',
+        taskId: TaskId.of('task_1'),
+        revision: TaskRevision.of(0),
+        stationId: StationId.of('station_1'),
+      },
+      configuredAs: null,
+      briefedTask: BRIEFED,
+      order: DispatchOrder.of({}),
+      now: new Date('2026-09-30T09:00:00.000Z'),
+    }),
+  ],
+  [
+    'replay_1',
+    dispatchOf(REPLAY.runId, {
+      kind: 'trial',
+      basedOn: TASK_RUN.runId,
+      taskId: TaskId.of('task_1'),
+      stationId: StationId.of('station_1'),
+      asOf: null,
+      repositories: [],
+      followUp: null,
+    }),
+  ],
+]);
+
+const evidences = () =>
   new RunEvidences(
     {
       of: async ([id]: readonly RunId[]) =>
@@ -110,43 +167,14 @@ const evidences = (judge: JudgeSettings | null = null) =>
       }),
     } as unknown as TaskRepository,
     {
-      findByStation: async () => ({
-        teamId: TeamId.of('team_1'),
-        id: { value: 'line_1' },
-        stationAt: () => ({ judge }),
-      }),
-      ofTeam: async (teamId: TeamId) => [
-        {
-          teamId,
-          id: { value: 'line_1' },
-          stations: [
-            { id: { value: 'station_1' }, judge },
-            { id: { value: 'station_2' }, judge: null },
-          ],
-        },
-        {
-          teamId,
-          id: { value: 'line_2' },
-          stations: [{ id: { value: 'station_3' }, judge }],
-        },
-      ],
-    } as unknown as LineMapsPort,
-    {
       attemptsOfRun: async () => [
         { ...journal, steps: journal.steps.slice(0, 2) },
         { ...journal, attempt: 2, steps: journal.steps.slice(2) },
       ],
     } as unknown as RunJournalReaderPort,
     {
-      of: async (runId: RunId) =>
-        runId.equals(TASK_RUN.runId)
-          ? {
-              title: 'Retry uploads, as briefed',
-              description: 'They failed then.',
-            }
-          : null,
-    } as unknown as BriefedTasksPort,
-    { sha256: (text: string) => `sha of ${text}` },
+      find: async (id: RunId) => DISPATCHES.get(id.value) ?? null,
+    } as unknown as DispatchRepository,
   );
 
 describe('RunEvidences', () => {
@@ -186,81 +214,5 @@ describe('RunEvidences', () => {
         lines: [' a', '-b', '+B', ' c', '+d'],
       },
     ]);
-  });
-
-  it('versions the station’s judge by the hash of its rubric, claims and pass threshold together', async () => {
-    const judge = await evidences(
-      judgeOf({
-        rubric: 'Did it retry?',
-        sample: 0.5,
-        minAgreement: 0.6,
-      }),
-    ).judgeAt('station_1');
-
-    expect(judge).toEqual({
-      teamId: 'team_1',
-      lineId: 'line_1',
-      rubric: 'Did it retry?',
-      claims: [],
-      passThreshold: 1,
-      rubricVersion: `sha of ${JSON.stringify({ rubric: 'Did it retry?', claims: [], passThreshold: 1 })}`,
-      sample: 0.5,
-      minAgreement: 0.6,
-    });
-  });
-
-  it('gives a judge of claims alone, with the share of them a run must meet', async () => {
-    const judge = await evidences(
-      judgeOf({
-        claims: ['It retries.', 'It adds a test.'],
-        passThreshold: 0.5,
-        sample: 0.5,
-        minAgreement: 0.6,
-      }),
-    ).judgeAt('station_1');
-
-    expect(judge).toMatchObject({
-      rubric: null,
-      claims: ['It retries.', 'It adds a test.'],
-      passThreshold: 0.5,
-    });
-    expect(judge?.rubricVersion).not.toBe(
-      (
-        await evidences(
-          judgeOf({
-            claims: ['It retries.', 'It adds a test.'],
-            passThreshold: 1,
-            sample: 0.5,
-            minAgreement: 0.6,
-          }),
-        ).judgeAt('station_1')
-      )?.rubricVersion,
-    );
-  });
-
-  it('gives the judges of a team’s stations on every line as the station sets each one', async () => {
-    const reader = evidences(
-      judgeOf({
-        rubric: 'Did it retry?',
-        sample: 0.5,
-        minAgreement: 0.6,
-      }),
-    );
-    const judge = await reader.judgeAt('station_1');
-
-    expect(await reader.judgesOnTeam('team_1')).toEqual(
-      new Map([
-        ['station_1', judge],
-        ['station_3', judge && { ...judge, lineId: 'line_2' }],
-      ]),
-    );
-  });
-
-  it('says a station without a judge has none', async () => {
-    expect(await evidences().judgeAt('station_1')).toBeNull();
-  });
-
-  it('says a run has a task while its task is still there', async () => {
-    expect(await evidences().hasTask('run_1')).toBe(true);
   });
 });

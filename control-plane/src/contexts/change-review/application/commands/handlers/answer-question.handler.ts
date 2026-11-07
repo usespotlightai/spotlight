@@ -43,19 +43,20 @@ export class AnswerQuestionHandler
 
   async execute(command: AnswerQuestionCommand): Promise<void> {
     try {
-      const run = await this.access.run(
+      const unknownStack = () =>
+        new UnknownChangeStackError(
+          `Change stack ${command.stackId} not found.`,
+        );
+      const run = await this.access.actingOnRun(
         command.teamId,
         command.runId,
         command.viewerId,
+        unknownStack,
       );
-      const stack = run
-        ? await this.stacks.find(ChangeStackId.of(command.stackId))
-        : null;
+      const stack = await this.stacks.find(ChangeStackId.of(command.stackId));
 
-      if (!run || !stack?.runId.equals(run.id)) {
-        throw new UnknownChangeStackError(
-          `Change stack ${command.stackId} not found.`,
-        );
+      if (!stack?.runId.equals(run.id)) {
+        throw unknownStack();
       }
 
       const question = stack.question(questionIdOf(command.questionId));

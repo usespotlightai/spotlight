@@ -1,5 +1,3 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -9,12 +7,13 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { StartChatCommand } from '@work/application/commands/chat.commands';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import type { AccessibleRepositoriesPort } from '@work/application/ports/accessible-repositories.port';
+import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import type { CiSetups } from '@work/application/services/ci-setups.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
@@ -43,16 +42,14 @@ const starting = ({
   );
   const handler = new StartChatHandler(
     {
-      findTeamForMember: vi.fn(async () => ({
+      seenTeam: vi.fn(async () => ({
         teamId: TeamId.of('team_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         slug: 'acme',
         teamKey: 'core',
       })),
-    } as unknown as WorkspaceReaderPort,
-    {
-      permissionsIn: vi.fn(async () => ({ isAdmin: admin })),
-    } as unknown as WorkspaceAccessPort,
+      isAdminOf: vi.fn(async () => admin),
+    } as unknown as WorkAccess,
     {
       add: vi.fn(async (chat: Chat) => {
         added.push(chat);

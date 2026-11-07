@@ -4,6 +4,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunLeases } from '@work/application/services/run-leases.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -18,11 +19,12 @@ const claimedBy = (id: string, runner: string, at = NOON) =>
     id: RunId.of(id),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
+    ...orderedFor.spec(),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task:station' },
+      resume: {},
     }),
   }).claim(RunnerId.of(runner), at);
 

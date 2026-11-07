@@ -3,7 +3,6 @@ import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { describe, expect, it } from 'vitest';
 
 const command = { executable: 'claude-agent-acp', args: [] };
@@ -12,7 +11,7 @@ const parts = (over: Record<string, unknown> = {}) => ({
   command,
   briefing: 'do the thing',
   handover: { options: ['Spec'], noteLimit: 4_000 },
-  resume: { key: 'task-task_1' },
+  resume: {},
   ...over,
 });
 
@@ -32,7 +31,7 @@ const representative = {
   },
   briefing: 'do the thing',
   handover: { options: ['spec', 'review'], noteLimit: 4_000 },
-  resume: { key: 'task-task_1', sessionId: 'session_1' },
+  resume: { sessionId: 'session_1' },
   skills: [{ path: '.claude/skills/triage/SKILL.md', text: '# Triage' }],
   skillHomes: ['.claude/skills', '.spotlight/skills'],
   manifest: [
@@ -102,21 +101,6 @@ describe('RunSpecContract wire', () => {
     );
   });
 
-  it('round-trips a search to an empty search block, and rejects one that is no object', () => {
-    const searching = parts({
-      handover: { options: [], noteLimit: 0 },
-      resume: { key: 'search-run_1' },
-      search: {},
-    });
-
-    expect(RunSpecContract.toWire(RunSpecContract.from(searching))).toEqual(
-      searching,
-    );
-    expect(() => RunSpecContract.from(parts({ search: true }))).toThrow(
-      InconsistentStateError,
-    );
-  });
-
   it('keeps no empty list of injected secrets', () => {
     expect(
       RunSpecContract.from(parts({ injectedSecrets: [] })).value
@@ -182,14 +166,40 @@ describe('RunSpecContract.ordered', () => {
       command,
     );
 
-    expect(spec.value.command).toEqual(command);
+    expect(spec.spec.value.command).toEqual(command);
   });
 
   it('fills in what a caller left out', () => {
-    const spec = RunSpecContract.ordered({ briefing: 'do the thing' }, command);
+    const ordered = RunSpecContract.ordered(
+      { briefing: 'do the thing' },
+      command,
+    );
 
-    expect(spec.value.handover).toEqual({ options: [], noteLimit: 0 });
-    expect(spec.value.resume).toEqual({ key: '' });
+    expect(ordered.spec.value.handover).toEqual({ options: [], noteLimit: 0 });
+    expect(ordered.spec.value.resume).toEqual({});
+    expect(ordered.key).toBeNull();
+  });
+
+  it('passes on the workspace a caller asks to carry on', () => {
+    expect(
+      RunSpecContract.ordered(
+        { briefing: 'do the thing', resume: { key: ' scratch ' } },
+        command,
+      ).key,
+    ).toBe('scratch');
+  });
+
+  it('refuses what only Spotlight orders: grants, restores, extensions and injected secrets', () => {
+    for (const field of [
+      { apiGrant: { actingFor: 'user_1', scopes: ['plan'], lifetimeMs: 1 } },
+      { restore: { archive: 'archive_1' } },
+      { extensions: { replay: {} } },
+      { injectedSecrets: ['LINEAR_API_KEY'] },
+    ]) {
+      expect(() =>
+        RunSpecContract.ordered({ briefing: 'do it', ...field }, command),
+      ).toThrow(InvalidRunSpecError);
+    }
   });
 
   it('rejects what is not a spec at all', () => {
@@ -211,32 +221,16 @@ describe('RunSpecContract.ordered', () => {
 });
 
 describe('RunSpecContract.resumeOf', () => {
-  const key = ResumeKey.of('task-task_2');
-
-  it('tells the runner which directory to work in', () => {
-    expect(RunSpecContract.resumeOf(Resume.of({ key }))).toEqual({
-      key: 'task-task_2',
-    });
-  });
-
   it('names the conversation to take up where there is one', () => {
     expect(
       RunSpecContract.resumeOf(
-        Resume.of({
-          key,
-          sessionId: HarnessSession.of('session_1'),
-        }),
+        Resume.of({ sessionId: HarnessSession.of('session_1') }),
       ),
-    ).toEqual({
-      key: 'task-task_2',
-      sessionId: 'session_1',
-    });
+    ).toEqual({ sessionId: 'session_1' });
   });
 
   it('says nothing about a conversation there is none of', () => {
-    expect(RunSpecContract.resumeOf(Resume.of({ key }))).not.toHaveProperty(
-      'sessionId',
-    );
+    expect(RunSpecContract.resumeOf(Resume.of({}))).toEqual({});
   });
 });
 

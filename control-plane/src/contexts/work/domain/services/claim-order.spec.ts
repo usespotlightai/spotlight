@@ -6,6 +6,7 @@ import { RunnerOffer } from '@shared-kernel/domain/value-objects/runner-offer.vo
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { ClaimOrder } from '@work/domain/services/claim-order';
 import type { Claimant } from '@work/domain/value-objects/claimant';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -41,12 +42,13 @@ const waiting = (
     id: RunId.of(id),
     workspaceId: WorkspaceId.of(over.workspace ?? 'ws_1'),
     harness: HarnessId.of(over.harness ?? 'dev'),
+    ...orderedFor.spec(),
     priority: RunPriority.of(over.priority ?? 0),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task:station' },
+      resume: {},
     }),
     placement: RunnerPlacement.of(over.placement ?? []),
   }),

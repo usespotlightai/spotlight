@@ -18,9 +18,8 @@ import type {
   PassDenial,
 } from '@work/domain/value-objects/line-denial';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
-import type { LineSource } from '@work/domain/value-objects/line-source';
 import type { Reaction } from '@work/domain/value-objects/reaction.vo';
-import type { ReplayThreshold } from '@work/domain/value-objects/replay-threshold';
+import type { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import type { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
 import type { ReviewRequestReceived } from '@work/domain/value-objects/review-request.vo';
 import type { Station } from '@work/domain/value-objects/station.vo';
@@ -37,8 +36,6 @@ export interface LineMapInput {
   readonly repositories?: LineRepositories;
   readonly reviews?: ReviewIntake | null;
   readonly placement?: RunnerPlacement;
-  readonly replayCheck?: ReplayThreshold | null;
-  readonly source?: LineSource | null;
 }
 
 export class LineMap {
@@ -54,8 +51,6 @@ export class LineMap {
     readonly repositories: LineRepositories,
     readonly reviews: ReviewIntake | null,
     readonly placement: RunnerPlacement,
-    readonly replayCheck: ReplayThreshold | null,
-    readonly source: LineSource | null,
   ) {}
 
   static of(input: LineMapInput): LineMap {
@@ -74,8 +69,6 @@ export class LineMap {
       input.repositories ?? LineRepositories.none(),
       input.reviews ?? null,
       input.placement ?? RunnerPlacement.anywhere(),
-      input.replayCheck ?? null,
-      input.source ?? null,
     );
   }
 
@@ -89,10 +82,6 @@ export class LineMap {
 
   get entry(): Station | null {
     return this.stations.find((each) => each.isAgentStation) ?? null;
-  }
-
-  get agentStations(): readonly Station[] {
-    return this.stations.filter((each) => each.isAgentStation);
   }
 
   get harness(): HarnessId | null {
@@ -115,10 +104,6 @@ export class LineMap {
     return this.stations.find((each) => each.key.equals(key)) ?? null;
   }
 
-  hasStation(stationId: StationId): boolean {
-    return this.stationAt(stationId) !== null;
-  }
-
   placementOf(stationId: StationId): RunnerPlacement {
     return (
       this.stationAt(stationId)?.placement.or(this.placement) ?? this.placement
@@ -129,7 +114,7 @@ export class LineMap {
     return this.repositories.names(repository);
   }
 
-  opening(name: string | null): Repository {
+  opening(name: RepositoryName | null): Repository {
     return this.repositories.opening(name);
   }
 
@@ -241,9 +226,5 @@ export class LineMap {
     }
 
     return station;
-  }
-
-  equals(other: LineMap): boolean {
-    return this.id.equals(other.id);
   }
 }

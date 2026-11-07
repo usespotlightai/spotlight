@@ -1,6 +1,6 @@
 import type { CheckRunsPort } from '@github/application/ports/check-runs.port';
+import type { BuiltInToolUse } from '@work/application/ports/built-in-tool-uses.port';
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
-import type { BuiltInToolUse } from '@work/application/services/built-in-tools.service';
 import { NoPullRequestError } from '@work/domain/exceptions/no-pull-request.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';

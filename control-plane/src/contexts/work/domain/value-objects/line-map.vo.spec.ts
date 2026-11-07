@@ -164,7 +164,9 @@ describe('LineMap, how far downstream a station is', () => {
   it('puts what finishes the line last of all', () => {
     const line = delivery();
     const furthest = Math.max(
-      ...line.agentStations.map((each) => line.depthOf(each.id)),
+      ...line.stations
+        .filter((each) => each.isAgentStation)
+        .map((each) => line.depthOf(each.id)),
     );
 
     expect(depth(line, 'completed')).toBeGreaterThan(furthest);

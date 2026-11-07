@@ -6,7 +6,6 @@ import {
 } from '@work/domain/entities/task-note.entity';
 import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import { VOICES } from '@work/domain/value-objects/voice.vo';
-import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
 import { sql } from 'drizzle-orm';
 import {
@@ -131,7 +130,10 @@ export const task = pgTable(
       columns: [table.stationId],
       foreignColumns: [workStation.stationId],
     }).onDelete('restrict'),
-    index('task_proposed_in_chat_idx').on(table.proposedInChatId),
+    uniqueIndex('task_proposed_in_uidx').on(
+      table.proposedInChatId,
+      table.proposedInPosition,
+    ),
     index('task_station_idx').on(table.stationId, table.rank),
     index('task_origin_station_idx').on(table.originStationId),
     index('task_workspace_idx').on(table.workspaceId),
@@ -163,7 +165,7 @@ export const taskNote = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
-    runId: text('run_id').references(() => run.id),
+    runId: text('run_id'),
     kind: taskNoteKind('kind').notNull(),
     closesConversation: boolean('closes_conversation').notNull().default(false),
     form: taskNoteForm('form').notNull().default('words'),

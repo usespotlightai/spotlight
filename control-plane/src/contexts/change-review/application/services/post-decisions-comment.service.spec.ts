@@ -83,6 +83,7 @@ const posting = (
     {
       find: async () => ({ name: 'Maya Chen', image: null }),
       viewerOf: async () => null,
+      readsTeam: async () => false,
     },
     new MarkdownCommentBodies(),
   );

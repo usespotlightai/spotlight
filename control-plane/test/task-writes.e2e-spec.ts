@@ -62,7 +62,7 @@ describe('writing a task somebody else has written', () => {
 
   const closed = (task: NonNullable<Awaited<ReturnType<typeof tasks.find>>>) =>
     task.closeConversation({
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Everything on this list is done.'),
       at: NOW,
       voice: Voice.station(),

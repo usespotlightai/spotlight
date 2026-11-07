@@ -6,7 +6,7 @@ import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { SendChatMessageCommand } from '@work/application/commands/chat.commands';
-import type { ChatDispatching } from '@work/application/services/chat-dispatch';
+import type { ChatDispatching } from '@work/application/ports/chat-dispatch.port';
 import type { ChatLoader } from '@work/application/services/chat-loader.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';

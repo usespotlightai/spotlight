@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   FOREIGN_KEY_VIOLATION,
+  UNIQUE_VIOLATION,
   violates,
 } from '@platform/persistence/drizzle/violations';
 import {
@@ -17,10 +18,12 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { StationNotKnownYetError } from '@work/application/errors/station-not-known-yet.error';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
+import { ProposalAlreadyOpenedError } from '@work/domain/exceptions/proposal-already-opened.error';
+import { TaskBranchTakenError } from '@work/domain/exceptions/task-branch-taken.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
-import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
@@ -35,6 +38,7 @@ import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
@@ -133,7 +137,7 @@ const toDeferredMoveRow = (move: DeferredMove): DeferredMoveRow => ({
 const toConnectionAsk = (row: ConnectionAskRow): ConnectionAsk =>
   ConnectionAsk.of({
     teamId: TeamId.of(row.teamId),
-    integration: row.integration,
+    integration: IntegrationName.of(row.integration),
     integrationName: row.integrationName,
     personId: UserId.of(row.personId),
     met: row.met,
@@ -141,7 +145,7 @@ const toConnectionAsk = (row: ConnectionAskRow): ConnectionAsk =>
 
 const toConnectionAskRow = (ask: ConnectionAsk): ConnectionAskRow => ({
   teamId: ask.teamId.value,
-  integration: ask.integration,
+  integration: ask.integration.value,
   integrationName: ask.integrationName,
   personId: ask.personId.value,
   met: ask.met,
@@ -252,7 +256,7 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   private async inserted(added: Task): Promise<void> {
-    await this.atStation(added, () =>
+    await this.translated(added, () =>
       this.context.db.insert(task).values({
         id: added.id.value,
         workspaceId: added.workspaceId.value,
@@ -295,18 +299,29 @@ export class DrizzleTaskRepository implements TaskRepository {
     });
   }
 
-  private async atStation<T>(
+  private async translated<T>(
     written: Task,
     work: () => Promise<T>,
   ): Promise<T> {
     try {
       return await work();
     } catch (error) {
+      if (violates(error, FOREIGN_KEY_VIOLATION, 'task_station_fk')) {
+        throw new StationNotKnownYetError(written.stationId.value);
+      }
+
+      if (violates(error, UNIQUE_VIOLATION, 'task_workspace_branch_uidx')) {
+        throw new TaskBranchTakenError(written.branch.value);
+      }
+
       if (
-        violates(error, FOREIGN_KEY_VIOLATION, 'task_station_fk') ||
-        violates(error, FOREIGN_KEY_VIOLATION, 'task_origin_station_fk')
+        written.proposedIn &&
+        violates(error, UNIQUE_VIOLATION, 'task_proposed_in_uidx')
       ) {
-        throw new UnknownStationError(written.stationId.value);
+        throw new ProposalAlreadyOpenedError(
+          written.proposedIn.chatId.value,
+          written.proposedIn.position.value,
+        );
       }
 
       throw error;
@@ -314,7 +329,7 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   private async stored(saved: Task): Promise<void> {
-    const written = await this.atStation(saved, () =>
+    const written = await this.translated(saved, () =>
       this.context.db
         .update(task)
         .set({
@@ -553,7 +568,7 @@ export class DrizzleTaskRepository implements TaskRepository {
   async awaitingConnection(
     teamId: TeamId,
     personId: UserId,
-    integration: string,
+    integration: IntegrationName,
   ): Promise<readonly Task[]> {
     const found = await this.context.db
       .select()
@@ -568,7 +583,7 @@ export class DrizzleTaskRepository implements TaskRepository {
               and(
                 sql`${taskNote.connectionAsk} is not null`,
                 sql`(${taskNote.connectionAsk}->>'personId') = ${personId.value}`,
-                sql`(${taskNote.connectionAsk}->>'integration') = ${integration}`,
+                sql`(${taskNote.connectionAsk}->>'integration') = ${integration.value}`,
                 sql`(${taskNote.connectionAsk}->>'teamId') = ${teamId.value}`,
                 sql`(${taskNote.connectionAsk}->>'met')::boolean = false`,
               ),

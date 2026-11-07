@@ -7,6 +7,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { GrantWorkspaceArchiveCommand } from '@work/application/commands/workspace-archive.commands';
 import type { ArchiveGrantDto } from '@work/application/dto/workspace-archive.dto';
 import type { WorkspaceArchiveStorePort } from '@work/application/ports/workspace-archive-store.port';
+import type { ArchiveHolders } from '@work/application/services/archive-holders.service';
 import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
@@ -14,6 +15,7 @@ import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import { ArchiveGrantee } from '@work/domain/value-objects/archive-grantee.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import type { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 
 export class GrantWorkspaceArchiveHandler
   implements
@@ -23,6 +25,7 @@ export class GrantWorkspaceArchiveHandler
     private readonly runs: RunRepository,
     private readonly archives: WorkspaceArchiveRepository,
     private readonly store: WorkspaceArchiveStorePort,
+    private readonly holders: ArchiveHolders,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
   ) {}
@@ -42,8 +45,8 @@ export class GrantWorkspaceArchiveHandler
       const archive = WorkspaceArchive.grant({
         id: WorkspaceArchiveId.of(this.ids.generate()),
         workspaceId: run.workspaceId,
-        resumeKey: run.resumeKey,
-        holder: run.archiveHolder,
+        workspaceKey: run.workspaceKey,
+        held: this.held(run.workspaceKey),
         grantee: ArchiveGrantee.run(run.id),
         size: ArchiveSize.of(command.size),
         digest: ArchiveDigest.of(command.sha256),
@@ -58,5 +61,9 @@ export class GrantWorkspaceArchiveHandler
     } catch (error) {
       rethrowAsApplicationError(error);
     }
+  }
+
+  private held(key: WorkspaceKey | null): boolean {
+    return key !== null && this.holders.holds(key.owner);
   }
 }

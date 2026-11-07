@@ -64,6 +64,7 @@ const reading = (
     {
       find: async () => ({ name: 'Maya Chen', image: null }),
       viewerOf: async () => null,
+      readsTeam: async () => false,
     },
   ).execute(new ReadTaskDecisionsQuery('team_1', 'task_1', 'user_1'));
 

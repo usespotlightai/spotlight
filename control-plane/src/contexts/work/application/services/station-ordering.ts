@@ -90,7 +90,7 @@ const AS_A_TASK_RUN: Readying = {
   profile: (profile) => profile,
 };
 
-const AS_A_REPLAY: Readying = {
+const AS_A_TRIAL: Readying = {
   denied: (station, denied) =>
     denied.filter(
       (each) => !station.tools.some((tool) => tool.value === each.id),
@@ -113,8 +113,8 @@ export class StationOrdering {
     return this.orderedAs(line, at, AS_A_TASK_RUN);
   }
 
-  orderedForReplay(line: LineMap, at: OrderedAt): Promise<Ordered | null> {
-    return this.orderedAs(line, at, AS_A_REPLAY);
+  orderedForTrial(line: LineMap, at: OrderedAt): Promise<Ordered | null> {
+    return this.orderedAs(line, at, AS_A_TRIAL);
   }
 
   private async orderedAs(

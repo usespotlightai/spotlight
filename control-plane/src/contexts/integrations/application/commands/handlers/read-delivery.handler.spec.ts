@@ -12,22 +12,10 @@ import { HookFiringId } from '@integrations/domain/value-objects/hook-firing-id.
 import { WorkDeliveryReactions } from '@integrations/infrastructure/acl/delivery-reactions.adapter';
 import { ProviderDeliveryReader } from '@integrations/infrastructure/webhooks/provider-delivery-reader';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
-import {
-  DomainError,
-  type RefusalKind,
-} from '@shared-kernel/domain/exceptions/domain-error';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
+import type { HappeningsReaction } from '@work/application/ports/happening-reactions.port';
 import { describe, expect, it, vi } from 'vitest';
-
-class Refused extends DomainError {
-  constructor(
-    readonly kind: RefusalKind,
-    message: string,
-  ) {
-    super(message);
-  }
-}
 
 const MERGED = 'github.pull_request.merged';
 
@@ -55,7 +43,9 @@ const reading = (
   carried: readonly Happened[],
   over: { workspaceId?: string | null } = {},
 ) => {
-  const react = vi.fn(async () => {});
+  const react = vi.fn(
+    async (): Promise<HappeningsReaction> => ({ kind: 'reacted' }),
+  );
   const read = vi.fn(async () => carried);
   const causation = causationInMemory();
   const chains: string[] = [];
@@ -68,6 +58,7 @@ const reading = (
   } as unknown as HookFiringHistoryPort;
   react.mockImplementation(async () => {
     chains.push(causation.current().description);
+    return { kind: 'reacted' };
   });
   const logger = {
     debug: vi.fn(),
@@ -175,30 +166,24 @@ describe('ReadDeliveryHandler', () => {
     );
   });
 
-  it.each<[string, unknown, DeliveryFailure]>([
+  it.each<[string, boolean, DeliveryFailure]>([
     [
-      'a service that cannot be reached yet',
-      new UpstreamError('reading', 'it did not answer'),
-      DeliveryFailure.transient('reading: it did not answer'),
-    ],
-    [
-      'a service that refuses for good',
-      new UpstreamError('reading', 'it said no', 400, false),
-      DeliveryFailure.permanent('reading: it said no'),
-    ],
-    [
-      'a change made at the same time',
-      new Refused('conflict', 'changed meanwhile'),
+      'a failure Work says may pass',
+      true,
       DeliveryFailure.transient('changed meanwhile'),
     ],
     [
-      'a delivery that names no task',
-      new Refused('invalid', 'names no task'),
-      DeliveryFailure.permanent('names no task'),
+      'a failure Work says is for good',
+      false,
+      DeliveryFailure.permanent('changed meanwhile'),
     ],
-  ])('says whether to read again after %s', async (_, thrown, failure) => {
+  ])('says whether to read again after %s', async (_, transient, failure) => {
     const { handler, react } = reading([payloadOf()]);
-    react.mockRejectedValueOnce(thrown);
+    react.mockResolvedValueOnce({
+      kind: 'failed',
+      transient,
+      reason: 'changed meanwhile',
+    });
 
     await expect(
       handler.execute(new ReadDeliveryCommand(stored)),

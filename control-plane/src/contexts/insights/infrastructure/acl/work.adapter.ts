@@ -2,6 +2,7 @@ import type {
   ConfigInOrder,
   EndedRun,
   StationConfigView,
+  TaskRun,
   TracedWanted,
   TracedWork,
   WorkPort,
@@ -65,6 +66,14 @@ export class Work implements WorkPort {
       startedAt: run.startedAt,
       endedAt: run.endedAt,
     };
+  }
+
+  async taskRunOf(runId: string): Promise<TaskRun | null> {
+    const run = await this.stations.taskRunOf(runId);
+
+    return run
+      ? { runId: run.runId, taskId: run.taskId, teamId: run.teamId }
+      : null;
   }
 
   async unfinishedRuns(teamId: string): Promise<readonly UnfinishedRun[]> {

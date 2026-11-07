@@ -1,27 +1,20 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { JournalStep } from '@work/application/contracts/run-journal.contract';
-import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
-import type { ContentHashPort } from '@work/application/ports/content-hash.port';
-import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type {
   EvidencedHunk,
   EvidencedRun,
   EvidencedStep,
   RunEvidencePort,
-  StationJudgeSettings,
 } from '@work/application/ports/run-evidence.port';
 import type {
   RunFacts,
   RunFactsPort,
 } from '@work/application/ports/run-facts.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { hunksOf } from '@work/domain/services/change-hunks';
 import { workspacePath } from '@work/domain/services/workspace-path';
-import type { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
-import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 
 const MAX_TEXT = 4_000;
 
@@ -82,18 +75,15 @@ export class RunEvidences implements RunEvidencePort {
   constructor(
     private readonly runs: RunFactsPort,
     private readonly tasks: TaskRepository,
-    private readonly lines: LineMapsPort,
     private readonly journals: RunJournalReaderPort,
-    private readonly briefed: BriefedTasksPort,
-    private readonly hash: ContentHashPort,
+    private readonly dispatches: DispatchRepository,
   ) {}
 
   async hasTask(runId: string): Promise<boolean> {
-    const run = await this.found(RunId.of(runId));
+    const subject = (await this.dispatches.find(RunId.of(runId)))?.subject;
 
     return Boolean(
-      run?.subject?.kind === 'task' &&
-        (await this.tasks.find(run.subject.taskId)),
+      subject?.kind === 'task' && (await this.tasks.find(subject.taskId)),
     );
   }
 
@@ -123,13 +113,13 @@ export class RunEvidences implements RunEvidencePort {
   }
 
   private async taskOf(run: RunFacts): Promise<TaskOfRun | null> {
-    const subject = run.subject;
+    const subject = (await this.dispatches.find(run.runId))?.subject;
 
-    if (subject?.kind === 'replay') {
-      const original = await this.found(subject.replayOf);
-      const briefed = await this.briefed.of(subject.replayOf);
+    if (subject?.kind === 'trial') {
+      const original = await this.dispatches.find(subject.basedOn);
+      const briefed = original?.briefedTask;
 
-      return original?.subject?.kind === 'task' && briefed
+      return original?.subject.kind === 'task' && briefed
         ? {
             taskId: original.subject.taskId.value,
             title: briefed.title,
@@ -148,50 +138,5 @@ export class RunEvidences implements RunEvidencePort {
         description: task.description?.value ?? null,
       }
     );
-  }
-
-  async judgeAt(stationId: string): Promise<StationJudgeSettings | null> {
-    const at = StationId.of(stationId);
-    const line = await this.lines.findByStation(at);
-    const judge = line?.stationAt(at)?.judge ?? null;
-
-    return line && judge ? this.settingsOf(line, judge) : null;
-  }
-
-  async judgesOnTeam(
-    teamId: string,
-  ): Promise<ReadonlyMap<string, StationJudgeSettings>> {
-    const lines = await this.lines.ofTeam(TeamId.of(teamId));
-
-    return new Map(
-      lines.flatMap((line) =>
-        line.stations.flatMap((station) =>
-          station.judge
-            ? [
-                [
-                  station.id.value,
-                  this.settingsOf(line, station.judge),
-                ] as const,
-              ]
-            : [],
-        ),
-      ),
-    );
-  }
-
-  private settingsOf(
-    line: LineMap,
-    judge: JudgeSettings,
-  ): StationJudgeSettings {
-    return {
-      teamId: line.teamId.value,
-      lineId: line.id.value,
-      rubric: judge.rubric,
-      claims: judge.claims,
-      passThreshold: judge.passThreshold,
-      rubricVersion: this.hash.sha256(judge.criteria),
-      sample: judge.sample,
-      minAgreement: judge.minAgreement,
-    };
   }
 }

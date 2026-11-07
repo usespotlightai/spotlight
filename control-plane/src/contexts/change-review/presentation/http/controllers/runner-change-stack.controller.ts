@@ -53,7 +53,7 @@ export class RunnerChangeStackController {
   @ApiNoContentResponse()
   @ApiNotFoundResponse({ description: 'Not a run this runner claimed' })
   @ApiConflictResponse({
-    description: 'The run is a search, which changes no repository',
+    description: 'The run has no checkouts, so it changes no repository',
   })
   async generateChangeStack(
     @Param('runId') runId: string,
@@ -83,7 +83,7 @@ export class RunnerChangeStackController {
     required: false,
     type: Boolean,
     description:
-      'true when the check is the recheck of a replay’s change, as its claim said',
+      'true when the check is the recheck of a trial’s change, as its claim said',
   })
   @ApiNoContentResponse()
   @ApiNotFoundResponse({

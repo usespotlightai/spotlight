@@ -15,7 +15,7 @@ import { RedraftChangeStack } from '@change-review/application/services/redraft-
 import type { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.error';
-import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
+import { NoStackWithoutCheckoutsError } from '@change-review/domain/exceptions/no-stack-without-checkouts.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { CodeReading } from '@change-review/domain/services/code-reading';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
@@ -173,8 +173,9 @@ const RUN = {
   id: RunId.of('run-1'),
   taskId: null,
   teamOfRun: TeamId.of('team_1'),
-  isReplay: false,
-  isSearch: false,
+  trial: false,
+  isolated: false,
+  checkouts: 1,
   workspaceId: WorkspaceId.of('workspace-1'),
 };
 
@@ -316,15 +317,15 @@ const generating = (
 };
 
 describe('GenerateChangeStack', () => {
-  it('generates no stack for a search run, storing nothing and calling no model', async () => {
+  it('generates no stack for a run without checkouts, storing nothing and calling no model', async () => {
     const { service, saved, requests } = generating();
 
     await expect(
       service.begin(
-        { ...RUN, isSearch: true },
+        { ...RUN, checkouts: 0 },
         { diff: DIFF, repository: 'web', base: null, request: null },
       ),
-    ).rejects.toThrow(NoStackForSearchesError);
+    ).rejects.toThrow(NoStackWithoutCheckoutsError);
     expect(saved).toEqual([]);
     expect(requests).toEqual([]);
   });
@@ -837,7 +838,7 @@ describe('RedraftChangeStack', () => {
       runId: ready.runId,
       taskId: null,
       teamId: null,
-      replay: false,
+      trial: false,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
       entries: ready.entries(),
@@ -940,7 +941,7 @@ describe('RedraftChangeStack', () => {
       runId: ready.runId,
       taskId: null,
       teamId: null,
-      replay: false,
+      trial: false,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
       entries: ready.entries(),
@@ -1085,7 +1086,7 @@ describe('the problems a broken stack is settled with', () => {
       runId: ready.runId,
       taskId: null,
       teamId: null,
-      replay: false,
+      trial: false,
       workspaceId: ready.workspaceId,
       request: CheckRequest.of('npx tsc --noEmit', null),
       entries: ready.entries(),

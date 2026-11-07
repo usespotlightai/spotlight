@@ -21,14 +21,14 @@ export class ResolveConversationHandler
 
   async execute(command: ResolveConversationCommand): Promise<void> {
     try {
-      const { item, task, station } = await this.conversations.putTo(
+      const { item, task, line } = await this.conversations.putTo(
         command.conversationId,
         command.resolvedBy,
       );
 
       await this.tasks.save(
         task.resolveAt(item.from, {
-          station,
+          line,
           body: TaskNoteBody.of(RESOLVED),
           at: this.clock.now(),
           voice: Voice.person(UserId.of(command.resolvedBy)),

@@ -1,4 +1,3 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -7,6 +6,7 @@ import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.
 import type { NoticeOf } from '@work/application/ports/notices.port';
 import { NoticeLoader } from '@work/application/services/notice-loader.service';
 import { Notices } from '@work/application/services/notices.service';
+import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import type { Notice } from '@work/domain/aggregates/notice.aggregate';
 import type { NoticeRepository } from '@work/domain/repositories/notice.repository';
 import type { NoticeSubject } from '@work/domain/value-objects/notice-subject.vo';
@@ -55,18 +55,9 @@ let next = 0;
 
 const members = new Set<string>();
 
-const access = {
-  inWorkspaceOfTeam: async (teamId: TeamId, viewer: UserId) =>
-    members.has(`${teamId.value}:${viewer.value}`)
-      ? {
-          workspaceId: WorkspaceId.of('ws_1'),
-          slug: 'acme',
-          viewer,
-          isAdmin: false,
-          teamId,
-        }
-      : null,
-} as unknown as WorkspaceAccessPort;
+const access = workAccessSeeing((teamId: TeamId, viewer: UserId) =>
+  members.has(`${teamId.value}:${viewer.value}`),
+);
 
 const noticesOver = (memory: InMemoryNotices) =>
   new Notices(
@@ -120,12 +111,6 @@ describe('Notices', () => {
     });
 
     expect(memory.stored.size).toBe(2);
-  });
-
-  it('rejects a form it does not know', async () => {
-    await expect(
-      noticesOver(new InMemoryNotices()).create({ ...STALLED, form: 'gossip' }),
-    ).rejects.toThrow('Notice form must be one of');
   });
 
   it('deletes the notices of a deleted team, and only those', async () => {

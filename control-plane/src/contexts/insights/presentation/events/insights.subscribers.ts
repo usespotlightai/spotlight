@@ -389,6 +389,7 @@ export const insightsSubscribers = (
         workspaceId: WorkspaceId.of(event.workspaceId),
         pullRequest: PullRequestUrl.of(event.url),
         taskId: TaskId.of(event.taskId),
+        teamId: TeamId.of(event.teamId),
       }),
   ),
   subscribing<ChangeStackReadyIntegrationEvent>(

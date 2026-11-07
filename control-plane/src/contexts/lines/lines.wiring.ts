@@ -36,11 +36,14 @@ import {
   type LineResourcesPort,
 } from '@lines/application/ports/line-resources.port';
 import { LINES } from '@lines/application/ports/lines.port';
-import { SEEDING_HARNESS } from '@lines/application/ports/seeding-harness.port';
 import {
-  STATION_HOLDERS,
-  type StationHoldersPort,
-} from '@lines/application/ports/station-holders.port';
+  SEEDING_HARNESS,
+  type SeedingHarnessPort,
+} from '@lines/application/ports/seeding-harness.port';
+import {
+  STATION_DELETION_GUARD,
+  type StationDeletionGuardPort,
+} from '@lines/application/ports/station-deletion-guard.port';
 import { ImportLineHandler } from '@lines/application/queries/handlers/import-line.handler';
 import { ListLineResourcesHandler } from '@lines/application/queries/handlers/list-line-resources.handler';
 import { ListLinesHandler } from '@lines/application/queries/handlers/list-lines.handler';
@@ -84,7 +87,6 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
-import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 
 const LINES_DEPENDENTS = Symbol('LINES_DEPENDENTS');
 
@@ -125,12 +127,12 @@ export const LINES_PROVIDERS: readonly Provider[] = [
 
   {
     provide: ApplyLines,
-    inject: [DrizzleLineRepository, STATION_HOLDERS, ID_GENERATOR],
+    inject: [DrizzleLineRepository, STATION_DELETION_GUARD, ID_GENERATOR],
     useFactory: (
       lines: DrizzleLineRepository,
-      holders: StationHoldersPort,
+      guard: StationDeletionGuardPort,
       ids: IdGeneratorPort,
-    ) => new ApplyLines(lines, holders, ids),
+    ) => new ApplyLines(lines, guard, ids),
   },
 
   {
@@ -167,7 +169,6 @@ export const LINES_PROVIDERS: readonly Provider[] = [
       IntegrationEventMappers,
       EventSubscribers,
       DrizzleLineRepository,
-      STATION_HOLDERS,
       ApplyLines,
       TRANSACTION,
       ID_GENERATOR,
@@ -179,18 +180,17 @@ export const LINES_PROVIDERS: readonly Provider[] = [
       mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
       lines: DrizzleLineRepository,
-      holders: StationHoldersPort,
       applying: ApplyLines,
       transaction: TransactionPort,
       ids: IdGeneratorPort,
       logger: LoggerPort,
-      harness: HarnessId,
+      seedingHarness: SeedingHarnessPort,
     ) => {
       types.register('lines', LINES_PAYLOAD_TYPES);
       mappers.register(LINES_EVENT_MAPPERS);
       subscribers.register(
         linesSubscribers({
-          seeding: new SeedLines(lines, holders, transaction, ids, harness),
+          seeding: new SeedLines(lines, ids, seedingHarness.harness),
           deleting: new DeleteTeamLines(lines, applying, transaction, logger),
         }),
       );
@@ -198,7 +198,10 @@ export const LINES_PROVIDERS: readonly Provider[] = [
     },
   },
 
-  ...bindQueryHandler(ListLinesQuery, ListLinesHandler, [LINE_READER]),
+  ...bindQueryHandler(ListLinesQuery, ListLinesHandler, [
+    WORKSPACE_ACCESS,
+    LINE_READER,
+  ]),
 
   ...bindCommandHandler(CreateLineCommand, CreateLineHandler, [
     WORKSPACE_ACCESS,

@@ -4,11 +4,15 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const NOTICES = Symbol('NOTICES');
 
+export const NOTICE_FORMS = ['ended', 'advice'] as const;
+
+export type NoticeFormName = (typeof NOTICE_FORMS)[number];
+
 export interface NoticeOf {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
   readonly addressee: UserId | null;
-  readonly form: string;
+  readonly form: NoticeFormName;
   readonly subject: string;
   readonly link: string;
   readonly linkLabel: string;

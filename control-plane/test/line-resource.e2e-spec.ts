@@ -7,6 +7,7 @@ import {
 } from '@lines/domain/services/built-in-lines';
 import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle/repositories/line.repository';
 import type { INestApplication } from '@nestjs/common';
+import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.fake-spec';
@@ -130,6 +131,7 @@ describe('a line, created through the resource API (e2e)', () => {
 
   const putTaskAt = async (lineId: string, key: string) => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
+    await app.get(EventDelivery).drain(2_000);
     const [station] = await db
       .select({ id: schema.station.id, workspaceId: schema.line.workspaceId })
       .from(schema.station)

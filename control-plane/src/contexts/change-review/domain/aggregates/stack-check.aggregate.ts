@@ -62,7 +62,7 @@ export class StackCheck extends EventRecorder {
     readonly runId: RunId,
     readonly taskId: TaskId | null,
     readonly teamId: TeamId | null,
-    readonly replay: boolean,
+    readonly trial: boolean,
     readonly workspaceId: WorkspaceId,
     readonly request: CheckRequest,
     readonly status: StackCheckStatus,
@@ -83,7 +83,7 @@ export class StackCheck extends EventRecorder {
     runId: RunId;
     taskId: TaskId | null;
     teamId: TeamId | null;
-    replay: boolean;
+    trial: boolean;
     workspaceId: WorkspaceId;
     request: CheckRequest;
     entries: readonly CheckEntry[];
@@ -94,7 +94,7 @@ export class StackCheck extends EventRecorder {
       input.runId,
       input.taskId,
       input.teamId,
-      input.replay,
+      input.trial,
       input.workspaceId,
       input.request,
       'waiting',
@@ -119,7 +119,7 @@ export class StackCheck extends EventRecorder {
       runId: stack.runId,
       taskId: stack.taskId,
       teamId: stack.teamId,
-      replay: stack.replay,
+      trial: stack.trial,
       workspaceId: stack.workspaceId,
       request: stack.request,
       entries: stack.entries(),
@@ -132,7 +132,7 @@ export class StackCheck extends EventRecorder {
     runId: RunId;
     taskId: TaskId | null;
     teamId: TeamId | null;
-    replay: boolean;
+    trial: boolean;
     workspaceId: WorkspaceId;
     request: CheckRequest;
     status: StackCheckStatus;
@@ -159,10 +159,10 @@ export class StackCheck extends EventRecorder {
         `has been redrafted ${input.redraftCount} times`,
       );
     }
-    if (input.id.recheck && (!input.replay || input.redraftCount > 0)) {
+    if (input.id.recheck && (!input.trial || input.redraftCount > 0)) {
       throw new InconsistentStateError(
         'change stack check',
-        'is a recheck only of a replay’s change, and never redrafts it',
+        'is a recheck only of a trial’s change, and never redrafts it',
       );
     }
 
@@ -171,7 +171,7 @@ export class StackCheck extends EventRecorder {
       input.runId,
       input.taskId,
       input.teamId,
-      input.replay,
+      input.trial,
       input.workspaceId,
       input.request,
       input.status,
@@ -203,13 +203,13 @@ export class StackCheck extends EventRecorder {
   }
 
   get recheckable(): boolean {
-    return this.replay && !this.recheck && this.hasWholeResult;
+    return this.trial && !this.recheck && this.hasWholeResult;
   }
 
   rechecking(now: Date): StackCheck {
     if (!this.recheckable) {
       throw new InvalidStackCheckError(
-        'runs again only once, on a replay’s change that its first check passed or failed',
+        'runs again only once, on a trial’s change that its first check passed or failed',
       );
     }
 
@@ -218,7 +218,7 @@ export class StackCheck extends EventRecorder {
       this.runId,
       this.taskId,
       this.teamId,
-      this.replay,
+      this.trial,
       this.workspaceId,
       this.request,
       'waiting',
@@ -534,7 +534,7 @@ export class StackCheck extends EventRecorder {
         this.taskId,
         this.workspaceId,
         this.outcome?.whole?.passed ?? null,
-        this.replay,
+        this.trial,
       ),
     );
 
@@ -580,7 +580,7 @@ export class StackCheck extends EventRecorder {
             outcome.status === 'checked'
               ? (outcome.whole?.passed ?? null)
               : null,
-            this.replay,
+            this.trial,
           ),
     );
 
@@ -624,7 +624,7 @@ export class StackCheck extends EventRecorder {
       this.runId,
       this.taskId,
       this.teamId,
-      this.replay,
+      this.trial,
       this.workspaceId,
       this.request,
       change.status ?? this.status,

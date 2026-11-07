@@ -15,8 +15,8 @@ const noteOf = (
   position: number,
   body: string,
   voice: Voice,
-  kind: 'asked' | 'passed' | 'message' = 'message',
-  form: 'words' | 'approval' = 'words',
+  kind: 'asked' | 'passed' | 'message' | 'answered' = 'message',
+  form: 'words' | 'decision' = 'words',
 ) =>
   TaskNote.of({
     position: NotePosition.of(position),
@@ -59,7 +59,7 @@ describe('feedbackAfter', () => {
           noteOf(0, 'Done.', Voice.station(RUN), 'passed'),
           noteOf(1, 'Slack: build red.', Voice.world()),
           noteOf(2, 'Moved to Build.', Voice.station()),
-          noteOf(3, 'Approve the deploy?', MAYA, 'message', 'approval'),
+          noteOf(3, 'Approved.', MAYA, 'answered', 'decision'),
           noteOf(4, 'Keep the old API.', MAYA),
         ],
         RUN,

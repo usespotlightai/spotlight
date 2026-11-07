@@ -14,7 +14,7 @@ export class SubmitReviewHandler
 
   async execute(command: SubmitReviewCommand): Promise<string> {
     try {
-      const { task, author } = await this.access.reviewing(
+      const { task, author } = await this.access.actingInReview(
         command.teamId,
         command.runId,
         command.viewerId,

@@ -31,9 +31,13 @@ export class ListTasksHandler
 
       const found = await this.tasks.listForTeam(
         teamId,
-        query.state === 'open'
-          ? { state: 'open' }
-          : { state: 'completed', lineId: query.lineId, page: query.page },
+        query.state === 'board'
+          ? { state: 'board' }
+          : {
+              state: 'completed-station',
+              lineId: query.lineId,
+              page: query.page,
+            },
       );
 
       return mapPage(found, TaskMapper.summaryToDto);

@@ -65,7 +65,7 @@ const turning = (
   const turns = new Turns(
     {
       turnOf: async () => null,
-      ofTasksOlderThan: async (_state, before) =>
+      olderThan: async (_owner, _state, before) =>
         (over.turns ?? []).filter((each) => each.suspendedAt < before),
     } satisfies RunTurnsPort,
     { of: async () => over.facts ?? [] } as unknown as RunFactsPort,

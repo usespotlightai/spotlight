@@ -7,7 +7,7 @@ import type {
   SetupChatView,
 } from '@work/application/ports/chat-reader.port';
 import type { SetupState } from '@work/domain/services/setup-list';
-import { configuredBy } from '@work/domain/services/setup-list';
+import { configuredBy, setupChatOf } from '@work/domain/services/setup-list';
 
 export interface TeamSetup {
   readonly state: SetupState;
@@ -27,7 +27,7 @@ export class SetupStatus {
     const hasHarness = await this.runners.readyToRun(workspaceId);
     const hasEgressCapableRunner =
       await this.runners.hasEgressCapableRunner(workspaceId);
-    const chat = await this.chats.setupOf(teamId);
+    const chat = setupChatOf(await this.chats.setupChatsOf(teamId));
 
     return {
       state: {

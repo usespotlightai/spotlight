@@ -29,7 +29,7 @@ export class Lines implements LineSettingsPort {
   ) {}
 
   async alertsAt(stationId: StationId): Promise<readonly AlertRule[] | null> {
-    const line = await this.lines.findByStation(stationId.value);
+    const line = await this.lines.findByStation(stationId);
     const station = line?.stations.find((each) => each.id === stationId.value);
 
     return station
@@ -38,7 +38,7 @@ export class Lines implements LineSettingsPort {
   }
 
   async teamRepositories(teamId: TeamId): Promise<readonly string[]> {
-    const names = (await this.lines.ofTeam(teamId.value)).flatMap((line) =>
+    const names = (await this.lines.ofTeam(teamId)).flatMap((line) =>
       line.repositories.map((each) => each.repository),
     );
 

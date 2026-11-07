@@ -19,4 +19,6 @@ export interface PeoplePort {
   find(userId: UserId): Promise<Person | null>;
 
   viewerOf(teamId: TeamId, userId: UserId): Promise<TeamViewer | null>;
+
+  readsTeam(teamId: TeamId, userId: UserId): Promise<boolean>;
 }

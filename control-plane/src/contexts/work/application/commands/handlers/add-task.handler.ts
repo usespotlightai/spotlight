@@ -5,20 +5,17 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AddTaskCommand } from '@work/application/commands/add-task.command';
-import type { TaskDto } from '@work/application/dto/task.dto';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import type { TaskReaderPort } from '@work/application/ports/task-reader.port';
 import type { CreateTask } from '@work/application/services/create-task';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { LineLoader } from '@work/application/services/line-loader.service';
-import { taskAsRead } from '@work/application/services/task-as-read';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Placement } from '@work/domain/services/placement';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 
 export class AddTaskHandler
-  implements CommandHandlerPort<AddTaskCommand, TaskDto>
+  implements CommandHandlerPort<AddTaskCommand, string>
 {
   constructor(
     private readonly placements: TaskPlacementsPort,
@@ -27,10 +24,9 @@ export class AddTaskHandler
     private readonly clock: ClockPort,
     private readonly createTask: CreateTask,
     private readonly files: FilesLoader,
-    private readonly reader: TaskReaderPort,
   ) {}
 
-  async execute(command: AddTaskCommand): Promise<TaskDto> {
+  async execute(command: AddTaskCommand): Promise<string> {
     try {
       return await this.addTask(command);
     } catch (error) {
@@ -38,7 +34,7 @@ export class AddTaskHandler
     }
   }
 
-  private async addTask(command: AddTaskCommand): Promise<TaskDto> {
+  private async addTask(command: AddTaskCommand): Promise<string> {
     const stationId = StationId.of(command.stationId);
     const createdBy = UserId.of(command.createdBy);
 
@@ -73,6 +69,6 @@ export class AddTaskHandler
 
     const created = await this.createTask.create({ task: added, line });
 
-    return taskAsRead(this.reader, command, created.id);
+    return created.id.value;
   }
 }

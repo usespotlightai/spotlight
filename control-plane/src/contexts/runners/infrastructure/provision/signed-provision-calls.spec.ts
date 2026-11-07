@@ -26,7 +26,7 @@ const calling = (
   kind: 'run',
   checkId: null,
   runId: 'run_1',
-  taskId: 'task_1',
+  tags: { taskId: 'task_1' },
   labels: ['sandbox'],
   image: 'ghcr.io/acme/widgets:1',
   runnerId: 'runner_1',
@@ -120,7 +120,7 @@ describe('SignedProvisionCalls', () => {
       ...calling(),
       kind: 'check',
       checkId: 'stack_1',
-      taskId: null,
+      tags: {},
     });
 
     const [, sent] = fetch.mock.calls[0] as unknown as [
@@ -132,8 +132,8 @@ describe('SignedProvisionCalls', () => {
       kind: 'check',
       stackId: 'stack_1',
       runId: 'run_1',
-      taskId: null,
     });
+    expect(JSON.parse(sent.body).data).not.toHaveProperty('taskId');
   });
 
   it('names no image when the work requests the default one', async () => {

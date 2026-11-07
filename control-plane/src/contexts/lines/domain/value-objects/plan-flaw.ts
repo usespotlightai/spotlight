@@ -1,13 +1,8 @@
+import type { IdleStationSetting } from '@lines/domain/services/idle-station';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 
-export type StationRule =
-  | 'routes'
-  | 'tools'
-  | 'skills'
-  | 'judge'
-  | 'alerts'
-  | 'search';
+export type StationRule = 'routes' | 'tools' | 'skills' | IdleStationSetting;
 
 export type SearchSetting = 'ceiling' | 'cooldown';
 

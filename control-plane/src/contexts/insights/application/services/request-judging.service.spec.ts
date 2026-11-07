@@ -49,6 +49,7 @@ const requesting = (
     {
       unfinishedRuns: async () => [],
       traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
+      taskRunOf: async () => null,
       endedRun: async () => ENDED,
       configsInOrder: async () => [],
     },

@@ -1,17 +1,14 @@
 import type { RepositorySettingsPort } from '@github/application/ports/repository-settings.port';
 import type { GitHubActionsTrustsPort } from '@identity/application/ports/github-actions-trusts.port';
+import type { TokenScopeName } from '@identity/application/ports/workspace-access.port';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { CiSetup } from '@work/domain/value-objects/ci-setup.vo';
 
-const CI_APPLY_SCOPES = ['configure', 'secrets', 'runners'] as const;
+const CI_APPLY_SCOPES: readonly TokenScopeName[] = CiSetup.APPLY_SCOPES;
 
-export const CI_VARIABLES = {
-  url: 'SPOTLIGHT_URL',
-  planTrust: 'SPOTLIGHT_PLAN_TRUST',
-  applyTrust: 'SPOTLIGHT_APPLY_TRUST',
-} as const;
+const CI_VARIABLES = CiSetup.VARIABLES;
 
 export class CiSetups {
   constructor(

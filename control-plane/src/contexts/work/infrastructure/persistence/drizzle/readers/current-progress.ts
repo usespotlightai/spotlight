@@ -1,39 +1,21 @@
-import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import type { RunProgressPort } from '@work/application/ports/run-progress.port';
 import {
   type Progress,
   progressOfCurrentRun,
 } from '@work/domain/value-objects/run-state';
-import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
-import { inArray } from 'drizzle-orm';
 
 export const progressOfCurrentRuns = async (
-  db: DrizzleDatabase,
+  progress: RunProgressPort,
   runIds: readonly (string | null)[],
   answered: boolean,
 ): Promise<(runId: string | null) => Progress | null> => {
-  const ids = runIds.filter((each): each is string => each !== null);
-  const rows =
-    ids.length === 0
-      ? []
-      : await db
-          .select({
-            id: run.id,
-            state: run.state,
-            stopRequestedAt: run.stopRequestedAt,
-            turn: run.turn,
-          })
-          .from(run)
-          .where(inArray(run.id, ids));
-  const found = new Map(
-    rows.map((row) => [
-      row.id,
-      {
-        state: row.state,
-        stopRequested: row.stopRequestedAt !== null,
-        turn: row.turn,
-      },
-    ]),
-  );
+  const ids = [
+    ...new Set(runIds.filter((each): each is string => each !== null)),
+  ];
+  const facts =
+    ids.length === 0 ? [] : await progress.progressOf(ids.map(RunId.of));
+  const found = new Map(facts.map((each) => [each.runId.value, each]));
 
   return (runId) =>
     runId === null

@@ -95,6 +95,10 @@ export class ReviewController {
       'Draft a comment on lines or a whole file, or reply to a comment; a reply goes to GitHub straight away',
   })
   @ApiCreatedResponse({ type: CreatedIdResponseDto })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   @ApiNotFoundResponse({
     description: 'No such run or comment for this caller',
   })
@@ -128,7 +132,10 @@ export class ReviewController {
   })
   @ApiParam({ name: 'commentId', type: String })
   @ApiNoContentResponse()
-  @ApiForbiddenResponse({ description: 'Someone else wrote it' })
+  @ApiForbiddenResponse({
+    description:
+      'Someone else wrote it, or the caller is not a member of the team, nor a workspace admin',
+  })
   async edit(
     @Param('teamId') teamId: string,
     @Param('runId') runId: string,
@@ -155,7 +162,10 @@ export class ReviewController {
   })
   @ApiParam({ name: 'commentId', type: String })
   @ApiNoContentResponse()
-  @ApiForbiddenResponse({ description: 'Someone else wrote it' })
+  @ApiForbiddenResponse({
+    description:
+      'Someone else wrote it, or the caller is not a member of the team, nor a workspace admin',
+  })
   async delete(
     @Param('teamId') teamId: string,
     @Param('runId') runId: string,
@@ -174,6 +184,10 @@ export class ReviewController {
       'Submit your drafts as a review; it posts to the pull request, once the task has one',
   })
   @ApiCreatedResponse({ type: CreatedIdResponseDto })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   @ApiUnprocessableEntityResponse({
     description: 'A comment or request for changes that says nothing',
   })

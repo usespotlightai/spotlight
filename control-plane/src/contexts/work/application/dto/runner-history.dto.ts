@@ -1,7 +1,6 @@
 import type { StationConfigShape } from '@work/application/contracts/station-config.contract';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import type { RunOutcomeShape } from '@work/application/ports/run-outcomes.port';
-import type { VisibleBlock } from '@work/application/ports/search-visibility.port';
 import type { FileChange } from '@work/application/read-models/file-changes-of';
 
 export interface HistoryUsage {
@@ -32,10 +31,8 @@ export interface HistoryRunDto {
   readonly trace: TaskTraceDto;
 }
 
-export interface HistoryCandidateRunDto {
+export interface WrittenHistoryRun {
   readonly runId: string;
-  readonly original: string;
-  readonly repeat: number;
   readonly taskId: string;
   readonly title: string;
   readonly fingerprint: string | null;
@@ -44,21 +41,8 @@ export interface HistoryCandidateRunDto {
   readonly harness: string;
   readonly startedAt: string;
   readonly endedAt: string;
-  readonly usage: HistoryUsage | null;
   readonly changes: readonly FileChange[];
   readonly trace: TaskTraceDto;
-  readonly succeeded: boolean | null;
-  readonly reasons: readonly string[];
-  readonly verdict: string | null;
-  readonly guidance: string | null;
-}
-
-export interface HistoryCandidateDto {
-  readonly candidateName: string;
-  readonly fingerprint: string;
-  readonly hypothesis: string;
-  readonly block: VisibleBlock;
-  readonly runs: readonly HistoryCandidateRunDto[];
 }
 
 export interface RunnerHistoryDto {
@@ -69,8 +53,6 @@ export interface RunnerHistoryDto {
     readonly config: StationConfigShape;
   }[];
   readonly runs: readonly HistoryRunDto[];
-  readonly candidates: readonly HistoryCandidateDto[];
-  readonly seedBlock: VisibleBlock | null;
 }
 
 export type RunnerHistoryAnswer =

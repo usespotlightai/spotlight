@@ -211,6 +211,7 @@ const iterating = () =>
     memory.replayRepository,
     healthsFor(),
     work,
+    work,
     IDS,
     CLOCK,
     TRANSACTION,
@@ -313,6 +314,7 @@ const cause = (
 const proposing = () =>
   new ProposeSearchCandidateHandler(
     peopleWho(true),
+    work,
     work,
     memory.searchRepository,
     memory.candidateRepository,

@@ -2,24 +2,20 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { RunPaused } from '@work/domain/events/run-paused.event';
 import { RunSuspended } from '@work/domain/events/run-suspended.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
-import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-29T09:00:00.000Z');
@@ -34,23 +30,17 @@ const ASKED = HandoverReport.of({
   handover: Handover.of({ next: 'review', note: 'Which queue?' }),
   session: HarnessSession.of('session_1'),
 });
-const OF_TASK = RunSubject.task(
-  TaskId.of('task_1'),
-  StationId.of('station_1'),
-  TaskRevision.of(0),
-);
-
-const claimed = (subject: RunSubject | null = OF_TASK, key = 'task-task_1') =>
+const claimed = (ordering = orderedFor.task('task_1', 0)) =>
   Run.enqueue({
     id: RUN,
     workspaceId: WORKSPACE,
     harness: HarnessId.of('dev'),
-    subject,
+    ...ordering,
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'Fix the queue.',
       handover: { options: [], noteLimit: 0 },
-      resume: { key },
+      resume: {},
     }),
   }).claim(RUNNER, NOW);
 
@@ -111,10 +101,12 @@ describe('the turn of a run that holds it', () => {
     });
 
     it('completes the turn of a run that does not hold it, such as a chat’s', () => {
-      const run = claimed(
-        RunSubject.chat(ChatId.of('chat_1')),
-        'chat-chat_1',
-      ).reportTurn(RUNNER, CLEAN, ASKED, NOW);
+      const run = claimed(orderedFor.chat('chat_1')).reportTurn(
+        RUNNER,
+        CLEAN,
+        ASKED,
+        NOW,
+      );
 
       expect(run.state).toBe('completed');
       expect(run.turn).toBeNull();
@@ -274,7 +266,7 @@ describe('the turn of a run that holds it', () => {
         new RunCompleted(
           RUN,
           WORKSPACE,
-          OF_TASK,
+          orderedFor.task('task_1', 0).requester,
           CLEAN,
           RUNNER,
           null,
@@ -355,13 +347,17 @@ describe('the turn of a run that holds it', () => {
   });
 
   it('reads back as stored: a turn only while suspended, and never leased', () => {
-    expect(Run.rehydrate({ ...pending() }).turnAt(1)?.state).toBe('pending');
-    expect(() => Run.rehydrate({ ...pending(), turn: null })).toThrow(
+    const stored = (run: Run) => ({ ...run, ...run.ordered });
+
+    expect(Run.rehydrate(stored(pending())).turnAt(1)?.state).toBe('pending');
+    expect(() => Run.rehydrate({ ...stored(pending()), turn: null })).toThrow(
       InconsistentStateError,
     );
-    expect(() => Run.rehydrate({ ...claimed(), turn: kept().turn })).toThrow(
-      InconsistentStateError,
-    );
-    expect(() => Run.rehydrate({ ...pending(), claimedBy: RUNNER })).toThrow();
+    expect(() =>
+      Run.rehydrate({ ...stored(claimed()), turn: kept().turn }),
+    ).toThrow(InconsistentStateError);
+    expect(() =>
+      Run.rehydrate({ ...stored(pending()), claimedBy: RUNNER }),
+    ).toThrow();
   });
 });

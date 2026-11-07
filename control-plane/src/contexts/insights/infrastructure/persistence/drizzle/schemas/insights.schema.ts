@@ -411,6 +411,7 @@ export const pullRequestRecord = pgTable(
     ownerTeamId: text('owner_team_id'),
     ownerOpenedAt: timestamptz('owner_opened_at'),
     reviewTaskIds: text('review_task_ids').array().notNull().default([]),
+    reviewTeamIds: text('review_team_ids').array().notNull().default([]),
     githubPurgedAt: timestamptz('github_purged_at'),
     version: integer('version').notNull().default(0),
   },
@@ -430,6 +431,10 @@ export const pullRequestRecord = pgTable(
     index('pull_request_record_review_tasks_idx').using(
       'gin',
       table.reviewTaskIds,
+    ),
+    index('pull_request_record_review_teams_idx').using(
+      'gin',
+      table.reviewTeamIds,
     ),
   ],
 );

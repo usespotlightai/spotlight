@@ -316,6 +316,9 @@ describe('a team, created through the resource API (e2e)', () => {
         .map((each) => each.name)
         .sort(),
     ).toEqual([
+      'change-review.remove-change-stacks-of-deleted-team',
+      'change-review.remove-question-answers-of-deleted-team',
+      'change-review.remove-stack-checks-of-deleted-team',
       'configuration.delete-harness-profiles-of-deleted-team',
       'configuration.delete-skills-of-deleted-team',
       'insights.delete-alerts-of-deleted-team',

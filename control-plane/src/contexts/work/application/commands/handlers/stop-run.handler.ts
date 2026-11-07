@@ -5,6 +5,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { StopRunCommand } from '@work/application/commands/stop-run.command';
 import type { RunsPort } from '@work/application/ports/runs.port';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -18,23 +19,31 @@ export class StopRunHandler
     private readonly dispatches: DispatchRepository,
     private readonly tasks: TaskRepository,
     private readonly turns: TakeTurn,
+    private readonly access: WorkAccess,
   ) {}
 
   async execute(command: StopRunCommand): Promise<void> {
     try {
       const runId = RunId.of(command.runId);
-      const subject = (await this.dispatches.find(runId))?.subject;
+      const stoppedBy = UserId.of(command.stoppedBy);
+      const dispatch = await this.dispatches.find(runId);
+      const subject = dispatch?.subject;
       const task =
         subject?.kind === 'task' ? await this.tasks.find(subject.taskId) : null;
+      const unknown = () =>
+        new UnknownRunError(`Run ${command.runId} is not one you may stop.`);
 
       if (
+        !dispatch?.teamId ||
         subject?.kind !== 'task' ||
-        !RunStopPolicy.allows(subject, task, UserId.of(command.stoppedBy))
+        !RunStopPolicy.allows(subject, task, stoppedBy)
       ) {
-        throw new UnknownRunError(
-          `Run ${command.runId} is not one you may stop.`,
-        );
+        throw unknown();
       }
+
+      (
+        await this.access.standingOn(dispatch.teamId, stoppedBy)
+      ).assertActsOnTasks(unknown);
 
       const stop = await this.runs.requestStop(runId);
 

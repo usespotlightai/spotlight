@@ -33,7 +33,7 @@ describe('aggregate child writes', () => {
         db.execute(sql\`insert into task_note (id) values (\${id})\`);`),
     ).toEqual([
       'writes task_mark outside the repository of task',
-      'writes task_note outside the repository of run or task',
+      'writes task_note outside the repository of task',
     ]);
   });
 

@@ -39,7 +39,9 @@ beforeAll(async () => {
   tasks = new DrizzleTaskRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
-  board = new DrizzleTaskReader(db, new DrizzlePersonReader(db));
+  board = new DrizzleTaskReader(db, new DrizzlePersonReader(db), {
+    progressOf: async () => [],
+  });
 }, 60_000);
 
 afterAll(async () => {
@@ -66,7 +68,7 @@ describe('the tasks the board reads for a team', () => {
 
     await tasks.add(work);
 
-    const listed = await board.listForTeam(teamId, { state: 'open' });
+    const listed = await board.listForTeam(teamId, { state: 'board' });
 
     expect(listed?.items.map((each) => each.title)).toEqual(['Ship the thing']);
   });

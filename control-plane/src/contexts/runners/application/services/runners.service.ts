@@ -373,7 +373,7 @@ export class Runners implements RunnersPort {
       kind: request.work.kind,
       checkId: request.work.kind === 'check' ? request.work.id : null,
       runId: request.runId.value,
-      taskId: request.taskId?.value ?? null,
+      tags: request.tags,
       labels: request.labels,
       image: request.image,
       runnerId: request.runnerId.value,

@@ -59,13 +59,17 @@ const found = async (id: TaskId): Promise<Task> => {
 const finishedAt = async (station: string, thread: string): Promise<Task> => {
   const added = Task.add({
     line,
-    at: stationKeyed(station).id,
+    at: stationKeyed('code-review').id,
     title: TaskTitle.of('Add a theme selector'),
     rank: TaskRank.of('i'),
     now: new Date(),
     newId: () => randomUUID(),
   }).markedBy(Mark.of('slack.thread', thread), new Date(0));
-  const finished = Task.rehydrate({ ...added, finishedAt: new Date() });
+  const finished = Task.rehydrate({
+    ...added,
+    stationId: stationKeyed(station).id,
+    finishedAt: new Date(),
+  });
 
   await tasks.add(finished);
 

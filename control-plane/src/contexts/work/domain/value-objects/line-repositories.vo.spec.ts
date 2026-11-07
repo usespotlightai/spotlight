@@ -1,6 +1,7 @@
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { describe, expect, it } from 'vitest';
 
 const of = (...named: string[]) =>
@@ -13,8 +14,10 @@ describe('LineRepositories', () => {
   it('finds a repository by name, or nothing', () => {
     const repositories = of('acme/api');
 
-    expect(repositories.named('api')?.value).toBe('acme/api');
-    expect(repositories.named('web')).toBeNull();
+    expect(repositories.named(RepositoryName.of('api'))?.value).toBe(
+      'acme/api',
+    );
+    expect(repositories.named(RepositoryName.of('web'))).toBeNull();
   });
 
   describe('the repository a pull request opens against', () => {
@@ -23,7 +26,9 @@ describe('LineRepositories', () => {
     });
 
     it('is the one the agent names, where the line works several', () => {
-      expect(of('acme/api', 'acme/web').opening('web').value).toBe('acme/web');
+      expect(
+        of('acme/api', 'acme/web').opening(RepositoryName.of('web')).value,
+      ).toBe('acme/web');
     });
 
     it('rejects where several are worked and none is named', () => {
@@ -33,7 +38,7 @@ describe('LineRepositories', () => {
     });
 
     it('rejects a name the line does not work', () => {
-      expect(() => of('acme/api').opening('web')).toThrow(
+      expect(() => of('acme/api').opening(RepositoryName.of('web'))).toThrow(
         /no repository named web/,
       );
     });

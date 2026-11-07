@@ -20,14 +20,14 @@ const posting = () => {
   return { posted, reactions };
 };
 
-const checked = (replay: boolean) =>
+const checked = (trial: boolean) =>
   new StackChecked(
     StackCheckId.first(STACK_ID),
     RUN_ID,
     null,
     WorkspaceId.of('ws_1'),
     true,
-    replay,
+    trial,
   );
 
 describe('ChangeStackReactions', () => {
@@ -42,7 +42,7 @@ describe('ChangeStackReactions', () => {
     expect(posted).toEqual([RUN_ID, RUN_ID]);
   });
 
-  it('never posts a comment for a replay’s stack, completed or checked', async () => {
+  it('never posts a comment for a trial’s stack, completed or checked', async () => {
     const { posted, reactions } = posting();
 
     await reactions.onCompleted(

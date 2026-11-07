@@ -1,11 +1,11 @@
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
-import { heldLineOf } from '@lines/application/mappers/held-line.mapper';
-import type { StationHoldersPort } from '@lines/application/ports/station-holders.port';
+import type { StationDeletionGuardPort } from '@lines/application/ports/station-deletion-guard.port';
 import type { Line } from '@lines/domain/aggregates/line.aggregate';
 import { LineAlreadyExistsError } from '@lines/domain/exceptions/line-already-exists.error';
 import { LineRoleTakenError } from '@lines/domain/exceptions/line-role-taken.error';
 import { StationNotEmptyError } from '@lines/domain/exceptions/station-not-empty.error';
 import type { LineRepository } from '@lines/domain/repositories/line.repository';
+import { keyTaken } from '@lines/domain/services/line-keys';
 import { rolesClaimedTwice } from '@lines/domain/services/line-roles';
 import {
   createLine,
@@ -20,7 +20,7 @@ import type { StationId } from '@shared-kernel/domain/value-objects/station-id.v
 export class ApplyLines {
   constructor(
     private readonly lines: LineRepository,
-    private readonly holders: StationHoldersPort,
+    private readonly guard: StationDeletionGuardPort,
     private readonly ids: IdGeneratorPort,
   ) {}
 
@@ -31,7 +31,7 @@ export class ApplyLines {
   ): Promise<Line> {
     const existing = await this.lines.ofTeam(team.id);
 
-    if (existing.some((each) => each.key.equals(plan.key))) {
+    if (keyTaken(existing, plan.key)) {
       throw new LineAlreadyExistsError(plan.key.value);
     }
 
@@ -49,7 +49,6 @@ export class ApplyLines {
     });
 
     await this.lines.add(created);
-    await this.holders.hold(heldLineOf(created));
 
     return created;
   }
@@ -65,7 +64,7 @@ export class ApplyLines {
     const reconciled = reconcileLine({
       existing: line,
       plan,
-      taskCounts: await this.holders.lockedTaskCountsAt(
+      taskCounts: await this.guard.lockedTaskCountsAt(
         line.stations.map((each) => each.id),
       ),
       newId: () => this.ids.generate(),
@@ -74,7 +73,6 @@ export class ApplyLines {
 
     await this.release(line.removedIn(reconciled));
     await this.lines.save(reconciled);
-    await this.holders.hold(heldLineOf(reconciled));
 
     return reconciled;
   }
@@ -82,7 +80,7 @@ export class ApplyLines {
   async delete(line: Line, by: ChangeActor): Promise<void> {
     const stationIds = line.stations.map((each) => each.id);
     const deleted = line.delete(
-      await this.holders.lockedTaskCountsAt(stationIds),
+      await this.guard.lockedTaskCountsAt(stationIds),
       by,
     );
 
@@ -93,7 +91,7 @@ export class ApplyLines {
   private async release(stationIds: readonly StationId[]): Promise<void> {
     if (
       stationIds.length > 0 &&
-      (await this.holders.release(stationIds)) === 'held'
+      (await this.guard.release(stationIds)) === 'occupied'
     ) {
       throw new StationNotEmptyError(stationIds.map((each) => each.value));
     }

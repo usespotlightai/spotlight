@@ -68,6 +68,7 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     pullRequestLink: task.pullRequestLink,
     finishedAt: task.finishedAt,
     attachments: task.attachments,
+    version: 0,
   });
 
 const at = (
@@ -622,6 +623,7 @@ describe('TaskBriefing', () => {
       const reviewing = task('station_1').reviews(
         PullRequestUrl.of('https://github.com/acme/web/pull/7'),
         { outside: false },
+        lineOf(at('station_1', 'Current', 0)),
         new Date(0),
       );
 

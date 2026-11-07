@@ -1,12 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  PROVISIONING_NAMES,
+  type ProvisioningName,
   SETUP_STEP_KEYS,
   type SetupStepDto,
 } from '@work/application/dto/onboarding.dto';
-import {
-  PROVISIONINGS,
-  type Provisioning,
-} from '@work/domain/services/team-provisioning';
 
 export class SetupStepResponseDto {
   @ApiProperty({
@@ -125,10 +123,10 @@ export class OnboardingResponseDto {
   @ApiProperty({
     description:
       'Whether Spotlight has created the first lines and opened the setup task of a team made at sign-up. A team made otherwise is done at once.',
-    enum: PROVISIONINGS,
+    enum: PROVISIONING_NAMES,
     example: 'done',
   })
-  readonly provisioning: Provisioning;
+  readonly provisioning: ProvisioningName;
 
   @ApiProperty({
     description: 'The list itself, in the order it is worked through',
@@ -158,7 +156,7 @@ export class OnboardingResponseDto {
   readonly setupChat: SetupChatResponseDto | null;
 
   constructor(
-    provisioning: Provisioning,
+    provisioning: ProvisioningName,
     steps: readonly SetupStepResponseDto[],
     canSetUp: boolean,
     viewerIsAdmin: boolean,

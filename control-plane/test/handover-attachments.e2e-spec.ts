@@ -17,7 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
 import { deleteRunnersOf } from './support/runners';
-import { aDispatch } from './support/runs';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
@@ -149,11 +149,9 @@ const aTaskWithLeasedRun = async (
     currentRunId: runId,
   });
   await db.insert(schema.run).values({
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: at,
     harness: 'dev',
     state: 'queued',
     placement: [['linux']],
@@ -161,7 +159,7 @@ const aTaskWithLeasedRun = async (
       command: { executable: 'sh', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['review', 'ship', 'done'], noteLimit: 0 },
-      resume: { key: `${taskId}:${at}` },
+      resume: {},
     },
   });
   await db.insert(schema.dispatch).values(

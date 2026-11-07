@@ -29,7 +29,8 @@ export interface TurnsCursor {
 export interface RunTurnsPort {
   turnOf(runId: RunId, attempt: number): Promise<TurnFacts | null>;
 
-  ofTasksOlderThan(
+  olderThan(
+    owner: string,
     turn: RunTurnState,
     before: Date,
     after: TurnsCursor | null,

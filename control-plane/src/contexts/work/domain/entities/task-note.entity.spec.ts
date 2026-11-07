@@ -71,6 +71,21 @@ describe('TaskNote', () => {
     ).not.toBeNull();
   });
 
+  it('holds the payload its form names', () => {
+    expect(() => aNote({ form: 'failure' })).toThrow(InconsistentStateError);
+    expect(() => aNote({ form: 'connection' })).toThrow(InconsistentStateError);
+    expect(() => aNote({ kind: 'asked', form: 'approval' })).toThrow(
+      InconsistentStateError,
+    );
+  });
+
+  it('records a decision only on an answer', () => {
+    expect(() => aNote({ kind: 'asked', form: 'decision' })).toThrow(
+      InconsistentStateError,
+    );
+    expect(aNote({ kind: 'answered', form: 'decision' }).form).toBe('decision');
+  });
+
   it('defers a move only on a message', () => {
     expect(() =>
       aNote({

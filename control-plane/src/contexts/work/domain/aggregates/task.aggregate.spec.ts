@@ -28,13 +28,17 @@ import { InvalidTaskRevisionError } from '@work/domain/exceptions/invalid-task-r
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
+import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
+import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
+import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnreviewablePullRequestError } from '@work/domain/exceptions/unreviewable-pull-request.error';
 import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
+import { goneStationName } from '@work/domain/value-objects/gone-station-name';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import {
   lineMapOf,
@@ -51,6 +55,7 @@ import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -78,6 +83,7 @@ const withNotes = (task: Task, ...notes: TaskNote[]) =>
     openedFrom: task.openedFrom,
     pullRequestLink: task.pullRequestLink,
     finishedAt: task.finishedAt,
+    version: task.version,
   });
 
 const added = (description?: TaskDescription) =>
@@ -144,7 +150,7 @@ const RUN = RunId.of('run_1');
 const HERE = StationId.of('station_1');
 
 const newNote = {
-  station: null,
+  line: null,
   body: TaskNoteBody.of('Reproduced on restart.'),
   at: NOW,
   voice: Voice.station(),
@@ -153,26 +159,16 @@ const newNote = {
 const lastOf = (task: Task) => task.notes[task.notes.length - 1];
 
 describe('Task, the station a note is written at', () => {
-  it('names the station the task is at', () => {
-    const at = LINE.stationAt(StationId.of('station_1'));
-    const noted = added().addMessage({ ...newNote, station: at });
+  it('names the station the task is at, from its own line', () => {
+    const noted = added().addMessage({ ...newNote, line: LINE });
 
     expect(lastOf(noted)?.station.value).toBe('Triage');
     expect(lastOf(noted)?.stationId.value).toBe('station_1');
   });
 
-  it('refuses a note at a station the task is not at', () => {
-    expect(() =>
-      added().addMessage({
-        ...newNote,
-        station: LINE.stationAt(StationId.of('station_2')),
-      }),
-    ).toThrow(InconsistentStateError);
-  });
-
-  it('names no station it was not told', () => {
+  it('names a station its line no longer has as gone', () => {
     expect(lastOf(added().addMessage(newNote))?.station).toEqual(
-      StationName.unknown(),
+      goneStationName(),
     );
   });
 });
@@ -197,6 +193,19 @@ describe('Task', () => {
         newId: () => 'task_1',
       }),
     ).toThrow(UnknownStationError);
+  });
+
+  it('will not be opened at the station that ends its line', () => {
+    expect(() =>
+      Task.add({
+        line: LINE,
+        at: StationId.of('completed_1'),
+        title: TaskTitle.of('Fix the queue'),
+        rank: TaskRank.of('i'),
+        now: NOW,
+        newId: () => 'task_1',
+      }),
+    ).toThrow(InvalidTaskTransitionError);
   });
 
   it('remembers it was opened by a person, or received from an integration', () => {
@@ -397,7 +406,11 @@ describe('Task, reopened by a word', () => {
     ],
   });
   const ADA = UserId.of('ada');
-  const said = { ...newNote, voice: Voice.person(ADA) };
+  const said = {
+    ...newNote,
+    voice: Voice.person(ADA),
+    anchor: Anchor.of({ body: 'Look again.' }),
+  };
   const ended = () =>
     added().assignRun(RUN, LINE).finishHere(RUN, LINE, newNote);
 
@@ -436,7 +449,7 @@ describe('Task, reopened by a word', () => {
   it('does not reopen a task that is not finished', () => {
     expect(() =>
       added().reopen(LINE, MENTIONED, TaskRank.of('m'), said),
-    ).toThrow(InvalidTaskTransitionError);
+    ).toThrow(TaskNotReopenableError);
   });
 
   it('does not reopen a completed task', () => {
@@ -450,16 +463,25 @@ describe('Task, reopened by a word', () => {
     expect(completed.reopenableOn(LINE)).toBe(false);
     expect(() =>
       completed.reopen(LINE, MENTIONED, TaskRank.of('m'), said),
-    ).toThrow(InvalidTaskTransitionError);
+    ).toThrow(TaskNotReopenableError);
   });
 
   it('does not take a word from the world as a reopening', () => {
     expect(() =>
       ended().reopen(LINE, MENTIONED, TaskRank.of('m'), {
-        ...newNote,
+        ...said,
         voice: Voice.world(),
       }),
-    ).toThrow(InvalidTaskTransitionError);
+    ).toThrow(ReopenedByNobodyError);
+  });
+
+  it('does not reopen with nothing said', () => {
+    expect(() =>
+      ended().reopen(LINE, MENTIONED, TaskRank.of('m'), {
+        ...said,
+        anchor: null,
+      }),
+    ).toThrow(NothingSaidError);
   });
 });
 
@@ -501,7 +523,7 @@ describe('Task, what it is doing', () => {
   });
 
   it('is not idle while it waits on a person', () => {
-    const task = created().askedAbout({ ...asked(), station: null }, null);
+    const task = created().askedAbout({ ...asked(), line: null }, null);
 
     expect(task.running).toBe(false);
     expect(task.idle).toBe(false);
@@ -567,18 +589,6 @@ describe('Task, what it is doing', () => {
 
       expect(moved.sessionId).toBeNull();
       expect(moved.runnerId).toBeNull();
-    });
-
-    it('names the one workspace every run of it works in, at whichever station', () => {
-      const moved = added().react(
-        LINE,
-        StationId.of('station_2'),
-        TaskRank.of('m'),
-        newNote,
-      );
-
-      expect(added().resume().key.value).toBe('task-task_1');
-      expect(moved.resume().key.equals(added().resume().key)).toBe(true);
     });
 
     it('hands the conversation to the next run', () => {
@@ -711,14 +721,6 @@ describe('Task, what it is doing', () => {
   });
 
   describe('who it belongs to', () => {
-    it('comes back to whoever created it', () => {
-      expect(added().createdByThem(UserId.of('user_1'))).toBe(true);
-    });
-
-    it('belongs to nobody else, however much of the workspace they see', () => {
-      expect(added().createdByThem(UserId.of('user_2'))).toBe(false);
-    });
-
     it('is owned by whoever created it from the start', () => {
       expect(added().assignedToThem(UserId.of('user_1'))).toBe(true);
     });
@@ -731,7 +733,7 @@ describe('Task, what it is doing', () => {
 
     it('keeps the assignee it already has when a person is asked', () => {
       const asked = added()
-        .assign(UserId.of('user_2'))
+        .assign(UserId.of('user_2'), TeamMembers.of([UserId.of('user_2')]))
         .askedAbout(newNote, null);
 
       expect(asked.assignedToThem(UserId.of('user_2'))).toBe(true);
@@ -821,10 +823,20 @@ describe('Task, what it is doing', () => {
 
     it('is acknowledged once the agent has got it', () => {
       const received = added()
+        .assignRun(RUN, LINE)
         .addMessage(aloud, here)
-        .acknowledgeUpTo(NotePosition.of(0), NOW);
+        .acknowledgeUpTo(RUN, NotePosition.of(0), NOW);
 
       expect(received.unacknowledged).toHaveLength(0);
+    });
+
+    it('is acknowledged only by the run that works the task', () => {
+      const received = added()
+        .assignRun(RUN, LINE)
+        .addMessage(aloud, here)
+        .acknowledgeUpTo(RunId.of('run_gone'), NotePosition.of(0), NOW);
+
+      expect(received.unacknowledged).toHaveLength(1);
     });
 
     it('will not go to a station the task has left', () => {
@@ -958,7 +970,7 @@ describe('Task, what it is doing', () => {
     it('leaves the reply out of what is unacknowledged', () => {
       const replied = opened()
         .addMessage(reviewComment)
-        .acknowledgeUpTo(NotePosition.of(0), NOW)
+        .acknowledgeUpTo(RUN, NotePosition.of(0), NOW)
         .recordReviewCommentReply(RUN, HERE, NotePosition.of(0), newNote);
 
       expect(replied.unacknowledged).toEqual([]);
@@ -1244,7 +1256,12 @@ describe('Task, what it is doing', () => {
     const url = PullRequestUrl.of('https://github.com/acme/widgets/pull/7');
 
     it('has the mark of the pull request, and reviews it rather than owning it', () => {
-      const reviewing = added().reviews(url, { outside: false }, new Date(0));
+      const reviewing = added().reviews(
+        url,
+        { outside: false },
+        LINE,
+        new Date(0),
+      );
 
       expect(reviewing.pullRequest).toEqual(url);
       expect(reviewing.reviewing).toBe(true);
@@ -1258,7 +1275,12 @@ describe('Task, what it is doing', () => {
     });
 
     it('says which pull request it reviews, so Insights can tell people’s pull requests Spotlight touched', () => {
-      const reviewing = added().reviews(url, { outside: false }, new Date(0));
+      const reviewing = added().reviews(
+        url,
+        { outside: false },
+        LINE,
+        new Date(0),
+      );
 
       expect(reviewing.pullEvents()).toContainEqual(
         expect.objectContaining({
@@ -1276,6 +1298,7 @@ describe('Task, what it is doing', () => {
           {
             outside: false,
           },
+          LINE,
           new Date(0),
         ),
       ).toThrow(UnreviewablePullRequestError);
@@ -1288,9 +1311,9 @@ describe('Task, what it is doing', () => {
 
       expect(own.reviewing).toBe(false);
       expect(own.reviewedHead).toBeNull();
-      expect(() => own.reviews(url, { outside: false }, new Date(0))).toThrow(
-        InvalidTaskTransitionError,
-      );
+      expect(() =>
+        own.reviews(url, { outside: false }, LINE, new Date(0)),
+      ).toThrow(InvalidTaskTransitionError);
     });
   });
 
@@ -1604,7 +1627,7 @@ describe('Task, what it is doing', () => {
           notes: [
             TaskNote.of({
               ...newNote,
-              station: StationName.unknown(),
+              station: goneStationName(),
               stationId: HERE,
               kind: 'message',
               position: NotePosition.of(1),
@@ -1631,8 +1654,8 @@ describe('Task, what it is doing', () => {
         new TaskMoved(
           task.id,
           task.workspaceId,
-          StationKey.of('station-1'),
-          StationKey.of('station-2'),
+          { id: StationId.of('station_1'), key: StationKey.of('station-1') },
+          { id: StationId.of('station_2'), key: StationKey.of('station-2') },
           NOW,
         ),
       );
@@ -1652,7 +1675,7 @@ describe('Task, what it is doing', () => {
         ),
       );
 
-      expect(moved?.to).toEqual(StationKey.of('station-2'));
+      expect(moved?.to.key).toEqual(StationKey.of('station-2'));
     });
 
     it('says nothing moved when it is only reordered', () => {
@@ -1834,15 +1857,6 @@ describe('Task, a failure reported on it', () => {
       .filter((each) => each instanceof TaskFailed);
 
     expect(raised?.teamId).toEqual(LINE.teamId);
-  });
-
-  it('tells no team of a failure raised while the task is on no line', () => {
-    expect(
-      withRun()
-        .failed(RUN_EXITED, failure('It exited 1.'), RUN, null)
-        .pullEvents()
-        .filter((each) => each instanceof TaskFailed),
-    ).toEqual([]);
   });
 
   it('leaves the task it failed from untouched, recording the failure only on the task it returns', () => {

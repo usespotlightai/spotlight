@@ -1,24 +1,60 @@
-import type {
-  HeldLine,
-  StationHoldersPort,
-  StationRelease,
-} from '@lines/application/ports/station-holders.port';
 import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import type {
+  ProjectedLine,
+  WorkStationsPort,
+} from '@work/application/ports/work-stations.port';
 import {
-  RESTRICT_VIOLATION,
-  violates,
-} from '@platform/persistence/drizzle/violations';
-import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { task } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { workStation } from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
-import { inArray, sql } from 'drizzle-orm';
+  workLine,
+  workStation,
+} from '@work/infrastructure/persistence/drizzle/schemas/work-station.schema';
+import { and, eq, notInArray, sql } from 'drizzle-orm';
 
 @Injectable()
-export class DrizzleWorkStations implements StationHoldersPort {
+export class DrizzleWorkStations implements WorkStationsPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  async hold(line: HeldLine): Promise<void> {
+  async project(line: ProjectedLine): Promise<void> {
+    await this.context.inTransaction(async () => {
+      if (!(await this.newer(line))) {
+        return;
+      }
+
+      await this.withoutDroppedStations(line);
+      await this.withStations(line);
+    });
+  }
+
+  private async newer(line: ProjectedLine): Promise<boolean> {
+    const written = await this.context.db
+      .insert(workLine)
+      .values({ lineId: line.lineId.value, lineVersion: line.version })
+      .onConflictDoUpdate({
+        target: workLine.lineId,
+        set: { lineVersion: sql`excluded.line_version` },
+        setWhere: sql`${workLine.lineVersion} < excluded.line_version`,
+      })
+      .returning({ lineId: workLine.lineId });
+
+    return written.length > 0;
+  }
+
+  private async withoutDroppedStations(line: ProjectedLine): Promise<void> {
+    const kept = line.stations.map((each) => each.id.value);
+
+    await this.context.db
+      .delete(workStation)
+      .where(
+        kept.length > 0
+          ? and(
+              eq(workStation.lineId, line.lineId.value),
+              notInArray(workStation.stationId, kept),
+            )
+          : eq(workStation.lineId, line.lineId.value),
+      );
+  }
+
+  private async withStations(line: ProjectedLine): Promise<void> {
     if (line.stations.length === 0) {
       return;
     }
@@ -27,12 +63,12 @@ export class DrizzleWorkStations implements StationHoldersPort {
       .insert(workStation)
       .values(
         line.stations.map((each) => ({
-          stationId: each.id,
-          workspaceId: line.workspaceId,
-          teamId: line.teamId,
-          lineId: line.lineId,
-          lineKey: line.lineKey,
-          lineName: line.lineName,
+          stationId: each.id.value,
+          workspaceId: line.workspaceId.value,
+          teamId: line.teamId.value,
+          lineId: line.lineId.value,
+          lineKey: line.key,
+          lineName: line.name,
           key: each.key,
           name: each.name,
           kind: each.kind,
@@ -52,58 +88,5 @@ export class DrizzleWorkStations implements StationHoldersPort {
           position: sql`excluded.position`,
         },
       });
-  }
-
-  async lockedTaskCountsAt(
-    stationIds: readonly StationId[],
-  ): Promise<ReadonlyMap<string, number>> {
-    if (stationIds.length === 0) {
-      return new Map();
-    }
-
-    const ids = stationIds.map((each) => each.value);
-
-    await this.context.db
-      .select({ id: workStation.stationId })
-      .from(workStation)
-      .where(inArray(workStation.stationId, ids))
-      .orderBy(workStation.stationId)
-      .for('update');
-
-    const rows = await this.context.db
-      .select({
-        stationId: task.stationId,
-        tasks: sql<number>`count(*)::int`,
-      })
-      .from(task)
-      .where(inArray(task.stationId, ids))
-      .groupBy(task.stationId);
-
-    return new Map(rows.map((row) => [row.stationId, Number(row.tasks)]));
-  }
-
-  async release(stationIds: readonly StationId[]): Promise<StationRelease> {
-    if (stationIds.length === 0) {
-      return 'released';
-    }
-
-    try {
-      await this.context.inSavepoint(() =>
-        this.context.db.delete(workStation).where(
-          inArray(
-            workStation.stationId,
-            stationIds.map((each) => each.value),
-          ),
-        ),
-      );
-
-      return 'released';
-    } catch (error) {
-      if (violates(error, RESTRICT_VIOLATION, 'task_station_fk')) {
-        return 'held';
-      }
-
-      throw error;
-    }
   }
 }

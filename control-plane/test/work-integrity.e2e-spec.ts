@@ -2,17 +2,21 @@ import { randomUUID } from 'node:crypto';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
+import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { StationNotKnownYetError } from '@work/application/errors/station-not-known-yet.error';
 import { ReleaseTakenMarks } from '@work/application/events/handlers/release-taken-marks.handler';
+import type { ProjectedLine } from '@work/application/ports/work-stations.port';
 import { correlatedTask } from '@work/application/services/correlated-task';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskMarked } from '@work/domain/events/task-marked.event';
-import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
-import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
+import { AttachmentHeldElsewhereError } from '@work/domain/exceptions/attachment-held-elsewhere.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
@@ -21,10 +25,12 @@ import { Mark } from '@work/domain/value-objects/mark.vo';
 import { Station } from '@work/domain/value-objects/station.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { DrizzleWorkStations } from '@work/infrastructure/persistence/drizzle/projections/work-stations.projection';
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
+import { DrizzleStationDeletionGuard } from '@work/infrastructure/persistence/drizzle/station-deletion.guard';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
@@ -135,9 +141,9 @@ describe('a line that drops a station', () => {
 
     await expect(
       context.inTransaction(() =>
-        new DrizzleWorkStations(context).release([reviewId]),
+        new DrizzleStationDeletionGuard(context).release([reviewId]),
       ),
-    ).resolves.toBe('held');
+    ).resolves.toBe('occupied');
     await expect(tasks.find(task.id)).resolves.not.toBeNull();
   });
 
@@ -146,7 +152,7 @@ describe('a line that drops a station', () => {
     await tasks.add(added(whole, reviewId));
 
     const tally = await context.inTransaction(() =>
-      new DrizzleWorkStations(context).lockedTaskCountsAt([reviewId]),
+      new DrizzleStationDeletionGuard(context).lockedTaskCountsAt([reviewId]),
     );
 
     expect(tally.get(reviewId.value)).toBe(1);
@@ -157,12 +163,70 @@ describe('a line that drops a station', () => {
 
     await expect(
       context.inTransaction(() =>
-        new DrizzleWorkStations(context).release([reviewId]),
+        new DrizzleStationDeletionGuard(context).release([reviewId]),
       ),
     ).resolves.toBe('released');
     await expect(tasks.add(added(whole, reviewId))).rejects.toBeInstanceOf(
-      UnknownStationError,
+      StationNotKnownYetError,
     );
+  });
+});
+
+describe('the stations Work knows of a line', () => {
+  const projected = (
+    lineId: LineId,
+    version: number,
+    stationIds: readonly StationId[],
+  ): ProjectedLine => ({
+    lineId,
+    workspaceId: WorkspaceId.of('ws_projection'),
+    teamId: TeamId.of('team_projection'),
+    version,
+    key: 'delivery',
+    name: 'Delivery',
+    stations: stationIds.map((id, position) => ({
+      id,
+      key: `station-${position}`,
+      name: `Station ${position}`,
+      kind: 'work',
+      color: '#6d78d5',
+      position,
+    })),
+  });
+
+  const known = async (lineId: LineId) =>
+    (
+      await db
+        .select({ id: schema.workStation.stationId })
+        .from(schema.workStation)
+        .where(eq(schema.workStation.lineId, lineId.value))
+    )
+      .map((each) => each.id)
+      .sort();
+
+  it('follows the newest change of the line and drops the stations it no longer has', async () => {
+    const stations = new DrizzleWorkStations(context);
+    const lineId = LineId.of(randomUUID());
+    const [kept, dropped] = [randomUUID(), randomUUID()].map(StationId.of) as [
+      StationId,
+      StationId,
+    ];
+
+    await stations.project(projected(lineId, 0, [kept, dropped]));
+    await stations.project(projected(lineId, 1, [kept]));
+
+    expect(await known(lineId)).toEqual([kept.value]);
+  });
+
+  it('ignores a change older than one it already followed, also after the line is deleted', async () => {
+    const stations = new DrizzleWorkStations(context);
+    const lineId = LineId.of(randomUUID());
+    const station = StationId.of(randomUUID());
+
+    await stations.project(projected(lineId, 3, []));
+    await stations.project(projected(lineId, 0, [station]));
+
+    expect(await known(lineId)).toEqual([]);
   });
 });
 
@@ -221,7 +285,7 @@ describe('a file handed over twice', () => {
 
     await expect(
       tasks.add(added(line, stationId, { attachments: [attachment] })),
-    ).rejects.toBeInstanceOf(InvalidAttachmentError);
+    ).rejects.toBeInstanceOf(AttachmentHeldElsewhereError);
     await expect(
       new DrizzleAttachmentReader(db).find(attachment.id.value),
     ).resolves.toMatchObject({ id: attachment.id.value });
@@ -238,7 +302,9 @@ describe('a file handed over twice', () => {
 
     const again = (await tasks.find(first.id)) as Task;
 
-    await expect(tasks.save(again.assign(owner))).resolves.toBeUndefined();
+    await expect(
+      tasks.save(again.assign(owner, TeamMembers.of([owner]))),
+    ).resolves.toBeUndefined();
   });
 
   it('cannot be attached to a chat once a task has it', async () => {
@@ -264,7 +330,7 @@ describe('a file handed over twice', () => {
 
     await expect(
       new DrizzleChatRepository(context, quiet).add(chat),
-    ).rejects.toBeInstanceOf(InvalidAttachmentError);
+    ).rejects.toBeInstanceOf(AttachmentHeldElsewhereError);
   });
 });
 

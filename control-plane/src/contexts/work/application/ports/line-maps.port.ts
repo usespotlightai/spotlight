@@ -1,4 +1,3 @@
-import type { LineDefinition } from '@lines/application/contracts/line-definition.contract';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -19,7 +18,6 @@ export type StationCandidate =
   | {
       readonly ok: true;
       readonly line: LineMap;
-      readonly definition: LineDefinition;
     }
   | {
       readonly ok: false;

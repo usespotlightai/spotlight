@@ -11,7 +11,6 @@ import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
-import { ReplayRunUsageRecorded } from '@work/domain/events/replay-run-usage-recorded.event';
 import { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
@@ -20,7 +19,6 @@ import { RunPaused } from '@work/domain/events/run-paused.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import { RunSuspended } from '@work/domain/events/run-suspended.event';
 import { RunUsageRecorded } from '@work/domain/events/run-usage-recorded.event';
-import { SearchRunUsageRecorded } from '@work/domain/events/search-run-usage-recorded.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
@@ -74,6 +72,7 @@ import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { Harness } from '@work/domain/value-objects/harness.vo';
+import { HarnessCatalogue } from '@work/domain/value-objects/harness-catalogue.vo';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { HarnessPermission } from '@work/domain/value-objects/harness-permission.vo';
@@ -82,6 +81,7 @@ import { HeldMark } from '@work/domain/value-objects/held-mark.vo';
 import { InboxRequestId } from '@work/domain/value-objects/inbox-request-id.vo';
 import { InboxRequestRead } from '@work/domain/value-objects/inbox-request-read.vo';
 import { InboxRequestSubject } from '@work/domain/value-objects/inbox-request-subject.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
 import { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
@@ -101,17 +101,19 @@ import { ProfileMissing } from '@work/domain/value-objects/profile-missing.vo';
 import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
+import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
-import { ReplayRunClaim } from '@work/domain/value-objects/replay-run-claim.vo';
+import { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
 import { Resume } from '@work/domain/value-objects/resume.vo';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 import { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import { ReviewIntake } from '@work/domain/value-objects/review-intake.vo';
 import { ReviewVerdict } from '@work/domain/value-objects/review-verdict.vo';
+import { RunApiGrant } from '@work/domain/value-objects/run-api-grant.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
+import { RunExtensions } from '@work/domain/value-objects/run-extensions.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPolicy } from '@work/domain/value-objects/run-policy.vo';
@@ -121,10 +123,9 @@ import {
   RunRequester,
 } from '@work/domain/value-objects/run-requester.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import { RunTags } from '@work/domain/value-objects/run-tags.vo';
 import { RunTurn } from '@work/domain/value-objects/run-turn.vo';
-import { SearchId } from '@work/domain/value-objects/search-id.vo';
-import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
+import { RunUsage } from '@work/domain/value-objects/run-usage.vo';
 import { Signing } from '@work/domain/value-objects/signing.vo';
 import { SpotlightApiGrant } from '@work/domain/value-objects/spotlight-api-grant.vo';
 import { StartedCheckout } from '@work/domain/value-objects/started-checkout.vo';
@@ -139,6 +140,8 @@ import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
+import { TeamStanding } from '@work/domain/value-objects/team-standing.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
 import { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 import { ToolCall } from '@work/domain/value-objects/tool-call.vo';
@@ -150,6 +153,10 @@ import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { Trail } from '@work/domain/value-objects/trail.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import {
+  RunWorkspace,
+  WorkspaceKey,
+} from '@work/domain/value-objects/workspace-key.vo';
 
 export const WORK_PAYLOAD_TYPES = [
   JudgeSettings,
@@ -176,7 +183,6 @@ export const WORK_PAYLOAD_TYPES = [
   CorrelationKeys,
   ConnectionAsk,
   Resume,
-  ResumeKey,
   ConversationId,
   Handover,
   DeclaredTool,
@@ -193,6 +199,7 @@ export const WORK_PAYLOAD_TYPES = [
   TargetStation,
   DeferredMove,
   PullRequestLink,
+  PullRequestTitle,
   CiSetup,
   ConfigFolder,
   Mark,
@@ -204,9 +211,9 @@ export const WORK_PAYLOAD_TYPES = [
   ChatReply,
   MessagePosition,
   Money,
-  ReplayRunClaim,
   Tokens,
   ToolUse,
+  RunUsage,
   CalledTool,
   NetworkResponse,
   NetworkCallId,
@@ -216,16 +223,18 @@ export const WORK_PAYLOAD_TYPES = [
   ProposalPlacement,
   ReviewComment,
   RunAttempt,
+  RunApiGrant,
+  RunExtensions,
+  RunTags,
+  RunWorkspace,
+  WorkspaceKey,
   RunConnection,
   RunOutcome,
   RunFailure,
   TaskFailure,
   RunPriority,
   RunSpec,
-  RunSubject,
   Anchor,
-  SearchId,
-  SearchIteration,
   Signing,
   StationConfig,
   TaskDescription,
@@ -234,6 +243,8 @@ export const WORK_PAYLOAD_TYPES = [
   TaskOrigin,
   TaskRevision,
   TaskTitle,
+  TeamMembers,
+  TeamStanding,
   ToolCall,
   ToolActingAs,
   ToolInputs,
@@ -250,6 +261,9 @@ export const WORK_PAYLOAD_TYPES = [
   NoticeExternalLink,
   NoticeWording,
   InboxRequestSubject,
+  IntegrationName,
+  HarnessCatalogue,
+  RepositoryName,
   InboxRequestRead,
   BriefedMemories,
   BriefedTask,
@@ -283,8 +297,6 @@ export const WORK_PAYLOAD_TYPES = [
   RunRequester,
   RunCompleted,
   RunUsageRecorded,
-  ReplayRunUsageRecorded,
-  SearchRunUsageRecorded,
   TaskFailed,
   TaskPassed,
   RunLeaseExpired,

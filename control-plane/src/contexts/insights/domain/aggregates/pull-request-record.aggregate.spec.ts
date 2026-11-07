@@ -19,6 +19,8 @@ const LATER = new Date('2026-09-28T10:00:00.000Z');
 
 const OPENED_AT = new Date('2026-09-28T08:00:00.000Z');
 
+const REVIEW = { taskId: TaskId.of('task_2'), teamId: TeamId.of('team_7') };
+
 const OWNER = {
   taskId: TaskId.of('task_1'),
   teamId: TeamId.of('team_1'),
@@ -47,11 +49,9 @@ describe('PullRequestRecord', () => {
   });
 
   it('remembers each review task that ran on it once', () => {
-    const reviewed = noted()
-      .recordReview(TaskId.of('task_2'))
-      .recordReview(TaskId.of('task_2'));
+    const reviewed = noted().recordReview(REVIEW).recordReview(REVIEW);
 
-    expect(reviewed.reviewTasks).toEqual([TaskId.of('task_2')]);
+    expect(reviewed.reviewTasks).toEqual([REVIEW]);
   });
 
   it('keeps only a tombstone once GitHub purges it, unless a task owns or reviewed it', () => {
@@ -63,8 +63,7 @@ describe('PullRequestRecord', () => {
     expect(owned.isTombstone).toBe(false);
     expect(owned.seen).not.toBeNull();
     expect(
-      people.recordReview(TaskId.of('task_2')).purgedByGitHub(SEEN_AT)
-        .isTombstone,
+      people.recordReview(REVIEW).purgedByGitHub(SEEN_AT).isTombstone,
     ).toBe(false);
   });
 
@@ -136,7 +135,7 @@ describe('PullRequestRecord', () => {
   it('lets go of a task, and keeps a tombstone once nothing refers to it and GitHub purged it', () => {
     const owned = noted().assignOwner(OWNER).seenAs(seenOf());
     const purged = owned.purgedByGitHub(SEEN_AT);
-    const unseen = noted().recordReview(TaskId.of('task_2'));
+    const unseen = noted().recordReview(REVIEW);
 
     expect(
       owned.erasing(DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId))
@@ -166,10 +165,10 @@ describe('PullRequestRecord', () => {
     ).toBeNull();
     expect(
       purged
-        .recordReview(TaskId.of('task_2'))
+        .recordReview(REVIEW)
         .erasing(DeletionScope.ofTask(WorkspaceId.of('ws_1'), OWNER.taskId))
         ?.reviewTasks,
-    ).toEqual([TaskId.of('task_2')]);
+    ).toEqual([REVIEW]);
   });
 
   it('lets go of a deleted team, and keeps a tombstone once GitHub purged it', () => {
@@ -190,6 +189,24 @@ describe('PullRequestRecord', () => {
         .erasing(DeletionScope.ofTeam(WorkspaceId.of('ws_1'), OWNER.teamId))
         ?.isTombstone,
     ).toBe(true);
+  });
+
+  it('lets go of the review tasks of a deleted team', () => {
+    const reviewed = noted()
+      .seenAs(seenOf())
+      .recordReview(REVIEW)
+      .recordReview({ taskId: TaskId.of('task_3'), teamId: OWNER.teamId });
+
+    expect(
+      reviewed.erasing(
+        DeletionScope.ofTeam(WorkspaceId.of('ws_1'), REVIEW.teamId),
+      )?.reviewTasks,
+    ).toEqual([{ taskId: TaskId.of('task_3'), teamId: OWNER.teamId }]);
+    expect(
+      noted()
+        .recordReview(REVIEW)
+        .erasing(DeletionScope.ofTeam(WorkspaceId.of('ws_1'), REVIEW.teamId)),
+    ).toBeNull();
   });
 
   it('is the pull request of the task that owns it, open until GitHub says otherwise, with GitHub’s close and first review', () => {

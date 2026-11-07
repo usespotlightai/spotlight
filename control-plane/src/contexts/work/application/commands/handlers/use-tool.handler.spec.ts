@@ -3,12 +3,12 @@ import type {
   CatalogDenialReason,
 } from '@catalog/application/contracts/catalog.contract';
 import { UpstreamError } from '@shared-kernel/application/errors/upstream.error';
-import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
+import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -41,14 +41,21 @@ import type {
   TaskViewsPort,
 } from '@work/application/ports/task-views.port';
 import { BuiltInTools } from '@work/application/services/built-in-tools.service';
+import { ChatToolExtensions } from '@work/application/services/chat-tool-extensions.service';
 import { RunCatalog } from '@work/application/services/run-catalog.service';
-import { runWorksOver } from '@work/application/services/run-works.fake-spec';
+import {
+  aChatDispatch,
+  aTaskDispatch,
+  dispatchesOf,
+  runWorksOver,
+} from '@work/application/services/run-works.fake-spec';
 import { ToolSources } from '@work/application/services/tool-sources.service';
 import { ToolUsedHooks } from '@work/application/services/tool-used-hooks.service';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
-import { ToolUsed } from '@work/domain/events/tool-used.event';
+import type { ToolUsed } from '@work/domain/events/tool-used.event';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -62,7 +69,6 @@ import {
   REVIEW,
   REVIEW_COMMENT,
   SETUP_PULL_REQUEST,
-  TEST_STATION_CHANGE,
 } from '@work/domain/services/built-in-tools';
 import type { PersonRule } from '@work/domain/services/stricter-rule';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
@@ -76,8 +82,10 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
+import { RunPolicy } from '@work/domain/value-objects/run-policy.vo';
+import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
+import { RunRequester } from '@work/domain/value-objects/run-requester.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -183,31 +191,81 @@ const describedAs = (tool: string) => {
   return toolManifestOf(declared);
 };
 
+type Requested = 'task' | 'chat' | 'spec' | 'search';
+
+const REQUESTERS: Readonly<Record<Requested, RunRequester>> = {
+  task: RunRequester.of({
+    ...WorkRequesters.task(
+      TaskId.of('task_1'),
+      TaskRevision.of(0),
+      TeamId.of('team_1'),
+    ),
+    team: TeamId.of('team_1'),
+  }),
+  chat: RunRequester.of({
+    ...WorkRequesters.chat(ChatId.of('chat_1'), TeamId.of('team_1')),
+    team: TeamId.of('team_1'),
+  }),
+  spec: RunRequester.of({
+    owner: 'workspace',
+    kind: 'spec',
+    id: 'run_1',
+    team: null,
+  }),
+  search: RunRequester.of({
+    owner: 'replays',
+    kind: 'search',
+    id: 'search_1',
+    token: '1',
+    team: TeamId.of('team_1'),
+  }),
+};
+
+const policyFor = (requested: Requested): RunPolicy =>
+  requested === 'search'
+    ? RunPolicy.of({
+        holdsTurn: false,
+        gated: false,
+        actsBeyondItself: false,
+        asks: 'recorded',
+        listed: false,
+        exclusive: false,
+      })
+    : RunPolicy.of(
+        requested === 'chat'
+          ? WorkRequesters.chatPolicy
+          : requested === 'task'
+            ? WorkRequesters.taskPolicy
+            : { ...WorkRequesters.chatPolicy, exclusive: false },
+      );
+
 const claimed = (
   enabled: string[] = ['pull-request'],
   over: {
-    dispatchedAt?: string;
-    subject?: RunSubject | null;
+    requested?: Requested;
     catalog?: string[];
   } = {},
 ) =>
-  Run.enqueue({
+  Run.rehydrate({
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
-    subject:
-      over.subject !== undefined
-        ? over.subject
-        : RunSubject.task(
-            TaskId.of('task_1'),
-            over.dispatchedAt ? StationId.of(over.dispatchedAt) : null,
-            TaskRevision.of(0),
-          ),
+    priority: RunPriority.normal,
+    state: 'queued',
+    claimedBy: null,
+    leaseExpiresAt: null,
+    outcome: null,
+    attempt: 1,
+    reservation: null,
+    provisioning: Provisioning.none(),
+    queuedAt: NOW,
+    requester: REQUESTERS[over.requested ?? 'task'],
+    policy: policyFor(over.requested ?? 'task'),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task:station' },
+      resume: {},
       manifest: enabled.map(describedAs),
       ...(over.catalog ? { catalog: over.catalog } : {}),
     }),
@@ -250,6 +308,7 @@ const using = (
   run: Run = claimed(),
   over: {
     lineAt?: string | null;
+    dispatchedAt?: string;
     task?: Task;
     approval?: ApprovalNeeded | null;
     failing?: boolean;
@@ -341,32 +400,31 @@ const using = (
       })
     : LINEAR_COMMENT;
 
-  const builtIns = new BuiltInTools([
-    {
-      tool: PULL_REQUEST,
-      call: async (context, inputs) => {
-        called.push({ tool: PULL_REQUEST.value, context, inputs });
-        return 'https://github.com/acme/widgets/pull/7';
+  const builtIns = new BuiltInTools(
+    [
+      {
+        tool: PULL_REQUEST,
+        call: async (context, inputs) => {
+          called.push({ tool: PULL_REQUEST.value, context, inputs });
+          return 'https://github.com/acme/widgets/pull/7';
+        },
       },
-    },
-    {
-      tool: PROPOSE_TASK,
-      call: async (context, inputs) => {
-        called.push({ tool: PROPOSE_TASK.value, context, inputs });
-        return 'Proposed.';
+      {
+        tool: PROPOSE_TASK,
+        call: async (context, inputs) => {
+          called.push({ tool: PROPOSE_TASK.value, context, inputs });
+          return 'Proposed.';
+        },
       },
-    },
-    ...[
-      REVIEW_COMMENT,
-      REVIEW,
-      SETUP_PULL_REQUEST,
-      TEST_STATION_CHANGE,
-      CHECKS,
-    ].map((tool) => ({
-      tool,
-      call: async () => null,
-    })),
-  ]);
+      ...[REVIEW_COMMENT, REVIEW, SETUP_PULL_REQUEST, CHECKS].map((tool) => ({
+        tool,
+        call: async () => null,
+      })),
+    ],
+    new ChatToolExtensions({
+      find: async () => chat(),
+    } as unknown as ChatRepository),
+  );
 
   const integrationTools: IntegrationToolsPort = {
     resolve: async (tool, context): Promise<ResolvedTool | null> =>
@@ -395,7 +453,7 @@ const using = (
   const lineAt = over.lineAt === undefined ? 'station_1' : over.lineAt;
 
   const hooked: Hooked = { before: [], after: [], asked: [] };
-  const recorded: DomainEvent[] = [];
+  const recorded: ToolUsed[] = [];
   const taskViews: TaskViewsPort = {
     of: async (taskId: string, runId: string | null) => {
       hooked.asked.push({ taskId, runId });
@@ -422,6 +480,23 @@ const using = (
   const afterwards = new ToolUsedHooks(taskViews, hooks);
 
   const found = over.movedOnTo ? [run, over.movedOnTo] : [run];
+  const requested = WorkRequesters.decode({
+    ...run.requester,
+    owner: run.requester.owner.value,
+  });
+  const dispatches = dispatchesOf(
+    ...(requested && 'task' in requested
+      ? [
+          aTaskDispatch(
+            run.id,
+            requested.task,
+            StationId.of(over.dispatchedAt ?? 'station_1'),
+          ),
+        ]
+      : requested
+        ? [aChatDispatch(run.id, requested.chat)]
+        : []),
+  );
   const handler = new UseToolHandler(
     runWorksOver(
       {
@@ -435,7 +510,7 @@ const using = (
           stationId.value === lineAt ? LINE : null,
         ofTeam: async () => [LINE],
       } as unknown as LineMapsPort,
-      { of: async () => null },
+      dispatches,
       { now: () => NOW, sleep: async () => {} },
     ),
     new ToolSources(builtIns, integrationTools, catalog),
@@ -443,20 +518,23 @@ const using = (
     hooks,
     { generate: () => 'occurrence_1' },
     {
-      dispatch: async (events) => {
+      record: async (use) => {
         if (over.recordingFails) {
           throw new Error('the outbox is unreachable');
         }
-        recorded.push(...events);
+        const used = use.recordedFirst(true);
+        if (used) {
+          recorded.push(used);
+        }
       },
+      purgeBefore: async () => 0,
     },
+    { now: () => NOW, sleep: async () => {} },
   );
 
   const delivered = async () => {
     for (const event of recorded) {
-      if (event instanceof ToolUsed) {
-        await afterwards.on(event);
-      }
+      await afterwards.on(event);
     }
   };
 
@@ -575,7 +653,7 @@ describe('UseToolHandler', () => {
   it('hands a chat’s tool the chat and the team’s lines', async () => {
     const { useTool, called } = using(
       claimed(['propose-task'], {
-        subject: RunSubject.chat(ChatId.of('chat_1')),
+        requested: 'chat',
       }),
     );
 
@@ -592,7 +670,7 @@ describe('UseToolHandler', () => {
   it('resolves no task’s tool from a chat', async () => {
     const { useTool, called } = using(
       claimed(['pull-request'], {
-        subject: RunSubject.chat(ChatId.of('chat_1')),
+        requested: 'chat',
       }),
     );
 
@@ -620,9 +698,18 @@ describe('UseToolHandler', () => {
     expect(called).toEqual([]);
   });
 
+  it('refuses a run that may not act beyond itself, and calls nothing', async () => {
+    const { useTool, called } = using(claimed([], { requested: 'search' }));
+
+    await expect(useTool('pull-request')).rejects.toMatchObject({
+      kind: 'not-allowed',
+    });
+    expect(called).toEqual([]);
+  });
+
   it('rejects a run that works nothing', async () => {
     const { useTool, called } = using(
-      claimed(['pull-request'], { subject: null }),
+      claimed(['pull-request'], { requested: 'spec' }),
     );
 
     await expect(useTool('pull-request')).rejects.toMatchObject({
@@ -632,10 +719,10 @@ describe('UseToolHandler', () => {
   });
 
   it('resolves the tool on the line of the station the run was dispatched at, not where its task is now', async () => {
-    const { useTool } = using(
-      claimed(['pull-request'], { dispatchedAt: 'station_2' }),
-      { lineAt: 'station_2' },
-    );
+    const { useTool } = using(claimed(['pull-request']), {
+      dispatchedAt: 'station_2',
+      lineAt: 'station_2',
+    });
 
     await expect(useTool('pull-request')).resolves.toEqual({
       output: 'https://github.com/acme/widgets/pull/7',
@@ -849,7 +936,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -864,7 +951,7 @@ describe('UseToolHandler', () => {
         ...approved.answer(
           NotePosition.of(approved.notes.length - 1),
           {
-            station: null,
+            line: null,
             body: TaskNoteBody.of('Approved.'),
             at: NOW,
             voice: Voice.person(UserId.of('user_1')),
@@ -897,7 +984,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -912,7 +999,7 @@ describe('UseToolHandler', () => {
         ...approved.answer(
           NotePosition.of(approved.notes.length - 1),
           {
-            station: null,
+            line: null,
             body: TaskNoteBody.of('Approved.'),
             at: NOW,
             voice: Voice.person(UserId.of('user_1')),
@@ -941,7 +1028,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -952,7 +1039,7 @@ describe('UseToolHandler', () => {
     const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approved.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -989,7 +1076,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -1000,7 +1087,7 @@ describe('UseToolHandler', () => {
     const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approved.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -1033,7 +1120,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -1044,7 +1131,7 @@ describe('UseToolHandler', () => {
     const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approved.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -1078,7 +1165,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -1089,7 +1176,7 @@ describe('UseToolHandler', () => {
     const rejected = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Not before the release.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -1120,7 +1207,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -1129,7 +1216,7 @@ describe('UseToolHandler', () => {
       null,
     ).task;
     const talkedBack = asked.answer(NotePosition.of(asked.notes.length - 1), {
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Mention the ticket too.'),
       at: NOW,
       voice: Voice.person(UserId.of('user_1')),
@@ -1160,7 +1247,7 @@ describe('UseToolHandler', () => {
       ),
       NEEDS_APPROVAL,
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
         voice: Voice.station(RunId.of('run_1')),
@@ -1171,7 +1258,7 @@ describe('UseToolHandler', () => {
     const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
-        station: null,
+        line: null,
         body: TaskNoteBody.of('Approved.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_1')),
@@ -1261,7 +1348,7 @@ describe('UseToolHandler', () => {
         ),
         NEEDS_APPROVAL,
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -1272,7 +1359,7 @@ describe('UseToolHandler', () => {
       const granted = asked.answer(
         NotePosition.of(asked.notes.length - 1),
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -1309,7 +1396,7 @@ describe('UseToolHandler', () => {
         ),
         NEEDS_APPROVAL,
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -1320,7 +1407,7 @@ describe('UseToolHandler', () => {
       const granted = asked.answer(
         NotePosition.of(asked.notes.length - 1),
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -1369,7 +1456,7 @@ describe('UseToolHandler', () => {
         ),
         NEEDS_APPROVAL,
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Approve linear.comment?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -1380,7 +1467,7 @@ describe('UseToolHandler', () => {
       const granted = asked.answer(
         NotePosition.of(asked.notes.length - 1),
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Approved.'),
           at: NOW,
           voice: Voice.person(UserId.of('user_1')),
@@ -1429,7 +1516,7 @@ describe('UseToolHandler', () => {
 
       await useTool('linear.comment', { body: 'Fixed.' });
 
-      expect((recorded[0] as ToolUsed).output.json).toBe(
+      expect(recorded[0]?.output.json).toBe(
         '"https://linear.app/acme/issue/ENG-12#comment-1"',
       );
     });
@@ -1460,14 +1547,30 @@ describe('UseToolHandler', () => {
         output: 'https://linear.app/acme/issue/ENG-12#comment-1',
         actingAs: null,
       });
-      expect(recorded).toEqual([expect.any(ToolUsed)]);
+      expect(recorded).toEqual([
+        expect.objectContaining({ kind: 'tool.used' }),
+      ]);
       await expect(delivered()).rejects.toThrow('the hooks are down');
+    });
+
+    it('records no use of a chat’s tool', async () => {
+      const { useTool, recorded } = using(
+        claimed(['propose-task'], { requested: 'chat' }),
+      );
+
+      await useTool('propose-task', {
+        line: 'delivery',
+        station: 'backlog',
+        title: 'Back off',
+      });
+
+      expect(recorded).toEqual([]);
     });
 
     it('calls no hooks about a chat’s tool', async () => {
       const { useTool, hooked } = using(
         claimed(['propose-task'], {
-          subject: RunSubject.chat(ChatId.of('chat_1')),
+          requested: 'chat',
         }),
       );
 
@@ -1509,7 +1612,7 @@ describe('UseToolHandler', () => {
       expect(asked?.form).toBe('connection');
       expect(asked?.approval).toBeNull();
       expect(asked?.connectionAsk?.personId.value).toBe('user_1');
-      expect(asked?.connectionAsk?.integration).toBe('linear');
+      expect(asked?.connectionAsk?.integration.value).toBe('linear');
       expect(current().assignee?.value).toBe('user_1');
       expect(current().awaitingReview).toBe(true);
     });
@@ -1555,7 +1658,7 @@ describe('UseToolHandler', () => {
         ),
         NEEDS_APPROVAL,
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Approve?'),
           at: NOW,
           voice: Voice.station(RunId.of('run_1')),
@@ -1610,9 +1713,7 @@ describe('UseToolHandler', () => {
         },
       });
 
-      const used = recorded.find((each) => each instanceof ToolUsed) as
-        | ToolUsed
-        | undefined;
+      const [used] = recorded;
       expect(used?.actingAs?.personId?.value).toBe('user_1');
       expect(used?.actingAs?.linkedAccount).toBe('@alice');
     });

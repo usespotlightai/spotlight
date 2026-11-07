@@ -5,11 +5,13 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { TaskToolContext } from '@work/application/ports/integration-tools.port';
 import type { OpenPullRequest } from '@work/application/services/open-pull-request.service';
 import { PullRequestToolUse } from '@work/application/services/pull-request.tool-use';
+import { InvalidPullRequestTitleError } from '@work/domain/exceptions/invalid-pull-request-title.error';
 import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
 import {
   builtInTool,
   PULL_REQUEST,
 } from '@work/domain/services/built-in-tools';
+import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
 import { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -66,7 +68,7 @@ describe('PullRequestToolUse', () => {
           stationId: CONTEXT.stationId,
         },
         input: {
-          title: 'Fix the queue',
+          title: PullRequestTitle.of('Fix the queue'),
           body: 'What it does.',
           repository: 'api',
         },
@@ -80,7 +82,7 @@ describe('PullRequestToolUse', () => {
     await tool.call(CONTEXT, ToolInputs.of({ title: 'Fix the queue' }));
 
     expect(opened[0]?.input).toEqual({
-      title: 'Fix the queue',
+      title: PullRequestTitle.of('Fix the queue'),
       body: null,
       repository: null,
     });
@@ -91,5 +93,14 @@ describe('PullRequestToolUse', () => {
       InvalidToolInputError,
     );
     expect(() => DECLARED?.accept({ title: '  ' })).toThrow(/needs title/);
+  });
+
+  it('opens nothing for a blank title', async () => {
+    const { tool, opened } = using();
+
+    await expect(
+      tool.call(CONTEXT, ToolInputs.of({ title: '   ' })),
+    ).rejects.toThrow(InvalidPullRequestTitleError);
+    expect(opened).toEqual([]);
   });
 });

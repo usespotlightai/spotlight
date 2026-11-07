@@ -10,6 +10,7 @@ import type { ContentHashPort } from '@work/application/ports/content-hash.port'
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import type { TaskDecisionsPort } from '@work/application/ports/task-decisions.port';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import {
   NOTHING_REMEMBERED,
   type TeamMemoriesPort,
@@ -24,9 +25,9 @@ import { taskWords } from '@work/application/services/remembering-words';
 import type { RunCatalog } from '@work/application/services/run-catalog.service';
 import { StationOrdering } from '@work/application/services/station-ordering';
 import type { StationSkills } from '@work/application/services/station-skills.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { TeamIntegrations } from '@work/application/services/team-integrations.service';
 import type { TouchedFiles } from '@work/application/services/touched-files';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { describedTools } from '@work/domain/services/enabled-for-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
@@ -35,7 +36,6 @@ import { repositoriesForTask } from '@work/domain/services/task-checkouts';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 
 export class DispatchTask implements TaskDispatching {
   private readonly ordering: StationOrdering;
@@ -170,8 +170,11 @@ export class DispatchTask implements TaskDispatching {
         workspaceId: task.workspaceId,
         harness: order.harness.id,
         priority: order.priority,
-        subject: RunSubject.task(task.id, order.stationId, task.revision),
-        team: line.teamId,
+        requester: WorkRequesters.task(task.id, task.revision, line.teamId),
+        policy: WorkRequesters.taskPolicy,
+        workspace: WorkRequesters.taskWorkspace(task.id),
+        apiGrant: null,
+        tags: { taskId: task.id.value },
         placement: order.placement,
         spec: RunSpec.of({
           ...this.ordering.laid(ordered, {

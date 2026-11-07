@@ -14,6 +14,7 @@ import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import {
   lineMapOf,
   stationOf,
@@ -72,14 +73,14 @@ const waiting = () => {
   }).askToConnect(
     RUN,
     {
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Connect Linear.'),
       at: NOW,
       voice: Voice.station(RUN),
     },
     ConnectionAsk.of({
       teamId: TEAM,
-      integration: 'linear',
+      integration: IntegrationName.of('linear'),
       integrationName: 'Linear',
       personId: ALICE,
     }),
@@ -125,7 +126,7 @@ describe('ConnectionsMade', () => {
     expect(tasks.awaitingConnection).toHaveBeenCalledWith(
       TEAM,
       ALICE,
-      'linear',
+      IntegrationName.of('linear'),
     );
     expect(saved).toHaveLength(1);
     const answer = saved[0]?.notes[saved[0].notes.length - 1];

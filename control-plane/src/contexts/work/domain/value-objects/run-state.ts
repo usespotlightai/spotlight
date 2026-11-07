@@ -15,6 +15,9 @@ export const LEASED_RUN_STATES = [
   'claimed',
 ] as const satisfies readonly RunState[];
 
+export const isLeasedState = (state: RunState): boolean =>
+  (LEASED_RUN_STATES as readonly RunState[]).includes(state);
+
 export const TERMINAL_RUN_STATES = [
   'completed',
   'failed',
@@ -60,14 +63,6 @@ export const progressOf = (run: Working): Progress | null => {
     ? 'in-progress'
     : null;
 };
-
-export const takenUpOnAnswer = (
-  runId: string,
-  task: {
-    readonly currentRunId: string | null;
-    readonly awaitsPerson: boolean;
-  },
-): boolean => runId === task.currentRunId && !task.awaitsPerson;
 
 export const progressOfCurrentRun = (
   current: Working | null,

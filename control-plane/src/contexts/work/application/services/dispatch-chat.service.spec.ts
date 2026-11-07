@@ -19,12 +19,14 @@ import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.p
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { BriefingContext } from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
+import { ChatToolExtensions } from '@work/application/services/chat-tool-extensions.service';
 import { DispatchChat } from '@work/application/services/dispatch-chat.service';
 import type { OrderedRun } from '@work/application/services/ordered-run';
 import { Runs } from '@work/application/services/runs.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
+import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { SETUP_PULL_REQUEST } from '@work/domain/services/built-in-tools';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -155,6 +157,9 @@ const dispatching = (
     { inSavepoint: (work) => work() },
     'https://app.usespotlight.ai',
     { release: null },
+    new ChatToolExtensions({
+      find: async () => null,
+    } as unknown as ChatRepository),
   );
 
   return {
@@ -229,9 +234,11 @@ describe('DispatchChat', () => {
   it('briefs a resumed chat with what a run that ended without a session was handed', async () => {
     const resumed = chatIn([API])
       .assignRun(RunId.of('run_1'), NOW)
-      .recordSession(HarnessSession.of('session_1'), null)
-      .endRun(RunId.of('run_1'))
-      .addMessage({
+      .runEnded(RunId.of('run_1'), {
+        session: HarnessSession.of('session_1'),
+        claimedBy: null,
+      })
+      .chat.addMessage({
         by: UserId.of('user_1'),
         body: ChatMessageBody.of('Split it.'),
         at: NOW,

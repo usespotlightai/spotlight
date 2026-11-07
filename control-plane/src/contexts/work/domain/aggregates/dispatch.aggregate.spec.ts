@@ -102,12 +102,13 @@ describe('Dispatch', () => {
     expect(kinds(refused)).toEqual(['dispatch.refused']);
   });
 
-  it('records a trial without asking anyone to enqueue it', () => {
-    const trial = Dispatch.trialOrdered(ordering(TRIAL));
+  it('records a trial with the order it returns, without asking anyone to enqueue it', () => {
+    const order = DispatchOrder.of({ runId: RUN.value });
+    const trial = Dispatch.trialOrdered({ ...ordering(TRIAL), order });
 
-    expect(trial.order).toBeNull();
+    expect(trial.order).toBe(order);
     expect(kinds(trial)).toEqual([]);
-    expect(() => Dispatch.trialOrdered(ordering(TASK))).toThrow(
+    expect(() => Dispatch.trialOrdered({ ...ordering(TASK), order })).toThrow(
       InvalidDispatchTransitionError,
     );
     expect(() =>
@@ -127,7 +128,11 @@ describe('Dispatch', () => {
       }),
     ).toThrow(InvalidDispatchTransitionError);
     expect(() =>
-      Dispatch.trialOrdered({ ...ordering(TRIAL), configuredAs: null }),
+      Dispatch.trialOrdered({
+        ...ordering(TRIAL),
+        configuredAs: null,
+        order: DispatchOrder.of({}),
+      }),
     ).toThrow(InvalidDispatchTransitionError);
   });
 
@@ -172,7 +177,12 @@ describe('Dispatch', () => {
 
   it('keeps the end of a trial to itself', () => {
     expect(
-      kinds(Dispatch.trialOrdered(ordering(TRIAL)).ended(ending('completed'))),
+      kinds(
+        Dispatch.trialOrdered({
+          ...ordering(TRIAL),
+          order: DispatchOrder.of({}),
+        }).ended(ending('completed')),
+      ),
     ).toEqual([]);
   });
 
@@ -222,8 +232,12 @@ describe('Dispatch', () => {
     it('is never superseded for a chat or a trial', () => {
       expect(ordered(CHAT).detached(NOW).ended(failed).superseded).toBe(false);
       expect(
-        Dispatch.trialOrdered(ordering(TRIAL)).detached(NOW).ended(failed)
-          .superseded,
+        Dispatch.trialOrdered({
+          ...ordering(TRIAL),
+          order: DispatchOrder.of({}),
+        })
+          .detached(NOW)
+          .ended(failed).superseded,
       ).toBe(false);
     });
   });

@@ -51,18 +51,17 @@ export class StoredWorkspaceArchiveHandler
   }
 
   private async restoredBy(run: Run): Promise<WorkspaceArchive | null> {
-    const exactly = run.restoresArchive;
+    const source = run.restoresFrom;
 
-    if (exactly) {
-      const archive = await this.archives.find(exactly);
-
-      return archive?.isAvailableIn(run.workspaceId) ? archive : null;
+    if (!source) {
+      return null;
     }
 
-    const restoresFrom = run.restoresFrom;
+    const candidate =
+      'archive' in source
+        ? await this.archives.find(source.archive)
+        : await this.archives.newestCompleted(run.workspaceId, source.newestOf);
 
-    return restoresFrom
-      ? this.archives.newestCompleted(run.workspaceId, restoresFrom)
-      : null;
+    return run.archiveToRestore(candidate ? [candidate] : []);
   }
 }

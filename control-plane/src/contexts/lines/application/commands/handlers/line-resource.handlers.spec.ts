@@ -6,7 +6,7 @@ import { CreateLineHandler } from '@lines/application/commands/handlers/create-l
 import { DeleteLineHandler } from '@lines/application/commands/handlers/delete-line.handler';
 import { UpdateLineHandler } from '@lines/application/commands/handlers/update-line.handler';
 import { UpdateLineCommand } from '@lines/application/commands/update-line.command';
-import type { StationHoldersPort } from '@lines/application/ports/station-holders.port';
+import type { StationDeletionGuardPort } from '@lines/application/ports/station-deletion-guard.port';
 import { ApplyLines } from '@lines/application/services/apply-lines.service';
 import { CatalogDenials } from '@lines/application/services/catalog-denials.service';
 import { Line } from '@lines/domain/aggregates/line.aggregate';
@@ -359,8 +359,7 @@ describe('DeleteLineHandler', () => {
   const deleting = (tasks: Record<string, number> = {}) => {
     const existing = lineAt(3);
     const stored = lines(existing, null);
-    const holders = {
-      hold: vi.fn(async () => undefined),
+    const guard = {
       release: vi.fn(async () => 'released' as const),
       lockedTaskCountsAt: vi.fn(
         async () =>
@@ -371,11 +370,11 @@ describe('DeleteLineHandler', () => {
             ]),
           ),
       ),
-    } satisfies StationHoldersPort;
+    } satisfies StationDeletionGuardPort;
     const handler = new DeleteLineHandler(
       access(),
       stored,
-      new ApplyLines(stored, holders, { generate: () => 'id' }),
+      new ApplyLines(stored, guard, { generate: () => 'id' }),
       transaction,
     );
 

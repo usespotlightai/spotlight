@@ -25,14 +25,12 @@ export const linesSubscribers = (reactions: {
   subscribing<TeamCreatedIntegrationEvent>(
     SEED_LINES,
     [TEAM_CREATED],
-    async (event) => {
-      if (event.origin === 'sign-up') {
-        await reactions.seeding.seed({
-          workspaceId: WorkspaceId.of(event.workspaceId),
-          teamId: TeamId.of(event.teamId),
-        });
-      }
-    },
+    (event) =>
+      reactions.seeding.seed({
+        workspaceId: WorkspaceId.of(event.workspaceId),
+        teamId: TeamId.of(event.teamId),
+        origin: event.origin,
+      }),
     { callsOut: true },
   ),
   subscribing<TeamDeletedIntegrationEvent>(

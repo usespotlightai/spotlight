@@ -31,6 +31,7 @@ import {
   ApiBody,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -100,6 +101,10 @@ export class ChangeStackController {
   @ApiParam({ name: 'questionId', type: String })
   @ApiBody({ type: AnswerQuestionRequestDto })
   @ApiCreatedResponse({ type: QuestionAnswerResponseDto })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   @ApiBadRequestResponse({
     description: 'The reply is not words or null, or it is too long',
   })

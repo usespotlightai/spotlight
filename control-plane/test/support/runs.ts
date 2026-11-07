@@ -2,6 +2,7 @@ import type { BriefedMemoriesParts } from '@work/domain/value-objects/briefed-me
 import type { BriefedTaskParts } from '@work/domain/value-objects/briefed-task.vo';
 import type { StationConfigParts } from '@work/domain/value-objects/station-config.vo';
 import type { dispatch } from '@work/infrastructure/persistence/drizzle/schemas/dispatch.schema';
+import type { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 
 type DispatchRow = typeof dispatch.$inferInsert;
 
@@ -104,4 +105,125 @@ export const aTurn = (
     session: null,
     reportedBy: 'runner_1',
   },
+});
+
+type RunRow = typeof run.$inferInsert;
+
+type Requested = Pick<
+  RunRow,
+  | 'requesterOwner'
+  | 'requesterKind'
+  | 'requesterId'
+  | 'requesterToken'
+  | 'teamId'
+  | 'holdsTurn'
+  | 'gated'
+  | 'actsBeyondItself'
+  | 'asks'
+  | 'listed'
+  | 'exclusive'
+  | 'workspaceKey'
+  | 'workspaceRejoinable'
+  | 'workspaceRestores'
+>;
+
+const ACTS = {
+  holdsTurn: false,
+  gated: false,
+  actsBeyondItself: true,
+  asks: 'requester' as const,
+  listed: true,
+};
+
+const ISOLATED = {
+  holdsTurn: false,
+  gated: false,
+  actsBeyondItself: false,
+  asks: 'recorded' as const,
+  listed: false,
+  exclusive: false,
+};
+
+export const requestedByTask = (
+  taskId: string,
+  input: { readonly revision?: number; readonly teamId?: string | null } = {},
+): Requested => ({
+  requesterOwner: 'work',
+  requesterKind: 'task',
+  requesterId: taskId,
+  requesterToken: String(input.revision ?? 0),
+  teamId: input.teamId ?? null,
+  ...ACTS,
+  holdsTurn: true,
+  gated: true,
+  exclusive: true,
+  workspaceKey: `work/task-${taskId}`,
+  workspaceRejoinable: true,
+  workspaceRestores: 'always',
+});
+
+export const requestedByChat = (
+  chatId: string,
+  input: { readonly teamId?: string | null } = {},
+): Requested => ({
+  requesterOwner: 'work',
+  requesterKind: 'chat',
+  requesterId: chatId,
+  requesterToken: null,
+  teamId: input.teamId ?? null,
+  ...ACTS,
+  exclusive: true,
+  workspaceKey: `work/chat-${chatId}`,
+  workspaceRejoinable: true,
+  workspaceRestores: 'when-continuing',
+});
+
+export const requestedBySpec = (
+  runId: string,
+  key: string | null = null,
+): Requested => ({
+  requesterOwner: 'workspace',
+  requesterKind: 'spec',
+  requesterId: runId,
+  requesterToken: null,
+  teamId: null,
+  ...ACTS,
+  exclusive: false,
+  workspaceKey: key ? `workspace/${key}` : null,
+  workspaceRejoinable: key ? false : null,
+  workspaceRestores: key ? 'when-continuing' : null,
+});
+
+export const requestedByReplay = (
+  runId: string,
+  teamId: string | null = null,
+): Requested => ({
+  requesterOwner: 'replays',
+  requesterKind: 'replay',
+  requesterId: runId,
+  requesterToken: null,
+  teamId,
+  ...ISOLATED,
+  workspaceKey: `replays/replay-${runId}`,
+  workspaceRejoinable: false,
+  workspaceRestores: 'when-continuing',
+});
+
+export const requestedBySearch = (
+  input: {
+    readonly runId: string;
+    readonly searchId: string;
+    readonly iteration?: number;
+  },
+  teamId: string | null = null,
+): Requested => ({
+  requesterOwner: 'replays',
+  requesterKind: 'search',
+  requesterId: input.searchId,
+  requesterToken: String(input.iteration ?? 1),
+  teamId,
+  ...ISOLATED,
+  workspaceKey: `replays/search-${input.runId}`,
+  workspaceRejoinable: false,
+  workspaceRestores: 'when-continuing',
 });

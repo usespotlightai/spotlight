@@ -1,10 +1,13 @@
 import type {
-  SearchRunQueued,
   StationView,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { ReflectionBriefing } from '@replays/application/rendering/reflection-briefing';
 import { SearchBriefing } from '@replays/application/rendering/search-briefing';
+import type {
+  SearchRunDispatching,
+  SearchRunQueued,
+} from '@replays/application/services/search-run-dispatch.service';
 import type { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
@@ -46,6 +49,7 @@ export class DispatchSearchIteration {
     private readonly replays: ReplayRepository,
     private readonly healths: SetHealths,
     private readonly work: WorkPort,
+    private readonly searchRuns: SearchRunDispatching,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -74,7 +78,7 @@ export class DispatchSearchIteration {
       ? await this.briefingFor(search, iteration, station)
       : null;
     const queued = briefing
-      ? await this.work.dispatchSearch({
+      ? await this.searchRuns.dispatchSearch({
           run,
           searchId: search.id,
           iteration: iteration.number,
@@ -112,7 +116,7 @@ export class DispatchSearchIteration {
     });
 
     if (queued.queued && !stillWanted) {
-      await this.work.cancelSearchRun(run);
+      await this.searchRuns.cancelSearchRun(run);
     }
   }
 

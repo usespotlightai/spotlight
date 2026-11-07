@@ -1,4 +1,3 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -12,20 +11,20 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import { taskReaderOver } from '@work/application/ports/task-reader.fake-spec';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { CreateTask } from '@work/application/services/create-task';
 import { FilesLoader } from '@work/application/services/files-loader.service';
 import { LineLoader } from '@work/application/services/line-loader.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
+import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
+import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import type { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
@@ -124,19 +123,7 @@ const tasks = () =>
   }) satisfies TaskRepository & TaskPlacementsPort;
 
 const access = (teamId = 'team_1') =>
-  ({
-    inWorkspaceOfTeam: vi.fn(async (requested: TeamId) =>
-      requested.value === teamId
-        ? {
-            teamId: requested,
-            workspaceId: WorkspaceId.of('ws_1'),
-            slug: 'acme',
-            viewer: UserId.of('user_1'),
-            isAdmin: false,
-          }
-        : null,
-    ),
-  }) as unknown as WorkspaceAccessPort;
+  workAccessSeeing((requested) => requested.value === teamId);
 
 const transaction: TransactionPort = { inTransaction: (work) => work() };
 
@@ -170,15 +157,18 @@ const store = {
 
 const files = new FilesLoader(store);
 
-const addTask = (command: AddTaskCommand, board: LineMapsPort = lines()) =>
+const addTask = (
+  command: AddTaskCommand,
+  board: LineMapsPort = lines(),
+  seen = access(),
+) =>
   new AddTaskHandler(
     tasks(),
-    new LineLoader(access(), board),
+    new LineLoader(seen, board),
     ids,
     clock,
     new CreateTask(tasks(), dispatch(), transaction, files),
     files,
-    taskReaderOver(() => added, 'queued'),
   ).execute(command);
 
 beforeEach(() => {
@@ -187,7 +177,7 @@ beforeEach(() => {
 });
 
 describe('AddTaskHandler', () => {
-  it('hands back the task it added', async () => {
+  it('hands back the id of the task it added', async () => {
     await expect(
       addTask(
         new AddTaskCommand(
@@ -199,16 +189,12 @@ describe('AddTaskHandler', () => {
           'user_1',
         ),
       ),
-    ).resolves.toMatchObject({
-      id: 'task_1',
-      stationId: 'station_1',
-      revision: 0,
-      title: 'Fix the queue',
-      createdAt: created.toISOString(),
-      progress: 'queued',
-      createdBy: { id: 'user_1' },
-      assignee: { id: 'user_1' },
-    });
+    ).resolves.toBe('task_1');
+
+    expect(added?.id.value).toBe('task_1');
+    expect(added?.title.value).toBe('Fix the queue');
+    expect(added?.createdAt).toEqual(created);
+    expect(added?.assignee?.value).toBe('user_1');
   });
 
   it('takes the workspace from the line, not from the caller', async () => {
@@ -327,6 +313,28 @@ describe('AddTaskHandler', () => {
         lines(null),
       ),
     ).rejects.toThrow(ApplicationError);
+  });
+
+  it('refuses a workspace member who sees the team but is not on it, adding nothing', async () => {
+    await expect(
+      addTask(
+        new AddTaskCommand(
+          'team_1',
+          'line_1',
+          'station_1',
+          'Fix it',
+          null,
+          'user_1',
+        ),
+        lines(),
+        workAccessSeeing((requested) => requested.value === 'team_1', {
+          onTeam: () => false,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      refusal: expect.any(TeamMembershipRequiredError),
+    });
+    expect(added).toBeUndefined();
   });
 
   it('rejects a task with no title', async () => {

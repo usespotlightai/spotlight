@@ -1,4 +1,5 @@
 import type { JsonObject } from '@shared-kernel/domain/json-value';
+import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -36,3 +37,12 @@ export const taskOfDispatch = (subject: DispatchSubject): TaskId | null =>
 export const stationOfDispatch = (
   subject: DispatchSubject,
 ): StationId | null => (subject.kind === 'chat' ? null : subject.stationId);
+
+export const trialRepositoryNamed = (
+  repositories: readonly TrialRepository[],
+  name: string,
+): Repository | null => {
+  const found = repositories.find((each) => each.path === name);
+
+  return found ? Repository.of(found.repository) : null;
+};

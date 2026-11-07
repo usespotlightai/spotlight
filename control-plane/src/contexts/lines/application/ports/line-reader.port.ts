@@ -1,7 +1,6 @@
 import type { StationKind } from '@lines/domain/entities/station.entity';
 import type { RepositoryHost } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export interface StationJudgeSummary {
   readonly rubric: string | null;
@@ -100,8 +99,5 @@ export interface LineDetail {
 export const LINE_READER = Symbol('LINE_READER');
 
 export interface LineReaderPort {
-  listForTeamMember(
-    teamId: TeamId,
-    userId: UserId,
-  ): Promise<LineDetail[] | null>;
+  ofTeam(teamId: TeamId): Promise<LineDetail[]>;
 }

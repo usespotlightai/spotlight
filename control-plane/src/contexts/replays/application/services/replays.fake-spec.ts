@@ -2,28 +2,34 @@ import type { ChangeReviewPort } from '@replays/application/ports/change-review.
 import type { InsightsPort } from '@replays/application/ports/insights.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type { ReplaysReaderPort } from '@replays/application/ports/replays-reader.port';
+import type { AgentProblem } from '@replays/application/ports/runs.port';
 import type {
-  AgentProblem,
-  CancelledRun,
-  LeasedSearchRun,
   LiveConfig,
-  OracleAnswerInput,
   PickableRun,
-  ReplayRunOrder,
-  ReplayRunQueued,
   RunReplayability,
-  SearchRunOrder,
-  SearchRunQueued,
-  SearchRunStatus,
   StationView,
-  UnclaimedCancellation,
   ValidatedCandidate,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { LiveCandidates } from '@replays/application/services/live-candidates.service';
 import { PendingSearchSteps } from '@replays/application/services/pending-search-steps.service';
 import { RefreshReplaySets } from '@replays/application/services/refresh-replay-sets.service';
+import type {
+  CancelledRun,
+  OracleAnswerInput,
+  ReplayRunDispatching,
+  ReplayRunOrder,
+  ReplayRunQueued,
+} from '@replays/application/services/replay-run-dispatch.service';
 import { ReplaysAccess } from '@replays/application/services/replays-access.service';
+import type {
+  LeasedSearchRun,
+  SearchRunDispatching,
+  SearchRunOrder,
+  SearchRunQueued,
+  SearchRunStatus,
+  UnclaimedCancellation,
+} from '@replays/application/services/search-run-dispatch.service';
 import { SetUsage } from '@replays/application/services/set-usage.service';
 import { StartSearchReplays } from '@replays/application/services/start-search-replays.service';
 import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
@@ -31,6 +37,7 @@ import { ConfigPullRequest } from '@replays/domain/aggregates/config-pull-reques
 import { LineSearchBudget } from '@replays/domain/aggregates/line-search-budget.aggregate';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
+import { ReplayRunClaim } from '@replays/domain/aggregates/replay-run-claim.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { StationSearchSchedule } from '@replays/domain/aggregates/station-search-schedule.aggregate';
@@ -38,6 +45,7 @@ import type { SearchReplaysPlanned } from '@replays/domain/events/search-replays
 import { ConfigPullRequestVersionConflictError } from '@replays/domain/exceptions/config-pull-request-version-conflict.error';
 import { LineSearchBudgetVersionConflictError } from '@replays/domain/exceptions/line-search-budget-version-conflict.error';
 import { ReplayCheckVersionConflictError } from '@replays/domain/exceptions/replay-check-version-conflict.error';
+import { ReplayRunClaimVersionConflictError } from '@replays/domain/exceptions/replay-run-claim-version-conflict.error';
 import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import { StationSearchScheduleVersionConflictError } from '@replays/domain/exceptions/station-search-schedule-version-conflict.error';
 import {
@@ -54,6 +62,7 @@ import type { ConfigPullRequestRepository } from '@replays/domain/repositories/c
 import type { LineSearchBudgetRepository } from '@replays/domain/repositories/line-search-budget.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
+import type { ReplayRunClaimRepository } from '@replays/domain/repositories/replay-run-claim.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { StationSearchScheduleRepository } from '@replays/domain/repositories/station-search-schedule.repository';
@@ -70,7 +79,6 @@ import type { ReplayThreshold } from '@replays/domain/value-objects/replay-thres
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import type { StationHashes } from '@replays/domain/value-objects/station-hashes.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -480,7 +488,9 @@ export class InMemoryReplays {
   };
 }
 
-export class FakeWork implements WorkPort {
+export class FakeWork
+  implements WorkPort, ReplayRunDispatching, SearchRunDispatching
+{
   readonly replayables = new Map<string, RunReplayability>();
   readonly dispatched: ReplayRunOrder[] = [];
   readonly cancelledQueued: string[] = [];
@@ -999,5 +1009,35 @@ export class InMemoryChecks implements ReplayCheckRepository {
         }),
       );
     }
+  };
+}
+
+export class InMemoryReplayRunClaims implements ReplayRunClaimRepository {
+  readonly claims = new Map<string, ReplayRunClaim>();
+
+  find = async (runId: RunId) => this.claims.get(runId.value) ?? null;
+
+  add = async (claim: ReplayRunClaim) => {
+    if (this.claims.has(claim.runId.value)) {
+      throw new ReplayRunClaimVersionConflictError(claim.runId);
+    }
+    this.claims.set(claim.runId.value, claim);
+  };
+
+  save = async (claim: ReplayRunClaim) => {
+    if (this.claims.get(claim.runId.value)?.version !== claim.version) {
+      throw new ReplayRunClaimVersionConflictError(claim.runId);
+    }
+    this.claims.set(
+      claim.runId.value,
+      ReplayRunClaim.rehydrate({
+        runId: claim.runId,
+        claimedAs: claim.claimedAs,
+        unreplayableReason: claim.unreplayableReason,
+        reason: claim.reason,
+        trial: claim.trial,
+        version: claim.version + 1,
+      }),
+    );
   };
 }

@@ -5,6 +5,7 @@ import type {
 } from '@change-review/application/ports/people.port';
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
+import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -24,5 +25,14 @@ export class People implements PeoplePort {
     return seen
       ? { workspaceId: seen.workspaceId, teamId: seen.teamId, by: seen.viewer }
       : null;
+  }
+
+  async readsTeam(teamId: TeamId, userId: UserId): Promise<boolean> {
+    return (
+      (await this.access.permissionsAsTeamReader(
+        teamId,
+        PersonPrincipal.of(userId),
+      )) !== null
+    );
   }
 }

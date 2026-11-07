@@ -1,8 +1,8 @@
-import type { ReplayRechecksPort } from '@change-review/application/ports/replay-rechecks.port';
 import type {
   CheckedChange,
   RunChangeChecksPort,
 } from '@change-review/application/ports/run-change-checks.port';
+import type { TrialRechecksPort } from '@change-review/application/ports/trial-rechecks.port';
 import type { ChangeReviewPort } from '@replays/application/ports/change-review.port';
 import type { StackStatus } from '@replays/domain/value-objects/change-checks.vo';
 import { ChangeStackId } from '@replays/domain/value-objects/change-stack-id.vo';
@@ -26,7 +26,7 @@ const statusOf = (each: CheckedChange): StackStatus => ({
 export class ChangeReview implements ChangeReviewPort {
   constructor(
     private readonly checks: RunChangeChecksPort,
-    private readonly rechecks: ReplayRechecksPort,
+    private readonly rechecks: TrialRechecksPort,
   ) {}
 
   async stacksOf(run: RunId): Promise<readonly StackStatus[]> {

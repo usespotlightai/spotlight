@@ -21,6 +21,14 @@ export class RequesterOwner {
   }
 }
 
+export interface RunRequesterParts {
+  readonly owner: string;
+  readonly kind: string;
+  readonly id: string;
+  readonly token: string | null;
+  readonly team: string | null;
+}
+
 export class RunRequester {
   private constructor(
     readonly owner: RequesterOwner,
@@ -54,6 +62,16 @@ export class RunRequester {
       input.token ?? null,
       input.team,
     );
+  }
+
+  get parts(): RunRequesterParts {
+    return {
+      owner: this.owner.value,
+      kind: this.kind,
+      id: this.id,
+      token: this.token,
+      team: this.team?.value ?? null,
+    };
   }
 
   get subject(): string {

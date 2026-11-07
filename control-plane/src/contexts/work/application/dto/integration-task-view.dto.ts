@@ -12,7 +12,7 @@ interface WaitingDto {
   readonly attachments: readonly WaitingAttachmentDto[];
 }
 
-export interface IntegrationTaskViewDto {
+export interface SeenTaskDto {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly teamId: string;
@@ -22,5 +22,8 @@ export interface IntegrationTaskViewDto {
   readonly station: string;
   readonly stationKey: string;
   readonly marks: Readonly<Record<string, string>>;
+}
+
+export interface IntegrationTaskViewDto extends SeenTaskDto {
   readonly waiting: WaitingDto | null;
 }

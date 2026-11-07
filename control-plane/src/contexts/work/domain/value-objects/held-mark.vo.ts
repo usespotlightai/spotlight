@@ -13,4 +13,11 @@ export class HeldMark {
   is(mark: Mark): boolean {
     return this.mark.equals(mark);
   }
+
+  equals(other: HeldMark): boolean {
+    return (
+      this.mark.equals(other.mark) &&
+      this.since.getTime() === other.since.getTime()
+    );
+  }
 }

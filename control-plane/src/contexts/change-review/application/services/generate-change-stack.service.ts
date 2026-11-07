@@ -47,8 +47,8 @@ export interface GenerationRun {
   readonly id: RunId;
   readonly taskId: TaskId | null;
   readonly teamOfRun: TeamId | null;
-  readonly isReplay: boolean;
-  readonly isSearch: boolean;
+  readonly trial: boolean;
+  readonly checkouts: number;
   readonly workspaceId: WorkspaceId;
 }
 
@@ -82,8 +82,8 @@ export class GenerateChangeStack {
       runId: run.id,
       taskId: run.taskId,
       teamOfRun: run.teamOfRun,
-      replay: run.isReplay,
-      isSearch: run.isSearch,
+      trial: run.trial,
+      checkouts: run.checkouts,
       workspaceId: run.workspaceId,
       repository: input.repository,
       base: input.base,

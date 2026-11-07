@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
+  UNIQUE_VIOLATION,
+  violates,
+} from '@platform/persistence/drizzle/violations';
+import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -8,6 +12,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { InboxRequest } from '@work/domain/aggregates/inbox-request.aggregate';
+import { InboxRequestAlreadyOpenError } from '@work/domain/exceptions/inbox-request-already-open.error';
 import { InboxRequestVersionConflictError } from '@work/domain/exceptions/inbox-request-version-conflict.error';
 import type { InboxRequestRepository } from '@work/domain/repositories/inbox-request.repository';
 import type { InboxRequestForm } from '@work/domain/value-objects/inbox-request-form';
@@ -31,6 +36,7 @@ const toInboxRequest = (row: Row, reads: readonly ReadRow[]): InboxRequest =>
     form: row.form,
     about: InboxRequestSubject.of(row.about),
     createdAt: row.createdAt,
+    openedAt: row.openedAt,
     reads: reads.map((each) =>
       InboxRequestRead.of({ by: UserId.of(each.userId), at: each.readAt }),
     ),
@@ -48,16 +54,29 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
 
   async add(added: InboxRequest): Promise<void> {
     await this.context.inTransaction(async () => {
-      await this.context.db.insert(inboxRequest).values({
-        id: added.id.value,
-        workspaceId: added.workspaceId.value,
-        taskId: added.taskId.value,
-        form: added.form,
-        about: added.about.value,
-        createdAt: added.createdAt,
-        resolvedAt: added.resolvedAt,
-        version: added.version,
-      });
+      try {
+        await this.context.db.insert(inboxRequest).values({
+          id: added.id.value,
+          workspaceId: added.workspaceId.value,
+          taskId: added.taskId.value,
+          form: added.form,
+          about: added.about.value,
+          createdAt: added.createdAt,
+          openedAt: added.openedAt,
+          resolvedAt: added.resolvedAt,
+          version: added.version,
+        });
+      } catch (error) {
+        if (violates(error, UNIQUE_VIOLATION, 'inbox_request_about_idx')) {
+          throw new InboxRequestAlreadyOpenError(
+            added.taskId.value,
+            added.form,
+          );
+        }
+
+        throw error;
+      }
+
       await this.savesReads(added);
       await this.events.dispatch(added.pullEvents());
     });
@@ -68,7 +87,7 @@ export class DrizzleInboxRequestRepository implements InboxRequestRepository {
       const written = await this.context.db
         .update(inboxRequest)
         .set({
-          createdAt: saved.createdAt,
+          openedAt: saved.openedAt,
           resolvedAt: saved.resolvedAt,
           version: saved.version + 1,
         })

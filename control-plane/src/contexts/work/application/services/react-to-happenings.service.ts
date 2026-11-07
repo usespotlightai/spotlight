@@ -9,16 +9,19 @@ import type {
   Happened,
   InboundAttachment,
 } from '@work/application/contracts/happenings.contract';
-import { HappeningHeldError } from '@work/application/errors/happening-held.error';
 import {
   HappenedMapper,
   type ReceivedHappening,
 } from '@work/application/mappers/happened.mapper';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
-import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
+import type {
+  HappeningReactionsPort,
+  HappeningsReaction,
+} from '@work/application/ports/happening-reactions.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
 import type { RunFactsPort } from '@work/application/ports/run-facts.port';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ChannelReplies } from '@work/application/rendering/channel-replies';
 import {
@@ -26,12 +29,21 @@ import {
   ChannelChats,
 } from '@work/application/services/channel-chats.service';
 import { correlatedTask } from '@work/application/services/correlated-task';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
+import {
+  failedReactionOf,
+  HELD,
+  REACTED,
+} from '@work/application/services/happenings-reaction';
+import type { WorkAccess } from '@work/application/services/work-access.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
+import { NothingSaidError } from '@work/domain/exceptions/nothing-said.error';
+import { ReopenedByNobodyError } from '@work/domain/exceptions/reopened-by-nobody.error';
+import { TaskNotReopenableError } from '@work/domain/exceptions/task-not-reopenable.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Placement } from '@work/domain/services/placement';
 import {
+  movedTo,
   type OpenedOn,
   type Outcome,
   ReactionFor,
@@ -55,6 +67,30 @@ const anchorOf = (
   (attachments.length > 0
     ? Anchor.of({ body: TaskNoteBody.fromInput('', attachments).value })
     : null);
+
+type Reopening =
+  | { readonly task: Task; readonly refused: null }
+  | { readonly task: null; readonly refused: string };
+
+const reopenedOrRefused = (reopen: () => Task): Reopening => {
+  try {
+    return { task: reopen(), refused: null };
+  } catch (error) {
+    if (error instanceof TaskNotReopenableError) {
+      return { task: null, refused: ChannelReplies.taskCompleted };
+    }
+
+    if (error instanceof ReopenedByNobodyError) {
+      return { task: null, refused: ChannelReplies.unknownPerson };
+    }
+
+    if (error instanceof NothingSaidError) {
+      return { task: null, refused: ChannelReplies.nothingSaid };
+    }
+
+    throw error;
+  }
+};
 
 const identityOf = (happened: Happened): string =>
   JSON.stringify([
@@ -83,6 +119,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     private readonly logger: LoggerPort,
     private readonly channels: ChannelChats,
     private readonly runs: RunFactsPort,
+    private readonly teams: Pick<WorkAccess, 'membersOf'>,
   ) {}
 
   async react(
@@ -90,7 +127,33 @@ export class ReactToHappenings implements HappeningReactionsPort {
     teamId: TeamId | null,
     happenings: readonly Happened[],
     receivedAs: string | null,
-  ): Promise<void> {
+  ): Promise<HappeningsReaction> {
+    try {
+      return (await this.reactToEach(
+        workspaceId,
+        teamId,
+        happenings,
+        receivedAs,
+      ))
+        ? HELD
+        : REACTED;
+    } catch (error) {
+      const failed = failedReactionOf(error);
+
+      if (!failed) {
+        throw error;
+      }
+
+      return failed;
+    }
+  }
+
+  private async reactToEach(
+    workspaceId: WorkspaceId,
+    teamId: TeamId | null,
+    happenings: readonly Happened[],
+    receivedAs: string | null,
+  ): Promise<boolean> {
     let held = false;
 
     for (const arrived of happenings) {
@@ -127,9 +190,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       }
     }
 
-    if (held) {
-      throw new HappeningHeldError();
-    }
+    return held;
   }
 
   private async heldByATurn(
@@ -277,7 +338,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
         anchor: anchorOf(happened, attachments),
       }),
       task,
-      line,
       attachments,
       happened.authorEmail,
     );
@@ -322,42 +382,39 @@ export class ReactToHappenings implements HappeningReactionsPort {
       body,
     });
 
-    if (!task.reopenableOn(line)) {
-      return answered('chat.refused', ChannelReplies.taskCompleted);
-    }
-
     const email = happened.chat?.email;
     const speaker = email
       ? await this.members.byEmail(task.workspaceId, email)
       : null;
-
-    if (!speaker) {
-      return answered('chat.refused', ChannelReplies.unknownPerson);
-    }
-
     const anchor = anchorOf(happened, attachments);
+    const to = task.reopensAt(line, happened.payload.happening);
+    const ranks = (await this.placements.placementsAt(to)).map(
+      (each) => each.rank,
+    );
+    const reopening = reopenedOrRefused(() =>
+      task.reopen(
+        line,
+        happened.payload.happening,
+        Placement.entering('reacted', ranks),
+        {
+          line,
+          body: TaskNoteBody.receivedHappening(
+            happened.payload.summary,
+            anchor,
+          ),
+          at: this.clock.now(),
+          voice: speaker ? Voice.person(speaker) : Voice.world(),
+          anchor,
+          attachments,
+        },
+      ),
+    );
 
-    if (!anchor) {
-      return answered('chat.refused', ChannelReplies.nothingSaid);
+    if (reopening.refused !== null) {
+      return answered('chat.refused', reopening.refused);
     }
 
-    const to = task.reopensAt(line, happened.payload.happening);
-    const reopened = task.reopen(
-      line,
-      happened.payload.happening,
-      Placement.entering(
-        'reacted',
-        (await this.placements.placementsAt(to)).map((each) => each.rank),
-      ),
-      {
-        station: line.stationAt(task.stationId) ?? null,
-        body: TaskNoteBody.receivedHappening(happened.payload.summary, anchor),
-        at: this.clock.now(),
-        voice: Voice.person(speaker),
-        anchor,
-        attachments,
-      },
-    );
+    const reopened = reopening.task;
 
     const runId = reopened.wantsRun(line)
       ? await this.dispatch.runIdFor({ task: reopened, line })
@@ -418,6 +475,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
         task.reviews(
           request.pullRequest,
           { outside: request.outside },
+          answer.on.line,
           this.clock.now(),
         ),
       );
@@ -498,9 +556,10 @@ export class ReactToHappenings implements HappeningReactionsPort {
     attachments: readonly Attachment[],
     shaped: (task: Task) => Task,
   ): Promise<void> {
-    const assignee = happened.opens?.assignEmail
+    const named = happened.opens?.assignEmail
       ? await this.members.byEmail(workspaceId, happened.opens.assignEmail)
       : null;
+    const members = named ? await this.teams.membersOf(line.teamId) : null;
     const now = this.clock.now();
 
     const added = shaped(
@@ -525,7 +584,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
       ),
     );
 
-    const opened = assignee ? added.assign(assignee) : added;
+    const opened =
+      named && members?.includes(named) ? added.assign(named, members) : added;
 
     const runId = opened.wantsRun(line)
       ? await this.dispatch.runIdFor({ task: opened, line })
@@ -549,7 +609,6 @@ export class ReactToHappenings implements HappeningReactionsPort {
   private async applied(
     reaction: Outcome,
     task: Task,
-    line: LineMap,
     attachments: readonly Attachment[],
     authorEmail: string | null,
   ): Promise<Task | null> {
@@ -560,42 +619,17 @@ export class ReactToHappenings implements HappeningReactionsPort {
     const author = authorEmail
       ? await this.members.byEmail(task.workspaceId, authorEmail)
       : null;
+    const destination = movedTo(reaction);
 
-    const newNote = {
-      station: reaction.station,
-      body: reaction.body,
+    return task.reactTo(reaction, {
       at: this.clock.now(),
       voice: Voice.world(author),
-      anchor: reaction.anchor,
       attachments,
-    };
-
-    if (reaction.kind === 'stays') {
-      return task.addMessage(newNote);
-    }
-
-    if (reaction.kind === 'deferredMove') {
-      return task.deferMove(line, reaction.to.id, newNote);
-    }
-
-    if (reaction.kind === 'interrupts') {
-      return task.interrupt(newNote);
-    }
-
-    if (reaction.kind === 'answers') {
-      return task.answer(reaction.to, newNote);
-    }
-
-    return task.react(
-      line,
-      reaction.to.id,
-      Placement.entering(
-        'reacted',
-        (await this.placements.placementsAt(reaction.to.id)).map(
-          (each) => each.rank,
-        ),
-      ),
-      newNote,
-    );
+      ranksAtDestination: destination
+        ? (await this.placements.placementsAt(destination)).map(
+            (each) => each.rank,
+          )
+        : [],
+    });
   }
 }

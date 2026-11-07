@@ -8,6 +8,7 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   type Happened,
@@ -18,10 +19,10 @@ import type { AttachmentStorePort } from '@work/application/ports/attachment-sto
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
 import type { RunFactsPort } from '@work/application/ports/run-facts.port';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { ChannelChats } from '@work/application/services/channel-chats.service';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Branch } from '@work/domain/value-objects/branch.vo';
@@ -44,7 +45,12 @@ import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { describe, expect, it, vi } from 'vitest';
+
+const TEAMMATES = {
+  membersOf: async () => TeamMembers.of([UserId.of('user_9')]),
+};
 
 const NO_RUNS = { of: async () => [] } as unknown as RunFactsPort;
 
@@ -211,6 +217,7 @@ const world = (input: {
     logger,
     channels,
     NO_RUNS,
+    TEAMMATES,
   );
 
   let deliveries = 0;
@@ -266,7 +273,7 @@ describe('ReactToHappenings, with a review request', () => {
           pullRequest: 'https://github.com/acme/api/issues/7',
         }),
       ),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ kind: 'reacted' });
 
     expect(added).toEqual([]);
     expect(logger.warn).toHaveBeenCalledWith(
@@ -397,7 +404,7 @@ describe('ReactToHappenings, with a review request', () => {
       rank: TaskRank.of('i'),
       now: NOW,
       newId: () => 'task_review',
-    }).reviews(PullRequestUrl.of(PULL), { outside: false }, new Date(0));
+    }).reviews(PullRequestUrl.of(PULL), { outside: false }, line, new Date(0));
     const { react, added, saved } = world({
       lines: [line],
       findByCorrelation: (correlationKeys) =>
@@ -440,6 +447,7 @@ describe('ReactToHappenings, with a review request', () => {
       }),
       heldMarks: [HeldMark.of(Mark.review(PullRequestUrl.of(PULL)), NOW)],
       finishedAt: NOW,
+      version: 0,
     });
     const { react, added } = world({
       lines: [line],

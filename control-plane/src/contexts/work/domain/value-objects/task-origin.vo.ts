@@ -1,31 +1,55 @@
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 
 const PERSON = 'person';
 
-const INTEGRATION = /^[a-z][a-z0-9_-]*$/;
+const PASSED = 'station';
 
-const SAME_INTEGRATION: Readonly<Record<string, string>> = { git: 'github' };
+type Origin =
+  | { readonly kind: 'person' }
+  | { readonly kind: 'integration'; readonly integration: IntegrationName }
+  | { readonly kind: 'passed' };
 
 export class TaskOrigin {
-  private constructor(readonly value: string) {}
+  private constructor(private readonly origin: Origin) {}
 
   static person(): TaskOrigin {
-    return new TaskOrigin(PERSON);
+    return new TaskOrigin({ kind: 'person' });
   }
 
   static receivedFrom(happening: Happening): TaskOrigin {
-    return TaskOrigin.of(happening.integration);
+    return new TaskOrigin({
+      kind: 'integration',
+      integration: IntegrationName.ofHappening(happening),
+    });
+  }
+
+  static passed(): TaskOrigin {
+    return new TaskOrigin({ kind: 'passed' });
   }
 
   static of(raw: string): TaskOrigin {
-    if (raw !== PERSON && !INTEGRATION.test(raw)) {
-      throw new InconsistentStateError(
-        'task',
-        'was created by a person or received from an integration it names',
-      );
+    return raw === PERSON
+      ? TaskOrigin.person()
+      : new TaskOrigin({
+          kind: 'integration',
+          integration: IntegrationName.of(raw),
+        });
+  }
+
+  get value(): string {
+    if (this.origin.kind === 'integration') {
+      return this.origin.integration.value;
     }
 
-    return new TaskOrigin(SAME_INTEGRATION[raw] ?? raw);
+    return this.origin.kind === 'person' ? PERSON : PASSED;
+  }
+
+  get integration(): IntegrationName | null {
+    return this.origin.kind === 'integration' ? this.origin.integration : null;
+  }
+
+  equals(other: TaskOrigin): boolean {
+    return this.origin.kind === other.origin.kind && this.value === other.value;
   }
 }

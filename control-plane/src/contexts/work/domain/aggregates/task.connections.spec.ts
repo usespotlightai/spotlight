@@ -14,6 +14,7 @@ import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
+import { IntegrationName } from '@work/domain/value-objects/integration-name.vo';
 import {
   lineMapOf,
   stationOf,
@@ -76,24 +77,19 @@ const working = () =>
 const ask = (personId = ALICE) =>
   ConnectionAsk.of({
     teamId: TEAM,
-    integration: 'linear',
+    integration: IntegrationName.of('linear'),
     integrationName: 'Linear',
     personId,
   });
 
 const asking = {
-  station: null,
+  line: null,
   body: TaskNoteBody.of('Connect Linear and I will carry on.'),
   at: NOW,
   voice: Voice.station(RUN),
 };
 
-const connectedBy = (who: UserId) => ({
-  station: null,
-  body: TaskNoteBody.of('Connected Linear.'),
-  at: NOW,
-  voice: Voice.person(who),
-});
+const CONNECTED = { line: null, at: NOW };
 
 const asked = () => {
   const { task } = working().askToConnect(RUN, asking, ask());
@@ -137,7 +133,7 @@ describe('Task connection asks', () => {
         asking,
         ConnectionAsk.of({
           teamId: TEAM,
-          integration: 'notion',
+          integration: IntegrationName.of('notion'),
           integrationName: 'Notion',
           personId: ALICE,
         }),
@@ -154,9 +150,9 @@ describe('Task connection asks', () => {
   it('is answered once the asked person connects that integration in that team, and the run is taken up', () => {
     const answered = asked().connectionMade(
       TEAM,
-      'linear',
+      IntegrationName.of('linear'),
       ALICE,
-      connectedBy(ALICE),
+      CONNECTED,
     );
 
     expect(answered?.awaitingReview).toBe(false);
@@ -172,37 +168,49 @@ describe('Task connection asks', () => {
     const task = asked();
 
     expect(
-      task.connectionMade(TEAM, 'linear', BOB, connectedBy(BOB)),
+      task.connectionMade(TEAM, IntegrationName.of('linear'), BOB, CONNECTED),
     ).toBeNull();
     expect(
-      task.connectionMade(TEAM, 'notion', ALICE, connectedBy(ALICE)),
+      task.connectionMade(TEAM, IntegrationName.of('notion'), ALICE, CONNECTED),
     ).toBeNull();
     expect(
       task.connectionMade(
         TeamId.of('team_2'),
-        'linear',
+        IntegrationName.of('linear'),
         ALICE,
-        connectedBy(ALICE),
+        CONNECTED,
       ),
     ).toBeNull();
   });
 
-  it('is answered only in the person’s own voice', () => {
-    expect(
-      asked().connectionMade(TEAM, 'linear', ALICE, connectedBy(BOB)),
-    ).toBeNull();
+  it('answers in the voice of the person who connected, naming the integration', () => {
+    const answered = asked().connectionMade(
+      TEAM,
+      IntegrationName.of('linear'),
+      ALICE,
+      CONNECTED,
+    );
+    const note = answered?.notes[answered.notes.length - 1];
+
+    expect(note?.voice.author).toEqual(ALICE);
+    expect(note?.body.value).toBe('Connected Linear.');
   });
 
   it('is not answered twice', () => {
     const answered = asked().connectionMade(
       TEAM,
-      'linear',
+      IntegrationName.of('linear'),
       ALICE,
-      connectedBy(ALICE),
+      CONNECTED,
     );
 
     expect(
-      answered?.connectionMade(TEAM, 'linear', ALICE, connectedBy(ALICE)),
+      answered?.connectionMade(
+        TEAM,
+        IntegrationName.of('linear'),
+        ALICE,
+        CONNECTED,
+      ),
     ).toBeNull();
   });
 });

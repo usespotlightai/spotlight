@@ -5,20 +5,31 @@ import { describe, expect, it } from 'vitest';
 
 describe('TaskOrigin', () => {
   it('names the integration a happening came from', () => {
-    expect(
-      TaskOrigin.receivedFrom(Happening.of('linear.issue.created')).value,
-    ).toBe('linear');
+    const origin = TaskOrigin.receivedFrom(
+      Happening.of('linear.issue.created'),
+    );
+
+    expect(origin.value).toBe('linear');
+    expect(origin.integration?.value).toBe('linear');
   });
 
-  it('names git and github as one integration', () => {
-    expect(TaskOrigin.of('git').value).toBe('github');
+  it('reads back a stored integration as that integration', () => {
     expect(
-      TaskOrigin.receivedFrom(Happening.of('github.pull_request.opened')).value,
-    ).toBe('github');
+      TaskOrigin.of('github').equals(
+        TaskOrigin.receivedFrom(Happening.of('github.pull_request.opened')),
+      ),
+    ).toBe(true);
   });
 
   it('is a person, or an integration named in lower case', () => {
     expect(TaskOrigin.person().value).toBe('person');
+    expect(TaskOrigin.of('person').equals(TaskOrigin.person())).toBe(true);
+    expect(TaskOrigin.person().integration).toBeNull();
     expect(() => TaskOrigin.of('Slack!')).toThrow(InconsistentStateError);
+  });
+
+  it('tells a task passed on from a station apart from one a person opened', () => {
+    expect(TaskOrigin.passed().equals(TaskOrigin.person())).toBe(false);
+    expect(TaskOrigin.passed().value).toBe('station');
   });
 });

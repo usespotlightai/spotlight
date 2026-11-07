@@ -21,14 +21,14 @@ export class ReopenConversationHandler
 
   async execute(command: ReopenConversationCommand): Promise<void> {
     try {
-      const { item, task, station } = await this.conversations.putTo(
+      const { item, task, line } = await this.conversations.putTo(
         command.conversationId,
         command.reopenedBy,
       );
 
       await this.tasks.save(
         task.reopenAt(item.from, {
-          station,
+          line,
           body: TaskNoteBody.of(REOPENED),
           at: this.clock.now(),
           voice: Voice.person(UserId.of(command.reopenedBy)),

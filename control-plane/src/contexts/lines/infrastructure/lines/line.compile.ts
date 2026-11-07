@@ -34,7 +34,7 @@ import { refusalOf } from '@lines/infrastructure/lines/definition-errors';
 import {
   type LineFields,
   lineSchema,
-} from '@lines/infrastructure/lines/line.schema';
+} from '@lines/infrastructure/lines/line-definition.schema';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { Effort } from '@shared-kernel/domain/value-objects/effort.vo';
 import {
@@ -338,6 +338,16 @@ const STATION_FIELDS: Readonly<
   judge: 'judge',
   alerts: 'alerts',
   search: 'search',
+  harness: 'harness',
+  model: 'model',
+  effort: 'effort',
+  profile: 'profile',
+  prompt: 'prompt',
+  check: 'check',
+  runners: 'runners',
+  diffs: 'diffs',
+  decisions: 'decisions',
+  memories: 'memories',
 };
 
 const REACTION_FIELDS: Readonly<

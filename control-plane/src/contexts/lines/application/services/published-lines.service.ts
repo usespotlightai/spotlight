@@ -15,10 +15,10 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import { ChangeActor } from '@shared-kernel/domain/value-objects/change-actor.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
-import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
+import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const STATION = FieldPath.of(['station']);
 
@@ -66,37 +66,36 @@ export class PublishedLines implements LinesPort {
     private readonly ids: IdGeneratorPort,
   ) {}
 
-  async find(lineId: string): Promise<LineView | null> {
-    const line = await this.lines.find(LineId.of(lineId));
+  async find(lineId: LineId): Promise<LineView | null> {
+    const line = await this.lines.find(lineId);
 
     return line ? LineViewMapper.of(line) : null;
   }
 
-  async findByStation(stationId: string): Promise<LineView | null> {
-    const line = await this.lines.findByStation(StationId.of(stationId));
+  async findByStation(stationId: StationId): Promise<LineView | null> {
+    const line = await this.lines.findByStation(stationId);
 
     return line ? LineViewMapper.of(line) : null;
   }
 
-  async ofTeam(teamId: string): Promise<readonly LineView[]> {
-    return (await this.lines.ofTeam(TeamId.of(teamId))).map(LineViewMapper.of);
+  async ofTeam(teamId: TeamId): Promise<readonly LineView[]> {
+    return (await this.lines.ofTeam(teamId)).map(LineViewMapper.of);
   }
 
-  async ofWorkspace(workspaceId: string): Promise<readonly LineView[]> {
-    return (await this.lines.ofWorkspace(WorkspaceId.of(workspaceId))).map(
-      LineViewMapper.of,
-    );
+  async ofWorkspace(workspaceId: WorkspaceId): Promise<readonly LineView[]> {
+    return (await this.lines.ofWorkspace(workspaceId)).map(LineViewMapper.of);
   }
 
   async preview(request: StationPreviewRequest): Promise<StationPreview> {
-    const line = await this.lines.find(LineId.of(request.lineId));
-    const record = line ? await this.resources.withId(request.lineId) : null;
+    const key = request.stationKey.value;
+    const line = await this.lines.find(request.lineId);
+    const record = line
+      ? await this.resources.withId(request.lineId.value)
+      : null;
     const place =
-      record?.definition.stations.findIndex(
-        (each) => each.key === request.stationKey,
-      ) ?? -1;
-    const station = line?.stations.find(
-      (each) => each.key.value === request.stationKey,
+      record?.definition.stations.findIndex((each) => each.key === key) ?? -1;
+    const station = line?.stations.find((each) =>
+      each.key.equals(request.stationKey),
     );
 
     if (!line || !record || !station || place < 0) {
@@ -107,11 +106,8 @@ export class PublishedLines implements LinesPort {
       return refused(STATION, 'is a station block, as in a line');
     }
 
-    if (request.block.key !== request.stationKey) {
-      return refused(
-        STATION.to('key'),
-        `keeps the station’s key, ${request.stationKey}`,
-      );
+    if (request.block.key !== key) {
+      return refused(STATION.to('key'), `keeps the station’s key, ${key}`);
     }
 
     const compiled = this.compiler.compile({

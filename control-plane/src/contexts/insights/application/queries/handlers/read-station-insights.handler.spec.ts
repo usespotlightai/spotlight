@@ -68,6 +68,7 @@ const reading = async (member = true) => {
   const work: WorkPort = {
     unfinishedRuns: async () => [],
     traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
+    taskRunOf: async () => null,
     endedRun: async () => null,
     configsInOrder: async (fingerprints) => {
       requested.push([...fingerprints]);

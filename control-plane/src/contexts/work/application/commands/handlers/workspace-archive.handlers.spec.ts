@@ -9,6 +9,7 @@ import { StoredWorkspaceArchiveHandler } from '@work/application/queries/handler
 import { StoredWorkspaceArchiveQuery } from '@work/application/queries/stored-workspace-archive.query';
 import {
   aLeasedRun,
+  holding,
   InMemoryArchiveStore,
   InMemoryArchives,
   runsOf,
@@ -41,6 +42,7 @@ const setUp = (...runs: Run[]) => {
       runRepository,
       archives,
       store,
+      holding('work'),
       ids,
       clock,
     ),

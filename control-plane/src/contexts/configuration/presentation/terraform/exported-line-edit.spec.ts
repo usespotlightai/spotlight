@@ -56,9 +56,7 @@ const editedTo = (now: Partial<LineDefinitionStation>) =>
     seed: SEED,
     candidate: { ...SEED, ...now },
     fields: STATION_SOURCE_FIELDS,
-    besideFile: EXPORTED.map((each) => each.path),
-    read: async (path) =>
-      EXPORTED.find((each) => each.path === path)?.content ?? null,
+    configFiles: EXPORTED.filter((each) => each.path !== LINE.path),
   });
 
 describe('editing a line Spotlight exported', () => {

@@ -25,6 +25,7 @@ const ids = (): IdGeneratorPort => {
 const created: NewTeam = {
   teamId: TeamId.of('team_1'),
   owner: UserId.of('user_1'),
+  origin: 'sign-up',
 };
 
 const LINES = [
@@ -65,14 +66,14 @@ const welcoming = (
 };
 
 describe('WelcomeTeam', () => {
-  it('welcomes whoever opened it at the first station of the delivery line, waiting on them', async () => {
+  it('welcomes whoever opened it in the backlog of the delivery line, waiting on them', async () => {
     const { welcomer, added } = welcoming();
 
     await welcomer.welcome(created);
 
     expect(added[0]?.createdBy).toEqual(UserId.of('user_1'));
     expect(added[0]?.title.value).toBe('Set up your team');
-    expect(added[0]?.stationId).toEqual(LINES[0]?.stations[0]?.id);
+    expect(added[0]?.stationId).toEqual(LINES[0]?.backlog.id);
     expect(added[0]?.notes.map((each) => each.kind)).toEqual(['asked']);
     expect(added[0]?.notes[0]?.body.value).toContain('2. Connect a host.');
   });
@@ -83,6 +84,14 @@ describe('WelcomeTeam', () => {
     await welcomer.welcome(created);
 
     expect(welcomed).toEqual([TeamId.of('team_1')]);
+  });
+
+  it('welcomes no team made by configuration', async () => {
+    const { welcomer, added } = welcoming();
+
+    await welcomer.welcome({ ...created, origin: 'configuration' });
+
+    expect(added).toHaveLength(0);
   });
 
   it('welcomes a team only once', async () => {

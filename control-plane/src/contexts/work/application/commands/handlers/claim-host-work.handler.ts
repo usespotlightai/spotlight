@@ -30,7 +30,7 @@ import type {
   Claimant,
   SandboxRouting,
 } from '@work/domain/value-objects/claimant';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
+import { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 
 const CLAIM_WINDOW_MS = 60_000;
 
@@ -197,7 +197,7 @@ export class ClaimHostWorkHandler
       );
       const run = await this.startedRun(
         claimantOf(runner, heartbeat, {
-          avoiding: held.map((each) => ResumeKey.of(each)),
+          avoiding: held.map((each) => WorkspaceKey.parse(each)),
         }),
         host,
         until,
@@ -255,7 +255,7 @@ export class ClaimHostWorkHandler
     const sandbox = await this.sandboxes.holdForRun(
       {
         workspaceId: run.workspaceId.value,
-        key: run.resumeKey?.value ?? null,
+        key: run.workspaceKey?.value ?? null,
         hostId: host,
         runId: run.id.value,
       },
@@ -280,7 +280,7 @@ export class ClaimHostWorkHandler
     for (const requested of await this.sandboxes.requestedIn(
       heartbeat.workspaceId.value,
     )) {
-      const key = ResumeKey.of(requested.key);
+      const key = WorkspaceKey.parse(requested.key);
       const newest = await this.runs.newestWithKey(heartbeat.workspaceId, key);
       const claim = ClaimOrder.forRequested(newest, heartbeat);
 
@@ -329,12 +329,12 @@ export class ClaimHostWorkHandler
     await this.leases.expireLeases(this.clock.now());
 
     const claimant = claimantOf(runner, heartbeat, {
-      into: ResumeKey.of(into.key),
+      into: WorkspaceKey.parse(into.key),
     });
 
     const queued = await this.runs.queuedWithKey(
       heartbeat.workspaceId,
-      ResumeKey.of(into.key),
+      WorkspaceKey.parse(into.key),
     );
 
     if (queued.some((each) => !ClaimOrder.fits(each, claimant))) {
@@ -361,7 +361,7 @@ export class ClaimHostWorkHandler
       into.id,
       {
         workspaceId: found.workspaceId.value,
-        key: found.resumeKey?.value ?? null,
+        key: found.workspaceKey?.value ?? null,
         hostId: host,
         runId: found.id.value,
       },

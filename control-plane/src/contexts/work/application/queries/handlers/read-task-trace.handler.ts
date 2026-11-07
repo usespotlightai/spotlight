@@ -9,6 +9,7 @@ import type { RunJournalReaderPort } from '@work/application/ports/run-journal-r
 import type { RunReaderPort } from '@work/application/ports/run-reader.port';
 import type { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { tracedRunsOf, traceOf } from '@work/application/read-models/trace-of';
+import type { RunAccess } from '@work/application/services/run-access.service';
 
 export class ReadTaskTraceHandler
   implements QueryHandlerPort<ReadTaskTraceQuery, TaskTraceDto | null>
@@ -17,6 +18,7 @@ export class ReadTaskTraceHandler
     private readonly runs: RunReaderPort,
     private readonly journals: RunJournalReaderPort,
     private readonly connections: RunConnectionsPort,
+    private readonly access: RunAccess,
   ) {}
 
   async execute(query: ReadTaskTraceQuery): Promise<TaskTraceDto | null> {
@@ -24,14 +26,19 @@ export class ReadTaskTraceHandler
       const taskId = TaskId.of(query.taskId);
       const viewerId = UserId.of(query.viewerId);
 
-      const [found, journals] = await Promise.all([
-        this.runs.listForTask(taskId, viewerId),
-        this.journals.listForTask(taskId, viewerId),
+      const [runs, journals] = await Promise.all([
+        this.runs.listForTask(taskId),
+        this.access.shownInWorkspace(
+          await this.journals.listForTask(taskId),
+          viewerId,
+        ),
       ]);
 
       if (journals === null) {
         return null;
       }
+
+      const found = runs?.found ?? [];
 
       const errors = await this.connections.errorsIn(
         found.map((run) => run.id),

@@ -1,4 +1,6 @@
-export type RunAsks = 'requester' | 'recorded';
+export const RUN_ASKS = ['requester', 'recorded'] as const;
+
+export type RunAsks = (typeof RUN_ASKS)[number];
 
 export interface RunPolicyParts {
   readonly holdsTurn: boolean;

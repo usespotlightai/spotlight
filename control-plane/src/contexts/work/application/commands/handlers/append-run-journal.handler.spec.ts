@@ -6,6 +6,7 @@ import { AppendRunJournalHandler } from '@work/application/commands/handlers/app
 import { AppendRunJournalCommand } from '@work/application/commands/runner.commands';
 import type { JournalEntry } from '@work/application/ports/run-journal.port';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -17,11 +18,12 @@ const leased = Run.enqueue({
   id: RunId.of('run_1'),
   workspaceId: WorkspaceId.of('ws_1'),
   harness: HarnessId.of('dev'),
+  ...orderedFor.spec(),
   spec: RunSpec.of({
     command: { executable: 'sh', args: [] },
     briefing: 'do the thing',
     handover: { options: [], noteLimit: 4_000 },
-    resume: { key: 'task:station' },
+    resume: {},
   }),
 })
   .claim(RunnerId.of('runner_1'), NOW)

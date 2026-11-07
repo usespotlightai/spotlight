@@ -147,7 +147,7 @@ const working = (state: PollState = { cursor: null, polledAt: null }) => {
       _teamId: unknown,
       _happenings: Happened[],
       _receivedAs: string | null,
-    ) => undefined,
+    ) => ({ kind: 'reacted' }) as const,
   );
   const cursors = new FakePollCursors();
 
@@ -222,7 +222,7 @@ describe('ProcessDuePolls', () => {
   });
 
   it('keeps its cursor and does not react when the service answers with an error', async () => {
-    const react = vi.fn(async () => undefined);
+    const react = vi.fn(async () => ({ kind: 'reacted' }) as const);
     const cursors = new FakePollCursors();
     cursors.setState(TEAM, 'linear', { cursor: 'ENG-0', polledAt: null });
 
@@ -254,7 +254,7 @@ describe('ProcessDuePolls', () => {
     await polling(
       new FakePollCursors(),
       run,
-      vi.fn(async () => undefined),
+      vi.fn(async () => ({ kind: 'reacted' }) as const),
       poll(READS_A_SECRET),
       injection,
     ).processDue();
@@ -285,7 +285,7 @@ describe('ProcessDuePolls', () => {
       await together;
     });
     const run = vi.fn(async () => REPLY);
-    const react = vi.fn(async () => undefined);
+    const react = vi.fn(async () => ({ kind: 'reacted' }) as const);
 
     await Promise.all([
       polling(cursors, run, react).processDue(),
@@ -299,7 +299,7 @@ describe('ProcessDuePolls', () => {
   it('will not move the cursor back when a later poll got the turn', async () => {
     const cursors = new FakePollCursors();
     const later = new Date(NOW.getTime() + 90_000);
-    const react = vi.fn(async () => undefined);
+    const react = vi.fn(async () => ({ kind: 'reacted' }) as const);
     const run = vi.fn(async () => {
       cursors.setState(TEAM, 'linear', { cursor: 'ENG-9', polledAt: later });
       return REPLY;

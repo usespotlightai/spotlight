@@ -279,8 +279,8 @@ describe('reconciling a line with the plan describing it', () => {
     expect(result.ok).toBe(true);
     expect(
       result.ok &&
-        result.line.stations[0]?.routes.routesTo(
-          result.line.stations[1]?.id as StationId,
+        result.line.stations[0]?.routes.stations.some((each) =>
+          each.equals(result.line.stations[1]?.id as StationId),
         ),
     ).toBe(true);
   });

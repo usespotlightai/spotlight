@@ -8,24 +8,26 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { RunFacts } from '@work/application/services/run-facts.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import type { RunState } from '@work/domain/value-objects/run-state';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
-import { DrizzleRunnerTraceReader } from '@work/infrastructure/persistence/drizzle/readers/runner-trace.reader';
 import { DrizzleTracedTaskReader } from '@work/infrastructure/persistence/drizzle/readers/traced-task.reader';
 import { DrizzleChatRepository } from '@work/infrastructure/persistence/drizzle/repositories/chat.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { endedAtFor } from './support/run-ended';
+import { runFactsOver } from './support/run-facts';
+import { requestedByChat, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
 let database: TestDatabase;
 let db: DrizzleDatabase;
 let chats: DrizzleChatRepository;
-let traces: DrizzleRunnerTraceReader;
+let leases: RunFacts;
 let traced: DrizzleTracedTaskReader;
 
 beforeAll(async () => {
@@ -34,7 +36,7 @@ beforeAll(async () => {
   chats = new DrizzleChatRepository(new DrizzleContext(db), {
     dispatch: async () => {},
   });
-  traces = new DrizzleRunnerTraceReader(db);
+  leases = runFactsOver(db);
   traced = new DrizzleTracedTaskReader(db);
 }, 60_000);
 
@@ -69,14 +71,20 @@ const chatRun = async (state: RunState) => {
 
   await chats.add(chat);
   await db.insert(schema.run).values({
+    ...requestedByChat(chat.id.value, { teamId: 'team_1' }),
     id: runId,
     workspaceId: 'ws_1',
     harness: 'dev',
-    chatId: chat.id.value,
     state,
     endedAt: endedAtFor(state),
-    claimedBy: RUNNER,
-    spec: {},
+    claimedBy: state === 'claimed' ? RUNNER : null,
+    leaseExpiresAt: state === 'claimed' ? new Date(Date.now() + 60_000) : null,
+    spec: {
+      command: { executable: 'sh', args: [] },
+      briefing: 'Why did this fail?',
+      handover: { options: ['done'], noteLimit: 0 },
+      resume: {},
+    },
   });
 
   return RunId.of(runId);
@@ -115,18 +123,23 @@ const taskOfTeam = async (teamId: string) => {
 };
 
 const taskRun = async (teamId: string) => {
-  const { taskId, stationId } = await taskOfTeam(teamId);
+  const { taskId } = await taskOfTeam(teamId);
   const runId = randomUUID();
 
   await db.insert(schema.run).values({
+    ...requestedByTask(taskId, { teamId }),
     id: runId,
     workspaceId: 'ws_1',
     harness: 'dev',
-    taskId,
-    stationId,
     state: 'claimed',
     claimedBy: RUNNER,
-    spec: {},
+    leaseExpiresAt: new Date(Date.now() + 60_000),
+    spec: {
+      command: { executable: 'sh', args: [] },
+      briefing: 'Why did this fail?',
+      handover: { options: ['done'], noteLimit: 0 },
+      resume: {},
+    },
   });
 
   return RunId.of(runId);
@@ -145,7 +158,7 @@ describe('traces shared in a chat', () => {
     const runId = await taskRun('team_3');
 
     expect(
-      (await traces.leasedRunFacts(runId, RunnerId.of(RUNNER)))?.teamId.value,
+      (await leases.leasedBy(runId, RunnerId.of(RUNNER)))?.team?.value,
     ).toBe('team_3');
   });
 
@@ -167,7 +180,7 @@ describe('traces shared in a chat', () => {
     const runId = await chatRun('claimed');
 
     expect(
-      (await traces.leasedRunFacts(runId, RunnerId.of(RUNNER)))?.teamId.value,
+      (await leases.leasedBy(runId, RunnerId.of(RUNNER)))?.team?.value,
     ).toBe('team_1');
   });
 
@@ -176,10 +189,10 @@ describe('traces shared in a chat', () => {
     const finished = await chatRun('completed');
 
     await expect(
-      traces.leasedRunFacts(claimed, RunnerId.of('runner_2')),
+      leases.leasedBy(claimed, RunnerId.of('runner_2')),
     ).resolves.toBeNull();
     await expect(
-      traces.leasedRunFacts(finished, RunnerId.of(RUNNER)),
+      leases.leasedBy(finished, RunnerId.of(RUNNER)),
     ).resolves.toBeNull();
   });
 });

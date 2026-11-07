@@ -1,7 +1,6 @@
 import { timestamptz } from '@platform/persistence/drizzle/columns';
 import { CHAT_MESSAGE_KINDS } from '@work/domain/entities/chat-message.entity';
 import type { ProposalState } from '@work/domain/entities/task-proposal.entity';
-import { run } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -106,7 +105,7 @@ export const chatMessage = pgTable(
     body: text('body').notNull(),
     at: timestamptz('at').notNull(),
     authorId: text('author_id'),
-    runId: text('run_id').references(() => run.id),
+    runId: text('run_id'),
     traces: jsonb('traces').$type<TraceRow[]>().notNull().default([]),
     proposal: jsonb('proposal').$type<ProposalRow>(),
     acknowledgedAt: timestamptz('acknowledged_at'),

@@ -1,6 +1,15 @@
-import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
+
+const wireSpecOf = (run: Run): Readonly<Record<string, unknown>> => {
+  const spec = run.spec.value;
+
+  return {
+    ...run.extensions.value,
+    ...spec,
+    resume: { key: run.workspaceKey?.value ?? '', ...spec.resume },
+  };
+};
 
 export const claimedRun = (run: Run): ClaimedWorkDto => ({
   kind: 'run',
@@ -8,6 +17,6 @@ export const claimedRun = (run: Run): ClaimedWorkDto => ({
     id: run.id.value,
     harness: run.harness.value,
     attempt: run.attempt,
-    spec: RunSpecContract.toWire(run.spec),
+    spec: wireSpecOf(run),
   },
 });

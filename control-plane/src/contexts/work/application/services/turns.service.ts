@@ -9,6 +9,7 @@ import type {
 } from '@work/application/ports/run-turns.port';
 import type { RunsPort } from '@work/application/ports/runs.port';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { runCheckoutsFor } from '@work/domain/services/task-checkouts';
@@ -121,7 +122,8 @@ export class Turns {
     let after: TurnsCursor | null = null;
 
     for (;;) {
-      const page = await this.turns.ofTasksOlderThan(
+      const page = await this.turns.olderThan(
+        WorkRequesters.owner,
         state,
         before,
         after,

@@ -1,6 +1,6 @@
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';

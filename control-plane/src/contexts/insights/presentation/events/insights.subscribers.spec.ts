@@ -100,6 +100,10 @@ const ENDED: EndedRun = {
 const WORK = {
   unfinishedRuns: async () => [],
   traced: async () => ({ tasks: [], stations: [], outputs: new Map() }),
+  taskRunOf: async (runId: string) =>
+    runId === ENDED.runId
+      ? { runId, taskId: ENDED.taskId, teamId: ENDED.teamId }
+      : null,
   endedRun: async (runId: string) => (runId === ENDED.runId ? ENDED : null),
   configsInOrder: async () => [],
 };
@@ -503,7 +507,14 @@ describe('insightsSubscribers', () => {
       kind: RUN_USAGE_RECORDED,
       runId: 'run_1',
       workspaceId: 'ws_1',
-      taskId: 'task_1',
+      requester: {
+        owner: 'work',
+        kind: 'task',
+        id: 'task_1',
+        token: '0',
+        team: 'team_1',
+      },
+      listed: true,
       ms: 60_000,
       steps: 12,
       errors: 1,
@@ -512,6 +523,8 @@ describe('insightsSubscribers', () => {
       contextWindow: 200_000,
       cost: 0.42,
       currency: 'USD',
+      spentCosts: [{ amount: 0.42, currency: 'USD' }],
+      unpricedCalls: 0,
       inputTokens: 1_200,
       outputTokens: 900,
       cacheReadTokens: 80_000,
@@ -559,9 +572,16 @@ describe('insightsSubscribers', () => {
 
     await subscriber.deliver('insights.record-run-usage', {
       kind: RUN_USAGE_RECORDED,
-      runId: 'run_1',
+      runId: 'run_chat',
       workspaceId: 'ws_1',
-      taskId: null,
+      requester: {
+        owner: 'work',
+        kind: 'chat',
+        id: 'chat_1',
+        token: null,
+        team: 'team_1',
+      },
+      listed: true,
       ms: 60_000,
       steps: 12,
       errors: 1,
@@ -570,6 +590,8 @@ describe('insightsSubscribers', () => {
       contextWindow: null,
       cost: 0.42,
       currency: 'USD',
+      spentCosts: [{ amount: 0.42, currency: 'USD' }],
+      unpricedCalls: 0,
       inputTokens: null,
       outputTokens: null,
       cacheReadTokens: null,
@@ -933,7 +955,14 @@ describe('insightsSubscribers', () => {
       kind: RUN_USAGE_RECORDED,
       runId: 'run_1',
       workspaceId: 'ws_1',
-      taskId: 'task_1',
+      requester: {
+        owner: 'work',
+        kind: 'task',
+        id: 'task_1',
+        token: '0',
+        team: 'team_1',
+      },
+      listed: true,
       ms: 60_000,
       steps: 12,
       errors: 1,
@@ -942,6 +971,8 @@ describe('insightsSubscribers', () => {
       contextWindow: null,
       cost: 0.42,
       currency: 'USD',
+      spentCosts: [{ amount: 0.42, currency: 'USD' }],
+      unpricedCalls: 0,
       inputTokens: null,
       outputTokens: null,
       cacheReadTokens: null,
@@ -1516,12 +1547,16 @@ describe('insightsSubscribers', () => {
         kind: PULL_REQUEST_REVIEW_TAKEN,
         taskId: 'task_9',
         workspaceId: 'ws_1',
+        teamId: 'team_1',
         url: PULL,
       });
 
       expect(
-        (await recordOf(subscriber))?.reviewTasks.map((each) => each.value),
-      ).toEqual(['task_9']);
+        (await recordOf(subscriber))?.reviewTasks.map((each) => ({
+          taskId: each.taskId.value,
+          teamId: each.teamId.value,
+        })),
+      ).toEqual([{ taskId: 'task_9', teamId: 'team_1' }]);
     });
 
     const CLOSED_AT = '2026-03-01T08:00:00.000Z';

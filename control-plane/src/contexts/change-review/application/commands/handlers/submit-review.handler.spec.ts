@@ -40,7 +40,7 @@ const submitting = (over: { racing?: boolean } = {}) => {
 
   const handler = new SubmitReviewHandler(
     {
-      reviewing: async () => ({
+      actingInReview: async () => ({
         task: { id: TASK, workspaceId: WORKSPACE },
         by: ADA,
         author: ReviewAuthor.person(ADA, AuthorName.of('Ada')),

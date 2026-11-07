@@ -24,6 +24,11 @@ export interface PullRequestOwner {
   readonly openedAt: Date;
 }
 
+export interface ReviewTask {
+  readonly taskId: TaskId;
+  readonly teamId: TeamId;
+}
+
 const assertConsistent = (record: PullRequestRecord): PullRequestRecord => {
   if (record.removable) {
     throw new InvalidPullRequestRecordError(
@@ -47,7 +52,7 @@ export class PullRequestRecord extends EventRecorder {
     readonly pullRequest: PullRequestUrl,
     readonly seen: SeenPullRequest | null,
     readonly owner: PullRequestOwner | null,
-    readonly reviewTasks: readonly TaskId[],
+    readonly reviewTasks: readonly ReviewTask[],
     readonly githubPurgedAt: Date | null,
     readonly version: number,
   ) {
@@ -91,7 +96,7 @@ export class PullRequestRecord extends EventRecorder {
     pullRequest: PullRequestUrl;
     seen: SeenPullRequest | null;
     owner: PullRequestOwner | null;
-    reviewTasks: readonly TaskId[];
+    reviewTasks: readonly ReviewTask[];
     githubPurgedAt: Date | null;
     version: number;
   }): PullRequestRecord {
@@ -187,18 +192,18 @@ export class PullRequestRecord extends EventRecorder {
     return finished(owned.state) ? owned.closedFor(owner) : owned;
   }
 
-  recordReview(taskId: TaskId): PullRequestRecord {
-    if (this.reviewTasks.some((each) => each.equals(taskId))) {
+  recordReview(review: ReviewTask): PullRequestRecord {
+    if (this.reviewTasks.some((each) => each.taskId.equals(review.taskId))) {
       return this;
     }
 
-    const reviewed = this.with({ reviewTasks: [...this.reviewTasks, taskId] });
+    const reviewed = this.with({ reviewTasks: [...this.reviewTasks, review] });
 
     reviewed.record(
       new PullRequestReviewTaskAdded(
         this.workspaceId,
         this.pullRequest,
-        taskId,
+        review.taskId,
       ),
     );
 
@@ -263,7 +268,9 @@ export class PullRequestRecord extends EventRecorder {
 
   private withoutTask(taskId: TaskId): PullRequestRecord | null {
     const owned = this.owner?.taskId.equals(taskId) ?? false;
-    const reviewed = this.reviewTasks.some((each) => each.equals(taskId));
+    const reviewed = this.reviewTasks.some((each) =>
+      each.taskId.equals(taskId),
+    );
 
     if (!owned && !reviewed) {
       return this;
@@ -272,24 +279,42 @@ export class PullRequestRecord extends EventRecorder {
     return this.released(
       {
         owner: owned ? null : this.owner,
-        reviewTasks: this.reviewTasks.filter((each) => !each.equals(taskId)),
+        reviewTasks: this.reviewTasks.filter(
+          (each) => !each.taskId.equals(taskId),
+        ),
       },
       [taskId],
     );
   }
 
   private withoutTeam(teamId: TeamId): PullRequestRecord | null {
-    if (!this.owner?.teamId.equals(teamId)) {
+    const owned = this.owner?.teamId.equals(teamId) ? this.owner : null;
+    const reviewing = this.reviewTasks.filter((each) =>
+      each.teamId.equals(teamId),
+    );
+
+    if (!owned && reviewing.length === 0) {
       return this;
     }
 
-    return this.released({ owner: null }, [this.owner.taskId]);
+    return this.released(
+      {
+        owner: owned ? null : this.owner,
+        reviewTasks: this.reviewTasks.filter(
+          (each) => !each.teamId.equals(teamId),
+        ),
+      },
+      [
+        ...(owned ? [owned.taskId] : []),
+        ...reviewing.map((each) => each.taskId),
+      ],
+    );
   }
 
   private released(
     change: {
       owner?: null | PullRequestOwner;
-      reviewTasks?: readonly TaskId[];
+      reviewTasks?: readonly ReviewTask[];
     },
     taskIds: readonly TaskId[],
   ): PullRequestRecord | null {
@@ -344,7 +369,7 @@ export class PullRequestRecord extends EventRecorder {
     change: Partial<{
       seen: SeenPullRequest | null;
       owner: PullRequestOwner | null;
-      reviewTasks: readonly TaskId[];
+      reviewTasks: readonly ReviewTask[];
       githubPurgedAt: Date | null;
     }>,
   ): PullRequestRecord {

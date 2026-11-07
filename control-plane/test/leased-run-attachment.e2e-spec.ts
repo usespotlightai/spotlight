@@ -10,6 +10,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { deleteRunnersOf } from './support/runners';
+import { aDispatch } from './support/runs';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -75,16 +76,36 @@ const aChatRun = async (): Promise<{
     id: runId,
     workspaceId: team.workspaceId.value,
     harness: 'claude-code',
-    chatId,
+    requesterOwner: 'work',
+    requesterKind: 'chat',
+    requesterId: chatId,
+    teamId: team.teamId.value,
+    holdsTurn: false,
+    gated: false,
+    actsBeyondItself: true,
+    asks: 'requester',
+    listed: true,
+    exclusive: true,
+    workspaceKey: `work/chat-${chatId}`,
+    workspaceRejoinable: true,
+    workspaceRestores: 'when-continuing',
     state: 'queued',
     spec: {
       checkouts: [],
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Plan with me.',
       handover: { options: [], noteLimit: 0 },
-      resume: { key: `chat-${chatId}` },
+      resume: {},
     },
   });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      chatId,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+    }),
+  );
 
   return { runId, attachmentId };
 };

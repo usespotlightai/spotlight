@@ -11,6 +11,7 @@ import { UnknownReviewError } from '@change-review/domain/exceptions/unknown-rev
 import { TeamAccess } from '@change-review/domain/services/team-access';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
 import { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
+import { TeamStanding } from '@change-review/domain/value-objects/team-standing.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -74,15 +75,69 @@ export class TeamWorkAccess {
     runId: string,
     viewerId: string,
   ): Promise<Reviewing> {
-    const run = await this.work.run(RunId.of(runId));
-    const access = run?.taskId
-      ? await this.task(teamId, run.taskId.value, viewerId)
-      : null;
+    const access = await this.reviewedTask(teamId, runId, viewerId);
 
     if (!access) {
       throw new UnknownReviewError(`run ${runId}`);
     }
 
+    return this.authored(access);
+  }
+
+  async actingOnTask(
+    teamId: string,
+    taskId: string,
+    viewerId: string,
+    unseen: () => Error,
+  ): Promise<TaskAccess> {
+    const [seen, standing] = await Promise.all([
+      this.task(teamId, taskId, viewerId),
+      this.standingOn(teamId, viewerId),
+    ]);
+
+    return standing.actingOn(seen, unseen);
+  }
+
+  async actingOnRun(
+    teamId: string,
+    runId: string,
+    viewerId: string,
+    unseen: () => Error,
+  ): Promise<RunForReview> {
+    const [seen, standing] = await Promise.all([
+      this.run(teamId, runId, viewerId),
+      this.standingOn(teamId, viewerId),
+    ]);
+
+    return standing.actingOn(seen, unseen);
+  }
+
+  async actingInReview(
+    teamId: string,
+    runId: string,
+    viewerId: string,
+  ): Promise<Reviewing> {
+    const [seen, standing] = await Promise.all([
+      this.reviewedTask(teamId, runId, viewerId),
+      this.standingOn(teamId, viewerId),
+    ]);
+
+    return this.authored(
+      standing.actingOn(seen, () => new UnknownReviewError(`run ${runId}`)),
+    );
+  }
+
+  private async reviewedTask(
+    teamId: string,
+    runId: string,
+    viewerId: string,
+  ): Promise<TaskAccess | null> {
+    const run = await this.work.run(RunId.of(runId));
+
+    return run?.taskId ? this.task(teamId, run.taskId.value, viewerId) : null;
+  }
+
+  private async authored(access: TaskAccess): Promise<Reviewing> {
     const person = await this.people.find(access.by);
 
     return {
@@ -92,6 +147,18 @@ export class TeamWorkAccess {
         AuthorName.of(person?.name ?? null),
       ),
     };
+  }
+
+  private async standingOn(
+    teamId: string,
+    viewerId: string,
+  ): Promise<TeamStanding> {
+    return TeamStanding.of({
+      readsTeam: await this.people.readsTeam(
+        TeamId.of(teamId),
+        UserId.of(viewerId),
+      ),
+    });
   }
 
   private viewerOf(

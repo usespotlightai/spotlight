@@ -1,14 +1,14 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   ArchiveUpload,
   WorkspaceArchiveStorePort,
 } from '@work/application/ports/workspace-archive-store.port';
+import { ArchiveHolders } from '@work/application/services/archive-holders.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import type {
   StoredArchive,
   WorkspaceArchive,
@@ -16,12 +16,9 @@ import type {
 import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
-import type { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
-import { ResumeKey as Key } from '@work/domain/value-objects/resume-key.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
+import type { WorkspaceKey } from '@work/domain/value-objects/workspace-key.vo';
 
 const CLAIMED_AT = new Date('2026-09-25T09:00:00.000Z');
 
@@ -38,14 +35,9 @@ export const aLeasedRun = (
     id: RunId.of(over.id ?? 'run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('claude-code'),
-    subject:
-      over.restoresWorkspace === false
-        ? null
-        : RunSubject.task(
-            TaskId.of('task_1'),
-            StationId.of('station_1'),
-            TaskRevision.of(1),
-          ),
+    ...(over.restoresWorkspace === false
+      ? orderedFor.spec()
+      : orderedFor.task('task_1', 1)),
     spec: RunSpec.of({
       ...(over.checkouts
         ? {
@@ -59,16 +51,23 @@ export const aLeasedRun = (
       briefing: 'keep the workspace',
       handover: { options: [], noteLimit: 4_000 },
       resume: {
-        key:
-          over.restoresWorkspace === false
-            ? 'scratch'
-            : Key.forTask(TaskId.of('task_1')).value,
         ...(over.session === null
           ? {}
           : { sessionId: over.session ?? 'session_1' }),
       },
+      ...(over.restoresWorkspace === false ? {} : { startingPoint: true }),
     }),
   }).claim(RunnerId.of(over.runner ?? 'runner_1'), CLAIMED_AT);
+
+export const holding = (...owners: readonly string[]): ArchiveHolders => {
+  const holders = new ArchiveHolders();
+
+  for (const owner of owners) {
+    holders.register({ owner, heldOf: async () => new Map() });
+  }
+
+  return holders;
+};
 
 export const runsOf = (...runs: readonly Run[]): RunRepository =>
   ({
@@ -104,14 +103,14 @@ export class InMemoryArchives implements WorkspaceArchiveRepository {
 
   async newestCompleted(
     workspaceId: WorkspaceId,
-    resumeKey: ResumeKey,
+    workspaceKey: WorkspaceKey,
   ): Promise<WorkspaceArchive | null> {
     const completed = [...this.stored.values()]
       .filter(
         (each) =>
           each.isCompleted &&
           each.workspaceId.equals(workspaceId) &&
-          each.resumeKey.equals(resumeKey),
+          each.workspaceKey.equals(workspaceKey),
       )
       .sort(
         (a, b) =>

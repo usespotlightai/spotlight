@@ -14,6 +14,7 @@ import { StationCheck } from '@lines/domain/value-objects/station-check.vo';
 import { StationColor } from '@lines/domain/value-objects/station-color.vo';
 import { StationJudge } from '@lines/domain/value-objects/station-judge.vo';
 import { Happening } from '@shared-kernel/domain/value-objects/happening.vo';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -128,9 +129,9 @@ describe('LinePlan', () => {
     ]);
     expect(parsed.reactions).toHaveLength(1);
     expect(parsed.role).toBeNull();
-    expect(parsed.repositories.all.map((each) => each.value)).toEqual([
-      'acme/api',
-    ]);
+    expect(
+      parsed.repositories.entries.map((each) => each.repository.value),
+    ).toEqual(['acme/api']);
     expect(parsed.repositories.image?.value).toBe('ghcr.io/acme/api:1');
   });
 
@@ -254,6 +255,25 @@ describe('LinePlan', () => {
       in: 'station',
       station: StationKey.of('backlog'),
       rule: 'judge',
+    });
+  });
+
+  it('rejects a harness at the completed station, where no agent runs', () => {
+    const error = errorOf(() =>
+      plan({
+        stations: [
+          backlog({ passesTo: [StationKey.of('code-review')] }),
+          station('code-review', { ends: true }),
+          completed({ harness: HarnessId.of('claude-code') }),
+        ],
+      }),
+    );
+
+    expect(error.message).toMatch(/runs no agent, so it takes no harness/);
+    expect(error.flaw).toEqual({
+      in: 'station',
+      station: StationKey.of('completed'),
+      rule: 'harness',
     });
   });
 
@@ -491,9 +511,11 @@ describe('LinePlan', () => {
       ],
     });
 
-    expect(parsed.repositories.setupOf(Repository.of('acme/web'))?.value).toBe(
-      'make',
-    );
+    expect(
+      parsed.repositories.entries.find(
+        (each) => each.repository.value === 'acme/web',
+      )?.setup?.value,
+    ).toBe('make');
   });
 
   it('requires no setup of repositories when no station checks its layers', () => {
@@ -509,10 +531,5 @@ describe('LinePlan', () => {
         repositories: [repositoryConfig('acme/api')],
       }),
     ).not.toThrow();
-  });
-
-  it('says whether it names a station at all', () => {
-    expect(plan().names(StationKey.of('code-review'))).toBe(true);
-    expect(plan().names(StationKey.of('nowhere'))).toBe(false);
   });
 });

@@ -1,28 +1,21 @@
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
-import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
 import { TaskTraceMapper } from '@work/application/mappers/task-trace.mapper';
 import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
-import type {
-  LeasedRunFacts,
-  RunnerTraceReaderPort,
-} from '@work/application/ports/runner-trace-reader.port';
-import type { SearchVisibilityPort } from '@work/application/ports/search-visibility.port';
+import type { RunnerTraceReaderPort } from '@work/application/ports/runner-trace-reader.port';
 import type { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { tracedRunsOf, traceOf } from '@work/application/read-models/trace-of';
-import { VisibleHistory } from '@work/application/read-models/visible-history';
-import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
+import type { HistoryAccesses } from '@work/application/services/history-accesses.service';
 import { TraceAccess } from '@work/domain/services/trace-access';
 
 export class ReadRunnerTraceHandler
   implements QueryHandlerPort<ReadRunnerTraceQuery, TaskTraceDto | null>
 {
   constructor(
+    private readonly accesses: HistoryAccesses,
     private readonly traces: RunnerTraceReaderPort,
-    private readonly visibilities: SearchVisibilityPort,
     private readonly connections: RunConnectionsPort,
   ) {}
 
@@ -31,24 +24,19 @@ export class ReadRunnerTraceHandler
       const target = TaskId.of(query.taskId);
 
       const [leased, theirs] = await Promise.all([
-        this.traces.leasedRunFacts(
-          RunId.of(query.runId),
-          RunnerId.of(query.runnerId),
-        ),
+        this.accesses.leasedBy(query.runId, query.runnerId),
         this.traces.teamOfTask(target),
       ]);
 
-      if (leased?.replaysFrom) {
-        throw new NotAllowedInReplayError('read a task’s trace');
-      }
+      leased?.access.assertReadsTraces();
 
-      if (!TraceAccess.sameTeam(leased?.teamId ?? null, theirs)) {
+      if (!leased || !TraceAccess.sameTeam(leased.team, theirs)) {
         return null;
       }
 
-      const visible = await this.visibilityFor(query.runId, leased);
+      const { access } = leased;
 
-      if (visible.hides(query)) {
+      if (access.hides(query)) {
         return null;
       }
 
@@ -57,10 +45,10 @@ export class ReadRunnerTraceHandler
         this.traces.journalsForTask(target),
       ]);
       const found = ran.filter((run) =>
-        visible.seesRunAt(run.station?.id ?? null),
+        access.seesRunAt(run.station?.id ?? null),
       );
 
-      if (visible.isSearch && found.length === 0) {
+      if (access.isScoped && found.length === 0) {
         return null;
       }
 
@@ -74,14 +62,5 @@ export class ReadRunnerTraceHandler
     } catch (error) {
       rethrowAsApplicationError(error);
     }
-  }
-
-  private async visibilityFor(
-    runId: string,
-    leased: LeasedRunFacts | null,
-  ): Promise<VisibleHistory> {
-    return leased?.isSearch
-      ? VisibleHistory.limitedTo(await this.visibilities.of(runId))
-      : VisibleHistory.unrestricted();
   }
 }

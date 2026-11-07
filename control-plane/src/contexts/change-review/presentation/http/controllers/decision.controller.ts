@@ -18,6 +18,7 @@ import {
   ApiBadRequestResponse,
   ApiBody,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -73,6 +74,10 @@ export class DecisionController {
   @ApiParam({ name: 'decisionId', type: String })
   @ApiBody({ type: DisputeDecisionRequestDto })
   @ApiCreatedResponse({ type: TaskDecisionsResponseDto })
+  @ApiForbiddenResponse({
+    description:
+      'The caller is not a member of the team, nor a workspace admin',
+  })
   @ApiBadRequestResponse({
     description:
       'The reason is missing or too long, or the decision does not name the path',

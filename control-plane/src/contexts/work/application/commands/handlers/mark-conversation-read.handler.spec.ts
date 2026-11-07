@@ -14,6 +14,7 @@ import { MarkConversationReadCommand } from '@work/application/commands/mark-con
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ConversationLoader } from '@work/application/services/conversation-loader.service';
+import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
@@ -69,7 +70,7 @@ const waiting = () =>
   }).askedAbout(
     {
       voice: Voice.station(),
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Which queue should I drain?'),
       at: new Date('2026-08-30T08:30:00.000Z'),
     },
@@ -108,7 +109,11 @@ const lines = () =>
 const read = (found: Task | null, by = 'user_1') => {
   const repository = tasks(found);
   const handler = new MarkConversationReadHandler(
-    new ConversationLoader(repository, lines()),
+    new ConversationLoader(
+      repository,
+      lines(),
+      workAccessSeeing(() => false),
+    ),
     repository,
     clock,
   );

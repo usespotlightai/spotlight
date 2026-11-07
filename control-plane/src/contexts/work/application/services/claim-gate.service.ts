@@ -80,13 +80,7 @@ export class ClaimGate implements RunStartGatesPort {
         {
           runId: run.id,
           workspaceId: run.workspaceId,
-          requester: {
-            owner: requester.owner.value,
-            kind: requester.kind,
-            id: requester.id,
-            token: requester.token,
-            team: requester.team?.value ?? null,
-          },
+          requester: requester.parts,
         },
         this.gateUntil(pollUntil),
       );

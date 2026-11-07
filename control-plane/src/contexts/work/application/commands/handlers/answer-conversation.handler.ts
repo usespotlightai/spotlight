@@ -5,11 +5,11 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { AnswerConversationCommand } from '@work/application/commands/answer-conversation.command';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import { ApprovalAnswered } from '@work/application/rendering/approval-answered';
 import type { ConversationLoader } from '@work/application/services/conversation-loader.service';
 import type { DraftSending } from '@work/application/services/draft-sending.service';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { DraftGeneration } from '@work/domain/value-objects/draft-generation.vo';
@@ -61,7 +61,7 @@ export class AnswerConversationHandler
   private async answer(
     command: AnswerConversationCommand,
   ): Promise<{ taskId: TaskId; next: DraftGeneration | null }> {
-    const { item, task, line, station } = await this.conversations.putTo(
+    const { item, task, line } = await this.conversations.putTo(
       command.conversationId,
       command.answeredBy,
     );
@@ -74,7 +74,7 @@ export class AnswerConversationHandler
 
     const coAuthors = await this.drafts.coAuthors(
       task.id,
-      task.workspaceId,
+      line.teamId,
       command.coAuthors,
     );
     const sent = DraftGeneration.sentAs(command.draftGeneration);
@@ -84,7 +84,7 @@ export class AnswerConversationHandler
     const answered = drafted.answer(
       item.from,
       {
-        station,
+        line,
         body: TaskNoteBody.fromInput(
           ApprovalAnswered.words(command.body, command.decision, changed),
           attachments,
@@ -97,14 +97,11 @@ export class AnswerConversationHandler
       command.edits,
     );
 
-    const runId =
-      line && answered.wantsRun(line)
-        ? await this.dispatch.runIdFor({ task: answered, line })
-        : null;
+    const runId = answered.wantsRun(line)
+      ? await this.dispatch.runIdFor({ task: answered, line })
+      : null;
 
-    await this.tasks.save(
-      runId && line ? answered.assignRun(runId, line) : answered,
-    );
+    await this.tasks.save(runId ? answered.assignRun(runId, line) : answered);
     await this.files.takenIn(task.workspaceId, attachments);
 
     return { taskId: task.id, next: sent && answered.draftGeneration };

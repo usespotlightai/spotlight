@@ -5,6 +5,8 @@ import type {
   WorkPort,
 } from '@change-review/application/ports/work.port';
 import { TeamWorkAccess } from '@change-review/application/services/team-work-access.service';
+import { TeamMembershipRequiredError } from '@change-review/domain/exceptions/team-membership-required.error';
+import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
 import { UnknownReviewError } from '@change-review/domain/exceptions/unknown-review.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -18,6 +20,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const access = (
   over: {
     member?: boolean;
+    readsTeam?: boolean;
     task?: Partial<ReviewedTask> | null;
     run?: Partial<RunForReview> | null;
     ranFor?: TeamId | null;
@@ -33,6 +36,7 @@ const access = (
               teamId: TeamId.of('team_1'),
               by: UserId.of('user_1'),
             },
+      readsTeam: async () => over.readsTeam ?? over.member !== false,
       find: async () => ({ name: 'Ada', image: null }),
     } as unknown as PeoplePort,
     {
@@ -47,8 +51,9 @@ const access = (
               ended: true,
               completed: true,
               decisions: false,
-              isReplay: false,
-              isSearch: false,
+              trial: false,
+              isolated: false,
+              checkouts: 1,
               ...over.run,
             },
       task: async (): Promise<ReviewedTask | null> =>
@@ -129,42 +134,39 @@ describe('who may see a run’s change stacks', () => {
   });
 });
 
-describe('who may see a replay’s or a search’s change stacks', () => {
-  const replay = { taskId: null, isReplay: true };
+describe('who may see a trial’s or a search’s change stacks', () => {
+  const trial = { taskId: null, trial: true, isolated: true };
 
-  it('is a member of the team the replay ran for', async () => {
+  it('is a member of the team the trial ran for', async () => {
     expect(
-      (await access({ run: replay }).run('team_1', 'run_1', 'user_1'))?.id
-        .value,
+      (await access({ run: trial }).run('team_1', 'run_1', 'user_1'))?.id.value,
     ).toBe('run_1');
     expect(
       (
-        await access({ run: { taskId: null, isSearch: true } }).run(
-          'team_1',
-          'run_1',
-          'user_1',
-        )
+        await access({
+          run: { taskId: null, isolated: true, checkouts: 0 },
+        }).run('team_1', 'run_1', 'user_1')
       )?.id.value,
     ).toBe('run_1');
   });
 
-  it('is nobody outside that team, nor for a replay whose team is gone or in another workspace', async () => {
+  it('is nobody outside that team, nor for a trial whose team is gone or in another workspace', async () => {
     expect(
-      await access({ run: replay, member: false }).run(
+      await access({ run: trial, member: false }).run(
         'team_1',
         'run_1',
         'user_1',
       ),
     ).toBeNull();
     expect(
-      await access({ run: replay, ranFor: TeamId.of('team_2') }).run(
+      await access({ run: trial, ranFor: TeamId.of('team_2') }).run(
         'team_1',
         'run_1',
         'user_1',
       ),
     ).toBeNull();
     expect(
-      await access({ run: replay, ranFor: null }).run(
+      await access({ run: trial, ranFor: null }).run(
         'team_1',
         'run_1',
         'user_1',
@@ -172,7 +174,7 @@ describe('who may see a replay’s or a search’s change stacks', () => {
     ).toBeNull();
     expect(
       await access({
-        run: { ...replay, workspaceId: WorkspaceId.of('ws_2') },
+        run: { ...trial, workspaceId: WorkspaceId.of('ws_2') },
       }).run('team_1', 'run_1', 'user_1'),
     ).toBeNull();
   });
@@ -213,7 +215,7 @@ describe('who may review a run', () => {
   });
 });
 
-describe('who may see and dispute a task’s decisions', () => {
+describe('who may see a task’s decisions', () => {
   it('is a member of the team the task is on', async () => {
     expect((await deciding())?.by.value).toBe('user_1');
   });
@@ -231,5 +233,65 @@ describe('who may see and dispute a task’s decisions', () => {
       await deciding({ task: { workspaceId: WorkspaceId.of('ws_2') } }),
     ).toBeNull();
     expect(await deciding({ task: null })).toBeNull();
+  });
+});
+
+describe('who may act in the reviews of a team’s work', () => {
+  const unseen = () => new UnknownDecisionError();
+  const outsider = { readsTeam: false };
+
+  it('is someone the team rule admits: a team member or a workspace admin', async () => {
+    expect(
+      (await access().actingOnTask('team_1', 'task_1', 'user_1', unseen)).task
+        .id.value,
+    ).toBe('task_1');
+    expect(
+      (await access().actingOnRun('team_1', 'run_1', 'user_1', unseen)).id
+        .value,
+    ).toBe('run_1');
+    expect(
+      (await access().actingInReview('team_1', 'run_1', 'user_1')).author.kind,
+    ).toBe('person');
+  });
+
+  it('is not a workspace member outside the team, who still sees the work', async () => {
+    expect(
+      await access(outsider).task('team_1', 'task_1', 'user_1'),
+    ).not.toBeNull();
+    await expect(
+      access(outsider).actingOnTask('team_1', 'task_1', 'user_1', unseen),
+    ).rejects.toThrow(TeamMembershipRequiredError);
+    await expect(
+      access(outsider).actingOnRun('team_1', 'run_1', 'user_1', unseen),
+    ).rejects.toThrow(TeamMembershipRequiredError);
+    await expect(
+      access(outsider).actingInReview('team_1', 'run_1', 'user_1'),
+    ).rejects.toThrow(TeamMembershipRequiredError);
+  });
+
+  it('finds nothing for someone who does not see the work, or work of another team', async () => {
+    await expect(
+      access({ member: false }).actingOnTask(
+        'team_1',
+        'task_1',
+        'user_1',
+        unseen,
+      ),
+    ).rejects.toThrow(UnknownDecisionError);
+    await expect(
+      access({ task: { teamId: TeamId.of('team_2') } }).actingOnRun(
+        'team_1',
+        'run_1',
+        'user_1',
+        unseen,
+      ),
+    ).rejects.toThrow(UnknownDecisionError);
+    await expect(
+      access({ run: { taskId: null } }).actingInReview(
+        'team_1',
+        'run_1',
+        'user_1',
+      ),
+    ).rejects.toThrow(UnknownReviewError);
   });
 });

@@ -54,7 +54,6 @@ import { changeActorIn } from '@shared-kernel/domain/value-objects/change-actor.
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
-import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -532,7 +531,7 @@ describe('Runners', () => {
       runnerId: RunnerId.of('pooled_1'),
       work: { kind: 'run' as const, id: 'run_1' },
       runId: RunId.of('run_1'),
-      taskId: TaskId.of('task_1'),
+      tags: { taskId: 'task_1' },
       labels: ['sandbox'],
       image: 'ghcr.io/acme/widgets:1',
       needsEgress: false,
@@ -671,7 +670,7 @@ describe('Runners', () => {
         {
           ...request,
           work: { kind: 'check', id: 'stack_1' },
-          taskId: null,
+          tags: {},
         },
         STARTED_AT,
       );
@@ -680,7 +679,7 @@ describe('Runners', () => {
         kind: 'check',
         checkId: 'stack_1',
         runId: 'run_1',
-        taskId: null,
+        tags: {},
       });
     });
 

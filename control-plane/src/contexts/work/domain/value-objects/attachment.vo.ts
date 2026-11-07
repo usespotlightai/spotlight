@@ -1,3 +1,4 @@
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { AttachmentId } from '@work/domain/value-objects/attachment-id.vo';
 
@@ -60,6 +61,22 @@ export class Attachment {
     contentType: string;
     size: number;
   }): Attachment {
+    if (
+      !input.name ||
+      named(input.name) !== input.name ||
+      !Number.isInteger(input.size) ||
+      input.size < 0 ||
+      Attachment.tooLarge(input.size) ||
+      !(
+        CONTENT_TYPE.test(input.contentType) || input.contentType === UNNAMEABLE
+      )
+    ) {
+      throw new InconsistentStateError(
+        'attachment',
+        'breaks the name, size or content type rules it was made with',
+      );
+    }
+
     return new Attachment(
       AttachmentId.of(input.id),
       input.name,

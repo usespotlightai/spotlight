@@ -15,13 +15,13 @@ import { describe, expect, it, vi } from 'vitest';
 const NOW = new Date('2026-11-07T10:00:00.000Z');
 const TEAM = TeamId.of('team_1');
 
-const replayCheck = (stack: string) =>
+const trialCheck = (stack: string) =>
   StackCheck.begin({
     stackId: ChangeStackId.of(stack),
     runId: RunId.of('replay_run_1'),
     taskId: null,
     teamId: TEAM,
-    replay: true,
+    trial: true,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null),
     entries: [],
@@ -65,7 +65,7 @@ const deleting = (found: {
 };
 
 describe('TeamDeletionReactions', () => {
-  it('removes the replay stacks and answers a deleted team owned, one aggregate at a time', async () => {
+  it('removes the trial stacks and answers a deleted team owned, one aggregate at a time', async () => {
     const deleted = deleting({
       answers: ['answer_1'],
       stacks: ['stack_1', 'stack_2'],
@@ -79,13 +79,13 @@ describe('TeamDeletionReactions', () => {
     expect(deleted.stacks.removed).toEqual(['stack_1', 'stack_2']);
   });
 
-  it('deletes a waiting replay check, so no runner is offered it again, and releases its reserved runner', async () => {
-    const reserved = replayCheck('stack_1').reservedFor(
+  it('deletes a waiting trial check, so no runner is offered it again, and releases its reserved runner', async () => {
+    const reserved = trialCheck('stack_1').reservedFor(
       RunnerId.of('pooled_1'),
       PoolId.of('pool_1'),
       NOW,
     );
-    const deleted = deleting({ checks: [reserved, replayCheck('stack_2')] });
+    const deleted = deleting({ checks: [reserved, trialCheck('stack_2')] });
 
     await deleted.reactions.removeChecks(TEAM);
 

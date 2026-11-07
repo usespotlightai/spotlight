@@ -37,8 +37,9 @@ const requesting = (
       ended: true,
       completed: true,
       decisions: true,
-      isReplay: false,
-      isSearch: false,
+      trial: false,
+      isolated: false,
+      checkouts: 1,
       ...over.run,
     }),
     task: async (): Promise<ReviewedTask> => ({

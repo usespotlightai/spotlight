@@ -3,32 +3,47 @@ import { DrizzleLineRepository } from '@lines/infrastructure/persistence/drizzle
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import {
+  RUNS as REPLAYS_RUNS,
+  type RunsPort as ReplaysRunsPort,
+} from '@replays/application/ports/runs.port';
+import {
+  STATION_TRIALS,
+  type StationTrialsPort,
+} from '@replays/application/ports/station-trials.port';
+import {
+  REPLAY_RUN_POLICY,
+  ReplayRunDispatch,
+  type ReplayRunOrder,
+} from '@replays/application/services/replay-run-dispatch.service';
+import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
+import { DrizzleReplayRunClaimRepository } from '@replays/infrastructure/persistence/drizzle/repositories/replay-run-claim.repository';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
+import type { RunOrderContract } from '@work/application/contracts/run-order.contract';
 import {
   ATTACHMENT_STORE,
   type AttachmentStorePort,
 } from '@work/application/ports/attachment-store.port';
+import { RUNS, type RunsPort } from '@work/application/ports/runs.port';
 import {
   WORKSPACE_ARCHIVE_STORE,
   type WorkspaceArchiveStorePort,
 } from '@work/application/ports/workspace-archive-store.port';
-import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
-import { candidateOf } from '@work/application/services/replay-candidates.fake-spec';
+import { RunOrderConflictError } from '@work/domain/exceptions/run-order-conflict.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import type { LineMap } from '@work/domain/value-objects/line-map.vo';
-import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
+import { writtenStation } from './support/replays';
 import { deleteRunnersOf } from './support/runners';
-import { aDispatch } from './support/runs';
+import { aDispatch, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
-import { insertStations, mapOf } from './support/stations';
+import { insertStations } from './support/stations';
 import { createTeam } from './support/team';
 
 const HOST = `host-replay-${randomUUID().slice(0, 8)}`;
@@ -124,9 +139,7 @@ const anOriginal = async (): Promise<Original> => {
   await db.insert(schema.run).values({
     id: runId,
     workspaceId: team.workspaceId.value,
-    taskId,
-    taskRevision: 0,
-    stationId: BUILD,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
     harness: 'claude-code',
     state: 'completed',
     endedAt: new Date(),
@@ -142,7 +155,7 @@ const anOriginal = async (): Promise<Original> => {
       command: { executable: 'claude-agent-acp', args: [] },
       briefing: 'Drain the queue.',
       handover: { options: ['ship', 'review'], noteLimit: 0 },
-      resume: { key: `task-${taskId}` },
+      resume: {},
       startingPoint: true,
     },
     startedFromArchiveId: archiveId,
@@ -182,8 +195,7 @@ const anOriginal = async (): Promise<Original> => {
   await db.insert(schema.workspaceArchive).values({
     id: archiveId,
     workspaceId: team.workspaceId.value,
-    resumeKey: `task-${taskId}`,
-    taskId,
+    workspaceKey: `work/task-${taskId}`,
     grantedToRunId: runId,
     size: 1_024,
     sha256: 'a'.repeat(64),
@@ -194,7 +206,60 @@ const anOriginal = async (): Promise<Original> => {
   return { taskId, runId, archiveId, briefedFile, laterFile };
 };
 
-const candidate = async (): Promise<LineMap> => {
+const anEndedStationRun = async (
+  orderedAt: Date,
+  endedAt: Date,
+): Promise<string> => {
+  const taskId = randomUUID();
+  const runId = randomUUID();
+
+  await db.insert(schema.task).values({
+    id: taskId,
+    branch: `feat/test-${taskId}`,
+    openedFrom: 'person',
+    workspaceId: team.workspaceId.value,
+    stationId: SHIP,
+    title: 'Drain another queue',
+    description: 'It stalls too.',
+    originStationId: BUILD,
+    createdById: team.owner.value,
+    assigneeId: team.owner.value,
+  });
+  await db.insert(schema.run).values({
+    id: runId,
+    workspaceId: team.workspaceId.value,
+    ...requestedByTask(taskId, { teamId: team.teamId.value }),
+    harness: 'claude-code',
+    state: 'completed',
+    exitCode: 0,
+    queuedAt: orderedAt,
+    endedAt,
+    spec: {
+      command: { executable: 'claude-agent-acp', args: [] },
+      briefing: 'Drain another queue.',
+      handover: { options: ['ship', 'review'], noteLimit: 0 },
+      resume: {},
+    },
+  });
+  await db.insert(schema.dispatch).values(
+    aDispatch({
+      runId,
+      workspaceId: team.workspaceId.value,
+      teamId: team.teamId.value,
+      taskId,
+      stationId: BUILD,
+      orderedAt,
+      endedAt,
+    }),
+  );
+
+  return runId;
+};
+
+const replayOrderOf = async (
+  original: Original,
+  run: RunId,
+): Promise<ReplayRunOrder> => {
   const line = await app
     .get(DrizzleLineRepository)
     .findByStation(StationId.of(BUILD));
@@ -203,18 +268,33 @@ const candidate = async (): Promise<LineMap> => {
     throw new Error('the delivery line is not there');
   }
 
-  return candidateOf(mapOf(line), StationId.of(BUILD), {
-    agentPrompt: 'Replay this, and say what you would change.',
-  });
+  return {
+    run,
+    original: RunId.of(original.runId),
+    workspaceId: team.workspaceId,
+    lineId: line.id,
+    stationId: StationId.of(BUILD),
+    block: StationBlock.of({
+      ...(await writtenStation(app, DELIVERY, 'build')),
+      prompt: 'Replay this, and say what you would change.',
+    }),
+    line: null,
+    answer: null,
+  };
 };
 
-const replayed = async (original: Original): Promise<string> =>
-  (
-    await app.get(DispatchReplay).enqueue({
-      original: RunId.of(original.runId),
-      candidate: await candidate(),
-    })
-  ).value;
+const replayed = async (original: Original): Promise<string> => {
+  const run = RunId.of(randomUUID());
+  const queued = await app
+    .get(ReplayRunDispatch)
+    .dispatch(await replayOrderOf(original, run));
+
+  if (!queued.queued) {
+    throw new Error(`the replay was not queued: ${queued.unreplayableReason}`);
+  }
+
+  return run.value;
+};
 
 const claimed = async (
   replayId: string,
@@ -478,7 +558,7 @@ describe('a replay claimed by a runner', () => {
     expect(spec.checkouts).toEqual([
       { remote: 'spotlight:repository', path: 'api', ref: COMMIT },
     ]);
-    expect(spec.resume).toEqual({ key: `replay-${replayId}` });
+    expect(spec.resume).toEqual({ key: `replays/replay-${replayId}` });
     expect(spec.briefing).toContain(
       'Replay this, and say what you would change.',
     );
@@ -490,12 +570,17 @@ describe('a replay claimed by a runner', () => {
     expect(spec.diffs).toBe(true);
 
     const row = await runRow(replayId);
-    expect(row?.taskId).toBeNull();
-    expect(row?.replayOfRunId).toBe(original.runId);
-    expect(
-      (await app.get(DrizzleRunRepository).findById(RunId.of(replayId)))
-        ?.subject?.replayedTaskId?.value,
-    ).toBe(original.taskId);
+    expect(row).toMatchObject({
+      requesterOwner: 'replays',
+      requesterKind: 'replay',
+      requesterId: replayId,
+      teamId: team.teamId.value,
+    });
+    expect(await dispatchRow(replayId)).toMatchObject({
+      kind: 'trial',
+      basedOnRunId: original.runId,
+      taskId: original.taskId,
+    });
     expect((await dispatchRow(replayId))?.stationFingerprint).not.toBeNull();
     expect(row?.priority).toBe(-1);
   });
@@ -584,6 +669,26 @@ describe('a replay claimed by a runner', () => {
     ).toEqual([]);
   });
 
+  it('reads the station’s history only as it was when its original started', async () => {
+    const minute = 60_000;
+    const before = await anEndedStationRun(
+      new Date(Date.now() - 2 * minute),
+      new Date(Date.now() - minute),
+    );
+    const { replayId, token } = await aClaimedReplay();
+    const after = await anEndedStationRun(new Date(), new Date());
+
+    const history = (
+      await runner(token)
+        .get(`/api/runs/${replayId}/history?station=build&last=50`)
+        .expect(200)
+    ).body as { runs: { runId: string }[] };
+    const listed = history.runs.map((each) => each.runId);
+
+    expect(listed).toContain(before);
+    expect(listed).not.toContain(after);
+  });
+
   it('recalls what the team remembers without counting it as used', async () => {
     const { replayId, token } = await aClaimedReplay();
 
@@ -597,6 +702,81 @@ describe('a replay claimed by a runner', () => {
         .from(schema.memoryUse)
         .where(eq(schema.memoryUse.runId, replayId)),
     ).toEqual([]);
+  });
+});
+
+describe('a replay cancelled while it is ordered', () => {
+  it('never runs when the cancel comes between its claim and its enqueue', async () => {
+    const original = await anOriginal();
+    const run = RunId.of(randomUUID());
+    const runs = app.get<ReplaysRunsPort>(REPLAYS_RUNS);
+    const cancellingFirst: ReplaysRunsPort = Object.assign(
+      Object.create(runs),
+      {
+        enqueue: async (order: RunOrderContract) => {
+          await app.get(ReplayRunDispatch).cancel(run, false);
+          return runs.enqueue(order);
+        },
+      },
+    );
+    const racing = new ReplayRunDispatch(
+      app.get(DrizzleReplayRunClaimRepository),
+      app.get<StationTrialsPort>(STATION_TRIALS),
+      cancellingFirst,
+    );
+
+    expect(await racing.dispatch(await replayOrderOf(original, run))).toEqual({
+      queued: false,
+      unreplayableReason: 'cancelled',
+    });
+    expect(await runRow(run.value)).toMatchObject({
+      state: 'cancelled',
+      startedAt: null,
+      claimedBy: null,
+    });
+  });
+});
+
+describe('an order under a run id Runs already knows', () => {
+  it('is taken once, taken again when repeated, and refused as a conflict when it differs', async () => {
+    const runs = app.get<RunsPort>(RUNS);
+    const runId = randomUUID();
+    const order: RunOrderContract = {
+      runId,
+      workspaceId: team.workspaceId.value,
+      harness: 'claude-code',
+      priority: -1,
+      placement: { labelGroups: [], image: null },
+      spec: {
+        command: { executable: 'claude-agent-acp', args: [] },
+        briefing: 'Replay this.',
+        handover: { options: ['ship', 'review'], noteLimit: 0 },
+        resume: {},
+      },
+      requester: {
+        owner: 'replays',
+        kind: 'replay',
+        id: runId,
+        token: null,
+        team: team.teamId.value,
+      },
+      policy: REPLAY_RUN_POLICY,
+      workspace: null,
+      restore: null,
+      extensions: {},
+      apiGrant: null,
+      tags: {},
+      refusal: null,
+    };
+
+    expect(await runs.enqueue(order)).toEqual({ outcome: 'enqueued' });
+    expect(await runs.enqueue(order)).toEqual({ outcome: 'enqueued' });
+    await expect(
+      runs.enqueue({ ...order, priority: 5 }),
+    ).rejects.toBeInstanceOf(RunOrderConflictError);
+    expect((await runRow(runId))?.priority).toBe(-1);
+
+    await runs.cancel(RunId.of(runId));
   });
 });
 
@@ -625,13 +805,14 @@ describe('a replay ending', () => {
     expect(row?.state).toBe('completed');
     expect(row?.askedAPerson).toBe(false);
 
-    const [ended] = await published('work.replay-ended.v1', replayId);
+    const [ended] = await published('work.requested-run-ended.v1', replayId);
     expect(ended?.payload).toMatchObject({
-      replayOf: original.runId,
+      requester: { owner: 'replays', kind: 'replay', id: replayId },
+      ending: 'completed',
       outcome: 'completed',
-      asked: false,
-      next: 'ship',
-      note: 'Done here.',
+      askedAPerson: false,
+      handsOver: true,
+      report: { next: 'ship', note: 'Done here.' },
     });
   });
 
@@ -661,8 +842,11 @@ describe('a replay ending', () => {
     expect(await inboxHas(original.taskId)).toBe(false);
     expect(await notesOf(original.taskId)).toEqual([]);
 
-    const [ended] = await published('work.replay-ended.v1', replayId);
-    expect(ended?.payload).toMatchObject({ asked: true, next: 'review' });
+    const [ended] = await published('work.requested-run-ended.v1', replayId);
+    expect(ended?.payload).toMatchObject({
+      askedAPerson: true,
+      report: { next: 'review' },
+    });
   });
 
   it('wakes none of what a task run’s end wakes', async () => {
@@ -675,7 +859,6 @@ describe('a replay ending', () => {
 
     for (const kind of [
       'work.run-ended.v1',
-      'work.run-usage-recorded.v1',
       'work.run-briefed.v1',
       'work.task-dispatched.v1',
     ]) {

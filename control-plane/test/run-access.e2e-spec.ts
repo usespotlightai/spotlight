@@ -9,6 +9,7 @@ import { RunAccess } from '@work/application/services/run-access.service';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { requestedByChat, requestedBySpec } from './support/runs';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -22,7 +23,7 @@ const SPEC = {
   command: { executable: 'sh', args: [] },
   briefing: 'Plan the migration.',
   handover: { options: [], noteLimit: 0 },
-  resume: { key: 'chat-run' },
+  resume: {},
 };
 
 const addPerson = async (inWorkspace: boolean): Promise<string> => {
@@ -61,10 +62,10 @@ const chatRun = async (startedBy: string): Promise<string> => {
     harness: 'dev',
   });
   await db.insert(schema.run).values({
+    ...requestedByChat(chatId),
     id: runId,
     workspaceId: team.workspaceId.value,
     harness: 'dev',
-    chatId,
     state: 'queued',
     spec: SPEC,
   });
@@ -76,6 +77,7 @@ const rawRun = async (): Promise<string> => {
   const runId = randomUUID();
 
   await db.insert(schema.run).values({
+    ...requestedBySpec(runId),
     id: runId,
     workspaceId: team.workspaceId.value,
     harness: 'dev',

@@ -6,21 +6,27 @@ import type { JournalledRunDto } from '@work/application/dto/run-journal.dto';
 import { RunJournalMapper } from '@work/application/mappers/run-journal.mapper';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
 import type { ListChatJournalRunsQuery } from '@work/application/queries/chat.queries';
+import type { RunAccess } from '@work/application/services/run-access.service';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 
 export class ListChatJournalRunsHandler
   implements
     QueryHandlerPort<ListChatJournalRunsQuery, JournalledRunDto[] | null>
 {
-  constructor(private readonly journals: RunJournalReaderPort) {}
+  constructor(
+    private readonly journals: RunJournalReaderPort,
+    private readonly access: RunAccess,
+  ) {}
 
   async execute(
     query: ListChatJournalRunsQuery,
   ): Promise<JournalledRunDto[] | null> {
     try {
-      const runs = await this.journals.runsOfChat(
-        TeamId.of(query.teamId),
-        ChatId.of(query.chatId),
+      const runs = this.access.shownOfChat(
+        await this.journals.runsOfChat(
+          TeamId.of(query.teamId),
+          ChatId.of(query.chatId),
+        ),
         UserId.of(query.viewerId),
       );
 

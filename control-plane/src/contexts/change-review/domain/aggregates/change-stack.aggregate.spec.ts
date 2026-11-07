@@ -1,6 +1,6 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { InvalidChangeStackError } from '@change-review/domain/exceptions/invalid-change-stack.error';
-import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-stack-for-searches.error';
+import { NoStackWithoutCheckoutsError } from '@change-review/domain/exceptions/no-stack-without-checkouts.error';
 import { UnknownQuestionError } from '@change-review/domain/exceptions/unknown-question.error';
 import type { HunkLink } from '@change-review/domain/services/diff-facts';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -60,16 +60,16 @@ const NOW = new Date('2026-09-16T10:00:00Z');
 
 const generating = (
   facts = StackFacts.of({ hunks: [], links: [], imports: [] }),
-  replay = false,
-  isSearch = false,
+  trial = false,
+  checkouts = 1,
 ) =>
   ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
     taskId: null,
     teamOfRun: TeamId.of('team_1'),
-    replay,
-    isSearch,
+    trial,
+    checkouts,
     workspaceId: WorkspaceId.of('workspace-1'),
     repository: ' web ',
     base: null,
@@ -116,11 +116,21 @@ const problemsOf = (cohorts: DraftedCohort[]): readonly string[] => {
 };
 
 describe('ChangeStack', () => {
-  describe('of a replay', () => {
+  it('is never generated for a run without checkouts, which changes no repository', () => {
+    expect(() =>
+      generating(
+        StackFacts.of({ hunks: [], links: [], imports: [] }),
+        false,
+        0,
+      ),
+    ).toThrow(NoStackWithoutCheckoutsError);
+  });
+
+  describe('of a trial', () => {
     const kindsOf = (stack: ChangeStack) =>
       stack.pullEvents().map((each) => each.kind);
 
-    it('stays in Spotlight: it says it completed for its replay, and shapes no task’s outcome', () => {
+    it('stays in Spotlight: it says it completed for its trial, and shapes no task’s outcome', () => {
       const stack = generating(
         StackFacts.of({ hunks: [], links: [], imports: [] }),
         true,
@@ -134,11 +144,11 @@ describe('ChangeStack', () => {
 
       expect(kindsOf(ready)).toEqual([
         'change-stack.completed',
-        'change-stack.replay-completed',
+        'change-stack.trial-completed',
       ]);
     });
 
-    it('says it completed for its replay when it could not be generated', () => {
+    it('says it completed for its trial when it could not be generated', () => {
       const stack = generating(
         StackFacts.of({ hunks: [], links: [], imports: [] }),
         true,
@@ -146,18 +156,8 @@ describe('ChangeStack', () => {
       stack.pullEvents();
 
       expect(kindsOf(stack.deadLetter(LATER))).toEqual([
-        'change-stack.replay-completed',
+        'change-stack.trial-completed',
       ]);
-    });
-
-    it('is never generated for a search run, which changes no repository', () => {
-      expect(() =>
-        generating(
-          StackFacts.of({ hunks: [], links: [], imports: [] }),
-          false,
-          true,
-        ),
-      ).toThrow(NoStackForSearchesError);
     });
 
     it('belongs to no task', () => {
@@ -167,8 +167,8 @@ describe('ChangeStack', () => {
           runId: RunId.of('run-1'),
           taskId: TaskId.of('task-1'),
           teamOfRun: TeamId.of('team_1'),
-          replay: true,
-          isSearch: false,
+          trial: true,
+          checkouts: 1,
           workspaceId: WorkspaceId.of('workspace-1'),
           repository: 'web',
           base: null,
@@ -203,8 +203,8 @@ describe('ChangeStack', () => {
         runId: RunId.of('run-1'),
         taskId,
         teamOfRun,
-        replay: false,
-        isSearch: false,
+        trial: false,
+        checkouts: 1,
         workspaceId: WorkspaceId.of('workspace-1'),
         repository: 'web',
         base: null,
@@ -651,7 +651,7 @@ describe('ChangeStack read back from what was stored', () => {
       runId: RunId.of('run-1'),
       taskId: null,
       teamId: TeamId.of('team_1'),
-      replay: false,
+      trial: false,
       workspaceId: WorkspaceId.of('workspace-1'),
       repository: RepositoryName.of('web'),
       base: null,

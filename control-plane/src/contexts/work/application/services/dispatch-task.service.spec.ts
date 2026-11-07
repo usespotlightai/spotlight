@@ -228,7 +228,7 @@ const lineWith = (
     name: LineName.of('Default'),
     repositories: repositories.map(repositoryConfig),
     stations: changed
-      ? stations.map((each) => (each.equals(changed) ? changed : each))
+      ? stations.map((each) => (each.id.equals(changed.id) ? changed : each))
       : stations,
   });
 
@@ -302,8 +302,8 @@ const tracing = {
     `trace:${taskId.value}:${runId.value}`,
   forChat: (chatId: { value: string }, runId: { value: string }) =>
     `trace:${chatId.value}:${runId.value}`,
-  forSearch: (searchId: { value: string }, runId: { value: string }) =>
-    `trace:${searchId.value}:${runId.value}`,
+  of: (requester: { id: string }, runId: { value: string }) =>
+    `trace:${requester.id}:${runId.value}`,
 };
 
 let entitledItems: EntitledItems = { tools: [], skills: [], denied: [] };
@@ -573,6 +573,7 @@ describe('DispatchTask', () => {
         task(station.id.value).reviews(
           PullRequestUrl.of('https://github.com/acme/api/pull/42'),
           { outside: false },
+          lineWith(),
           new Date(0),
         ),
         ['acme/widgets', 'acme/web'],
@@ -853,7 +854,7 @@ describe('DispatchTask', () => {
       if (!run) {
         throw new Error(`nothing was queued at ${at}`);
       }
-      return written(run).resume;
+      return run.workspaceKey?.value;
     };
 
     const taskAt = (station: Station) =>
@@ -875,16 +876,16 @@ describe('DispatchTask', () => {
       await dispatch(station);
       await dispatch(station, taskAt(station));
 
-      expect(resumeOf(0).key).toBe('task-task_1');
-      expect(resumeOf(1).key).toBe(resumeOf(0).key);
+      expect(resumeOf(0)).toBe('work/task-task_1');
+      expect(resumeOf(1)).toBe(resumeOf(0));
     });
 
     it('gives it the same one at the next station', async () => {
       await dispatch(stations[1] as Station);
       await dispatch(stations[2] as Station);
 
-      expect(resumeOf(0).key).toBe('task-task_1');
-      expect(resumeOf(1).key).toBe(resumeOf(0).key);
+      expect(resumeOf(0)).toBe('work/task-task_1');
+      expect(resumeOf(1)).toBe(resumeOf(0));
     });
 
     it('names every skill home and harness setting, so what an earlier station left is cleared', async () => {
@@ -905,7 +906,7 @@ describe('DispatchTask', () => {
 
       await dispatch(station, taskAt(station));
 
-      expect(resumeOf(0).sessionId).toBe('session_1');
+      expect(written(queued[0] as Run).resume.sessionId).toBe('session_1');
     });
 
     it('requests no conversation when there is nothing to resume', async () => {
@@ -913,7 +914,7 @@ describe('DispatchTask', () => {
 
       await dispatch(station);
 
-      expect(resumeOf(0).sessionId).toBeUndefined();
+      expect(written(queued[0] as Run).resume.sessionId).toBeUndefined();
     });
   });
 });

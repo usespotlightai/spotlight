@@ -1,6 +1,10 @@
 import { LineViewMapper } from '@lines/application/mappers/line-view.mapper';
 import type { Line } from '@lines/domain/aggregates/line.aggregate';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
+import {
+  LINE_CHANGED,
+  type LineChangedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/line-changed.integration-event';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { lineMapOf } from '@work/infrastructure/acl/line-map.translation';
 import { eq, inArray, sql } from 'drizzle-orm';
@@ -70,3 +74,43 @@ export const insertStations = async (
 
 export const mapOf = (line: Line): LineMap =>
   lineMapOf(LineViewMapper.of(line));
+
+export const lineChangedOf = async (
+  db: DrizzleDatabase,
+  lineId: string,
+  stationIds: readonly string[],
+): Promise<LineChangedIntegrationEvent> => {
+  const [line] = await db
+    .select()
+    .from(schema.line)
+    .where(eq(schema.line.id, lineId));
+
+  if (!line) {
+    throw new Error(`No line ${lineId}`);
+  }
+
+  const stations = await db
+    .select()
+    .from(schema.station)
+    .where(eq(schema.station.lineId, lineId));
+
+  return {
+    kind: LINE_CHANGED,
+    lineId,
+    workspaceId: line.workspaceId,
+    teamId: line.teamId,
+    version: line.version,
+    lineKey: line.key,
+    lineName: line.name,
+    deleted: false,
+    stations: stations.map((each) => ({
+      id: each.id,
+      key: each.key,
+      name: each.name,
+      kind: each.kind,
+      color: each.color,
+      position: each.position,
+    })),
+    stationIds: [...stationIds],
+  };
+};

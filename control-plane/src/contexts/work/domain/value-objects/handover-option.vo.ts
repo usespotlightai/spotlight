@@ -1,6 +1,6 @@
 import {
-  DONE,
-  REVIEW,
+  HANDOVER_TO_A_PERSON,
+  HANDOVER_TO_FINISH,
 } from '@shared-kernel/domain/value-objects/handover-word';
 import type { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -29,6 +29,17 @@ export class HandoverOption {
   }
 
   get word(): string {
-    return this.station?.key.value ?? (this.kind === 'done' ? DONE : REVIEW);
+    return (
+      this.station?.key.value ??
+      (this.kind === 'done' ? HANDOVER_TO_FINISH : HANDOVER_TO_A_PERSON)
+    );
+  }
+
+  equals(other: HandoverOption): boolean {
+    return (
+      this.kind === other.kind &&
+      this.word === other.word &&
+      (this.station?.name.value ?? null) === (other.station?.name.value ?? null)
+    );
   }
 }

@@ -9,7 +9,6 @@ import type { StationKey } from '@shared-kernel/domain/value-objects/station-key
 import type { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import type { JudgeSettings } from '@work/domain/value-objects/judge-settings.vo';
-import type { SearchSettings } from '@work/domain/value-objects/search-settings';
 
 export type StationKind = 'backlog' | 'work' | 'completed';
 
@@ -33,7 +32,6 @@ export interface StationInput {
   readonly decisions?: boolean;
   readonly memories?: boolean;
   readonly judge?: JudgeSettings | null;
-  readonly search?: SearchSettings | null;
   readonly tools?: readonly Tool[];
   readonly skills?: readonly SkillKey[];
 }
@@ -59,7 +57,6 @@ export class Station {
     readonly decisions: boolean,
     readonly memories: boolean,
     readonly judge: JudgeSettings | null,
-    readonly search: SearchSettings | null,
     readonly tools: readonly Tool[],
     readonly skills: readonly SkillKey[],
   ) {}
@@ -89,7 +86,6 @@ export class Station {
       works && (input.decisions ?? false),
       works && (input.memories ?? false),
       works ? (input.judge ?? null) : null,
-      works ? (input.search ?? null) : null,
       [...(input.tools ?? [])],
       [...(input.skills ?? [])],
     );
@@ -109,9 +105,5 @@ export class Station {
 
   routesTo(stationId: StationId): boolean {
     return this.passesTo.some((each) => each.equals(stationId));
-  }
-
-  equals(other: Station): boolean {
-    return this.id.equals(other.id);
   }
 }

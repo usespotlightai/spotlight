@@ -1,4 +1,3 @@
-import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -16,13 +15,14 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import { taskReaderOver } from '@work/application/ports/task-reader.fake-spec';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
 import { LineLoader } from '@work/application/services/line-loader.service';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
+import { workAccessSeeing } from '@work/application/services/work-access.fake-spec';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import type { TaskRunDetached } from '@work/domain/events/task-run-detached.event';
+import { TeamMembershipRequiredError } from '@work/domain/exceptions/team-membership-required.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import {
   lineMapOf,
@@ -31,6 +31,7 @@ import {
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
+import { TeamMembers } from '@work/domain/value-objects/team-members.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const transaction: TransactionPort = { inTransaction: (work) => work() };
@@ -84,6 +85,12 @@ const taskAt = (stationId = 'station_2', on = line()) =>
     createdBy: UserId.of('user_1'),
     now: new Date('2026-08-27T09:15:00.000Z'),
     newId: () => 'task_1',
+  });
+
+const landedAt = (stationId: string) =>
+  Task.rehydrate({
+    ...taskAt('station_1'),
+    stationId: StationId.of(stationId),
   });
 
 const dispatched: { harness: string; priority: number; brief: string }[] = [];
@@ -142,19 +149,7 @@ const lines = (found: LineMap | null = line()) =>
   }) satisfies LineMapsPort;
 
 const access = (teamId = 'team_1') =>
-  ({
-    inWorkspaceOfTeam: vi.fn(async (requested: TeamId) =>
-      requested.value === teamId
-        ? {
-            teamId: requested,
-            workspaceId: WorkspaceId.of('ws_1'),
-            slug: 'acme',
-            viewer: UserId.of('user_1'),
-            isAdmin: false,
-          }
-        : null,
-    ),
-  }) as unknown as WorkspaceAccessPort;
+  workAccessSeeing((requested) => requested.value === teamId);
 
 const clock: ClockPort = {
   now: () => new Date('2026-08-29T12:00:00.000Z'),
@@ -167,15 +162,15 @@ const move = (
   stored: TaskRepository & TaskPlacementsPort = tasks(),
   teamId = 'team_1',
   revision = 0,
+  seen = access(),
 ) =>
   new MoveTaskHandler(
     stored,
     stored,
-    new LineLoader(access(), board),
+    new LineLoader(seen, board),
     transaction,
     dispatch(),
     clock,
-    taskReaderOver(() => saved),
   ).execute(
     new MoveTaskCommand(
       teamId,
@@ -195,7 +190,8 @@ beforeEach(() => {
 
 describe('MoveTaskHandler', () => {
   it('moves a task on from the revision it was seen at, and counts the move', async () => {
-    await expect(move('station_1')).resolves.toMatchObject({ revision: 1 });
+    await move('station_1');
+
     expect(saved?.revision.value).toBe(1);
   });
 
@@ -212,24 +208,10 @@ describe('MoveTaskHandler', () => {
     ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
-  it('answers with the person who created it, not with nobody', async () => {
-    await expect(move('station_2')).resolves.toMatchObject({
-      createdBy: { id: 'user_1', name: 'Ada', image: null },
-    });
-  });
-
   it('puts the task at the station it was moved to', async () => {
     await move('station_1');
 
     expect(saved?.stationId).toEqual(StationId.of('station_1'));
-  });
-
-  it('hands back the task as it is now', async () => {
-    await expect(move('station_1')).resolves.toMatchObject({
-      id: 'task_1',
-      stationId: 'station_1',
-      title: 'Fix the queue',
-    });
   });
 
   it('hands the task over when it arrives at a worked station', async () => {
@@ -292,15 +274,15 @@ describe('MoveTaskHandler', () => {
 
   it('denies a person moving a completed task back out', async () => {
     await expect(
-      move('station_1', lines(), tasks(taskAt('station_3'))),
+      move('station_1', lines(), tasks(landedAt('station_3'))),
     ).rejects.toMatchObject({ kind: 'invalid' });
     expect(saved).toBeUndefined();
   });
 
   it('lets a person close a task from the backlog', async () => {
-    await expect(
-      move('station_3', lines(), tasks(taskAt('station_1'))),
-    ).resolves.toMatchObject({ stationId: 'station_3' });
+    await move('station_3', lines(), tasks(taskAt('station_1')));
+
+    expect(saved?.stationId).toEqual(StationId.of('station_3'));
   });
 
   it('rejects a station that is not on this line', async () => {
@@ -330,6 +312,24 @@ describe('MoveTaskHandler', () => {
     expect(saved).toBeUndefined();
   });
 
+  it('refuses a workspace member who sees the team but is not on it, moving nothing', async () => {
+    await expect(
+      move(
+        'station_2',
+        lines(),
+        tasks(),
+        'team_1',
+        0,
+        workAccessSeeing((requested) => requested.value === 'team_1', {
+          onTeam: () => false,
+        }),
+      ),
+    ).rejects.toMatchObject({
+      refusal: expect.any(TeamMembershipRequiredError),
+    });
+    expect(saved).toBeUndefined();
+  });
+
   it('rejects a line that does not exist', async () => {
     await expect(move('station_1', lines(null))).rejects.toThrow(
       ApplicationError,
@@ -343,7 +343,10 @@ describe('MoveTaskHandler', () => {
   });
 
   it('leaves work its owner already has with them when moved active', async () => {
-    const owned = taskAt('station_1').assign(UserId.of('user_other'));
+    const owned = taskAt('station_1').assign(
+      UserId.of('user_other'),
+      TeamMembers.of([UserId.of('user_other')]),
+    );
 
     await move('station_2', lines(), tasks(owned));
 

@@ -16,6 +16,7 @@ import { StoredSandboxArchiveQuery } from '@work/application/queries/stored-work
 import { SandboxArchives } from '@work/application/services/sandbox-archives.service';
 import {
   aLeasedRun,
+  holding,
   InMemoryArchiveStore,
   InMemoryArchives,
   runsOf,
@@ -33,7 +34,7 @@ const setUp = (
   sandbox: AuthenticatedSandbox = {
     id: 'sandbox_1',
     workspaceId: 'ws_1',
-    key: 'task-task_1',
+    key: 'work/task-task_1',
   },
 ) => {
   const sandboxes = new SandboxArchives({
@@ -53,6 +54,7 @@ const setUp = (
       sandboxes,
       archives,
       store,
+      holding('work'),
       ids,
       clock,
     ),
@@ -67,6 +69,7 @@ const setUp = (
       runsOf(aLeasedRun()),
       archives,
       store,
+      holding('work'),
       ids,
       clock,
     ),
@@ -85,8 +88,7 @@ describe('archiving a sandbox’s workspace with its own token', () => {
 
     const granted = archives.stored.get('archive_1');
     expect(granted?.grantedForSandbox('sandbox_1')).toBe(true);
-    expect(granted?.resumeKey.value).toBe('task-task_1');
-    expect(granted?.holder).toMatchObject({ kind: 'task' });
+    expect(granted?.workspaceKey.value).toBe('work/task-task_1');
   });
 
   it('grants nothing for a wrong token, or for another sandbox', async () => {
@@ -110,7 +112,7 @@ describe('archiving a sandbox’s workspace with its own token', () => {
   });
 
   it('rejects a sandbox of no task or chat', async () => {
-    for (const key of [null, 'replay-run_9']) {
+    for (const key of [null, 'replays/replay-run_9']) {
       const { grant, archives } = setUp({
         id: 'sandbox_1',
         workspaceId: 'ws_1',

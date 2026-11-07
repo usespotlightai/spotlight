@@ -9,6 +9,7 @@ import type { RunJournalPort } from '@work/application/ports/run-journal.port';
 import type { RunStreamPort } from '@work/application/ports/run-stream.port';
 import { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
@@ -23,11 +24,12 @@ const waiting = () =>
     id: RunId.of('run_1'),
     workspaceId: WorkspaceId.of('ws_1'),
     harness: HarnessId.of('dev'),
+    ...orderedFor.spec(),
     spec: RunSpec.of({
       command: { executable: 'sh', args: [] },
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
-      resume: { key: 'task:station' },
+      resume: {},
     }),
   });
 

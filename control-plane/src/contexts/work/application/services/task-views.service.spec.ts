@@ -14,7 +14,8 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
 import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
-import type { TaskDispatching } from '@work/application/services/task-dispatch';
+import type { TaskDispatching } from '@work/application/ports/task-dispatch.port';
+import { IntegrationTaskViews } from '@work/application/services/integration-task-views.service';
 import { TaskNotesFromHooks } from '@work/application/services/task-notes-from-hooks.service';
 import { TaskViews } from '@work/application/services/task-views.service';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -22,6 +23,7 @@ import { InvalidTaskNoteError } from '@work/domain/exceptions/invalid-task-note.
 import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { DispatchRepository } from '@work/domain/repositories/dispatch.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
+import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { CorrelationKeys } from '@work/domain/value-objects/correlation-keys.vo';
 import {
   lineMapOf,
@@ -29,6 +31,8 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { Mark } from '@work/domain/value-objects/mark.vo';
+import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
+import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -102,7 +106,12 @@ const dispatch: TaskDispatching = {
 };
 
 const viewing = (
-  over: { task?: Task | null; slug?: string | null; clashes?: number } = {},
+  over: {
+    task?: Task | null;
+    slug?: string | null;
+    clashes?: number;
+    ambient?: readonly Mark[];
+  } = {},
 ) => {
   let current = over.task === undefined ? working() : over.task;
   let clashes = over.clashes ?? 0;
@@ -136,6 +145,10 @@ const viewing = (
       } as unknown as WorkspaceReaderPort,
       new WebTaskLinks('https://spotlight.acme.dev/'),
       { find: async () => null } as unknown as DispatchRepository,
+      new IntegrationTaskViews(
+        { findByStation: async () => DELIVERY } as unknown as LineMapsPort,
+        { ambientOf: async () => over.ambient ?? [] },
+      ),
     ),
     hooks: new TaskNotesFromHooks(
       tasks as unknown as TaskRepository,
@@ -169,6 +182,34 @@ describe('TaskViews', () => {
     });
   });
 
+  it('shows hooks the marks of the chat that proposed the task, under its own marks', async () => {
+    const proposed = Task.add({
+      line: DELIVERY,
+      at: StationId.of('station_1'),
+      title: TaskTitle.of('Fix the queue'),
+      rank: TaskRank.of('i'),
+      createdBy: UserId.of('user_1'),
+      proposedIn: ProposalOrigin.of({
+        chatId: ChatId.of('chat_1'),
+        position: MessagePosition.of(0),
+      }),
+      now: NOW,
+      newId: () => 'task_1',
+    }).markedBy(Mark.of('slack.thread', 'own'), NOW);
+    const { views } = viewing({
+      task: proposed,
+      ambient: [
+        Mark.of('slack.channel', 'C1'),
+        Mark.of('slack.thread', 'from-chat'),
+      ],
+    });
+
+    expect((await views.of('task_1', null))?.marks).toEqual({
+      'slack.channel': 'C1',
+      'slack.thread': 'own',
+    });
+  });
+
   it('sends hooks only the reviewed repository of a review', async () => {
     const reviewing = Task.add({
       line: DELIVERY,
@@ -183,6 +224,7 @@ describe('TaskViews', () => {
       {
         outside: false,
       },
+      DELIVERY,
       new Date(0),
     );
     const { views } = viewing({ task: reviewing });
@@ -241,7 +283,7 @@ describe('TaskViews', () => {
     it('answers no question put to a person, and hands the agent nothing to resume on', async () => {
       const asking = working().askedAbout(
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Which queue should drain first?'),
           at: NOW,
           voice: Voice.station(RUN),
@@ -318,7 +360,7 @@ describe('TaskViews', () => {
         DELIVERY,
         StationId.of('station_0'),
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Changes were requested on the pull request.'),
           at: NOW,
           voice: Voice.world(),
@@ -380,7 +422,7 @@ describe('TaskViews', () => {
       const failed = current() as Task;
       tasks.find.mockResolvedValue(
         failed.react(DELIVERY, StationId.of('station_0'), TaskRank.of('i'), {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Back to the backlog.'),
           at: NOW,
           voice: Voice.station(),
@@ -427,7 +469,7 @@ describe('TaskViews', () => {
         StationId.of('station_2'),
         TaskRank.of('i'),
         {
-          station: null,
+          line: null,
           body: TaskNoteBody.of('Done.'),
           at: NOW,
           voice: Voice.station(),

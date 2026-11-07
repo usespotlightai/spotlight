@@ -1,8 +1,8 @@
 import type { TeamProfile } from '@identity/application/ports/team-directory.port';
 import type {
-  StationHoldersPort,
+  StationDeletionGuardPort,
   StationRelease,
-} from '@lines/application/ports/station-holders.port';
+} from '@lines/application/ports/station-deletion-guard.port';
 import { ApplyLines } from '@lines/application/services/apply-lines.service';
 import { Line } from '@lines/domain/aggregates/line.aggregate';
 import { LineAlreadyExistsError } from '@lines/domain/exceptions/line-already-exists.error';
@@ -111,7 +111,7 @@ const applying = (
   over: {
     teamLines?: readonly Line[];
     tasks?: Record<string, number>;
-    held?: StationRelease;
+    release?: StationRelease;
     existing?: Line;
   } = {},
 ) => {
@@ -140,12 +140,11 @@ const applying = (
     );
 
   const tallies = {
-    hold: vi.fn(async () => undefined),
     lockedTaskCountsAt: vi.fn(tally),
     release: vi.fn(
-      async (): Promise<StationRelease> => over.held ?? 'released',
+      async (): Promise<StationRelease> => over.release ?? 'released',
     ),
-  } satisfies StationHoldersPort;
+  } satisfies StationDeletionGuardPort;
 
   let next = 100;
   const ids = {
@@ -238,7 +237,7 @@ describe('ApplyLines', () => {
     expect(tallies.lockedTaskCountsAt).toHaveBeenCalledTimes(1);
   });
 
-  it('releases the stations it drops from their holders, and nothing it keeps', async () => {
+  it('releases the stations it drops, and nothing it keeps', async () => {
     const existing = line();
     const plan = asPlan(existing);
     const going = existing.stations[1];
@@ -252,19 +251,19 @@ describe('ApplyLines', () => {
     expect(tallies.release).toHaveBeenCalledWith([going?.id]);
   });
 
-  it('rejects a change whose dropped stations a holder still holds, writing nothing', async () => {
+  it('rejects a change whose dropped stations still hold tasks, writing nothing', async () => {
     const existing = line();
     const plan = asPlan(existing);
     const { applied, save } = applying(
       like(plan, { stations: plan.stations.filter((_, at) => at !== 1) }),
-      { existing, held: 'held' },
+      { existing, release: 'occupied' },
     );
 
     await expect(applied()).rejects.toThrow(StationNotEmptyError);
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('deletes a line once its holders let go of every station', async () => {
+  it('deletes a line once every station is released', async () => {
     const existing = line();
     const { save, tallies, applier } = applying(asPlan(existing), {
       existing,
@@ -276,42 +275,6 @@ describe('ApplyLines', () => {
       existing.stations.map((each) => each.id),
     );
     expect((save.mock.calls[0] as never as [Line])[0].isDeleted).toBe(true);
-  });
-
-  it('lets the holders hold every station of a line it lays out again, in the same change', async () => {
-    const existing = line();
-    const { applied, tallies } = applying(asPlan(existing), { existing });
-
-    const reconciled = await applied();
-
-    expect(tallies.hold).toHaveBeenCalledWith(
-      expect.objectContaining({
-        lineId: reconciled.id.value,
-        stations: reconciled.stations.map((each) =>
-          expect.objectContaining({ id: each.id.value, key: each.key.value }),
-        ),
-      }),
-    );
-  });
-
-  it('lets the holders hold every station of a line it creates', async () => {
-    const existing = line();
-    const { applied, tallies } = applying(
-      like(asPlan(existing), { key: LineKey.of('release') }),
-      { existing },
-    );
-
-    const created = await applied();
-
-    expect(tallies.hold).toHaveBeenCalledWith(
-      expect.objectContaining({
-        lineId: created.id.value,
-        lineKey: 'release',
-        stations: created.stations.map((each) =>
-          expect.objectContaining({ id: each.id.value }),
-        ),
-      }),
-    );
   });
 
   it('creates a line the team does not have from its definition', async () => {
@@ -340,7 +303,7 @@ describe('ApplyLines', () => {
         ofTeam: vi.fn(async () => [existing]),
         add,
       } as unknown as LineRepository,
-      {} as StationHoldersPort,
+      {} as StationDeletionGuardPort,
       { generate: () => 'new' },
     );
 

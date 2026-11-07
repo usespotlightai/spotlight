@@ -108,7 +108,7 @@ export class ProcessDuePolls {
         return;
       }
 
-      await this.reactions.react(
+      const reaction = await this.reactions.react(
         team.workspaceId,
         teamId,
         polled.happenings,
@@ -116,6 +116,19 @@ export class ProcessDuePolls {
           ? null
           : `poll:${integrationKey}:${teamId.value}:${held.cursor ?? ''}`,
       );
+
+      if (reaction.kind === 'failed') {
+        this.log.warn(
+          {
+            team: teamId.value,
+            integration: integrationKey,
+            transient: reaction.transient,
+            error: reaction.reason,
+          },
+          'Work could not react to what a poll found',
+        );
+        return;
+      }
 
       await this.advanced(held, polled.cursor);
     } catch (error) {

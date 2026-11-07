@@ -1,5 +1,4 @@
 import type { FingerprintedConfig } from '@work/application/contracts/station-config.contract';
-import type { TracedWanted } from '@work/application/ports/station-run-reader.port';
 
 export const STATION_RUNS = Symbol('STATION_RUNS');
 
@@ -21,6 +20,12 @@ export interface EndedStationRun {
   readonly queuedAt: Date;
   readonly startedAt: Date | null;
   readonly endedAt: Date;
+}
+
+export interface StationTaskRun {
+  readonly runId: string;
+  readonly taskId: string;
+  readonly teamId: string;
 }
 
 export interface UnfinishedStationRun {
@@ -51,6 +56,12 @@ interface TracedTask {
   readonly stationId: string;
 }
 
+export interface TracedRunsWanted {
+  readonly taskIds: readonly string[];
+  readonly runIds: readonly string[];
+  readonly stationIds: readonly string[];
+}
+
 export interface TracedWork {
   readonly tasks: readonly TracedTask[];
   readonly stations: readonly TracedStation[];
@@ -60,11 +71,13 @@ export interface TracedWork {
 export interface StationRunsPort {
   ended(runId: string): Promise<EndedStationRun | null>;
 
+  taskRunOf(runId: string): Promise<StationTaskRun | null>;
+
   unfinished(teamId: string): Promise<readonly UnfinishedStationRun[]>;
 
   configsInOrder(
     fingerprints: readonly string[],
   ): Promise<readonly FingerprintedConfig[]>;
 
-  traced(wanted: TracedWanted): Promise<TracedWork>;
+  traced(wanted: TracedRunsWanted): Promise<TracedWork>;
 }

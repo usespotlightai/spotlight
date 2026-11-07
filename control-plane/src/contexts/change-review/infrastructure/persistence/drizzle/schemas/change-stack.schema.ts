@@ -50,7 +50,7 @@ export const changeStack = pgTable(
     runId: text('run_id').notNull(),
     taskId: text('task_id'),
     teamId: text('team_id'),
-    replay: boolean('replay').notNull().default(false),
+    trial: boolean('trial').notNull().default(false),
     workspaceId: text('workspace_id').notNull(),
     repository: text('repository'),
     baseCommit: text('base_commit'),

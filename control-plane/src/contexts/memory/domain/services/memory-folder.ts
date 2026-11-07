@@ -4,8 +4,6 @@ import { MemoryHandle } from '@memory/domain/value-objects/memory-handle.vo';
 
 export const MEMORY_FOLDER = '.spotlight/memory';
 
-export const MEMORY_FILE = /M-\d+\.md/;
-
 export const REPOSITORY_FOLDER = 'repositories/';
 
 const FILE = /(?:^|\/)(M-\d+)\.md$/;

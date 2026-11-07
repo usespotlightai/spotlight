@@ -4,7 +4,7 @@ import type { ReviewLinksPort } from '@change-review/application/ports/review-li
 import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { WorkspacesPort } from '@change-review/application/ports/workspaces.port';
-import { actsOutsideSpotlight } from '@change-review/domain/services/replay-isolation';
+import { actsOutsideSpotlight } from '@change-review/domain/services/trial-isolation';
 import type { PullRequestCommentsPort } from '@github/application/ports/pull-request-comments.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -26,7 +26,7 @@ export class PostChangeStackComment implements StickyCommentPosterPort {
   async ofRun(runId: RunId): Promise<void> {
     const run = await this.work.run(runId);
 
-    if (run?.taskId && actsOutsideSpotlight({ replay: run.isReplay })) {
+    if (run?.taskId && actsOutsideSpotlight(run)) {
       await this.ofTask(run.taskId);
     }
   }

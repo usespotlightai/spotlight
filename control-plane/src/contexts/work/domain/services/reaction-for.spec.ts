@@ -93,6 +93,12 @@ const taskAt = (stationId: string) =>
     newId: () => 'task_1',
   });
 
+const landedAt = (stationId: string) =>
+  Task.rehydrate({
+    ...taskAt('station_1'),
+    stationId: StationId.of(stationId),
+  });
+
 const payloadOf = (
   happening: Happening,
   summary: string,
@@ -121,7 +127,7 @@ const handed = (stationId: string) => taskAt(stationId).assignRun(RUN, LINE);
 
 const paused = (stationId: string) =>
   handed(stationId).putToAPerson(RUN, {
-    station: null,
+    line: null,
     body: TaskNoteBody.of('Which queue should I drain?'),
     at: NOW,
     voice: Voice.station(RUN),
@@ -151,9 +157,7 @@ describe('ReactionFor.happened', () => {
 
     expect(outcome.kind).toBe('deferredMove');
     expect(destination(outcome)).toEqual(StationId.of('station_2'));
-    expect(outcome.kind !== 'nothing' && outcome.station?.id).toEqual(
-      StationId.of('station_1'),
-    );
+    expect(outcome.kind !== 'nothing' && outcome.line.id).toEqual(LINE.id);
   });
 
   it('notes what arrived while a run was in progress on the task, and where it moves once the run ends', () => {
@@ -178,9 +182,7 @@ describe('ReactionFor.happened', () => {
     const outcome = reaction(handed('station_2'), merged);
 
     expect(outcome.kind).toBe('interrupts');
-    expect(outcome.kind !== 'nothing' && outcome.station?.name).toEqual(
-      StationName.of('Code Review'),
-    );
+    expect(outcome.kind !== 'nothing' && outcome.line.id).toEqual(LINE.id);
     expect(outcome.kind === 'interrupts' && outcome.body.value).toBe(
       'The pull request was merged while Code Review was working. Close the task, or reply to carry on.',
     );
@@ -226,7 +228,7 @@ describe('ReactionFor.happened', () => {
 
   it('says the station was working where the task awaits only a tool approval', () => {
     const asking = handed('station_2').putToAPerson(RUN, {
-      station: null,
+      line: null,
       body: TaskNoteBody.of('Approve linear.comment?'),
       at: NOW,
       voice: Voice.station(RUN),
@@ -285,6 +287,6 @@ describe('ReactionFor.happened', () => {
   });
 
   it('says nothing to a task that has landed at the end of the line', () => {
-    expect(reaction(taskAt('station_3'), merged).kind).toBe('nothing');
+    expect(reaction(landedAt('station_3'), merged).kind).toBe('nothing');
   });
 });

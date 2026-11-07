@@ -10,10 +10,11 @@ import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo'
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { WorkRunLookupPort } from '@work/application/ports/work-run-lookup.port';
 import type {
   TaskLookup,
-  WorkLookupPort,
-} from '@work/application/ports/work-lookup.port';
+  WorkTaskLookupPort,
+} from '@work/application/ports/work-task-lookup.port';
 
 const reviewed = (task: TaskLookup): ReviewedTask => ({
   id: task.id,
@@ -25,7 +26,10 @@ const reviewed = (task: TaskLookup): ReviewedTask => ({
 });
 
 export class Work implements WorkPort {
-  constructor(private readonly work: WorkLookupPort) {}
+  constructor(
+    private readonly work: WorkRunLookupPort,
+    private readonly tasks: WorkTaskLookupPort,
+  ) {}
 
   async run(runId: RunId): Promise<RunForReview | null> {
     const run = await this.work.run(runId);
@@ -46,8 +50,9 @@ export class Work implements WorkPort {
         ended: run.ended,
         completed: run.completed,
         decisions: run.decisions,
-        isReplay: run.replay,
-        isSearch: run.isSearch,
+        trial: run.trial,
+        isolated: run.isolated,
+        checkouts: run.checkouts,
       }
     );
   }
@@ -76,7 +81,7 @@ export class Work implements WorkPort {
   }
 
   async task(taskId: TaskId): Promise<ReviewedTask | null> {
-    const task = await this.work.task(taskId);
+    const task = await this.tasks.task(taskId);
     return task && reviewed(task);
   }
 
@@ -84,7 +89,7 @@ export class Work implements WorkPort {
     workspaceId: WorkspaceId,
     pullRequest: PullRequestUrl,
   ): Promise<ReviewedTask | null> {
-    const task = await this.work.taskWithPullRequest(workspaceId, pullRequest);
+    const task = await this.tasks.taskWithPullRequest(workspaceId, pullRequest);
     return task && reviewed(task);
   }
 }

@@ -20,16 +20,56 @@ const ORDER: RunOrderContract = {
     command: { executable: 'claude-agent-acp', args: [] },
     briefing: 'Fix the queue.',
     handover: { options: ['Review'], noteLimit: 4_000 },
-    resume: { key: 'task-task_1' },
+    resume: {},
   },
-  subject: {
+  requester: {
+    owner: 'work',
     kind: 'task',
-    taskId: 'task_1',
-    stationId: 'station_1',
-    revision: 2,
+    id: 'task_1',
+    token: '2',
+    team: 'team_1',
   },
-  team: 'team_1',
+  policy: {
+    holdsTurn: true,
+    gated: true,
+    actsBeyondItself: true,
+    asks: 'requester',
+    listed: true,
+    exclusive: true,
+  },
+  workspace: { key: 'work/task-task_1', rejoinable: true, restores: 'always' },
+  restore: null,
+  extensions: {},
+  apiGrant: null,
+  tags: { taskId: 'task_1' },
   refusal: null,
+};
+
+const ISOLATED: RunOrderContract = {
+  ...ORDER,
+  requester: {
+    owner: 'replays',
+    kind: 'replay',
+    id: 'run_1',
+    token: null,
+    team: 'team_1',
+  },
+  policy: {
+    holdsTurn: false,
+    gated: false,
+    actsBeyondItself: false,
+    asks: 'recorded',
+    listed: false,
+    exclusive: false,
+  },
+  workspace: {
+    key: 'replays/replay-run_1',
+    rejoinable: false,
+    restores: 'when-continuing',
+  },
+  restore: { archive: 'archive_1' },
+  extensions: { replay: { archive: 'archive_1', movesOnAfter: ['spec'] } },
+  tags: {},
 };
 
 const inMemory = () => {
@@ -69,6 +109,51 @@ describe('Runs, the facade other parts of Work order and stop runs through', () 
     expect(run?.requester.subject).toBe('work/task/task_1');
     expect(run?.requester.token).toBe('2');
     expect(run?.orderFingerprint).toMatch(/^sha:/);
+  });
+
+  it('keeps what the order asks of the run: its workspace, the exact archive, extensions and tags', async () => {
+    const { runs, stored } = inMemory();
+
+    await runs.enqueue(ISOLATED);
+
+    const run = stored.get('run_1');
+    expect(run?.workspaceKey?.value).toBe('replays/replay-run_1');
+    expect(run?.restore?.value).toBe('archive_1');
+    expect(run?.extensions.value).toEqual({
+      replay: { archive: 'archive_1', movesOnAfter: ['spec'] },
+    });
+    expect(run?.tags.value).toEqual({});
+    expect(run?.policy.actsBeyondItself).toBe(false);
+  });
+
+  it('refuses an order whose workspace belongs to another requester, or whose extension takes the name of a run field', async () => {
+    const { runs, stored } = inMemory();
+
+    await expect(
+      runs.enqueue({
+        ...ISOLATED,
+        workspace: { ...ORDER.workspace, key: 'work/task-task_1' } as never,
+      }),
+    ).resolves.toMatchObject({ outcome: 'refused' });
+    await expect(
+      runs.enqueue({
+        ...ISOLATED,
+        runId: 'run_2',
+        extensions: { checkouts: [] },
+      }),
+    ).resolves.toMatchObject({ outcome: 'refused' });
+    expect(stored.size).toBe(0);
+  });
+
+  it('refuses an order that keeps the run to itself yet has it act beyond itself', async () => {
+    const { runs } = inMemory();
+
+    await expect(
+      runs.enqueue({
+        ...ISOLATED,
+        spec: { ...ISOLATED.spec, injectedSecrets: ['LINEAR_API_KEY'] },
+      }),
+    ).resolves.toMatchObject({ outcome: 'refused' });
   });
 
   it('does nothing when the same order comes again', async () => {

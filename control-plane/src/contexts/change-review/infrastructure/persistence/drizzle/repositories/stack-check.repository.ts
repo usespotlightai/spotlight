@@ -37,7 +37,7 @@ export const toStackCheck = (row: Row): StackCheck =>
     runId: RunId.of(row.runId),
     taskId: row.taskId ? TaskId.of(row.taskId) : null,
     teamId: row.teamId ? TeamId.of(row.teamId) : null,
-    replay: row.replay,
+    trial: row.trial,
     workspaceId: WorkspaceId.of(row.workspaceId),
     request: CheckRequest.of(
       row.command,
@@ -123,7 +123,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         runId: added.runId.value,
         taskId: added.taskId?.value ?? null,
         teamId: added.teamId?.value ?? null,
-        replay: added.replay,
+        trial: added.trial,
         workspaceId: added.workspaceId.value,
         command: added.request.command,
         setup: added.request.setup,

@@ -148,9 +148,13 @@ import {
 import { MEMORIES_BRIEFED_BEFORE } from '@work/application/ports/memories-briefed-before.port';
 import { TEAM_MEMORIES } from '@work/application/ports/team-memories.port';
 import {
-  WORK_LOOKUP,
-  type WorkLookupPort,
-} from '@work/application/ports/work-lookup.port';
+  WORK_RUN_LOOKUP,
+  type WorkRunLookupPort,
+} from '@work/application/ports/work-run-lookup.port';
+import {
+  WORK_TASK_LOOKUP,
+  type WorkTaskLookupPort,
+} from '@work/application/ports/work-task-lookup.port';
 
 const MEMORY_EVENTS = Symbol('MEMORY_EVENTS');
 
@@ -165,8 +169,9 @@ export const MEMORY_CONTROLLERS: readonly Type[] = [
 export const MEMORY_PROVIDERS: readonly Provider[] = [
   {
     provide: WORK,
-    inject: [WORK_LOOKUP],
-    useFactory: (work: WorkLookupPort) => new Work(work),
+    inject: [WORK_RUN_LOOKUP, WORK_TASK_LOOKUP],
+    useFactory: (runs: WorkRunLookupPort, tasks: WorkTaskLookupPort) =>
+      new Work(runs, tasks),
   },
   {
     provide: LINES,

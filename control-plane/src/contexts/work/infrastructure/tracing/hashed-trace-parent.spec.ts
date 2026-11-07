@@ -1,6 +1,5 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
-import { SearchId } from '@work/domain/value-objects/search-id.vo';
 import { HashedTraceParent } from '@work/infrastructure/tracing/hashed-trace-parent';
 import { describe, expect, it } from 'vitest';
 
@@ -37,13 +36,11 @@ describe('HashedTraceParent', () => {
     expect(trace).not.toBe(other);
   });
 
-  it('gives a search’s runs one trace of their own', () => {
-    const search = SearchId.of('search_1');
-    const [, trace, span] = naming
-      .forSearch(search, RunId.of('run_1'))
-      .split('-');
+  it('gives the runs of one requester one trace of their own', () => {
+    const search = { kind: 'search', id: 'search_1' };
+    const [, trace, span] = naming.of(search, RunId.of('run_1')).split('-');
     const [, sameTrace, otherSpan] = naming
-      .forSearch(search, RunId.of('run_2'))
+      .of(search, RunId.of('run_2'))
       .split('-');
     const [, taskTrace] = parts('search_1', 'run_1');
 

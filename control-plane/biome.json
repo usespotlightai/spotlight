@@ -691,14 +691,13 @@
                 "patterns": [
                   {
                     "group": [
-                      "@runners/**",
                       "@configuration/**",
                       "@integrations/**",
                       "@memory/**",
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, runners, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -725,7 +724,11 @@
                       "@lines/**",
                       "!@lines/application/ports/**",
                       "!@lines/application/contracts/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runners/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/runners.module"
                     ],
                     "message": "Context encapsulation: outside infrastructure, import only another context's ports, contracts or module. Its integration events belong in presentation/events; its dto and errors in an infrastructure adapter that translates them."
                   },
@@ -3376,14 +3379,13 @@
                 "patterns": [
                   {
                     "group": [
-                      "@runners/**",
                       "@configuration/**",
                       "@integrations/**",
                       "@memory/**",
                       "@insights/**",
                       "@replays/**"
                     ],
-                    "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
+                    "message": "Context boundary: 'change-review' may depend on identity, github, secrets, catalog, lines, runners, work. Subscribe to another context's integration events from presentation/events, or invert the dependency with a port."
                   },
                   {
                     "group": [
@@ -3422,7 +3424,13 @@
                       "!@lines/application/contracts/**",
                       "!@lines/application/dto/**",
                       "!@lines/application/errors/**",
-                      "!@lines/lines.module"
+                      "!@lines/lines.module",
+                      "@runners/**",
+                      "!@runners/application/ports/**",
+                      "!@runners/application/contracts/**",
+                      "!@runners/application/dto/**",
+                      "!@runners/application/errors/**",
+                      "!@runners/runners.module"
                     ],
                     "message": "Context encapsulation: adapters may translate another context's dto and errors, but domain, infrastructure internals, presentation, services and wiring stay private."
                   },

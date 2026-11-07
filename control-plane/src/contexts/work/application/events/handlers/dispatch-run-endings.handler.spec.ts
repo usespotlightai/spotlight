@@ -5,6 +5,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { DispatchRunEndings } from '@work/application/events/handlers/dispatch-run-endings.handler';
 import { DropUnorderedRun } from '@work/application/events/handlers/drop-unordered-run.handler';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
+import { orderedFor } from '@work/domain/aggregates/run.fake-spec';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { DispatchRefused } from '@work/domain/events/dispatch-refused.event';
 import { RunCancelled } from '@work/domain/events/run-cancelled.event';
@@ -16,7 +17,6 @@ import type { DispatchRepository } from '@work/domain/repositories/dispatch.repo
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { DispatchOrder } from '@work/domain/value-objects/dispatch-order.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -24,11 +24,7 @@ const NOW = new Date('2026-11-07T10:00:00.000Z');
 const RUN = RunId.of('run_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 const TASK = TaskId.of('task_1');
-const SUBJECT = RunSubject.task(
-  TASK,
-  StationId.of('station_1'),
-  TaskRevision.of(0),
-);
+const SUBJECT = orderedFor.task(TASK.value, 0).requester;
 
 let stored: Dispatch | null;
 let saves: Dispatch[];

@@ -1,4 +1,5 @@
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
+import { sameOrBothNone } from '@shared-kernel/domain/same-or-both-none';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
@@ -20,6 +21,13 @@ export interface Decided {
   readonly at: Date;
   readonly reason: string;
 }
+
+const sameDecision = (a: Decided | null, b: Decided | null): boolean =>
+  a === null || b === null
+    ? a === b
+    : a.by.equals(b.by) &&
+      a.at.getTime() === b.at.getTime() &&
+      a.reason === b.reason;
 
 export class Approval {
   private constructor(
@@ -69,6 +77,13 @@ export class Approval {
       throw new InconsistentStateError(
         'approval',
         `is ${input.status} ${input.decided ? 'with' : 'without'} a decision`,
+      );
+    }
+
+    if (input.edited && input.status !== 'approved') {
+      throw new InconsistentStateError(
+        'approval',
+        `carries edits while ${input.status}`,
       );
     }
 
@@ -220,6 +235,20 @@ export class Approval {
       this.edited,
       this.intent,
       this.askedOf,
+    );
+  }
+
+  equals(other: Approval): boolean {
+    return (
+      this.subject.equals(other.subject) &&
+      this.at.equals(other.at) &&
+      this.because === other.because &&
+      this.status === other.status &&
+      sameDecision(this.decided, other.decided) &&
+      this.spent === other.spent &&
+      sameOrBothNone(this.edited, other.edited) &&
+      sameOrBothNone(this.intent, other.intent) &&
+      sameOrBothNone(this.askedOf, other.askedOf)
     );
   }
 }

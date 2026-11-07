@@ -127,6 +127,10 @@ func (j *journal) History(
 	return nil, nil
 }
 
+func (j *journal) SearchView(_ context.Context, _ string) (json.RawMessage, error) {
+	return nil, nil
+}
+
 func (j *journal) RecallMemories(
 	_ context.Context, _ string, words string,
 ) (json.RawMessage, error) {

@@ -176,7 +176,6 @@ describe('Chat', () => {
     });
 
     expect(chat.fromChannel).toBe(true);
-    expect(chat.ambientMarks).toEqual([channel]);
     expect(started().fromChannel).toBe(false);
   });
 
@@ -372,8 +371,11 @@ describe('Chat', () => {
 
   it('says which of its messages a run acknowledged', () => {
     const assigned = working()
-      .endRun(RunId.of('run_1'))
-      .addMessage({
+      .runEnded(RunId.of('run_1'), {
+        session: HarnessSession.of('session_1'),
+        claimedBy: null,
+      })
+      .chat.addMessage({
         by: LEON,
         body: ChatMessageBody.of('And then?'),
         at: LATER,
@@ -395,8 +397,11 @@ describe('Chat', () => {
 
   it('unacknowledges only what a run that ended without a session acknowledged, and wants following up', () => {
     const assigned = working()
-      .endRun(RunId.of('run_1'))
-      .addMessage({
+      .runEnded(RunId.of('run_1'), {
+        session: HarnessSession.of('session_1'),
+        claimedBy: null,
+      })
+      .chat.addMessage({
         by: LEON,
         body: ChatMessageBody.of('Split it.'),
         at: LATER,
@@ -429,8 +434,11 @@ describe('Chat', () => {
 
   it('counts nothing as acknowledged by a run that is not its current run', () => {
     const withMessage = working()
-      .endRun(RunId.of('run_1'))
-      .addMessage({
+      .runEnded(RunId.of('run_1'), {
+        session: HarnessSession.of('session_1'),
+        claimedBy: null,
+      })
+      .chat.addMessage({
         by: LEON,
         body: ChatMessageBody.of('Split it.'),
         at: LATER,
@@ -454,7 +462,12 @@ describe('Chat', () => {
     expect(acknowledged.messages[1]?.wasAcknowledgedBy(RunId.of('run_1'))).toBe(
       true,
     );
-    expect(acknowledged.endRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
+    expect(
+      acknowledged.runEnded(RunId.of('run_1'), {
+        session: HarnessSession.of('session_1'),
+        claimedBy: null,
+      }).chat.wantsFollowUp,
+    ).toBe(false);
   });
 
   it('is not assigned to a second run while one works it', () => {
@@ -518,8 +531,18 @@ describe('Chat', () => {
     });
 
     expect(withMessage.wantsFollowUp).toBe(false);
-    expect(withMessage.endRun(RunId.of('run_1')).wantsFollowUp).toBe(true);
-    expect(working().endRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
+    expect(
+      withMessage.runEnded(RunId.of('run_1'), {
+        session: HarnessSession.of('session_1'),
+        claimedBy: null,
+      }).chat.wantsFollowUp,
+    ).toBe(true);
+    expect(
+      working().runEnded(RunId.of('run_1'), {
+        session: HarnessSession.of('session_1'),
+        claimedBy: null,
+      }).chat.wantsFollowUp,
+    ).toBe(false);
   });
 
   describe('when its run ends', () => {
@@ -581,8 +604,18 @@ describe('Chat', () => {
   it('ends its run only for the run that works it', () => {
     const chat = working();
 
-    expect(chat.endRun(RunId.of('run_2')).running).toBe(true);
-    expect(chat.endRun(RunId.of('run_1')).running).toBe(false);
+    expect(
+      chat.runEnded(RunId.of('run_2'), {
+        session: HarnessSession.of('session_1'),
+        claimedBy: null,
+      }).chat.running,
+    ).toBe(true);
+    expect(
+      chat.runEnded(RunId.of('run_1'), {
+        session: HarnessSession.of('session_1'),
+        claimedBy: null,
+      }).chat.running,
+    ).toBe(false);
   });
 
   it('may be stopped only by the person who started it, and only while worked', () => {
@@ -595,15 +628,16 @@ describe('Chat', () => {
     );
   });
 
-  it('carries on in the same workspace, taking up the session it was worked in', () => {
+  it('carries on taking up the session it was worked in', () => {
     const plain = started().resume();
-    const resume = started()
-      .recordSession(HarnessSession.of('session_1'), RunnerId.of('runner_1'))
-      .resume();
+    const resume = working()
+      .runEnded(RunId.of('run_1'), {
+        session: HarnessSession.of('session_1'),
+        claimedBy: RunnerId.of('runner_1'),
+      })
+      .chat.resume();
 
-    expect(plain.key.value).toBe('chat-chat_1');
     expect(plain.sessionId).toBeNull();
-    expect(resume.key.value).toBe('chat-chat_1');
     expect(resume.sessionId?.value).toBe('session_1');
   });
 

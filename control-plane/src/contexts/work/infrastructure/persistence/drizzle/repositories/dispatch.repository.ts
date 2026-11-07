@@ -151,20 +151,29 @@ export class DrizzleDispatchRepository implements DispatchRepository {
 
   async add(added: Dispatch): Promise<void> {
     await this.context.inTransaction(async () => {
-      await this.context.db.insert(dispatch).values({
-        id: added.id.value,
-        workspaceId: added.workspaceId.value,
-        teamId: added.teamId?.value ?? null,
-        ...subjectColumns(added.subject),
-        briefedTask: added.briefedTask?.parts ?? null,
-        briefing: added.briefing,
-        briefedMemories: added.briefedMemories.value,
-        stationConfig: added.configuredAs?.parts ?? null,
-        stationFingerprint: added.configuredAs?.fingerprint ?? null,
-        orderedAt: added.orderedAt,
-        version: added.version,
-        ...changing(added),
-      });
+      const written = await this.context.db
+        .insert(dispatch)
+        .values({
+          id: added.id.value,
+          workspaceId: added.workspaceId.value,
+          teamId: added.teamId?.value ?? null,
+          ...subjectColumns(added.subject),
+          briefedTask: added.briefedTask?.parts ?? null,
+          briefing: added.briefing,
+          briefedMemories: added.briefedMemories.value,
+          stationConfig: added.configuredAs?.parts ?? null,
+          stationFingerprint: added.configuredAs?.fingerprint ?? null,
+          orderedAt: added.orderedAt,
+          version: added.version,
+          ...changing(added),
+        })
+        .onConflictDoNothing({ target: dispatch.id })
+        .returning({ id: dispatch.id });
+
+      if (written.length === 0) {
+        throw new DispatchVersionConflictError(added.id.value);
+      }
+
       await this.events.dispatch(added.pullEvents());
     });
   }

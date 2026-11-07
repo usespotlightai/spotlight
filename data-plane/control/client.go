@@ -231,6 +231,17 @@ func (c *Client) History(
 	return out, nil
 }
 
+func (c *Client) SearchView(ctx context.Context, runID string) (json.RawMessage, error) {
+	var out json.RawMessage
+	path := fmt.Sprintf("/api/runs/%s/search-view", url.PathEscape(runID))
+
+	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
+		return nil, fmt.Errorf("read the search view: %w", err)
+	}
+
+	return out, nil
+}
+
 func unknownStation(request protocol.HistoryRequest) string {
 	if request.Line != "" {
 		return fmt.Sprintf("line %q has no station %q in this team", request.Line, request.Station)

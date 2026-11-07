@@ -1,7 +1,7 @@
 import type { StickyCommentPosterPort } from '@change-review/application/ports/sticky-comment-poster.port';
 import type { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
 import type { StackChecked } from '@change-review/domain/events/stack-checked.event';
-import { actsOutsideSpotlight } from '@change-review/domain/services/replay-isolation';
+import { actsOutsideSpotlight } from '@change-review/domain/services/trial-isolation';
 
 export class ChangeStackReactions {
   constructor(private readonly poster: StickyCommentPosterPort) {}

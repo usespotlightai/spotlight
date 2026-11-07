@@ -1,13 +1,11 @@
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
-import type { RunSubject } from '@work/domain/value-objects/run-subject.vo';
+import type { RunRequester } from '@work/domain/value-objects/run-requester.vo';
 
 export class RunCompleted implements DomainEvent {
   readonly kind = 'run.completed';
@@ -15,7 +13,7 @@ export class RunCompleted implements DomainEvent {
   constructor(
     readonly runId: RunId,
     readonly workspaceId: WorkspaceId,
-    readonly subject: RunSubject | null,
+    readonly requester: RunRequester,
     readonly outcome: RunOutcome,
     readonly claimedBy: RunnerId | null,
     readonly handover: Handover | null,
@@ -25,12 +23,4 @@ export class RunCompleted implements DomainEvent {
     readonly started: boolean,
     readonly reported: boolean,
   ) {}
-
-  get taskId(): TaskId | null {
-    return this.subject?.taskId ?? null;
-  }
-
-  get chatId(): ChatId | null {
-    return this.subject?.chatId ?? null;
-  }
 }

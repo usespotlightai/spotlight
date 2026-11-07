@@ -34,6 +34,8 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
+import { PullRequestTitle } from '@work/domain/value-objects/pull-request-title.vo';
+import type { RepositoryName } from '@work/domain/value-objects/repository-name.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
@@ -102,7 +104,7 @@ const lineWorking = (repositories: readonly string[]): LineMap => {
   );
 
   return {
-    opening: (name: string | null) => repositoriesOfLine.opening(name),
+    opening: (name: RepositoryName | null) => repositoriesOfLine.opening(name),
   } as unknown as LineMap;
 };
 
@@ -110,7 +112,7 @@ const requested = (
   repository: string | null = null,
   body: string | null = '',
 ) => ({
-  title: 'Fix the queue',
+  title: PullRequestTitle.of('Fix the queue'),
   body,
   repository,
 });
@@ -347,7 +349,7 @@ describe('OpenPullRequest', () => {
     const { open, saved } = opening({
       meanwhile: (task) =>
         task.addMessage({
-          station: null,
+          line: null,
           body: TaskNoteBody.of('One more thing.'),
           at: NOW,
           voice: Voice.world(),

@@ -5,6 +5,7 @@ import type { RepositoryAccessPort } from '@github/application/ports/repository-
 import type {
   RepositoryCommit,
   RepositoryContentsPort,
+  RepositoryFileContent,
   RepositoryFileDto,
 } from '@github/application/ports/repository-contents.port';
 import {
@@ -125,15 +126,15 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
     return { content, blobSha: found.sha, commit, defaultBranch };
   }
 
-  async filesIn(
+  async filesUnder(
     workspaceId: WorkspaceId,
     repository: Repository,
     directory: string,
     ref: string,
-  ): Promise<readonly string[]> {
+  ): Promise<readonly RepositoryFileContent[]> {
     const token = await this.tokenFor(workspaceId);
     const response = await call(
-      `${this.at(repository)}/contents${directory ? `/${pathIn(directory)}` : ''}?ref=${encodeURIComponent(ref)}`,
+      `${this.at(repository)}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
       token,
     );
 
@@ -141,16 +142,27 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
       return [];
     }
 
-    const found = await answered<Contents[] | Contents>(
+    const found = await answered<Tree>(
       response,
-      `GitHub would not list ${directory || 'the root'} in ${repository.value}`,
+      `GitHub would not list the files of ${repository.value} at ${ref}`,
     );
+    const prefix = directory ? `${directory}/` : '';
 
-    return Array.isArray(found)
-      ? found.flatMap((each) =>
-          each.type === 'file' && each.path ? [each.path] : [],
-        )
-      : [];
+    return Promise.all(
+      (found.tree ?? []).flatMap((each) =>
+        each.type === 'blob' &&
+        each.mode === FILE_MODE &&
+        each.path?.startsWith(prefix) &&
+        each.sha
+          ? [
+              (async () => ({
+                path: each.path as string,
+                content: await this.blob(repository, each.sha as string, token),
+              }))(),
+            ]
+          : [],
+      ),
+    );
   }
 
   async committed(

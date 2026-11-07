@@ -30,7 +30,7 @@ const waiting = (stack: string, placement: string[] = []) =>
     runId: RunId.of(`run_of_${stack}`),
     taskId: null,
     teamId: null,
-    replay: false,
+    trial: false,
     workspaceId: WorkspaceId.of('ws_1'),
     request: CheckRequest.of('npm test', null, RunnerPlacement.of(placement)),
     entries: [],

@@ -1,18 +1,40 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { ArchiveReferencesPort } from '@work/application/ports/archive-references.port';
+import type {
+  ArchiveCursor,
+  ArchiveDue,
+  ArchiveReferencesPort,
+} from '@work/application/ports/archive-references.port';
 import type { WorkspaceArchiveStorePort } from '@work/application/ports/workspace-archive-store.port';
-import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
+import type { ArchiveHolders } from '@work/application/services/archive-holders.service';
+import {
+  type ArchiveFacts,
+  type HolderState,
+  WorkspaceArchive,
+} from '@work/domain/aggregates/workspace-archive.aggregate';
 import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
 
 const MAX_AT_ONCE = 50;
 
+const factsOf = (
+  due: ArchiveDue,
+  holders: ReadonlyMap<string, HolderState | null>,
+): ArchiveFacts => ({
+  holder: holders.get(due.workspaceKey.value) ?? null,
+  supersededAt: due.supersededAt,
+  lastStartedFromAt: due.lastStartedFromAt,
+  pinned: due.pinned,
+});
+
 export class RemoveReleasedArchives {
   readonly name = 'Removing workspace archives no later run will restore';
 
+  private after: ArchiveCursor | null = null;
+
   constructor(
     private readonly references: ArchiveReferencesPort,
+    private readonly holders: ArchiveHolders,
     private readonly archives: WorkspaceArchiveRepository,
     private readonly store: WorkspaceArchiveStorePort,
     private readonly clock: ClockPort,
@@ -22,20 +44,29 @@ export class RemoveReleasedArchives {
   async processDue(): Promise<void> {
     const now = this.clock.now();
 
-    const due = await this.references.due(
+    const page = await this.references.due(
       WorkspaceArchive.removalCutoffs(now),
+      this.after,
       MAX_AT_ONCE,
     );
 
-    for (const each of due) {
+    this.after = page.next;
+
+    const holders = await this.holders.stateOf(
+      page.due.map((each) => each.workspaceKey),
+    );
+
+    for (const each of page.due) {
+      const facts = factsOf(each, holders);
+
       try {
         const archive = await this.archives.find(each.id);
 
-        if (!archive?.removableAt(now, each.facts)) {
+        if (!archive?.removableAt(now, facts)) {
           continue;
         }
 
-        await this.archives.save(archive.remove(now, each.facts));
+        await this.archives.save(archive.remove(now, facts));
         await this.removeStored(archive);
       } catch (error) {
         if (!(error instanceof WorkspaceArchiveVersionConflictError)) {

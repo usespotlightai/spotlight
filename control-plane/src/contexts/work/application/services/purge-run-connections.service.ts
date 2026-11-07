@@ -1,7 +1,6 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { RunConnectionsPort } from '@work/application/ports/run-connections.port';
-
-const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 
 const PURGE_BATCH = 5_000;
 
@@ -12,7 +11,9 @@ export class PurgeRunConnections {
   ) {}
 
   async purge(): Promise<number> {
-    const before = new Date(this.clock.now().getTime() - RETENTION_MS);
+    const before = new Date(
+      this.clock.now().getTime() - RunConnection.RETENTION_MS,
+    );
     let purged = 0;
 
     for (;;) {

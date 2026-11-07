@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
+  UNIQUE_VIOLATION,
+  violates,
+} from '@platform/persistence/drizzle/violations';
+import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -24,6 +28,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ChatMessage } from '@work/domain/entities/chat-message.entity';
 import { TaskProposal } from '@work/domain/entities/task-proposal.entity';
+import { ChatMarkTakenError } from '@work/domain/exceptions/chat-mark-taken.error';
 import { ChatVersionConflictError } from '@work/domain/exceptions/chat-version-conflict.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -234,15 +239,28 @@ export class DrizzleChatRepository implements ChatRepository {
     });
 
     if (added.marks.length > 0) {
-      await this.context.db.insert(chatMark).values(
-        added.marks.map((each) => ({
-          workspaceId: added.workspaceId.value,
-          chatId: added.id.value,
-          kind: each.mark.kind,
-          value: each.mark.value,
-          finds: each.finds,
-        })),
-      );
+      try {
+        await this.context.db.insert(chatMark).values(
+          added.marks.map((each) => ({
+            workspaceId: added.workspaceId.value,
+            chatId: added.id.value,
+            kind: each.mark.kind,
+            value: each.mark.value,
+            finds: each.finds,
+          })),
+        );
+      } catch (error) {
+        if (violates(error, UNIQUE_VIOLATION, 'chat_mark_finding_uidx')) {
+          throw new ChatMarkTakenError(
+            added.marks
+              .filter((each) => each.finds)
+              .map((each) => `${each.mark.kind}:${each.mark.value}`)
+              .join(', '),
+          );
+        }
+
+        throw error;
+      }
     }
 
     await this.writeMessages(added);

@@ -13,8 +13,7 @@ export interface ReviewedWork {
 
 export interface TasklessRun {
   readonly workspaceId: WorkspaceId;
-  readonly isReplay: boolean;
-  readonly isSearch: boolean;
+  readonly isolated: boolean;
 }
 
 export class TeamAccess {
@@ -36,7 +35,7 @@ export class TeamAccess {
 
   allowsTasklessRun(run: TasklessRun, ranFor: TeamId | null): boolean {
     return (
-      (run.isReplay || run.isSearch) &&
+      run.isolated &&
       this.allows({ workspaceId: run.workspaceId, teamId: ranFor })
     );
   }

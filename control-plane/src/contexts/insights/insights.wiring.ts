@@ -129,14 +129,12 @@ import { WatchStations } from '@insights/application/services/watch-stations.ser
 import { WorkJudgings } from '@insights/application/services/work-judgings.service';
 import { AlertInboxRequests } from '@insights/infrastructure/acl/alert-inbox-requests.adapter';
 import { DefinedSkills } from '@insights/infrastructure/acl/defined-skills.adapter';
-import {
-  Evidence,
-  StationJudges,
-} from '@insights/infrastructure/acl/evidence.adapter';
+import { Evidence } from '@insights/infrastructure/acl/evidence.adapter';
 import { Grades } from '@insights/infrastructure/acl/grades.adapter';
 import { Lines } from '@insights/infrastructure/acl/lines.adapter';
 import { MemoryUse } from '@insights/infrastructure/acl/memory-use.adapter';
 import { People } from '@insights/infrastructure/acl/people.adapter';
+import { StationJudges } from '@insights/infrastructure/acl/station-judges.adapter';
 import { Work } from '@insights/infrastructure/acl/work.adapter';
 import { WorkRunOutcomes } from '@insights/infrastructure/acl/work-run-outcomes.adapter';
 import { INSIGHTS_PAYLOAD_TYPES } from '@insights/infrastructure/events/insights-payload-types';
@@ -256,8 +254,8 @@ export const INSIGHTS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: STATION_JUDGES,
-    inject: [RUN_EVIDENCE],
-    useFactory: (runs: RunEvidencePort) => new StationJudges(runs),
+    inject: [LINES],
+    useFactory: (lines: LinesPort) => new StationJudges(lines),
   },
   {
     provide: GRADES,

@@ -17,7 +17,7 @@ type Options = {
   connected?: boolean;
   harness?: boolean;
   hosted?: boolean;
-  chat?: SetupChatView | null;
+  chats?: readonly SetupChatView[];
 };
 
 const read = (options: Options = {}) => {
@@ -31,7 +31,7 @@ const read = (options: Options = {}) => {
   } as unknown as RunnerReaderPort;
 
   const chats = {
-    setupOf: vi.fn().mockResolvedValue(options.chat ?? null),
+    setupChatsOf: vi.fn().mockResolvedValue(options.chats ?? []),
   } as unknown as ChatReaderPort;
 
   return new SetupStatus(connections, runners, chats).of(WORKSPACE, TEAM);
@@ -81,9 +81,10 @@ describe('SetupStatus', () => {
       ci: null,
       startedById: 'user_1',
       startedBy: 'Ada',
+      startedAt: new Date('2026-10-01T09:00:00.000Z'),
     };
 
-    await expect(read({ chat })).resolves.toMatchObject({
+    await expect(read({ chats: [chat] })).resolves.toMatchObject({
       state: { configured: false },
       chat,
     });
@@ -92,15 +93,30 @@ describe('SetupStatus', () => {
   it('is configured once the setup chat opened its pull request', async () => {
     await expect(
       read({
-        chat: {
-          id: 'chat_1',
-          repository: 'acme/infra',
-          pullRequest: 'https://github.com/acme/infra/pull/12',
-          ci: null,
-          startedById: 'user_1',
-          startedBy: 'Ada',
-        },
+        chats: [
+          {
+            id: 'chat_2',
+            repository: 'acme/infra',
+            pullRequest: null,
+            ci: null,
+            startedById: 'user_1',
+            startedBy: 'Ada',
+            startedAt: new Date('2026-10-02T09:00:00.000Z'),
+          },
+          {
+            id: 'chat_1',
+            repository: 'acme/infra',
+            pullRequest: 'https://github.com/acme/infra/pull/12',
+            ci: null,
+            startedById: 'user_1',
+            startedBy: 'Ada',
+            startedAt: new Date('2026-10-01T09:00:00.000Z'),
+          },
+        ],
       }),
-    ).resolves.toMatchObject({ state: { configured: true } });
+    ).resolves.toMatchObject({
+      state: { configured: true },
+      chat: { id: 'chat_1' },
+    });
   });
 });

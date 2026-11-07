@@ -3,7 +3,6 @@ import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { InvalidRunSpecError } from '@work/domain/exceptions/invalid-run-spec.error';
 import type { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
-import { ResumeKey } from '@work/domain/value-objects/resume-key.vo';
 
 // Do not send a host address to a runner. Name each remote as Spotlight serves it.
 export const REMOTE_VIA_GIT_PROXY = 'spotlight:repository';
@@ -36,7 +35,6 @@ interface RunHandover {
 }
 
 export interface RunResume {
-  readonly key: string;
   readonly sessionId?: string;
   readonly resumeSession?: boolean;
 }
@@ -87,20 +85,6 @@ export interface RunAttachment {
   readonly path: string;
 }
 
-interface RunReplayCheckout {
-  readonly path: string;
-  readonly commit: string;
-  readonly repository: string;
-}
-
-export interface RunReplay {
-  readonly archive: string | null;
-  readonly checkouts: readonly RunReplayCheckout[];
-  readonly movesOnAfter: readonly string[];
-}
-
-export type RunSearch = Readonly<Record<string, never>>;
-
 export interface RunSpecParts {
   readonly checkouts?: readonly RunCheckout[];
   readonly command: RunCommand;
@@ -119,9 +103,27 @@ export interface RunSpecParts {
   readonly settingFiles?: readonly string[];
   readonly injectedSecrets?: readonly string[];
   readonly spotlightApi?: boolean;
-  readonly replay?: RunReplay;
-  readonly search?: RunSearch;
 }
+
+export const RUN_WIRE_FIELDS = [
+  'checkouts',
+  'command',
+  'briefing',
+  'handover',
+  'resume',
+  'skills',
+  'skillHomes',
+  'manifest',
+  'catalog',
+  'attachments',
+  'diffs',
+  'check',
+  'startingPoint',
+  'harnessSetup',
+  'settingFiles',
+  'injectedSecrets',
+  'spotlightApi',
+] as const satisfies readonly (keyof RunSpecParts)[];
 
 const outside = (path: string): boolean =>
   path.startsWith('/') || path.includes('..');
@@ -192,7 +194,6 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     noteLimit: parts.handover.noteLimit,
   },
   resume: {
-    key: parts.resume.key,
     ...(parts.resume.sessionId !== undefined
       ? { sessionId: parts.resume.sessionId }
       : {}),
@@ -244,116 +245,35 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     ? { injectedSecrets: [...parts.injectedSecrets] }
     : {}),
   ...(parts.spotlightApi ? { spotlightApi: true } : {}),
-  ...(parts.replay
-    ? {
-        replay: {
-          archive: parts.replay.archive,
-          checkouts: parts.replay.checkouts.map(
-            ({ path, commit, repository }) => ({ path, commit, repository }),
-          ),
-          movesOnAfter: [...parts.replay.movesOnAfter],
-        },
-      }
-    : {}),
-  ...(parts.search ? { search: {} } : {}),
 });
 
-const replayProblem = (parts: RunSpecParts): string | null => {
-  const replay = parts.replay;
-
-  if (!replay) {
-    return null;
+export const actsBeyondItselfIn = (parts: RunSpecParts): string | null => {
+  if ((parts.injectedSecrets?.length ?? 0) > 0) {
+    return 'has egress inject secrets';
   }
 
-  if (
-    (parts.injectedSecrets?.length ?? 0) > 0 ||
-    parts.spotlightApi ||
-    (parts.manifest?.length ?? 0) > 0 ||
-    (parts.catalog?.length ?? 0) > 0 ||
-    (parts.harnessSetup?.mcpServers.length ?? 0) > 0
-  ) {
-    return 'must enable no tools, MCP servers or secrets for a replay';
+  if (parts.spotlightApi) {
+    return 'uses Spotlight’s API';
   }
 
-  if (parts.startingPoint) {
-    return 'must not have a replay report where it started';
+  if ((parts.manifest?.length ?? 0) > 0) {
+    return 'enables tools';
   }
 
-  if (parts.resume.sessionId || parts.resume.resumeSession) {
-    return 'must start a replay in a conversation of its own';
+  if ((parts.catalog?.length ?? 0) > 0) {
+    return 'pins catalog tools';
   }
 
-  const checkouts = parts.checkouts ?? [];
-  const replayed = new Map(
-    replay.checkouts.map((each) => [each.path, each.commit]),
-  );
-
-  if (
-    replayed.size !== replay.checkouts.length ||
-    checkouts.length !== replayed.size ||
-    checkouts.some(
-      (each) =>
-        each.path === undefined ||
-        each.branch !== undefined ||
-        each.ref === undefined ||
-        replayed.get(each.path) !== each.ref,
-    )
-  ) {
-    return 'must check a replay’s repositories out at the commits it replays, and nothing else';
-  }
-
-  return null;
-};
-
-const searchProblem = (parts: RunSpecParts): string | null => {
-  if (!parts.search) {
-    return null;
-  }
-
-  if (parts.replay) {
-    return 'must not replay a run and search at once';
-  }
-
-  if ((parts.checkouts?.length ?? 0) > 0) {
-    return 'must have no checkouts for a search';
-  }
-
-  if (
-    (parts.injectedSecrets?.length ?? 0) > 0 ||
-    (parts.manifest?.length ?? 0) > 0 ||
-    (parts.catalog?.length ?? 0) > 0 ||
-    (parts.harnessSetup?.mcpServers.length ?? 0) > 0
-  ) {
-    return 'must enable no tools, MCP servers or secrets for a search';
-  }
-
-  if ((parts.attachments?.length ?? 0) > 0) {
-    return 'must have no attachments for a search';
-  }
-
-  if (
-    (parts.skills?.length ?? 0) > 0 ||
-    (parts.skillHomes?.length ?? 0) > 0 ||
-    (parts.settingFiles?.length ?? 0) > 0 ||
-    parts.harnessSetup
-  ) {
-    return 'must have no skills or harness settings for a search';
-  }
-
-  if (parts.diffs || parts.check !== undefined) {
-    return 'must not have a search hand over a diff or check a change';
-  }
-
-  if (parts.handover.options.length > 0 || parts.handover.noteLimit > 0) {
-    return 'must have no handover options for a search';
-  }
-
-  if (parts.startingPoint) {
-    return 'must not have a search report where it started';
+  if ((parts.harnessSetup?.mcpServers.length ?? 0) > 0) {
+    return 'starts MCP servers';
   }
 
   if (parts.resume.sessionId || parts.resume.resumeSession) {
-    return 'must start a search in a conversation of its own';
+    return 'carries on a conversation';
+  }
+
+  if (parts.startingPoint) {
+    return 'reports where it started';
   }
 
   return null;
@@ -471,25 +391,7 @@ export class RunSpec {
       throw new InvalidRunSpecError('must say what checks its change');
     }
 
-    const problem = replayProblem(parts) ?? searchProblem(parts);
-
-    if (problem) {
-      throw new InvalidRunSpecError(problem);
-    }
-
     return new RunSpec(copied(parts));
-  }
-
-  get replay(): RunReplay | null {
-    return copied(this.parts).replay ?? null;
-  }
-
-  get isReplay(): boolean {
-    return this.parts.replay !== undefined;
-  }
-
-  get isSearch(): boolean {
-    return this.parts.search !== undefined;
   }
 
   get briefing(): string {
@@ -508,12 +410,6 @@ export class RunSpec {
     );
   }
 
-  get resumeKey(): ResumeKey | null {
-    return blank(this.parts.resume.key)
-      ? null
-      : ResumeKey.of(this.parts.resume.key);
-  }
-
   get continuesASession(): boolean {
     return Boolean(this.parts.resume.sessionId);
   }
@@ -527,7 +423,6 @@ export class RunSpec {
       copied({
         ...this.parts,
         resume: {
-          key: this.parts.resume.key,
           ...(session
             ? { sessionId: session.value }
             : this.parts.resume.sessionId !== undefined
@@ -569,6 +464,10 @@ export class RunSpec {
 
   get injectsSpotlightApi(): boolean {
     return this.parts.spotlightApi === true;
+  }
+
+  get reportsStartingPoint(): boolean {
+    return this.parts.startingPoint === true;
   }
 
   get check(): string | null {

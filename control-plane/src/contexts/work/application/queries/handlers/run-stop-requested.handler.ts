@@ -2,20 +2,22 @@ import { rethrowAsApplicationError } from '@shared-kernel/application/errors/ret
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
-import type { LeasedRunReaderPort } from '@work/application/ports/leased-run-reader.port';
+import type { RunLeasesPort } from '@work/application/ports/run-leases.port';
 import type { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
 
 export class RunStopRequestedHandler
   implements QueryHandlerPort<RunStopRequestedQuery, boolean>
 {
-  constructor(private readonly leasedRuns: LeasedRunReaderPort) {}
+  constructor(private readonly leases: RunLeasesPort) {}
 
   async execute(query: RunStopRequestedQuery): Promise<boolean> {
     try {
-      return await this.leasedRuns.stopRequestedFor(
+      const leased = await this.leases.leasedBy(
         RunId.of(query.runId),
         RunnerId.of(query.runnerId),
       );
+
+      return leased?.stopRequested ?? false;
     } catch (error) {
       rethrowAsApplicationError(error);
     }
