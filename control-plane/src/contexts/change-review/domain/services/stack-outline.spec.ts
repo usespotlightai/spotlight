@@ -4,6 +4,7 @@ import type {
   HunkFacts,
 } from '@change-review/domain/services/diff-facts';
 import { StackOutline } from '@change-review/domain/services/stack-outline';
+import { stackPartOf } from '@change-review/domain/services/stack-part';
 import {
   Diff,
   type DiffHunk,
@@ -140,10 +141,7 @@ describe('StackOutline', () => {
   });
 
   it('parts out a cohort’s own hunks, links and imports', () => {
-    const part = StackOutline.partOf(DIFF, FACTS, [
-      HunkId.of('h1'),
-      HunkId.of('h3'),
-    ]);
+    const part = stackPartOf(DIFF, FACTS, [HunkId.of('h1'), HunkId.of('h3')]);
 
     expect(part.diff.files.map((file) => file.path)).toEqual([
       'src/invite.ts',
@@ -159,7 +157,7 @@ describe('StackOutline', () => {
 
   it('layers a cohort only with layers that place exactly its own hunks', () => {
     const outlined = cohort(['h1', 'h3']);
-    const part = StackOutline.partOf(DIFF, FACTS, outlined.hunks);
+    const part = stackPartOf(DIFF, FACTS, outlined.hunks);
     const layer = {
       title: 'Add invitations',
       summary: 'The function and its route',
@@ -186,7 +184,7 @@ describe('StackOutline', () => {
     ).toThrow('h2, which is not in the diff');
   });
 
-  it('takes layers that part moved code, which Spotlight puts together', () => {
+  it('puts moved code that the layers part in one layer', () => {
     const moving: DiffFacts = {
       ...FACTS,
       links: [
@@ -200,7 +198,7 @@ describe('StackOutline', () => {
       ],
     };
     const outlined = cohort(['h1', 'h3']);
-    const part = StackOutline.partOf(DIFF, moving, outlined.hunks);
+    const part = stackPartOf(DIFF, moving, outlined.hunks);
     const layerOf = (id: string, path: string) => ({
       title: `Change ${path}`,
       summary: 'One step',
@@ -215,7 +213,65 @@ describe('StackOutline', () => {
       layerOf('h3', 'src/routes.ts'),
     ];
 
-    expect(StackOutline.layered(part, outlined, layers).layers).toEqual(layers);
+    expect(
+      StackOutline.layered(part, outlined, layers).layers.map((each) =>
+        each.hunks.map((entry) => entry.hunk),
+      ),
+    ).toEqual([['h3', 'h1']]);
+  });
+
+  it('leaves moved code apart when putting it together would leave fewer layers than the cohort had', () => {
+    const moving: DiffFacts = {
+      ...FACTS,
+      links: [
+        ...FACTS.links,
+        {
+          kind: 'moves',
+          from: HunkId.of('h3'),
+          to: HunkId.of('h1'),
+          because: ['src/invite.ts → src/routes.ts'],
+        },
+      ],
+    };
+    const outlined = cohort(['h1', 'h3']);
+    const part = stackPartOf(DIFF, moving, outlined.hunks);
+    const layerOf = (id: string, path: string) => ({
+      title: `Change ${path}`,
+      summary: 'One step',
+      dependsOn: [],
+      hunks: [{ hunk: HunkId.of(id) }],
+      notes: [{ path, note: 'Moves the function.' }],
+      questions: [],
+    });
+
+    expect(() =>
+      StackOutline.layered(
+        part,
+        outlined,
+        [layerOf('h1', 'src/invite.ts'), layerOf('h3', 'src/routes.ts')],
+        2,
+      ),
+    ).toThrow('h3 is code moved from h1, so they belong in the same layer');
+  });
+
+  it('takes a cohort layered in fewer layers than before, leaving the count to the whole stack', () => {
+    const outlined = cohort(['h1', 'h3']);
+    const part = stackPartOf(DIFF, FACTS, outlined.hunks);
+    const layer = {
+      title: 'Add invitations',
+      summary: 'The function and its route',
+      dependsOn: [],
+      hunks: [{ hunk: HunkId.of('h1') }, { hunk: HunkId.of('h3') }],
+      notes: [
+        { path: 'src/invite.ts', note: 'Adds the function.' },
+        { path: 'src/routes.ts', note: 'Mounts it.' },
+      ],
+      questions: [],
+    };
+
+    expect(StackOutline.layered(part, outlined, [layer], 3).layers).toEqual([
+      layer,
+    ]);
   });
 
   it('keeps a stored cohort as the proposal it came from', () => {

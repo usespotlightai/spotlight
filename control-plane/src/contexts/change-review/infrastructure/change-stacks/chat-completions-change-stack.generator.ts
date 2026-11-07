@@ -13,6 +13,7 @@ import type {
 } from '@change-review/domain/exceptions/invalid-change-stack.error';
 import {
   type DiffFacts,
+  linkFact,
   placedHunks,
 } from '@change-review/domain/services/diff-facts';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
@@ -105,7 +106,7 @@ const HUNKS = 'The diff is split into hunks, each with an id such as h7.';
 
 const LAYER_RULES = [
   'A layer depends only on earlier layers of its own cohort, named by their 1-based position within that cohort. Cohorts never depend on each other.',
-  'Every dependency names in "because" the symbols (types, functions, tables, routes, components) the later layer uses from the earlier one.',
+  'Every dependency names in "because" the symbols (types, functions, tables, routes, components) the later layer uses from the earlier one, or removes once the earlier one stops using them.',
   `Titles are short imperative phrases ("Add the invitation data model"). A cohort's intent and a layer's summary say what changed and why in one to three plain sentences.`,
   `Give a layer exactly one entry in "files" for every file its ranges touch, and none for any other file. Its path is the file's path exactly as its ## heading shows it, and its note says in one or two plain sentences what changed in that file for this layer and why. A note never restates the path or the layer's summary.`,
   `Give each layer of kind "change" at most two questions in "questions", and give incidental layers none. The reviewer answers each question in their own words after reading the layer, so they find out what they did not understand. A question is good only when all three are true:
@@ -199,15 +200,7 @@ const layersOf = (layers: readonly z.infer<typeof LAYER>[]): ProposedLayer[] =>
 const described = (diff: Diff, facts: DiffFacts): string => {
   const known = new Map(facts.hunks.map((each) => [each.hunk, each]));
   const uses = (hunk: string) =>
-    facts.links
-      .filter((link) => link.from === hunk)
-      .map((link) =>
-        link.kind === 'moves'
-          ? `moves code from ${link.to}`
-          : link.kind === 'removes'
-            ? `removes ${link.because.join(', ')}, which ${link.to} stops using`
-            : `${link.kind} ${link.because.join(', ')} (in ${link.to})`,
-      );
+    facts.links.filter((link) => link.from === hunk).map(linkFact);
 
   return diff.files
     .filter((file) =>

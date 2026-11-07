@@ -191,7 +191,7 @@ describe('derivedDependencies', () => {
     ]);
   });
 
-  it('names a removal as one in what a layer depends on', () => {
+  it('takes what a layer depends on from removals, by the symbol removed', () => {
     const derived = derivedDependencies(
       [cohort([['h2'], ['h1']])],
       [
@@ -205,7 +205,7 @@ describe('derivedDependencies', () => {
     );
 
     expect([...(derived.get('0.1') ?? new Map()).entries()]).toEqual([
-      [1, new Set(['removes legacy'])],
+      [1, new Set(['legacy'])],
     ]);
   });
 });

@@ -14,6 +14,7 @@ import {
 import {
   ATTEMPTS,
   attempted,
+  problemsOfProposal,
   settleBroken,
   settleUnanswered,
 } from '@change-review/application/services/generation-attempt';
@@ -260,7 +261,10 @@ export class GenerateChangeStack {
       }
       return settleBroken(
         generating,
-        error.problems,
+        problemsOfProposal(
+          () => generating.propose(layered.proposed, this.clock.now()),
+          error.problems,
+        ),
         this.clock.now(),
         this.logger,
       );

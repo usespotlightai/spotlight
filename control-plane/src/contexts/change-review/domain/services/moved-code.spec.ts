@@ -2,7 +2,11 @@ import type {
   DiffFacts,
   HunkLink,
 } from '@change-review/domain/services/diff-facts';
-import { withMovedCodeTogether } from '@change-review/domain/services/moved-code';
+import {
+  movedGroups,
+  withMovedCodeTogether,
+} from '@change-review/domain/services/moved-code';
+import { stackPartsOf } from '@change-review/domain/services/stack-part';
 import {
   Diff,
   type DiffFile,
@@ -88,151 +92,219 @@ const cohort = (layers: ProposedLayer[]): ProposedCohort => ({
 const hunksOf = (each: ProposedCohort) =>
   each.layers.map((one) => one.hunks.map((entry) => entry.hunk));
 
-const asked = (hunks: string[]) => ({
-  question: `What does ${hunks.join(' and ')} show?`,
+const asked = (
+  hunks: string[],
+  question = `What does ${hunks.join(' and ')} show?`,
+) => ({
+  question,
   answer: 'The invitation flow.',
   hunks: hunks.map((each) => HunkId.of(each)),
 });
 
+const together = (
+  links: HunkLink[],
+  proposed: ProposedCohort,
+  layerBudget = Number.POSITIVE_INFINITY,
+) =>
+  withMovedCodeTogether(
+    stackPartsOf(DIFF, facts(links)),
+    movedGroups(facts(links)),
+    proposed,
+    layerBudget,
+  ).cohort;
+
 describe('withMovedCodeTogether', () => {
-  it('puts moved code in one layer and keeps the note on its file', () => {
-    const arranged = withMovedCodeTogether(
-      DIFF,
-      facts([link('moves', 'h3', 'h1'), link('uses', 'h2', 'h1', 'Invite')]),
-      cohort([layer(['h1', 'h2']), layer(['h3'])]),
-    );
-
-    expect(hunksOf(arranged)).toEqual([['h1', 'h2', 'h3']]);
-    expect(arranged.layers[0]?.notes.map((each) => each.path)).toEqual([
-      'src/h1.ts',
-      'src/h2.ts',
-      'src/h3.ts',
-    ]);
-  });
-
-  it('writes no note for a moved file that had none', () => {
-    const arranged = withMovedCodeTogether(
-      DIFF,
-      facts([link('moves', 'h2', 'h1')]),
-      cohort([layer(['h1']), { ...layer(['h2']), notes: [] }]),
-    );
-
-    expect(arranged.layers.map((each) => each.notes)).toEqual([
-      [{ path: 'src/h1.ts', note: 'h1 note' }],
-    ]);
-  });
-
   it('chooses the layer that breaks no other rule', () => {
-    const arranged = withMovedCodeTogether(
-      DIFF,
-      facts([link('moves', 'h3', 'h1'), link('uses', 'h3', 'h2', 'Invite')]),
+    const arranged = together(
+      [link('moves', 'h3', 'h1'), link('uses', 'h3', 'h2', 'Invite')],
       cohort([layer(['h1']), layer(['h2', 'h3'])]),
     );
 
     expect(hunksOf(arranged)).toEqual([['h2', 'h3', 'h1']]);
   });
 
-  it('joins code moved both ways and along a chain', () => {
-    const arranged = withMovedCodeTogether(
-      DIFF,
-      facts([
-        link('moves', 'h1', 'h2'),
-        link('moves', 'h2', 'h1'),
-        link('moves', 'h3', 'h2'),
-      ]),
+  it('chooses the layer that keeps the most layers when two break no rule', () => {
+    const arranged = together(
+      [
+        link('moves', 'h2', 'h3'),
+        link('uses', 'h2', 'h1', 'Invite'),
+        link('uses', 'h4', 'h3', 'Invite'),
+      ],
       cohort([layer(['h1']), layer(['h2']), layer(['h3', 'h4'])]),
     );
 
-    expect(hunksOf(arranged)).toEqual([['h3', 'h4', 'h1', 'h2']]);
+    expect(hunksOf(arranged)).toEqual([['h1'], ['h2', 'h3'], ['h4']]);
   });
 
-  it('points a dependency on an emptied layer at the layer that holds its hunks', () => {
-    const arranged = withMovedCodeTogether(
-      DIFF,
-      facts([link('moves', 'h2', 'h1')]),
+  it('joins code moved both ways and along a chain', () => {
+    const arranged = together(
+      [
+        link('moves', 'h1', 'h2'),
+        link('moves', 'h2', 'h1'),
+        link('moves', 'h3', 'h2'),
+        link('uses', 'h4', 'h3', 'Invite'),
+      ],
+      cohort([layer(['h1']), layer(['h2']), layer(['h3', 'h4'])]),
+    );
+
+    expect(hunksOf(arranged)).toEqual([['h2', 'h1', 'h3'], ['h4']]);
+  });
+
+  it('empties no more layers than it may', () => {
+    const proposed = cohort([layer(['h1']), layer(['h2'])]);
+
+    expect(together([link('moves', 'h2', 'h1')], proposed, 0)).toBe(proposed);
+    expect(
+      withMovedCodeTogether(
+        stackPartsOf(DIFF, facts([link('moves', 'h2', 'h1')])),
+        movedGroups(facts([link('moves', 'h2', 'h1')])),
+        proposed,
+        1,
+      ).layerBudget,
+    ).toBe(0);
+  });
+
+  it('leaves moved code apart rather than lose a question', () => {
+    const proposed = cohort([
+      {
+        ...layer(['h1']),
+        questions: [asked(['h1'], 'One?'), asked(['h1'], 'Two?')],
+      },
+      { ...layer(['h2']), questions: [asked(['h2'], 'Three?')] },
+    ]);
+
+    expect(together([link('moves', 'h2', 'h1')], proposed)).toBe(proposed);
+  });
+
+  it('leaves moved code apart rather than put a layer before a layer it depends on', () => {
+    const proposed = cohort([
+      layer(['h1']),
+      layer(['h2'], [{ layer: 1, because: ['X'] }]),
+      layer(['h3', 'h4']),
+    ]);
+
+    expect(
+      together(
+        [
+          link('moves', 'h3', 'h1'),
+          link('uses', 'h3', 'h2', 'Invite'),
+          link('uses', 'h4', 'h3', 'Invite'),
+        ],
+        proposed,
+      ),
+    ).toBe(proposed);
+  });
+
+  it('leaves a proposal with any other problem to the model', () => {
+    const links = [
+      link('moves', 'h2', 'h1'),
+      link('uses', 'h3', 'h1', 'Invite'),
+    ];
+    const proposals = [
+      cohort([{ ...layer(['h1']), title: '' }, layer(['h2', 'h3'])]),
+      cohort([
+        {
+          ...layer(['h1']),
+          notes: [{ path: 'src/h4.ts', note: 'Not here' }],
+        },
+        layer(['h2', 'h3']),
+      ]),
       cohort([
         layer(['h1']),
-        layer(['h2', 'h3']),
-        layer(
-          ['h4'],
-          [
-            { layer: 1, because: ['A'] },
-            { layer: 2, because: ['B'] },
+        layer(['h2', 'h3'], [{ layer: 3, because: ['Y'] }]),
+      ]),
+      cohort([
+        layer(['h1']),
+        {
+          ...layer(['h2', 'h3']),
+          notes: [
+            ...layer(['h2', 'h3']).notes,
+            { path: 'src/h3.ts', note: 'Again' },
           ],
-        ),
+        },
       ]),
+    ];
+
+    for (const proposed of proposals) {
+      expect(together(links, proposed)).toBe(proposed);
+    }
+  });
+
+  it('keeps every question it showed, not only as many', () => {
+    const proposed = cohort([
+      {
+        ...layer(['h1', 'h3']),
+        questions: [
+          asked(['h2'], 'Early?'),
+          asked(['h1'], 'One?'),
+          asked(['h3'], 'Two?'),
+        ],
+      },
+      layer(['h2']),
+    ]);
+
+    expect(
+      together(
+        [link('moves', 'h2', 'h1'), link('uses', 'h3', 'h1', 'Invite')],
+        proposed,
+      ),
+    ).toBe(proposed);
+  });
+
+  it('puts several moved groups together, keeping the most layers', () => {
+    const arranged = together(
+      [
+        link('moves', 'h2', 'h1'),
+        link('moves', 'h4', 'h3'),
+        link('uses', 'h4', 'h1', 'Invite'),
+        link('uses', 'h3', 'h1', 'Invite'),
+      ],
+      cohort([layer(['h1', 'h3']), layer(['h2', 'h4'])]),
     );
 
-    expect(arranged.layers.map((each) => each.dependsOn)).toEqual([
-      [],
-      [{ layer: 1, because: ['A', 'B'] }],
+    expect(hunksOf(arranged)).toEqual([
+      ['h1', 'h2'],
+      ['h4', 'h3'],
     ]);
   });
 
-  it('keeps what an emptied layer depends on, on the layer that holds its hunks', () => {
-    const arranged = withMovedCodeTogether(
-      DIFF,
-      facts([link('moves', 'h2', 'h1')]),
-      cohort([
-        layer(['h3']),
-        layer(['h1'], [{ layer: 1, because: ['Invite'] }]),
-        layer(['h2']),
-      ]),
-    );
-
-    expect(hunksOf(arranged)).toEqual([['h3'], ['h2', 'h1']]);
-    expect(arranged.layers[1]?.dependsOn).toEqual([
-      { layer: 1, because: ['Invite'] },
+  it('leaves a hunk the model placed twice to the checks', () => {
+    const proposed = cohort([
+      layer(['h1']),
+      layer(['h1', 'h2']),
+      layer(['h3', 'h4']),
     ]);
+
+    expect(together([link('moves', 'h3', 'h1')], proposed)).toBe(proposed);
   });
 
-  it('keeps the questions of an emptied layer on the layer that holds its hunks', () => {
-    const question = asked(['h1']);
-    const arranged = withMovedCodeTogether(
-      DIFF,
-      facts([link('moves', 'h2', 'h1')]),
-      cohort([{ ...layer(['h1']), questions: [question] }, layer(['h2'])]),
+  it('leaves many split moved groups to the model without trying every place', () => {
+    const count = 30;
+    const many = Diff.of(
+      Array.from({ length: count * 2 }, (_, at) => file(`h1${at}`)),
     );
-
-    expect(arranged.layers).toHaveLength(1);
-    expect(arranged.layers[0]?.questions).toEqual([question]);
-  });
-
-  it('moves a question about moved code to the layer that shows it', () => {
-    const question = asked(['h1']);
-    const arranged = withMovedCodeTogether(
-      DIFF,
-      facts([link('moves', 'h2', 'h1')]),
-      cohort([
-        { ...layer(['h1', 'h3']), questions: [question] },
-        layer(['h4']),
-        layer(['h2']),
-      ]),
+    const links = Array.from({ length: count }, (_, at) =>
+      link('moves', `h1${count + at}`, `h1${at}`),
     );
+    const removed = Array.from({ length: count }, (_, at) => `h1${at}`);
+    const added = Array.from({ length: count }, (_, at) => `h1${count + at}`);
+    const proposed = cohort([layer(removed), layer(added)]);
+    const started = performance.now();
 
-    expect(hunksOf(arranged)).toEqual([['h3'], ['h4'], ['h2', 'h1']]);
-    expect(arranged.layers.map((each) => each.questions)).toEqual([
-      [],
-      [],
-      [question],
-    ]);
-  });
-
-  it('keeps a layer that was proposed without hunks, for the checks to refuse', () => {
-    const arranged = withMovedCodeTogether(
-      DIFF,
-      facts([link('moves', 'h2', 'h1')]),
-      cohort([layer([]), layer(['h1']), layer(['h2'])]),
-    );
-
-    expect(hunksOf(arranged)).toEqual([[], ['h2', 'h1']]);
+    expect(
+      withMovedCodeTogether(
+        stackPartsOf(many, { ...facts(links), hunks: [] }),
+        movedGroups(facts(links)),
+        proposed,
+        9,
+      ).cohort,
+    ).toBe(proposed);
+    expect(performance.now() - started).toBeLessThan(1_000);
   });
 
   it('leaves code moved in from another cohort to the model', () => {
     const proposed = cohort([layer(['h1'])]);
 
-    expect(
-      withMovedCodeTogether(DIFF, facts([link('moves', 'h2', 'h1')]), proposed),
-    ).toBe(proposed);
+    expect(together([link('moves', 'h2', 'h1')], proposed)).toBe(proposed);
   });
 });

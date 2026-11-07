@@ -8,6 +8,7 @@ import {
 import {
   ATTEMPTS,
   attempted,
+  problemsOfProposal,
   settleBroken,
   settleUnanswered,
 } from '@change-review/application/services/generation-attempt';
@@ -24,6 +25,7 @@ import {
   type RedraftRequest,
   redraftRequestOf,
 } from '@change-review/domain/services/redraft-request';
+import { changeLayerCount } from '@change-review/domain/services/stack-checks';
 import { StackOutline } from '@change-review/domain/services/stack-outline';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -114,10 +116,12 @@ export class RedraftChangeStack {
                   repository: stack.repository,
                   cohort: StackOutline.of(cohort),
                   redraft: scoped,
+                  changeLayersBefore: changeLayerCount([cohort]),
                 })
             : async () => ({
                 outcome: 'layered' as const,
                 cohort: StackOutline.kept(cohort),
+                proposed: StackOutline.kept(cohort),
                 usage: [],
               });
         }),
@@ -163,7 +167,10 @@ export class RedraftChangeStack {
       }
       return settleBroken(
         redrafting,
-        error.problems,
+        problemsOfProposal(
+          () => redrafting.redrafted(layered.proposed, this.clock.now()),
+          error.problems,
+        ),
         this.clock.now(),
         this.logger,
       );

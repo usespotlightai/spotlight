@@ -61,7 +61,10 @@ const cohort = (
   })),
 });
 
-const ready = (request = CheckRequest.of('npx tsc --noEmit', null)) => {
+const ready = (
+  request = CheckRequest.of('npx tsc --noEmit', null),
+  facts = StackFacts.none(),
+) => {
   const stack = ChangeStack.startGeneration({
     id: ChangeStackId.of('stack-1'),
     runId: RunId.of('run-1'),
@@ -72,7 +75,7 @@ const ready = (request = CheckRequest.of('npx tsc --noEmit', null)) => {
     repository: null,
     base: null,
     diff: DIFF,
-    facts: StackFacts.none(),
+    facts,
     request,
     now: NOW,
   }).propose(
@@ -148,6 +151,48 @@ describe('ChangeStack, on the check it requests', () => {
       'change-stack.redrafted',
       'change-stack.ready',
     ]);
+  });
+
+  describe('with moved code', () => {
+    const moving = StackFacts.of({
+      hunks: [],
+      links: [
+        {
+          kind: 'moves',
+          from: HunkId.of('h2'),
+          to: HunkId.of('h1'),
+          because: ['schema.ts → api.ts'],
+        },
+      ],
+      imports: [],
+    });
+    const redraftOf = (proposed: ProposedCohort[]) =>
+      ready(undefined, moving).requestRedraft().redrafted(proposed, LATER);
+
+    it('puts moved code together in the layer that keeps every layer', () => {
+      const redrafted = redraftOf([
+        cohort('Invitations', [['h1', 'h3'], ['h2']]),
+        cohort('Docs', [['h5']]),
+        cohort('Lockfile', [['h4']], 'incidental'),
+      ]);
+
+      expect(redrafted.layers()).toEqual(['c1.l1', 'c1.l2', 'c2.l1']);
+      expect(
+        redrafted.cohorts[0]?.layers.map((each) =>
+          each.hunks.map((entry) => entry.hunk),
+        ),
+      ).toEqual([['h3'], ['h2', 'h1']]);
+    });
+
+    it('refuses a redraft that only puts moved code together by joining layers', () => {
+      expect(() =>
+        redraftOf([
+          cohort('Invitations', [['h1'], ['h2']]),
+          cohort('Docs', [['h3', 'h5']]),
+          cohort('Lockfile', [['h4']], 'incidental'),
+        ]),
+      ).toThrow('h2 is code moved from h1, so they belong in the same layer');
+    });
   });
 
   it('says redrafting ended when redrafting stops', () => {

@@ -8,10 +8,9 @@ import {
   placedHunks,
 } from '@change-review/domain/services/diff-facts';
 import { factProblems } from '@change-review/domain/services/fact-rules';
-import {
-  cohortHeaderProblems,
-  StackProposal,
-} from '@change-review/domain/services/stack-proposal';
+import { cohortHeaderProblems } from '@change-review/domain/services/stack-checks';
+import { type StackPart } from '@change-review/domain/services/stack-part';
+import { StackProposal } from '@change-review/domain/services/stack-proposal';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import type {
   OutlinedCohort,
@@ -19,12 +18,6 @@ import type {
   ProposedLayer,
   StackCohort,
 } from '@change-review/domain/value-objects/stack-cohort.vo';
-import type { HunkId } from '@change-review/domain/value-objects/stack-ids';
-
-export interface StackPart {
-  readonly diff: Diff;
-  readonly facts: DiffFacts;
-}
 
 const asOneLayer = (cohort: OutlinedCohort): ProposedCohort => ({
   ...cohort,
@@ -162,42 +155,25 @@ export const StackOutline = {
     };
   },
 
-  partOf(diff: Diff, facts: DiffFacts, hunks: readonly HunkId[]): StackPart {
-    const within = new Set<string>(hunks);
-    const files = diff.files.flatMap((file) => {
-      const kept = file.hunks.filter((hunk) => within.has(hunk.id));
-      return kept.length > 0 ? [{ ...file, hunks: kept }] : [];
-    });
-    const paths = new Set(files.map((file) => file.path));
-
-    return {
-      diff: Diff.of(files),
-      facts: {
-        hunks: facts.hunks.filter((each) => within.has(each.hunk)),
-        links: facts.links.filter(
-          (link) => within.has(link.from) && within.has(link.to),
-        ),
-        imports: facts.imports.filter(
-          (each) => paths.has(each.from) && paths.has(each.to),
-        ),
-      },
-    };
+  proposed(
+    cohort: OutlinedCohort,
+    layers: readonly ProposedLayer[],
+  ): ProposedCohort {
+    const { hunks: _, ...outlined } = cohort;
+    return { ...outlined, layers };
   },
 
   layered(
     part: StackPart,
     cohort: OutlinedCohort,
     layers: readonly ProposedLayer[],
+    changeLayersBefore?: number,
   ): ProposedCohort {
-    const { hunks: _, ...outlined } = cohort;
-    const layered = { ...outlined, layers };
-
-    StackProposal.validate({
+    return StackProposal.checkedCohort({
       diff: part.diff,
       facts: part.facts,
-      cohorts: [layered],
+      cohort: StackOutline.proposed(cohort, layers),
+      changeLayersBefore,
     });
-
-    return layered;
   },
 };

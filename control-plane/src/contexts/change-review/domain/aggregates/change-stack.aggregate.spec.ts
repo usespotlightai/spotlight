@@ -483,7 +483,42 @@ describe('ChangeStack with facts from the code', () => {
       ).toEqual([['h2'], ['h3', 'h1']]);
     });
 
-    it('names the problems in the layers as proposed when putting moved code together does not help', () => {
+    it('names the problems of the proposal when the stack fails after putting moved code together', () => {
+      const facts = factsWith([
+        ...MOVES,
+        {
+          kind: 'uses',
+          from: HunkId.of('h2'),
+          to: HunkId.of('h1'),
+          because: ['Invitation'],
+        },
+      ]);
+
+      expect(() =>
+        generating(facts).propose(
+          [
+            invitations([layer('Model', ['h1']), layer('UI', ['h3'])]),
+            invitations([layer('API', ['h2'])]),
+          ],
+          LATER,
+        ),
+      ).toThrow(
+        expect.objectContaining({
+          problems: [
+            expect.objectContaining({
+              message:
+                'h2 uses Invitation from h1, so they belong in the same cohort',
+            }),
+            expect.objectContaining({
+              message:
+                'h3 is code moved from h1, so they belong in the same layer',
+            }),
+          ],
+        }),
+      );
+    });
+
+    it('names the problems of the proposal when putting moved code together does not help', () => {
       const proposed = [
         invitations([
           layer('Model', ['h1']),

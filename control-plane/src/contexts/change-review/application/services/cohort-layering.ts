@@ -13,6 +13,7 @@ import {
 } from '@change-review/domain/services/diff-facts';
 import type { RedraftRequest } from '@change-review/domain/services/redraft-request';
 import { StackOutline } from '@change-review/domain/services/stack-outline';
+import { stackPartOf } from '@change-review/domain/services/stack-part';
 import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import type { RepositoryName } from '@change-review/domain/value-objects/repository-name.vo';
 import type {
@@ -30,6 +31,7 @@ export type CohortLayering =
   | {
       readonly outcome: 'layered';
       readonly cohort: ProposedCohort;
+      readonly proposed: ProposedCohort;
       readonly usage: readonly ModelCall[];
     }
   | {
@@ -52,10 +54,11 @@ export const layerCohort = async (
     repository: RepositoryName | null;
     cohort: OutlinedCohort;
     redraft?: RedraftRequest | null;
+    changeLayersBefore?: number;
   },
 ): Promise<CohortLayering> => {
-  const { cohort, repository, redraft } = request;
-  const part = StackOutline.partOf(request.diff, request.facts, cohort.hunks);
+  const { cohort, repository, redraft, changeLayersBefore } = request;
+  const part = stackPartOf(request.diff, request.facts, cohort.hunks);
   const usage: ModelCall[] = [];
   let problems: readonly StackProblem[] = [];
 
@@ -81,7 +84,13 @@ export const layerCohort = async (
     try {
       return {
         outcome: 'layered',
-        cohort: StackOutline.layered(part, cohort, attempt.answer.layers),
+        cohort: StackOutline.layered(
+          part,
+          cohort,
+          attempt.answer.layers,
+          changeLayersBefore,
+        ),
+        proposed: StackOutline.proposed(cohort, attempt.answer.layers),
         usage,
       };
     } catch (error) {
@@ -131,7 +140,11 @@ export const layeredInRounds = async (
 };
 
 export type CombinedLayerings =
-  | { readonly outcome: 'layered'; readonly cohorts: readonly ProposedCohort[] }
+  | {
+      readonly outcome: 'layered';
+      readonly cohorts: readonly ProposedCohort[];
+      readonly proposed: readonly ProposedCohort[];
+    }
   | {
       readonly outcome: 'unanswered';
       readonly truncated: boolean;
@@ -168,6 +181,9 @@ export const combined = (
         outcome: 'layered',
         cohorts: layerings.flatMap((each) =>
           each.outcome === 'layered' ? [each.cohort] : [],
+        ),
+        proposed: layerings.flatMap((each) =>
+          each.outcome === 'layered' ? [each.proposed] : [],
         ),
       };
 };

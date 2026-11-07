@@ -292,6 +292,45 @@ describe('ChatCompletionsChangeStackGenerator, split in calls', () => {
     );
   });
 
+  it('tells the model what each hunk uses, removes, tests and moves', async () => {
+    const { requests, fetch } = answer({ cohorts: [] });
+    const facts = factsOf(DIFF, new PatternCodeReading());
+    const link = (
+      kind: 'uses' | 'removes' | 'tests' | 'moves',
+      because: string,
+    ) => ({
+      kind,
+      from: HunkId.of('h1'),
+      to: HunkId.of('h2'),
+      because: [because],
+    });
+
+    await new ChatCompletionsChangeStackGenerator(ENDPOINT, fetch).outline({
+      diff: DIFF,
+      repository: null,
+      facts: {
+        ...facts,
+        links: [
+          link('uses', 'Invite'),
+          link('removes', 'legacy'),
+          link('tests', 'invite.ts'),
+          link('moves', 'a → b'),
+        ],
+      },
+      problems: [],
+    });
+
+    const prompt = bodyOf(requests).messages[1].content;
+    for (const fact of [
+      'uses Invite from h2',
+      'removes legacy, which h2 stops using',
+      'tests invite.ts in h2',
+      'moves code from h2',
+    ]) {
+      expect(prompt).toContain(fact);
+    }
+  });
+
   it('requests the layers of one cohort from its own part of the diff', async () => {
     const { requests, fetch } = answer({ layers: COHORTS[0]?.layers });
 

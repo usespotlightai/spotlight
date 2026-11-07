@@ -3,7 +3,10 @@ import {
   connectedGroups,
   type DiffFacts,
   type HunkLink,
+  linkFact,
 } from '@change-review/domain/services/diff-facts';
+import { groupedBy } from '@change-review/domain/services/grouped-by';
+import { placementsOf } from '@change-review/domain/services/hunk-placements';
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 
 interface Assignment {
@@ -13,39 +16,26 @@ interface Assignment {
 
 const assignmentsOf = (
   cohorts: readonly ProposedCohort[],
-): Map<string, Assignment> => {
-  const assignments = new Map<string, Assignment>();
-
-  cohorts.forEach((cohort, c) => {
-    cohort.layers.forEach((layer, l) => {
-      for (const entry of layer.hunks) {
-        assignments.set(entry.hunk, { cohort: c, layer: l });
-      }
-    });
-  });
-
-  return assignments;
-};
+): Map<string, Assignment> =>
+  new Map(
+    [...placementsOf(cohorts)].flatMap(([hunk, placements]) => {
+      const last = placements[placements.length - 1];
+      return last ? [[hunk, { cohort: last.cohort, layer: last.layer }]] : [];
+    }),
+  );
 
 const layerName = (assignment: Assignment): string =>
   `layer ${assignment.layer + 1}`;
 
-const ORDERED = {
-  uses: ({ from, to, because }: HunkLink) =>
-    `${from} uses ${because.join(', ')} from ${to}`,
-  removes: ({ from, to, because }: HunkLink) =>
-    `${from} removes ${because.join(', ')}, which ${to} stops using`,
-} as const;
-
 const orderProblems = (
-  code: keyof typeof ORDERED,
+  code: 'uses' | 'removes',
   links: readonly HunkLink[],
   assignments: ReadonlyMap<string, Assignment>,
 ): StackProblem[] =>
   links.flatMap((link): StackProblem[] => {
     const later = assignments.get(link.from);
     const earlier = assignments.get(link.to);
-    const fact = ORDERED[code](link);
+    const fact = `${link.from} ${linkFact(link)}`;
 
     if (!later || !earlier) {
       return [];
@@ -69,11 +59,7 @@ const testsProblems = (
   links: readonly HunkLink[],
   assignments: ReadonlyMap<string, Assignment>,
 ): StackProblem[] => {
-  const byTest = new Map<string, HunkLink[]>();
-
-  for (const link of links) {
-    byTest.set(link.from, [...(byTest.get(link.from) ?? []), link]);
-  }
+  const byTest = groupedBy(links, (link) => link.from);
 
   return [...byTest.entries()].flatMap(([test, covered]): StackProblem[] => {
     const assigned = assignments.get(test);
@@ -230,7 +216,7 @@ export const derivedDependencies = (
     const symbols = layers.get(earlier.layer + 1) ?? new Set<string>();
 
     for (const symbol of because) {
-      symbols.add(kind === 'removes' ? `removes ${symbol}` : symbol);
+      symbols.add(symbol);
     }
     layers.set(earlier.layer + 1, symbols);
     derived.set(key, layers);

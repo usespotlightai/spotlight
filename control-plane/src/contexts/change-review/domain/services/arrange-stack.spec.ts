@@ -181,6 +181,75 @@ describe('arranged', () => {
     ]);
   });
 
+  it('leaves a layer without hunks and a dependency past the last layer for the checks to refuse, shifted past the layers taken out', () => {
+    const [cohort] = arranged(DIFF, FACTS, [
+      {
+        kind: 'change',
+        title: 'Invitations',
+        intent: 'Invite people',
+        layers: [
+          layer('Nothing', []),
+          layer('Lockfile', ['h2']),
+          layer('Model', ['h1'], [{ layer: 9, because: ['Invite'] }]),
+        ],
+      },
+    ]);
+
+    expect(cohort?.layers.map((each) => each.title)).toEqual([
+      'Nothing',
+      'Model',
+    ]);
+    expect(cohort?.layers[1]?.dependsOn).toEqual([
+      { layer: 8, because: ['Invite'] },
+    ]);
+  });
+
+  it('keeps each dependency a layer names, for the checks to judge', () => {
+    const [cohort] = arranged(DIFF, FACTS, [
+      {
+        kind: 'change',
+        title: 'Invitations',
+        intent: 'Invite people',
+        layers: [
+          layer('Model', ['h1']),
+          layer(
+            'API',
+            ['h3'],
+            [
+              { layer: 1, because: ['  '] },
+              { layer: 1, because: ['Invite'] },
+            ],
+          ),
+        ],
+      },
+    ]);
+
+    expect(cohort?.layers[1]?.dependsOn).toEqual([
+      { layer: 1, because: ['  '] },
+      { layer: 1, because: ['Invite'] },
+    ]);
+  });
+
+  it('keeps a dependency on a later incidental layer for the checks to refuse', () => {
+    const [cohort] = arranged(DIFF, FACTS, [
+      {
+        kind: 'change',
+        title: 'Invitations',
+        intent: 'Invite people',
+        layers: [
+          layer('Model', ['h1']),
+          layer('API', ['h3'], [{ layer: 3, because: ['zod'] }]),
+          layer('Lockfile', ['h2']),
+        ],
+      },
+    ]);
+
+    expect(cohort?.layers.map((each) => each.title)).toEqual(['Model', 'API']);
+    expect(cohort?.layers[1]?.dependsOn).toEqual([
+      { layer: 3, because: ['zod'] },
+    ]);
+  });
+
   it('leaves a proposal alone where nothing is incidental', () => {
     const plain = Diff.of([file('h1', 'src/a.ts', 'const a = 1;')]);
     const proposed: ProposedCohort[] = [

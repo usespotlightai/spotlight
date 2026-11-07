@@ -1,9 +1,11 @@
+import { groupedBy } from '@change-review/domain/services/grouped-by';
 import type {
   IndexedFile,
   IndexedImport,
   IndexedSymbol,
   SourceSide,
   SymbolIndex,
+  SymbolKind,
 } from '@change-review/domain/services/symbol-index';
 import {
   changedLinesOf,
@@ -69,6 +71,27 @@ const exposes = (symbol: IndexedSymbol, name: string): boolean =>
     : symbol.exportedAs.includes(name) ||
       (symbol.exportedAs.length === 0 && symbol.name === name);
 
+const VALUE_KINDS: ReadonlySet<SymbolKind> = new Set([
+  'function',
+  'class',
+  'constant',
+  'component',
+]);
+
+const kindGroupOf = (kind: SymbolKind): string =>
+  VALUE_KINDS.has(kind) ? 'value' : kind;
+
+const containerOf = (file: IndexedFile, symbol: IndexedSymbol): string | null =>
+  file.symbols
+    .filter(
+      (each) =>
+        each.kind === 'class' &&
+        each !== symbol &&
+        each.line <= symbol.line &&
+        each.endLine >= symbol.endLine,
+    )
+    .sort((a, b) => b.line - a.line)[0]?.name ?? null;
+
 export const indexedFacts = (
   diff: Diff,
   index: SymbolIndex,
@@ -117,15 +140,62 @@ export const indexedFacts = (
   );
   const fileAt = (side: SourceSide, path: string) =>
     files.get(`${side}:${path}`) ?? null;
+  const pathsAfter = new Map([
+    ...diff.files.flatMap((each) =>
+      each.status === 'deleted' ? [] : [[each.path, each.path] as const],
+    ),
+    ...diff.files.flatMap((each) =>
+      each.previousPath ? [[each.previousPath, each.path] as const] : [],
+    ),
+  ]);
+  const containers = new Map<IndexedSymbol, string | null>();
+  const containerIn = (file: IndexedFile, symbol: IndexedSymbol) => {
+    if (!containers.has(symbol)) {
+      containers.set(symbol, containerOf(file, symbol));
+    }
+    return containers.get(symbol) ?? null;
+  };
+  const definedAfter = (before: IndexedFile, symbol: IndexedSymbol) => {
+    const afterPath = pathsAfter.get(before.path);
+    const after = afterPath === undefined ? null : fileAt('after', afterPath);
+
+    if (afterPath !== undefined && !after) {
+      return true;
+    }
+    const container = containerIn(before, symbol);
+
+    return (
+      after?.symbols.some(
+        (each) =>
+          each.name === symbol.name &&
+          kindGroupOf(each.kind) === kindGroupOf(symbol.kind) &&
+          containerIn(after, each) === container,
+      ) === true
+    );
+  };
+  const kept = new Map<IndexedSymbol, boolean>();
+  const stillDefined = (before: IndexedFile, symbol: IndexedSymbol) => {
+    const known = kept.get(symbol);
+
+    if (known !== undefined) {
+      return known;
+    }
+
+    const defined = definedAfter(before, symbol);
+    kept.set(symbol, defined);
+    return defined;
+  };
 
   const defines = new Map<HunkId, Set<string>>();
   const outside = new Map<HunkId, Set<string>>();
   const links = new Map<string, UsageLink>();
   const tests = new Map<string, SymbolLink>();
-  const methods = new Map<
-    string,
-    { file: IndexedFile; symbol: IndexedSymbol; hunk: HunkId }[]
-  >();
+  const methodEntries: {
+    key: string;
+    file: IndexedFile;
+    symbol: IndexedSymbol;
+    hunk: HunkId;
+  }[] = [];
 
   for (const file of index.files) {
     for (const symbol of file.symbols) {
@@ -138,11 +208,17 @@ export const indexedFacts = (
       defines.set(hunk, (defines.get(hunk) ?? new Set()).add(symbol.name));
 
       if (symbol.kind === 'method') {
-        const key = `${file.side}:${symbol.name}`;
-        methods.set(key, [...(methods.get(key) ?? []), { file, symbol, hunk }]);
+        methodEntries.push({
+          key: `${file.side}:${symbol.name}`,
+          file,
+          symbol,
+          hunk,
+        });
       }
     }
   }
+
+  const methods = groupedBy(methodEntries, (each) => each.key);
 
   const link = (
     file: IndexedFile,
@@ -152,7 +228,11 @@ export const indexedFacts = (
   ) => {
     const definer = hunkAt(target, symbol.line);
 
-    if (!definer || definer === user) {
+    if (
+      !definer ||
+      definer === user ||
+      (target.side === 'before' && stillDefined(target, symbol))
+    ) {
       return;
     }
 
