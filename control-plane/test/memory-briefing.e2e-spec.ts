@@ -238,7 +238,11 @@ describe('briefing runs with what the team remembers', () => {
           ],
           omitted: [{ id: lineOnly.id, handle: lineOnly.handle }],
         }),
-        order: DispatchOrder.of({}),
+        order: DispatchOrder.of({
+          kind: 'run',
+          runId,
+          snapshot: { runId: runId.value },
+        }),
         now: new Date(),
       }).enqueuedAsRun(),
     );

@@ -157,7 +157,12 @@ const merged = (task: Task) =>
   happens(task, 'github.pull_request.merged', 'The pull request was merged.');
 
 const claimed = async (runId: RunId) => {
-  await runs.save((await runOf(runId)).claim(claimer(RUNNER), new Date()));
+  await runs.save(
+    (await runOf(runId)).claim(
+      claimer(RUNNER, team.workspaceId.value),
+      new Date(),
+    ),
+  );
 };
 
 const endedPassingTo = async (runId: RunId, next: string) => {

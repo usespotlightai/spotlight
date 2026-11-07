@@ -14,7 +14,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
-import { aDispatch, requestedByTask } from './support/runs';
+import { aDispatch, outcomeOf, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -178,6 +178,7 @@ beforeAll(async () => {
     workspaceId,
     harness: 'dev',
     state: 'completed',
+    ...outcomeOf('completed'),
     spec: {
       command: { executable: 'sh', args: [] },
       briefing: 'drain the queue',

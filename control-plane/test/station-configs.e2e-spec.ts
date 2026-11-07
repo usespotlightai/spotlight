@@ -25,7 +25,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 import { runFactsOver, runJournalsOver } from './support/run-facts';
-import { aDispatch, aTurn, requestedByTask } from './support/runs';
+import { aDispatch, aTurn, outcomeOf, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations } from './support/stations';
 
@@ -147,6 +147,7 @@ const ran = async (
     ...requestedByTask(taskId, { teamId: teamOf.get(stationId) ?? null }),
     state,
     ...leased(state),
+    ...outcomeOf(state),
     spec: SPEC,
     createdAt: at,
     updatedAt: at,
@@ -237,6 +238,7 @@ describe('the station config a run ran with', () => {
         harness: 'dev',
         ...requestedByTask(first.taskId),
         state: 'failed',
+        ...outcomeOf('failed'),
         spec: SPEC,
         createdAt: new Date(at),
         endedAt: new Date(at),
@@ -280,7 +282,7 @@ describe('the station config a run ran with', () => {
     expect(await stationRuns.endedRun(runId)).toBeNull();
   });
 
-  it('reads the team’s open runs newest first, with whether a stop was asked for', async () => {
+  it('reads the team’s open runs newest first, with their progress', async () => {
     const { lineId, stationId } = await lineOf('team_10');
     const other = await lineOf('team_11');
     const queued = await ran(stationId, {
@@ -315,13 +317,11 @@ describe('the station config a run ran with', () => {
 
     const unfinished = await stationRuns.unfinishedOfTeam(TeamId.of('team_10'));
 
-    expect(
-      unfinished.map((each) => [each.runId, each.state, each.stopRequested]),
-    ).toEqual([
-      [suspended.runId, 'suspended', false],
-      [stopping.runId, 'claimed', true],
-      [claimed.runId, 'claimed', false],
-      [queued.runId, 'queued', false],
+    expect(unfinished.map((each) => [each.runId, each.progress])).toEqual([
+      [suspended.runId, null],
+      [stopping.runId, 'stopping'],
+      [claimed.runId, 'in-progress'],
+      [queued.runId, 'queued'],
     ]);
     expect(unfinished[3]).toMatchObject({
       lineId,

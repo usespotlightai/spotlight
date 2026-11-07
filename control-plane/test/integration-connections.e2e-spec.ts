@@ -301,7 +301,7 @@ describe('tasks waiting on a connection', () => {
         ConnectionAsk.of({
           teamId,
           integration: IntegrationName.of('linear'),
-          integrationName: 'Linear',
+          providedBy: 'Linear',
           personId: owner,
         }),
       ).task,

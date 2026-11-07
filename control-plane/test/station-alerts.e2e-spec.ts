@@ -24,7 +24,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { aDispatch, requestedByTask } from './support/runs';
+import { aDispatch, outcomeOf, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { insertStations, lineChangedOf } from './support/stations';
 import { createTeam } from './support/team';
@@ -71,6 +71,7 @@ const ranAndEnded = async (minutesAgo: number) => {
     harness: 'dev',
     ...requestedByTask(team.list.id.value, { teamId: team.teamId.value }),
     state: 'completed',
+    ...outcomeOf('completed'),
     spec: SPEC,
     createdAt: ago(minutesAgo + 5),
     startedAt: ago(minutesAgo + 4),

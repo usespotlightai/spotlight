@@ -23,7 +23,7 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
-import { aDispatch, requestedByTask } from './support/runs';
+import { aDispatch, outcomeOf, requestedByTask } from './support/runs';
 import * as schema from './support/schema';
 import { createTeam } from './support/team';
 
@@ -111,6 +111,7 @@ beforeAll(async () => {
       workspaceId: team.workspaceId.value,
       harness: 'dev',
       state: 'completed',
+      ...outcomeOf('completed'),
       spec: {
         command: { executable: 'sh', args: [] },
         briefing: 'do the thing',

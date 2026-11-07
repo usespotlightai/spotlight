@@ -88,6 +88,7 @@ const PREFERRED: Readonly<Record<string, 'win' | 'loss' | 'tie'>> = {
 
 const attachmentStore = {
   received: async () => [],
+  stored: async () => true,
   taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
@@ -303,6 +304,7 @@ const anOriginal = async (title: string): Promise<Original> => {
     createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
+    workspaceReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,

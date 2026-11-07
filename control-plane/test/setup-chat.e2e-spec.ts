@@ -151,10 +151,10 @@ describe('setting a team up as code (e2e)', () => {
 
   it('lets a token issued for a run read the workspace until the run ends', async () => {
     const issued = await runTokens().issueFor({
-      workspaceId,
-      runId: randomUUID(),
+      workspaceId: WorkspaceId.of(workspaceId),
+      runId: RunId.of(randomUUID()),
       attempt: 1,
-      issuedBy: owner,
+      issuedBy: UserId.of(owner),
       scopes: ['plan'],
       expiresAt: new Date(Date.now() + 60 * 60 * 1_000),
     });
@@ -168,24 +168,28 @@ describe('setting a team up as code (e2e)', () => {
     expect(row?.tokenHash).not.toBe(issued.token);
     expect(row?.runAttempt).toBe(1);
 
-    await runTokens().revokeFor(workspaceId, row?.runId as string, null);
+    await runTokens().revokeFor(
+      WorkspaceId.of(workspaceId),
+      RunId.of(row?.runId as string),
+      null,
+    );
 
     expect((await exported(issued.token)).status).toBe(401);
   });
 
   it('revokes only the attempt that ended', async () => {
-    const runId = randomUUID();
+    const runId = RunId.of(randomUUID());
     const wanted = {
-      workspaceId,
+      workspaceId: WorkspaceId.of(workspaceId),
       runId,
-      issuedBy: owner,
+      issuedBy: UserId.of(owner),
       scopes: ['plan'],
       expiresAt: new Date(Date.now() + 60 * 60 * 1_000),
     };
     const first = await runTokens().issueFor({ ...wanted, attempt: 1 });
     const second = await runTokens().issueFor({ ...wanted, attempt: 2 });
 
-    await runTokens().revokeFor(workspaceId, runId, 1);
+    await runTokens().revokeFor(WorkspaceId.of(workspaceId), runId, 1);
 
     expect((await exported(first.token)).status).toBe(401);
     expect((await exported(second.token)).status).toBe(200);
@@ -194,10 +198,10 @@ describe('setting a team up as code (e2e)', () => {
   it('deletes a run token once it has expired', async () => {
     const expiresAt = new Date(Date.now() + 60 * 1_000);
     const issued = await runTokens().issueFor({
-      workspaceId,
-      runId: randomUUID(),
+      workspaceId: WorkspaceId.of(workspaceId),
+      runId: RunId.of(randomUUID()),
       attempt: 1,
-      issuedBy: owner,
+      issuedBy: UserId.of(owner),
       scopes: ['plan'],
       expiresAt,
     });

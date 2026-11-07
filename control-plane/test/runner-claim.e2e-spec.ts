@@ -265,7 +265,7 @@ describe('claiming a requeued run', () => {
       new Date(NOW.getTime() + 5_000),
     );
     expect(again?.id.value).toBe(first);
-    expect(again?.attempt).toBe(1);
+    expect(again?.attempt.number).toBe(1);
     expect(again?.requeueCount.count).toBe(1);
   });
 });

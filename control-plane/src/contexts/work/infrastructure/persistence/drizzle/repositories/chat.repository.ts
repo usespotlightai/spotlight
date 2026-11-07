@@ -320,7 +320,13 @@ export class DrizzleChatRepository implements ChatRepository {
       .from(chat)
       .where(eq(chat.teamId, teamId.value));
 
-    return Promise.all(found.map((each) => this.whole(each)));
+    const chats: Chat[] = [];
+
+    for (const each of found) {
+      chats.push(await this.whole(each));
+    }
+
+    return chats;
   }
 
   async find(id: ChatId): Promise<Chat | null> {

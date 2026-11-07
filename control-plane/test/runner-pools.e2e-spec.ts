@@ -625,6 +625,7 @@ describe('runner pools (e2e)', () => {
         startedById: owner,
         title: 'Set up our configuration.',
         harness: 'claude-code',
+        repositories: ['acme/infra'],
         setup: {
           repository: 'acme/infra',
           folder: 'spotlight',

@@ -85,10 +85,8 @@ export class RemoveReleasedArchives {
     }
 
     return this.locks.removing(found.workspaceId, async () => {
-      const [archive, references] = await Promise.all([
-        this.archives.find(due.id),
-        this.references.of(due.id),
-      ]);
+      const archive = await this.archives.find(due.id);
+      const references = await this.references.of(due.id);
       const facts = references && factsOf(references, holders);
 
       if (!archive || !facts || !archive.removableAt(now, facts)) {

@@ -1,5 +1,6 @@
 import { LineViewMapper } from '@lines/application/mappers/line-view.mapper';
 import type { Line } from '@lines/domain/aggregates/line.aggregate';
+import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import {
   LINE_CHANGED,
@@ -73,7 +74,7 @@ export const insertStations = async (
 };
 
 export const mapOf = (line: Line): LineMap =>
-  lineMapOf(LineViewMapper.of(line));
+  lineMapOf(LineViewMapper.of(line, new Sha256ContentHash()));
 
 export const lineChangedOf = async (
   db: DrizzleDatabase,

@@ -73,6 +73,7 @@ export const STUB_GUIDANCE = 'Keep the oldest job first after a restart.';
 
 const attachmentStore = {
   received: async () => [],
+  stored: async () => true,
   taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
@@ -288,6 +289,7 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
     createdById: team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
+    workspaceReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,

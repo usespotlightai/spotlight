@@ -1,3 +1,4 @@
+import type { RunState } from '@runs/domain/value-objects/run-state';
 import type { run } from '@runs/infrastructure/persistence/drizzle/schemas/run.schema';
 import type { BriefedMemoriesParts } from '@work/domain/value-objects/briefed-memories.vo';
 import type { BriefedTaskParts } from '@work/domain/value-objects/briefed-task.vo';
@@ -108,6 +109,21 @@ export const aTurn = (
 });
 
 type RunRow = typeof run.$inferInsert;
+
+export const outcomeOf = (
+  state: RunState,
+): Pick<RunRow, 'exitCode' | 'failure'> => {
+  if (state === 'completed' || state === 'suspended') {
+    return { exitCode: 0, failure: null };
+  }
+  if (state === 'failed') {
+    return { exitCode: 1, failure: 'exited' };
+  }
+
+  return state === 'cancelled'
+    ? { exitCode: -1, failure: 'cancelled' }
+    : { exitCode: null, failure: null };
+};
 
 type Requested = Pick<
   RunRow,

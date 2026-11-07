@@ -89,6 +89,7 @@ const COMMIT = '4f7c2a9e1b3d5f8a0c6e2b4d7f9a1c3e5b8d0f2a';
 const DAY = 24 * 60 * 60_000;
 const attachmentStore = {
   received: async () => [],
+  stored: async () => true,
   taken: async () => undefined,
   open: async () => ({ bytes: new Uint8Array([1]), contentType: 'image/png' }),
 } as unknown as AttachmentStorePort;
@@ -166,6 +167,7 @@ const anOriginal = async (
     createdById: input.openedFrom ? null : team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
+    workspaceReleasedAt: at,
   });
   await db.insert(schema.run).values({
     id: runId,
