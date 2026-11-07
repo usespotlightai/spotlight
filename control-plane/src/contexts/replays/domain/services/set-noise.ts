@@ -1,7 +1,7 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { repeatsByOriginal } from '@replays/domain/services/replay-results';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 
@@ -49,15 +49,15 @@ export interface ScoredCandidate {
   readonly fingerprint: StationFingerprint;
 }
 
-const newestFirst = (one: Replay, other: Replay): number =>
+const newestFirst = (one: ReplayOutcome, other: ReplayOutcome): number =>
   (other.endedAt?.getTime() ?? 0) - (one.endedAt?.getTime() ?? 0);
 
-const rateOfRepeat = (replay: Replay, repeat: number): number | null => {
+const rateOfRepeat = (replay: ReplayOutcome, repeat: number): number | null => {
   const judged = replay.entries.filter(
     (each) =>
       each.repeat === repeat &&
       each.hasEnded &&
-      each.concludedFor(replay.scoring) &&
+      each.concluded &&
       each.succeeded !== null,
   );
 
@@ -66,16 +66,14 @@ const rateOfRepeat = (replay: Replay, repeat: number): number | null => {
     : judged.filter((each) => each.succeeded).length / judged.length;
 };
 
-const flippedIn = (replay: Replay): readonly string[] => [
+const flippedIn = (replay: ReplayOutcome): readonly string[] => [
   ...new Set(
     [...repeatsByOriginal(replay.entries).values()].flatMap((repeats) => {
       const verdicts = new Set(
         repeats
           .filter(
             (each) =>
-              each.hasEnded &&
-              each.concludedFor(replay.scoring) &&
-              each.succeeded !== null,
+              each.hasEnded && each.concluded && each.succeeded !== null,
           )
           .map((each) => each.succeeded),
       );
@@ -87,7 +85,7 @@ const flippedIn = (replay: Replay): readonly string[] => [
 ];
 
 const noiseIn = (
-  replay: Replay,
+  replay: ReplayOutcome,
   fingerprint: StationFingerprint,
 ): SetNoise | null => {
   const perRepeat = Array.from(
@@ -115,7 +113,7 @@ const noiseIn = (
 };
 
 export const setNoiseOf = (
-  replays: readonly Replay[],
+  replays: readonly ReplayOutcome[],
   candidates: readonly ScoredCandidate[],
   liveFingerprint: StationFingerprint,
 ): SetNoise | null => {

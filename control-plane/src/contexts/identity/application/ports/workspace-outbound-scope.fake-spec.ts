@@ -1,4 +1,23 @@
-import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
+import {
+  UNLISTED_FOR_WORKSPACE,
+  type WorkspaceOutboundScopePort,
+} from '@identity/application/ports/workspace-outbound-scope.port';
+import { OutboundScope } from '@platform/outbound/outbound-scope';
+import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
+
+interface ScopedTo {
+  within<T>(owner: unknown, work: () => Promise<T>): Promise<T>;
+  withinFresh<T>(owner: unknown, work: () => Promise<T>): Promise<T>;
+}
+
+export const scopedTo = (...hosts: string[]): ScopedTo => ({
+  within: (_owner, work) =>
+    OutboundScope.within(HostAllowList.of(hosts), UNLISTED_FOR_WORKSPACE, work),
+  withinFresh: (_owner, work) =>
+    OutboundScope.within(HostAllowList.of(hosts), UNLISTED_FOR_WORKSPACE, work),
+});
+
+export const unscoped: ScopedTo = scopedTo();
 
 export const scopeRecorder = () => {
   let current: string | null = null;

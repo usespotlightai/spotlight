@@ -80,7 +80,12 @@ const withReplays = (
           charge,
           at,
           runIds,
-          improvedOnBestBefore(started, replayId, replays, minGain),
+          improvedOnBestBefore(
+            started,
+            replayId,
+            replays.map((each) => each.outcome()),
+            minGain,
+          ),
         )
       : started.replaySpent(replayId, charge);
   }, search);

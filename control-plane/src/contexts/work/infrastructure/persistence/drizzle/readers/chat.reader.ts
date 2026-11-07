@@ -203,8 +203,12 @@ export class DrizzleChatReader implements ChatReaderPort {
           body: message.body,
           at: message.at.toISOString(),
           author:
-            message.authorId && starter?.id === message.authorId
-              ? starter
+            starter && message.authorId === starter.id.value
+              ? {
+                  id: starter.id.value,
+                  name: starter.name,
+                  image: starter.image,
+                }
               : null,
           runId: message.runId,
           takenUpBy: message.acknowledgedByRunId,

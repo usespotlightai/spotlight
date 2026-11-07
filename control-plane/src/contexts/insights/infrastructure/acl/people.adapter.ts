@@ -36,6 +36,8 @@ export class People implements PeoplePort {
       [...new Set(userIds)].map((each) => UserId.of(each)),
     );
 
-    return new Map([...found.values()].map((each) => [each.id, each.name]));
+    return new Map(
+      [...found.values()].map((each) => [each.id.value, each.name]),
+    );
   }
 }

@@ -7,7 +7,7 @@ import { CommandBus } from '@nestjs/cqrs';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import { CompleteRunCommand } from '@runs/application/commands/runner.commands';
-import { claimer } from '@runs/application/ports/run-fixtures.fake-spec';
+import { claimer } from '@runs/domain/aggregates/run.fake-spec';
 import { ClaimOrder } from '@runs/domain/services/claim-order';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';

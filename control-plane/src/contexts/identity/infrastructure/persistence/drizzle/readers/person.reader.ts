@@ -6,7 +6,7 @@ import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { eq, inArray } from 'drizzle-orm';
 
 @Injectable()
@@ -20,7 +20,7 @@ export class DrizzlePersonReader implements PersonReaderPort {
       .where(eq(user.id, id.value))
       .limit(1);
 
-    return found ?? null;
+    return found ? { ...found, id: UserId.of(found.id) } : null;
   }
 
   async findMany(
@@ -37,6 +37,8 @@ export class DrizzlePersonReader implements PersonReaderPort {
       .from(user)
       .where(inArray(user.id, unique));
 
-    return new Map(rows.map((each) => [each.id, each]));
+    return new Map(
+      rows.map((each) => [each.id, { ...each, id: UserId.of(each.id) }]),
+    );
   }
 }

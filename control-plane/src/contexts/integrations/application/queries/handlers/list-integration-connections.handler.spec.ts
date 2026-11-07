@@ -51,8 +51,8 @@ const listing = (membership: { isAdmin: boolean } | null) =>
       find: vi.fn(),
       findMany: async () =>
         new Map([
-          ['user_1', { id: 'user_1', name: 'Me', image: null }],
-          ['user_2', { id: 'user_2', name: 'Bob', image: null }],
+          ['user_1', { id: UserId.of('user_1'), name: 'Me', image: null }],
+          ['user_2', { id: UserId.of('user_2'), name: 'Bob', image: null }],
         ]),
     } satisfies PersonReaderPort,
     {

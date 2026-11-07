@@ -57,7 +57,12 @@ export class RecordSearchProgress {
           : { spent: Money.none(search.budget.ceiling.currency), unpriced: 0 },
         this.clock.now(),
         this.runIds,
-        improvedOnBestBefore(search, event.replayId, replays, minGain),
+        improvedOnBestBefore(
+          search,
+          event.replayId,
+          replays.map((each) => each.outcome()),
+          minGain,
+        ),
       );
     });
   }

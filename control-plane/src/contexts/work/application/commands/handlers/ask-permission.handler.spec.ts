@@ -1,12 +1,9 @@
-import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
-import { claimer } from '@runs/application/ports/run-fixtures.fake-spec';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
 import { ProfileKey } from '@shared-kernel/domain/value-objects/profile-key.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -17,10 +14,11 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { AskPermissionHandler } from '@work/application/commands/handlers/ask-permission.handler';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import { runLeasesOver } from '@work/application/ports/runs.fake-spec';
 import {
   aChatDispatch,
-  aRunFor,
   aTaskDispatch,
+  leasedRunFor,
   runWorksOver,
 } from '@work/application/services/run-works.fake-spec';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
@@ -90,11 +88,7 @@ const PUSH = {
   input: { command: 'git push origin main', description: 'Push the fix' },
 };
 
-const runOf = (id: string) =>
-  aRunFor(RunId.of(id), 'claude-code').claim(
-    claimer(RunnerId.of('runner_1')),
-    NOW,
-  );
+const runOf = (id: string) => leasedRunFor(RunId.of(id), 'claude-code');
 
 const withRun = (runId: string) =>
   Task.rehydrate({
@@ -116,7 +110,7 @@ const asking = (start: Task, inChat = false) => {
 
   const handler = new AskPermissionHandler(
     runWorksOver(
-      { findById: async () => run } as unknown as RunRepository,
+      runLeasesOver(() => run),
       {
         find: async () => current,
         save: async (saved: Task) => {
@@ -157,7 +151,7 @@ const asking = (start: Task, inChat = false) => {
     ask: async (asked = PUSH) =>
       (
         await handler.execute(
-          new AskPermissionCommand(run.id.value, 'runner_1', asked),
+          new AskPermissionCommand(run.runId.value, 'runner_1', asked),
         )
       ).decision,
     decide: (decision: ApprovalDecision) => {

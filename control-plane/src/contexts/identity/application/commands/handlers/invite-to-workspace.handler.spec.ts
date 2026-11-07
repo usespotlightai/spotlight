@@ -122,9 +122,7 @@ const inviting = (
     new InviteSending(
       {
         find: async () =>
-          over.sender === null
-            ? null
-            : { id: 'user_leon', name: 'Leon', image: null },
+          over.sender === null ? null : { id: LEON, name: 'Leon', image: null },
       } as unknown as PersonReaderPort,
       { send } as InviteMailPort,
       { warn } as unknown as LoggerPort,

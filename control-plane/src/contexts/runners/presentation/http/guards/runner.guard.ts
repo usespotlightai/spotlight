@@ -8,11 +8,11 @@ import {
 import { Reflector } from '@nestjs/core';
 import { bearerIn } from '@platform/http/bearer';
 import {
-  REQUEST_RUNNER,
-  type RequestWithRunner,
-} from '@platform/http/decorators/current-runner.decorator';
-import { RUNNER_HEARTBEAT } from '@platform/http/decorators/runner-heartbeat.decorator';
-import { RUNNER_ONLY } from '@platform/http/decorators/runner-only.decorator';
+  REQUEST_MACHINE,
+  type RequestWithMachine,
+} from '@platform/http/decorators/current-machine.decorator';
+import { MACHINE_HEARTBEAT } from '@platform/http/decorators/machine-heartbeat.decorator';
+import { MACHINE_ONLY } from '@platform/http/decorators/machine-only.decorator';
 import {
   RUNNER_HEARTBEATS,
   type RunnerHeartbeatsPort,
@@ -37,19 +37,19 @@ export class RunnerGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const runnerOnly = this.reflector.getAllAndOverride<boolean>(RUNNER_ONLY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const machineOnly = this.reflector.getAllAndOverride<boolean>(
+      MACHINE_ONLY,
+      [context.getHandler(), context.getClass()],
+    );
 
-    if (!runnerOnly) {
+    if (!machineOnly) {
       return true;
     }
 
     const request = context
       .switchToHttp()
       .getRequest<
-        { headers: Record<string, string | undefined> } & RequestWithRunner
+        { headers: Record<string, string | undefined> } & RequestWithMachine
       >();
 
     const runner = await this.runners.authenticate(
@@ -61,10 +61,10 @@ export class RunnerGuard implements CanActivate {
       );
     }
 
-    request[REQUEST_RUNNER] = runner.value;
+    request[REQUEST_MACHINE] = runner.value;
 
     if (
-      this.reflector.getAllAndOverride<boolean>(RUNNER_HEARTBEAT, [
+      this.reflector.getAllAndOverride<boolean>(MACHINE_HEARTBEAT, [
         context.getHandler(),
         context.getClass(),
       ])

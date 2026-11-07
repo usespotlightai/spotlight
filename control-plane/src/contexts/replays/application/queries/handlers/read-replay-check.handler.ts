@@ -98,11 +98,7 @@ export class ReadReplayCheckHandler
         candidate: sideOf(replay, evaluation.candidate),
         baseline: sideOf(baseline, evaluation.baseline),
         tasks: replay
-          ? taskRowsOf(
-              evaluation.tasks,
-              { candidate: replay.scoring, live: baseline?.scoring ?? null },
-              titles,
-            )
+          ? taskRowsOf(evaluation.tasks, titles)
           : [],
         createdAt: check.createdAt.toISOString(),
       };

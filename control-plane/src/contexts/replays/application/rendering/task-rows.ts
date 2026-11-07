@@ -3,8 +3,6 @@ import type {
   TaskRow,
   TaskSide,
 } from '@replays/application/dto/task-rows.dto';
-import type { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
-import type { Scoring } from '@replays/domain/services/entry-result';
 import type { EntryComparison } from '@replays/domain/services/replay-results';
 import type { CheckSkip } from '@replays/domain/value-objects/check-skip';
 import type { Unjudged } from '@replays/domain/value-objects/entry-judging.vo';
@@ -14,6 +12,7 @@ import type {
 } from '@replays/domain/value-objects/entry-reason';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
+import type { EntryOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 
 const MAX_REASON = 200;
 
@@ -147,14 +146,13 @@ const sentenceOf = (reason: EntryReason): string => {
 };
 
 const resultOf = (
-  repeats: readonly ReplayEntry[],
+  repeats: readonly EntryOutcome[],
   success: number | null,
-  scoring: Scoring | null,
 ): TaskResult => {
-  if (repeats.length === 0 || scoring === null) {
+  if (repeats.length === 0) {
     return 'absent';
   }
-  if (repeats.some((each) => !each.concludedFor(scoring))) {
+  if (repeats.some((each) => !each.concluded)) {
     return 'pending';
   }
   if (success === null) {
@@ -168,7 +166,7 @@ const resultOf = (
 };
 
 const SHOWN_REPEAT: Readonly<
-  Record<TaskResult, (entry: ReplayEntry) => boolean>
+  Record<TaskResult, (entry: EntryOutcome) => boolean>
 > = {
   succeeded: (entry) => entry.succeeded === true,
   failed: (entry) => entry.succeeded === false,
@@ -179,11 +177,10 @@ const SHOWN_REPEAT: Readonly<
 };
 
 const sideOf = (
-  repeats: readonly ReplayEntry[],
+  repeats: readonly EntryOutcome[],
   success: number | null,
-  scoring: Scoring | null,
 ): TaskSide => {
-  const result = resultOf(repeats, success, scoring);
+  const result = resultOf(repeats, success);
   const [reason] =
     result === 'pending'
       ? []
@@ -213,7 +210,6 @@ const rankRows = (
 
 export const taskRowsOf = (
   comparisons: readonly EntryComparison[],
-  scoring: { readonly candidate: Scoring; readonly live: Scoring | null },
   titles: ReadonlyMap<string, string | null>,
 ): readonly TaskRow[] =>
   rankRows(comparisons).map((each) => ({
@@ -221,6 +217,6 @@ export const taskRowsOf = (
     originalRunId: each.original,
     title: titles.get(each.original) ?? null,
     regressed: each.regressed,
-    live: sideOf(each.baseline, each.baselineSuccess, scoring.live),
-    candidate: sideOf(each.candidate, each.candidateSuccess, scoring.candidate),
+    live: sideOf(each.baseline, each.baselineSuccess),
+    candidate: sideOf(each.candidate, each.candidateSuccess),
   }));

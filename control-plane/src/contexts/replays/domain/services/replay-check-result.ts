@@ -1,4 +1,3 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import {
   type GainEstimate,
@@ -10,6 +9,7 @@ import {
   taskComparisons,
   totalsOf,
 } from '@replays/domain/services/replay-results';
+import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 
 export const CHECK_RESULTS = [
   'running',
@@ -48,8 +48,8 @@ const isScored = (each: EntryComparison): boolean =>
   each.candidateSuccess !== null && each.baselineSuccess !== null;
 
 const undecidedBecause = (
-  replay: Replay,
-  baseline: Replay | null,
+  replay: ReplayOutcome,
+  baseline: ReplayOutcome | null,
   entries: number,
   compared: number,
 ): UndecidedBecause | null => {
@@ -71,8 +71,8 @@ const undecidedBecause = (
 
 export const evaluationOf = (
   check: ReplayCheck,
-  replay: Replay | null,
-  baseline: Replay | null,
+  replay: ReplayOutcome | null,
+  baseline: ReplayOutcome | null,
   awaitingBaseline: boolean,
 ): CheckEvaluation => {
   if (!replay) {

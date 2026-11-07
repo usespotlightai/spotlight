@@ -122,7 +122,7 @@ export const ReactionFor = {
     if (here && pending && input.payload.answers && input.anchor) {
       return {
         kind: 'answers',
-        to: NotePosition.of(pending.from),
+        to: pending.from,
         ...note(),
       };
     }

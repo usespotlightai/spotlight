@@ -29,8 +29,8 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
-import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
-import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
+import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
 import { AckMessagesCommand } from '@work/application/commands/ack-messages.command';
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { GrantRunAttachmentUploadCommand } from '@work/application/commands/grant-run-attachment-upload.command';
@@ -72,7 +72,7 @@ import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.
 @ApiUnauthorizedResponse({
   description: 'Missing, no longer valid or wrong runner token',
 })
-@RunnerOnly()
+@MachineOnly()
 @Controller()
 export class RunWorkController {
   constructor(
@@ -89,7 +89,7 @@ export class RunWorkController {
   @ApiNotFoundResponse({ description: 'No such run leased by this runner' })
   async messages(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<PendingMessageResponseDto[]> {
     const waiting = await this.queryBus.execute<
       PendingMessagesQuery,
@@ -120,7 +120,7 @@ export class RunWorkController {
   async attachment(
     @Param('runId') runId: string,
     @Param('attachmentId') attachmentId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<StreamableFile> {
     const content = await this.queryBus.execute<
       ReadRunAttachmentQuery,
@@ -154,7 +154,7 @@ export class RunWorkController {
   })
   async grantAttachment(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: GrantAttachmentUploadRequestDto,
   ): Promise<AttachmentUploadResponseDto> {
     const granted = await this.commandBus.execute<
@@ -193,7 +193,7 @@ export class RunWorkController {
   async trace(
     @Param('runId') runId: string,
     @Param('taskId') taskId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<TaskTraceResponseDto> {
     const trace = await this.queryBus.execute<
       ReadRunnerTraceQuery,
@@ -234,7 +234,7 @@ export class RunWorkController {
     @Query('outcome') outcome: string | undefined,
     @Query('since') since: string | undefined,
     @Query('last') last: string | undefined,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<RunnerHistoryResponseDto> {
     if (!station?.trim()) {
       throw new NotFoundException();
@@ -276,7 +276,7 @@ export class RunWorkController {
   @ApiConflictResponse({ description: 'The run is not leased by this runner' })
   async ackMessages(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: AckMessagesRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
@@ -318,7 +318,7 @@ export class RunWorkController {
   async useTool(
     @Param('runId') runId: string,
     @Param('tool') tool: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() input: Record<string, unknown>,
   ): Promise<ToolAnswerResponseDto> {
     const answered = await this.commandBus.execute<
@@ -346,7 +346,7 @@ export class RunWorkController {
   @ApiConflictResponse({ description: 'The run is not leased by this runner' })
   async askPermission(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: AskPermissionRequestDto,
   ): Promise<PermissionAnswerResponseDto> {
     const answered = await this.commandBus.execute<
@@ -376,7 +376,7 @@ export class RunWorkController {
   @ApiNoContentResponse()
   async replyToReviewComment(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: ReplyToReviewCommentRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(

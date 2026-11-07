@@ -66,7 +66,9 @@ export class PickSearchCandidates {
 
       const scores = scoresOf(
         search,
-        await this.replays.ofSearch(search.id),
+        (await this.replays.ofSearch(search.id)).map((each) =>
+          each.outcome(),
+        ),
         standard.minGain,
       );
 

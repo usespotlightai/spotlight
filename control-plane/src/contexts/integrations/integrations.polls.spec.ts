@@ -1,4 +1,5 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import { unscoped } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type {
   DefinedIntegrationsPort,
   TeamDefinedIntegrations,
@@ -33,7 +34,6 @@ import {
   injecting,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';

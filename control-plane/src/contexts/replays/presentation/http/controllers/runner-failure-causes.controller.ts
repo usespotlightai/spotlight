@@ -16,8 +16,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
-import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
+import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
 import { ProblemResponseDto } from '@platform/http/dto/problem.response.dto';
 import { ApiProblemResponse } from '@platform/http/resources/conventional-api';
 import { ProblemFilter } from '@platform/http/resources/problem.filter';
@@ -40,7 +40,7 @@ const fieldsOf = (body: unknown): Record<string, unknown> =>
 @ApiParam({ name: 'runId', type: String })
 @ApiExtraModels(ProblemResponseDto)
 @UseFilters(ProblemFilter)
-@RunnerOnly()
+@MachineOnly()
 @Controller('runs/:runId/failure-causes')
 export class RunnerFailureCausesController {
   constructor(private readonly commandBus: CommandBus) {}
@@ -70,7 +70,7 @@ export class RunnerFailureCausesController {
   async record(
     @Param('runId') runId: string,
     @Body() body: unknown,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<FailureCauseRecordedResponseDto> {
     const { taskId, cause, evidence, suggestion } = fieldsOf(body);
     const recorded = await this.commandBus.execute<

@@ -285,7 +285,8 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     const live = await this.healths.standardAt(search.station);
     const set = await this.sets.find(search.setId);
     const found = await this.findings.findingsOf(search);
-    const scores = scoresOf(search, replays, live.minGain);
+    const outcomes = replays.map((each) => each.outcome());
+    const scores = scoresOf(search, outcomes, live.minGain);
     const picked = scores.candidates.find((each) =>
       each.candidateId.equals(candidate.id),
     );
@@ -335,7 +336,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
         picked?.searchedGain ?? null,
         picked?.heldOutGain ?? null,
       ),
-      heldOutPending: heldOutPendingFor(scores, candidate.id, replays),
+      heldOutPending: heldOutPendingFor(scores, candidate.id, outcomes),
       currency: search.budget.ceiling.currency,
       searchedTasks: search.split.searchedTasks,
       heldOutTasks: search.split.heldOutTasks,
@@ -381,8 +382,7 @@ export class OpenConfigPullRequests implements PendingJobsPort {
     const rowsOf = (replay: Replay | null, runs: readonly RunId[]) =>
       replay
         ? taskRowsOf(
-            taskComparisons(replay, seed, runs),
-            { candidate: replay.scoring, live: seed?.scoring ?? null },
+            taskComparisons(replay.outcome(), seed?.outcome() ?? null, runs),
             titles,
           )
         : [];

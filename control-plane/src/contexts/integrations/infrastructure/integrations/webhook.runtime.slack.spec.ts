@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import { unscoped } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import {
   compileIntegration,
   type ReadableIntegration,
@@ -11,7 +12,6 @@ import {
   signingFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import { dottedOf } from '@shared-kernel/domain/value-objects/field-path.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';

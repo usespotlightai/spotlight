@@ -1,3 +1,7 @@
+import {
+  scopedTo,
+  unscoped,
+} from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import { noFiles } from '@integrations/application/ports/notice-file-reader.fake-spec';
@@ -27,10 +31,6 @@ import {
 } from '@integrations/integrations.mcp.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import {
-  scopedTo,
-  unscoped,
-} from '@platform/outbound/outbound-scope.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';

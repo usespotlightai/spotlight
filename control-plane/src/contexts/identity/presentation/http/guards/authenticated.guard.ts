@@ -29,7 +29,7 @@ import {
   REQUEST_USER,
   type RequestWithUser,
 } from '@platform/http/decorators/current-user.decorator';
-import { RUNNER_ONLY } from '@platform/http/decorators/runner-only.decorator';
+import { MACHINE_ONLY } from '@platform/http/decorators/machine-only.decorator';
 import type { RequestHeaders } from '@platform/http/request-headers';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -66,7 +66,7 @@ export class AuthenticatedGuard implements CanActivate {
       return true;
     }
 
-    if (marked(ALLOW_ANONYMOUS) || marked(RUNNER_ONLY)) {
+    if (marked(ALLOW_ANONYMOUS) || marked(MACHINE_ONLY)) {
       return true;
     }
 

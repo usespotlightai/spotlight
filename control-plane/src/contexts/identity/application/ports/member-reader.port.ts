@@ -1,4 +1,4 @@
-import type { PersonSummary } from '@identity/application/ports/person-reader.port';
+import type { PersonRef } from '@identity/application/read-models/person-ref';
 import type { TeamRef } from '@identity/application/read-models/team-ref';
 import type { WorkspaceRoleName } from '@identity/domain/value-objects/workspace-role.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -6,11 +6,11 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const MEMBER_READER = Symbol('MEMBER_READER');
 
-export interface TeamMemberSummary extends PersonSummary {
+export interface TeamMemberSummary extends PersonRef {
   readonly role: WorkspaceRoleName;
 }
 
-export interface WorkspaceMemberSummary extends PersonSummary {
+export interface WorkspaceMemberSummary extends PersonRef {
   readonly email: string;
   readonly role: WorkspaceRoleName;
   readonly teams: readonly TeamRef[];

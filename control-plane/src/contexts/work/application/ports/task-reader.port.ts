@@ -1,4 +1,3 @@
-import type { PersonSummary } from '@identity/application/ports/person-reader.port';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { Page, PageRequest } from '@work/application/dto/page.dto';
@@ -15,6 +14,12 @@ interface TaskReviewSummary {
   readonly conversationId: string;
 }
 
+export interface TaskPersonSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly image: string | null;
+}
+
 export interface TaskSummary {
   readonly id: string;
   readonly stationId: string;
@@ -27,8 +32,8 @@ export interface TaskSummary {
   readonly awaitingReview: TaskReviewSummary | null;
   readonly pullRequest: string | null;
   readonly note: TaskNoteSummary | null;
-  readonly createdBy: PersonSummary | null;
-  readonly assignee: PersonSummary | null;
+  readonly createdBy: TaskPersonSummary | null;
+  readonly assignee: TaskPersonSummary | null;
 }
 
 export type TaskListing =

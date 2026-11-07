@@ -1,6 +1,6 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { bootstrapped } from '@replays/domain/services/bootstrap';
 import { taskSuccessesOf } from '@replays/domain/services/replay-results';
+import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export const DEFAULT_MIN_GAIN = 0.05;
@@ -78,8 +78,8 @@ export const gainEstimateOf = (
 };
 
 export const gainBetween = (
-  candidate: Replay,
-  baseline: Replay,
+  candidate: ReplayOutcome,
+  baseline: ReplayOutcome,
   minGain: number,
   runSubset: readonly RunId[] | null = null,
 ): GainEstimate | null => {

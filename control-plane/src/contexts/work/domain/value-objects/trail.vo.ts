@@ -38,18 +38,16 @@ export class Trail {
     return last && !stillOpen(last) ? last : null;
   }
 
-  get closingPositions(): ReadonlySet<number> {
-    return new Set(
-      conversationsOf(this.notes.map((each) => each.kind)).flatMap((each) =>
-        each.to === null ? [] : [each.to],
-      ),
+  closesAConversationAt(position: NotePosition): boolean {
+    return conversationsOf(this.notes.map((each) => each.kind)).some(
+      (each) => each.to?.equals(position) ?? false,
     );
   }
 
   within(from: NotePosition): readonly TaskNote[] | null {
     const conversation = conversationsOf(
       this.notes.map((each) => each.kind),
-    ).find((each) => each.from === from.value);
+    ).find((each) => each.from.equals(from));
 
     return conversation ? notesIn(conversation, this.notes) : null;
   }

@@ -36,7 +36,7 @@ const trail = (...notes: TaskNote[]) =>
 describe('Trail', () => {
   it('keeps the answer pending while nobody has given one', () => {
     expect(trail(note('passed'), note('asked')).pending).toEqual({
-      from: 1,
+      from: NotePosition.of(1),
       to: null,
     });
     expect(trail(note('asked'), note('answered')).pending).toBeNull();

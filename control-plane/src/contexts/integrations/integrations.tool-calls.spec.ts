@@ -1,3 +1,7 @@
+import {
+  scopedTo,
+  unscoped,
+} from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import { RecordToolOutputHandler } from '@integrations/application/commands/handlers/record-tool-output.handler';
 import type { ToolCallInputs } from '@integrations/application/dto/declared-tool.dto';
@@ -46,10 +50,6 @@ import {
 } from '@integrations/integrations.secrets.fake-spec';
 import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import {
-  scopedTo,
-  unscoped,
-} from '@platform/outbound/outbound-scope.fake-spec';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';

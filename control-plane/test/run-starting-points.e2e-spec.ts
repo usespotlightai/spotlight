@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
-import { claimer } from '@runs/application/ports/run-fixtures.fake-spec';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
-import { orderedFor } from '@runs/domain/aggregates/run.fake-spec';
+import { claimer, orderedFor } from '@runs/domain/aggregates/run.fake-spec';
 import { RestoredArchive } from '@runs/domain/value-objects/restored-archive.vo';
 import { RunSpec } from '@runs/domain/value-objects/run-spec.vo';
 import { StartedCheckout } from '@runs/domain/value-objects/started-checkout.vo';

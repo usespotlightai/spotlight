@@ -429,7 +429,7 @@ export const conversationsAmong = <T extends { kind: TaskNoteKind }>(
   notes: readonly T[],
 ): MarkedConversation<T>[] =>
   conversationsOf(notes.map((each) => each.kind)).flatMap((conversation) => {
-    const from = notes[conversation.from];
+    const from = conversation.from.noteIn(notes);
 
     return from
       ? [
@@ -438,7 +438,7 @@ export const conversationsAmong = <T extends { kind: TaskNoteKind }>(
             to:
               conversation.to === null
                 ? null
-                : (notes[conversation.to] ?? null),
+                : (conversation.to.noteIn(notes) ?? null),
             notes: notesIn(conversation, notes),
           },
         ]
@@ -503,7 +503,7 @@ export const awaitedReviewsFor = async (
 
   for (const [taskId, trail] of trails) {
     const pending = pendingIn(trail);
-    const from = pending ? trail[pending.from] : undefined;
+    const from = pending?.from.noteIn(trail);
 
     if (from) {
       awaited.set(
@@ -565,7 +565,7 @@ export const reviewsBy = async (
         state: reviewed.state,
         conversationId: ConversationId.of({
           taskId: TaskId.of(taskId),
-          from: reviewed.from,
+          from: reviewed.from.value,
         }).value,
       });
     }

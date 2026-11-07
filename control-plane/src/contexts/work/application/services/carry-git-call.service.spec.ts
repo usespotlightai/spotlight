@@ -3,8 +3,7 @@ import type {
   RepositoryGitPort,
 } from '@github/application/ports/repository-git.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
-import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
-import { claimer, Run } from '@runs/application/ports/run-fixtures.fake-spec';
+import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
@@ -20,12 +19,13 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import { runLeasesOver } from '@work/application/ports/runs.fake-spec';
 import { CarryGitCall } from '@work/application/services/carry-git-call.service';
 import {
   aChatDispatch,
-  aRunFor,
   aTaskDispatch,
   dispatchesOf,
+  leasedRunFor,
   type RunRequested,
   runWorksOver,
 } from '@work/application/services/run-works.fake-spec';
@@ -118,25 +118,26 @@ const lineWorking = (repositories: readonly string[]): LineMap => {
 };
 
 interface Claimed {
-  readonly run: Run;
+  readonly run: LeasedRunFacts;
   readonly requested: RunRequested;
 }
 
 const RUN = RunId.of('run_1');
 
 const enqueued = (requested: RunRequested = 'task'): Claimed => ({
-  run: aRunFor(RUN, 'dev', requested),
+  run: leasedRunFor(RUN, 'dev', requested, { state: 'queued' }),
   requested,
 });
 
 const claimedBy = (
   runner: string,
   requested: RunRequested = 'task',
-): Claimed => {
-  const { run } = enqueued(requested);
-
-  return { run: run.claim(claimer(RunnerId.of(runner)), NOW), requested };
-};
+): Claimed => ({
+  run: leasedRunFor(RUN, 'dev', requested, {
+    claimedBy: RunnerId.of(runner),
+  }),
+  requested,
+});
 
 const TRIAL = Dispatch.trialOrdered({
   order: trialOrderOf(RUN),
@@ -198,9 +199,7 @@ const carrying = (
 
   const service = new CarryGitCall(
     runWorksOver(
-      {
-        findById: vi.fn(async () => claimed?.run ?? null),
-      } as unknown as RunRepository,
+      runLeasesOver(() => claimed?.run ?? null),
       { find: vi.fn(async () => existing) } as unknown as TaskRepository,
       { find: vi.fn(async () => chat()) } as unknown as ChatRepository,
       {

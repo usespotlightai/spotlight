@@ -85,8 +85,6 @@ export const personRulesFrom = (
 ): PersonToolRules =>
   new PersonToolRules(policies, {
     find: async (id) =>
-      names[id.value]
-        ? { id: id.value, name: names[id.value] ?? '', image: null }
-        : null,
+      names[id.value] ? { id, name: names[id.value] ?? '', image: null } : null,
     findMany: async () => new Map(),
   });

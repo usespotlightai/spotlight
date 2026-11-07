@@ -1,16 +1,25 @@
 import type {
+  LeasedRunFacts,
+  RunLeasesPort,
+} from '@runs/application/ports/run-leases.port';
+import type {
   RunTurnsPort,
   TurnFacts,
 } from '@runs/application/ports/run-turns.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import {
   RUN_ENDED,
   type RunEndedIntegrationEvent,
   type RunRequesterPublished,
 } from '@shared-kernel/application/integration-events/run-ended.integration-event';
+import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
+import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { WorkRequesters } from '@work/application/services/work-requesters';
 import { type Mocked, vi } from 'vitest';
 
 export const requestedBy = {
@@ -186,5 +195,91 @@ export const heldTurn = (held: TurnFacts | null) => {
       current = facts;
     },
     current: () => current,
+  };
+};
+
+const LEASED_AT = new Date('2026-10-02T09:00:00.000Z');
+
+export const leasedRun = (
+  part: Partial<LeasedRunFacts> = {},
+): LeasedRunFacts => ({
+  runId: RunId.of('run_1'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  state: 'claimed',
+  ended: false,
+  attempt: 1,
+  stopRequested: false,
+  turn: null,
+  suspendedAt: null,
+  progress: 'in-progress',
+  resumable: false,
+  claimedBy: RunnerId.of('runner_1'),
+  harness: HarnessId.of('dev'),
+  requester: requestedBy.task(),
+  policy: WorkRequesters.taskPolicy,
+  team: TeamId.of('team_1'),
+  checkouts: [],
+  check: null,
+  setups: new Map(),
+  placement: RunnerPlacement.anywhere(),
+  queuedAt: LEASED_AT,
+  startedAt: LEASED_AT,
+  endedAt: null,
+  started: true,
+  askedAPerson: false,
+  failed: false,
+  exitCode: null,
+  image: null,
+  startedFrom: null,
+  manifest: [],
+  pins: [],
+  ...part,
+});
+
+export class RunNotFound extends ApplicationError {
+  readonly kind = 'not-found' as const;
+}
+
+export class RunNotLeased extends ApplicationError {
+  readonly kind = 'conflict' as const;
+}
+
+const isLeasedBy = (run: LeasedRunFacts, runner: RunnerId): boolean =>
+  run.state === 'claimed' && run.claimedBy.equals(runner);
+
+export const runLeasesOver = (
+  lookedUp: () => LeasedRunFacts | null,
+): RunLeasesPort => {
+  const found = (runId: RunId): LeasedRunFacts | null => {
+    const run = lookedUp();
+
+    return run?.runId.equals(runId) ? run : null;
+  };
+  const leased = (runId: RunId, runner: RunnerId): LeasedRunFacts | null => {
+    const run = found(runId);
+
+    return run && isLeasedBy(run, runner) ? run : null;
+  };
+
+  return {
+    leasedBy: async (runId, runner) => leased(runId, runner),
+    leaseOf: async (runId, runner) => {
+      const run = found(runId);
+
+      if (!run) {
+        throw new RunNotFound(`Run ${runId.value} not found.`);
+      }
+      if (!isLeasedBy(run, runner)) {
+        throw new RunNotLeased(
+          `Run ${runId.value} is not leased by runner ${runner.value}.`,
+        );
+      }
+
+      return run;
+    },
+    isStillOn: async (runId, attempt, runner) =>
+      leased(runId, runner)?.attempt === attempt,
+    claimedBy: async (runId, runner) =>
+      found(runId)?.claimedBy.equals(runner) ?? false,
   };
 };

@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
+import {
+  scopedTo,
+  unscoped,
+} from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
@@ -18,10 +22,6 @@ import { operationsContaining } from '@integrations/integrations.documents.fake-
 import { discoveringNothing } from '@integrations/integrations.mcp.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import {
-  scopedTo,
-  unscoped,
-} from '@platform/outbound/outbound-scope.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';

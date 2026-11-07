@@ -2,7 +2,6 @@ import type { WorkspaceOutboundScopePort } from '@identity/application/ports/wor
 import {
   OutboundBlockedError,
   type OutboundGuard,
-  UNLISTED_FOR_WORKSPACE,
 } from '@platform/outbound/outbound-guard';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type {
@@ -82,8 +81,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
       return {
         outcome: 'not-allowed',
         detail:
-          error instanceof OutboundBlockedError &&
-          error.reason === UNLISTED_FOR_WORKSPACE
+          error instanceof OutboundBlockedError && error.scoped
             ? `This workspace’s outbound allow-list doesn’t include ${call.url.hostname}.`
             : `This deployment’s outbound allow-list doesn’t include ${call.url.hostname}.`,
       };

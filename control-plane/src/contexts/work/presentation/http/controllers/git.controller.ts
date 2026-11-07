@@ -11,8 +11,8 @@ import {
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { ApiExcludeController } from '@nestjs/swagger';
-import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
-import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
+import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
 import { CarryGitCallCommand } from '@work/application/commands/carry-git-call.command';
 import {
   GIT_SERVICES,
@@ -36,7 +36,7 @@ interface Outgoing {
 
 @ApiExcludeController()
 @Controller('git/:runId/:repo')
-@RunnerOnly()
+@MachineOnly()
 export class GitController {
   constructor(private readonly commandBus: CommandBus) {}
 
@@ -45,7 +45,7 @@ export class GitController {
     @Param('runId') runId: string,
     @Param('repo') repo: string,
     @Query('service') service: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Req() request: Incoming,
     @Res() response: Outgoing,
   ): Promise<void> {
@@ -70,7 +70,7 @@ export class GitController {
     @Param('runId') runId: string,
     @Param('repo') repo: string,
     @Param('service') service: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Req() request: Incoming,
     @Res() response: Outgoing,
   ): Promise<void> {

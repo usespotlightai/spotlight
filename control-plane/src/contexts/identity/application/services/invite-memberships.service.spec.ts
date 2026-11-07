@@ -89,7 +89,7 @@ const joining = (
     } as unknown as TeamRepository,
     {
       find: async (id: UserId) =>
-        over.adaLeft ? null : { id: id.value, name: 'Ada', image: null },
+        over.adaLeft ? null : { id, name: 'Ada', image: null },
     } as unknown as PersonReaderPort,
   );
 

@@ -12,8 +12,8 @@ import {
   replaysSubscribers,
 } from '@replays/presentation/events/replays.subscribers';
 import { RUNS_EVENT_MAPPERS } from '@runs/application/integration-events/runs.event-mappers';
-import { claimer } from '@runs/application/ports/run-fixtures.fake-spec';
 import { Run } from '@runs/domain/aggregates/run.aggregate';
+import { claimer } from '@runs/domain/aggregates/run.fake-spec';
 import { ExitCode } from '@runs/domain/value-objects/exit-code.vo';
 import { Handover } from '@runs/domain/value-objects/handover.vo';
 import { HandoverReport } from '@runs/domain/value-objects/handover-report.vo';

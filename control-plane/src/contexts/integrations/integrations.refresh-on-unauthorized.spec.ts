@@ -4,6 +4,7 @@ import type {
   TeamWorkspaceMembership,
   WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
+import { unscoped } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { RecordToolOutputHandler } from '@integrations/application/commands/handlers/record-tool-output.handler';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
@@ -58,7 +59,6 @@ import {
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
-import { unscoped } from '@platform/outbound/outbound-scope.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';

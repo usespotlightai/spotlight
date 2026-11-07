@@ -23,9 +23,9 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
-import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
-import { RecordsRunnerHeartbeat } from '@platform/http/decorators/runner-heartbeat.decorator';
-import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
+import { RecordsMachineHeartbeat } from '@platform/http/decorators/machine-heartbeat.decorator';
+import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
 import {
   AppendRunJournalCommand,
   ClaimRunCommand,
@@ -99,7 +99,7 @@ interface Answerable {
 @ApiUnauthorizedResponse({
   description: 'Missing, no longer valid or wrong runner token',
 })
-@RunnerOnly()
+@MachineOnly()
 @Controller()
 export class RunnerController {
   constructor(
@@ -131,7 +131,7 @@ export class RunnerController {
   }
 
   @Post('runners/claim')
-  @RecordsRunnerHeartbeat()
+  @RecordsMachineHeartbeat()
   @ApiOperation({
     operationId: 'claimRun',
     summary: 'Long-poll for work, answering empty when the queue is',
@@ -142,7 +142,7 @@ export class RunnerController {
   @ApiOkResponse({ type: ClaimedWorkResponseDto })
   @ApiNoContentResponse({ description: 'Nothing queued for this pool' })
   async claim(
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Res({ passthrough: true }) response: Answerable,
   ): Promise<ClaimedWorkResponseDto | undefined> {
     const claimed = await this.commandBus.execute<
@@ -159,7 +159,7 @@ export class RunnerController {
   }
 
   @Post('runs/:runId/lease')
-  @RecordsRunnerHeartbeat()
+  @RecordsMachineHeartbeat()
   @ApiOperation({
     operationId: 'renewLease',
     summary: 'Say the run is still in progress',
@@ -178,7 +178,7 @@ export class RunnerController {
   })
   async renewLease(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<RenewLeaseResponseDto> {
     await this.commandBus.execute(new RenewLeaseCommand(runId, runnerId));
 
@@ -190,7 +190,7 @@ export class RunnerController {
   }
 
   @Post('runs/:runId/change-stack-checks/:stackId/lease')
-  @RecordsRunnerHeartbeat()
+  @RecordsMachineHeartbeat()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'renewCheckLease',
@@ -218,7 +218,7 @@ export class RunnerController {
     @Param('runId') runId: string,
     @Param('stackId') stackId: string,
     @Query('recheck') recheck: string | undefined,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<RenewCheckLeaseResponseDto> {
     const renewal = await this.commandBus.execute<
       RenewCheckLeaseCommand,
@@ -229,7 +229,7 @@ export class RunnerController {
   }
 
   @Post('runs/:runId/image')
-  @RecordsRunnerHeartbeat()
+  @RecordsMachineHeartbeat()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'recordRunImage',
@@ -241,7 +241,7 @@ export class RunnerController {
   @ApiConflictResponse({ description: 'The run is not leased by this runner' })
   async recordImage(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: RecordRunImageRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
@@ -250,7 +250,7 @@ export class RunnerController {
   }
 
   @Post('runs/:runId/starting-point')
-  @RecordsRunnerHeartbeat()
+  @RecordsMachineHeartbeat()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'recordStartingPoint',
@@ -271,7 +271,7 @@ export class RunnerController {
   })
   async recordStartingPoint(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: RecordStartingPointRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
@@ -298,7 +298,7 @@ export class RunnerController {
   @ApiConflictResponse({ description: 'The run is not leased by this runner' })
   async appendEvents(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: AppendRunEventsRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
@@ -318,7 +318,7 @@ export class RunnerController {
   @ApiNoContentResponse({ description: 'Turn reported' })
   async complete(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: CompleteRunRequestDto,
   ): Promise<void> {
     await this.commandBus.execute<CompleteRunCommand, void>(

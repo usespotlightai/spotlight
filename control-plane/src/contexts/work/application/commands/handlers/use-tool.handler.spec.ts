@@ -2,22 +2,17 @@ import type {
   CatalogDenial,
   CatalogDenialReason,
 } from '@catalog/application/contracts/catalog.contract';
-import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
-import {
-  claimer,
-  Run,
-  RunPolicy,
-  RunRequester,
-  RunSpec,
-} from '@runs/application/ports/run-fixtures.fake-spec';
+import type {
+  RunPolicyContract,
+  RunRequesterContract,
+} from '@runs/application/contracts/run-order.contract';
+import type { LeasedRunFacts } from '@runs/application/ports/run-leases.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { LineName } from '@shared-kernel/domain/value-objects/line-name.vo';
-import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
-import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
@@ -42,6 +37,10 @@ import type {
   ToolUsedHookEvent,
 } from '@work/application/ports/lifecycle-hooks.port';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import {
+  leasedRun,
+  runLeasesOver,
+} from '@work/application/ports/runs.fake-spec';
 import type {
   TaskViewDto,
   TaskViewsPort,
@@ -87,7 +86,6 @@ import {
 } from '@work/domain/value-objects/line-map.fake-spec';
 import type { LineMap } from '@work/domain/value-objects/line-map.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
@@ -195,51 +193,44 @@ const describedAs = (tool: string) => {
 
 type Requested = 'task' | 'chat' | 'spec' | 'search';
 
-const REQUESTERS: Readonly<Record<Requested, RunRequester>> = {
-  task: RunRequester.of({
-    ...WorkRequesters.task(
-      TaskId.of('task_1'),
-      TaskRevision.of(0),
-      TeamId.of('team_1'),
-    ),
-    team: TeamId.of('team_1'),
-  }),
-  chat: RunRequester.of({
-    ...WorkRequesters.chat(ChatId.of('chat_1'), TeamId.of('team_1')),
-    team: TeamId.of('team_1'),
-  }),
-  spec: RunRequester.of({
+const REQUESTERS: Readonly<Record<Requested, RunRequesterContract>> = {
+  task: WorkRequesters.task(
+    TaskId.of('task_1'),
+    TaskRevision.of(0),
+    TeamId.of('team_1'),
+  ),
+  chat: WorkRequesters.chat(ChatId.of('chat_1'), TeamId.of('team_1')),
+  spec: {
     owner: 'workspace',
     kind: 'spec',
     id: 'run_1',
+    token: null,
     team: null,
-  }),
-  search: RunRequester.of({
+  },
+  search: {
     owner: 'replays',
     kind: 'search',
     id: 'search_1',
     token: '1',
-    team: TeamId.of('team_1'),
-  }),
+    team: 'team_1',
+  },
 };
 
-const policyFor = (requested: Requested): RunPolicy =>
+const policyFor = (requested: Requested): RunPolicyContract =>
   requested === 'search'
-    ? RunPolicy.of({
+    ? {
         holdsTurn: false,
         gated: false,
         actsBeyondItself: false,
         asks: 'recorded',
         listed: false,
         exclusive: false,
-      })
-    : RunPolicy.of(
-        requested === 'chat'
-          ? WorkRequesters.chatPolicy
-          : requested === 'task'
-            ? WorkRequesters.taskPolicy
-            : { ...WorkRequesters.chatPolicy, exclusive: false },
-      );
+      }
+    : requested === 'chat'
+      ? WorkRequesters.chatPolicy
+      : requested === 'task'
+        ? WorkRequesters.taskPolicy
+        : { ...WorkRequesters.chatPolicy, exclusive: false };
 
 const claimed = (
   enabled: string[] = ['pull-request'],
@@ -247,33 +238,13 @@ const claimed = (
     requested?: Requested;
     catalog?: string[];
   } = {},
-) =>
-  Run.rehydrate({
-    id: RunId.of('run_1'),
-    workspaceId: WorkspaceId.of('ws_1'),
-    harness: HarnessId.of('dev'),
-    priority: RunPriority.normal,
-    state: 'queued',
-    claimedBy: null,
-    leaseExpiresAt: null,
-    outcome: null,
-    attempt: 1,
-    reservation: null,
-    provisioning: Provisioning.none(),
-    version: 0,
-    queuedAt: NOW,
-    createdAt: NOW,
+): LeasedRunFacts =>
+  leasedRun({
     requester: REQUESTERS[over.requested ?? 'task'],
     policy: policyFor(over.requested ?? 'task'),
-    spec: RunSpec.of({
-      command: { executable: 'sh', args: [] },
-      briefing: 'do the thing',
-      handover: { options: [], noteLimit: 4_000 },
-      resume: {},
-      manifest: enabled.map(describedAs),
-      ...(over.catalog ? { catalog: over.catalog } : {}),
-    }),
-  }).claim(claimer(RunnerId.of('runner_1')), NOW);
+    manifest: enabled.map((each) => describedAs(each).name),
+    pins: over.catalog ?? [],
+  });
 
 const LINE = {
   id: 'line_1',
@@ -309,7 +280,7 @@ interface Called {
 }
 
 const using = (
-  run: Run = claimed(),
+  run: LeasedRunFacts = claimed(),
   over: {
     lineAt?: string | null;
     dispatchedAt?: string;
@@ -322,7 +293,7 @@ const using = (
     hooksDown?: boolean;
     afterFails?: boolean;
     recordingFails?: boolean;
-    movedOnTo?: Run;
+    movedOnTo?: LeasedRunFacts;
     missing?: ConnectionMissingDto;
     actingAs?: ToolActingAs;
     personRule?: PersonRule;
@@ -493,29 +464,25 @@ const using = (
   const afterwards = new ToolUsedHooks(taskViews, hooks);
 
   const found = over.movedOnTo ? [run, over.movedOnTo] : [run];
-  const requested = WorkRequesters.decode({
-    ...run.requester,
-    owner: run.requester.owner.value,
-  });
+  const requested = WorkRequesters.decode(run.requester);
   const dispatches = dispatchesOf(
     ...(requested && 'task' in requested
       ? [
           aTaskDispatch(
-            run.id,
+            run.runId,
             requested.task,
             StationId.of(over.dispatchedAt ?? 'station_1'),
           ),
         ]
       : requested
-        ? [aChatDispatch(run.id, requested.chat)]
+        ? [aChatDispatch(run.runId, requested.chat)]
         : []),
   );
   const handler = new UseToolHandler(
     runWorksOver(
-      {
-        findById: async () =>
-          (found.length > 1 ? found.shift() : found[0]) ?? null,
-      } as unknown as RunRepository,
+      runLeasesOver(
+        () => (found.length > 1 ? found.shift() : found[0]) ?? null,
+      ),
       tasks,
       { find: async () => chat() } as unknown as ChatRepository,
       {
@@ -1443,9 +1410,7 @@ describe('UseToolHandler', () => {
     it('calls nothing where the run moved on to another attempt while the hooks were called', async () => {
       const leased = claimed(['linear.comment']);
       const { useTool, called, hooked } = using(leased, {
-        movedOnTo: leased
-          .expireLease(leased.leaseExpiresAt as Date)
-          .claim(claimer(RunnerId.of('runner_1')), NOW),
+        movedOnTo: { ...leased, attempt: 2 },
       });
 
       await expect(

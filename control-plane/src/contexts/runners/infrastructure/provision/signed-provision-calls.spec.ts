@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
+import { scopedTo } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import { OutboundGuard } from '@platform/outbound/outbound-guard';
-import { scopedTo } from '@platform/outbound/outbound-scope.fake-spec';
 import type { ProvisionCall } from '@runners/application/ports/provision-calls.port';
 import { ProvisionSecret } from '@runners/domain/value-objects/provision-secret.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';

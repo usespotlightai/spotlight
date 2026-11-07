@@ -8,8 +8,8 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
-import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
+import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
 import { ProblemResponseDto } from '@platform/http/dto/problem.response.dto';
 import { ApiProblemResponse } from '@platform/http/resources/conventional-api';
 import { ProblemFilter } from '@platform/http/resources/problem.filter';
@@ -24,7 +24,7 @@ import { SearchViewResponseDto } from '@replays/presentation/http/dto/search-vie
 @ApiParam({ name: 'runId', type: String })
 @ApiExtraModels(ProblemResponseDto)
 @UseFilters(ProblemFilter)
-@RunnerOnly()
+@MachineOnly()
 @Controller('runs/:runId/search-view')
 export class RunnerSearchViewController {
   constructor(private readonly queryBus: QueryBus) {}
@@ -42,7 +42,7 @@ export class RunnerSearchViewController {
   )
   async read(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<SearchViewResponseDto> {
     return new SearchViewResponseDto(
       await this.queryBus.execute<ReadSearchViewQuery, SearchViewDto>(

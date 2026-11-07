@@ -106,7 +106,7 @@ const aLine = async () => {
   ) => {
     const closing = new Set(
       conversationsOf(kinds.map((each) => each.kind)).flatMap((each) =>
-        each.to === null ? [] : [each.to],
+        each.to === null ? [] : [each.to.value],
       ),
     );
 

@@ -27,14 +27,14 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { AcceptsLargeBody } from '@platform/http/decorators/accepts-large-body.decorator';
-import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
-import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
+import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
   description: 'Missing, no longer valid or wrong runner token',
 })
-@RunnerOnly()
+@MachineOnly()
 @Controller()
 export class RunnerChangeStackController {
   constructor(private readonly commandBus: CommandBus) {}
@@ -57,7 +57,7 @@ export class RunnerChangeStackController {
   })
   async generateChangeStack(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: GenerateChangeStackRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
@@ -100,7 +100,7 @@ export class RunnerChangeStackController {
     @Param('runId') runId: string,
     @Param('stackId') stackId: string,
     @Query('recheck') recheck: string | undefined,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: RecordChangeStackCheckRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(

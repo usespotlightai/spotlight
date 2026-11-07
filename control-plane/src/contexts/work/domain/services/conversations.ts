@@ -4,6 +4,7 @@ import type {
   TaskNoteKind,
 } from '@work/domain/entities/task-note.entity';
 import { anyUnread, type ReadableNote } from '@work/domain/services/unread';
+import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 
 const OPENS_A_CONVERSATION = 'asked' satisfies TaskNoteKind;
 
@@ -21,8 +22,8 @@ export const TURNING_NOTE_KINDS: readonly TaskNoteKind[] = [
 ];
 
 export interface Conversation {
-  readonly from: number;
-  readonly to: number | null;
+  readonly from: NotePosition;
+  readonly to: NotePosition | null;
 }
 
 export interface ClosingNote {
@@ -46,32 +47,30 @@ export const listedAsOpen = <T>(
   stillOpen(conversation) ? !taskFinished : anyUnread(conversation.notes);
 
 export const reopenable = (
-  from: number,
+  from: NotePosition,
   last: Conversation | null,
   closing: ClosingNote | null,
 ): boolean =>
   last !== null &&
   !stillOpen(last) &&
-  last.from === from &&
+  last.from.equals(from) &&
   closing?.form === 'resolved' &&
   closing.byAPerson;
 
 export const notesIn = <T>(
   conversation: Conversation,
   trail: readonly T[],
-): T[] =>
-  trail.slice(
-    conversation.from,
-    conversation.to === null ? undefined : conversation.to + 1,
-  );
+): T[] => conversation.from.throughIn(trail, conversation.to);
 
 export const conversationsOf = (
   kinds: readonly TaskNoteKind[],
 ): Conversation[] => {
   const cut: Conversation[] = [];
-  let open: number | null = null;
+  let open: NotePosition | null = null;
 
-  kinds.forEach((kind, at) => {
+  kinds.forEach((kind, index) => {
+    const at = NotePosition.of(index);
+
     if (kind === OPENS_A_CONVERSATION && open === null) {
       open = at;
       return;
@@ -98,7 +97,7 @@ export const conversationsOf = (
 export type ReviewState = 'pending' | 'answered';
 
 interface Review {
-  readonly from: number;
+  readonly from: NotePosition;
   readonly state: ReviewState;
 }
 
@@ -121,8 +120,12 @@ const answeredAfter = <T extends { kind: TaskNoteKind }>(
       later.kind === ANSWERS_A_QUESTION || later.kind === CLOSES_A_CONVERSATION,
   );
 
-const containing = (cut: readonly Conversation[], at: number) =>
-  cut.find((each) => each.from <= at && (each.to === null || at <= each.to));
+const containing = (cut: readonly Conversation[], at: NotePosition) =>
+  cut.find(
+    (each) =>
+      each.from.isAtOrBefore(at) &&
+      (each.to === null || at.isAtOrBefore(each.to)),
+  );
 
 export interface RunReview extends Review {
   readonly runId: RunId;
@@ -141,7 +144,7 @@ export const reviewsIn = <
       return;
     }
 
-    const conversation = containing(cut, at);
+    const conversation = containing(cut, NotePosition.of(at));
 
     if (conversation) {
       reviews.set(note.runId.value, {

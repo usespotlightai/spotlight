@@ -38,8 +38,8 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
-import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
-import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
+import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
 
 const text = (value: unknown): string =>
   typeof value === 'string' ? value : '';
@@ -53,7 +53,7 @@ const optional = (value: unknown): string | null =>
 })
 @ApiParam({ name: 'runId', type: String })
 @ApiNotFoundResponse({ description: 'No such run leased by this runner' })
-@RunnerOnly()
+@MachineOnly()
 @Controller('runs/:runId/memories')
 export class RunnerMemoryController {
   constructor(
@@ -78,7 +78,7 @@ export class RunnerMemoryController {
   async recall(
     @Param('runId') runId: string,
     @Body() body: RecallMemoriesRequestDto | undefined,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<TeamMemoryResponseDto[]> {
     const recalled = await this.queryBus.execute<
       RecallMemoriesQuery,
@@ -112,7 +112,7 @@ export class RunnerMemoryController {
   async recallOne(
     @Param('runId') runId: string,
     @Param('handle') handle: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<TeamMemoryDetailResponseDto> {
     const recalled = await this.queryBus.execute<
       RecallMemoryQuery,
@@ -146,7 +146,7 @@ export class RunnerMemoryController {
   async remember(
     @Param('runId') runId: string,
     @Body() body: RememberRequestDto | undefined,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<ProposedMemoryResponseDto> {
     const memoryId = await this.commandBus.execute<RememberCommand, string>(
       new RememberCommand(runId, runnerId, {

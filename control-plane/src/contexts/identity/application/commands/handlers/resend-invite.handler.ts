@@ -76,7 +76,7 @@ export class ResendInviteHandler
           id: team.id.value,
           name: team.name.value,
         })),
-        invitedBy: sender,
+        invitedBy: { ...sender, id: sender.id.value },
         invitedAt: resent.invitedAt.toISOString(),
         expiresAt: resent.expiresAt.toISOString(),
       };

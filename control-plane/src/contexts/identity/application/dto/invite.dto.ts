@@ -1,4 +1,4 @@
-import type { PersonSummary } from '@identity/application/ports/person-reader.port';
+import type { PersonRef } from '@identity/application/read-models/person-ref';
 import type { TeamRef } from '@identity/application/read-models/team-ref';
 import type { InviteStatus } from '@identity/domain/aggregates/workspace-invite.aggregate';
 import type { InvitableRoleName } from '@identity/domain/value-objects/invite-spec.vo';
@@ -19,7 +19,7 @@ export interface WorkspaceInviteDto {
   readonly email: string;
   readonly role: InvitableRoleName;
   readonly teams: readonly TeamRef[];
-  readonly invitedBy: PersonSummary | null;
+  readonly invitedBy: PersonRef | null;
   readonly invitedAt: string;
   readonly expiresAt: string;
 }

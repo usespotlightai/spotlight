@@ -12,7 +12,8 @@ import {
 } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { EntryReason } from '@replays/domain/value-objects/entry-reason';
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
-import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
+import { spendOf } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { ReplayEnding } from '@replays/domain/value-objects/replay-ending';
 import type { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
@@ -223,6 +224,13 @@ export class ReplayEntry {
     return [this.state.generationSpent, this.state.judgingSpent].flatMap(
       (each) => (each ? [each] : []),
     );
+  }
+
+  get spent(): ModelSpent {
+    return spendOf([
+      ModelSpent.of(this.state.measures?.cost ? [this.state.measures.cost] : [], 0),
+      ...this.modelSpends,
+    ]);
   }
 
   get pairing(): EntryPairing | null {

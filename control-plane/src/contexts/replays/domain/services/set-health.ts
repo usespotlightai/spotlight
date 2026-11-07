@@ -1,4 +1,3 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { RateInterval } from '@replays/domain/services/bootstrap';
 import {
@@ -16,6 +15,7 @@ import {
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ChecksState } from '@replays/domain/value-objects/change-checks.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import type { ReplayOutcome } from '@replays/domain/value-objects/replay-outcome.vo';
 import type { ReplayState } from '@replays/domain/value-objects/replay-state';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -134,18 +134,18 @@ export const UNREAD_HEALTH: SetHealth = {
   oracle: null,
 };
 
-const newestFirst = (one: Replay, other: Replay): number =>
+const newestFirst = (one: ReplayOutcome, other: ReplayOutcome): number =>
   (other.endedAt ?? other.startedAt).getTime() -
   (one.endedAt ?? one.startedAt).getTime();
 
 const candidateOf = (
-  replay: Replay,
+  replay: ReplayOutcome,
   candidates: readonly HealthCandidate[],
 ): HealthCandidate | null =>
   candidates.find((each) => each.id.equals(replay.candidateId)) ?? null;
 
 const isWholeLive = (
-  replay: Replay,
+  replay: ReplayOutcome,
   candidates: readonly ScoredCandidate[],
   liveFingerprint: StationFingerprint,
 ): boolean => {
@@ -167,13 +167,13 @@ const VALID_CALIBRATION_STATES: readonly ReplayState[] = [
   'finished',
 ];
 
-const coversSet = (replay: Replay, set: ReplaySet): boolean =>
+const coversSet = (replay: ReplayOutcome, set: ReplaySet): boolean =>
   replay.originals.length === set.runs.length &&
   set.runs.every((run) => replay.originals.some((each) => each.equals(run)));
 
 export const wantsCalibration = (
   set: ReplaySet,
-  replays: readonly Replay[],
+  replays: readonly ReplayOutcome[],
   candidates: readonly ScoredCandidate[],
   liveFingerprint: StationFingerprint,
 ): boolean =>
@@ -186,7 +186,7 @@ export const wantsCalibration = (
       coversSet(each, set),
   );
 
-const saturationOf = (live: readonly Replay[]): SetSaturation | null => {
+const saturationOf = (live: readonly ReplayOutcome[]): SetSaturation | null => {
   for (const replay of live) {
     const totals = totalsOf(replay);
 
@@ -204,7 +204,7 @@ const saturationOf = (live: readonly Replay[]): SetSaturation | null => {
   return null;
 };
 
-const judgeOf = (calibration: Replay): JudgeConsistency | null => {
+const judgeOf = (calibration: ReplayOutcome): JudgeConsistency | null => {
   const requested = calibration.entries.filter(
     (each) => each.secondJudging !== null,
   );
@@ -227,7 +227,7 @@ const judgeOf = (calibration: Replay): JudgeConsistency | null => {
   };
 };
 
-const checksOf = (calibration: Replay): CheckConsistency | null => {
+const checksOf = (calibration: ReplayOutcome): CheckConsistency | null => {
   const requested = calibration.entries.filter((each) => each.recheck !== null);
 
   if (requested.length === 0) {
@@ -255,9 +255,9 @@ const checksOf = (calibration: Replay): CheckConsistency | null => {
 };
 
 const oracleOf = (
-  oracle: Replay,
+  oracle: ReplayOutcome,
   candidate: HealthCandidate,
-  replays: readonly Replay[],
+  replays: readonly ReplayOutcome[],
   minGain: number,
 ): OracleReading => {
   const against = oracle.referenceReplayId
@@ -294,7 +294,7 @@ const oracleOf = (
 };
 
 export const setHealthOf = (
-  replays: readonly Replay[],
+  replays: readonly ReplayOutcome[],
   candidates: readonly HealthCandidate[],
   liveFingerprint: StationFingerprint,
   minGain: number,

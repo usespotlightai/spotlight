@@ -56,7 +56,7 @@ export const openSetupList = (notes: readonly TaskNote[]): TaskNote | null => {
     stillOpen,
   );
 
-  const opened = openConversation ? notes[openConversation.from] : undefined;
+  const opened = openConversation?.from.noteIn(notes);
 
   return opened?.form === 'setup' ? opened : null;
 };

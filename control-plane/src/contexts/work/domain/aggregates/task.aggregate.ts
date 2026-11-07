@@ -795,7 +795,7 @@ export class Task extends EventRecorder {
     const pending = answering ? this.pendingConversation : null;
 
     if (pending && !this.decisionPending) {
-      return this.answer(NotePosition.of(pending.from), newNote);
+      return this.answer(pending.from, newNote);
     }
 
     const withMessage = this.addMessage(newNote, at);
@@ -934,7 +934,7 @@ export class Task extends EventRecorder {
   }
 
   resolveAt(from: NotePosition, newNote: NewNote): Task {
-    if (this.openConversation?.from !== from.value) {
+    if (!this.isWaitingAt(from)) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} is not waiting on anyone at that note.`,
       );
@@ -947,11 +947,11 @@ export class Task extends EventRecorder {
 
   reopenAt(from: NotePosition, newNote: NewNote): Task {
     const last = this.trail.lastClosed;
-    const closing = last?.to != null ? this.notes[last.to] : undefined;
+    const closing = last?.to ? last.to.noteIn(this.notes) : undefined;
 
     if (
       !reopenable(
-        from.value,
+        from,
         last,
         closing
           ? { form: closing.form, byAPerson: closing.voice.isPerson }
@@ -1062,9 +1062,9 @@ export class Task extends EventRecorder {
   }
 
   private acknowledgeNotesAt(at: Date): Task {
-    return this.notes.length === 0
-      ? this
-      : this.acknowledgedUpTo(NotePosition.of(this.notes.length - 1), at);
+    const last = NotePosition.lastIn(this.notes);
+
+    return last ? this.acknowledgedUpTo(last, at) : this;
   }
 
   recordSession(
@@ -1088,7 +1088,7 @@ export class Task extends EventRecorder {
   }
 
   closesAConversationAt(position: NotePosition): boolean {
-    return this.trail.closingPositions.has(position.value);
+    return this.trail.closesAConversationAt(position);
   }
 
   private get trail(): Trail {
@@ -1103,10 +1103,14 @@ export class Task extends EventRecorder {
     return this.trail.open;
   }
 
+  private isWaitingAt(from: NotePosition): boolean {
+    return this.openConversation?.from.equals(from) ?? false;
+  }
+
   get openConversationNote(): TaskNote | null {
     const open = this.trail.open;
 
-    return open ? (this.notes[open.from] ?? null) : null;
+    return open ? (open.from.noteIn(this.notes) ?? null) : null;
   }
 
   showsConversationsTo(viewer: UserId): boolean {
@@ -1172,8 +1176,8 @@ export class Task extends EventRecorder {
   }
 
   private reviewCommentAt(at: NotePosition): ReviewComment {
-    const reviewComment = this.notes[at.value]?.open
-      ? this.notes[at.value]?.reviewComment
+    const reviewComment = at.noteIn(this.notes)?.open
+      ? at.noteIn(this.notes)?.reviewComment
       : null;
 
     if (!reviewComment) {
@@ -1501,7 +1505,7 @@ export class Task extends EventRecorder {
 
     if (this.awaitingReview) {
       const open = this.openConversation;
-      const waiting = open ? this.notes[open.from]?.connectionAsk : null;
+      const waiting = open ? open.from.noteIn(this.notes)?.connectionAsk : null;
 
       return {
         task: this,
@@ -1528,13 +1532,13 @@ export class Task extends EventRecorder {
     on: { readonly line: LineMap | null; readonly at: Date },
   ): Task | null {
     const open = this.openConversation;
-    const ask = open ? this.notes[open.from]?.connectionAsk : null;
+    const ask = open ? open.from.noteIn(this.notes)?.connectionAsk : null;
 
     if (!open || !ask?.answeredBy(teamId, integration, personId)) {
       return null;
     }
 
-    const answered = this.answer(NotePosition.of(open.from), {
+    const answered = this.answer(open.from, {
       line: on.line,
       body: TaskNoteBody.connected(ask.providedBy),
       at: on.at,
@@ -1543,7 +1547,7 @@ export class Task extends EventRecorder {
 
     return answered.with({
       notes: answered.notes.map((note) =>
-        note.position.value === open.from ? note.connectionMet() : note,
+        note.position.equals(open.from) ? note.connectionMet() : note,
       ),
     });
   }
@@ -1570,15 +1574,11 @@ export class Task extends EventRecorder {
     decision: ApprovalDecision | null,
     edits: ApprovalEdits | null,
   ): ToolCall | null {
-    if (
-      this.openConversation?.from !== from.value ||
-      decision !== 'approved' ||
-      !edits
-    ) {
+    if (!this.isWaitingAt(from) || decision !== 'approved' || !edits) {
       return null;
     }
 
-    return this.notes[from.value]?.approval?.changedBy(edits) ?? null;
+    return from.noteIn(this.notes)?.approval?.changedBy(edits) ?? null;
   }
 
   answer(
@@ -1587,7 +1587,7 @@ export class Task extends EventRecorder {
     decision: ApprovalDecision | null = null,
     edits: ApprovalEdits | null = null,
   ): Task {
-    if (this.openConversation?.from !== from.value) {
+    if (!this.isWaitingAt(from)) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} is not waiting on anyone at that note.`,
       );
@@ -1595,7 +1595,7 @@ export class Task extends EventRecorder {
 
     const by = newNote.voice.author;
 
-    if (decision && !this.notes[from.value]?.approval) {
+    if (decision && !from.noteIn(this.notes)?.approval) {
       throw new InvalidApprovalAnswerError(
         `Task ${this.id.value} has nothing waiting for approval at that note.`,
       );
@@ -1649,7 +1649,7 @@ export class Task extends EventRecorder {
           this.lastRun,
           newNote.at,
           decision
-            ? (this.notes[from.value]?.approval?.subject.tool ?? null)
+            ? (from.noteIn(this.notes)?.approval?.subject.tool ?? null)
             : null,
         ),
       );
@@ -1742,7 +1742,7 @@ export class Task extends EventRecorder {
             StationName.unknown(),
           stationId: this.stationId,
           kind,
-          position: NotePosition.of(this.notes.length),
+          position: NotePosition.nextIn(this.notes),
           deferredMove,
         }),
       ],

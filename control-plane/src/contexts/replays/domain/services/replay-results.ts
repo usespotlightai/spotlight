@@ -1,13 +1,14 @@
-import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { ReplayEntry } from '@replays/domain/entities/replay-entry.entity';
 import {
   type RateInterval,
   rateIntervalOf,
 } from '@replays/domain/services/bootstrap';
-import type { Scoring } from '@replays/domain/services/entry-result';
 import type { PairOutcome } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { Money } from '@replays/domain/value-objects/money.vo';
 import type { ReplayEnding } from '@replays/domain/value-objects/replay-ending';
+import type {
+  EntryOutcome,
+  ReplayOutcome,
+} from '@replays/domain/value-objects/replay-outcome.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export interface ReplayTotals {
@@ -35,8 +36,8 @@ export interface EntryComparison {
   readonly original: string;
   readonly taskId: string;
   readonly position: number;
-  readonly candidate: readonly ReplayEntry[];
-  readonly baseline: readonly ReplayEntry[];
+  readonly candidate: readonly EntryOutcome[];
+  readonly baseline: readonly EntryOutcome[];
   readonly candidateSuccess: number | null;
   readonly baselineSuccess: number | null;
   readonly costDelta: number | null;
@@ -99,28 +100,24 @@ const REGRESSED_BY = 0.5;
 const SCORE_EPSILON = 0.01;
 
 const within = (
-  entries: readonly ReplayEntry[],
+  entries: readonly EntryOutcome[],
   runSubset: readonly RunId[] | null,
-): readonly ReplayEntry[] =>
+): readonly EntryOutcome[] =>
   runSubset
     ? entries.filter((each) =>
         runSubset.some((run) => run.equals(each.original)),
       )
     : entries;
 
-const judgedIn = (
-  entries: readonly ReplayEntry[],
-  scoring: Scoring,
-): readonly ReplayEntry[] =>
+const judgedIn = (entries: readonly EntryOutcome[]): readonly EntryOutcome[] =>
   entries.filter(
-    (each) =>
-      each.hasEnded && each.concludedFor(scoring) && each.succeeded !== null,
+    (each) => each.hasEnded && each.concluded && each.succeeded !== null,
   );
 
 export const repeatsByOriginal = (
-  entries: readonly ReplayEntry[],
-): ReadonlyMap<string, readonly ReplayEntry[]> => {
-  const repeats = new Map<string, ReplayEntry[]>();
+  entries: readonly EntryOutcome[],
+): ReadonlyMap<string, readonly EntryOutcome[]> => {
+  const repeats = new Map<string, EntryOutcome[]>();
 
   for (const each of [...entries].sort(
     (one, other) => one.position - other.position,
@@ -134,17 +131,14 @@ export const repeatsByOriginal = (
   return repeats;
 };
 
-const successOf = (
-  repeats: readonly ReplayEntry[],
-  scoring: Scoring,
-): number | null => {
-  const judged = judgedIn(repeats, scoring);
+const successOf = (repeats: readonly EntryOutcome[]): number | null => {
+  const judged = judgedIn(repeats);
 
   return mean(judged.map((each) => (each.succeeded ? 1 : 0)));
 };
 
 export const taskSuccessesOf = (
-  replay: Replay,
+  replay: ReplayOutcome,
   runSubset: readonly RunId[] | null = null,
 ): ReadonlyMap<string, number> => {
   const successes = new Map<string, number>();
@@ -152,7 +146,7 @@ export const taskSuccessesOf = (
   for (const [original, repeats] of repeatsByOriginal(
     within(replay.entries, runSubset),
   )) {
-    const success = successOf(repeats, replay.scoring);
+    const success = successOf(repeats);
 
     if (success !== null) {
       successes.set(original, success);
@@ -163,17 +157,11 @@ export const taskSuccessesOf = (
 };
 
 export const totalsOf = (
-  replay: Replay,
+  replay: ReplayOutcome,
   runSubset: readonly RunId[] | null = null,
 ): ReplayTotals => {
   const entries = within(replay.entries, runSubset);
-  const spend = runSubset
-    ? replay.spendAmong(runSubset)
-    : {
-        spent: replay.spent,
-        spentElsewhere: replay.spentElsewhere,
-        unpricedCalls: replay.unpricedCalls,
-      };
+  const spend = runSubset ? replay.spendAmong(runSubset) : replay.spend;
   const ended = entries.filter((each) => each.hasEnded);
   const measured = ended.flatMap((each) =>
     each.measures ? [each.measures] : [],
@@ -188,8 +176,8 @@ export const totalsOf = (
     }
   }
 
-  const concluded = ended.filter((each) => each.concludedFor(replay.scoring));
-  const judged = judgedIn(entries, replay.scoring);
+  const concluded = ended.filter((each) => each.concluded);
+  const judged = judgedIn(entries);
   const succeeded = judged.filter((each) => each.succeeded).length;
   const perTask = [...taskSuccessesOf(replay, runSubset).values()];
   const interval = rateIntervalOf(perTask, replay.id.value);
@@ -224,8 +212,8 @@ const delta = (
   candidate === null || baseline === null ? null : candidate - baseline;
 
 const meanOver = (
-  repeats: readonly ReplayEntry[],
-  measureOf: (entry: ReplayEntry) => number | null | undefined,
+  repeats: readonly EntryOutcome[],
+  measureOf: (entry: EntryOutcome) => number | null | undefined,
 ): number | null =>
   mean(
     repeats.flatMap((each) => {
@@ -237,18 +225,18 @@ const meanOver = (
 
 const costIn =
   (currency: string) =>
-  (entry: ReplayEntry): number | null => {
+  (entry: EntryOutcome): number | null => {
     const cost = entry.measures?.cost;
 
     return cost && cost.currency === currency ? cost.amount : null;
   };
 
-const verdictsOf = (repeats: readonly ReplayEntry[]) =>
+const verdictsOf = (repeats: readonly EntryOutcome[]) =>
   repeats.flatMap((each) => (each.verdict ? [each.verdict] : []));
 
 const scoresOf = (
-  candidate: { repeats: readonly ReplayEntry[]; rubric: string | null },
-  baseline: { repeats: readonly ReplayEntry[]; rubric: string | null },
+  candidate: { repeats: readonly EntryOutcome[]; rubric: string | null },
+  baseline: { repeats: readonly EntryOutcome[]; rubric: string | null },
 ): ScoreComparison => {
   const ours = verdictsOf(candidate.repeats);
   const theirs = verdictsOf(baseline.repeats);
@@ -288,12 +276,10 @@ const regressedFrom = (
   (scoreDelta !== null && scoreDelta < -SCORE_EPSILON);
 
 export const pairOutcomeOf = (
-  repeats: readonly ReplayEntry[],
+  repeats: readonly EntryOutcome[],
 ): PairOutcome | null => {
   const outcomes = repeats.flatMap((each) => {
-    const verdict = each.pairing?.verdict;
-
-    return verdict ? [verdict.outcome] : [];
+    return each.pair ? [each.pair] : [];
   });
   const wins = outcomes.filter((each) => each === 'win').length;
   const losses = outcomes.filter((each) => each === 'loss').length;
@@ -309,7 +295,7 @@ export const pairOutcomeOf = (
 };
 
 export const pairTallyOf = (
-  replay: Replay,
+  replay: ReplayOutcome,
   runSubset: readonly RunId[] | null = null,
 ): PairTally | null => {
   if (!replay.pairwiseReferenceId) {
@@ -330,11 +316,11 @@ export const pairTallyOf = (
 };
 
 export const taskComparisons = (
-  candidate: Replay,
-  baseline: Replay | null,
+  candidate: ReplayOutcome,
+  baseline: ReplayOutcome | null,
   runSubset: readonly RunId[] | null = null,
 ): readonly EntryComparison[] => {
-  const cost = costIn(candidate.ceiling.currency);
+  const cost = costIn(candidate.currency);
   const against = repeatsByOriginal(baseline?.entries ?? []);
 
   return [...repeatsByOriginal(within(candidate.entries, runSubset))]
@@ -345,7 +331,7 @@ export const taskComparisons = (
         theirs.length > 0 &&
         theirs.every((each) => each.hasEnded);
       const measured = (
-        measureOf: (entry: ReplayEntry) => number | null | undefined,
+        measureOf: (entry: EntryOutcome) => number | null | undefined,
       ): number | null =>
         bothEnded
           ? delta(meanOver(repeats, measureOf), meanOver(theirs, measureOf))
@@ -356,14 +342,12 @@ export const taskComparisons = (
       );
       const concluded =
         bothEnded &&
-        repeats.every((each) => each.concludedFor(candidate.scoring)) &&
+        repeats.every((each) => each.concluded) &&
         baseline !== null &&
-        theirs.every((each) => each.concludedFor(baseline.scoring));
-      const candidateSuccess = successOf(repeats, candidate.scoring);
-      const baselineSuccess = baseline
-        ? successOf(theirs, baseline.scoring)
-        : null;
-      const [first] = repeats as [ReplayEntry];
+        theirs.every((each) => each.concluded);
+      const candidateSuccess = successOf(repeats);
+      const baselineSuccess = baseline ? successOf(theirs) : null;
+      const [first] = repeats as [EntryOutcome];
 
       return {
         original,

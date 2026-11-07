@@ -35,7 +35,13 @@ export class HoldOutSearch {
       }
 
       const heldOutSearch = search.heldOutFrom(
-        scoresOf(search, await this.replays.ofSearch(search.id), minGain),
+        scoresOf(
+          search,
+          (await this.replays.ofSearch(search.id)).map((each) =>
+            each.outcome(),
+          ),
+          minGain,
+        ),
         () => ReplayId.of(this.ids.generate()),
         this.clock.now(),
       );

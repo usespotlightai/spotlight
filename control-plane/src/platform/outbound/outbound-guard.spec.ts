@@ -8,6 +8,8 @@ import { OutboundScope } from '@platform/outbound/outbound-scope';
 import { HostAllowList } from '@shared-kernel/domain/value-objects/host-allow-list.vo';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+const OUTSIDE_SCOPE = 'Host is outside this scope.';
+
 let server: Server;
 let port: number;
 
@@ -95,82 +97,95 @@ describe('OutboundGuard', () => {
     },
   );
 
-  it('refuses a host the workspace in scope does not list, saying whose list it is', () => {
+  it('refuses a host the scope does not list, with the refusal the scope gives', () => {
     expect(() =>
-      OutboundScope.within(HostAllowList.of(['slack.com']), () =>
+      OutboundScope.within(HostAllowList.of(['slack.com']), OUTSIDE_SCOPE, () =>
         guard('').check('https://example.com/'),
       ),
-    ).toThrow("Host is not on the workspace's allowed list.");
+    ).toThrow(OUTSIDE_SCOPE);
   });
 
-  it('calls a host the workspace in scope lists, and any host outside a scope', () => {
+  it('calls a host the scope lists, and any host outside a scope', () => {
     expect(() =>
-      OutboundScope.within(HostAllowList.of(['*.slack.com']), () =>
-        guard('').check('https://files.slack.com/'),
+      OutboundScope.within(
+        HostAllowList.of(['*.slack.com']),
+        OUTSIDE_SCOPE,
+        () => guard('').check('https://files.slack.com/'),
       ),
     ).not.toThrow();
     expect(() => guard('').check('https://example.com/')).not.toThrow();
   });
 
-  it('narrows nothing for a workspace with an empty list', () => {
+  it('narrows nothing for a scope with an empty list', () => {
     expect(() =>
-      OutboundScope.within(HostAllowList.none, () =>
+      OutboundScope.within(HostAllowList.none, OUTSIDE_SCOPE, () =>
         guard('').check('https://example.com/'),
       ),
     ).not.toThrow();
   });
 
-  it('still refuses a host the deployment does not list, whatever the workspace lists', () => {
+  it('still refuses a host the deployment does not list, whatever the scope lists', () => {
     expect(() =>
-      OutboundScope.within(HostAllowList.of(['example.com']), () =>
-        guard('slack.com').check('https://example.com/'),
+      OutboundScope.within(
+        HostAllowList.of(['example.com']),
+        OUTSIDE_SCOPE,
+        () => guard('slack.com').check('https://example.com/'),
       ),
     ).toThrow('Host is not on the allowed list.');
   });
 
   it('keeps every enclosing list when scopes nest', () => {
     expect(() =>
-      OutboundScope.within(HostAllowList.of(['slack.com']), () =>
-        OutboundScope.within(HostAllowList.of(['example.com']), () =>
-          guard('').check('https://example.com/'),
+      OutboundScope.within(HostAllowList.of(['slack.com']), OUTSIDE_SCOPE, () =>
+        OutboundScope.within(
+          HostAllowList.of(['example.com']),
+          OUTSIDE_SCOPE,
+          () => guard('').check('https://example.com/'),
         ),
       ),
     ).toThrow(OutboundBlockedError);
   });
 
-  it('refuses a request fetch makes for a host outside the workspace list, before it connects', async () => {
+  it('refuses a request fetch makes for a host outside the scope list, before it connects', async () => {
     await expect(
-      OutboundScope.within(HostAllowList.of(['slack.com']), () =>
+      OutboundScope.within(HostAllowList.of(['slack.com']), OUTSIDE_SCOPE, () =>
         guard('127.0.0.1', true).fetch(`http://127.0.0.1:${port}/`),
       ),
-    ).rejects.toThrow("Host is not on the workspace's allowed list.");
+    ).rejects.toThrow(OUTSIDE_SCOPE);
   });
 
-  it('refuses a redirect fetch follows to a host outside the workspace list', async () => {
-    const reached = OutboundScope.within(HostAllowList.of(['127.0.0.1']), () =>
-      guard('127.0.0.1,localhost', true).fetch(
-        `http://127.0.0.1:${port}/named`,
-      ),
+  it('refuses a redirect fetch follows to a host outside the scope list', async () => {
+    const reached = OutboundScope.within(
+      HostAllowList.of(['127.0.0.1']),
+      OUTSIDE_SCOPE,
+      () =>
+        guard('127.0.0.1,localhost', true).fetch(
+          `http://127.0.0.1:${port}/named`,
+        ),
     );
 
     await expect(reached).rejects.toMatchObject({
       host: 'localhost',
-      reason: "Host is not on the workspace's allowed list.",
+      reason: OUTSIDE_SCOPE,
     });
   });
 
   it('keeps each of two interleaved scopes to its own list', async () => {
     const checking = (allowed: string, other: string) =>
-      OutboundScope.within(HostAllowList.of([allowed]), async () => {
-        await new Promise((done) => setTimeout(done, 5));
-        const seen = [
-          OutboundScope.allows(allowed),
-          OutboundScope.allows(other),
-        ];
-        await new Promise((done) => setTimeout(done, 1));
+      OutboundScope.within(
+        HostAllowList.of([allowed]),
+        OUTSIDE_SCOPE,
+        async () => {
+          await new Promise((done) => setTimeout(done, 5));
+          const seen = [
+            OutboundScope.allows(allowed),
+            OutboundScope.allows(other),
+          ];
+          await new Promise((done) => setTimeout(done, 1));
 
-        return [...seen, OutboundScope.allows(allowed)];
-      });
+          return [...seen, OutboundScope.allows(allowed)];
+        },
+      );
 
     await expect(
       Promise.all([

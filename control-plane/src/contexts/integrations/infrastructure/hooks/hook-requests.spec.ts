@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
 import { OutboundHostsUnreadError } from '@identity/application/errors/outbound-hosts-unread.error';
+import {
+  scopedTo,
+  unscoped,
+} from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import type { HookRequest } from '@integrations/application/ports/hook-requests.port';
 import type {
@@ -19,10 +23,6 @@ import type { WaitingHookStep } from '@integrations/domain/value-objects/hook-st
 import { HookRequests } from '@integrations/infrastructure/hooks/hook-requests';
 import { unlimited } from '@integrations/infrastructure/outbound/outbound-limits.fake-spec';
 import { allowingOutbound } from '@integrations/infrastructure/outbound/outbound-policy.fake-spec';
-import {
-  scopedTo,
-  unscoped,
-} from '@platform/outbound/outbound-scope.fake-spec';
 import { signatureOf } from '@platform/outbound/standard-webhooks';
 import type { NetworkCallsPort } from '@runs/application/ports/network-calls.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';

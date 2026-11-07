@@ -30,7 +30,7 @@ export class IntegrationTaskViews {
         ? {
             conversationId: ConversationId.of({
               taskId: task.id,
-              from: open.from,
+              from: open.from.value,
             }).value,
             body: asked?.body.value.trim() ?? '',
             awaitsApproval: asked?.approval?.open ?? false,

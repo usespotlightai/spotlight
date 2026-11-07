@@ -1,20 +1,23 @@
-import type { RunRepository } from '@runs/application/ports/run-fixtures.fake-spec';
-import {
-  Run,
-  RunPolicy,
-  RunRequester,
-  RunSpec,
-  Runs,
-  runReadModelOver,
-} from '@runs/application/ports/run-fixtures.fake-spec';
+import type {
+  RunPolicyContract,
+  RunRequesterContract,
+} from '@runs/application/contracts/run-order.contract';
+import type {
+  LeasedRunFacts,
+  RunLeasesPort,
+} from '@runs/application/ports/run-leases.port';
+import type { RunsPort } from '@runs/application/ports/runs.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
-import { Provisioning } from '@shared-kernel/domain/value-objects/provisioning.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import {
+  leasedRun,
+  recordingRuns,
+} from '@work/application/ports/runs.fake-spec';
 import { RunWorks } from '@work/application/services/run-works.service';
 import { Dispatch } from '@work/domain/aggregates/dispatch.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -23,7 +26,6 @@ import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { runOrderOf } from '@work/domain/value-objects/dispatch-order.fake-spec';
 import type { DispatchSubject } from '@work/domain/value-objects/dispatch-subject';
-import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 
 const ORDERED_AT = new Date('2026-09-01T09:00:00.000Z');
@@ -74,65 +76,51 @@ const REQUESTERS: Readonly<
   spec: { owner: 'workspace', kind: 'spec' },
 };
 
-export const aRunFor = (
+const requesterFor = (
+  id: RunId,
+  requested: RunRequested,
+): RunRequesterContract => ({
+  ...REQUESTERS[requested],
+  id: id.value,
+  token: requested === 'task' ? '0' : null,
+  team: null,
+});
+
+const policyFor = (requested: RunRequested): RunPolicyContract => {
+  const isolated = requested === 'trial' || requested === 'search';
+
+  return {
+    holdsTurn: requested === 'task',
+    gated: requested === 'task',
+    actsBeyondItself: !isolated,
+    asks: isolated ? 'recorded' : 'requester',
+    listed: !isolated,
+    exclusive: requested === 'task' || requested === 'chat',
+  };
+};
+
+export const leasedRunFor = (
   id: RunId,
   harness: string,
   requested: RunRequested = 'task',
-): Run => {
-  const isolated = requested === 'trial' || requested === 'search';
-
-  return Run.rehydrate({
-    id,
-    workspaceId: WorkspaceId.of('ws_1'),
+  part: Partial<LeasedRunFacts> = {},
+): LeasedRunFacts =>
+  leasedRun({
+    runId: id,
     harness: HarnessId.of(harness),
-    priority: RunPriority.normal,
-    requester: RunRequester.of({
-      ...REQUESTERS[requested],
-      id: id.value,
-      token: requested === 'task' ? '0' : null,
-      team: null,
-    }),
-    policy: RunPolicy.of({
-      holdsTurn: requested === 'task',
-      gated: requested === 'task',
-      actsBeyondItself: !isolated,
-      asks: isolated ? 'recorded' : 'requester',
-      listed: !isolated,
-      exclusive: requested === 'task' || requested === 'chat',
-    }),
-    spec: RunSpec.of({
-      command: { executable: 'sh', args: [] },
-      briefing: 'do the thing',
-      handover: { options: [], noteLimit: 4_000 },
-      resume: {},
-    }),
-    state: 'queued',
-    claimedBy: null,
-    leaseExpiresAt: null,
-    outcome: null,
-    attempt: 1,
-    reservation: null,
-    provisioning: Provisioning.none(),
-    version: 0,
-    queuedAt: ORDERED_AT,
-    createdAt: ORDERED_AT,
+    requester: requesterFor(id, requested),
+    policy: policyFor(requested),
+    team: null,
+    ...part,
   });
-};
 
 export const runWorksOver = (
-  runs: RunRepository,
+  leases: RunLeasesPort,
   tasks: TaskRepository,
   chats: ChatRepository,
   lines: LineMapsPort,
   dispatches: DispatchRepository,
   clock: ClockPort,
+  runs: RunsPort = recordingRuns(),
 ): RunWorks =>
-  new RunWorks(
-    runReadModelOver(runs),
-    new Runs(runs, { sha256: (text) => text }, clock),
-    tasks,
-    chats,
-    lines,
-    dispatches,
-    clock,
-  );
+  new RunWorks(leases, runs, tasks, chats, lines, dispatches, clock);

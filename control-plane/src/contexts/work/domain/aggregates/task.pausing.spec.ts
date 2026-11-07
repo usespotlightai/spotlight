@@ -168,7 +168,7 @@ describe('a task put to a person by its current run', () => {
 
     expect(again.awaitingReview).toBe(true);
     expect(again.hasCurrentRun(RUN)).toBe(true);
-    expect(again.openConversation?.from).toBe(0);
+    expect(again.openConversation?.from).toEqual(NotePosition.of(0));
   });
 
   it('is left by its run when that run ends while the person is still asked', () => {

@@ -50,6 +50,7 @@ import {
 } from '@work/domain/services/conversations';
 import { anyUnread } from '@work/domain/services/unread';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
+import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { progressOfCurrentRun } from '@work/domain/value-objects/progress';
 import { timeCursorOf } from '@work/infrastructure/persistence/drizzle/readers/page-cursor';
 import {
@@ -294,8 +295,9 @@ interface TaskContext {
 const positionsOf = (
   conversation: MarkedConversation<{ readonly position: number }>,
 ): Conversation => ({
-  from: conversation.from.position,
-  to: conversation.to?.position ?? null,
+  from: NotePosition.of(conversation.from.position),
+  to:
+    conversation.to === null ? null : NotePosition.of(conversation.to.position),
 });
 
 const latestOf = (
@@ -364,7 +366,7 @@ const conversationItem = (
       running: progress !== null,
     }),
     reopenable: reopenable(
-      opening.position,
+      NotePosition.of(opening.position),
       latest,
       closingOf(conversation, lastNote),
     ),

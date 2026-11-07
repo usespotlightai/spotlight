@@ -1,14 +1,6 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
-import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
+import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { HarnessLaunchPort } from '@runs/application/ports/harness-launch.port';
-import type {
-  Run,
-  RunRepository,
-} from '@runs/application/ports/run-fixtures.fake-spec';
-import {
-  HarnessCommand,
-  Runs,
-} from '@runs/application/ports/run-fixtures.fake-spec';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -23,9 +15,11 @@ import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import type { Tool } from '@shared-kernel/domain/value-objects/tool.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
+import { recordingRuns } from '@work/application/ports/runs.fake-spec';
 import type { BriefingContext } from '@work/application/ports/team-memories.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { ChatToolExtensions } from '@work/application/services/chat-tool-extensions.service';
@@ -44,7 +38,7 @@ import {
   stationOf,
 } from '@work/domain/value-objects/line-map.fake-spec';
 import { MessagePosition } from '@work/domain/value-objects/message-position.vo';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-09-23T09:00:00.000Z');
 const API = Repository.of('acme/api');
@@ -92,7 +86,7 @@ const briefedAt: BriefingContext[] = [];
 let memoryFails = false;
 
 interface Ordering {
-  readonly run: Run;
+  readonly run: RunOrderContract;
   readonly ordered: OrderedRun;
 }
 
@@ -106,18 +100,13 @@ const dispatching = (
     handed: readonly MessagePosition[],
   ) => Promise<Ordering | null>;
 } => {
-  const add = vi.fn(async (_run: Run) => {});
-  const runs = { add, findById: async () => null } as unknown as RunRepository;
-  const facade = new Runs(runs, new Sha256ContentHash(), {
-    now: () => NOW,
-    sleep: async () => {},
-  });
+  const runs = recordingRuns();
   const dispatch = new DispatchChat(
     { generate: () => 'id' } as IdGeneratorPort,
     {
       commandFor: () =>
         (over.launches ?? true)
-          ? HarnessCommand.of({ executable: 'claude-agent-acp' })
+          ? { executable: 'claude-agent-acp', args: [] }
           : null,
     } as unknown as HarnessLaunchPort,
     { forChat: () => '00-trace-span-01' } as unknown as TraceParentPort,
@@ -175,9 +164,11 @@ const dispatching = (
         return null;
       }
 
-      await facade.enqueue(ordered.order);
+      await runs.enqueue(ordered.order);
 
-      return { run: add.mock.calls[0]?.[0] as Run, ordered };
+      const [order] = runs.enqueue.mock.calls[0] ?? [];
+
+      return order ? { run: order, ordered } : null;
     },
   };
 };
@@ -194,8 +185,14 @@ const orderedFor = async (chat: Chat): Promise<Ordering> => {
   return ordering;
 };
 
-const enqueued = async (chat: Chat): Promise<Run> =>
+const enqueued = async (chat: Chat): Promise<RunOrderContract> =>
   (await orderedFor(chat)).run;
+
+const enables = (order: RunOrderContract, tool: Tool): boolean =>
+  (order.spec.manifest ?? []).some((each) => each.name === tool.value);
+
+const placementOf = (order: RunOrderContract): RunnerPlacement =>
+  RunnerPlacement.ofLabelGroups(order.placement.labelGroups);
 
 const dispatched = (chat: Chat, runId: RunId) => {
   const assigned = chat.assignRun(runId, NOW);
@@ -213,26 +210,28 @@ describe('DispatchChat', () => {
       ),
     );
 
-    expect(run.spec.injectsSpotlightApi).toBe(true);
-    expect(run.spec.enables(SETUP_PULL_REQUEST)).toBe(true);
+    expect(run.spec.spotlightApi).toBe(true);
+    expect(enables(run, SETUP_PULL_REQUEST)).toBe(true);
   });
 
   it('allows any other chat’s run neither', async () => {
     const run = await enqueued(chatIn([API]));
 
-    expect(run.spec.injectsSpotlightApi).toBe(false);
-    expect(run.spec.enables(SETUP_PULL_REQUEST)).toBe(false);
+    expect(run.spec.spotlightApi).toBeUndefined();
+    expect(enables(run, SETUP_PULL_REQUEST)).toBe(false);
   });
 
   it('places a chat run where the lines working in its repositories run', async () => {
     const run = await enqueued(chatIn([API]));
 
-    expect(run.placement.matches(RunnerOffer.of(['vpc-internal']))).toBe(true);
-    expect(run.placement.matches(RunnerOffer.of(['gpu']))).toBe(false);
+    expect(placementOf(run).matches(RunnerOffer.of(['vpc-internal']))).toBe(
+      true,
+    );
+    expect(placementOf(run).matches(RunnerOffer.of(['gpu']))).toBe(false);
   });
 
   it('places a chat run working in no repository anywhere', async () => {
-    expect((await enqueued(chatIn([]))).placement.isAnywhere).toBe(true);
+    expect(placementOf(await enqueued(chatIn([]))).isAnywhere).toBe(true);
   });
 
   it('briefs a resumed chat with what a run that ended without a session was handed', async () => {
@@ -282,8 +281,8 @@ describe('DispatchChat', () => {
       briefed: [{ id: 'memory_1', handle: 'M-3' }],
       omitted: [{ id: 'memory_2', handle: 'M-4' }],
     });
-    expect(run.spec.value.briefing).not.toContain('M-4');
-    expect(run.spec.value.briefing).toContain('M-3');
+    expect(run.spec.briefing).not.toContain('M-4');
+    expect(run.spec.briefing).toContain('M-3');
   });
 
   it('still starts a chat, told nothing remembered, when memory cannot be read', async () => {
@@ -292,6 +291,6 @@ describe('DispatchChat', () => {
     memoryFails = false;
 
     expect(ordered.briefedMemories.value).toEqual({ briefed: [], omitted: [] });
-    expect(run.spec.value.briefing).not.toContain('What the team has learned');
+    expect(run.spec.briefing).not.toContain('What the team has learned');
   });
 });

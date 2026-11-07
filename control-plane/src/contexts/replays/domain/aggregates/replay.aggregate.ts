@@ -37,6 +37,11 @@ import { OracleReference } from '@replays/domain/value-objects/oracle-reference.
 import { PairingReference } from '@replays/domain/value-objects/pairing-reference.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import {
+  ReplayOutcome,
+  spendOf,
+  spentIn,
+} from '@replays/domain/value-objects/replay-outcome.vo';
+import {
   isValidRepeatCount,
   MAX_REPEATS,
 } from '@replays/domain/value-objects/replay-repeats';
@@ -717,11 +722,68 @@ export class Replay extends EventRecorder {
   }
 
   get spent(): Money {
-    return this.spentIn(this.everySpend);
+    return spentIn(
+      spendOf(this.state.entries.map((each) => each.spent)),
+      this.state.ceiling.currency,
+    );
   }
 
-  get spentElsewhere(): readonly Money[] {
-    return this.spentElsewhereIn(this.everySpend);
+  outcome(): ReplayOutcome {
+    const scoring = this.scoring;
+    const checksOf = (checks: ChangeChecks | null) =>
+      checks && { state: checks.state, pending: checks.pending };
+
+    return ReplayOutcome.of({
+      id: this.state.id,
+      setId: this.state.setId,
+      candidateId: this.state.candidateId,
+      searchId: this.state.searchId,
+      current: this.state.state,
+      startedAt: this.state.startedAt,
+      endedAt: this.state.endedAt,
+      repeats: this.state.repeats,
+      calibration: this.state.calibration,
+      servesAsBaseline: this.servesAsBaseline,
+      healthSampleGroup: this.healthSampleGroup,
+      sampledAt: this.sampledAt,
+      rubricVersion: this.state.rubricVersion,
+      currency: this.state.ceiling.currency,
+      runSubset: this.state.runSubset,
+      referenceReplayId: this.state.referenceReplayId,
+      pairwiseReferenceId: this.state.pairwiseReferenceId,
+      originals: this.originals,
+      entries: this.state.entries.map((each) => ({
+        position: each.position,
+        original: each.original,
+        taskId: each.taskId,
+        repeat: each.repeat,
+        run: each.run,
+        hasEnded: each.hasEnded,
+        ending: each.ending,
+        concluded: each.concludedFor(scoring),
+        succeeded: each.succeeded,
+        reasons: each.reasons,
+        measures: each.measures && {
+          steps: each.measures.steps,
+          ms: each.measures.ms,
+          cost: each.measures.cost,
+        },
+        verdict: each.verdict && {
+          value: each.verdict.value,
+          scale: each.verdict.scale,
+          referenced: each.verdict.referenced,
+        },
+        pair: each.pairing?.verdict?.outcome ?? null,
+        secondJudging: each.secondJudging && {
+          pending: each.secondJudging.pending,
+        },
+        judgeAgreed: each.judgeAgreed,
+        checks: checksOf(each.checks),
+        recheck: checksOf(each.recheck),
+        checksFlipped: each.checksFlipped,
+        spent: each.spent,
+      })),
+    });
   }
 
   get unpricedRate(): Money | null {
@@ -743,7 +805,7 @@ export class Replay extends EventRecorder {
   private chargeOf(spends: readonly ModelSpent[]): Money {
     const rate = this.state.unpricedRate;
     const priced = spends.reduce(
-      (sum, each) => sum.plus(this.spentIn(each)),
+      (sum, each) => sum.plus(spentIn(each, this.state.ceiling.currency)),
       Money.none(this.state.ceiling.currency),
     );
 
@@ -779,60 +841,6 @@ export class Replay extends EventRecorder {
     const spent = this.spent.plus(this.chargeOf(this.secondRoundSpends));
 
     return rate ? spent.plus(rate.scaled(this.unpricedRuns, 1)) : spent;
-  }
-
-  get unpricedCalls(): number {
-    return this.everySpend.unpriced;
-  }
-
-  spendAmong(runSubset: readonly RunId[]): {
-    readonly spent: Money;
-    readonly spentElsewhere: readonly Money[];
-    readonly unpricedCalls: number;
-  } {
-    const spent = this.spendOf(
-      this.state.entries.filter((each) =>
-        runSubset.some((run) => run.equals(each.original)),
-      ),
-    );
-
-    return {
-      spent: this.spentIn(spent),
-      spentElsewhere: this.spentElsewhereIn(spent),
-      unpricedCalls: spent.unpriced,
-    };
-  }
-
-  private spentIn(spent: ModelSpent): Money {
-    const ceiling = this.state.ceiling;
-
-    return (
-      spent.spends.find((each) => each.sameCurrencyAs(ceiling)) ??
-      Money.none(ceiling.currency)
-    );
-  }
-
-  private spentElsewhereIn(spent: ModelSpent): readonly Money[] {
-    return spent.spends
-      .filter((each) => !each.sameCurrencyAs(this.state.ceiling))
-      .sort((one, other) => (one.currency < other.currency ? -1 : 1));
-  }
-
-  private get everySpend(): ModelSpent {
-    return this.spendOf(this.state.entries);
-  }
-
-  private spendOf(entries: readonly ReplayEntry[]): ModelSpent {
-    return entries.reduce(
-      (spent, each) =>
-        each.modelSpends.reduce(
-          (total, model) => total.plus(model),
-          spent.plus(
-            ModelSpent.of(each.measures?.cost ? [each.measures.cost] : [], 0),
-          ),
-        ),
-      ModelSpent.none(),
-    );
   }
 
   get occupying(): readonly ReplayEntry[] {

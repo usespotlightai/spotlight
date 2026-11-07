@@ -236,7 +236,11 @@ export class DispatchSearchIteration {
         return { incumbent: current.incumbent, tasks: current.reflectedOn };
       }
 
-      const failing = failingSearchedTasksOf(search, replays, minGain);
+      const failing = failingSearchedTasksOf(
+        search,
+        replays.map((each) => each.outcome()),
+        minGain,
+      );
       const reflecting = search.reflectingOn(
         current.runId,
         failing.candidateId,

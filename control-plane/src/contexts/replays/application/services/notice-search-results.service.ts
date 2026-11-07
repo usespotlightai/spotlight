@@ -155,7 +155,9 @@ export class NoticeSearchResults {
     pullRequest: ConfigPullRequest,
   ): Promise<PickedResult> {
     const candidate = await this.candidates.find(pullRequest.candidateId);
-    const replays = await this.replays.ofSearch(search.id);
+    const replays = (await this.replays.ofSearch(search.id)).map((each) =>
+      each.outcome(),
+    );
     const live = await this.healths.standardAt(search.station);
     const stationName = await this.stationNameOf(search);
     const scores = scoresOf(search, replays, live.minGain);
@@ -231,7 +233,9 @@ export class NoticeSearchResults {
       readonly result: RequestedResult;
     }[]
   > {
-    const replays = await this.replays.ofSearch(search.id);
+    const replays = (await this.replays.ofSearch(search.id)).map((each) =>
+      each.outcome(),
+    );
     const live = await this.healths.standardAt(search.station);
     const scores = scoresOf(search, replays, live.minGain);
 

@@ -659,7 +659,7 @@ describe('Task, what it is doing', () => {
 
     it('waits for an ending once it has been put to someone', () => {
       expect(added().askedAbout(newNote, null).openConversation).toEqual({
-        from: 0,
+        from: NotePosition.of(0),
         to: null,
       });
     });
@@ -709,7 +709,10 @@ describe('Task, what it is doing', () => {
         .resolveAt(NotePosition.of(0), personNote)
         .reopenAt(NotePosition.of(0), personNote);
 
-      expect(reopened.openConversation).toEqual({ from: 0, to: null });
+      expect(reopened.openConversation).toEqual({
+        from: NotePosition.of(0),
+        to: null,
+      });
       expect(reopened.awaitingReview).toBe(true);
     });
 
@@ -1799,7 +1802,7 @@ describe('Task, a failure reported on it', () => {
         LINE,
       );
 
-    expect(again.openConversation?.from).toBe(0);
+    expect(again.openConversation?.from).toEqual(NotePosition.of(0));
     expect(again.notes.map((each) => each.kind)).toEqual([
       'asked',
       'answered',
@@ -1819,7 +1822,7 @@ describe('Task, a failure reported on it', () => {
       );
 
     expect(failed.notes.map((each) => each.kind)).toEqual(['asked', 'message']);
-    expect(failed.openConversation?.from).toBe(0);
+    expect(failed.openConversation?.from).toEqual(NotePosition.of(0));
   });
 
   it('detaches the run working it when the failure is not that run’s', () => {
@@ -2278,7 +2281,10 @@ describe('Task and the happenings received while it has a current run', () => {
       expect(noted.stationId).toEqual(HERE);
       expect(noted.currentRunId).toEqual(RUN);
       expect(noted.awaitingReview).toBe(true);
-      expect(noted.openConversation).toEqual({ from: 0, to: null });
+      expect(noted.openConversation).toEqual({
+        from: NotePosition.of(0),
+        to: null,
+      });
       expect(noted.deferredMoveTo).toEqual(SPEC);
       expect(noted.pullEvents()).toEqual([]);
     });

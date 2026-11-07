@@ -1,4 +1,8 @@
-import { scopeRecorder } from '@identity/application/ports/workspace-outbound-scope.fake-spec';
+import {
+  scopedTo,
+  scopeRecorder,
+  unscoped,
+} from '@identity/application/ports/workspace-outbound-scope.fake-spec';
 import type { WorkspaceOutboundScopePort } from '@identity/application/ports/workspace-outbound-scope.port';
 import { EgressBlockedError } from '@integrations/application/errors/egress-blocked.error';
 import type {
@@ -31,10 +35,6 @@ import { discoveringNothing } from '@integrations/integrations.mcp.fake-spec';
 import { answerOf } from '@integrations/integrations.tool-answers.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { OutboundScope } from '@platform/outbound/outbound-scope';
-import {
-  scopedTo,
-  unscoped,
-} from '@platform/outbound/outbound-scope.fake-spec';
 import { LineKey } from '@shared-kernel/domain/value-objects/line-key.vo';
 import { StationKey } from '@shared-kernel/domain/value-objects/station-key.vo';
 import { StationName } from '@shared-kernel/domain/value-objects/station-name.vo';

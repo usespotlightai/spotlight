@@ -99,7 +99,7 @@ const resending = (
     new InviteSending(
       {
         find: async (id: UserId) => ({
-          id: id.value,
+          id,
           name: 'Leon',
           image: null,
         }),

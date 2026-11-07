@@ -12,7 +12,10 @@ export const VALID_BASELINE_STATES = [
 
 const VALID: readonly string[] = VALID_BASELINE_STATES;
 
-const newestFirst = (one: Replay, other: Replay): number =>
+const newestFirst = (
+  one: { readonly startedAt: Date },
+  other: { readonly startedAt: Date },
+): number =>
   other.startedAt.getTime() - one.startedAt.getTime();
 
 const covers = (
@@ -23,21 +26,16 @@ const covers = (
   baseline.repeats >= repeats &&
   runs.every((run) => baseline.originals.some((each) => each.equals(run)));
 
-export const servingBaselineOf = (replays: readonly Replay[]): Replay | null =>
+interface BaselineServing {
+  readonly servesAsBaseline: boolean;
+  readonly startedAt: Date;
+}
+
+export const servingBaselineOf = <T extends BaselineServing>(
+  replays: readonly T[],
+): T | null =>
   [...replays].filter((each) => each.servesAsBaseline).sort(newestFirst)[0] ??
   null;
-
-export const comparedAgainst = (
-  replay: Replay,
-  setReplays: readonly Replay[],
-): Replay | null => {
-  const reference = replay.reference;
-  const against = reference
-    ? (setReplays.find((each) => each.id.equals(reference)) ?? null)
-    : servingBaselineOf(setReplays);
-
-  return against && !against.id.equals(replay.id) ? against : null;
-};
 
 export const baselineFor = (
   replays: readonly Replay[],

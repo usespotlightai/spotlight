@@ -21,8 +21,8 @@ import {
   ApiUnauthorizedResponse,
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
-import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
-import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
+import { CurrentMachine } from '@platform/http/decorators/current-machine.decorator';
+import { MachineOnly } from '@platform/http/decorators/machine-only.decorator';
 import {
   CompleteWorkspaceArchiveCommand,
   GrantWorkspaceArchiveCommand,
@@ -46,7 +46,7 @@ interface Answerable {
 @ApiUnauthorizedResponse({
   description: 'Missing, no longer valid or wrong runner token',
 })
-@RunnerOnly()
+@MachineOnly()
 @Controller('runs/:runId/workspace-archive')
 export class WorkspaceArchiveController {
   constructor(
@@ -67,7 +67,7 @@ export class WorkspaceArchiveController {
   @ApiNotFoundResponse({ description: 'Not this runner’s run' })
   async storedArchive(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Res({ passthrough: true }) response: Answerable,
   ): Promise<StoredArchiveResponseDto | undefined> {
     const answer = await this.queryBus.execute<
@@ -103,7 +103,7 @@ export class WorkspaceArchiveController {
   })
   async grant(
     @Param('runId') runId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
     @Body() body: GrantWorkspaceArchiveRequestDto,
   ): Promise<ArchiveGrantResponseDto> {
     const granted = await this.commandBus.execute<
@@ -141,7 +141,7 @@ export class WorkspaceArchiveController {
   async complete(
     @Param('runId') runId: string,
     @Param('archiveId') archiveId: string,
-    @CurrentRunner() runnerId: string,
+    @CurrentMachine() runnerId: string,
   ): Promise<void> {
     const completed = await this.commandBus.execute<
       CompleteWorkspaceArchiveCommand,

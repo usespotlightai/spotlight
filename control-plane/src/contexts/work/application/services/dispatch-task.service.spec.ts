@@ -4,20 +4,13 @@ import type {
 } from '@catalog/application/contracts/catalog.contract';
 import { Sha256ContentHash } from '@platform/hashing/sha256-content-hash';
 import type { HarnessProfileShape } from '@runs/application/contracts/harness-profile.contract';
+import type { RunOrderContract } from '@runs/application/contracts/run-order.contract';
 import type { RunSpecShape } from '@runs/application/contracts/run-spec.contract';
 import { readyProfiles } from '@runs/application/ports/harness-launch.fake-spec';
 import type {
   HarnessLaunchPort,
   SkillsHome,
 } from '@runs/application/ports/harness-launch.port';
-import type {
-  Run,
-  RunRepository,
-} from '@runs/application/ports/run-fixtures.fake-spec';
-import {
-  HarnessCommand,
-  Runs,
-} from '@runs/application/ports/run-fixtures.fake-spec';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import {
   HANDING_OVER,
@@ -47,6 +40,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
 import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.port';
 import type { HarnessCataloguePort } from '@work/application/ports/harness-catalogue.port';
+import { recordingRuns } from '@work/application/ports/runs.fake-spec';
 import type {
   BriefingContext,
   BriefingSelection,
@@ -78,12 +72,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 const NOW = new Date('2026-08-28T12:00:00.000Z');
 
-const written = (run?: Run): RunSpecShape => {
-  if (!run) {
+const written = (order?: RunOrderContract): RunSpecShape => {
+  if (!order) {
     throw new Error('nothing was queued');
   }
-  return run.spec.value;
+  return order.spec;
 };
+
+const refusedAs = (order?: RunOrderContract) =>
+  order?.refusal?.map((each) => each.description) ?? [];
 
 const DEV = { id: HarnessId.of('dev') };
 
@@ -101,11 +98,11 @@ let skillsHome: SkillsHome = {
 
 const commandFor: HarnessLaunchPort['commandFor'] = (id, chosen) =>
   id.equals(DEV.id)
-    ? HarnessCommand.of({
+    ? {
         executable: DEV_EXECUTABLE,
         args: DEV_ARGS,
-        env: chosen.model ? { DEV_MODEL: chosen.model.value } : {},
-      }).started()
+        ...(chosen.model ? { env: { DEV_MODEL: chosen.model.value } } : {}),
+      }
     : null;
 
 const launch: HarnessLaunchPort = {
@@ -193,19 +190,14 @@ const task = (stationId: string, title = 'Fix the queue') =>
     newId: () => 'task_1',
   });
 
-let queued: Run[] = [];
+let queued: RunOrderContract[] = [];
 let ordered: OrderedRun[] = [];
 
-const runs = {
-  add: async (run: Run) => {
-    queued.push(run);
+const runs = recordingRuns({
+  enqueue: async (order) => {
+    queued.push(order);
+    return { outcome: 'enqueued' };
   },
-  findById: async () => null,
-} as unknown as RunRepository;
-
-const facade = new Runs(runs, new Sha256ContentHash(), {
-  now: () => NOW,
-  sleep: async () => {},
 });
 
 const ids: IdGeneratorPort = { generate: () => 'run_1' };
@@ -291,8 +283,8 @@ const teamSkills = {
     ),
 } as unknown as StationSkills;
 
-const enabledTools = (run?: Run) =>
-  (run ? (run.spec.value.manifest ?? []) : []).map((each) => each.name);
+const enabledTools = (order?: RunOrderContract) =>
+  (order?.spec.manifest ?? []).map((each) => each.name);
 
 const tracing = {
   for: (taskId: { value: string }, runId: { value: string }) =>
@@ -383,7 +375,7 @@ const dispatch = async (
 
   if (found) {
     ordered.push(found);
-    await facade.enqueue(found.order);
+    await runs.enqueue(found.order);
   }
 
   return runId;
@@ -430,7 +422,7 @@ describe('DispatchTask', () => {
 
       expect(enabledTools(queued[0])).toEqual(['catalog.web-search']);
       expect(written(queued[0]).catalog).toEqual(['catalog.web-search@1.1.0']);
-      expect(queued[0]?.state).toBe('queued');
+      expect(queued[0]?.refusal).toBeNull();
     });
 
     it('lays a catalog skill in its own folder and enables the tools it uses', async () => {
@@ -473,12 +465,8 @@ describe('DispatchTask', () => {
 
       await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
 
-      expect(queued[0]?.state).toBe('failed');
-      expect(queued[0]?.outcome?.detail).toBe(
+      expect(refusedAs(queued[0])).toEqual([
         'entitlement_expired: catalog.web-search@1.1.0 requires the Team plan, and this workspace’s Team plan expired at 2026-09-01T00:00:00.000Z',
-      );
-      expect(queued[0]?.pullEvents().map((each) => each.kind)).toEqual([
-        'run.ended',
       ]);
     });
   });
@@ -498,7 +486,7 @@ describe('DispatchTask', () => {
 
       await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
 
-      expect(queued[0]?.outcome?.detail).toBe(`${code}: denied here`);
+      expect(refusedAs(queued[0])).toEqual([`${code}: denied here`]);
     });
 
     it('names every refusal, each by its own reason', async () => {
@@ -522,9 +510,10 @@ describe('DispatchTask', () => {
         }),
       );
 
-      expect(queued[0]?.outcome?.detail).toBe(
-        'entitlement_expired: expired here; catalog_item_unknown: unknown here',
-      );
+      expect(refusedAs(queued[0])).toEqual([
+        'entitlement_expired: expired here',
+        'catalog_item_unknown: unknown here',
+      ]);
     });
   });
 
@@ -638,7 +627,7 @@ describe('DispatchTask', () => {
         }),
       ]);
 
-      expect(queued[0]?.placement.image?.value).toBe('ghcr.io/acme/api:1');
+      expect(queued[0]?.placement.image).toBe('ghcr.io/acme/api:1');
       expect(queued[0]?.placement.labelGroups).toEqual([]);
     });
 
@@ -727,10 +716,9 @@ describe('DispatchTask', () => {
       const id = await dispatch(naming('reckless'));
 
       expect(id).not.toBeNull();
-      expect(queued[0]?.state).toBe('failed');
-      expect(queued[0]?.outcome?.detail).toBe(
+      expect(refusedAs(queued[0])).toEqual([
         'harness_profile_unknown: Harness profile reckless is not in this team. Station: Triage',
-      );
+      ]);
       expect(written(queued[0]).harnessSetup).toBeUndefined();
     });
 
@@ -739,7 +727,7 @@ describe('DispatchTask', () => {
 
       expect(written(queued[0]).harnessSetup).toBeUndefined();
       expect(written(queued[0]).injectedSecrets).toBeUndefined();
-      expect(queued[0]?.placement.isAnywhere).toBe(true);
+      expect(queued[0]?.placement).toEqual({ labelGroups: [], image: null });
     });
   });
 
@@ -748,7 +736,7 @@ describe('DispatchTask', () => {
 
     expect(id?.value).toBe('run_1');
     expect(queued).toHaveLength(1);
-    expect(queued[0]?.harness.value).toBe(DEV.id.value);
+    expect(queued[0]?.harness).toBe(DEV.id.value);
   });
 
   it('hands the run what its station enables', async () => {
@@ -780,7 +768,7 @@ describe('DispatchTask', () => {
   it('gives a run the priority of the station it serves', async () => {
     await dispatch(stations[2] as Station);
 
-    expect(queued[0]?.priority.value).toBe(2);
+    expect(queued[0]?.priority).toBe(2);
   });
 
   it('tells the runner what the agent may hand over to', async () => {
@@ -832,7 +820,7 @@ describe('DispatchTask', () => {
 
     await dispatch(station, dispatched);
 
-    const run = queued[0] as Run;
+    const run = queued[0];
 
     expect(ordered[0]?.briefedTask?.equals(dispatched.briefed)).toBe(true);
     expect(ordered[0]?.briefedTask?.title).toBe('Drain the queue');
@@ -851,7 +839,7 @@ describe('DispatchTask', () => {
       if (!run) {
         throw new Error(`nothing was queued at ${at}`);
       }
-      return run.workspaceKey?.value;
+      return run.workspace?.key;
     };
 
     const taskAt = (station: Station) =>
@@ -903,7 +891,7 @@ describe('DispatchTask', () => {
 
       await dispatch(station, taskAt(station));
 
-      expect(written(queued[0] as Run).resume.sessionId).toBe('session_1');
+      expect(written(queued[0]).resume.sessionId).toBe('session_1');
     });
 
     it('requests no conversation when there is nothing to resume', async () => {
@@ -911,7 +899,7 @@ describe('DispatchTask', () => {
 
       await dispatch(station);
 
-      expect(written(queued[0] as Run).resume.sessionId).toBeUndefined();
+      expect(written(queued[0]).resume.sessionId).toBeUndefined();
     });
   });
 });
@@ -1171,8 +1159,8 @@ describe('DispatchTask, the tools a run is told about', () => {
         briefed: [{ id: 'memory_1', handle: 'M-12' }],
         omitted: [{ id: 'memory_2', handle: 'M-13' }],
       });
-      expect(run?.spec.value.briefing).not.toContain('M-13');
-      expect(run?.spec.value.briefing).toContain(
+      expect(run?.spec.briefing).not.toContain('M-13');
+      expect(run?.spec.briefing).toContain(
         '- **M-12** · preference: Name branches after the ticket.',
       );
     });
@@ -1189,9 +1177,7 @@ describe('DispatchTask, the tools a run is told about', () => {
         briefed: [],
         omitted: [],
       });
-      expect(run?.spec.value.briefing).not.toContain(
-        'What the team has learned',
-      );
+      expect(run?.spec.briefing).not.toContain('What the team has learned');
     });
   });
 

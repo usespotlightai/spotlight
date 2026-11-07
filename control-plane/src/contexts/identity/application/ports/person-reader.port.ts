@@ -1,7 +1,7 @@
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 export interface PersonSummary {
-  readonly id: string;
+  readonly id: UserId;
   readonly name: string;
   readonly image: string | null;
 }

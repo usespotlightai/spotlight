@@ -19,7 +19,6 @@ import {
 } from '@replays/domain/replays.fake-spec';
 import {
   baselineFor,
-  comparedAgainst,
   needsBaseline,
   servingBaselineOf,
 } from '@replays/domain/services/baseline';
@@ -165,80 +164,5 @@ describe('baselineFor', () => {
     expect(
       baselineFor([aBaseline('replay_short', 0, 1)], SCORING, runs, 1),
     ).toBeNull();
-  });
-});
-
-describe('comparedAgainst', () => {
-  const finishedLive = (id: string, at: number) =>
-    replayedAs(aBaseline(id, at), () => 'completed');
-
-  const withTheAnswer = (against: Replay) => {
-    const set = aSet(3);
-    const replay = Replay.start({
-      id: ReplayId.of('replay_answer'),
-      set: set.snapshot,
-      candidate: Candidate.oracleOf(live, {
-        id: CandidateId.of('candidate_answer'),
-        at: NOW,
-      }).asReplayed,
-      baseline: false,
-      ceiling: Money.ceiling(10, 'USD'),
-      at: later(1),
-      by: BY,
-      oracle: {
-        answers: set.runs.map((run) => ({ run, answer: 'accepted' as const })),
-        against: against.asOracleReference,
-        live: live.asReplayed,
-      },
-    });
-
-    replay.pullEvents();
-
-    return replay;
-  };
-
-  it('compares a replay with the answer with the live replay that started it, not a newer baseline', () => {
-    const started = finishedLive('replay_live', 0);
-    const answer = withTheAnswer(started);
-    const newer = aBaseline('replay_newer', 2);
-
-    expect(servingBaselineOf([started, answer, newer])?.id.value).toBe(
-      'replay_newer',
-    );
-    expect(comparedAgainst(answer, [started, answer, newer])?.id.value).toBe(
-      'replay_live',
-    );
-  });
-
-  it('compares a replay with the answer with nothing once the live replay that started it is gone', () => {
-    const answer = withTheAnswer(finishedLive('replay_live', 0));
-
-    expect(
-      comparedAgainst(answer, [answer, aBaseline('replay_newer', 2)]),
-    ).toBeNull();
-  });
-
-  it('compares a replay with the replay it pairs with', () => {
-    const paired = aReplay({
-      id: 'replay_paired',
-      pairwiseReferenceId: 'replay_old',
-      at: later(3),
-    });
-    const old = aBaseline('replay_old', 0);
-    const fresh = aBaseline('replay_fresh', 1);
-
-    expect(comparedAgainst(paired, [old, fresh, paired])?.id.value).toBe(
-      'replay_old',
-    );
-  });
-
-  it('compares any other replay with the baseline of its set, and never a replay with itself', () => {
-    const proposed = aReplay({ id: 'replay_proposed', at: later(3) });
-    const fresh = aBaseline('replay_fresh', 1);
-
-    expect(comparedAgainst(proposed, [fresh, proposed])?.id.value).toBe(
-      'replay_fresh',
-    );
-    expect(comparedAgainst(fresh, [fresh])).toBeNull();
   });
 });

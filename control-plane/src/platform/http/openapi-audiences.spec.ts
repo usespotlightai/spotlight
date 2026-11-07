@@ -29,7 +29,7 @@ describe('audienceOf', () => {
       route('/teams/{teamId}/insights/cost', 'workspace-token', 'automation'),
       'automation',
     ],
-    [route('/runs/{runId}/events', 'runner', null, 'post'), 'hosts'],
+    [route('/runs/{runId}/events', 'machine', null, 'post'), 'hosts'],
     [route('/hosts/claim', 'anonymous', 'hosts', 'post'), 'hosts'],
     [route('/hook-callbacks/task', 'anonymous', 'public'), 'public'],
   ])('puts %o in %s', (each, audience) => {
@@ -97,7 +97,7 @@ describe('documentsByAudience', () => {
 
   const routes = [
     route('/v1/resources/lines/{id}', 'workspace-token', 'resources'),
-    route('/runs/{runId}/events', 'runner', null, 'post'),
+    route('/runs/{runId}/events', 'machine', null, 'post'),
   ];
 
   it('keeps the operations, tags and schemas each audience reaches', () => {

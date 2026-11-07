@@ -9,9 +9,9 @@ import {
   type Audience,
   IN_AUDIENCE,
 } from '@platform/http/decorators/in-audience.decorator';
-import { RUNNER_ONLY } from '@platform/http/decorators/runner-only.decorator';
+import { MACHINE_ONLY } from '@platform/http/decorators/machine-only.decorator';
 
-type Credential = 'session' | 'workspace-token' | 'runner' | 'anonymous';
+type Credential = 'session' | 'workspace-token' | 'machine' | 'anonymous';
 
 export interface Route {
   readonly method: string;
@@ -24,17 +24,17 @@ const CREDENTIALS: Readonly<Record<Audience, readonly Credential[]>> = {
   web: ['session', 'anonymous'],
   resources: ['workspace-token', 'anonymous'],
   automation: ['workspace-token'],
-  hosts: ['runner', 'anonymous'],
+  hosts: ['machine', 'anonymous'],
   public: ['anonymous'],
 };
 
 const IMPLIED: Readonly<Partial<Record<Credential, Audience>>> = {
   session: 'web',
-  runner: 'hosts',
+  machine: 'hosts',
 };
 
 const MARKERS: readonly (readonly [symbol, Credential])[] = [
-  [RUNNER_ONLY, 'runner'],
+  [MACHINE_ONLY, 'machine'],
   [ALLOW_ANONYMOUS, 'anonymous'],
   [ALLOW_WORKSPACE_TOKENS, 'workspace-token'],
 ];
