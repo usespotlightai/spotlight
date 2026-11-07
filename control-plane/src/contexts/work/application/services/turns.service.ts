@@ -71,7 +71,7 @@ export class Turns {
       }
     }
 
-    await this.performDueRetakes();
+    await this.performDueRetakes(now);
   }
 
   async resumeAnswered(now: Date): Promise<void> {
@@ -129,10 +129,22 @@ export class Turns {
     await this.retakes.forgetSuspendedBefore(TurnWait.retakesKeptAfter(now));
   }
 
-  private async performDueRetakes(): Promise<void> {
-    for (const retake of await this.retakes.due(PAGE)) {
+  private async performDueRetakes(now: Date): Promise<void> {
+    const due = await this.retakes.leaseDue({
+      now,
+      leasedUntil: TurnWait.retakeLeasedUntil(now),
+      maxTries: TurnWait.RETAKE_TRIES,
+      limit: PAGE,
+    });
+
+    for (const retake of due) {
       if (await this.retaken(retake)) {
         await this.retakes.retaken(retake);
+      } else {
+        await this.retakes.retakeFailed(
+          retake,
+          TurnWait.retakeRetryAt(now, retake.tries),
+        );
       }
     }
   }
@@ -142,10 +154,17 @@ export class Turns {
       await this.taking.take(retake.runId, retake.attempt);
       return true;
     } catch (error) {
-      this.logger.warn(
-        { err: error, runId: retake.runId.value },
-        'The turn of a run could not be decided again; it is tried later',
-      );
+      if (TurnWait.retakesExhausted(retake.tries)) {
+        this.logger.error(
+          { err: error, runId: retake.runId.value, tries: retake.tries },
+          'The turn of a run could not be decided again after every try; an operator must look at it',
+        );
+      } else {
+        this.logger.warn(
+          { err: error, runId: retake.runId.value },
+          'The turn of a run could not be decided again; it is tried later',
+        );
+      }
       return false;
     }
   }

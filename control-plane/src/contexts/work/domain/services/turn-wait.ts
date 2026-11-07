@@ -17,6 +17,10 @@ const GIVES_UP_AT_MS = DAY_MS;
 
 const RETAKES_KEPT_MS = 7 * DAY_MS;
 
+const RETAKE_LEASE_MS = 5 * MINUTE_MS;
+
+const RETAKE_BACK_OFF_MS = MINUTE_MS;
+
 export interface TurnCheck {
   readonly retakes: boolean;
   readonly givesUp: boolean;
@@ -31,6 +35,8 @@ export const TurnWait = {
   ANSWER_GRACE_MS: 45 * MINUTE_MS,
 
   ABANDONED_AFTER_MS: DAY_MS,
+
+  RETAKE_TRIES: 5,
 
   holdsHappening(turn: TurnStatus | null, ageMs: number): boolean {
     return turn === 'pending' && ageMs < TurnWait.TURN_WAIT_MS;
@@ -54,6 +60,18 @@ export const TurnWait = {
           retakes: RETAKES_AT_MS.some((at) => crossed(at, was, age)),
           givesUp: crossed(GIVES_UP_AT_MS, was, age),
         };
+  },
+
+  retakeLeasedUntil(now: Date): Date {
+    return new Date(now.getTime() + RETAKE_LEASE_MS);
+  },
+
+  retakeRetryAt(now: Date, tries: number): Date {
+    return new Date(now.getTime() + RETAKE_BACK_OFF_MS * 2 ** (tries - 1));
+  },
+
+  retakesExhausted(tries: number): boolean {
+    return tries >= TurnWait.RETAKE_TRIES;
   },
 
   answeredResumeUntil(now: Date): Date {

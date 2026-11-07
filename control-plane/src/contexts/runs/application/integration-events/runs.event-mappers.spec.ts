@@ -66,6 +66,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
           true,
           true,
           ENDED_AT,
+          'turn',
         ),
       ),
     ).toEqual([
@@ -212,6 +213,7 @@ describe('RUNS_EVENT_MAPPERS', () => {
           true,
           true,
           ENDED_AT,
+          'turn',
         ),
       ),
     ).toEqual([

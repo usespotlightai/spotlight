@@ -4,6 +4,7 @@ import type {
   DefinedIntegration,
   DefinedIntegrationsPort,
 } from '@integrations/application/ports/defined-integrations.port';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { ConfiguredWebhookProviders } from '@integrations/infrastructure/integrations/configured-webhook-providers';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
@@ -89,8 +90,10 @@ describe('ConfiguredWebhookProviders', () => {
   it('finds one by the name of the integration', async () => {
     const { providers } = configured([defined(linear())]);
 
-    expect((await providers.find(TEAM, 'linear'))?.key).toBe('linear');
-    expect(await providers.find(TEAM, 'sentry')).toBeNull();
+    expect((await providers.find(TEAM, IntegrationKey.of('linear')))?.key).toBe(
+      'linear',
+    );
+    expect(await providers.find(TEAM, IntegrationKey.of('sentry'))).toBeNull();
   });
 
   it('verifies a delivery signed with the secret the workspace has', async () => {
@@ -159,7 +162,7 @@ describe('ConfiguredWebhookProviders', () => {
     const { providers } = configured([]);
 
     expect(await providers.all(TEAM)).toEqual([]);
-    expect(await providers.find(TEAM, 'linear')).toBeNull();
+    expect(await providers.find(TEAM, IntegrationKey.of('linear'))).toBeNull();
   });
 
   it('builds nothing from a definition that will not read', async () => {

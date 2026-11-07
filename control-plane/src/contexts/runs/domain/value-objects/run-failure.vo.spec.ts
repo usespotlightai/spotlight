@@ -40,6 +40,26 @@ describe('RunFailure', () => {
     );
   });
 
+  it('counts attempts for the failures that end repeated attempts, the provisioning ones too (R5-04)', () => {
+    const counting = [
+      'exited',
+      'unprepared',
+      'refused',
+      'unprovisioned',
+      'start-gate-unanswered',
+      'runner-lost',
+      'timed-out',
+      'cancelled',
+    ].filter((code) => RunFailure.of(code).countsAttempts);
+
+    expect(counting).toEqual([
+      'unprovisioned',
+      'start-gate-unanswered',
+      'runner-lost',
+      'timed-out',
+    ]);
+  });
+
   it('rejects a code nobody knows', () => {
     expect(() => RunFailure.of('exploded')).toThrow(InvalidRunOutcomeError);
   });

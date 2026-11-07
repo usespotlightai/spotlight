@@ -2,6 +2,7 @@ import type {
   HappeningDeclaration,
   WebhookProviderPort,
 } from '@integrations/application/ports/webhook-provider.port';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 
 export class WebhookProviders {
   #byKey: ReadonlyMap<string, WebhookProviderPort> | null = null;
@@ -14,8 +15,8 @@ export class WebhookProviders {
     return new WebhookProviders(() => providers);
   }
 
-  find(key: string): WebhookProviderPort | null {
-    return this.byKey.get(key) ?? null;
+  find(key: IntegrationKey): WebhookProviderPort | null {
+    return this.byKey.get(key.value) ?? null;
   }
 
   get all(): readonly WebhookProviderPort[] {

@@ -51,6 +51,7 @@ const turnAged = (
 
 interface StoredRetake extends DueRetake {
   readonly due: boolean;
+  readonly leasedUntil: Date | null;
 }
 
 const turning = (
@@ -100,14 +101,27 @@ const turning = (
           attempt,
           checkedAt: to,
           due: retakes || (was?.due ?? false),
+          tries: retakes ? 0 : (was?.tries ?? 0),
+          leasedUntil: was?.leasedUntil ?? null,
         });
         return true;
       },
-      due: async () => {
+      leaseDue: async ({ now, leasedUntil, maxTries }) => {
         if (over.crashesBeforeRetaking) {
           throw new Error('The process stopped');
         }
-        return [...stored.values()].filter((each) => each.due);
+        const due = [...stored.values()].filter(
+          (each) =>
+            each.due &&
+            each.tries < maxTries &&
+            (each.leasedUntil === null || each.leasedUntil <= now),
+        );
+
+        return due.map((each) => {
+          const leased = { ...each, tries: each.tries + 1, leasedUntil };
+          stored.set(key(each.runId, each.suspendedAt), leased);
+          return leased;
+        });
       },
       retaken: async (retake) => {
         const was = stored.get(key(retake.runId, retake.suspendedAt));
@@ -116,6 +130,17 @@ const turning = (
           stored.set(key(retake.runId, retake.suspendedAt), {
             ...was,
             due: false,
+            leasedUntil: null,
+          });
+        }
+      },
+      retakeFailed: async (retake, retryAt) => {
+        const was = stored.get(key(retake.runId, retake.suspendedAt));
+
+        if (was && was.checkedAt === retake.checkedAt) {
+          stored.set(key(retake.runId, retake.suspendedAt), {
+            ...was,
+            leasedUntil: retryAt,
           });
         }
       },
@@ -170,6 +195,34 @@ describe('Turns', () => {
     await failing.turns.retakePending(new Date(NOW.getTime() + MINUTE));
 
     expect(failing.take).toHaveBeenCalledTimes(2);
+  });
+
+  it('performs a due retake once when two workers tick at the same time (R5-01)', async () => {
+    const retakes = new Map<string, StoredRetake>();
+    const pending = [turnAged(45 * MINUTE + 30_000)];
+    const slow = turning({ turns: pending, retakes });
+    const other = turning({ turns: pending, retakes });
+
+    await slow.turns.retakePending(NOW);
+    await other.turns.retakePending(NOW);
+
+    expect(slow.take.mock.calls.length + other.take.mock.calls.length).toBe(1);
+  });
+
+  it('stops retaking a turn after its last try and says an operator must look at it (R5-01)', async () => {
+    const failing = turning({
+      turns: [turnAged(45 * MINUTE + 30_000)],
+      takeFails: true,
+    });
+
+    for (let tick = 0; tick < 40; tick++) {
+      await failing.turns.retakePending(
+        new Date(NOW.getTime() + tick * MINUTE),
+      );
+    }
+
+    expect(failing.take).toHaveBeenCalledTimes(5);
+    expect(failing.error).toHaveBeenCalledTimes(1);
   });
 
   it('decides a turn again after a stop between its claim and its retake (R4-RW-09)', async () => {

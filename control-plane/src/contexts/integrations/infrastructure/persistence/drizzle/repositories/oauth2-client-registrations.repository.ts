@@ -135,7 +135,7 @@ export class DrizzleOAuth2ClientRegistrations
     return OAuth2ClientRegistration.rehydrate({
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      integration: IntegrationKey.of(row.integration),
+      integration: IntegrationKey.rehydrate(row.integration),
       registrationEndpoint: OAuth2Endpoint.rehydrate(row.registrationEndpoint),
       redirectUri: OAuth2Endpoint.rehydrate(row.redirectUri),
       server:

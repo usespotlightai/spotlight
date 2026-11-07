@@ -20,8 +20,8 @@ const finding = (
   registered: readonly string[],
   declared: readonly string[] = [],
 ) => {
-  const find = vi.fn(async (_team: unknown, key: string) =>
-    declared.includes(key) ? provider(key) : null,
+  const find = vi.fn(async (_team: unknown, key: IntegrationKey) =>
+    declared.includes(key.value) ? provider(key.value) : null,
   );
 
   return {
@@ -109,7 +109,7 @@ describe('ProviderForDelivery', () => {
         expect.objectContaining({
           teamId: expect.objectContaining({ value: 'team_1' }),
         }),
-        'linear',
+        IntegrationKey.of('linear'),
       );
     });
 

@@ -1,5 +1,6 @@
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
 import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import { describe, expect, it } from 'vitest';
 
@@ -31,5 +32,12 @@ describe('IntegrationKey', () => {
     expect(
       IntegrationKey.of('github').equals(IntegrationKey.of('linear')),
     ).toBe(false);
+  });
+
+  it('rehydrates a stored name and fails as inconsistent state for a stored row of a shape it cannot take (R5-08)', () => {
+    expect(IntegrationKey.rehydrate('github').value).toBe('github');
+    expect(() => IntegrationKey.rehydrate('Not A Key')).toThrow(
+      InconsistentStateError,
+    );
   });
 });

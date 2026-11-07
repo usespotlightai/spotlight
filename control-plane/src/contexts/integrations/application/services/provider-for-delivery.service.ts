@@ -18,7 +18,7 @@ export class ProviderForDelivery {
 
   async find(addressed: Addressed): Promise<WebhookProviderPort | null> {
     const { to } = addressed;
-    const builtIn = this.registered.find(addressed.integration.value);
+    const builtIn = this.registered.find(addressed.integration);
     const owner = DeliveryProviders.ownerOf({
       addressedToTeam: to !== null,
       builtIn: builtIn !== null,
@@ -38,7 +38,7 @@ export class ProviderForDelivery {
         teamId: to.teamId,
         teamKey: to.teamKey,
       },
-      addressed.integration.value,
+      addressed.integration,
     );
   }
 }

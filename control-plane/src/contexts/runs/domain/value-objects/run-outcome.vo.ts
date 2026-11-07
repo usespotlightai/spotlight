@@ -3,13 +3,6 @@ import { RunFailure } from '@runs/domain/value-objects/run-failure.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-failure-code';
 
-const COUNTS_ATTEMPTS: readonly RunFailureCode[] = [
-  'unprovisioned',
-  'start-gate-unanswered',
-  'runner-lost',
-  'timed-out',
-];
-
 export class RunOutcome {
   private constructor(
     readonly exitCode: ExitCode,
@@ -27,10 +20,10 @@ export class RunOutcome {
         'counts attempts that are not a positive whole number',
       );
     }
-    if (!failure || !COUNTS_ATTEMPTS.includes(failure.code)) {
+    if (!failure?.countsAttempts) {
       throw new InconsistentStateError(
         'run outcome',
-        'counts attempts for a failure that does not retry',
+        'counts attempts for a failure that is not the end of repeated attempts',
       );
     }
   }

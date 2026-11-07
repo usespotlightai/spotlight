@@ -6,6 +6,7 @@ import type {
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OutboundLimitsPort } from '@integrations/application/ports/outbound-limits.port';
 import type { WebhookProviderPort } from '@integrations/application/ports/webhook-provider.port';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import {
   SpotlightCredentials,
   SpotlightSigningSecrets,
@@ -31,10 +32,13 @@ export class ConfiguredWebhookProviders
     private readonly clock: ClockPort,
   ) {}
 
-  async find(team: OfTeam, key: string): Promise<WebhookProviderPort | null> {
+  async find(
+    team: OfTeam,
+    key: IntegrationKey,
+  ): Promise<WebhookProviderPort | null> {
     const declared = await this.all(team);
 
-    return declared.find((each) => each.key === key) ?? null;
+    return declared.find((each) => each.key === key.value) ?? null;
   }
 
   async all(team: OfTeam): Promise<readonly WebhookProviderPort[]> {

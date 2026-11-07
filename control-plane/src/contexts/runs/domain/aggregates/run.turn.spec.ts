@@ -322,6 +322,7 @@ describe('the turn of a run that holds it', () => {
           false,
           false,
           NOW,
+          'turn',
         ),
       );
     });

@@ -3,11 +3,12 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type {
   DueRetake,
+  DueRetakeLease,
   TurnRetakeClaim,
   TurnRetakesPort,
 } from '@work/application/ports/turn-retakes.port';
 import { turnRetake } from '@work/infrastructure/persistence/drizzle/schemas/turn-retake.schema';
-import { and, asc, eq, lt } from 'drizzle-orm';
+import { and, asc, eq, isNull, lt, lte, or, sql } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleTurnRetakes implements TurnRetakesPort {
@@ -30,7 +31,7 @@ export class DrizzleTurnRetakes implements TurnRetakesPort {
           .set({
             checkedAt: to,
             attempt,
-            ...(retakes ? { retakeDue: true } : {}),
+            ...(retakes ? { retakeDue: true, retakeTries: 0 } : {}),
           })
           .where(
             and(this.turn(runId, suspendedAt), eq(turnRetake.checkedAt, from)),
@@ -51,38 +52,73 @@ export class DrizzleTurnRetakes implements TurnRetakesPort {
     return claimed.length > 0;
   }
 
-  async due(limit: number): Promise<readonly DueRetake[]> {
+  async leaseDue(lease: DueRetakeLease): Promise<readonly DueRetake[]> {
+    const due = this.context.db
+      .select({ runId: turnRetake.runId, suspendedAt: turnRetake.suspendedAt })
+      .from(turnRetake)
+      .where(
+        and(
+          eq(turnRetake.retakeDue, true),
+          lt(turnRetake.retakeTries, lease.maxTries),
+          or(
+            isNull(turnRetake.retakeLeasedUntil),
+            lte(turnRetake.retakeLeasedUntil, lease.now),
+          ),
+        ),
+      )
+      .orderBy(asc(turnRetake.suspendedAt), asc(turnRetake.runId))
+      .limit(lease.limit)
+      .for('update', { skipLocked: true });
+
     const rows = await this.context.db
-      .select({
+      .update(turnRetake)
+      .set({
+        retakeLeasedUntil: lease.leasedUntil,
+        retakeTries: sql`${turnRetake.retakeTries} + 1`,
+      })
+      .where(sql`(${turnRetake.runId}, ${turnRetake.suspendedAt}) in ${due}`)
+      .returning({
         runId: turnRetake.runId,
         suspendedAt: turnRetake.suspendedAt,
         attempt: turnRetake.attempt,
         checkedAt: turnRetake.checkedAt,
-      })
-      .from(turnRetake)
-      .where(eq(turnRetake.retakeDue, true))
-      .orderBy(asc(turnRetake.suspendedAt), asc(turnRetake.runId))
-      .limit(limit);
+        tries: turnRetake.retakeTries,
+      });
 
-    return rows.map((row) => ({ ...row, runId: RunId.of(row.runId) }));
+    return rows
+      .map((row) => ({ ...row, runId: RunId.of(row.runId) }))
+      .sort(
+        (a, b) =>
+          a.suspendedAt.getTime() - b.suspendedAt.getTime() ||
+          a.runId.value.localeCompare(b.runId.value),
+      );
   }
 
   async retaken(retake: DueRetake): Promise<void> {
     await this.context.db
       .update(turnRetake)
-      .set({ retakeDue: false })
-      .where(
-        and(
-          this.turn(retake.runId, retake.suspendedAt),
-          eq(turnRetake.checkedAt, retake.checkedAt),
-        ),
-      );
+      .set({ retakeDue: false, retakeLeasedUntil: null })
+      .where(this.step(retake));
+  }
+
+  async retakeFailed(retake: DueRetake, retryAt: Date): Promise<void> {
+    await this.context.db
+      .update(turnRetake)
+      .set({ retakeLeasedUntil: retryAt })
+      .where(this.step(retake));
   }
 
   async forgetSuspendedBefore(before: Date): Promise<void> {
     await this.context.db
       .delete(turnRetake)
       .where(lt(turnRetake.suspendedAt, before));
+  }
+
+  private step(retake: DueRetake) {
+    return and(
+      this.turn(retake.runId, retake.suspendedAt),
+      eq(turnRetake.checkedAt, retake.checkedAt),
+    );
   }
 
   private turn(runId: RunId, suspendedAt: Date) {

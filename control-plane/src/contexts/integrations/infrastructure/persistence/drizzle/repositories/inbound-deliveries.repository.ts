@@ -46,7 +46,7 @@ const progressOf = (row: Row): InboundDeliveryProgress => {
 
 const toDelivery = (row: Row): InboundDelivery =>
   InboundDelivery.rehydrate({
-    integration: IntegrationKey.of(row.integration),
+    integration: IntegrationKey.rehydrate(row.integration),
     to:
       row.workspaceId !== null && row.teamId !== null && row.teamKey !== null
         ? {

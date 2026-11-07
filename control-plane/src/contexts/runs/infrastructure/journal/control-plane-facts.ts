@@ -17,14 +17,14 @@ const encoded = (value: object): string =>
 
 export const encodedFacts = (entry: ControlPlaneEntry): string => {
   switch (entry.type) {
-    case 'hook.called':
+    case HOOK_CALLED:
       return encoded({
         ...entry.call,
         startedAt: entry.call.startedAt.toISOString(),
       });
-    case 'provision.failed':
+    case PROVISION_FAILED:
       return encoded({ failure: entry.failure, detail: entry.detail });
-    case 'run.paused':
+    case RUN_PAUSED:
       return encoded({ resumesAtOnce: entry.resumesAtOnce });
   }
 };
@@ -75,7 +75,7 @@ const hookCalledOf = (stored: Stored): ControlPlaneFacts | null => {
   }
 
   return {
-    type: 'hook.called',
+    type: HOOK_CALLED,
     call: {
       attempt: stored.attempt,
       hook,
@@ -102,11 +102,11 @@ const readFacts = (type: string, stored: Stored): ControlPlaneFacts | null => {
 
       return failure === null || detail === null
         ? null
-        : { type: 'provision.failed', failure, detail };
+        : { type: PROVISION_FAILED, failure, detail };
     }
     case RUN_PAUSED:
       return typeof stored.resumesAtOnce === 'boolean'
-        ? { type: 'run.paused', resumesAtOnce: stored.resumesAtOnce }
+        ? { type: RUN_PAUSED, resumesAtOnce: stored.resumesAtOnce }
         : null;
     default:
       return null;

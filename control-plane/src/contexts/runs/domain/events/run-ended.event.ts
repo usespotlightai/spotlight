@@ -8,6 +8,14 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
+export type RunEnding =
+  | 'turn'
+  | 'provision-failure'
+  | 'stop'
+  | 'refusal'
+  | 'requeue-limit'
+  | 'cancellation';
+
 export class RunEnded implements DomainEvent {
   readonly kind = 'run.ended';
 
@@ -24,5 +32,6 @@ export class RunEnded implements DomainEvent {
     readonly started: boolean,
     readonly reported: boolean,
     readonly endedAt: Date,
+    readonly endedBy: RunEnding,
   ) {}
 }

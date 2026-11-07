@@ -1,5 +1,6 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
+import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
   CATALOG_INTEGRATION,
@@ -33,6 +34,17 @@ export class IntegrationKey {
     }
 
     return new IntegrationKey(named);
+  }
+
+  static rehydrate(stored: string): IntegrationKey {
+    if (!isIntegrationKey(stored)) {
+      throw new InconsistentStateError(
+        'integration',
+        'was stored in a shape it cannot take',
+      );
+    }
+
+    return new IntegrationKey(stored);
   }
 
   static maybe(raw: string): IntegrationKey | null {

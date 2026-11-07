@@ -1,5 +1,5 @@
 import { RunCancelled } from '@runs/domain/events/run-cancelled.event';
-import { RunEnded } from '@runs/domain/events/run-ended.event';
+import { RunEnded, type RunEnding } from '@runs/domain/events/run-ended.event';
 import { RunExhausted } from '@runs/domain/events/run-exhausted.event';
 import { RunLeaseExpired } from '@runs/domain/events/run-lease-expired.event';
 import { RunPaused } from '@runs/domain/events/run-paused.event';
@@ -693,6 +693,7 @@ export class Run extends EventRecorder {
         this.hasStarted,
         false,
         now,
+        'provision-failure',
       ),
     );
 
@@ -922,6 +923,7 @@ export class Run extends EventRecorder {
         this.hasStarted,
         true,
         now,
+        'turn',
       ),
     );
 
@@ -996,7 +998,11 @@ export class Run extends EventRecorder {
     }
 
     if (this.stopRequested) {
-      return this.endedUnstarted(RunOutcome.stopped(ExitCode.notRun()), now);
+      return this.endedUnstarted(
+        RunOutcome.stopped(ExitCode.notRun()),
+        now,
+        'stop',
+      );
     }
 
     const kept = this.with({ turn: turn.kept() });
@@ -1023,7 +1029,11 @@ export class Run extends EventRecorder {
     }
 
     if (this.stopRequested) {
-      return this.endedUnstarted(RunOutcome.stopped(ExitCode.notRun()), now);
+      return this.endedUnstarted(
+        RunOutcome.stopped(ExitCode.notRun()),
+        now,
+        'stop',
+      );
     }
 
     const resumed = this.with({
@@ -1067,6 +1077,7 @@ export class Run extends EventRecorder {
         this.hasStarted,
         false,
         turn.suspendedAt,
+        'turn',
       ),
     );
 
@@ -1120,6 +1131,7 @@ export class Run extends EventRecorder {
         this.hasStarted,
         false,
         now,
+        'stop',
       ),
     );
 
@@ -1143,6 +1155,7 @@ export class Run extends EventRecorder {
         this.hasStarted,
         false,
         now,
+        'refusal',
       ),
     );
 
@@ -1157,7 +1170,11 @@ export class Run extends EventRecorder {
     this.requireClaimedBy(by, 'requeue');
 
     if (this.stopRequested) {
-      return this.endedUnstarted(RunOutcome.stopped(ExitCode.notRun()), now);
+      return this.endedUnstarted(
+        RunOutcome.stopped(ExitCode.notRun()),
+        now,
+        'stop',
+      );
     }
 
     const requeueCount = this.requeueCount.requeuedAt(now);
@@ -1166,6 +1183,7 @@ export class Run extends EventRecorder {
       return this.endedUnstarted(
         RunOutcome.unanswered(because, requeueCount.count),
         now,
+        'requeue-limit',
       );
     }
 
@@ -1181,7 +1199,11 @@ export class Run extends EventRecorder {
     });
   }
 
-  private endedUnstarted(outcome: RunOutcome, now: Date): Run {
+  private endedUnstarted(
+    outcome: RunOutcome,
+    now: Date,
+    endedBy: RunEnding,
+  ): Run {
     const ended = this.with({
       state: endingIn(outcome),
       claimedBy: null,
@@ -1205,6 +1227,7 @@ export class Run extends EventRecorder {
         this.hasStarted,
         false,
         now,
+        endedBy,
       ),
     );
 
@@ -1217,6 +1240,7 @@ export class Run extends EventRecorder {
     return this.endedUnstarted(
       RunOutcome.refused([{ description: reason }]),
       now,
+      'refusal',
     );
   }
 
@@ -1277,6 +1301,7 @@ export class Run extends EventRecorder {
         this.hasStarted,
         false,
         now,
+        'cancellation',
       ),
     );
 
@@ -1323,7 +1348,11 @@ export class Run extends EventRecorder {
     }
 
     if (this.state === 'suspended') {
-      return this.endedUnstarted(RunOutcome.stopped(ExitCode.notRun()), now);
+      return this.endedUnstarted(
+        RunOutcome.stopped(ExitCode.notRun()),
+        now,
+        'stop',
+      );
     }
 
     if (!isLeased(this.state)) {

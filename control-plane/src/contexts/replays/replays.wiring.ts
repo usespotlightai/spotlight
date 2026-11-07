@@ -361,12 +361,18 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: ReplayRunDispatch,
-    inject: [DrizzleReplayRunDecisionRepository, STATION_TRIALS, RUNS],
+    inject: [
+      DrizzleReplayRunDecisionRepository,
+      DrizzleReplayRepository,
+      STATION_TRIALS,
+      RUNS,
+    ],
     useFactory: (
       decisions: DrizzleReplayRunDecisionRepository,
+      replays: DrizzleReplayRepository,
       trials: StationTrialsPort,
       runs: RunsPort,
-    ) => new ReplayRunDispatch(decisions, trials, runs),
+    ) => new ReplayRunDispatch(decisions, replays, trials, runs),
   },
   {
     provide: SearchRunDispatch,

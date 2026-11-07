@@ -44,7 +44,7 @@ export class DrizzlePollCursors implements PollCursorRepository {
     return rows.map((row) =>
       PollCursor.rehydrate({
         teamId: TeamId.of(row.teamId),
-        integration: IntegrationKey.of(row.integration),
+        integration: IntegrationKey.rehydrate(row.integration),
         cursor: row.cursor,
         polledAt: row.polledAt,
         version: row.version,

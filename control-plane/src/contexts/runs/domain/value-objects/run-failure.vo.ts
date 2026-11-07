@@ -48,6 +48,10 @@ export class RunFailure {
     return RUN_FAILURES[this.code];
   }
 
+  get countsAttempts(): boolean {
+    return this.retry.allowsRetry || this.code === 'unprovisioned';
+  }
+
   get cancelled(): boolean {
     return this.code === 'cancelled';
   }

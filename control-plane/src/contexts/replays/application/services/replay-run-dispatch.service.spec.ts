@@ -15,6 +15,7 @@ import {
   type ReplayRunOrder,
 } from '@replays/application/services/replay-run-dispatch.service';
 import { InMemoryReplayRunDecisions } from '@replays/application/services/replays.fake-spec';
+import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayRunDecision } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import { MovesOnWords } from '@replays/domain/value-objects/moves-on-words.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
@@ -124,12 +125,19 @@ let decisions: InMemoryReplayRunDecisions;
 let trials: FakeTrials;
 let runs: FakeRuns;
 let dispatch: ReplayRunDispatch;
+let replayKept: boolean;
 
 beforeEach(() => {
   decisions = new InMemoryReplayRunDecisions();
   trials = new FakeTrials();
   runs = new FakeRuns();
-  dispatch = new ReplayRunDispatch(decisions, trials, runs);
+  replayKept = true;
+  dispatch = new ReplayRunDispatch(
+    decisions,
+    { find: async () => (replayKept ? ({} as Replay) : null) },
+    trials,
+    runs,
+  );
 });
 
 describe('ReplayRunDispatch', () => {
@@ -168,6 +176,17 @@ describe('ReplayRunDispatch', () => {
       unreplayableReason: 'cannot-start',
     });
     expect(trials.withdrawn).toEqual([RUN.value]);
+  });
+
+  it('keeps no decision and queues nothing for a replay deleted before the dispatch (R5-07)', async () => {
+    replayKept = false;
+
+    expect(await dispatch.dispatch(ORDER)).toEqual({
+      queued: false,
+      unreplayableReason: 'cancelled',
+    });
+    expect(await decisions.find(RUN)).toBeNull();
+    expect(trials.requests).toEqual([]);
   });
 
   it('queues nothing once a cancel decided the run first', async () => {

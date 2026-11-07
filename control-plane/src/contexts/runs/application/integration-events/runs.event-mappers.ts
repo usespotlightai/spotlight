@@ -76,7 +76,7 @@ const requestedRunEnded = (
 export const RUNS_EVENT_MAPPERS = [
   mapping<RunEnded>('run.ended', (event) =>
     requestedRunEnded(event, {
-      endedBy: 'turn',
+      endedBy: event.endedBy,
       outcome: event.outcome.failed ? 'failed' : 'completed',
       failure: event.outcome.failure?.code ?? null,
       exitCode: event.outcome.exitCode.value,

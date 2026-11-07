@@ -9,6 +9,7 @@ import type {
 import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
 import { controlPlaneEntryText } from '@runs/application/rendering/journal-entry.text';
 import type { RunRepository } from '@runs/domain/repositories/run.repository';
+import { HOOK_CALLED } from '@runs/domain/value-objects/journal-entry-type';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export class HookTraces implements HookTracesPort {
@@ -28,7 +29,7 @@ export class HookTraces implements HookTracesPort {
     }
 
     const at = new Date(call.startedAt.getTime() + call.ms);
-    const entry: ControlPlaneEntry = { type: 'hook.called', call, at };
+    const entry: ControlPlaneEntry = { type: HOOK_CALLED, call, at };
 
     const written = await this.journal.appendControlPlaneEntry(attempt, entry);
     this.stream.publish(run.id.value, [

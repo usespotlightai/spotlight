@@ -16,6 +16,14 @@ export interface DueRetake {
   readonly suspendedAt: Date;
   readonly attempt: number;
   readonly checkedAt: Date;
+  readonly tries: number;
+}
+
+export interface DueRetakeLease {
+  readonly now: Date;
+  readonly leasedUntil: Date;
+  readonly maxTries: number;
+  readonly limit: number;
 }
 
 export interface TurnRetakesPort {
@@ -23,9 +31,11 @@ export interface TurnRetakesPort {
 
   claim(claim: TurnRetakeClaim): Promise<boolean>;
 
-  due(limit: number): Promise<readonly DueRetake[]>;
+  leaseDue(lease: DueRetakeLease): Promise<readonly DueRetake[]>;
 
   retaken(retake: DueRetake): Promise<void>;
+
+  retakeFailed(retake: DueRetake, retryAt: Date): Promise<void>;
 
   forgetSuspendedBefore(before: Date): Promise<void>;
 }

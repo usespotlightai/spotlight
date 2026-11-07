@@ -1,6 +1,13 @@
 export const RUN_ENDED = 'runs.run-ended.v1';
 
-export type RunEndedByPublished = 'turn' | 'exhaustion' | 'cancellation';
+export type RunEndedByPublished =
+  | 'turn'
+  | 'provision-failure'
+  | 'stop'
+  | 'refusal'
+  | 'requeue-limit'
+  | 'exhaustion'
+  | 'cancellation';
 
 export type RunOutcomePublished =
   | 'completed'

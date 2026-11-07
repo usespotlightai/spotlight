@@ -220,7 +220,7 @@ export class DrizzleIntegrationConnections
     return IntegrationConnection.rehydrate({
       workspaceId: WorkspaceId.of(row.workspaceId),
       teamId: TeamId.of(row.teamId),
-      integration: IntegrationKey.of(row.integration),
+      integration: IntegrationKey.rehydrate(row.integration),
       owner: ConnectionOwner.fromKey(row.owner),
       accessToken: AccessToken.of(
         await this.decrypted(row, 'access', row.accessToken),

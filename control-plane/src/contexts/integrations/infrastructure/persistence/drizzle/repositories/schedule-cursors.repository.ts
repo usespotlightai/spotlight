@@ -47,7 +47,7 @@ export class DrizzleScheduleCursors implements ScheduleCursorRepository {
     return rows.map((row) =>
       ScheduleCursor.rehydrate({
         teamId: TeamId.of(row.teamId),
-        integration: IntegrationKey.of(row.integration),
+        integration: IntegrationKey.rehydrate(row.integration),
         ranAt: row.ranAt,
         version: row.version,
       }),

@@ -76,7 +76,7 @@ const accepting = (
     handler: new AcceptDeliveryHandler(
       new ProviderForDelivery(WebhookProviders.of(providers), {
         find: async (_team, key) =>
-          configured.find((each) => each.key === key) ?? null,
+          configured.find((each) => each.key === key.value) ?? null,
         all: async () => configured,
       }),
       workspaces,

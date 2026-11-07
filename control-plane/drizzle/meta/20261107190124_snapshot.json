@@ -1,5 +1,5 @@
 {
-  "id": "0774f40d-5af7-43b5-9f6f-d31029451c34",
+  "id": "bbdff92d-0ff1-41da-b651-321f5ae7fa50",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -18244,6 +18244,19 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "retake_tries": {
+          "name": "retake_tries",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "retake_leased_until": {
+          "name": "retake_leased_until",
+          "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},

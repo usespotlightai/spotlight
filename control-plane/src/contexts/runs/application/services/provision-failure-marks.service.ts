@@ -5,6 +5,7 @@ import type {
 import type { RunStreamPort } from '@runs/application/ports/run-stream.port';
 import { controlPlaneEntryText } from '@runs/application/rendering/journal-entry.text';
 import type { RunProvisionFailed } from '@runs/domain/events/run-provision-failed.event';
+import { PROVISION_FAILED } from '@runs/domain/value-objects/journal-entry-type';
 
 export class ProvisionFailureMarks {
   constructor(
@@ -14,7 +15,7 @@ export class ProvisionFailureMarks {
 
   async onProvisionFailed(event: RunProvisionFailed): Promise<void> {
     const entry: ControlPlaneEntry = {
-      type: 'provision.failed',
+      type: PROVISION_FAILED,
       failure: event.failure,
       detail: event.detail,
       at: event.at,

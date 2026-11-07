@@ -29,7 +29,7 @@ export class DrizzleListedServers implements ListedServersPort {
 
     return rows.map((each) => ({
       teamId: TeamId.of(each.teamId),
-      integration: IntegrationKey.of(each.integration),
+      integration: IntegrationKey.rehydrate(each.integration),
     }));
   }
 }

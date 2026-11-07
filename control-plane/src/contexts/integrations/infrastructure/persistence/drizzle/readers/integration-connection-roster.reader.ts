@@ -42,7 +42,7 @@ export class DrizzleIntegrationConnectionRoster
       return personId
         ? [
             {
-              integration: IntegrationKey.of(row.integration),
+              integration: IntegrationKey.rehydrate(row.integration),
               personId,
               linkedAccount: row.linkedAccount,
               connectedAt: row.connectedAt,

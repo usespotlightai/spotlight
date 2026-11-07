@@ -903,6 +903,7 @@ describe('Run', () => {
       expect(completed).toBeInstanceOf(RunEnded);
       expect((completed as RunEnded).outcome.failed).toBe(true);
       expect((completed as RunEnded).claimedBy).toBeNull();
+      expect((completed as RunEnded).endedBy).toBe('refusal');
     });
 
     it('has its start denied only by the runner that claimed it', () => {

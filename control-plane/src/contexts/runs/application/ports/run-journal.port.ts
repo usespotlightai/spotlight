@@ -1,4 +1,9 @@
 import type { HookCallTrace } from '@runs/application/ports/hook-traces.port';
+import type {
+  HOOK_CALLED,
+  PROVISION_FAILED,
+  RUN_PAUSED,
+} from '@runs/domain/value-objects/journal-entry-type';
 import type { RunAttempt } from '@runs/domain/value-objects/run-attempt.vo';
 
 export const RUN_JOURNAL = Symbol('RUN_JOURNAL');
@@ -12,18 +17,18 @@ export interface JournalEntry {
 }
 
 interface HookCalledFacts {
-  readonly type: 'hook.called';
+  readonly type: typeof HOOK_CALLED;
   readonly call: HookCallTrace;
 }
 
 interface ProvisionFailedFacts {
-  readonly type: 'provision.failed';
+  readonly type: typeof PROVISION_FAILED;
   readonly failure: string;
   readonly detail: string;
 }
 
 interface RunPausedFacts {
-  readonly type: 'run.paused';
+  readonly type: typeof RUN_PAUSED;
   readonly resumesAtOnce: boolean;
 }
 

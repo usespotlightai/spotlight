@@ -50,7 +50,7 @@ const rehydrated = (row: Row): IntegrationDefinition =>
   IntegrationDefinition.rehydrate({
     id: IntegrationDefinitionId.of(row.id),
     teamId: TeamId.of(row.teamId),
-    integration: IntegrationKey.of(row.integration),
+    integration: IntegrationKey.rehydrate(row.integration),
     document: DefinitionDocument.of(row.definition),
     tools: row.tools.map((tool) => ToolName.of(tool)),
     reading: readingOf(row),

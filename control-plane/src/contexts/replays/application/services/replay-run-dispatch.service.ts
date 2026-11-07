@@ -5,6 +5,7 @@ import {
   type ReplayRunOwner,
 } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import { ReplayRunDecisionVersionConflictError } from '@replays/domain/exceptions/replay-run-decision-version-conflict.error';
+import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayRunDecisionRepository } from '@replays/domain/repositories/replay-run-decision.repository';
 import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
@@ -84,6 +85,7 @@ const queuedOf = (decision: ReplayRunDecision): CancelledRun => ({
 export class ReplayRunDispatch implements ReplayRunDispatching {
   constructor(
     private readonly decisions: ReplayRunDecisionRepository,
+    private readonly replays: Pick<ReplayRepository, 'find'>,
     private readonly trials: StationTrialsPort,
     private readonly runs: RunsPort,
   ) {}
@@ -92,6 +94,11 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
     const decision = await this.decidedFirst(
       ReplayRunDecision.decidedToQueue(order.run, order.owner),
     );
+
+    if (!(await this.replays.find(order.owner.replayId))) {
+      await this.decisions.save(decision.delete());
+      return CANCELLED;
+    }
 
     if (!decision.mayQueue) {
       return unqueuedOf(decision);

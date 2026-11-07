@@ -2208,6 +2208,8 @@ CREATE TABLE "turn_retake" (
 	"attempt" integer NOT NULL,
 	"checked_at" timestamp (3) with time zone NOT NULL,
 	"retake_due" boolean DEFAULT false NOT NULL,
+	"retake_tries" integer DEFAULT 0 NOT NULL,
+	"retake_leased_until" timestamp (3) with time zone,
 	CONSTRAINT "turn_retake_run_id_suspended_at_pk" PRIMARY KEY("run_id","suspended_at")
 );
 --> statement-breakpoint
