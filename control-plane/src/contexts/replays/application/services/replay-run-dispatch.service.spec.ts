@@ -10,13 +10,19 @@ import type {
   TrialOrdering,
   TrialRequest,
 } from '@replays/application/ports/station-trials.port';
+import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
+import { DeleteReplayRunDecisions } from '@replays/application/services/delete-replay-run-decisions.service';
 import {
   ReplayRunDispatch,
   type ReplayRunOrder,
 } from '@replays/application/services/replay-run-dispatch.service';
-import { InMemoryReplayRunDecisions } from '@replays/application/services/replays.fake-spec';
+import {
+  InMemoryReplayRunDecisions,
+  TRANSACTION,
+} from '@replays/application/services/replays.fake-spec';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayRunDecision } from '@replays/domain/aggregates/replay-run-decision.aggregate';
+import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import { MovesOnWords } from '@replays/domain/value-objects/moves-on-words.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaysRequester } from '@replays/domain/value-objects/replays-requester.vo';
@@ -80,6 +86,7 @@ class FakeRuns implements RunsPort {
   readonly enqueued: ReplayTrialRun[] = [];
   readonly cancelled: string[] = [];
   readonly known = new Set<string>();
+  readonly queuedRuns = new Set<string>();
   enqueueing: RunEnqueueing = { outcome: 'enqueued' };
   queued: QueuedRunCancellation = { outcome: 'cancelled', started: false };
   onEnqueue: () => Promise<void> = async () => {};
@@ -88,6 +95,7 @@ class FakeRuns implements RunsPort {
     this.enqueued.push(run);
     if (this.enqueueing.outcome === 'enqueued') {
       this.known.add(run.run.value);
+      this.queuedRuns.add(run.run.value);
     }
     await this.onEnqueue();
     return this.enqueueing;
@@ -97,11 +105,19 @@ class FakeRuns implements RunsPort {
 
   cancel = async (run: RunId) => {
     this.cancelled.push(run.value);
+    this.queuedRuns.delete(run.value);
     return { known: this.known.has(run.value) };
   };
 
-  cancelIfQueued = async (run: RunId) =>
-    this.known.has(run.value) ? this.queued : ({ outcome: 'unknown' } as const);
+  cancelIfQueued = async (run: RunId) => {
+    if (!this.known.has(run.value)) {
+      return { outcome: 'unknown' } as const;
+    }
+    if (this.queued.outcome === 'cancelled') {
+      this.queuedRuns.delete(run.value);
+    }
+    return this.queued;
+  };
 
   statuses = async (runs: readonly RunId[]): Promise<RunStatus[]> =>
     runs
@@ -224,6 +240,96 @@ describe('ReplayRunDispatch', () => {
     expect(new Set(trials.withdrawn)).toEqual(new Set([RUN.value]));
   });
 
+  describe('a replay deleted while its run is dispatched (R6-01)', () => {
+    const stoppingRuns = async () => {
+      await new CancelReplayRuns(dispatch).stopped(
+        new ReplayDeleted(OWNER.replayId, OWNER.workspaceId, OWNER.teamId, [
+          RUN,
+        ]),
+      );
+    };
+    const deletingDecisions = async () => {
+      await new DeleteReplayRunDecisions(decisions, TRANSACTION).ofReplay(
+        OWNER.replayId,
+      );
+    };
+    const deletions = {
+      'stopping its runs, then deleting its decisions': async () => {
+        replayKept = false;
+        await stoppingRuns();
+        await deletingDecisions();
+      },
+      'deleting its decisions, then stopping its runs': async () => {
+        replayKept = false;
+        await deletingDecisions();
+        await stoppingRuns();
+      },
+      'deleting its decisions only': async () => {
+        replayKept = false;
+        await deletingDecisions();
+      },
+    };
+    const moments = {
+      'before its trial is ordered': (deleting: () => Promise<void>) => {
+        trials.onOrder = deleting;
+      },
+      'between its claim and its enqueue': (deleting: () => Promise<void>) => {
+        runs.onEnqueue = async () => {
+          runs.queuedRuns.delete(RUN.value);
+          runs.known.delete(RUN.value);
+          await deleting();
+          runs.known.add(RUN.value);
+          runs.queuedRuns.add(RUN.value);
+        };
+      },
+      'between its enqueue and the re-check': (
+        deleting: () => Promise<void>,
+      ) => {
+        runs.onEnqueue = deleting;
+      },
+    };
+
+    for (const [moment, at] of Object.entries(moments)) {
+      for (const [deletion, deleting] of Object.entries(deletions)) {
+        it(`leaves no run queued and no decision, and throws nothing, when ${deletion} comes ${moment}`, async () => {
+          at(deleting);
+
+          expect(await dispatch.dispatch(ORDER)).toEqual({
+            queued: false,
+            unreplayableReason: 'cancelled',
+          });
+          expect(runs.queuedRuns).toEqual(new Set());
+          expect(await decisions.find(RUN)).toBeNull();
+        });
+      }
+    }
+
+    it('withdraws the trial it ordered once its decision is gone', async () => {
+      trials.onOrder = deletingDecisions;
+
+      await dispatch.dispatch(ORDER);
+
+      expect(trials.withdrawn).toEqual([RUN.value]);
+      expect(runs.enqueued).toEqual([]);
+    });
+
+    it('stops a run an earlier dispatch queued when the replay is gone at the next try', async () => {
+      runs.onEnqueue = async () => {
+        throw new Error('the process stopped');
+      };
+      await expect(dispatch.dispatch(ORDER)).rejects.toThrow();
+      runs.onEnqueue = async () => {};
+      replayKept = false;
+
+      expect(await dispatch.dispatch(ORDER)).toEqual({
+        queued: false,
+        unreplayableReason: 'cancelled',
+      });
+      expect(runs.queuedRuns).toEqual(new Set());
+      expect(await decisions.find(RUN)).toBeNull();
+    });
+  });
+
   describe('cancel', () => {
     it('never queues a run nobody decided yet', async () => {
       expect(await dispatch.cancel(RUN, OWNER, false)).toEqual({
@@ -260,6 +366,27 @@ describe('ReplayRunDispatch', () => {
         wasQueued: false,
       });
       expect((await decisions.find(RUN))?.decided).toBe('cancelled');
+      expect(trials.withdrawn).toEqual([RUN.value]);
+    });
+
+    it('stops the run of a deleted replay even when asked to leave it, and keeps no decision', async () => {
+      await dispatch.dispatch(ORDER);
+      replayKept = false;
+
+      expect(await dispatch.cancel(RUN, OWNER, true)).toEqual({
+        wasQueued: false,
+      });
+      expect(runs.queuedRuns).toEqual(new Set());
+      expect(await decisions.find(RUN)).toBeNull();
+    });
+
+    it('writes no decision for a run of a deleted replay', async () => {
+      replayKept = false;
+
+      expect(await dispatch.cancel(RUN, OWNER, false)).toEqual({
+        wasQueued: false,
+      });
+      expect(await decisions.find(RUN)).toBeNull();
       expect(trials.withdrawn).toEqual([RUN.value]);
     });
 

@@ -12,10 +12,14 @@ import {
   STATION_TRIALS,
   type StationTrialsPort,
 } from '@replays/application/ports/station-trials.port';
+import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
+import { DeleteReplayRunDecisions } from '@replays/application/services/delete-replay-run-decisions.service';
 import {
   ReplayRunDispatch,
   type ReplayRunOrder,
 } from '@replays/application/services/replay-run-dispatch.service';
+import type { ReplayRunOwner } from '@replays/domain/aggregates/replay-run-decision.aggregate';
+import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
@@ -297,11 +301,17 @@ const standingReplays = {
   find: async () => ({}),
 } as unknown as Pick<ReplayRepository, 'find'>;
 
-const dispatchOver = (runs: ReplaysRunsPort) =>
+const dispatchOver = (
+  runs: ReplaysRunsPort,
+  over: {
+    readonly replays?: Pick<ReplayRepository, 'find'>;
+    readonly trials?: StationTrialsPort;
+  } = {},
+) =>
   new ReplayRunDispatch(
     app.get(DrizzleReplayRunDecisionRepository),
-    standingReplays,
-    app.get<StationTrialsPort>(STATION_TRIALS),
+    over.replays ?? standingReplays,
+    over.trials ?? app.get<StationTrialsPort>(STATION_TRIALS),
     runs,
   );
 
@@ -736,7 +746,7 @@ describe('a replay cancelled while it is ordered', () => {
       Object.create(runs),
       {
         enqueueTrial: async (trial: ReplayTrialRun) => {
-          await app.get(ReplayRunDispatch).cancel(run, ownerOf(), false);
+          await dispatchOver(runs).cancel(run, ownerOf(), false);
           return runs.enqueueTrial(trial);
         },
       },
@@ -752,6 +762,129 @@ describe('a replay cancelled while it is ordered', () => {
       startedAt: null,
       claimedBy: null,
     });
+  });
+});
+
+describe('a replay deleted while its run is dispatched', () => {
+  const decisionRow = async (runId: string) => {
+    const [row] = await db
+      .select()
+      .from(schema.replayRunDecision)
+      .where(eq(schema.replayRunDecision.runId, runId));
+
+    return row;
+  };
+
+  const stoppingRuns = (owner: ReplayRunOwner, run: RunId) =>
+    app
+      .get(CancelReplayRuns)
+      .stopped(
+        new ReplayDeleted(owner.replayId, owner.workspaceId, owner.teamId, [
+          run,
+        ]),
+      );
+
+  const deletingDecisions = (owner: ReplayRunOwner) =>
+    app.get(DeleteReplayRunDecisions).ofReplay(owner.replayId);
+
+  const deletions: Record<
+    string,
+    (owner: ReplayRunOwner, run: RunId) => Promise<void>
+  > = {
+    'stopping its runs, then deleting its decisions': async (owner, run) => {
+      await stoppingRuns(owner, run);
+      await deletingDecisions(owner);
+    },
+    'deleting its decisions, then stopping its runs': async (owner, run) => {
+      await deletingDecisions(owner);
+      await stoppingRuns(owner, run);
+    },
+  };
+
+  const moments = [
+    'between its claim and its enqueue',
+    'between its enqueue and the re-check',
+  ] as const;
+
+  for (const moment of moments) {
+    for (const [deletion, deleting] of Object.entries(deletions)) {
+      it(`leaves no run queued and no decision, and throws nothing, when ${deletion} comes ${moment}`, async () => {
+        const original = await anOriginal();
+        const run = RunId.of(randomUUID());
+        const order = await replayOrderOf(original, run);
+        const runs = app.get<ReplaysRunsPort>(REPLAYS_RUNS);
+        let deleted = false;
+        const deletedReplay = async () => {
+          deleted = true;
+          await deleting(order.owner, run);
+        };
+        const racing: ReplaysRunsPort = Object.assign(Object.create(runs), {
+          enqueueTrial: async (trial: ReplayTrialRun) => {
+            if (moment === 'between its claim and its enqueue') {
+              await deletedReplay();
+              return runs.enqueueTrial(trial);
+            }
+
+            const enqueued = await runs.enqueueTrial(trial);
+            await deletedReplay();
+            return enqueued;
+          },
+        });
+        const replaysUntilDeleted = {
+          find: async () => (deleted ? null : {}),
+        } as unknown as Pick<ReplayRepository, 'find'>;
+
+        expect(
+          await dispatchOver(racing, { replays: replaysUntilDeleted }).dispatch(
+            order,
+          ),
+        ).toEqual({ queued: false, unreplayableReason: 'cancelled' });
+        expect(await runRow(run.value)).toMatchObject({
+          state: 'cancelled',
+          startedAt: null,
+          claimedBy: null,
+        });
+        expect(await decisionRow(run.value)).toBeUndefined();
+      });
+    }
+  }
+
+  it('withdraws the trial it orders once its replay’s decisions are deleted', async () => {
+    const original = await anOriginal();
+    const run = RunId.of(randomUUID());
+    const order = await replayOrderOf(original, run);
+    const trials = app.get<StationTrialsPort>(STATION_TRIALS);
+    const deletingFirst: StationTrialsPort = Object.assign(
+      Object.create(trials),
+      {
+        order: async (request: Parameters<StationTrialsPort['order']>[0]) => {
+          await deletingDecisions(order.owner);
+          return trials.order(request);
+        },
+      },
+    );
+
+    expect(
+      await dispatchOver(app.get<ReplaysRunsPort>(REPLAYS_RUNS), {
+        trials: deletingFirst,
+      }).dispatch(order),
+    ).toEqual({ queued: false, unreplayableReason: 'cancelled' });
+    expect(await runRow(run.value)).toBeUndefined();
+    expect(await decisionRow(run.value)).toBeUndefined();
+    expect((await dispatchRow(run.value))?.refused).toBe('withdrawn');
+  });
+
+  it('queues nothing and keeps no decision when the stored replay is gone before the dispatch', async () => {
+    const original = await anOriginal();
+    const run = RunId.of(randomUUID());
+
+    expect(
+      await app
+        .get(ReplayRunDispatch)
+        .dispatch(await replayOrderOf(original, run)),
+    ).toEqual({ queued: false, unreplayableReason: 'cancelled' });
+    expect(await runRow(run.value)).toBeUndefined();
+    expect(await decisionRow(run.value)).toBeUndefined();
   });
 });
 

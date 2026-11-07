@@ -1,5 +1,6 @@
 import type { RunsPort } from '@replays/application/ports/runs.port';
 import type { StationTrialsPort } from '@replays/application/ports/station-trials.port';
+import { removeReplayRunDecision } from '@replays/application/services/replay-run-decision-removal';
 import {
   ReplayRunDecision,
   type ReplayRunOwner,
@@ -12,7 +13,6 @@ import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo'
 import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
-import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { LineId } from '@shared-kernel/domain/value-objects/line-id.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
@@ -72,10 +72,13 @@ const CANCELLED: ReplayRunQueued = {
   unreplayableReason: 'cancelled',
 };
 
-const unqueuedOf = (decision: ReplayRunDecision): ReplayRunQueued => ({
-  queued: false,
-  unreplayableReason: decision.unreplayableReason ?? 'cancelled',
-});
+const unqueuedOf = (decision: ReplayRunDecision | null): ReplayRunQueued =>
+  decision
+    ? {
+        queued: false,
+        unreplayableReason: decision.unreplayableReason ?? 'cancelled',
+      }
+    : CANCELLED;
 
 const queuedOf = (decision: ReplayRunDecision): CancelledRun => ({
   wasQueued: true,
@@ -95,8 +98,8 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
       ReplayRunDecision.decidedToQueue(order.run, order.owner),
     );
 
-    if (!(await this.replays.find(order.owner.replayId))) {
-      await this.decisions.save(decision.delete());
+    if (!decision || !(await this.replays.find(order.owner.replayId))) {
+      await this.abandoned(order.run, decision);
       return CANCELLED;
     }
 
@@ -116,11 +119,11 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
     });
 
     if (!ordering.ordered) {
-      const refused = await this.changed(order.run, (each) =>
-        each.unreplayable(ordering.unreplayableReason),
+      return unqueuedOf(
+        await this.changed(order.run, (each) =>
+          each.unreplayable(ordering.unreplayableReason),
+        ),
       );
-
-      return unqueuedOf(refused);
     }
 
     const { trial } = ordering;
@@ -131,7 +134,7 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
       }),
     );
 
-    if (!ordered.mayQueue) {
+    if (!ordered?.mayQueue) {
       await this.trials.withdraw(order.run);
       return unqueuedOf(ordered);
     }
@@ -140,14 +143,15 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
 
     if (enqueued.outcome !== 'enqueued') {
       await this.trials.withdraw(order.run);
-      const refused = await this.changed(order.run, (each) =>
-        each.unreplayable('cannot-start'),
-      );
 
-      return unqueuedOf(refused);
+      return unqueuedOf(
+        await this.changed(order.run, (each) =>
+          each.unreplayable('cannot-start'),
+        ),
+      );
     }
 
-    if (!(await this.found(order.run)).mayQueue) {
+    if (!(await this.decisions.find(order.run))?.mayQueue) {
       await this.runs.cancel(order.run, STOPPED);
       return CANCELLED;
     }
@@ -163,6 +167,11 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
     const decision = await this.decidedFirst(
       ReplayRunDecision.decidedToCancel(run, owner),
     );
+
+    if (!decision || !(await this.replays.find(owner.replayId))) {
+      await this.abandoned(run, decision);
+      return NEVER_QUEUED;
+    }
 
     if (!decision.mayQueue) {
       return NEVER_QUEUED;
@@ -202,6 +211,19 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
     return answered;
   }
 
+  private async abandoned(
+    run: RunId,
+    decision: ReplayRunDecision | null,
+  ): Promise<void> {
+    if (decision) {
+      await removeReplayRunDecision(this.decisions, decision);
+    }
+
+    if (!(await this.stopped(run))) {
+      await this.trials.withdraw(run);
+    }
+  }
+
   private async stopped(run: RunId): Promise<boolean> {
     const cancelled = await this.runs.cancelIfQueued(run, STOPPED);
 
@@ -218,7 +240,7 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
 
   private async decidedFirst(
     first: ReplayRunDecision,
-  ): Promise<ReplayRunDecision> {
+  ): Promise<ReplayRunDecision | null> {
     const known = await this.decisions.find(first.runId);
 
     if (known) {
@@ -233,16 +255,21 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
         throw error;
       }
 
-      return this.found(first.runId);
+      return this.decisions.find(first.runId);
     }
   }
 
   private async changed(
     run: RunId,
     change: (decision: ReplayRunDecision) => ReplayRunDecision,
-  ): Promise<ReplayRunDecision> {
+  ): Promise<ReplayRunDecision | null> {
     for (let attempt = 1; ; attempt += 1) {
-      const decision = await this.found(run);
+      const decision = await this.decisions.find(run);
+
+      if (!decision) {
+        return null;
+      }
+
       const next = change(decision);
 
       if (next === decision) {
@@ -261,18 +288,5 @@ export class ReplayRunDispatch implements ReplayRunDispatching {
         }
       }
     }
-  }
-
-  private async found(run: RunId): Promise<ReplayRunDecision> {
-    const decision = await this.decisions.find(run);
-
-    if (!decision) {
-      throw new InconsistentStateError(
-        'replay run decision',
-        `${run.value} is acted on before it was decided`,
-      );
-    }
-
-    return decision;
   }
 }

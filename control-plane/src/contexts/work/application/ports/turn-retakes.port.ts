@@ -15,15 +15,15 @@ export interface DueRetake {
   readonly runId: RunId;
   readonly suspendedAt: Date;
   readonly attempt: number;
-  readonly checkedAt: Date;
   readonly tries: number;
+  readonly leaseToken: string;
 }
 
 export interface DueRetakeLease {
+  readonly token: string;
   readonly now: Date;
   readonly leasedUntil: Date;
   readonly maxTries: number;
-  readonly limit: number;
 }
 
 export interface TurnRetakesPort {
@@ -31,7 +31,7 @@ export interface TurnRetakesPort {
 
   claim(claim: TurnRetakeClaim): Promise<boolean>;
 
-  leaseDue(lease: DueRetakeLease): Promise<readonly DueRetake[]>;
+  leaseNextDue(lease: DueRetakeLease): Promise<DueRetake | null>;
 
   retaken(retake: DueRetake): Promise<void>;
 

@@ -356,9 +356,15 @@ export const replaysSubscribers = (
     { callsOut: true },
   ),
   subscribing<ReplayDeleted>(
-    'replays.cancel-runs-and-delete-run-decisions-of-deleted-replay',
+    'replays.stop-runs-of-deleted-replay',
     ['replay.deleted'],
-    (event) => reactions.deletingRunDecisions.ofDeletedReplay(event),
+    (event) => reactions.cancellingRuns.stopped(event),
+    { callsOut: true },
+  ),
+  subscribing<ReplayDeleted>(
+    'replays.delete-run-decisions-of-deleted-replay',
+    ['replay.deleted'],
+    (event) => reactions.deletingRunDecisions.ofReplay(event.replayId),
     { callsOut: true },
   ),
   subscribing<ReplayCeilingReached>(

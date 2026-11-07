@@ -33,7 +33,6 @@ import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayRunDecision } from '@replays/domain/aggregates/replay-run-decision.aggregate';
 import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/entities/replay-entry.entity';
-import { ReplayDeleted } from '@replays/domain/events/replay-deleted.event';
 import type { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
 import type { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
 import type { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
@@ -584,42 +583,44 @@ describe('CancelReplayRuns', () => {
 });
 
 describe('DeleteReplayRunDecisions', () => {
-  it('cancels the runs of a deleted replay before it deletes that replay’s decisions only', async () => {
+  const owner = {
+    workspaceId: WorkspaceId.of('ws_1'),
+    teamId: TeamId.of('team_1'),
+  };
+  const decidedIn = (run: string, replay: string) =>
+    ReplayRunDecision.decidedToQueue(RunId.of(run), {
+      ...owner,
+      replayId: ReplayId.of(replay),
+    });
+
+  it('deletes the decisions of a deleted replay only, and stops no run itself', async () => {
     const decisions = new InMemoryReplayRunDecisions();
-    const owner = {
-      workspaceId: WorkspaceId.of('ws_1'),
-      teamId: TeamId.of('team_1'),
-    };
-    await decisions.add(
-      ReplayRunDecision.decidedToQueue(RunId.of('run_1'), {
-        ...owner,
-        replayId: ReplayId.of('replay_1'),
-      }),
-    );
-    await decisions.add(
-      ReplayRunDecision.decidedToQueue(RunId.of('run_2'), {
-        ...owner,
-        replayId: ReplayId.of('replay_2'),
-      }),
+    await decisions.add(decidedIn('run_1', 'replay_1'));
+    await decisions.add(decidedIn('run_2', 'replay_2'));
+
+    await new DeleteReplayRunDecisions(decisions, TRANSACTION).ofReplay(
+      ReplayId.of('replay_1'),
     );
 
-    await new DeleteReplayRunDecisions(
-      decisions,
-      new CancelReplayRuns(suppliers.dispatch),
-      TRANSACTION,
-    ).ofDeletedReplay(
-      new ReplayDeleted(
-        ReplayId.of('replay_1'),
-        owner.workspaceId,
-        owner.teamId,
-        [RunId.of('run_1')],
-      ),
-    );
-
-    expect(suppliers.dispatch.cancelled).toEqual([
-      { run: 'run_1', leaveRunAsIs: false },
-    ]);
+    expect(suppliers.dispatch.cancelled).toEqual([]);
     expect([...decisions.decisions.keys()]).toEqual(['run_2']);
+  });
+
+  it('skips a decision deleted meanwhile, and deletes one changed meanwhile, so a redelivery finishes without an error', async () => {
+    const decisions = new InMemoryReplayRunDecisions();
+    await decisions.add(decidedIn('run_1', 'replay_1'));
+    await decisions.add(decidedIn('run_2', 'replay_1'));
+    const loaded = await decisions.ofReplay(ReplayId.of('replay_1'));
+    decisions.ofReplay = async () => loaded;
+    const [gone, changed] = loaded as [ReplayRunDecision, ReplayRunDecision];
+    await decisions.save(gone.delete());
+    await decisions.save(changed.cancelled());
+
+    await new DeleteReplayRunDecisions(decisions, TRANSACTION).ofReplay(
+      ReplayId.of('replay_1'),
+    );
+
+    expect([...decisions.decisions.keys()]).toEqual([]);
   });
 });
 

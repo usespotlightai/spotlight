@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type {
   RunFacts,
   RunFactsPort,
@@ -7,16 +8,14 @@ import type {
   TurnFacts,
 } from '@runs/application/ports/run-turns.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { StationId } from '@shared-kernel/domain/value-objects/station-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { LineMapsPort } from '@work/application/ports/line-maps.port';
-import type {
-  DueRetake,
-  TurnRetakesPort,
-} from '@work/application/ports/turn-retakes.port';
+import type { TurnRetakesPort } from '@work/application/ports/turn-retakes.port';
 import type { TakeTurn } from '@work/application/services/take-turn.service';
 import {
   STUCK_TURNS_METRIC,
@@ -49,9 +48,23 @@ const turnAged = (
   stopRequested: false,
 });
 
-interface StoredRetake extends DueRetake {
+interface StoredRetake {
+  readonly runId: RunId;
+  readonly suspendedAt: Date;
+  readonly attempt: number;
+  readonly checkedAt: Date;
+  readonly tries: number;
   readonly due: boolean;
   readonly leasedUntil: Date | null;
+  readonly leaseToken: string | null;
+}
+
+class TickingClock implements ClockPort {
+  at = NOW;
+
+  now = () => this.at;
+
+  sleep = async () => undefined;
 }
 
 const turning = (
@@ -61,15 +74,19 @@ const turning = (
     facts?: readonly RunFacts[];
     holds?: boolean;
     takeFails?: boolean;
+    taking?: () => Promise<void>;
     retakes?: Map<string, StoredRetake>;
     crashesBeforeRetaking?: boolean;
+    clock?: TickingClock;
   } = {},
 ) => {
   const take = vi.fn(async (): Promise<void> => {
+    await over.taking?.();
     if (over.takeFails) {
       throw new Error('Runs unavailable');
     }
   });
+  const clock = over.clock ?? new TickingClock();
   const resume = vi.fn(async () => undefined);
   const cancel = vi.fn(async () => ({
     was: 'suspended' as const,
@@ -102,45 +119,63 @@ const turning = (
           checkedAt: to,
           due: retakes || (was?.due ?? false),
           tries: retakes ? 0 : (was?.tries ?? 0),
-          leasedUntil: was?.leasedUntil ?? null,
+          leasedUntil: retakes ? null : (was?.leasedUntil ?? null),
+          leaseToken: retakes ? null : (was?.leaseToken ?? null),
         });
         return true;
       },
-      leaseDue: async ({ now, leasedUntil, maxTries }) => {
+      leaseNextDue: async ({ token, now, leasedUntil, maxTries }) => {
         if (over.crashesBeforeRetaking) {
           throw new Error('The process stopped');
         }
-        const due = [...stored.values()].filter(
-          (each) =>
-            each.due &&
-            each.tries < maxTries &&
-            (each.leasedUntil === null || each.leasedUntil <= now),
-        );
+        const [due] = [...stored.values()]
+          .filter(
+            (each) =>
+              each.due &&
+              each.tries < maxTries &&
+              (each.leasedUntil === null || each.leasedUntil <= now),
+          )
+          .sort((a, b) => a.suspendedAt.getTime() - b.suspendedAt.getTime());
 
-        return due.map((each) => {
-          const leased = { ...each, tries: each.tries + 1, leasedUntil };
-          stored.set(key(each.runId, each.suspendedAt), leased);
-          return leased;
-        });
+        if (!due) {
+          return null;
+        }
+
+        const leased = {
+          ...due,
+          tries: due.tries + 1,
+          leasedUntil,
+          leaseToken: token,
+        };
+        stored.set(key(due.runId, due.suspendedAt), leased);
+        return {
+          runId: leased.runId,
+          suspendedAt: leased.suspendedAt,
+          attempt: leased.attempt,
+          tries: leased.tries,
+          leaseToken: token,
+        };
       },
       retaken: async (retake) => {
         const was = stored.get(key(retake.runId, retake.suspendedAt));
 
-        if (was && was.checkedAt === retake.checkedAt) {
+        if (was && was.leaseToken === retake.leaseToken) {
           stored.set(key(retake.runId, retake.suspendedAt), {
             ...was,
             due: false,
             leasedUntil: null,
+            leaseToken: null,
           });
         }
       },
       retakeFailed: async (retake, retryAt) => {
         const was = stored.get(key(retake.runId, retake.suspendedAt));
 
-        if (was && was.checkedAt === retake.checkedAt) {
+        if (was && was.leaseToken === retake.leaseToken) {
           stored.set(key(retake.runId, retake.suspendedAt), {
             ...was,
             leasedUntil: retryAt,
+            leaseToken: null,
           });
         }
       },
@@ -165,21 +200,27 @@ const turning = (
     } as unknown as TaskRepository,
     { findByStation: async () => null } as unknown as LineMapsPort,
     { take } as unknown as TakeTurn,
+    clock,
+    { generate: () => randomUUID() },
     { count, inSpan: vi.fn(), measure: vi.fn() } as never,
     { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error } as never,
   );
+  const tick = async (now: Date) => {
+    clock.at = now;
+    await turns.retakePending(now);
+  };
 
-  return { turns, take, resume, cancel, count, error };
+  return { turns, tick, stored, clock, take, resume, cancel, count, error };
 };
 
 describe('Turns', () => {
   it('decides again a turn left pending past the longest delivery, once per step it crossed (R14)', async () => {
-    const { turns, take } = turning({
+    const { tick, take } = turning({
       turns: [turnAged(45 * MINUTE + 30_000)],
     });
 
-    await turns.retakePending(NOW);
-    await turns.retakePending(new Date(NOW.getTime() + MINUTE));
+    await tick(NOW);
+    await tick(new Date(NOW.getTime() + MINUTE));
 
     expect(take).toHaveBeenCalledTimes(1);
     expect(take).toHaveBeenCalledWith(RUN, 1);
@@ -191,8 +232,8 @@ describe('Turns', () => {
       takeFails: true,
     });
 
-    await failing.turns.retakePending(NOW);
-    await failing.turns.retakePending(new Date(NOW.getTime() + MINUTE));
+    await failing.tick(NOW);
+    await failing.tick(new Date(NOW.getTime() + MINUTE));
 
     expect(failing.take).toHaveBeenCalledTimes(2);
   });
@@ -203,8 +244,8 @@ describe('Turns', () => {
     const slow = turning({ turns: pending, retakes });
     const other = turning({ turns: pending, retakes });
 
-    await slow.turns.retakePending(NOW);
-    await other.turns.retakePending(NOW);
+    await slow.tick(NOW);
+    await other.tick(NOW);
 
     expect(slow.take.mock.calls.length + other.take.mock.calls.length).toBe(1);
   });
@@ -216,13 +257,87 @@ describe('Turns', () => {
     });
 
     for (let tick = 0; tick < 40; tick++) {
-      await failing.turns.retakePending(
-        new Date(NOW.getTime() + tick * MINUTE),
-      );
+      await failing.tick(new Date(NOW.getTime() + tick * MINUTE));
     }
 
     expect(failing.take).toHaveBeenCalledTimes(5);
     expect(failing.error).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes the lease when it leases and the back-off when the retake fails, not at the start of the tick (R6-02)', async () => {
+    const clock = new TickingClock();
+    const failing = turning({
+      turns: [turnAged(45 * MINUTE + 30_000)],
+      takeFails: true,
+      clock,
+      taking: async () => {
+        clock.at = new Date(clock.at.getTime() + 10 * MINUTE);
+      },
+    });
+
+    await failing.tick(NOW);
+    await failing.tick(new Date(NOW.getTime() + 10 * MINUTE + 30_000));
+
+    expect(failing.take).toHaveBeenCalledTimes(1);
+    expect([...failing.stored.values()][0]?.leasedUntil).toEqual(
+      new Date(NOW.getTime() + 11 * MINUTE),
+    );
+  });
+
+  it('lets only the holder of the current lease settle a retake (R6-02)', async () => {
+    const retakes = new Map<string, StoredRetake>();
+    const clock = new TickingClock();
+    const pending = [turnAged(45 * MINUTE + 30_000)];
+    let failLate = () => {};
+    let finishLate = () => {};
+    const late = turning({
+      turns: pending,
+      retakes,
+      clock,
+      taking: () =>
+        new Promise<void>((_, reject) => {
+          failLate = () => reject(new Error('Runs unavailable'));
+        }),
+    });
+    const current = turning({
+      turns: pending,
+      retakes,
+      clock,
+      taking: () =>
+        new Promise<void>((resolve) => {
+          finishLate = resolve;
+        }),
+    });
+    const third = turning({ turns: pending, retakes, clock });
+
+    const lateTick = late.tick(NOW);
+    await vi.waitFor(() => expect(late.take).toHaveBeenCalled());
+    const currentTick = current.tick(new Date(NOW.getTime() + 6 * MINUTE));
+    await vi.waitFor(() => expect(current.take).toHaveBeenCalled());
+    failLate();
+    await lateTick;
+    await third.tick(new Date(NOW.getTime() + 8 * MINUTE));
+    finishLate();
+    await currentTick;
+
+    expect(third.take).not.toHaveBeenCalled();
+    expect([...retakes.values()][0]).toMatchObject({
+      due: false,
+      leasedUntil: null,
+      leaseToken: null,
+    });
+  });
+
+  it('retakes a new step at once, whatever lease or back-off the step before left (R6-02)', async () => {
+    const failing = turning({
+      turns: [turnAged(90 * MINUTE - 30_000)],
+      takeFails: true,
+    });
+
+    await failing.tick(NOW);
+    await failing.tick(new Date(NOW.getTime() + 30_000));
+
+    expect(failing.take).toHaveBeenCalledTimes(2);
   });
 
   it('decides a turn again after a stop between its claim and its retake (R4-RW-09)', async () => {
@@ -234,35 +349,35 @@ describe('Turns', () => {
       crashesBeforeRetaking: true,
     });
 
-    await crashed.turns.retakePending(NOW).catch(() => undefined);
+    await crashed.tick(NOW).catch(() => undefined);
 
     expect(crashed.take).not.toHaveBeenCalled();
 
     const restarted = turning({ turns: pending, retakes });
 
-    await restarted.turns.retakePending(new Date(NOW.getTime() + MINUTE));
-    await restarted.turns.retakePending(new Date(NOW.getTime() + 2 * MINUTE));
+    await restarted.tick(new Date(NOW.getTime() + MINUTE));
+    await restarted.tick(new Date(NOW.getTime() + 2 * MINUTE));
 
     expect(restarted.take).toHaveBeenCalledTimes(1);
     expect(restarted.take).toHaveBeenCalledWith(RUN, 1);
   });
 
   it('leaves alone a turn pending for less than the longest delivery', async () => {
-    const { turns, take } = turning({ turns: [turnAged(30 * MINUTE)] });
+    const { tick, take } = turning({ turns: [turnAged(30 * MINUTE)] });
 
-    await turns.retakePending(NOW);
+    await tick(NOW);
 
     expect(take).not.toHaveBeenCalled();
   });
 
   it('tries a last time at a day, then says an operator must look at it', async () => {
     const day = 24 * 60 * MINUTE;
-    const { turns, take, count, error } = turning({
+    const { tick, take, count, error } = turning({
       turns: [turnAged(day + 30_000)],
     });
 
-    await turns.retakePending(NOW);
-    await turns.retakePending(new Date(NOW.getTime() + 2 * 60 * MINUTE));
+    await tick(NOW);
+    await tick(new Date(NOW.getTime() + 2 * 60 * MINUTE));
 
     expect(take).toHaveBeenCalledTimes(1);
     expect(count).toHaveBeenCalledWith(STUCK_TURNS_METRIC);
@@ -272,14 +387,14 @@ describe('Turns', () => {
   it('decides from the stored last retake, so a restarted worker neither repeats nor skips a step', async () => {
     const first = turning({ turns: [turnAged(45 * MINUTE + 30_000)] });
 
-    await first.turns.retakePending(NOW);
-    await first.turns.retakePending(NOW);
+    await first.tick(NOW);
+    await first.tick(NOW);
 
     expect(first.take).toHaveBeenCalledTimes(1);
 
     const restarted = turning({ turns: [turnAged(3 * 60 * MINUTE)] });
 
-    await restarted.turns.retakePending(NOW);
+    await restarted.tick(NOW);
 
     expect(restarted.take).toHaveBeenCalledTimes(1);
   });

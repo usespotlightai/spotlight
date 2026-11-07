@@ -6,6 +6,15 @@ export type DispatchOutcome =
   | 'exhausted'
   | 'cancelled';
 
+export type DispatchEndedBy = 'turn' | 'exhaustion' | 'cancellation';
+
+const ENDED_BY: Record<DispatchOutcome, DispatchEndedBy> = {
+  completed: 'turn',
+  failed: 'turn',
+  exhausted: 'exhaustion',
+  cancelled: 'cancellation',
+};
+
 export interface DispatchEndingParts {
   readonly endedAt: Date;
   readonly outcome: DispatchOutcome;
@@ -31,6 +40,10 @@ export class DispatchEnding implements DispatchEndingParts {
       parts.stopped,
       parts.askedAPerson,
     );
+  }
+
+  get endedBy(): DispatchEndedBy {
+    return ENDED_BY[this.outcome];
   }
 
   get failed(): boolean {

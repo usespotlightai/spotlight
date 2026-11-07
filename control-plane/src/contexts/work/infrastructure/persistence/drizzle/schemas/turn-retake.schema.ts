@@ -17,6 +17,7 @@ export const turnRetake = pgTable(
     retakeDue: boolean('retake_due').notNull().default(false),
     retakeTries: integer('retake_tries').notNull().default(0),
     retakeLeasedUntil: timestamptz('retake_leased_until'),
+    retakeLeaseToken: text('retake_lease_token'),
   },
   (table) => [primaryKey({ columns: [table.runId, table.suspendedAt] })],
 );

@@ -31,7 +31,14 @@ export class DrizzleTurnRetakes implements TurnRetakesPort {
           .set({
             checkedAt: to,
             attempt,
-            ...(retakes ? { retakeDue: true, retakeTries: 0 } : {}),
+            ...(retakes
+              ? {
+                  retakeDue: true,
+                  retakeTries: 0,
+                  retakeLeasedUntil: null,
+                  retakeLeaseToken: null,
+                }
+              : {}),
           })
           .where(
             and(this.turn(runId, suspendedAt), eq(turnRetake.checkedAt, from)),
@@ -52,7 +59,7 @@ export class DrizzleTurnRetakes implements TurnRetakesPort {
     return claimed.length > 0;
   }
 
-  async leaseDue(lease: DueRetakeLease): Promise<readonly DueRetake[]> {
+  async leaseNextDue(lease: DueRetakeLease): Promise<DueRetake | null> {
     const due = this.context.db
       .select({ runId: turnRetake.runId, suspendedAt: turnRetake.suspendedAt })
       .from(turnRetake)
@@ -67,13 +74,14 @@ export class DrizzleTurnRetakes implements TurnRetakesPort {
         ),
       )
       .orderBy(asc(turnRetake.suspendedAt), asc(turnRetake.runId))
-      .limit(lease.limit)
+      .limit(1)
       .for('update', { skipLocked: true });
 
-    const rows = await this.context.db
+    const [leased] = await this.context.db
       .update(turnRetake)
       .set({
         retakeLeasedUntil: lease.leasedUntil,
+        retakeLeaseToken: lease.token,
         retakeTries: sql`${turnRetake.retakeTries} + 1`,
       })
       .where(sql`(${turnRetake.runId}, ${turnRetake.suspendedAt}) in ${due}`)
@@ -81,31 +89,30 @@ export class DrizzleTurnRetakes implements TurnRetakesPort {
         runId: turnRetake.runId,
         suspendedAt: turnRetake.suspendedAt,
         attempt: turnRetake.attempt,
-        checkedAt: turnRetake.checkedAt,
         tries: turnRetake.retakeTries,
       });
 
-    return rows
-      .map((row) => ({ ...row, runId: RunId.of(row.runId) }))
-      .sort(
-        (a, b) =>
-          a.suspendedAt.getTime() - b.suspendedAt.getTime() ||
-          a.runId.value.localeCompare(b.runId.value),
-      );
+    return leased
+      ? { ...leased, runId: RunId.of(leased.runId), leaseToken: lease.token }
+      : null;
   }
 
   async retaken(retake: DueRetake): Promise<void> {
     await this.context.db
       .update(turnRetake)
-      .set({ retakeDue: false, retakeLeasedUntil: null })
-      .where(this.step(retake));
+      .set({
+        retakeDue: false,
+        retakeLeasedUntil: null,
+        retakeLeaseToken: null,
+      })
+      .where(this.leasedBy(retake));
   }
 
   async retakeFailed(retake: DueRetake, retryAt: Date): Promise<void> {
     await this.context.db
       .update(turnRetake)
-      .set({ retakeLeasedUntil: retryAt })
-      .where(this.step(retake));
+      .set({ retakeLeasedUntil: retryAt, retakeLeaseToken: null })
+      .where(this.leasedBy(retake));
   }
 
   async forgetSuspendedBefore(before: Date): Promise<void> {
@@ -114,10 +121,10 @@ export class DrizzleTurnRetakes implements TurnRetakesPort {
       .where(lt(turnRetake.suspendedAt, before));
   }
 
-  private step(retake: DueRetake) {
+  private leasedBy(retake: DueRetake) {
     return and(
       this.turn(retake.runId, retake.suspendedAt),
-      eq(turnRetake.checkedAt, retake.checkedAt),
+      eq(turnRetake.retakeLeaseToken, retake.leaseToken),
     );
   }
 

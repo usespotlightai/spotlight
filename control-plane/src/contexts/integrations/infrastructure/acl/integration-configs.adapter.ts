@@ -21,7 +21,7 @@ const configOf = (
   id: record.id,
   address: IntegrationAddress.of(
     teamKey,
-    IntegrationKey.of(record.integration),
+    IntegrationKey.rehydrate(record.integration),
   ).toString(),
   teamId: record.teamId,
   integration: record.integration,

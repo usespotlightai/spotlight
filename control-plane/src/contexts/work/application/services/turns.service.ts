@@ -5,6 +5,8 @@ import type {
   TurnsCursor,
 } from '@runs/application/ports/run-turns.port';
 import type { RunsPort } from '@runs/application/ports/runs.port';
+import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TelemetryPort } from '@shared-kernel/application/ports/telemetry.port';
 import { RunCheckoutsMapper } from '@work/application/mappers/run-checkouts.mapper';
@@ -36,6 +38,8 @@ export class Turns {
     private readonly tasks: TaskRepository,
     private readonly lines: LineMapsPort,
     private readonly taking: TakeTurn,
+    private readonly clock: ClockPort,
+    private readonly ids: IdGeneratorPort,
     private readonly telemetry: TelemetryPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -71,7 +75,7 @@ export class Turns {
       }
     }
 
-    await this.performDueRetakes(now);
+    await this.performDueRetakes();
   }
 
   async resumeAnswered(now: Date): Promise<void> {
@@ -129,21 +133,26 @@ export class Turns {
     await this.retakes.forgetSuspendedBefore(TurnWait.retakesKeptAfter(now));
   }
 
-  private async performDueRetakes(now: Date): Promise<void> {
-    const due = await this.retakes.leaseDue({
-      now,
-      leasedUntil: TurnWait.retakeLeasedUntil(now),
-      maxTries: TurnWait.RETAKE_TRIES,
-      limit: PAGE,
-    });
+  private async performDueRetakes(): Promise<void> {
+    for (let performed = 0; performed < PAGE; performed += 1) {
+      const leasedAt = this.clock.now();
+      const retake = await this.retakes.leaseNextDue({
+        token: this.ids.generate(),
+        now: leasedAt,
+        leasedUntil: TurnWait.retakeLeasedUntil(leasedAt),
+        maxTries: TurnWait.RETAKE_TRIES,
+      });
 
-    for (const retake of due) {
+      if (!retake) {
+        return;
+      }
+
       if (await this.retaken(retake)) {
         await this.retakes.retaken(retake);
       } else {
         await this.retakes.retakeFailed(
           retake,
-          TurnWait.retakeRetryAt(now, retake.tries),
+          TurnWait.retakeRetryAt(this.clock.now(), retake.tries),
         );
       }
     }

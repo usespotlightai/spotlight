@@ -1,5 +1,5 @@
 {
-  "id": "bbdff92d-0ff1-41da-b651-321f5ae7fa50",
+  "id": "594a37dc-1a4f-4f46-9733-75997dd5d740",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -18255,6 +18255,12 @@
         "retake_leased_until": {
           "name": "retake_leased_until",
           "type": "timestamp (3) with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "retake_lease_token": {
+          "name": "retake_lease_token",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         }
