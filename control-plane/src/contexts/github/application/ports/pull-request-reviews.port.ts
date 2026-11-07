@@ -21,7 +21,7 @@ export type ReviewActor =
     }
   | { readonly kind: 'spotlight' };
 
-export const SPOTLIGHT_ACTOR: ReviewActor = { kind: 'spotlight' };
+const SPOTLIGHT_ACTOR: ReviewActor = { kind: 'spotlight' };
 
 export interface OnPullRequest {
   readonly workspaceId: WorkspaceId;

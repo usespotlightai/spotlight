@@ -21,7 +21,7 @@ export interface PostingTarget {
   readonly by: ReviewPoster;
 }
 
-export interface LineReviewComment {
+interface LineReviewComment {
   readonly path: string;
   readonly side: ReviewSide;
   readonly line: number;
